@@ -58,14 +58,17 @@ def validate_and_filter_dataset_for_evaluation(
     dataset: DataSet, target_name: str, n_periods: int, n_splits: int, stride: int
 ) -> DataSet:
     evaluation_length = n_periods + (n_splits - 1) * stride
-    new_data = {
-        location: data
-        for location, data in dataset.items()
-        if np.any(np.logical_not(np.isnan(getattr(data, target_name)[:-evaluation_length])))
-    }
+    new_data: dict = {}
     rejected: list[str] = []
+    for location, data in dataset.items():
+        training_target = getattr(data, target_name)[:-evaluation_length]
+        if np.any(np.logical_not(np.isnan(training_target))):
+            new_data[location] = data
+        else:
+            rejected.append(location)
 
-    logger.warning(f"Rejected regions: {rejected} due to missing target values for the whole training period")
+    if rejected:
+        logger.warning(f"Rejected regions: {rejected} due to missing target values for the whole training period")
     logger.info(f"Remaining regions: {list(new_data.keys())} with {len(new_data)} entries")
 
     return DataSet(new_data, metadata=dataset.metadata, polygons=dataset.polygons)
