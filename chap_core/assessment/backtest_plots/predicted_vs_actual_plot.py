@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from chap_core.assessment.backtest_plots import ChartType, FacetDimension, FacetedBacktestPlot, backtest_plot
+from chap_core.assessment.backtest_plots.db_dimensions import HorizonDistanceDimension
 from chap_core.plotting.backtest_plot import clean_time
 
 
@@ -93,7 +94,7 @@ def build_predicted_vs_actual_chart(
 )
 class PredictedVsActualPlot(FacetedBacktestPlot):
     facet_dimensions: list[FacetDimension] = [
-        FacetDimension(field_name="horizon_distance:O", display_name="Horizon Distance"),
+        HorizonDistanceDimension(field_name="horizon_distance:O", display_name="Horizon Distance"),
     ]
 
     resolve_scale_x = "shared"

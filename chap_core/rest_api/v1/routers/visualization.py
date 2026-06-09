@@ -13,6 +13,7 @@ from chap_core.assessment.backtest_plots import (
     get_backtest_plots_registry,
     list_backtest_plots,
 )
+from chap_core.assessment.backtest_plots.db_dimensions import DBFacetDimension, load_filtered_flat_data
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metric_plots import get_metric_plots_registry, list_metric_plots
 from chap_core.assessment.metrics import available_metrics
@@ -219,29 +220,34 @@ def generate_backtest_plots(visualization_name: str, backtest_id: int, session: 
     return JSONResponse(chart.to_dict(format="vega"))
 
 
-def _get_plotter_and_flat_data(plot_id: str, backtest_id: int, session: Session):
+def _get_faceted_plotter_and_backtest(
+    plot_id: str, backtest_id: int, session: Session
+) -> tuple[FacetedBacktestPlot, Backtest]:
     plot_cls = get_backtest_plot(plot_id)
     if plot_cls is None:
         raise HTTPException(status_code=404, detail=f"Plot {plot_id} not found")
 
-    # Fixed typo: FacetedBacktestPlot (with the 'ed')
     if not issubclass(plot_cls, FacetedBacktestPlot):
         raise HTTPException(status_code=400, detail=f"Plot '{plot_id}' does not support faceting properties")
 
-    # Fetch the model instance using id
     backtest = session.get(Backtest, backtest_id)
     if not backtest:
         raise HTTPException(status_code=404, detail="Backtest not found")
 
-    evaluation = Evaluation.from_backtest(backtest)
-    flat_data = evaluation.to_flat()
+    return plot_cls(), backtest
 
-    # Extract the underlying frames from the returned flat_data container object
-    observations = flat_data.observations
-    forecasts = flat_data.forecasts
-    historical_df = flat_data.historical_observations
 
-    return plot_cls(), observations, forecasts, historical_df
+def _is_db_backed(plotter: FacetedBacktestPlot) -> bool:
+    """True when every facet dimension can be served straight from the database."""
+    return bool(plotter.facet_dimensions) and all(isinstance(dim, DBFacetDimension) for dim in plotter.facet_dimensions)
+
+
+def _get_plotter_and_flat_data(plot_id: str, backtest_id: int, session: Session):
+    plotter, backtest = _get_faceted_plotter_and_backtest(plot_id, backtest_id, session)
+
+    flat_data = Evaluation.from_backtest(backtest).to_flat()
+
+    return plotter, flat_data.observations, flat_data.forecasts, flat_data.historical_observations
 
 
 @router.get("/backtest-plots/{visualization_name}/{backtest_id}/facet-coords")
@@ -251,10 +257,23 @@ def get_facet_coordinates(
     """
     Returns unique structural dimension arrays available for layout faceting grids.
     """
-    plotter, observations, forecasts, historical_df = _get_plotter_and_flat_data(
-        visualization_name, backtest_id, session
+    plotter, backtest = _get_faceted_plotter_and_backtest(visualization_name, backtest_id, session)
+
+    if _is_db_backed(plotter):
+        return {
+            cast("DBFacetDimension", dim).clean_name: cast("DBFacetDimension", dim).distinct_values(session, backtest)
+            for dim in plotter.facet_dimensions
+        }
+
+    flat_data = Evaluation.from_backtest(backtest).to_flat()
+    return cast(
+        "dict[str, Any]",
+        plotter.facet_coords(
+            cast("Any", flat_data.observations),
+            cast("Any", flat_data.forecasts),
+            cast("Any", flat_data.historical_observations),
+        ),
     )
-    return cast("dict[str, Any]", plotter.facet_coords(observations, forecasts, historical_df))
 
 
 @router.post("/backtest-plots/{visualization_name}/{backtest_id}/subplot")
@@ -264,11 +283,19 @@ def generate_isolated_plots(
     """
     Filters the source datasets by exact coordinate targets and generates a single Vega schema spec.
     """
-    plotter, observations, forecasts, historical_df = _get_plotter_and_flat_data(
-        visualization_name, backtest_id, session
-    )
+    plotter, backtest = _get_faceted_plotter_and_backtest(visualization_name, backtest_id, session)
 
-    chart = plotter.get_subplot(observations, forecasts, facet_coords, historical_df)
+    if _is_db_backed(plotter):
+        flat_data = load_filtered_flat_data(session, backtest, facet_coords, plotter.facet_dimensions)
+    else:
+        flat_data = Evaluation.from_backtest(backtest).to_flat()
+
+    chart = plotter.get_subplot(
+        cast("Any", flat_data.observations),
+        cast("Any", flat_data.forecasts),
+        facet_coords,
+        cast("Any", flat_data.historical_observations),
+    )
     return JSONResponse(chart.to_dict(format="vega"))
 
 
