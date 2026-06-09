@@ -26,6 +26,7 @@ from chap_core.assessment.flat_representations import (
     FlatObserved,
     convert_backtest_observations_to_flat_observations,
     convert_backtest_to_flat_forecasts,
+    max_horizon_distance,
 )
 from chap_core.data import DataSet as _DataSet
 from chap_core.database.dataset_tables import DataSet, Observation, ObservationBase
@@ -334,6 +335,7 @@ class Evaluation(EvaluationBase):
 
         backtest.org_units = list(org_units)
         backtest.split_periods = list(split_points)
+        backtest.max_horizon_distance = max_horizon_distance(backtest.forecasts)
 
         # Deduplicate observations by (period, org_unit) - keep first occurrence
         seen = set()
@@ -674,6 +676,8 @@ class Evaluation(EvaluationBase):
                 values=values,
             )
             backtest.forecasts.append(forecast)
+
+        backtest.max_horizon_distance = max_horizon_distance(backtest.forecasts)
 
         # Create observations from flat data
         observations_df = pd.DataFrame(cast("pd.DataFrame", flat_data.observations))
