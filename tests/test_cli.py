@@ -55,9 +55,13 @@ def _make_fake_estimator(min_prediction_length, max_prediction_length):
     return estimator
 
 
-def _patched_eval_chain(fake_estimator):
+def _patched_eval_chain(fake_estimator, patch_filter=True):
     """Stack mocks for the parts of eval_cmd that aren't under test, returning
-    the Evaluation mock so the caller can inspect ``Evaluation.create`` calls."""
+    the Evaluation mock so the caller can inspect ``Evaluation.create`` calls.
+
+    By default the pre-backtest region filter is patched to a passthrough so the
+    MagicMock dataset survives; tests exercising the filter pass ``patch_filter=False``.
+    """
     template_cm = MagicMock(name="ModelTemplate")
     template_cm.__enter__.return_value = template_cm
     template_cm.__exit__.return_value = False
@@ -78,6 +82,13 @@ def _patched_eval_chain(fake_estimator):
             return_value=MagicMock(name="DataSet"),
         )
     )
+    if patch_filter:
+        stack.enter_context(
+            patch(
+                "chap_core.rest_api.db_worker_functions.validate_and_filter_dataset_for_evaluation",
+                side_effect=lambda dataset, **_kwargs: dataset,
+            )
+        )
     stack.enter_context(patch("chap_core.log_config.initialize_logging"))
     mt_mock = stack.enter_context(patch("chap_core.models.model_template.ModelTemplate"))
     mt_mock.from_directory_or_github_url.return_value = template_cm
@@ -196,6 +207,60 @@ def test_eval_cmd_does_not_wrap_when_bounds_unspecified(tmp_path):
     assert eval_mock.create.call_count == 1
     forwarded = eval_mock.create.call_args.kwargs["estimator"]
     assert forwarded is fake_estimator
+
+
+def _valid_and_nan_region_dataset():
+    """A dataset with one region that has usable disease_cases and one whose values are entirely NaN."""
+    import numpy as np
+
+    from chap_core.datatypes import HealthData
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+    from chap_core.time_period import PeriodRange
+
+    period_range = PeriodRange.from_strings([f"2023-{m:02d}" for m in range(1, 13)])
+    valid = HealthData(time_period=period_range, disease_cases=np.arange(1, 13, dtype=float))
+    nan_region = HealthData(time_period=period_range, disease_cases=np.full(12, np.nan))
+    return DataSet({"valid_region": valid, "nan_region": nan_region})
+
+
+def test_eval_cmd_drops_regions_with_no_disease_cases(tmp_path):
+    """Regions whose entire training-period disease_cases is NaN must be dropped before
+    the backtest runs, matching the REST API's pre-backtest filtering."""
+    from chap_core.api_types import BacktestParams, RunConfig
+
+    dataset = _valid_and_nan_region_dataset()
+
+    fake_estimator = _make_fake_estimator(min_prediction_length=None, max_prediction_length=None)
+    stack, eval_mock = _patched_eval_chain(fake_estimator, patch_filter=False)
+    stack.enter_context(patch("chap_core.cli_endpoints.evaluate.load_dataset_from_csv", return_value=dataset))
+    with stack:
+        eval_cmd(
+            model_name="dummy",
+            dataset_csv="dummy.csv",
+            output_file=tmp_path / "out.nc",
+            backtest_params=BacktestParams(n_periods=3, n_splits=2, stride=1),
+            run_config=RunConfig(),
+        )
+
+    forwarded = eval_mock.create.call_args.kwargs["dataset"]
+    locations = list(forwarded.locations())
+    assert "nan_region" not in locations
+    assert "valid_region" in locations
+
+
+def test_validate_and_filter_drops_region_with_all_nan_training_data():
+    """The shared pre-backtest filter drops regions whose entire training window is NaN and keeps
+    regions with usable target data. Tested directly on the filter to avoid coupling to log capture."""
+    from chap_core.rest_api.db_worker_functions import validate_and_filter_dataset_for_evaluation
+
+    dataset = _valid_and_nan_region_dataset()
+    filtered = validate_and_filter_dataset_for_evaluation(
+        dataset, target_name="disease_cases", n_periods=3, n_splits=2, stride=1
+    )
+
+    locations = list(filtered.locations())
+    assert "nan_region" not in locations
+    assert "valid_region" in locations
 
 
 def test_eval_cmd_track_logs_params_metrics_and_artifacts(tmp_path, monkeypatch):
