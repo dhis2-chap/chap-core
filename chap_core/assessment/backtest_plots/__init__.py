@@ -142,8 +142,6 @@ class FacetedBacktestPlot(BacktestPlotBase):
         for col, value in coords.items():
             if col in df.columns:
                 df = df[df[col] == value]
-        # Subplots are embedded individually by the frontend, so they can use
-        # responsive container sizing (invalid inside the faceted full plot).
         return self._plot(df).properties(width="container", height="container")
 
     def get_subplots(
