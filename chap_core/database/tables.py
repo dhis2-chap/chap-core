@@ -53,6 +53,10 @@ class _BacktestRead(BacktestBase):
         sa_column=Column(JSON),
         description="Periods at which the rolling backtest's train/test split was advanced.",
     )
+    max_horizon_distance: int | None = Field(
+        default=None,
+        description="Largest 1-based horizon distance scored in this backtest; horizon coordinates run 1..max_horizon_distance.",
+    )
 
 
 class Backtest(_BacktestRead, table=True):

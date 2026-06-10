@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from chap_core.assessment.backtest_plots import ChartType, FacetDimension, FacetedBacktestPlot, backtest_plot
+from chap_core.assessment.backtest_plots.db_dimensions import LocationDimension, SplitPeriodDimension
 from chap_core.plotting.backtest_plot import clean_time
 from chap_core.time_period import TimePeriod
 
@@ -57,8 +58,8 @@ class EvaluationPlot(FacetedBacktestPlot):
     """Shows forecasts with uncertainty bands and observed values with historical context."""
 
     facet_dimensions: list[FacetDimension] = [
-        FacetDimension(field_name="split_period:O", display_name="Split Period"),
-        FacetDimension(field_name="location:N", display_name="Location"),
+        SplitPeriodDimension(field_name="split_period:O", display_name="Split Period"),
+        LocationDimension(field_name="location:N", display_name="Location"),
     ]
 
     def _preprocess(
