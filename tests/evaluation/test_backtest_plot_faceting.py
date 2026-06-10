@@ -236,6 +236,16 @@ def test_no_dimension_plot_conforms_to_interface(observations_df, forecasts_df):
     assert isinstance(chart, alt.TopLevelMixin)
 
 
+def test_horizon_grid_subplot_handles_empty_forecasts(observations_df, forecasts_df):
+    """A location x horizon cell whose database filter returns no forecasts renders a
+    placeholder instead of erroring on metric computation over an empty frame."""
+    plotter = HorizonLocationGridPlot()
+    empty_forecasts = forecasts_df.iloc[:0]
+
+    chart = plotter.get_subplot(observations_df, empty_forecasts, {"location": "loc1", "horizon_distance": 1})
+    assert isinstance(chart, alt.TopLevelMixin)
+
+
 # --- Registry-level invariant -------------------------------------------
 
 
