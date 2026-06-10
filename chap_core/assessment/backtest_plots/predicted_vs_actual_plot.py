@@ -65,7 +65,7 @@ def build_predicted_vs_actual_chart(
         .encode(
             x=alt.X(f"{x_field}:Q", **x_kwargs),
             y=alt.Y(f"{y_field}:Q", **y_kwargs),
-            color=alt.Color("location:N", title="Location"),
+            color=alt.Color("location:N", legend=None),
             tooltip=[
                 alt.Tooltip("location:N"),
                 alt.Tooltip("time_period:N"),
