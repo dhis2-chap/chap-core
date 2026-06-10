@@ -8,7 +8,7 @@ above truth by horizon distance and time period.
 import altair as alt
 import pandas as pd
 
-from chap_core.assessment.backtest_plots import BacktestPlotBase, ChartType, backtest_plot
+from chap_core.assessment.backtest_plots import ChartType, FacetDimension, FacetedBacktestPlot, backtest_plot
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 from chap_core.assessment.metrics import RatioAboveTruthMetric
 from chap_core.plotting.backtest_plot import text_chart
@@ -19,7 +19,7 @@ from chap_core.plotting.backtest_plot import text_chart
     name="Sample Bias Plot",
     description="Backtest plot showing forecast bias relative to observations.",
 )
-class SampleBiasPlot(BacktestPlotBase):
+class SampleBiasPlot(FacetedBacktestPlot):
     """
     Backtest plot showing forecast bias relative to observations.
 
@@ -27,39 +27,28 @@ class SampleBiasPlot(BacktestPlotBase):
     observation value, organized by:
     - Horizon distance (how far ahead the forecast is)
     - Time period and location (when/where the observation occurred)
+
+    It is an aggregate dashboard with no per-coordinate decomposition, so it
+    declares no facet dimensions; it conforms to the faceting interface only so
+    every registered plot shares the same shape.
     """
 
-    def plot(
+    facet_dimensions: list[FacetDimension] = []
+
+    def _preprocess(
         self,
         observations: pd.DataFrame,
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None,
-    ) -> ChartType:
-        """
-        Generate and return the dashboard visualization.
-
-        Parameters
-        ----------
-        observations : pd.DataFrame
-            Observed values with columns: location, time_period, disease_cases
-        forecasts : pd.DataFrame
-            Forecast samples with columns: location, time_period, horizon_distance,
-            sample, forecast
-        historical_observations : pd.DataFrame, optional
-            Not used by this plot
-
-        Returns
-        -------
-        ChartType
-            Altair chart containing the complete evaluation dashboard
-        """
+    ) -> pd.DataFrame:
+        """Compute the ratio-of-samples-above-truth metric per forecast row."""
         flat_observations = FlatObserved(observations)
         flat_forecasts = FlatForecasts(forecasts)
-
-        # Compute the ratio of samples above truth metric
         metric = RatioAboveTruthMetric()
-        metric_df = metric.get_detailed_metric(flat_observations, flat_forecasts)
+        return metric.get_detailed_metric(flat_observations, flat_forecasts)
 
+    def _plot(self, metric_df: pd.DataFrame) -> ChartType:
+        """Render the bias dashboard from the metric frame."""
         charts = []
 
         # Title
