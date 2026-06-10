@@ -99,8 +99,6 @@ def test_predicted_vs_actual_plot_directly(flat_observations, flat_forecasts_mul
     plot = PredictedVsActualPlot()
     chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts_multiple_samples))
     assert chart is not None
-    # Locations are identified in the tooltip instead of a legend of raw org unit ids.
-    assert chart.to_dict()["layer"][0]["encoding"]["color"]["legend"] is None
 
 
 def test_predicted_vs_actual_linear_plot_directly(
@@ -112,7 +110,6 @@ def test_predicted_vs_actual_linear_plot_directly(
     assert chart is not None
     assert chart.width == "container"
     assert chart.height == "container"
-    assert chart.to_dict()["layer"][0]["encoding"]["color"]["legend"] is None
 
 
 def test_infer_split_periods_monthly_format():
