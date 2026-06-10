@@ -33,4 +33,4 @@ class PredictedVsActualLinearPlot(BacktestPlotBase):
             x_field="median_forecast",
             y_field="disease_cases",
             title="Predicted vs Actual (linear scale)",
-        )
+        ).properties(width="container", height="container")

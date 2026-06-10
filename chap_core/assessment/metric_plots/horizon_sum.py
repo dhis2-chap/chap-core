@@ -27,5 +27,5 @@ class MetricByHorizonV2Sum(MetricPlotBase):
                     alt.Tooltip("sum(metric):Q", title="Count"),
                 ],
             )
-            .properties(width=300, height=230, title=title),
+            .properties(width="container", height=230, title=title),
         )

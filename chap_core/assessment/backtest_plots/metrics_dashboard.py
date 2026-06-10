@@ -88,7 +88,8 @@ class MetricsDashboard(BacktestPlotBase):
                 textplot = text_chart(f"The metric shown below is '{name}'. Description: {description}", line_length=80)
                 charts.append(textplot)
                 metric_df = metric.get_detailed_metric(flat_observations, flat_forecasts)
-                subplot = plotting_class(metric_df).plot(title=name)
+                # Container sizing is invalid inside vconcat, so pin a fixed width here.
+                subplot = plotting_class(metric_df).plot(title=name).properties(width=300)
                 charts.append(subplot)
 
         # Combine all charts vertically

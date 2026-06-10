@@ -142,7 +142,9 @@ class FacetedBacktestPlot(BacktestPlotBase):
         for col, value in coords.items():
             if col in df.columns:
                 df = df[df[col] == value]
-        return self._plot(df)
+        # Subplots are embedded individually by the frontend, so they can use
+        # responsive container sizing (invalid inside the faceted full plot).
+        return self._plot(df).properties(width="container", height="container")
 
     def get_subplots(
         self,
@@ -166,7 +168,7 @@ class FacetedBacktestPlot(BacktestPlotBase):
                 if col in df_filtered.columns:
                     df_filtered = df_filtered[df_filtered[col] == value]
 
-            chart = self._plot(df_filtered)
+            chart = self._plot(df_filtered).properties(width="container", height="container")
             key = combination[0] if len(combination) == 1 else combination
             results.append((key, chart))
         return results

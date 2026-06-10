@@ -108,6 +108,8 @@ def test_predicted_vs_actual_linear_plot_directly(
     plot = PredictedVsActualLinearPlot()
     chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts_multiple_samples))
     assert chart is not None
+    assert chart.width == "container"
+    assert chart.height == "container"
 
 
 def test_infer_split_periods_monthly_format():
@@ -196,6 +198,22 @@ def test_plot_backtest_cli(backtest: Backtest, tmp_path: Path, default_transform
 
     assert output_file.exists()
     assert output_file.stat().st_size > 0
+
+
+def test_plot_backtest_cli_pins_container_height_for_file_export(
+    backtest: Backtest, tmp_path: Path, default_transformer
+):
+    """'container' height collapses without a sized DOM element, so file export
+    must pin a fixed height in the embedded spec."""
+    evaluation = Evaluation.from_backtest(backtest)
+    input_file = tmp_path / "evaluation.nc"
+    evaluation.to_file(input_file)
+
+    output_file = tmp_path / "plot.html"
+    plot_backtest(input_file, output_file, plot_type="predicted_vs_actual_linear")
+
+    content = output_file.read_text()
+    assert '"height": "container"' not in content
 
 
 def test_eval_cmd_plot_flag(backtest: Backtest, tmp_path: Path, default_transformer):

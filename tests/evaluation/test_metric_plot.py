@@ -71,6 +71,20 @@ def test_registered_plot_produces_chart(plot_cls, metric_data, dummy_geojson):
     assert chart is not None
 
 
+@pytest.mark.parametrize(
+    "plot_cls",
+    get_metric_plots_registry().values(),
+)
+def test_registered_plot_uses_responsive_container_width(plot_cls, metric_data, dummy_geojson):
+    """Metric plots are embedded standalone by the frontend, so they must use
+    responsive container sizing and still compile to a valid Vega spec."""
+    chart = plot_cls(metric_data, dummy_geojson).plot_from_df()
+    assert chart.width == "container"
+    vega_spec = chart.to_dict(format="vega")
+    width_signal = next(s for s in vega_spec["signals"] if s["name"] == "width")
+    assert "containerSize" in width_signal["init"]
+
+
 def test_regional_metric_distribution_empty_data(metric_data):
     empty = metric_data.iloc[0:0]
     chart = RegionalMetricDistributionPlot(empty).plot_from_df()
