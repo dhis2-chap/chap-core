@@ -109,19 +109,23 @@ async def proxy_to_service(
     except ServiceNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
-    target = httpx.URL(service.url.rstrip("/") + "/" + _raw_subpath(request, service_id))
-    query_string = request.scope.get("query_string") or b""
-    if query_string:
-        target = target.copy_with(query=query_string)
-
     # Forward request headers minus hop-by-hop, Connection-nominated, and host (httpx re-derives host).
     request_headers = _forwardable(request.headers.items(), drop={"host"})
-
-    upstream_request = client.build_request(request.method, target, headers=request_headers)
+    query_string = request.scope.get("query_string") or b""
 
     try:
+        target = httpx.URL(service.url.rstrip("/") + "/" + _raw_subpath(request, service_id))
+        if query_string:
+            target = target.copy_with(query=query_string)
+        upstream_request = client.build_request(request.method, target, headers=request_headers)
         # follow_redirects so a relative upstream Location resolves against the service.
         upstream = await client.send(upstream_request, stream=True, follow_redirects=True)
+    except httpx.InvalidURL as e:
+        # A malformed registered service URL (e.g. a bad port) is a misconfigured upstream.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Service {service_id} has an invalid URL: {e}",
+        ) from e
     except httpx.TimeoutException as e:
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,

@@ -184,6 +184,33 @@ def test_unknown_service_returns_404(client):
     assert response.status_code == 404
 
 
+def test_malformed_service_url_returns_502():
+    orchestrator = Orchestrator(redis_client=fakeredis.FakeRedis())
+    orchestrator.register(
+        RegistrationRequest.model_validate(
+            {
+                "url": "http://host:bad",
+                "info": {
+                    "id": "bad-url-model",
+                    "display_name": "Bad URL Model",
+                    "model_metadata": {"author": "Test"},
+                    "period_type": "monthly",
+                },
+            }
+        )
+    )
+
+    app.dependency_overrides[get_orchestrator] = lambda: orchestrator
+    app.dependency_overrides[get_http_client] = lambda: httpx.AsyncClient()
+    try:
+        test_client = TestClient(app, raise_server_exceptions=False)
+        response = test_client.get("/v2/services/bad-url-model/run/api/v1/info")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 502
+
+
 def test_unreachable_service_returns_502(test_orchestrator):
     def raise_connect_error(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("connection refused", request=request)
