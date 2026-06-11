@@ -53,9 +53,12 @@ from chap_core.assessment.backtest_plots import (
     get_backtest_plots_registry,
 )
 from chap_core.assessment.backtest_plots.evaluation_plot import EvaluationPlot
+from chap_core.assessment.backtest_plots.horizon_location_grid import HorizonLocationGridPlot
+from chap_core.assessment.backtest_plots.predicted_vs_actual_linear_plot import PredictedVsActualLinearPlot
 from chap_core.assessment.backtest_plots.predicted_vs_actual_plot import (
     PredictedVsActualPlot,
 )
+from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasPlot
 
 
 CLIM_548 = "CLIM-548: FacetedBacktestPlot refactor not implemented yet"
@@ -81,6 +84,8 @@ def forecasts_df(flat_forecasts) -> pd.DataFrame:
 PLOT_CASES = [
     pytest.param(EvaluationPlot, ("location", "split_period"), id="evaluation_plot"),
     pytest.param(PredictedVsActualPlot, ("horizon_distance",), id="predicted_vs_actual"),
+    pytest.param(PredictedVsActualLinearPlot, ("horizon_distance",), id="predicted_vs_actual_linear"),
+    pytest.param(HorizonLocationGridPlot, ("location", "horizon_distance"), id="horizon_location_grid"),
 ]
 
 
@@ -197,6 +202,8 @@ def test_get_subplot_returns_chart_for_single_coord(plot_cls, expected_fields, o
 def test_get_subplot_uses_responsive_container_sizing(plot_cls, expected_fields, observations_df, forecasts_df):
     """Subplots are embedded individually by the frontend, so they must use
     responsive container sizing instead of fixed pixel dimensions."""
+    if not plot_cls.responsive_subplots:
+        pytest.skip("multi-view plots keep fixed subplot sizes")
     plotter = plot_cls()
     coords = plotter.facet_coords(observations_df, forecasts_df)
     selection = {field: coords[field][0] for field in expected_fields}
@@ -213,6 +220,8 @@ def test_get_subplot_uses_responsive_container_sizing(plot_cls, expected_fields,
 
 @pytest.mark.parametrize("plot_cls,expected_fields", PLOT_CASES)
 def test_get_subplots_use_responsive_container_sizing(plot_cls, expected_fields, observations_df, forecasts_df):
+    if not plot_cls.responsive_subplots:
+        pytest.skip("multi-view plots keep fixed subplot sizes")
     plotter = plot_cls()
     coords = plotter.facet_coords(observations_df, forecasts_df)
     subplots = plotter.get_subplots(observations_df, forecasts_df, coords)
@@ -246,6 +255,29 @@ def test_get_full_plot_returns_faceted_chart(plot_cls, expected_fields, observat
     assert isinstance(chart, alt.TopLevelMixin)
 
 
+def test_no_dimension_plot_conforms_to_interface(observations_df, forecasts_df):
+    """A FacetedBacktestPlot may declare no dimensions: facet_coords is empty and a
+    subplot with no coordinates renders the full chart."""
+    plotter = SampleBiasPlot()
+    assert plotter.facet_dimensions == []
+
+    coords = plotter.facet_coords(observations_df, forecasts_df)
+    assert coords == {}
+
+    chart = plotter.get_subplot(observations_df, forecasts_df, {})
+    assert isinstance(chart, alt.TopLevelMixin)
+
+
+def test_horizon_grid_subplot_handles_empty_forecasts(observations_df, forecasts_df):
+    """A location x horizon cell whose database filter returns no forecasts renders a
+    placeholder instead of erroring on metric computation over an empty frame."""
+    plotter = HorizonLocationGridPlot()
+    empty_forecasts = forecasts_df.iloc[:0]
+
+    chart = plotter.get_subplot(observations_df, empty_forecasts, {"location": "loc1", "horizon_distance": 1})
+    assert isinstance(chart, alt.TopLevelMixin)
+
+
 # --- Registry-level invariant -------------------------------------------
 
 
@@ -259,7 +291,9 @@ def test_every_faceted_plot_in_registry_passes_shape_checks(faceted_base):
     assert faceted, "expected at least one FacetedBacktestPlot in the registry"
     for cls in faceted:
         dims = cls.facet_dimensions
-        assert isinstance(dims, list) and dims
+        # A plot may conform to the interface without faceting (empty dims); any
+        # dimensions it does declare must still use the shorthand shape.
+        assert isinstance(dims, list)
         for entry in dims:
             assert isinstance(entry, FacetDimension), (
                 f"{cls.__name__}.facet_dimensions entry {entry!r} is not a FacetDimension"

@@ -88,6 +88,10 @@ class FacetedBacktestPlot(BacktestPlotBase):
     resolve_scale_x: Literal["independent", "shared"] = "shared"
     resolve_scale_y: Literal["independent", "shared"] = "independent"
 
+    # Single-view subplots fill their container; multi-view (concat) subplots keep
+    # fixed sizes because Vega's "fit" autosize cannot size multiple top-level views.
+    responsive_subplots: bool = True
+
     @abstractmethod
     def _preprocess(
         self,
@@ -142,7 +146,10 @@ class FacetedBacktestPlot(BacktestPlotBase):
         for col, value in coords.items():
             if col in df.columns:
                 df = df[df[col] == value]
-        return self._plot(df).properties(width="container", height="container")
+        chart = self._plot(df)
+        if self.responsive_subplots:
+            chart = chart.properties(width="container", height="container")
+        return chart
 
     def get_subplots(
         self,
@@ -166,7 +173,9 @@ class FacetedBacktestPlot(BacktestPlotBase):
                 if col in df_filtered.columns:
                     df_filtered = df_filtered[df_filtered[col] == value]
 
-            chart = self._plot(df_filtered).properties(width="container", height="container")
+            chart = self._plot(df_filtered)
+            if self.responsive_subplots:
+                chart = chart.properties(width="container", height="container")
             key = combination[0] if len(combination) == 1 else combination
             results.append((key, chart))
         return results
@@ -291,7 +300,6 @@ def _discover_plots():
     from chap_core.assessment.backtest_plots import (
         evaluation_plot,
         horizon_location_grid,
-        metrics_dashboard,
         predicted_vs_actual_linear_plot,
         predicted_vs_actual_plot,
         sample_bias_plot,
