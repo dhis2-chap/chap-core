@@ -18,6 +18,8 @@ Expected endpoints (relative to ``/v1/visualization/backtest-plots``):
 
 from __future__ import annotations
 
+import json
+
 from starlette.testclient import TestClient
 
 from chap_core.rest_api.app import app
@@ -64,6 +66,33 @@ def test_subplot_endpoint_returns_vega_spec_for_coords(override_session):
     assert isinstance(spec, dict)
     # Vega specs always declare a schema URL.
     assert "$schema" in spec
+
+
+def test_subplot_endpoint_uses_container_width(override_session):
+    """The frontend embeds each subplot in a flexible-width container, so the API
+    fills width via 'container' (height is left at the plot's fixed value)."""
+    coords_resp = client.get("/v1/visualization/backtest-plots/evaluation_plot/1/facet-coords")
+    payload = coords_resp.json()
+    body = {dim: values[0] for dim, values in payload.items()}
+
+    response = client.post("/v1/visualization/backtest-plots/evaluation_plot/1/subplot", json=body)
+    assert response.status_code == 200, response.text
+    spec = response.json()
+    width_signal = next(s for s in spec["signals"] if s["name"] == "width")
+    assert "containerSize" in width_signal["init"]
+
+
+def test_subplot_endpoint_keeps_fixed_width_for_multiview_plot(override_session):
+    """horizon_location_grid renders composite (vconcat) cells; container sizing is
+    invalid on multi-view specs, so its subplot keeps the plot's fixed widths."""
+    coords_resp = client.get("/v1/visualization/backtest-plots/horizon_location_grid/1/facet-coords")
+    assert coords_resp.status_code == 200, coords_resp.text
+    payload = coords_resp.json()
+    body = {dim: values[0] for dim, values in payload.items()}
+
+    response = client.post("/v1/visualization/backtest-plots/horizon_location_grid/1/subplot", json=body)
+    assert response.status_code == 200, response.text
+    assert "containerSize" not in json.dumps(response.json())
 
 
 def test_subplots_endpoint_returns_one_entry_per_coord_combination(override_session):

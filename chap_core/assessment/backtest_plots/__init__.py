@@ -88,10 +88,6 @@ class FacetedBacktestPlot(BacktestPlotBase):
     resolve_scale_x: Literal["independent", "shared"] = "shared"
     resolve_scale_y: Literal["independent", "shared"] = "independent"
 
-    # Single-view subplots fill their container; multi-view (concat) subplots keep
-    # fixed sizes because Vega's "fit" autosize cannot size multiple top-level views.
-    responsive_subplots: bool = True
-
     @abstractmethod
     def _preprocess(
         self,
@@ -146,10 +142,7 @@ class FacetedBacktestPlot(BacktestPlotBase):
         for col, value in coords.items():
             if col in df.columns:
                 df = df[df[col] == value]
-        chart = self._plot(df)
-        if self.responsive_subplots:
-            chart = chart.properties(width="container", height="container")
-        return chart
+        return self._plot(df)
 
     def get_subplots(
         self,
@@ -174,8 +167,6 @@ class FacetedBacktestPlot(BacktestPlotBase):
                     df_filtered = df_filtered[df_filtered[col] == value]
 
             chart = self._plot(df_filtered)
-            if self.responsive_subplots:
-                chart = chart.properties(width="container", height="container")
             key = combination[0] if len(combination) == 1 else combination
             results.append((key, chart))
         return results

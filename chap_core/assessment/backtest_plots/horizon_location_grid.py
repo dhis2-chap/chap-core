@@ -190,9 +190,6 @@ class HorizonLocationGridPlot(FacetedBacktestPlot):
         LocationDimension(field_name="location:N", display_name="Location"),
     ]
 
-    # Each cell is a composite (vconcat); container sizing is invalid on multi-view specs.
-    responsive_subplots: bool = False
-
     def _preprocess(
         self,
         observations: pd.DataFrame,

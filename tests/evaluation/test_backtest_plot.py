@@ -190,22 +190,6 @@ def test_plot_backtest_cli(backtest: Backtest, tmp_path: Path, default_transform
     assert output_file.stat().st_size > 0
 
 
-def test_plot_backtest_cli_pins_container_height_for_file_export(
-    backtest: Backtest, tmp_path: Path, default_transformer
-):
-    """'container' height collapses without a sized DOM element, so file export
-    must pin a fixed height in the embedded spec."""
-    evaluation = Evaluation.from_backtest(backtest)
-    input_file = tmp_path / "evaluation.nc"
-    evaluation.to_file(input_file)
-
-    output_file = tmp_path / "plot.html"
-    plot_backtest(input_file, output_file, plot_type="predicted_vs_actual_linear")
-
-    content = output_file.read_text()
-    assert '"height": "container"' not in content
-
-
 def test_eval_cmd_plot_flag(backtest: Backtest, tmp_path: Path, default_transformer):
     """Test that eval_cmd's plot flag generates an HTML plot file."""
     from chap_core.assessment.backtest_plots import create_plot_from_evaluation

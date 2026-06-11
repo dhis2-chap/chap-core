@@ -28,5 +28,5 @@ class MetricByTimePeriodV2Sum(MetricPlotBase):
                     alt.Tooltip("sum(metric):Q", title="Count"),
                 ],
             )
-            .properties(width="container", height=230, title=title),
+            .properties(width=300, height=230, title=title),
         )

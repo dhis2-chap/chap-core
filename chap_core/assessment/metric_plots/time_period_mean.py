@@ -28,5 +28,5 @@ class MetricByTimePeriodV2Mean(MetricPlotBase):
                     alt.Tooltip("mean(metric):Q", title="Count"),
                 ],
             )
-            .properties(width="container", height=230, title=title),
+            .properties(width=300, height=230, title=title),
         )

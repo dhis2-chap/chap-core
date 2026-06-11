@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Any, cast
 
+import altair as alt
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Field, Session
 from starlette.responses import JSONResponse
@@ -220,6 +221,18 @@ def generate_backtest_plots(visualization_name: str, backtest_id: int, session: 
     return JSONResponse(chart.to_dict(format="vega"))
 
 
+def _fill_container_width(chart: alt.TopLevelMixin) -> alt.TopLevelMixin:
+    """Make a subplot fill its width when the frontend embeds it in a flexible container.
+
+    Single-view charts get ``width='container'`` (height is left at the plot's fixed
+    value). Multi-view (concat) and faceted specs can't use container sizing, so their
+    fixed widths are returned untouched.
+    """
+    if isinstance(chart, (alt.ConcatChart, alt.HConcatChart, alt.VConcatChart, alt.FacetChart)):
+        return chart
+    return chart.properties(width="container")
+
+
 def _get_faceted_plotter_and_backtest(
     plot_id: str, backtest_id: int, session: Session
 ) -> tuple[FacetedBacktestPlot, Backtest]:
@@ -296,7 +309,7 @@ def generate_isolated_plots(
         facet_coords,
         cast("Any", flat_data.historical_observations),
     )
-    return JSONResponse(chart.to_dict(format="vega"))
+    return JSONResponse(_fill_container_width(chart).to_dict(format="vega"))
 
 
 @router.get("/backtest-plots/{visualization_name}/{backtest_id}/subplots")
@@ -315,4 +328,6 @@ def generate_all_subplots(
         observations, forecasts, coords=coords_matrix, historical_observations=historical_df
     )
 
-    return [{"key": key, "spec": subplot.to_dict(format="vega")} for key, subplot in subplot_tuples]
+    return [
+        {"key": key, "spec": _fill_container_width(subplot).to_dict(format="vega")} for key, subplot in subplot_tuples
+    ]

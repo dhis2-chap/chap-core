@@ -39,5 +39,5 @@ class MetricMapV2(MetricPlotBase):
                 from_=alt.LookupData(agg_df, "org_unit", ["value"]),
             )
             .project(type="equirectangular")
-            .properties(width="container", height=230, title=title),
+            .properties(width=300, height=230, title=title),
         )

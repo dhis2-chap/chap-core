@@ -25,5 +25,5 @@ class MetricByHorizonAndLocationMean(MetricPlotBase):
                 y=alt.Y("metric:Q", title="Mean Metric Value"),
                 tooltip=["horizon_distance", "location", "metric"],
             )
-            .properties(width="container", height=230, title=title),
+            .properties(width=300, height=230, title=title),
         )

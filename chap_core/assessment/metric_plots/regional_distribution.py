@@ -36,6 +36,7 @@ class RegionalMetricDistributionPlot(MetricPlotBase):
                     alt.Tooltip("metric:Q", format=".2f"),
                 ],
             )
+            .properties(width=700, height=280, title=title)
         )
 
         mean_by_location = df.groupby("location", as_index=False).agg(mean_metric=("metric", "mean"))
@@ -52,7 +53,6 @@ class RegionalMetricDistributionPlot(MetricPlotBase):
 
         return (  # type: ignore[no-any-return]
             (by_location + mean_points)
-            .properties(width="container", height=280, title=title)
             .configure_axis(labelFontSize=11, titleFontSize=12)
             .configure_legend(labelFontSize=11, titleFontSize=12)
             .configure_view(stroke=None)

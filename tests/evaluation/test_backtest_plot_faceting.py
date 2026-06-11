@@ -199,38 +199,6 @@ def test_get_subplot_returns_chart_for_single_coord(plot_cls, expected_fields, o
 
 
 @pytest.mark.parametrize("plot_cls,expected_fields", PLOT_CASES)
-def test_get_subplot_uses_responsive_container_sizing(plot_cls, expected_fields, observations_df, forecasts_df):
-    """Subplots are embedded individually by the frontend, so they must use
-    responsive container sizing instead of fixed pixel dimensions."""
-    if not plot_cls.responsive_subplots:
-        pytest.skip("multi-view plots keep fixed subplot sizes")
-    plotter = plot_cls()
-    coords = plotter.facet_coords(observations_df, forecasts_df)
-    selection = {field: coords[field][0] for field in expected_fields}
-    chart = plotter.get_subplot(observations_df, forecasts_df, selection)
-    assert chart.width == "container"
-    assert chart.height == "container"
-    vega_spec = chart.to_dict(format="vega")
-    assert vega_spec["autosize"] == {"type": "fit", "contains": "padding"}
-    width_signal = next(s for s in vega_spec["signals"] if s["name"] == "width")
-    assert "containerSize" in width_signal["init"]
-    height_signal = next(s for s in vega_spec["signals"] if s["name"] == "height")
-    assert "containerSize" in height_signal["init"]
-
-
-@pytest.mark.parametrize("plot_cls,expected_fields", PLOT_CASES)
-def test_get_subplots_use_responsive_container_sizing(plot_cls, expected_fields, observations_df, forecasts_df):
-    if not plot_cls.responsive_subplots:
-        pytest.skip("multi-view plots keep fixed subplot sizes")
-    plotter = plot_cls()
-    coords = plotter.facet_coords(observations_df, forecasts_df)
-    subplots = plotter.get_subplots(observations_df, forecasts_df, coords)
-    for _, chart in subplots:
-        assert chart.width == "container"
-        assert chart.height == "container"
-
-
-@pytest.mark.parametrize("plot_cls,expected_fields", PLOT_CASES)
 def test_get_subplots_returns_one_chart_per_coordinate_combination(
     plot_cls, expected_fields, observations_df, forecasts_df
 ):

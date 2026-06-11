@@ -35,9 +35,6 @@ class SampleBiasPlot(FacetedBacktestPlot):
 
     facet_dimensions: list[FacetDimension] = []
 
-    # Composite (vconcat) dashboard; container sizing is invalid on multi-view specs.
-    responsive_subplots: bool = False
-
     def _preprocess(
         self,
         observations: pd.DataFrame,

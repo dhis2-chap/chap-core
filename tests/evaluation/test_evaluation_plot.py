@@ -70,6 +70,16 @@ def test_evaluation_plot_from_backtest_object(backtest_weeks_large, plot_class):
     )
 
 
+def test_make_plot_from_backtest_object_uses_container_width(backtest_weeks_large):
+    """The API serves metric specs to a frontend that embeds them in a flexible-width
+    container, so the compiled spec fills width via 'container' (height stays fixed)."""
+    spec = make_plot_from_backtest_object(
+        backtest_weeks_large, MetricByHorizonV2Mean, CRPSMetric(), geojson=backtest_weeks_large.dataset.geojson
+    )
+    width_signal = next(s for s in spec["signals"] if s["name"] == "width")
+    assert "containerSize" in width_signal["init"]
+
+
 def test_regional_metric_distribution_plot_contains_boxplot_and_mean_points(backtest_weeks):
     evaluation = Evaluation.from_backtest(backtest_weeks)
     flat_data = evaluation.to_flat()

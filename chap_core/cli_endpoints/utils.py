@@ -209,8 +209,6 @@ def plot_backtest(
 
     logger.info(f"Saving plot to {output_file}")
     if suffix == ".html" or suffix in (".png", ".svg", ".pdf"):
-        if getattr(chart, "height", None) == "container":
-            chart = chart.properties(height=300)
         chart.save(str(output_path))
     elif suffix == ".json":
         with open(output_path, "w") as f:

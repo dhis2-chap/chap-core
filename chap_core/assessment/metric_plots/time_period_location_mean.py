@@ -26,5 +26,5 @@ class MetricByTimePeriodAndLocationV2Mean(MetricPlotBase):
                 color=alt.Color("location:N", title="Location"),
                 tooltip=["time_period", "location", "metric"],
             )
-            .properties(width="container", height=230, title=title),
+            .properties(width=300, height=230, title=title),
         )
