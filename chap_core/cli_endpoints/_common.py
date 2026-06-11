@@ -9,10 +9,10 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     import pandas as pd
 
-    from chap_core.api_types import BacktestParams
+    from chap_core.api_types import BacktestParams, SearcherType
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+    from chap_core.external.model_configuration import ModelTemplateConfigV2
     from chap_core.hpo.hpoModel import HpoModel
-    from chap_core.hpo.searcher import Searcher
     from chap_core.models.external_model import ExternalModel
     from chap_core.models.model_template import ModelTemplate
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -222,35 +222,66 @@ def load_dataset(
     return dataset
 
 
-def get_estimator(
-    template: ModelTemplate,
+def get_configuration(
     model_configuration_yaml: Path | None,
-) -> tuple[ExternalModel, ModelConfiguration | None]:
-    """
-    Build a plain estimator from a model template and optional configuration yaml file.
-    Returns both the estimator and the parsed configuration so callers can reuse the
-    configuration for metadata/export.
-    """
+) -> ModelConfiguration | None:
+    """Parse a model configuration YAML file, or return None if no path is given."""
+    if model_configuration_yaml is None:
+        return None
     import yaml
 
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 
-    configuration = None
-    if model_configuration_yaml is not None:
-        logger.info(f"Loading model configuration from {model_configuration_yaml}")
-        configuration = ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
+    logger.info(f"Loading model configuration from {model_configuration_yaml}")
+    return ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
 
+
+def get_estimator(
+    template: ModelTemplate,
+    configuration: ModelConfiguration | None,
+) -> ExternalModel:
+    """Build a plain estimator from a model template and optional configuration."""
     model = template.get_model(configuration)  # type: ignore[arg-type]
-    estimator = model()
-    return estimator, configuration
+    estimator: ExternalModel = model()  # type: ignore[assignment]
+    return estimator
+
+
+def warn_unused_covariates(
+    dataset: DataSet,
+    template_config: ModelTemplateConfigV2,
+    configuration: ModelConfiguration | None = None,
+) -> None:
+    """Check for unused dataset columns and log each one as a warning.
+
+    Calls check_unused_covariates directly; does not run other validation checks.
+    Does not raise; callers continue regardless of issues.
+
+    Parameters
+    ----------
+    dataset : DataSet
+        The loaded dataset to validate.
+    template_config : ModelTemplateConfigV2
+        Model template configuration declaring required covariates and whether free
+        additional covariates are allowed.
+    configuration : ModelConfiguration | None
+        Optional per-run model configuration. When present, its
+        additional_continuous_covariates are forwarded to the validation so explicitly
+        configured extra columns are not flagged as unused.
+    """
+    from chap_core.services.dataset_validation import check_unused_covariates
+
+    additional = configuration.additional_continuous_covariates if configuration is not None else None
+    issues = check_unused_covariates(dataset, template_config, additional)
+    for issue in issues:
+        logger.warning(issue.message)
 
 
 def get_hpo_estimator(
     template: ModelTemplate,
     model_configuration_yaml: Path | None,
     backtest_params: BacktestParams,
-    metric: str,
-    searcher: Searcher | None = None,
+    metric: str | None = None,
+    searcher_inp: SearcherType | None = None,
 ) -> HpoModel:
     """
     Build an HPO-backend estimator from either:
@@ -259,10 +290,11 @@ def get_hpo_estimator(
     """
     import yaml
 
+    from chap_core.api_types import SearcherType
     from chap_core.hpo.base import load_search_space_from_config
     from chap_core.hpo.hpoModel import HpoModel
     from chap_core.hpo.objective import Objective
-    from chap_core.hpo.searcher import RandomSearcher
+    from chap_core.hpo.searcher import DEFAULT_SEARCH_TRIALS, GridSearcher, RandomSearcher, Searcher, TPESearcher
 
     if model_configuration_yaml is not None:
         logger.info(f"Loading model configuration from {model_configuration_yaml}")
@@ -274,10 +306,16 @@ def get_hpo_estimator(
         config = template.model_template_config.hpo_search_space
 
     search_space = load_search_space_from_config(config)
-    objective = Objective(template, backtest_params, metric)
+    objective = Objective(model_template=template, backtest_params=backtest_params, metric=metric)
+    searcher: Searcher | None = None
+    if searcher_inp is not None:
+        if searcher_inp == SearcherType.GRID:
+            searcher = GridSearcher()
+        elif searcher_inp == SearcherType.RANDOM:
+            searcher = RandomSearcher(DEFAULT_SEARCH_TRIALS)  # TODO: make number of iterations configurable
+        elif searcher_inp == SearcherType.TPE:
+            searcher = TPESearcher(DEFAULT_SEARCH_TRIALS)  # TODO: make number of iterations configurable
+        else:
+            raise ValueError(f"Unknown searcher: {searcher_inp!r}")
 
-    # Seacher object can be passed as argument: searcher: Searcher | None = None,
-    # return HpoModel(searcher or RandonSearcher(2) ...)
-    if searcher is None:
-        searcher = RandomSearcher(3)
-    return HpoModel(searcher, objective, "minimize", search_space)
+    return HpoModel(objective=objective, searcher=searcher, direction="minimize", model_configuration=search_space)

@@ -106,6 +106,7 @@ Use the `@backtest_plot` decorator to register your plot, then inherit from `Bac
 ```python
 from typing import Optional
 import pandas as pd
+import altair as alt
 from chap_core.assessment.backtest_plots import backtest_plot, BacktestPlotBase, ChartType
 
 @backtest_plot(
@@ -120,8 +121,8 @@ class MyCustomPlot(BacktestPlotBase):
         forecasts: pd.DataFrame,
         historical_observations: Optional[pd.DataFrame] = None,
     ) -> ChartType:
-        # Your visualization logic here
-        chart = None
+        # Your visualization logic here; return any Altair chart.
+        chart = alt.Chart(observations).mark_point()
         return chart
 ```
 
@@ -207,7 +208,7 @@ For Chap to discover your plot at startup, you need to import your module in the
 def _discover_plots():
     """Import all plot modules to trigger decorator registration."""
     from chap_core.assessment.backtest_plots import (
-        metrics_dashboard,
+        horizon_location_grid,
         sample_bias_plot,
         evaluation_plot,
         my_custom_plot,  # Add your module here
@@ -308,6 +309,7 @@ If your plot needs historical context (observations from before the test period)
 ```python
 from typing import Optional
 import pandas as pd
+import altair as alt
 from chap_core.assessment.backtest_plots import backtest_plot, BacktestPlotBase, ChartType
 
 @backtest_plot(
@@ -327,7 +329,7 @@ class TrendPlot(BacktestPlotBase):
         if historical_observations is not None:
             # Use historical data for context
             pass
-        return None
+        return alt.Chart(observations).mark_point()
 ```
 
 ### Returning Different Chart Types
@@ -370,9 +372,9 @@ Study these existing implementations as examples:
 
 | File | Description |
 |------|-------------|
-| `sample_bias_plot.py` | Simple plot showing forecast bias |
-| `metrics_dashboard.py` | Dashboard with multiple metrics |
-| `evaluation_plot.py` | Complex plot with historical context |
+| `sample_bias_plot.py` | Aggregate dashboard with no facet dimensions |
+| `predicted_vs_actual_plot.py` | Horizon-faceted scatter of predicted vs actual |
+| `evaluation_plot.py` | Complex faceted plot with historical context |
 
 ### API Reference
 

@@ -22,7 +22,10 @@ def make_plot_from_backtest_object(
     evaluation = Evaluation.from_backtest(backtest)
     flat_data = evaluation.to_flat()
     metric_data = metric.get_detailed_metric(flat_data.observations, flat_data.forecasts)
-    return plotting_class(metric_data, geojson).plot_spec()
+    # Served to the frontend, which embeds the spec in a flexible-width container;
+    # fill it horizontally while keeping the plot's fixed height.
+    chart = plotting_class(metric_data, geojson).plot().properties(width="container")
+    return chart.to_dict(format="vega")
 
 
 def make_plot_from_evaluation_object(

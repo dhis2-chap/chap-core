@@ -196,6 +196,15 @@ class TestEvaluationSerialization:
             rtol=1e-6,
         )
 
+    def test_roundtrip_populates_max_horizon_distance(self, backtest, tmp_path):
+        """from_file should derive max_horizon_distance from the rebuilt forecasts."""
+        evaluation = Evaluation.from_backtest(backtest)
+        output_file = tmp_path / "test_evaluation.nc"
+        evaluation.to_file(filepath=output_file)
+
+        loaded_evaluation = Evaluation.from_file(output_file)
+        assert loaded_evaluation.to_backtest().max_horizon_distance == 4
+
     def test_roundtrip_preserves_observation_data(self, backtest, tmp_path):
         """Test that save/load preserves observation data integrity."""
         evaluation = Evaluation.from_backtest(backtest)

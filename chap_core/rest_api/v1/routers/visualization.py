@@ -1,15 +1,21 @@
 import json
 import logging
+from typing import Any, cast
 
+import altair as alt
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Field, Session
 from starlette.responses import JSONResponse
 
 from chap_core.assessment.backtest_plots import (
+    FacetedBacktestPlot,
     create_plot_from_backtest,
+    get_backtest_plot,
     get_backtest_plots_registry,
     list_backtest_plots,
 )
+from chap_core.assessment.backtest_plots.db_dimensions import DBFacetDimension, load_filtered_flat_data
+from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metric_plots import get_metric_plots_registry, list_metric_plots
 from chap_core.assessment.metrics import available_metrics
 from chap_core.database.base_tables import DBModel
@@ -213,3 +219,115 @@ def generate_backtest_plots(visualization_name: str, backtest_id: int, session: 
 
     chart = create_plot_from_backtest(visualization_name, backtest)
     return JSONResponse(chart.to_dict(format="vega"))
+
+
+def _fill_container_width(chart: alt.TopLevelMixin) -> alt.TopLevelMixin:
+    """Make a subplot fill its width when the frontend embeds it in a flexible container.
+
+    Single-view charts get ``width='container'`` (height is left at the plot's fixed
+    value). Multi-view (concat) and faceted specs can't use container sizing, so their
+    fixed widths are returned untouched.
+    """
+    if isinstance(chart, (alt.ConcatChart, alt.HConcatChart, alt.VConcatChart, alt.FacetChart)):
+        return chart
+    return chart.properties(width="container")
+
+
+def _get_faceted_plotter_and_backtest(
+    plot_id: str, backtest_id: int, session: Session
+) -> tuple[FacetedBacktestPlot, Backtest]:
+    plot_cls = get_backtest_plot(plot_id)
+    if plot_cls is None:
+        raise HTTPException(status_code=404, detail=f"Plot {plot_id} not found")
+
+    if not issubclass(plot_cls, FacetedBacktestPlot):
+        raise HTTPException(status_code=400, detail=f"Plot '{plot_id}' does not support faceting properties")
+
+    backtest = session.get(Backtest, backtest_id)
+    if not backtest:
+        raise HTTPException(status_code=404, detail="Backtest not found")
+
+    return plot_cls(), backtest
+
+
+def _is_db_backed(plotter: FacetedBacktestPlot) -> bool:
+    """True when every facet dimension can be served straight from the database."""
+    return bool(plotter.facet_dimensions) and all(isinstance(dim, DBFacetDimension) for dim in plotter.facet_dimensions)
+
+
+def _get_plotter_and_flat_data(plot_id: str, backtest_id: int, session: Session):
+    plotter, backtest = _get_faceted_plotter_and_backtest(plot_id, backtest_id, session)
+
+    flat_data = Evaluation.from_backtest(backtest).to_flat()
+
+    return plotter, flat_data.observations, flat_data.forecasts, flat_data.historical_observations
+
+
+@router.get("/backtest-plots/{visualization_name}/{backtest_id}/facet-coords")
+def get_facet_coordinates(
+    visualization_name: str, backtest_id: int, session: Session = Depends(get_session)
+) -> dict[str, Any]:
+    """
+    Returns unique structural dimension arrays available for layout faceting grids.
+    """
+    plotter, backtest = _get_faceted_plotter_and_backtest(visualization_name, backtest_id, session)
+
+    if _is_db_backed(plotter):
+        return {
+            cast("DBFacetDimension", dim).clean_name: cast("DBFacetDimension", dim).distinct_values(session, backtest)
+            for dim in plotter.facet_dimensions
+        }
+
+    flat_data = Evaluation.from_backtest(backtest).to_flat()
+    return cast(
+        "dict[str, Any]",
+        plotter.facet_coords(
+            cast("Any", flat_data.observations),
+            cast("Any", flat_data.forecasts),
+            cast("Any", flat_data.historical_observations),
+        ),
+    )
+
+
+@router.post("/backtest-plots/{visualization_name}/{backtest_id}/subplot")
+def generate_isolated_plots(
+    visualization_name: str, backtest_id: int, facet_coords: dict[str, Any], session: Session = Depends(get_session)
+) -> JSONResponse:
+    """
+    Filters the source datasets by exact coordinate targets and generates a single Vega schema spec.
+    """
+    plotter, backtest = _get_faceted_plotter_and_backtest(visualization_name, backtest_id, session)
+
+    if _is_db_backed(plotter):
+        flat_data = load_filtered_flat_data(session, backtest, facet_coords, plotter.facet_dimensions)
+    else:
+        flat_data = Evaluation.from_backtest(backtest).to_flat()
+
+    chart = plotter.get_subplot(
+        cast("Any", flat_data.observations),
+        cast("Any", flat_data.forecasts),
+        facet_coords,
+        cast("Any", flat_data.historical_observations),
+    )
+    return JSONResponse(_fill_container_width(chart).to_dict(format="vega"))
+
+
+@router.get("/backtest-plots/{visualization_name}/{backtest_id}/subplots")
+def generate_all_subplots(
+    visualization_name: str, backtest_id: int, session: Session = Depends(get_session)
+) -> list[dict[str, Any]]:
+    """
+    Generates a full flat checklist mapping coordinate variations against their respective Vega specs.
+    """
+    plotter, observations, forecasts, historical_df = _get_plotter_and_flat_data(
+        visualization_name, backtest_id, session
+    )
+    coords_matrix = plotter.facet_coords(observations, forecasts, historical_df)
+
+    subplot_tuples = plotter.get_subplots(
+        observations, forecasts, coords=coords_matrix, historical_observations=historical_df
+    )
+
+    return [
+        {"key": key, "spec": _fill_container_width(subplot).to_dict(format="vega")} for key, subplot in subplot_tuples
+    ]

@@ -105,14 +105,23 @@ def _report_model_template_config(with_report: bool) -> ModelTemplateConfigV2:
 
 
 def test_external_model_report_invokes_runner(weekly_full_data, tmp_path):
+    working_dir = tmp_path / "workdir"
+    working_dir.mkdir()
+    out_file = tmp_path / "report.pdf"
+
+    def _fake_report(model, historic, out_filename, polygons):
+        # The model command runs with cwd=working_dir, so it writes the report
+        # there using the relative filename it was given.
+        (working_dir / out_filename).write_bytes(b"%PDF-fake")
+
     runner = Mock()
+    runner.report.side_effect = _fake_report
     model = ExternalModel(
         runner=runner,
         name="test_report_model",
-        working_dir=str(tmp_path),
+        working_dir=str(working_dir),
         model_information=_report_model_template_config(with_report=True),
     )
-    out_file = tmp_path / "report.pdf"
 
     model.report(weekly_full_data, out_file)
 
@@ -120,8 +129,12 @@ def test_external_model_report_invokes_runner(weekly_full_data, tmp_path):
     args, _ = runner.report.call_args
     assert args[0] == "model"
     assert args[1] == "report_historic_data.csv"
-    assert args[2] == str(out_file)
-    assert (tmp_path / "report_historic_data.csv").exists()
+    # The runner is given a relative filename, not the user's full out path,
+    # because the model command runs in working_dir.
+    assert args[2] == "report.pdf"
+    assert (working_dir / "report_historic_data.csv").exists()
+    # The generated file is copied from working_dir to the user-supplied path.
+    assert out_file.read_bytes() == b"%PDF-fake"
 
 
 def test_external_model_report_without_entry_point_raises(weekly_full_data, tmp_path):

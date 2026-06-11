@@ -1,7 +1,6 @@
 import dataclasses
 
 import numpy as np
-from sklearn import linear_model
 
 from chap_core.datatypes import ClimateData, ClimateHealthTimeSeries, HealthData
 from chap_core.spatio_temporal_data.temporal_dataclass import (
@@ -64,6 +63,8 @@ class MultiRegionPoissonModel:
         return np.hstack([lagged_values, season])
 
     def train(self, data: DataSet[ClimateHealthTimeSeries]):
+        from sklearn import linear_model
+
         for location, location_data in data.items():
             X = self._create_feature_matrix(location_data)
             y = location_data.disease_cases[1:]  # type: ignore[index]

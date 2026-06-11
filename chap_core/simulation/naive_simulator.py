@@ -11,6 +11,7 @@ import numpy as np
 import pydantic
 from numpy.random import normal, poisson
 
+from chap_core.assessment.flat_representations import max_horizon_distance
 from chap_core.database.dataset_tables import DataSet, Observation
 from chap_core.database.tables import Backtest, BacktestForecast
 
@@ -93,6 +94,7 @@ class BacktestSimulator:
         for i in range(self._params.n_splits):
             forecasts.extend(self.simulate_split(dataset, periods[i : i + self._params.prediction_length]))
         backtest.forecasts = forecasts
+        backtest.max_horizon_distance = max_horizon_distance(forecasts)
         return backtest
 
     def simulate_split(self, dataset: DataSet, periods: list[str]) -> list[Any]:

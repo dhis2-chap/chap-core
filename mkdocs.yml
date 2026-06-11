@@ -69,6 +69,7 @@ not_in_nav: |
   contributor/adding_cli_commands.md
   contributor/creating_custom_backtest_plots.md
   contributor/creating_custom_metrics.md
+  contributor/creating_custom_threshold_strategies.md
   contributor/evaluation_walkthrough_exec.md
   external_models/surplus_after_refactoring.md
   feature_tutorials/index.md
@@ -86,6 +87,9 @@ nav:
           - Updating to a New Version: modeling-app/upgrading-installation.md
           - Enabling Optional Model Services: modeling-app/enabling-optional-model-services.md
       - Managing models: modeling-app/managing-model-templates.md
+      - Troubleshooting:
+          - Viewing Logs: modeling-app/troubleshooting/logs.md
+          - Accessing the Database: modeling-app/troubleshooting/database-access.md
   - For Newcomers:
       - For newcomers: external_models/newcomer.md
       - Learning Modelling: external_models/learn_modelling.md
@@ -124,9 +128,10 @@ nav:
           - Model Explainability: external_models/model_explainability.md
       - CLI:
           - Overview: chap-cli/index.md
-          
+
           - eval Reference: chap-cli/eval-reference.md
           - report Reference: chap-cli/report-reference.md
+          - explain-lime Reference: chap-cli/explain-lime-reference.md
 
   #- Modeling App:
   #  - '!import https://github.com/dhis2-chap/chap-frontend?branch=main&docs_dir=apps/modeling-app/docs'
@@ -135,6 +140,7 @@ nav:
       - Contributors:
           - Getting Started: contributor/getting_started.md
           - Setup: contributor/chap-contributor-setup.md
+          - Local DHIS2 Installation: contributor/local-dhis2-installation.md
           - Windows Setup: contributor/windows_contributors.md
           - Code Overview: contributor/code_overview.md
           - Architecture Diagrams: contributor/architecture_diagrams.md

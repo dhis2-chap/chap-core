@@ -354,6 +354,18 @@ def test_mlflow_runner_report_wraps_execution_errors(tmp_path):
             runner.report("model", "historic.csv", "out.pdf")
 
 
+def test_mlflow_runner_predict_wraps_execution_errors(tmp_path):
+    # predict() must convert mlflow execution failures into ModelFailedException
+    # (like train()/report() do) so callers — e.g. explainability's per-location
+    # fallback — can catch them instead of a raw mlflow ExecutionException.
+    import mlflow.exceptions
+
+    runner = MlFlowTrainPredictRunner(model_path=tmp_path)
+    with patch("mlflow.projects.run", side_effect=mlflow.exceptions.ExecutionException("boom")):
+        with pytest.raises(ModelFailedException):
+            runner.predict("model", "historic.csv", "future.csv", "out.csv")
+
+
 def test_runner_selection_with_conda_env(tmp_path):
     """Test that get_train_predict_runner_from_model_template_config returns CondaTrainPredictRunner when conda_env is set"""
     config = ModelTemplateConfigV2(

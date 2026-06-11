@@ -28,7 +28,7 @@ from chap_core.database.tables import Backtest, BacktestForecast, BacktestMetric
 target_metadata = SQLModel.metadata
 
 # Get database URL from environment variable, with default for local development
-database_url = os.getenv("CHAP_DATABASE_URL", "postgresql://root:thisisnotgoingtobeexposed@localhost:5432/chap_core")
+database_url = os.getenv("CHAP_DATABASE_URL", "postgresql://chap:chap@localhost:5432/chap_core")
 config.set_main_option("sqlalchemy.url", database_url)
 
 
