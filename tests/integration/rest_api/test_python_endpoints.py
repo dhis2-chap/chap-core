@@ -66,7 +66,7 @@ def test_generate_metric_visualization(seeded_session, metric_id, visualization_
     )
 
 
-def test_generate_backtest_plot(seeded_session, visualization_name="metrics_dashboard", backtest_id=1):
+def test_generate_backtest_plot(seeded_session, visualization_name="horizon_location_grid", backtest_id=1):
     assert generate_backtest_plots(
         visualization_name=visualization_name, backtest_id=backtest_id, session=seeded_session
     )

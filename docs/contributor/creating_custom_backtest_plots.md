@@ -208,7 +208,7 @@ For Chap to discover your plot at startup, you need to import your module in the
 def _discover_plots():
     """Import all plot modules to trigger decorator registration."""
     from chap_core.assessment.backtest_plots import (
-        metrics_dashboard,
+        horizon_location_grid,
         sample_bias_plot,
         evaluation_plot,
         my_custom_plot,  # Add your module here
@@ -372,9 +372,9 @@ Study these existing implementations as examples:
 
 | File | Description |
 |------|-------------|
-| `sample_bias_plot.py` | Simple plot showing forecast bias |
-| `metrics_dashboard.py` | Dashboard with multiple metrics |
-| `evaluation_plot.py` | Complex plot with historical context |
+| `sample_bias_plot.py` | Aggregate dashboard with no facet dimensions |
+| `predicted_vs_actual_plot.py` | Horizon-faceted scatter of predicted vs actual |
+| `evaluation_plot.py` | Complex faceted plot with historical context |
 
 ### API Reference
 
