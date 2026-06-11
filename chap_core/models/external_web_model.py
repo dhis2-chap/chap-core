@@ -1,7 +1,6 @@
 import io
 import logging
 import time
-import uuid
 from pathlib import Path
 
 import pandas as pd
@@ -13,6 +12,7 @@ from chap_core.exceptions import ModelFailedException
 from chap_core.geometry import Polygons
 from chap_core.models.external_model import ExternalModelBase
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.util import generate_short_id
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +69,10 @@ class ExternalWebModel(ExternalModelBase):
     @property
     def name(self):
         return self._name
+
+    @property
+    def model_information(self):
+        return None
 
     @property
     def configuration(self):
@@ -155,7 +159,7 @@ class ExternalWebModel(ExternalModelBase):
             files["config"] = ("config.yaml", config_yaml, "text/yaml")  # type: ignore[assignment]
 
         # Generate unique model name for this training session
-        self._trained_model_name = f"{self._name}_{uuid.uuid4().hex[:8]}"
+        self._trained_model_name = f"{self._name}_{generate_short_id()}"
 
         data = {
             "model_name": self._trained_model_name,

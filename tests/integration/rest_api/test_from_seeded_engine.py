@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 from starlette.testclient import TestClient
 
 from chap_core.database.dataset_tables import DataSet
-from chap_core.database.tables import BackTestRead
+from chap_core.database.tables import BacktestRead
 from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.routers.dependencies import get_session
 
@@ -53,6 +53,11 @@ def test_actual_cases_dataset(override_session):
     assert len(actual_cases) >= 3
 
 
+def test_actual_cases_alias(override_session):
+    actual_cases = client.get_json("/v1/analytics/actual-cases/1")
+    assert len(actual_cases) >= 3
+
+
 def test_get_prediction_entries(override_session):
     params = {"predictionId": 1, "quantiles": [0.0, 0.5, 0.9]}
     prediction_entries = client.get_json("/v1/analytics/prediction-entry", params=params)
@@ -60,7 +65,7 @@ def test_get_prediction_entries(override_session):
 
 
 def test_get_backtest(override_session):
-    backtest: BackTestRead = client.get_obj("/v1/crud/backtests/1/info", __model__=BackTestRead)
+    backtest: BacktestRead = client.get_obj("/v1/crud/backtests/1/info", __model__=BacktestRead)
     dataset = backtest.dataset
     assert dataset.data_sources is not None
     assert dataset.data_sources[0].covariate == "mean_temperature"
@@ -69,7 +74,7 @@ def test_get_backtest(override_session):
     assert dataset.last_period
 
 
-@pytest.mark.parametrize("plot_name", ["standardized-feature", "seasonal-correlation-plot"])
+@pytest.mark.parametrize("plot_name", ["standardized-feature-plot", "seasonal-correlation-plot"])
 def test_data_plot(override_session, tmp_path, plot_name):
     response = client.get("/v1/visualization/dataset-plots/%s/2" % plot_name)
     assert response.status_code == 200, response.json()
@@ -88,6 +93,22 @@ def test_dataset_df(override_session):
     # assert "cases" in df[0], df[0].keys()
 
 
+def test_metrics_csv(override_session):
+    response = client.get("/v1/crud/metric/csv", params={"backtestId": 1})
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"].startswith("text/csv")
+    lines = response.text.strip().splitlines()
+    assert lines[0] == "metric_id,location,time_period,horizon_distance,metric"
+    assert len(lines) > 1
+    metric_ids = {line.split(",", 1)[0] for line in lines[1:]}
+    assert {"crps", "mae", "rmse"}.issubset(metric_ids)
+
+
+def test_metrics_csv_missing(override_session):
+    response = client.get("/v1/crud/metric/csv", params={"backtestId": 9999})
+    assert response.status_code == 404
+
+
 def test_backtest_plot(override_session, tmp_path):
     response = client.get("/v1/visualization/backtest-plots/evaluation_plot/1")
     assert response.status_code == 200, response.json()
@@ -95,6 +116,47 @@ def test_backtest_plot(override_session, tmp_path):
     html_template = wrap_vega_spec(vega_spec)
     # with open(tmp_path/"chap_core_chart.html", "w") as f:
     #    f.write(html_template)
+
+
+def test_threshold_strategies_discovery(override_session):
+    strategies = client.get_json("/v1/analytics/thresholds/strategies")
+    ids = {s["id"] for s in strategies}
+    assert "seasonal" in ids
+    seasonal = next(s for s in strategies if s["id"] == "seasonal")
+    assert seasonal["displayName"]
+    assert seasonal["description"]
+
+
+def test_compute_thresholds(override_session):
+    body = {"dataset_id": 1, "period_ids": ["2023-01", "2023-02"], "strategy": "seasonal"}
+    response = client.post("/v1/analytics/thresholds", json=body)
+    assert response.status_code == 200, response.json()
+    entries = response.json()
+    # 2 requested periods x 3 locations in the seeded dataset
+    assert len(entries) == 6
+    assert {e["period"] for e in entries} == {"2023-01", "2023-02"}
+    assert {e["location"] for e in entries} == {"loc_1", "loc_2", "loc_3"}
+    assert all(e["value"] is not None for e in entries)
+
+
+def test_compute_thresholds_filters_by_locations(override_session):
+    body = {"dataset_id": 1, "period_ids": ["2023-01"], "strategy": "seasonal", "locations": ["loc_1"]}
+    response = client.post("/v1/analytics/thresholds", json=body)
+    assert response.status_code == 200, response.json()
+    entries = response.json()
+    assert {e["location"] for e in entries} == {"loc_1"}
+
+
+def test_compute_thresholds_unknown_strategy(override_session):
+    body = {"dataset_id": 1, "period_ids": ["2023-01"], "strategy": "does_not_exist"}
+    response = client.post("/v1/analytics/thresholds", json=body)
+    assert response.status_code == 404, response.text
+
+
+def test_compute_thresholds_unknown_dataset(override_session):
+    body = {"dataset_id": 9999, "period_ids": ["2023-01"], "strategy": "seasonal"}
+    response = client.post("/v1/analytics/thresholds", json=body)
+    assert response.status_code == 404, response.text
 
 
 def wrap_vega_spec(vega_spec) -> str:

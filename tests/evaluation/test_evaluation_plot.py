@@ -5,13 +5,28 @@ import pandas as pd
 import pytest
 
 from chap_core.assessment.metrics import CRPSMetric, RMSEMetric
-from chap_core.database.tables import BackTestMetric
-from chap_core.plotting.evaluation_plot import MetricByHorizonV2Mean, MetricMapV2, make_plot_from_backtest_object
+from chap_core.assessment.evaluation import Evaluation
+from chap_core.database.tables import BacktestMetric
+from chap_core.assessment.metric_plots.horizon_location_mean import MetricByHorizonAndLocationMean
+from chap_core.assessment.metric_plots.horizon_mean import MetricByHorizonV2Mean
+from chap_core.assessment.metric_plots.metric_map import MetricMapV2
+from chap_core.assessment.metric_plots.regional_distribution import RegionalMetricDistributionPlot
+from chap_core.plotting.evaluation_plot import (
+    make_plot_from_backtest_object,
+    make_plot_from_evaluation_object,
+)
+
+import altair as alt
+
+
+@pytest.fixture(autouse=True)
+def default_altair_transformer():
+    alt.data_transformers.enable("default")
+    yield
 
 
 @pytest.fixture
 def rwanda_geojson():
-    path = Path("/Users/knutdr/Data/ch_data/rainfall_pop_temp_cases.json")
     path = Path("rainfall_pop_temp_cases.json")
     if not path.exists():
         pytest.skip("Local data not found")
@@ -25,7 +40,7 @@ def rwanda_orgunits(rwanda_geojson) -> list[str]:
 
 
 @pytest.fixture
-def rwanda_metrics(rwanda_orgunits) -> list[BackTestMetric]:
+def rwanda_metrics(rwanda_orgunits) -> list[BacktestMetric]:
     time_periods = ["2022-02", "2022-03"]
     rows = [
         {"location": ou, "time_period": tp, "horizon_distance": 1, "metric": float((i * o + o) % 5)}
@@ -53,3 +68,51 @@ def test_evaluation_plot_from_backtest_object(backtest_weeks_large, plot_class):
     make_plot_from_backtest_object(
         simulated_backtest, plot_class, CRPSMetric(), geojson=simulated_backtest.dataset.geojson
     )
+
+
+def test_make_plot_from_backtest_object_uses_container_width(backtest_weeks_large):
+    """The API serves metric specs to a frontend that embeds them in a flexible-width
+    container, so the compiled spec fills width via 'container' (height stays fixed)."""
+    spec = make_plot_from_backtest_object(
+        backtest_weeks_large, MetricByHorizonV2Mean, CRPSMetric(), geojson=backtest_weeks_large.dataset.geojson
+    )
+    width_signal = next(s for s in spec["signals"] if s["name"] == "width")
+    assert "containerSize" in width_signal["init"]
+
+
+def test_regional_metric_distribution_plot_contains_boxplot_and_mean_points(backtest_weeks):
+    evaluation = Evaluation.from_backtest(backtest_weeks)
+    flat_data = evaluation.to_flat()
+    metric_data = CRPSMetric().get_detailed_metric(flat_data.observations, flat_data.forecasts)
+
+    spec = RegionalMetricDistributionPlot(metric_data).plot().to_dict()
+
+    assert "layer" in spec
+    assert any(layer.get("mark", {}).get("type") == "boxplot" for layer in spec["layer"])
+    assert any(layer.get("mark", {}).get("type") == "point" for layer in spec["layer"])
+
+
+def test_regional_metric_distribution_plot_returns_message_on_empty_data(backtest_weeks):
+    evaluation = Evaluation.from_backtest(backtest_weeks)
+    flat_data = evaluation.to_flat()
+    metric_data = CRPSMetric().get_detailed_metric(flat_data.observations, flat_data.forecasts)
+    empty_metric_data = metric_data.iloc[0:0]
+
+    spec = RegionalMetricDistributionPlot(empty_metric_data).plot().to_dict()
+
+    assert spec["mark"]["type"] == "text"
+    assert "datasets" in spec
+    assert any(
+        "No valid rows available for boxplot statistics" in json.dumps(dataset) for dataset in spec["datasets"].values()
+    )
+
+
+def test_make_plot_from_evaluation_object(backtest):
+    """Test that make_plot returns an altair Chart."""
+    evaluation = Evaluation.from_backtest(backtest)
+
+    result = make_plot_from_evaluation_object(
+        evaluation, plotting_class=MetricByHorizonAndLocationMean, metric=RMSEMetric()
+    )
+
+    assert isinstance(result, alt.Chart)

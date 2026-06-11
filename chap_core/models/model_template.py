@@ -99,7 +99,11 @@ class ModelTemplate:
     def get_default_model(self) -> ExternalModel:
         return self.get_model()
 
-    def get_model(self, model_configuration: ModelConfiguration | None = None) -> ExternalModel:
+    def get_model(
+        self,
+        model_configuration: ModelConfiguration | None = None,
+        prediction_length: int | None = None,
+    ) -> ExternalModel:
         """
         Returns a model based on the model configuration. The model configuration is an object of the class
         returned by get_model_class (i.e. specified by the user). If no model configuration is passed, the default
@@ -109,6 +113,10 @@ class ModelTemplate:
         ----------
         model_configuration : ModelConfiguration, optional
             The configuration for the model, by default None
+        prediction_length : int, optional
+            Forecast horizon (number of periods) the model will be asked to predict.
+            When supplied, written into ``model_configuration_for_run.yaml`` so
+            MLproject-based models can read it at both train and predict time.
 
         Returns
         -------
@@ -145,6 +153,7 @@ class ModelTemplate:
             self._ignore_env,
             model_configuration,
             dry_run=self._dry_run,
+            prediction_length=prediction_length,
         )
 
         config = self._model_template_config

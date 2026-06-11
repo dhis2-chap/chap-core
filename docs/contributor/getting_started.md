@@ -11,11 +11,11 @@ This document describes how to get started for contributing to the chap-core cod
 
 ## Getting started working with the chap-core codebase
 
-If you're new to Chap Core, it can be useful to see [the code overview guide](code_overview) for a brief overview of the code base.
+If you're new to Chap Core, it can be useful to see [the code overview guide](code_overview.md) for a brief overview of the code base.
 
 ### Windows users
 
-Windows users who wish to contribute to Chap Core should [start by reading this important note](windows_contributors).
+Windows users who wish to contribute to Chap Core should [start by reading this important note](windows_contributors.md).
 
 ### Development setup
 
@@ -25,25 +25,7 @@ Installing and activating the development environment above is a required step f
 
 ### Local installation of a DHIS2 instance with the DHIS2 Modeling app
 
-If you want to test chap-core with the Modeling app, follow these steps to set up a local installation of DHIS2.
-
-We have an internal database that can be used to set up a DHIS2 instance with testdata. If you are an internal developer, you will have access to this through our internal drive. Follow these steps (if you don't have access to this database, and want to set up a general instance, see steps below):
-
-- Download the zip-file, unzip it and run `docker compose up` in the unzipped directory.
-  - Note: If you are on linux, you will have to edit the docker-compose.yaml file and change `platform` to `linux/amd64`.
-  - Note: You may have to restart the web docker container if this started before the db container was up.
-- Run analytics by opening Data administration, go to analytics tables, uncheck all boxes and click "Start export"
-
-To set up a DHIS2 instance without this test db, do the following:
-
-- [Follow these instructions](https://developers.dhis2.org/docs/cli) to install the DHIS2 cli tools
-- Spin up a DHIS2 instance by running `d2 cluster up 2.41 --db-version 2.41` ([More details here](https://developers.dhis2.org/docs/cli/cluster)). Change the version number with whatever version you want.
-
-After following any of the guides above, you should have a DHIS2 instance running at localhost:8080.
-
-- Go to that url in your webbrowser and log in.
-- First install the `App Management` app, then install the app called `Modeling` through the App Hub.
-- In the Modeling app, you will be told to put in an url to Chap. Since DHIS2 runs through a Docker container, you will need to put in an IP to your local computer. This ip can be found by running `ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}'` in your terminal (you may have to install ifconfig). Put `http://` before that IP and `:8000/**` after, e.g. `http://172.18.0.1:8000/**`.
+If you want to test chap-core with the Modeling app, see [Local installation of a DHIS2 instance with the DHIS2 Modeling app](local-dhis2-installation.md) for how to set up a local installation of DHIS2.
 
 ### Code guidelines
 
@@ -71,7 +53,7 @@ The Chap Core codebase relies heavily on testing to ensure that the code works p
 $ pytest tests/test_polygons.py
 ```
 
-See more about our guidelines for testing in the [testing guide](testing).
+See more about our guidelines for testing in the [testing guide](testing.md).
 
 ### Code formatting
 
@@ -102,7 +84,7 @@ More detailed guidelines for how to write and build the documentation [can be fo
 
 Code contributions should always be made to the `dev` branch first. When the `dev` branch has been used and tested for some time, the Chap team will merge this into the `master` branch.
 
-Before making your contribution, always [run the quick test suite](testing) to make sure everything works.
+Before making your contribution, always [run the quick test suite](testing.md) to make sure everything works.
 
 Most of the time, contributions should be made on a new branch, and creating a [Pull Request](https://github.com/dhis2-chap/chap-core/pulls) targeting the `dev` branch of the chap-core repository.
 

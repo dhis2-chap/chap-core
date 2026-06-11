@@ -1,4 +1,4 @@
-FROM python:3.12.0-slim
+FROM python:3.13-slim
 
 COPY tests/docker_db_flow_r_model.py docker_db_flow_r_model.py
 COPY example_data example_data

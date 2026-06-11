@@ -1,6 +1,4 @@
-import dataclasses
 import datetime
-import json
 import logging
 
 # CHeck if CHAP_DATABASE_URL is set in the environment
@@ -14,23 +12,16 @@ import sqlalchemy
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from chap_core.datatypes import FullData, create_tsdataclass
-from chap_core.geometry import Polygons
 from chap_core.log_config import is_debug_mode
 from chap_core.predictor.naive_estimator import NaiveEstimator
-from chap_core.time_period import Month, Week
 
 from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
 from ..models.external_chapkit_model import ExternalChapkitModelTemplate
-from ..spatio_temporal_data.converters import observations_to_dataset
-from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
-from .dataset_tables import DataSet, DataSetCreateInfo, DataSetInfo, Observation
-from .debug import DebugEntry
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
-from .tables import BackTest, Prediction, PredictionSamplesEntry
+from .tables import Backtest, Prediction, PredictionSamplesEntry
 
 logger = logging.getLogger(__name__)
 engine = None
@@ -67,6 +58,9 @@ class SessionWrapper:
     This is a wrapper around data access operations.
     This class handles cases when putting things in/out of db requires
     more than just adding/getting a row, e.g. transforming data etc.
+
+    Dataset reads/writes are not here: use ``DataSetManager(session)``
+    (``chap_core.database.dataset_manager``) for those.
     """
 
     def __init__(self, local_engine=None, session=None):
@@ -90,64 +84,53 @@ class SessionWrapper:
     def list_all(self, model):
         return self.session.exec(select(model)).all()
 
-    def create_if_not_exists(self, model, id_name="id"):
-        logging.info(f"Create if not exist with {model}")
-        T = type(model)
-        if not self.session.exec(select(T).where(getattr(T, id_name) == getattr(model, id_name))).first():
-            self.session.add(model)
-            self.session.commit()
-        return model
-
-    def add_model_template(self, model_template: ModelTemplateDB) -> int:
+    def _if_exists(self, model_name: str) -> ModelTemplateDB | None:
         # check if model template already exists
-        existing_template = self.session.exec(
-            select(ModelTemplateDB).where(ModelTemplateDB.name == model_template.name)
-        ).first()
-        if existing_template:
-            logger.info(f"Model template with name {model_template.name} already exists. Returning existing id")
-            return cast("int", existing_template.id)
+        existing_template = self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == model_name)).first()
+        return existing_template
 
+    def _return_model_template_id(self, model_name: str, existing_template: ModelTemplateDB) -> int:
+        logger.info(f"Model template with name {model_name} already exists. Returning existing id")
+        return cast("int", existing_template.id)
+
+    def _update_model_template(self, existing_template: ModelTemplateDB, new_model_template: ModelTemplateDB) -> int:
+        logger.info(f"Model template with name {new_model_template.name} already exists. Updating it")
+        # Update the existing template with new data except id and fields newly added when casted to ModelTemplateDB
+        data = new_model_template.model_dump(exclude={"id"}, exclude_unset=True)
+        for key, value in data.items():
+            if hasattr(existing_template, key):
+                setattr(existing_template, key, value)
+        # Unarchive if it was previously archived
+        existing_template.archived = False
+        self.session.commit()
+        return cast("int", existing_template.id)
+
+    def _add_model_template(self, model_template: ModelTemplateDB) -> int:
         # add db entry
         logger.info(f"Adding model template: {model_template}")
         self.session.add(model_template)
         self.session.commit()
-
         # return id
         return cast("int", model_template.id)
 
-    def add_model_template_from_yaml_config(self, model_template_config: ModelTemplateConfigV2) -> int:
-        """Sets the ModelSpecRead a yaml string.
-        Note that the yaml string is what's defined in a model template's MLProject file,
-        so source_url will have to be added manually."""
-        # TODO: maybe just use add_model_template and make sure to structure it correctly first
-        # TODO: needs cleanup
-        # TODO: existing check should probably use name instead of source url
-        # parse yaml content as dict
-        existing_template = self.session.exec(
-            select(ModelTemplateDB).where(ModelTemplateDB.name == model_template_config.name)
-        ).first()
+    def add_or_update_model_template(self, model_template: ModelTemplateDB, update: bool) -> int:
+        model_name = model_template.name
+        existing_template = self._if_exists(model_name)
+        if existing_template:
+            if update:
+                return self._update_model_template(existing_template, new_model_template=model_template)
+            else:
+                return self._return_model_template_id(model_name, existing_template)
+        else:
+            return self._add_model_template(model_template)
 
+    def add_model_template_from_yaml_config(self, model_template_config: ModelTemplateConfigV2) -> int:
+        # convert yaml config to model template db object and add to db
         d = model_template_config.model_dump()
         info = d.pop("meta_data")
         d = d | info
-
-        if existing_template:
-            logger.info(f"Model template with name {model_template_config.name} already exists. Updating it")
-            # Update the existing template with new data
-            for key, value in d.items():
-                if hasattr(existing_template, key):
-                    setattr(existing_template, key, value)
-            # Unarchive if it was previously archived
-            existing_template.archived = False
-            self.session.commit()
-            return cast("int", existing_template.id)
-
-        # Create new template
-        db_object = ModelTemplateDB(**d)
-        logger.info(f"Adding model template: {db_object}")
-        self.session.add(db_object)
-        self.session.commit()
-        return cast("int", db_object.id)
+        model_template = ModelTemplateDB(**d)
+        return self.add_or_update_model_template(model_template, update=True)
 
     def add_configured_model(
         self,
@@ -160,7 +143,8 @@ class SessionWrapper:
         model_template = self.session.exec(
             select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)
         ).first()
-        assert model_template is not None, f"Model template with id {model_template_id} not found"
+        if model_template is None:
+            raise ValueError(f"Model template with id {model_template_id} not found")
         template_name = model_template.name
 
         # set configured name
@@ -185,7 +169,12 @@ class SessionWrapper:
             model_template=model_template,
             uses_chapkit=uses_chapkit,
         )
-        configured_model.validate_user_options(configured_model)
+        # Chapkit owns its config schema and validates server-side; chap-core
+        # stores user_option_values={} as a "use chapkit defaults" sentinel.
+        # The local heuristic-based validator wrongly flags any default_factory
+        # field as required (no literal "default" key in the schema), so skip it.
+        if not uses_chapkit:
+            configured_model.validate_user_options(configured_model)
         # configured_model.validate_user_options(model_template)
         logger.info(f"Adding configured model: {configured_model}")
         self.session.add(configured_model)
@@ -229,18 +218,7 @@ class SessionWrapper:
                 raise
 
             # add display name for configuration (not stored in db)
-            # stitch together template displayName with configured name stub
-            template_display_name = configured_model.model_template.display_name
-            if ":" in configured_model.name:
-                # configured model name is already stitched together as template_name:configuration_name
-                configuration_stub = configured_model.name.split(":")[-1]
-                # combine model template with configuration name to make the name unique
-                configuration_display_name = configuration_stub.replace("_", " ").capitalize()
-                display_name = f"{template_display_name} [{configuration_display_name}]"
-            else:
-                # default configurations just use the display name of their model template
-                display_name = template_display_name
-            configured_data["display_name"] = display_name
+            configured_data["display_name"] = configured_model.display_name
 
             # merge json data and add to results
             # NOTE: the sequence is important, starting with template data and add/overwrite with configured model data
@@ -384,7 +362,9 @@ class SessionWrapper:
             self.session.commit()
         return cast("str", live_url)
 
-    def get_configured_model_with_code(self, configured_model_id: int) -> ConfiguredModel:
+    def get_configured_model_with_code(
+        self, configured_model_id: int, prediction_length: int | None = None
+    ) -> ConfiguredModel:
         logger.info(f"Getting configured model with id {configured_model_id}")
         configured_model = self.session.get(ConfiguredModelDB, configured_model_id)
         if configured_model is None:
@@ -408,7 +388,7 @@ class SessionWrapper:
             template = ExternalChapkitModelTemplate(source_url)
             logger.info(f"template: {template}")
             logger.info(f"configured_model: {configured_model}")
-            return template.get_model(configured_model)  # type: ignore[arg-type, return-value]
+            return template.get_model(configured_model, prediction_length=prediction_length)  # type: ignore[arg-type, return-value]
         else:
             logger.info(f"Assuming github model at {configured_model.model_template.source_url}")
             return cast(
@@ -416,7 +396,7 @@ class SessionWrapper:
                 ModelTemplate.from_directory_or_github_url(
                     configured_model.model_template.source_url,
                     ignore_env=ignore_env,
-                ).get_model(configured_model),  # type: ignore[arg-type]
+                ).get_model(configured_model, prediction_length=prediction_length),  # type: ignore[arg-type]
             )
 
     def get_model_template(self, model_template_id: int) -> ModelTemplateDB:
@@ -425,23 +405,19 @@ class SessionWrapper:
             raise ValueError(f"Model template with id {model_template_id} not found")
         return model_template
 
-    def get_backtest_with_truth(self, backtest_id: int) -> BackTest:
-        backtest = self.session.get(BackTest, backtest_id)
-        if backtest is None:
-            raise ValueError(f"Backtest with id {backtest_id} not found")
-        dataset = backtest.dataset
-        if dataset is None:
-            raise ValueError(f"Dataset for backtest with id {backtest_id} not found")
-        entries = backtest.forecasts
-        if entries is None or len(entries) == 0:
-            raise ValueError(f"No forecasts found for backtest with id {backtest_id}")
-        return backtest
-
-    def add_backtest(self, backtest: BackTest) -> None:
+    def add_backtest(self, backtest: Backtest) -> None:
         self.session.add(backtest)
         self.session.commit()
 
-    def add_predictions(self, predictions, dataset_id, model_id, name, metadata: dict | None = None):
+    def add_predictions(
+        self,
+        predictions,
+        dataset_id,
+        model_id,
+        name,
+        metadata: dict | None = None,
+        prediction_setup_id: int | None = None,
+    ):
         if metadata is None:
             metadata = {}
         n_periods = len(next(iter(predictions.values())))
@@ -463,100 +439,11 @@ class SessionWrapper:
             forecasts=samples_,
             org_units=org_units,
             model_db_id=model_db_id,
+            prediction_setup_id=prediction_setup_id,
         )
         self.session.add(prediction)
         self.session.commit()
         return prediction.id
-
-    def add_dataset_from_csv(self, name: str, csv_path: Path, geojson_path: Path | None = None):
-        dataset = _DataSet.from_csv(csv_path, dataclass=FullData)
-        geojson_content = open(geojson_path).read() if geojson_path else None
-        features = None
-        if geojson_content is not None:
-            features = Polygons.from_geojson(json.loads(geojson_content), id_property="NAME_1").feature_collection()
-            features = features.model_dump_json()
-
-        return self.add_dataset(DataSetCreateInfo(name=name), dataset, features)
-
-    def add_dataset(self, dataset_info: DataSetCreateInfo, orig_dataset: _DataSet, polygons):
-        """
-        Add a dataset to the database. The dataset is provided as a spatio-temporal dataclass.
-        The polygons should be provided as a geojson feature collection.
-        The dataset_info should contain information about the dataset, such as its name and data sources.
-        The function sets some derived fields in the dataset_info, such as the first and last time period and the covariates.
-        The function returns the id of the newly created dataset.
-        """
-        logger.info(
-            f"Adding dataset {dataset_info.name} with {len(list(orig_dataset.locations()))} locations and {len(orig_dataset.period_range)} time periods"
-        )
-        field_names = [
-            field.name
-            for field in dataclasses.fields(next(iter(orig_dataset.values())))
-            if field.name not in ["time_period", "location"]
-        ]
-        logger.info(f"Field names in dataset: {field_names}")
-        if isinstance(orig_dataset.period_range[0], Month):
-            period_type = "month"
-        else:
-            assert isinstance(orig_dataset.period_range[0], Week), orig_dataset.period_range[0]
-            period_type = "week"
-        full_info = DataSetInfo(
-            first_period=orig_dataset.period_range[0].id,
-            last_period=orig_dataset.period_range[-1].id,
-            covariates=field_names,
-            created=datetime.datetime.now(),
-            org_units=list(orig_dataset.locations()),
-            period_type=period_type,
-            **dataset_info.model_dump(),
-        )
-        dataset = DataSet(geojson=polygons, **full_info.model_dump())
-
-        for location, data in orig_dataset.items():
-            field_names = [
-                field.name for field in dataclasses.fields(data) if field.name not in ["time_period", "location"]
-            ]
-            for row in data:
-                for field in field_names:
-                    observation = Observation(
-                        period=row.time_period.id,
-                        org_unit=location,
-                        value=float(getattr(row, field)),
-                        feature_name=field,
-                    )
-                    dataset.observations.append(observation)
-
-        self.session.add(dataset)
-        self.session.commit()
-        assert self.session.exec(select(Observation).where(Observation.dataset_id == dataset.id)).first() is not None
-        return dataset.id
-
-    def get_dataset(self, dataset_id: int, dataclass: type | None = None) -> _DataSet:
-        dataset = self.session.get(DataSet, dataset_id)
-        if dataset is None:
-            raise ValueError(f"Dataset with id {dataset_id} not found")
-        if dataclass is None:
-            logger.info(f"Getting dataset with covariates: {dataset.covariates} and name: {dataset.name}")
-            field_names = dataset.covariates
-            dataclass = create_tsdataclass(field_names)
-        observations = dataset.observations
-        new_dataset = observations_to_dataset(dataclass, observations)
-
-        if dataset.geojson:
-            logger.info(f"Loading polygons from geojson for dataset id {dataset_id}")
-            new_dataset.set_polygons(Polygons.from_geojson(json.loads(dataset.geojson), id_property="district").data)
-
-        return cast("_DataSet", new_dataset)
-
-    def get_dataset_by_name(self, dataset_name: str) -> DataSet | None:
-        dataset = self.session.exec(select(DataSet).where(DataSet.name == dataset_name)).first()
-        return dataset
-
-    def add_debug(self):
-        """Function for debuging"""
-        debug_entry = DebugEntry(timestamp=time.time())
-        self.session.add(debug_entry)
-        self.session.commit()
-        return debug_entry.id
 
 
 def _run_alembic_migrations(engine):

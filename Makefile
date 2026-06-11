@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs help install lint lint/flake8 test-chapkit-compose force-restart restart chap-version
+.PHONY: clean coverage dist docs help install lint lint/flake8 check regen-plot-help test-chapkit-compose force-restart restart chap-version
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -37,8 +37,25 @@ lint: ## check and fix code style with ruff, run type checking
 	@echo "Type checking (pyright)..."
 	uv run pyright
 
-test: ## run tests quickly with minimal output
+check: check-alembic-heads ## non-mutating lint + type checks (used in CI)
+	@echo "Ruff check..."
+	uv run ruff check
+	@echo "Ruff format check..."
+	uv run ruff format --check
+	@echo "Type checking (mypy)..."
+	uv run mypy
+	@echo "Type checking (pyright)..."
+	uv run pyright
+
+check-alembic-heads: ## fail if the alembic migration chain has more than one head
+	@echo "Alembic head count..."
+	@uv run python -c "from alembic.config import Config; from alembic.script import ScriptDirectory; heads = ScriptDirectory.from_config(Config('alembic.ini')).get_heads(); assert len(heads) == 1, f'Expected 1 alembic head, found {len(heads)}: {heads}'; print(f'OK: single head {heads[0]}')"
+
+test: ## run tests quickly with minimal output (sequential; snappy startup)
 	uv run pytest -q
+
+test-parallel: ## run tests across all cores via pytest-xdist (faster wall time, slow startup)
+	uv run pytest -q -n auto --dist loadfile
 
 test-docs: ## run fast documentation code block tests
 	uv run pytest tests/test_documentation.py -v
@@ -74,8 +91,8 @@ coverage: ## run tests with coverage reporting
 	@uv run coverage xml
 	@echo "Coverage report: htmlcov/index.html"
 
-docs: ## generate MkDocs HTML documentation
-	uv run mkdocs build
+docs: ## generate MkDocs HTML documentation (strict: warnings fail the build)
+	NO_MKDOCS_2_WARNING=1 uv run mkdocs build --strict
 	@echo "Docs: site/index.html"
 
 dist: clean ## build source and wheel package
@@ -85,11 +102,14 @@ dist: clean ## build source and wheel package
 install: clean ## sync dependencies and install package in development mode
 	uv sync
 
+regen-plot-help: ## regenerate chap_core/cli_endpoints/generated_plot_ids.py from @backtest_plot decorators
+	@uv run python scripts/regenerate_plot_help.py
+
 force-restart: ## tear down, rebuild, and start docker compose from scratch (WIPES VOLUMES including chap-db)
-	docker compose -f compose.yml -f compose.ewars.yml down -v && docker compose -f compose.yml -f compose.ewars.yml build --no-cache && docker compose -f compose.yml -f compose.ewars.yml up --remove-orphans
+	docker compose -f compose.yml -f compose.chapkit.yml down -v && docker compose -f compose.yml -f compose.chapkit.yml build --no-cache && docker compose -f compose.yml -f compose.chapkit.yml up --remove-orphans
 
 restart: ## soft restart docker compose (preserves volumes; rebuilds only on source changes)
-	docker compose -f compose.yml -f compose.ewars.yml down && docker compose -f compose.yml -f compose.ewars.yml up -d --build --remove-orphans && $(MAKE) chap-version
+	docker compose -f compose.yml -f compose.chapkit.yml down && docker compose -f compose.yml -f compose.chapkit.yml up -d --build --remove-orphans && $(MAKE) chap-version
 
 chap-version: ## print the chap_core version running inside the chap container
-	@docker compose -f compose.yml -f compose.ewars.yml exec -T chap python -c 'import chap_core; print(f"chap_core running in container: {chap_core.__version__}")' 2>/dev/null || echo "chap container not running"
+	@docker compose -f compose.yml -f compose.chapkit.yml exec -T chap python -c 'import chap_core; print(f"chap_core running in container: {chap_core.__version__}")' 2>/dev/null || echo "chap container not running"

@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from sqlmodel import select, Session
 
-from chap_core.database.tables import BackTest
-from chap_core.rest_api.data_models import BackTestFull
+from chap_core.database.tables import Backtest
+from chap_core.rest_api.data_models import BacktestFull
 from chap_core.rest_api.v1.routers.visualization import (
     get_available_metrics,
     generate_visualization,
@@ -33,7 +33,7 @@ def load_backtest():
         pytest.skip("Weird backtest data not available")
     json_data = json.load(open(path))
     print(json_data.keys())
-    return BackTestFull.model_validate(json_data)
+    return BacktestFull.model_validate(json_data)
 
 
 @pytest.fixture
@@ -51,7 +51,7 @@ def seeded_session_with_weird_backtest(seeded_session: Session):
     all_metric_ids()[:1],
 )
 def test_generate_metric_visualization_weird_backtest(
-    seeded_session_with_weird_backtest, metric_id, visualization_name="MetricByHorizonV2Mean"
+    seeded_session_with_weird_backtest, metric_id, visualization_name="metric_by_horizon_mean"
 ):
     session, backtest_id = seeded_session_with_weird_backtest
     assert generate_visualization(
@@ -60,13 +60,13 @@ def test_generate_metric_visualization_weird_backtest(
 
 
 @pytest.mark.parametrize("metric_id", all_metric_ids())
-def test_generate_metric_visualization(seeded_session, metric_id, visualization_name="MetricByHorizonV2Mean"):
+def test_generate_metric_visualization(seeded_session, metric_id, visualization_name="metric_by_horizon_mean"):
     assert generate_visualization(
         visualization_name=visualization_name, backtest_id=1, metric_id=metric_id, session=seeded_session
     )
 
 
-def test_generate_backtest_plot(seeded_session, visualization_name="metrics_dashboard", backtest_id=1):
+def test_generate_backtest_plot(seeded_session, visualization_name="horizon_location_grid", backtest_id=1):
     assert generate_backtest_plots(
         visualization_name=visualization_name, backtest_id=backtest_id, session=seeded_session
     )
@@ -74,7 +74,7 @@ def test_generate_backtest_plot(seeded_session, visualization_name="metrics_dash
 
 @pytest.fixture
 def backtest_ids(seeded_session):
-    backtests = seeded_session.exec(select(BackTest)).all()
+    backtests = seeded_session.exec(select(Backtest)).all()
     return [bt.id for bt in backtests]
 
 

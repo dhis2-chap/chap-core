@@ -1,1 +1,2 @@
-n_lag_periods: 3
+user_option_values:
+  n_lag_periods: 3

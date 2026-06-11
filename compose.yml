@@ -9,6 +9,7 @@ services:
       CELERY_BROKER: redis://redis:6379/0
       CHAP_LOGS_DIR: /data/logs
       CHAP_RUNS_DIR: /data/runs
+      CHAP_ROOT_PATH: ${CHAP_ROOT_PATH:-}
     # for now some of the tests uses hardcoded names so we need to set the container name
     # TODO: Update the tests so they don't rely on hardcoded container names
     container_name: chap
@@ -65,6 +66,12 @@ services:
       CHAP_RUNS_DIR: /data/runs
       PYTENSOR_FLAGS: "base_compiledir=/data/pytensor"
     command: "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks worker --loglevel=info"
+    healthcheck:
+      test: ["CMD-SHELL", "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks inspect ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     working_dir: /app
     extra_hosts:
       - "host.docker.internal:host-gateway"

@@ -12,7 +12,7 @@ docker compose -f compose.yml -f compose.dev.yml up -d postgres
 
 The `compose.dev.yml` file exposes the postgres port on localhost for development, allowing you to run Alembic commands locally and connect with database tools like pgAdmin or DBeaver.
 
-Alembic will use the default database URL (`postgresql://root:thisisnotgoingtobeexposed@localhost:5432/chap_core`) when running locally. If you need to connect to a different database, set the `CHAP_DATABASE_URL` environment variable:
+Alembic will use the default database URL (`postgresql://chap:chap@localhost:5432/chap_core`) when running locally. If you need to connect to a different database, set the `CHAP_DATABASE_URL` environment variable:
 
 ```bash
 export CHAP_DATABASE_URL="postgresql://user:password@host:port/database"

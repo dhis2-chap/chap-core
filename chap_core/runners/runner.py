@@ -46,5 +46,14 @@ class TrainPredictRunner(abc.ABC):
         polygons_file_name: str | None,
     ): ...
 
+    def report(
+        self,
+        model_file_name: str,
+        historic_data: str,
+        output_file: str,
+        polygons_file_name: str | None = None,
+    ):
+        raise NotImplementedError("This runner does not support report generation")
+
     def teardown(self):  # noqa: B027
         ...

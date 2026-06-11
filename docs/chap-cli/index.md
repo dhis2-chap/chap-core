@@ -20,3 +20,5 @@ See the [Evaluation Workflow](evaluation-workflow.md) guide for detailed usage a
 ## Command Reference
 
 - [eval](eval-reference.md) - Full reference for the eval command with all parameters
+- [report](report-reference.md) - Generate a PDF report from a trained model
+- [explain-lime](explain-lime-reference.md) - Generate a LIME importance weighting for a single prediction

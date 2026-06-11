@@ -6,17 +6,15 @@ import pandas as pd
 import yaml
 
 from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.metric_plots.horizon_location_mean import MetricByHorizonAndLocationMean
+from chap_core.assessment.metric_plots.horizon_mean import MetricByHorizonV2Mean
+from chap_core.assessment.metric_plots.horizon_sum import MetricByHorizonV2Sum
+from chap_core.assessment.metric_plots.metric_map import MetricMapV2
+from chap_core.assessment.metric_plots.time_period_location_mean import MetricByTimePeriodAndLocationV2Mean
+from chap_core.assessment.metric_plots.time_period_mean import MetricByTimePeriodV2Mean
+from chap_core.assessment.metric_plots.time_period_sum import MetricByTimePeriodV2Sum
 from chap_core.assessment.metrics import available_metrics
-from chap_core.database.tables import BackTest
-from chap_core.plotting.evaluation_plot import (
-    MetricByHorizonAndLocationMean,
-    MetricByHorizonV2Mean,
-    MetricByHorizonV2Sum,
-    MetricByTimePeriodAndLocationV2Mean,
-    MetricByTimePeriodV2Mean,
-    MetricByTimePeriodV2Sum,
-    MetricMapV2,
-)
+from chap_core.database.tables import Backtest
 
 alt.data_transformers.enable("vegafusion")
 
@@ -151,14 +149,14 @@ def _build_plot_component(comp: dict, context: dict):
     return text_chart(f"Unknown plot kind: {comp_type}", line_length=60)
 
 
-def build_from_yaml(yaml_str: str, backtest: BackTest, **context):
+def build_from_yaml(yaml_str: str, backtest: Backtest, **context):
     configuration = yaml.safe_load(yaml_str)
 
     title = configuration.get("title")
     rows_spec = configuration.get("configuration", [])
 
     if backtest is None:
-        raise ValueError("build_from_yaml requires a real BackTest object.")
+        raise ValueError("build_from_yaml requires a real Backtest object.")
 
     evaluation = Evaluation.from_backtest(backtest)
     flat_data = evaluation.to_flat()

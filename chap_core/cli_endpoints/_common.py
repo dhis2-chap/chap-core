@@ -1,20 +1,21 @@
 """Common helper functions shared across CLI commands."""
 
+from __future__ import annotations
+
 import logging
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-import pandas as pd
-import pooch
-import yaml
+if TYPE_CHECKING:
+    import pandas as pd
 
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.file_io.example_data_set import datasets
-from chap_core.geometry import Polygons
-from chap_core.models.model_template import ModelTemplate
-from chap_core.models.utils import CHAP_RUNS_DIR
-from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet, DataSetMetaData
+    from chap_core.api_types import BacktestParams, SearcherType
+    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+    from chap_core.external.model_configuration import ModelTemplateConfigV2
+    from chap_core.hpo.hpoModel import HpoModel
+    from chap_core.models.external_model import ExternalModel
+    from chap_core.models.model_template import ModelTemplate
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,12 @@ def get_model(
     name: str,
     run_directory_type: Literal["latest", "timestamp", "use_existing"] | None,
 ) -> Any:
+    import yaml
+
+    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+    from chap_core.models.model_template import ModelTemplate
+    from chap_core.models.utils import CHAP_RUNS_DIR
+
     template = ModelTemplate.from_directory_or_github_url(
         name,
         base_working_dir=CHAP_RUNS_DIR,
@@ -50,6 +57,8 @@ def get_model(
 
 
 def save_results(report_filename: str, results_dict: dict[Any, Any]) -> None:
+    import pandas as pd
+
     data: list[list[Any]] = []
     full_data: dict[Any, pd.DataFrame] = {}
     first_model = True
@@ -100,6 +109,8 @@ def resolve_csv_path(dataset_csv: str | Path) -> tuple[Path, Path | None]:
     if not dataset_csv.startswith(("http://", "https://")):
         return Path(dataset_csv), None
 
+    import pooch
+
     logger.info(f"Downloading CSV from URL: {dataset_csv}")
     local_path = Path(pooch.retrieve(dataset_csv, known_hash=None))
 
@@ -149,6 +160,11 @@ def load_dataset_from_csv(
     Returns:
         DataSet loaded from CSV with polygons if provided
     """
+    import pandas as pd
+
+    from chap_core.geometry import Polygons
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet, DataSetMetaData
+
     logging.info(f"Loading dataset from {csv_path}")
 
     dataset: DataSet
@@ -178,6 +194,11 @@ def load_dataset(
     polygons_id_field: str | None,
     polygons_json: Path | None,
 ) -> DataSet:
+    from chap_core.file_io.example_data_set import datasets
+    from chap_core.geometry import Polygons
+    from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+
     dataset: DataSet
     if dataset_name is None:
         assert dataset_csv is not None, "Must specify a dataset name or a dataset csv file"
@@ -200,3 +221,102 @@ def load_dataset(
             )
             dataset = dataset[dataset_country]  # type: ignore[assignment]
     return dataset
+
+
+def get_configuration(
+    model_configuration_yaml: Path | None,
+) -> ModelConfiguration | None:
+    """Parse a model configuration YAML file, or return None if no path is given."""
+    if model_configuration_yaml is None:
+        return None
+    import yaml
+
+    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+
+    logger.info(f"Loading model configuration from {model_configuration_yaml}")
+    return ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
+
+
+def get_estimator(
+    template: ModelTemplate,
+    configuration: ModelConfiguration | None,
+) -> ExternalModel:
+    """Build a plain estimator from a model template and optional configuration."""
+    model = template.get_model(configuration)  # type: ignore[arg-type]
+    estimator: ExternalModel = model()  # type: ignore[assignment]
+    return estimator
+
+
+def warn_unused_covariates(
+    dataset: DataSet,
+    template_config: ModelTemplateConfigV2,
+    configuration: ModelConfiguration | None = None,
+) -> None:
+    """Check for unused dataset columns and log each one as a warning.
+
+    Calls check_unused_covariates directly; does not run other validation checks.
+    Does not raise; callers continue regardless of issues.
+
+    Parameters
+    ----------
+    dataset : DataSet
+        The loaded dataset to validate.
+    template_config : ModelTemplateConfigV2
+        Model template configuration declaring required covariates and whether free
+        additional covariates are allowed.
+    configuration : ModelConfiguration | None
+        Optional per-run model configuration. When present, its
+        additional_continuous_covariates are forwarded to the validation so explicitly
+        configured extra columns are not flagged as unused.
+    """
+    from chap_core.services.dataset_validation import check_unused_covariates
+
+    additional = configuration.additional_continuous_covariates if configuration is not None else None
+    issues = check_unused_covariates(dataset, template_config, additional)
+    for issue in issues:
+        logger.warning(issue.message)
+
+
+def get_hpo_estimator(
+    template: ModelTemplate,
+    model_configuration_yaml: Path | None,
+    backtest_params: BacktestParams,
+    metric: str | None = None,
+    searcher_inp: SearcherType | None = None,
+) -> HpoModel:
+    """
+    Build an HPO-backend estimator from either:
+    - an explicit YAML search space, or
+    - the template's built-in hpo_search_space
+    """
+    import yaml
+
+    from chap_core.api_types import SearcherType
+    from chap_core.hpo.base import load_search_space_from_config
+    from chap_core.hpo.hpoModel import HpoModel
+    from chap_core.hpo.objective import Objective
+    from chap_core.hpo.searcher import DEFAULT_SEARCH_TRIALS, GridSearcher, RandomSearcher, Searcher, TPESearcher
+
+    if model_configuration_yaml is not None:
+        logger.info(f"Loading model configuration from {model_configuration_yaml}")
+        with open(model_configuration_yaml, encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+        if not isinstance(config, dict) or not config:
+            raise ValueError("YAML must define a non-empty mapping of parameters")
+    else:
+        config = template.model_template_config.hpo_search_space
+
+    search_space = load_search_space_from_config(config)
+    objective = Objective(model_template=template, backtest_params=backtest_params, metric=metric)
+    searcher: Searcher | None = None
+    if searcher_inp is not None:
+        if searcher_inp == SearcherType.GRID:
+            searcher = GridSearcher()
+        elif searcher_inp == SearcherType.RANDOM:
+            searcher = RandomSearcher(DEFAULT_SEARCH_TRIALS)  # TODO: make number of iterations configurable
+        elif searcher_inp == SearcherType.TPE:
+            searcher = TPESearcher(DEFAULT_SEARCH_TRIALS)  # TODO: make number of iterations configurable
+        else:
+            raise ValueError(f"Unknown searcher: {searcher_inp!r}")
+
+    return HpoModel(objective=objective, searcher=searcher, direction="minimize", model_configuration=search_space)

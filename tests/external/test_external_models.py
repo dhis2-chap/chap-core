@@ -1,10 +1,18 @@
+from unittest.mock import Mock
+
 import pytest
 
 from chap_core import get_temp_dir
 from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.exceptions import InvalidModelException, ModelFailedException
+from chap_core.external.model_configuration import (
+    CommandConfig,
+    EntryPointConfig,
+    ModelTemplateConfigV2,
+)
 from chap_core.file_io.example_data_set import datasets
 from chap_core.geometry import Polygons
+from chap_core.models.external_model import ExternalModel
 from chap_core.models.utils import get_model_template_from_directory_or_github_url
 from chap_core.testing.external_model import sanity_check_external_model
 from chap_core.util import docker_available, pyenv_available, uv_available
@@ -82,3 +90,61 @@ def test_that_polygons_are_sent_to_runners_through_external_model(data_path, dat
     # inspect the commands
     polygons = Polygons.from_file(data_path / "example_polygons.geojson").data
     # dataset.set_polygons(polygons)
+
+
+def _report_model_template_config(with_report: bool) -> ModelTemplateConfigV2:
+    report = CommandConfig(command="python report.py {model} {historic_data} {out_file}") if with_report else None
+    return ModelTemplateConfigV2(
+        name="test_report_model",
+        entry_points=EntryPointConfig(
+            train=CommandConfig(command="python train.py {train_data} {model}"),
+            predict=CommandConfig(command="python predict.py {model} {historic_data} {future_data} {out_file}"),
+            report=report,
+        ),
+    )
+
+
+def test_external_model_report_invokes_runner(weekly_full_data, tmp_path):
+    working_dir = tmp_path / "workdir"
+    working_dir.mkdir()
+    out_file = tmp_path / "report.pdf"
+
+    def _fake_report(model, historic, out_filename, polygons):
+        # The model command runs with cwd=working_dir, so it writes the report
+        # there using the relative filename it was given.
+        (working_dir / out_filename).write_bytes(b"%PDF-fake")
+
+    runner = Mock()
+    runner.report.side_effect = _fake_report
+    model = ExternalModel(
+        runner=runner,
+        name="test_report_model",
+        working_dir=str(working_dir),
+        model_information=_report_model_template_config(with_report=True),
+    )
+
+    model.report(weekly_full_data, out_file)
+
+    runner.report.assert_called_once()
+    args, _ = runner.report.call_args
+    assert args[0] == "model"
+    assert args[1] == "report_historic_data.csv"
+    # The runner is given a relative filename, not the user's full out path,
+    # because the model command runs in working_dir.
+    assert args[2] == "report.pdf"
+    assert (working_dir / "report_historic_data.csv").exists()
+    # The generated file is copied from working_dir to the user-supplied path.
+    assert out_file.read_bytes() == b"%PDF-fake"
+
+
+def test_external_model_report_without_entry_point_raises(weekly_full_data, tmp_path):
+    runner = Mock()
+    model = ExternalModel(
+        runner=runner,
+        name="test_report_model",
+        working_dir=str(tmp_path),
+        model_information=_report_model_template_config(with_report=False),
+    )
+    with pytest.raises(InvalidModelException):
+        model.report(weekly_full_data, tmp_path / "report.pdf")
+    runner.report.assert_not_called()

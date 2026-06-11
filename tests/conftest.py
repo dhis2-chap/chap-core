@@ -21,9 +21,7 @@ from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.dataset_tables import ObservationBase
 from chap_core.datatypes import FullData, HealthPopulationData, SimpleClimateData
 from chap_core.geometry import Polygons
-from chap_core.rest_api.data_models import FetchRequest
-from chap_core.rest_api.v1.routers.crud import DatasetCreate
-from chap_core.rest_api.v1.routers.analytics import MakePredictionRequest
+from chap_core.rest_api.data_models import DatasetCreate, FetchRequest, MakePredictionRequest
 from chap_core.rest_api.worker_functions import WorkerConfig
 
 from .data_fixtures import *
@@ -242,6 +240,40 @@ def dumped_weekly_data_paths(weekly_full_data, tmp_path):
 
 
 @pytest.fixture
+def csv_with_sibling_geojson_id_in_properties(tmp_path):
+    """CSV path whose sibling .geojson stores feature id under properties.id
+    (no top-level id). Exercises the DataSet.from_csv autodiscovery path."""
+    csv_path = tmp_path / "data.csv"
+    pd.DataFrame(
+        {
+            "time_period": ["2020-01", "2020-02", "2020-01", "2020-02"],
+            "location": ["A", "A", "B", "B"],
+            "disease_cases": [1, 2, 3, 4],
+        }
+    ).to_csv(csv_path, index=False)
+    (tmp_path / "data.geojson").write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"id": "A"},
+                        "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]},
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": {"id": "B"},
+                        "geometry": {"type": "Polygon", "coordinates": [[[1, 0], [2, 0], [2, 1], [1, 1], [1, 0]]]},
+                    },
+                ],
+            }
+        )
+    )
+    return csv_path
+
+
+@pytest.fixture
 def request_json(data_path):
     return open(data_path / "v1_api/request.json", "r").read()
 
@@ -377,3 +409,23 @@ def clean_engine(database_url):
 @pytest.fixture
 def test_config():
     return WorkerConfig(is_test=True)
+
+
+@pytest.fixture
+def make_test_df():
+    """Factory for minimal CHAP-compatible DataFrames.
+
+    Returns a callable _make(locations, periods, extra_col_val=1.0) that
+    produces a DataFrame with columns: location, time_period, rainfall,
+    disease_cases.
+    """
+
+    def _make(locations, periods, extra_col_val=1.0):
+        rows = [
+            {"location": loc, "time_period": p, "rainfall": extra_col_val, "disease_cases": 0.0}
+            for loc in locations
+            for p in periods
+        ]
+        return pd.DataFrame(rows)
+
+    return _make

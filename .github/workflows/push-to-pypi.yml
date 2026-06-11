@@ -12,15 +12,11 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v3
-        with:
-          python-version: "3.10"
+      - uses: actions/checkout@v6
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v8.2.0
+      - name: Set up Python 3.13
+        run: uv python install 3.13
       - name: Install the project
         run: uv sync --dev
       - name: Build package

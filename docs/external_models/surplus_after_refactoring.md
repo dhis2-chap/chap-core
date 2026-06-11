@@ -8,11 +8,6 @@ Currently, Chap has an internal registry of models that can be used.
 If you want to run a model that is not in the registry, this now has to be done by editing the local Chap code at the server.  
 However, we are working on making this more flexible. For now, please reach out if you want a new model to be added to the internal registry in a given installation.
 
-The following figure shows how the train and predict entry points are part of a data flow between DHIS2 and the external model:
-
-![External model integration with DHIS2](dhis_chap_integration.jpg)
-
-
 # Overview of supported models
 ## Autoregressive weekly
 This model has been developed internally by the Chap team. Autoregressive weekly is a deep learning model based on DeepAR that uses rainfall and temperature as climate predictors and models disease counts with a negative binomial distribution where the parameters are estimated by a recurrent neural network. The current model available through Chap can be [found here](https://github.com/knutdrand/weekly_ar_model).
@@ -126,7 +121,7 @@ if __name__ == '__main__':
 
 # Docker Compose (Chap Core)
 
-Starting Chap Core using Docker Compose is specifically for those who want to use the Chap Core REST-API, either together with other services or with the Modeling App installed on a DHIS2 server. See documentation for [Modeling App](modeling-app/modeling-app.md) for instructions on how to install the Modeling App.
+Starting Chap Core using Docker Compose is specifically for those who want to use the Chap Core REST-API, either together with other services or with the Modeling App installed on a DHIS2 server. See documentation for [Modeling App](../modeling-app/index.md) for instructions on how to install the Modeling App.
 
 **Requirements**
 

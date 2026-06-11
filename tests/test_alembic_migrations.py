@@ -17,7 +17,6 @@ from sqlmodel import SQLModel
 
 # Import all models so SQLModel.metadata is fully populated
 from chap_core.database.dataset_tables import DataSet, Observation  # noqa: F401
-from chap_core.database.debug import DebugEntry  # noqa: F401
 from chap_core.database.feature_tables import FeatureSource, FeatureType  # noqa: F401
 from chap_core.database.model_spec_tables import ModelFeatureLink, ModelSpec  # noqa: F401
 from chap_core.database.model_templates_and_config_tables import (  # noqa: F401
@@ -25,11 +24,12 @@ from chap_core.database.model_templates_and_config_tables import (  # noqa: F401
     ModelTemplateDB,
 )
 from chap_core.database.tables import (  # noqa: F401
-    BackTest,
-    BackTestForecast,
-    BackTestMetric,
+    Backtest,
+    BacktestForecast,
+    BacktestMetric,
     Prediction,
     PredictionSamplesEntry,
+    PredictionSetup,
 )
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -40,6 +40,14 @@ ALEMBIC_INI = PROJECT_ROOT / "alembic.ini"
 # SQLModel metadata then drop these columns so the migration can re-add them.
 _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("modeltemplatedb", "archived"),
+    ("prediction", "prediction_setup_id"),
+    ("backtest", "max_horizon_distance"),
+]
+
+# Tables added by alembic migrations (not in the baseline schema).
+# These are dropped after create_all so the migration can re-create them.
+_TABLES_ADDED_BY_MIGRATIONS = [
+    "predictionsetup",
 ]
 
 
@@ -97,8 +105,12 @@ def _create_baseline_schema(engine):
     SQLModel.metadata.create_all(engine)
 
     with engine.connect() as conn:
+        # Drop columns before tables so FKs pointing at soon-to-be-dropped
+        # tables are removed first.
         for table, column in _COLUMNS_ADDED_BY_MIGRATIONS:
             conn.execute(sa.text(f"ALTER TABLE {table} DROP COLUMN IF EXISTS {column}"))
+        for table in _TABLES_ADDED_BY_MIGRATIONS:
+            conn.execute(sa.text(f"DROP TABLE IF EXISTS {table}"))
         conn.commit()
 
 

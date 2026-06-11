@@ -2,6 +2,9 @@
 
 Some models require an external service to be running alongside Chap. These services are not started by default but can be enabled using a Docker Compose overlay file.
 
+!!! note
+    This page covers models that are **not** part of the bundled overlay. The bundled model services started by `compose.chapkit.yml` (see [First-time Setup](fresh-installation.md)) register themselves automatically and need no config edits or rebuild. Use the steps below only for additional services like `ewars_plus` or `chtorch`.
+
 ## Available Optional Services
 
 | Service | Image | Port | Description |
@@ -60,7 +63,7 @@ Check that the service is running and the model appears in the API:
 
 ```console
 docker compose ps
-curl http://localhost:8000/v1/crud/models
+curl http://localhost:8000/v1/crud/configured-models
 ```
 
 The model (e.g. `ewars_plus`) should appear in the list of configured models.

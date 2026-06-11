@@ -2,13 +2,12 @@ import logging
 from typing import Any, Literal, cast
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.file_io.example_data_set import DataSetType
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 from .base import write_yaml
 from .hpoModelInterface import HpoModelInterface
 from .objective import Objective
-from .searcher import Searcher
+from .searcher import DEFAULT_SEARCH_TRIALS, RandomSearcher, Searcher
 
 Direction = Literal["maximize", "minimize"]
 
@@ -20,23 +19,23 @@ logger.setLevel(logging.INFO)
 class HpoModel(HpoModelInterface):
     def __init__(
         self,
-        searcher: Searcher,
         objective: Objective,
+        searcher: Searcher | None = None,
         direction: Direction = "minimize",
         model_configuration: dict[str, list] | None = None,
     ):
         if direction not in ("maximize", "minimize"):
             raise ValueError("direction must be 'maximize' or 'minimize'")
 
-        self._searcher = searcher
         self._objective = objective
+        self._searcher = searcher if searcher is not None else RandomSearcher(DEFAULT_SEARCH_TRIALS)
         self._direction = direction
         self.base_configs = model_configuration
         self._best_config: dict[str, dict[str, Any]] | None = None
         self._leaderboard: list[dict[str, Any]] = []
         self._predictor: Any = None
 
-    def train(self, dataset: DataSetType | None) -> Any:  # type: ignore[override]
+    def train(self, dataset: DataSet) -> Any:  # type: ignore[override]
         """
         Calls get_leaderboard to find the optimal configuration.
         Then trains the tuned model on the whole input dataset (train + validation).
@@ -61,7 +60,7 @@ class HpoModel(HpoModelInterface):
         assert self._predictor is not None, "Model not trained yet"
         return cast("DataSet[Any]", self._predictor.predict(historic_data, future_data))
 
-    def get_leaderboard(self, dataset: DataSetType | None) -> list[dict[str, Any]]:
+    def get_leaderboard(self, dataset: DataSet) -> list[dict[str, Any]]:
         """
         Runs hyperparameter optimization over the search space.
         Returns a sorted list of configurations together with their score.

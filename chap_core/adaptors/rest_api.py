@@ -2,6 +2,7 @@ import logging
 
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 
 from chap_core.datatypes import remove_field
 from chap_core.model_spec import get_dataclass
@@ -24,6 +25,7 @@ def generate_app(estimator, working_dir: str):
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
 
     dc = get_dataclass(estimator)
     training_data_filename = f"{working_dir}/training_data.csv"

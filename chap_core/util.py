@@ -1,8 +1,29 @@
 import os
 import subprocess
+import uuid
+from datetime import datetime
 from shutil import which
 
 import numpy as np
+
+
+def generate_short_id(length: int = 8) -> str:
+    """Return a short random hex id (default 8 chars), e.g. ``'0e5fe728'``.
+
+    Used as the unique suffix on run/job directory names so that concurrent or
+    same-second runs don't collide. Keep this the single source of the scheme.
+    """
+    return uuid.uuid4().hex[:length]
+
+
+def generate_run_name() -> str:
+    """Return a unique run name like ``'2026-05-28_16-04-37_0e5fe728'``.
+
+    A sortable timestamp plus a short random suffix, so runs sort chronologically
+    while concurrent / same-second runs still get distinct directories. Single
+    source of the run-directory naming convention.
+    """
+    return f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{generate_short_id()}"
 
 
 def nan_helper(y):

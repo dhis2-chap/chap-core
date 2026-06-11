@@ -6,6 +6,10 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
 class ConfiguredModel(abc.ABC):
+    @property
+    @abc.abstractmethod
+    def model_information(self) -> ModelTemplateInformation | None: ...
+
     @abc.abstractmethod
     def train(self, train_data: DataSet, extra_args=None):
         pass
@@ -25,7 +29,11 @@ class ModelTemplateInterface(abc.ABC):
     def get_schema(self) -> ModelTemplateInformation: ...
 
     @abc.abstractmethod
-    def get_model(self, model_configuration: ModelConfiguration | None = None) -> "ConfiguredModel":
+    def get_model(
+        self,
+        model_configuration: ModelConfiguration | None = None,
+        prediction_length: int | None = None,
+    ) -> "ConfiguredModel":
         pass
 
     def get_default_model(self) -> "ConfiguredModel":

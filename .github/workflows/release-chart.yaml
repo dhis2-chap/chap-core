@@ -22,7 +22,7 @@ jobs:
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
         with:
           version: v4.1.1
 
@@ -30,6 +30,7 @@ jobs:
         run: |
           helm repo add valkey https://valkey.io/valkey-helm/
           helm repo update
+          helm dep update charts/chap
 
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.7.0
