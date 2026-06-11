@@ -2,6 +2,7 @@ import fakeredis
 import httpx
 import pytest
 from fastapi import FastAPI, Request, Response
+from fastapi.responses import RedirectResponse
 from fastapi.testclient import TestClient
 
 from chap_core.rest_api.app import app
@@ -41,6 +42,25 @@ def stub_app():
         response = Response(content=b"ok")
         response.headers.append("set-cookie", "a=1")
         response.headers.append("set-cookie", "b=2")
+        return response
+
+    @stub.get("/api/v1/redirect")
+    async def redirect():
+        return RedirectResponse(url="/api/v1/echo/landed", status_code=307)
+
+    @stub.get("/raw/{rest:path}")
+    async def raw_echo(rest: str, request: Request):
+        return {"raw_path": request.scope["raw_path"].decode("ascii")}
+
+    @stub.get("/api/v1/seen-headers")
+    async def seen_headers(request: Request):
+        return {"headers": [k.lower() for k in request.headers.keys()]}
+
+    @stub.get("/api/v1/conn-response")
+    async def conn_response():
+        response = Response(content=b"ok")
+        response.headers["x-resp-secret"] = "value"
+        response.headers["connection"] = "x-resp-secret"
         return response
 
     return stub
@@ -121,6 +141,41 @@ def test_binary_download_preserves_body_and_headers(client):
     assert response.content == b"\x00\x01\x02chap"
     assert response.headers["content-type"] == "application/octet-stream"
     assert response.headers["content-disposition"] == 'attachment; filename="artifact.bin"'
+
+
+def test_upstream_redirect_is_followed(client):
+    response = client.get(f"/v2/services/{SERVICE_ID}/run/api/v1/redirect")
+
+    assert response.status_code == 200
+    assert response.json()["path"] == "landed"
+
+
+def test_encoded_path_forwarded_verbatim(client):
+    response = client.get(f"/v2/services/{SERVICE_ID}/run/raw/a%2Fb")
+
+    assert response.status_code == 200
+    assert response.json()["raw_path"] == "/raw/a%2Fb"
+
+
+def test_connection_nominated_request_header_dropped(client):
+    response = client.get(
+        f"/v2/services/{SERVICE_ID}/run/api/v1/seen-headers",
+        headers={"Connection": "x-secret", "X-Secret": "value", "X-Keep": "ok"},
+    )
+
+    # The header nominated by Connection is dropped; the unrelated one passes through.
+    # (httpx re-adds its own Connection header for the upstream hop, which is expected.)
+    seen = response.json()["headers"]
+    assert "x-secret" not in seen
+    assert "x-keep" in seen
+
+
+def test_connection_nominated_response_header_dropped(client):
+    response = client.get(f"/v2/services/{SERVICE_ID}/run/api/v1/conn-response")
+
+    assert response.status_code == 200
+    assert "x-resp-secret" not in response.headers
+    assert "connection" not in response.headers
 
 
 def test_unknown_service_returns_404(client):

@@ -10,9 +10,14 @@ without buffering. It is the foundation for read-only features built on top of c
 The proxy is intentionally limited to safe methods: mutating verbs are not exposed because
 the route is unauthenticated. Adding mutations later requires an explicit authorization
 boundary first.
+
+The path below ``run/`` is forwarded verbatim from the raw request path so reserved
+characters in artifact ids and filenames survive, and upstream redirects are followed so a
+relative ``Location`` resolves against the service rather than CHAP Core's own origin.
 """
 
 import logging
+from collections.abc import Iterable
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -44,6 +49,43 @@ HOP_BY_HOP_HEADERS = frozenset(
 PROXY_METHODS = ["GET", "HEAD"]
 
 
+def _connection_named_headers(header_pairs: Iterable[tuple[str, str]]) -> set[str]:
+    """Header names nominated as hop-by-hop by a ``Connection`` header (RFC 7230 section 6.1)."""
+    drop: set[str] = set()
+    for key, value in header_pairs:
+        if key.lower() != "connection":
+            continue
+        for token in value.split(","):
+            normalized = token.strip().lower()
+            if normalized and normalized not in ("close", "keep-alive"):
+                drop.add(normalized)
+    return drop
+
+
+def _forwardable(header_pairs: Iterable[tuple[str, str]], drop: set[str]) -> list[tuple[str, str]]:
+    """Filter out hop-by-hop, Connection-nominated, and explicitly excluded headers."""
+    pairs = list(header_pairs)
+    excluded = HOP_BY_HOP_HEADERS | drop | _connection_named_headers(pairs)
+    return [(k, v) for k, v in pairs if k.lower() not in excluded]
+
+
+def _raw_subpath(request: Request, service_id: str) -> str:
+    """The still-percent-encoded path below ``run/``.
+
+    FastAPI decodes ``{path}`` (turning ``a%2Fb`` into ``a/b``), so we slice the original
+    encoded path out of the ASGI ``raw_path`` to forward reserved characters verbatim.
+    """
+    raw_path = request.scope.get("raw_path")
+    if raw_path is None:
+        return str(request.path_params["path"])
+    text: str = raw_path.decode("ascii")
+    marker = f"/{service_id}/run/"
+    index = text.find(marker)
+    if index == -1:
+        return str(request.path_params["path"])
+    return text[index + len(marker) :]
+
+
 @router.api_route(
     "/{service_id}/run/{path:path}",
     methods=PROXY_METHODS,
@@ -67,22 +109,19 @@ async def proxy_to_service(
     except ServiceNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
-    target_url = service.url.rstrip("/") + "/" + path
+    target = httpx.URL(service.url.rstrip("/") + "/" + _raw_subpath(request, service_id))
+    query_string = request.scope.get("query_string") or b""
+    if query_string:
+        target = target.copy_with(query=query_string)
 
-    # Forward request headers minus hop-by-hop and host (httpx re-derives host).
-    request_headers = [
-        (k, v) for k, v in request.headers.items() if k.lower() not in HOP_BY_HOP_HEADERS and k.lower() != "host"
-    ]
+    # Forward request headers minus hop-by-hop, Connection-nominated, and host (httpx re-derives host).
+    request_headers = _forwardable(request.headers.items(), drop={"host"})
 
-    upstream_request = client.build_request(
-        request.method,
-        target_url,
-        params=request.query_params,
-        headers=request_headers,
-    )
+    upstream_request = client.build_request(request.method, target, headers=request_headers)
 
     try:
-        upstream = await client.send(upstream_request, stream=True)
+        # follow_redirects so a relative upstream Location resolves against the service.
+        upstream = await client.send(upstream_request, stream=True, follow_redirects=True)
     except httpx.TimeoutException as e:
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
@@ -99,11 +138,8 @@ async def proxy_to_service(
         status_code=upstream.status_code,
         background=BackgroundTask(upstream.aclose),
     )
-    # Use multi_items() and assign raw_headers so repeated headers (e.g. Set-Cookie) are
-    # preserved as distinct entries rather than collapsed into one comma-joined value.
-    response.raw_headers = [
-        (k.encode("latin-1"), v.encode("latin-1"))
-        for k, v in upstream.headers.multi_items()
-        if k.lower() not in HOP_BY_HOP_HEADERS
-    ]
+    # multi_items() + raw_headers so repeated headers (e.g. Set-Cookie) are preserved as
+    # distinct entries rather than collapsed into one comma-joined value.
+    response_headers = _forwardable(upstream.headers.multi_items(), drop=set())
+    response.raw_headers = [(k.encode("latin-1"), v.encode("latin-1")) for k, v in response_headers]
     return response
