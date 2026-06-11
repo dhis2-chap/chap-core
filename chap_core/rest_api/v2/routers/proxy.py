@@ -1,11 +1,15 @@
-"""Transparent reverse proxy from CHAP Core to registered chapkit service instances.
+"""Read-only reverse proxy from CHAP Core to registered chapkit service instances.
 
 Chapkit model services register with the v2 orchestrator and advertise a base URL that
 is only reachable from within CHAP Core's network. This router exposes a catch-all route
-that forwards any request under ``/v2/services/{service_id}/run/{path}`` to the registered
-service, streaming both request and response so binary artifact downloads work without
-buffering. It is the foundation for building higher-level features (artifact browser,
-config UI, job viewer) on top of chapkit.
+that forwards read-only (GET/HEAD) requests under ``/v2/services/{service_id}/run/{path}``
+to the registered service, streaming the response back so binary artifact downloads work
+without buffering. It is the foundation for read-only features built on top of chapkit
+(artifact browser, config inspection, job viewer).
+
+The proxy is intentionally limited to safe methods: mutating verbs are not exposed because
+the route is unauthenticated. Adding mutations later requires an explicit authorization
+boundary first.
 """
 
 import logging
@@ -36,20 +40,14 @@ HOP_BY_HOP_HEADERS = frozenset(
     }
 )
 
-# HEAD is intentionally omitted: Starlette auto-adds it alongside GET. Listing it
-# explicitly would register the route twice and produce a duplicate OpenAPI operation id.
-PROXY_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"]
-
-
-def _filter_headers(headers, drop: set[str]) -> list[tuple[str, str]]:
-    """Drop hop-by-hop and explicitly excluded headers (case-insensitive)."""
-    return [(k, v) for k, v in headers.items() if k.lower() not in HOP_BY_HOP_HEADERS and k.lower() not in drop]
+# Read-only only. FastAPI does not auto-add HEAD, so it is listed explicitly.
+PROXY_METHODS = ["GET", "HEAD"]
 
 
 @router.api_route(
     "/{service_id}/run/{path:path}",
     methods=PROXY_METHODS,
-    summary="Proxy a request to a registered chapkit service",
+    summary="Proxy a read-only request to a registered chapkit service",
 )
 async def proxy_to_service(
     service_id: str,
@@ -58,7 +56,7 @@ async def proxy_to_service(
     orchestrator: Orchestrator = Depends(get_orchestrator),
     client: httpx.AsyncClient = Depends(get_http_client),
 ) -> StreamingResponse:
-    """Forward an arbitrary request to a registered chapkit service and stream the response back.
+    """Forward a read-only request to a registered chapkit service and stream the response back.
 
     The path below ``run/`` is forwarded verbatim, so callers use the service's real
     paths, e.g. ``/v2/services/{id}/run/api/v1/artifacts``. Returns 404 if the service id
@@ -71,16 +69,16 @@ async def proxy_to_service(
 
     target_url = service.url.rstrip("/") + "/" + path
 
-    # Let httpx re-derive host/content-length for the upstream request.
-    request_headers = _filter_headers(request.headers, drop={"host", "content-length"})
-    body = await request.body()
+    # Forward request headers minus hop-by-hop and host (httpx re-derives host).
+    request_headers = [
+        (k, v) for k, v in request.headers.items() if k.lower() not in HOP_BY_HOP_HEADERS and k.lower() != "host"
+    ]
 
     upstream_request = client.build_request(
         request.method,
         target_url,
         params=request.query_params,
         headers=request_headers,
-        content=body,
     )
 
     try:
@@ -96,10 +94,16 @@ async def proxy_to_service(
             detail=f"Service {service_id} is unreachable: {e}",
         ) from e
 
-    response_headers = _filter_headers(upstream.headers, drop=set())
-    return StreamingResponse(
+    response = StreamingResponse(
         upstream.aiter_raw(),
         status_code=upstream.status_code,
-        headers=dict(response_headers),
         background=BackgroundTask(upstream.aclose),
     )
+    # Use multi_items() and assign raw_headers so repeated headers (e.g. Set-Cookie) are
+    # preserved as distinct entries rather than collapsed into one comma-joined value.
+    response.raw_headers = [
+        (k.encode("latin-1"), v.encode("latin-1"))
+        for k, v in upstream.headers.multi_items()
+        if k.lower() not in HOP_BY_HOP_HEADERS
+    ]
+    return response

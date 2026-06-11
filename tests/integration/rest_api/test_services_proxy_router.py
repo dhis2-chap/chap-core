@@ -18,7 +18,7 @@ def stub_app():
     """A minimal stand-in for a chapkit service that echoes what it received."""
     stub = FastAPI()
 
-    @stub.api_route("/api/v1/echo/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+    @stub.api_route("/api/v1/echo/{rest:path}", methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"])
     async def echo(rest: str, request: Request):
         body = await request.body()
         return {
@@ -35,6 +35,13 @@ def stub_app():
             media_type="application/octet-stream",
             headers={"content-disposition": 'attachment; filename="artifact.bin"'},
         )
+
+    @stub.get("/api/v1/multi-cookie")
+    async def multi_cookie():
+        response = Response(content=b"ok")
+        response.headers.append("set-cookie", "a=1")
+        response.headers.append("set-cookie", "b=2")
+        return response
 
     return stub
 
@@ -84,16 +91,27 @@ def test_query_string_forwarded(client):
     assert response.json()["query"] == {"page": "2", "size": "10"}
 
 
-def test_post_body_and_method_forwarded(client):
+def test_head_request_allowed(client):
+    response = client.head(f"/v2/services/{SERVICE_ID}/run/api/v1/echo/here")
+
+    assert response.status_code == 200
+    assert response.content == b""
+
+
+def test_mutating_method_not_allowed(client):
     response = client.post(
         f"/v2/services/{SERVICE_ID}/run/api/v1/echo/configs",
         json={"name": "demo"},
     )
 
+    assert response.status_code == 405
+
+
+def test_repeated_response_headers_preserved(client):
+    response = client.get(f"/v2/services/{SERVICE_ID}/run/api/v1/multi-cookie")
+
     assert response.status_code == 200
-    data = response.json()
-    assert data["method"] == "POST"
-    assert data["body"] == '{"name":"demo"}'
+    assert response.headers.get_list("set-cookie") == ["a=1", "b=2"]
 
 
 def test_binary_download_preserves_body_and_headers(client):
