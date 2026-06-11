@@ -109,6 +109,7 @@ def test_split_periods_partition_forecasts(db_session, backtest):
         filtered = load_filtered_flat_data(db_session, backtest, {"split_period": split}, dims)
         collected.append(_records(pd.DataFrame(filtered.forecasts), FORECAST_COLS))
 
+    # No overlap between split partitions.
     for i in range(len(collected)):
         for j in range(i + 1, len(collected)):
             assert collected[i].isdisjoint(collected[j])

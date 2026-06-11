@@ -21,7 +21,7 @@ from chap_core.assessment.flat_representations import (
     convert_backtest_to_flat_forecasts,
     horizon_diff,
 )
-from chap_core.database.dataset_tables import Observation
+from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.tables import BacktestForecast
 from chap_core.plotting.backtest_plot import clean_time
 from chap_core.time_period import TimePeriod
@@ -45,10 +45,6 @@ class DBFacetDimension(FacetDimension):
         """SQL clauses narrowing `BacktestForecast` to the rows for `value`."""
         return []
 
-    def observation_filters(self, value: Any, session: Session, backtest: Backtest) -> list[ColumnElement]:
-        """SQL clauses narrowing `Observation` to the rows for `value`."""
-        return []
-
 
 class LocationDimension(DBFacetDimension):
     """Facet by org unit (`location`), matching `BacktestForecast.org_unit` directly."""
@@ -63,9 +59,6 @@ class LocationDimension(DBFacetDimension):
 
     def forecast_filters(self, value: Any, session: Session, backtest: Backtest) -> list[ColumnElement]:
         return [BacktestForecast.org_unit == value]
-
-    def observation_filters(self, value: Any, session: Session, backtest: Backtest) -> list[ColumnElement]:
-        return [Observation.org_unit == value]
 
 
 def _split_display(last_seen_period: str) -> str:
@@ -148,19 +141,22 @@ def load_filtered_flat_data(
     dim_by_name = {d.clean_name: d for d in dimensions if isinstance(d, DBFacetDimension)}
 
     forecast_clauses: list[Any] = [BacktestForecast.backtest_id == backtest.id]
-    observation_clauses: list[Any] = [
-        Observation.dataset_id == backtest.dataset_id,
-        Observation.feature_name == "disease_cases",
-    ]
     for name, value in coords.items():
         dim = dim_by_name.get(name)
         if dim is None:
             continue
         forecast_clauses += dim.forecast_filters(value, session, backtest)
-        observation_clauses += dim.observation_filters(value, session, backtest)
 
     forecasts = session.exec(select(BacktestForecast).where(*forecast_clauses)).all()
-    observations = session.exec(select(Observation).where(*observation_clauses)).all()
+
+    # Observations narrow only by org unit (any location coordinate); other dimensions
+    # filter the forecasts and rely on the plot's in-memory filter for observations.
+    org_units = [value for name, value in coords.items() if isinstance(dim_by_name.get(name), LocationDimension)]
+    observations = DataSetManager(session).observations(
+        backtest.dataset_id,
+        org_units=org_units or None,
+        feature_names=["disease_cases"],
+    )
 
     forecasts_df = convert_backtest_to_flat_forecasts(list(forecasts))
     observations_df = convert_backtest_observations_to_flat_observations(list(observations))
