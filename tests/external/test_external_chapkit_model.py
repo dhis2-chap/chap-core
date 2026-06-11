@@ -74,6 +74,16 @@ class TestUrlModelNameFallback:
         with pytest.raises(ValueError, match="could not be reached as a chapkit service"):
             get_model_template_from_directory_or_github_url("https://nonexistent.example.com:9999")
 
+    def test_github_url_skips_chapkit_probe(self):
+        """GitHub URLs are git-clone targets and must not trigger the chapkit /api/v1/info probe."""
+        with (
+            patch("chap_core.models.utils._is_chapkit_url") as mock_probe,
+            patch("chap_core.models.utils._get_model_code_base", side_effect=RuntimeError("clone reached")),
+        ):
+            with pytest.raises(RuntimeError, match="clone reached"):
+                get_model_template_from_directory_or_github_url("https://github.com/sandvelab/monthly_ar_model")
+        mock_probe.assert_not_called()
+
 
 class TestIsUrl:
     def test_http_url(self):

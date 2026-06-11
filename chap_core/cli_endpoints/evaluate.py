@@ -19,10 +19,12 @@ from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime v
 )
 from chap_core.cli_endpoints._common import (
     discover_geojson,
+    get_configuration,
     get_estimator,
     get_hpo_estimator,
     load_dataset_from_csv,
     resolve_csv_path,
+    warn_unused_covariates,
 )
 
 if TYPE_CHECKING:
@@ -124,10 +126,12 @@ def _run_eval(
     estimator_options: Annotated[
         EstimatorOptions | None,
         Parameter(
-            help="Estimator behavior. Leave mode unset for a normal evaluation run. "
+            help="Estimator behavior. "
+            "Use --estimator-options.mode=normal for a normal evaluation run. "
             "Use --estimator-options.mode=hpo for hyperparameter optimization. "
             "Use --estimator-options.mode=ensemble for ensemble learning. "
-            "Optionally --estimator-options.metric=<metric> for hpo and ensemble."
+            "Optionally --estimator-options.metric=<metric> for hpo. "
+            "Optionally --estimator-options.searcher=<searcher> for hpo."
         ),
     ] = None,
 ):
@@ -168,10 +172,10 @@ def _run_eval(
     from chap_core.assessment.evaluation import Evaluation
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
     from chap_core.external.ExtendedPredictor import ExtendedPredictor
-    from chap_core.hpo.searcher import RandomSearcher
     from chap_core.log_config import initialize_logging
     from chap_core.models.model_template import ModelTemplate
     from chap_core.models.utils import CHAP_RUNS_DIR
+    from chap_core.rest_api.db_worker_functions import validate_and_filter_dataset_for_evaluation
 
     # The same can be done for backtest_params and run_config,
     # or have them depend on cyclopts
@@ -194,6 +198,14 @@ def _run_eval(
     geojson_path = url_geojson_path or discover_geojson(csv_path)
     dataset = load_dataset_from_csv(csv_path, geojson_path, column_mapping)
 
+    dataset = validate_and_filter_dataset_for_evaluation(
+        dataset,
+        target_name="disease_cases",
+        n_periods=backtest_params.n_periods,
+        n_splits=backtest_params.n_splits,
+        stride=backtest_params.stride,
+    )
+
     if dry_run and estimator_options.mode != EstimatorMode.NORMAL:
         logger.warning(
             "Dry run does not support estimator_options.mode=%s; forcing mode='normal'.", estimator_options.mode.value
@@ -210,22 +222,23 @@ def _run_eval(
         dry_run=dry_run,
     )
 
-    configuration = None
     with template:
+        configuration = get_configuration(model_configuration_yaml)
         estimator: ExternalModel | HpoModel | ExtendedPredictor
         if estimator_options.mode == EstimatorMode.NORMAL:
-            estimator, configuration = get_estimator(template, model_configuration_yaml)
+            estimator = get_estimator(template, configuration)
         elif estimator_options.mode == EstimatorMode.HPO:
-            assert estimator_options.metric is not None
             estimator = get_hpo_estimator(
                 template=template,
                 model_configuration_yaml=model_configuration_yaml,
                 backtest_params=backtest_params,
                 metric=estimator_options.metric,
-                searcher=RandomSearcher(2),
+                searcher_inp=estimator_options.searcher,
             )
         elif estimator_options.mode == EstimatorMode.ENSEMBLE:
             raise NotImplementedError("Ensemble mode is not yet implemented")
+
+        warn_unused_covariates(dataset, template.model_template_config, configuration)
 
         model_info = estimator.model_information
         if model_info.min_prediction_length is None and model_info.max_prediction_length is None:

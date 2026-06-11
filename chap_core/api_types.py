@@ -16,7 +16,7 @@ from geojson_pydantic import (
     Point,
     Polygon,
 )
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from chap_core.database.base_tables import DBModel
 
@@ -119,6 +119,17 @@ class BacktestParams(DBModel):
     n_periods: int = Field(default=3, gt=0, description="Number of periods to forecast at each split.")
     n_splits: int = Field(default=7, gt=0, description="Total number of rolling train/test splits.")
     stride: int = Field(default=1, gt=0, description="Number of periods to advance between successive splits.")
+    n_retrain: int = Field(
+        default=1,
+        gt=0,
+        description="Number of times the model is retrained, evenly spaced across the splits. 1 means train once.",
+    )
+
+    @model_validator(mode="after")
+    def _check_n_retrain(self) -> "BacktestParams":
+        if self.n_retrain > self.n_splits:
+            raise ValueError("n_retrain cannot exceed n_splits.")
+        return self
 
 
 class RunConfig(BaseModel):
@@ -185,16 +196,24 @@ class EstimatorMode(StrEnum):
     ENSEMBLE = "ensemble"
 
 
+class SearcherType(StrEnum):
+    GRID = "grid"
+    RANDOM = "random"
+    TPE = "tpe"
+
+
 class EstimatorOptions(BaseModel):
     """Options controlling how the estimator runs (mode + metric)."""
 
     mode: EstimatorMode = Field(
         default=EstimatorMode.NORMAL,
-        description=(
-            "Estimator mode: 'normal' = normal run, 'hpo' = hyperparameter optimization, 'ensemble' = ensemble learning."
-        ),
+        description="Estimator mode: 'normal' = normal run, 'hpo' = hyperparameter optimization, 'ensemble' = ensemble learning.",
     )
     metric: str | None = Field(
-        default="rmse",
-        description="Metric used for HPO or ensemble. Ignored in normal mode.",
+        default=None,
+        description="Metric used for HPO or ensemble. Default will be used if none provided. Ignored in normal mode.",
+    )
+    searcher: SearcherType | None = Field(
+        default=None,
+        description="Searcher used for HPO. If not provided, a default RandomSearcher will be used. Ignored in normal and ensemble modes.",
     )

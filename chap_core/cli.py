@@ -11,6 +11,7 @@ warnings.filterwarnings("ignore", module="bionumpy")
 from cyclopts import App
 
 from chap_core.cli_endpoints import (
+    aggregate_eval,
     causal,
     convert,
     ensemble,
@@ -34,6 +35,7 @@ logging.basicConfig(
 app = App()
 
 # Register commands from each module
+aggregate_eval.register_commands(app)
 causal.register_commands(app)
 convert.register_commands(app)
 evaluate.register_commands(app)

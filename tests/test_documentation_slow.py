@@ -127,6 +127,7 @@ class TestSlowDocumentationBash:
         "docs/external_models/data_formats.md",
         "docs/feature_tutorials/extended_predictor.md",
         "docs/chap-cli/evaluation-workflow.md",
+        "docs/chap-cli/minimalist-example.md",
         "docs/kigali-workshop/kigali-workshop-material/11_feb_presession.md",
     ]
 

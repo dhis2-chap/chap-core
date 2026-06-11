@@ -1,7 +1,25 @@
-"""
-Functionality for segmenting time series data into interpretable blocks (segments) of data
+"""Segmenters for time-series LIME.
+
+A time series has one value per time step, which is far too fine-grained to
+perturb directly — you'd need an astronomical number of perturbations to
+cover every value. Segmentation groups consecutive time steps into a handful
+of contiguous blocks ("segments"), and LIME then perturbs a whole segment at
+a time. Each segment becomes one interpretable feature in the explanation.
+
+Every segmenter returns two parallel dicts keyed by **lag** (lag 0 = the most
+recent segment, higher lag = older):
+
+* ``Segments`` — ``{lag: [values...]}``, the raw values in each segment.
+* ``Indices`` — ``{lag: (start_row, end_row)}``, so a perturbed segment can
+  be written back into the right rows of the dataframe.
+
+Strategy provenance: every segmenter except `ReverseExponentialSegmentation`
+(uniform, exponential, the three matrix-profile variants, SAX) comes from the
+TS-Mule paper; `NNSegmentation` comes from LimeSegment;
+`ReverseExponentialSegmentation` is a chap-core addition not from any paper.
 """
 
+from collections.abc import Iterable
 from typing import Protocol
 
 import numpy as np
@@ -14,27 +32,61 @@ Segments = dict[int, Segment]
 Indices = dict[int, tuple[int, int]]
 
 
+def _finalize_boundaries(internal_candidates: Iterable[int], data_len: int) -> list[int]:
+    """Turn raw internal boundary candidates into a clean ascending boundary list.
+
+    Drops anything outside the open interval ``(0, data_len)``, dedupes, sorts,
+    and brackets the result with ``0`` and ``data_len``. This guarantees the
+    consecutive pairs never produce a zero-length segment — candidate selection
+    in the matrix-profile / nearest-neighbour segmenters can otherwise emit a
+    boundary at 0, at ``data_len``, or a duplicate, all of which yield empty
+    ``(x, x)`` segments that become meaningless lag features.
+    """
+    clean = sorted({int(b) for b in internal_candidates if 0 < int(b) < data_len})
+    return [0, *clean, data_len]
+
+
 class SegmentationModel(Protocol):
-    def segment(self, data: pd.DataFrame) -> tuple[Segments, Indices]: ...  # TODO
+    """Contract for a segmenter: split a single feature series into lag-keyed segments.
+
+    ``segment`` takes a one-column DataFrame or a Series and returns
+    ``(segments, indices)`` — the per-lag values and their ``(start, end)``
+    row spans (lag 0 = most recent).
+    """
+
+    def segment(self, data: pd.DataFrame | pd.Series) -> tuple[Segments, Indices]: ...
 
 
 class UniformSegmentation(SegmentationModel):
+    """Equally-spaced segments.
+
+    Cuts the series into ``num_segments`` blocks of equal length; the last
+    (most recent, lag 0) segment absorbs any remainder when the length
+    doesn't divide evenly. The simplest strategy and a sensible default.
+    """
+
     def __init__(self, num_segments=5):
         self.num_segments = num_segments
 
-    def segment(self, data: pd.DataFrame) -> tuple[Segments, Indices]:
-        segments = {}
-        indices = {}
+    def segment(self, data: pd.DataFrame | pd.Series) -> tuple[Segments, Indices]:
+        segments: Segments = {}
+        indices: Indices = {}
 
         data_len = len(data)
-        segment_len = data_len // self.num_segments
+        # Cap the segment count at the data length: asking for more segments than
+        # rows would otherwise produce empty (start == end) segments that become
+        # meaningless lag features and waste perturbation budget.
+        num_segments = min(self.num_segments, data_len)
+        if num_segments == 0:
+            return segments, indices
+        segment_len = data_len // num_segments
 
         current_idx = 0
 
-        for i in range(self.num_segments):
-            lag = (self.num_segments - 1) - i
+        for i in range(num_segments):
+            lag = (num_segments - 1) - i
 
-            if i == self.num_segments - 1:
+            if i == num_segments - 1:
                 subset = data.iloc[current_idx:]
             else:
                 subset = data.iloc[current_idx : current_idx + segment_len]
@@ -49,10 +101,19 @@ class UniformSegmentation(SegmentationModel):
 
 
 class ExponentialSegmentation:
+    """Exponentially-growing segments, finest at the recent end.
+
+    Segment lengths grow as ``ceil(exp(i))`` so the oldest data is lumped
+    into a few wide blocks while recent data is split finely — useful when
+    recent time steps carry more explanatory weight. The number of segments
+    is derived from the data length (``ceil(log(n))``), so ``num_segments``
+    is currently accepted but unused. The last block absorbs the remainder.
+    """
+
     def __init__(self, num_segments=5):
         self.num_segments = num_segments  # ExponentialSegmentation accepts num_segments but doesn't use - change?
 
-    def segment(self, data: pd.DataFrame) -> tuple[Segments, Indices]:
+    def segment(self, data: pd.DataFrame | pd.Series) -> tuple[Segments, Indices]:
         segments = {}
         indices = {}
 
@@ -82,10 +143,18 @@ class ExponentialSegmentation:
 
 
 class ReverseExponentialSegmentation:
+    """Exponentially-growing segments, finest at the *oldest* end.
+
+    Mirror image of :class:`ExponentialSegmentation`: the smallest segments
+    are the most recent (lag 0) and they grow toward the past. Not from any
+    paper — a chap-core addition for when older data is the finer-grained
+    region of interest.
+    """
+
     def __init__(self, num_segments=5):
         self.num_segments = num_segments  # as in ExponentialSegmentation
 
-    def segment(self, data: pd.DataFrame) -> tuple[Segments, Indices]:
+    def segment(self, data: pd.DataFrame | pd.Series) -> tuple[Segments, Indices]:
         segments = {}
         indices = {}
 
@@ -118,6 +187,16 @@ class ReverseExponentialSegmentation:
 
 
 class MatrixProfileSlopeSegmentation:
+    """Boundaries where the matrix profile changes fastest.
+
+    The matrix profile slides a length-``window_size`` window across the
+    series and, for each position, records the distance to its most similar
+    window elsewhere. Differentiating that profile (``|gradient|``) highlights
+    where the series' local pattern changes most sharply — intuitively where
+    one regime ends and another begins. Boundaries are placed at the top
+    ``num_segments - 1`` gradient peaks.
+    """
+
     def __init__(self, num_segments: int, window_size: int):
         self.num_segments = num_segments
         self.m = window_size
@@ -147,8 +226,7 @@ class MatrixProfileSlopeSegmentation:
 
         k = self.num_segments - 1
         top_k = sorted_grad[:k]
-        index_sorted = sorted(top_k, key=lambda x: x[0])
-        boundaries = [0] + [b[0] for b in index_sorted] + [data_len]
+        boundaries = _finalize_boundaries((b[0] for b in top_k), data_len)
         num_segs = len(boundaries) - 1
         for seg_i in range(num_segs):
             start, end = boundaries[seg_i], boundaries[seg_i + 1]
@@ -160,6 +238,16 @@ class MatrixProfileSlopeSegmentation:
 
 
 class MatrixProfileSortedSlopeSegmentation:
+    """Boundaries at the largest jumps in the *sorted* matrix profile.
+
+    Like :class:`MatrixProfileSlopeSegmentation` but instead of
+    differentiating the profile in time order, it sorts the profile values
+    and finds the ``num_segments - 1`` largest jumps between consecutive
+    sorted values; the original positions of those jumps become boundaries.
+    Separates the series by similarity-value level rather than by where
+    changes happen in time.
+    """
+
     def __init__(self, num_segments: int, window_size: int):
         self.num_segments = num_segments
         self.m = window_size
@@ -192,9 +280,8 @@ class MatrixProfileSortedSlopeSegmentation:
         jump_pos = np.sort(jump_pos)
 
         boundary_candidates = order[jump_pos + 1]
-        boundary_candidates = np.sort(boundary_candidates)
 
-        boundaries = [0, *boundary_candidates.tolist(), data_len]
+        boundaries = _finalize_boundaries(boundary_candidates.tolist(), data_len)
 
         num_segs = len(boundaries) - 1
         for seg_i in range(num_segs):
@@ -207,6 +294,16 @@ class MatrixProfileSortedSlopeSegmentation:
 
 
 class MatrixProfileBinSegmentation:
+    """Boundaries where the matrix profile crosses into a different quantile bin.
+
+    Divides the matrix-profile values into ``num_bins`` horizontal bins, then
+    assigns each time step the min (or max, per ``mode``) bin of the windows
+    covering it. Runs of consecutive time steps in the same bin become one
+    segment — grouping the series by similarity *level* rather than by change
+    points. ``num_segments`` is currently unused (the bin structure
+    determines the count).
+    """
+
     def __init__(self, num_segments: int, window_size: int, num_bins: int, mode: str = "min"):
         self.num_segments = (
             num_segments  # As before, num_segments is not used. Remove, or concat until num_segments? TODO
@@ -263,6 +360,7 @@ class MatrixProfileBinSegmentation:
 
 
 def count_runs(symbols_1d: np.ndarray) -> int:
+    """Count maximal runs of identical consecutive symbols (used to size SAX segments)."""
     if len(symbols_1d) == 0:
         return 0
     runs = 1
@@ -273,6 +371,15 @@ def count_runs(symbols_1d: np.ndarray) -> int:
 
 
 class SaxTransformSegmentation:
+    """Boundaries between runs of the same SAX symbol.
+
+    Symbolic Aggregate Approximation (SAX) z-normalises the series and bins
+    each value into a discrete symbol; runs of the same symbol form a
+    segment. The number of bins is searched upward (from 3) until the run
+    count is within 10% of ``num_segments`` (tolerance per the paper). Note:
+    SAX struggles on the noisy data this project typically sees.
+    """
+
     def __init__(self, num_segments: int):
         self.num_segments = num_segments
 
@@ -306,7 +413,7 @@ class SaxTransformSegmentation:
 
         b = 3
         max_bins = max(3, min(n, 26))  # pyts limit
-        best_symbols = None
+        best_symbols: np.ndarray | None = None
 
         while b <= max_bins:
             sax = SymbolicAggregateApproximation(n_bins=b, strategy="normal")
@@ -323,6 +430,9 @@ class SaxTransformSegmentation:
             else:
                 break
 
+        # max_bins is always >= 3 and b starts at 3, so the loop runs at least
+        # once and best_symbols is always assigned. Assert for the type checker.
+        assert best_symbols is not None
         boundaries = [0]
         boundaries.extend(i for i in range(1, n) if best_symbols[i] != best_symbols[i - 1])
         boundaries.append(n)
@@ -338,6 +448,10 @@ class SaxTransformSegmentation:
 
 
 def rho(x: np.ndarray, m: int, i: int, k: int) -> float:  # From the paper
+    """Dissimilarity between two length-`m` windows (at `i` and `k`) by mean/std ratio.
+
+    Used by :class:`NNSegmentation` to score candidate boundaries.
+    """
     wi = x[i : i + m]
     wk = x[k : k + m]
     mu_i = float(np.mean(wi))
@@ -348,6 +462,16 @@ def rho(x: np.ndarray, m: int, i: int, k: int) -> float:  # From the paper
 
 
 class NNSegmentation:
+    """Boundaries at nearest-neighbour discontinuities (LimeSegment).
+
+    Slides overlapping length-``window_size`` windows and, via the matrix
+    profile, finds each window's nearest-neighbour index. In a stable regime
+    the NN index advances by one as you step forward; when it jumps, you're
+    likely at a regime change. Those discontinuities are candidate
+    boundaries, scored by how dissimilar the neighbouring windows are (see
+    :func:`rho`); the top ``num_segments`` become actual boundaries.
+    """
+
     def __init__(self, num_segments: int, window_size: int):
         self.num_segments = num_segments
         self.m = window_size
@@ -392,10 +516,7 @@ class NNSegmentation:
         candidates.sort(key=lambda t: t[1], reverse=True)
         top = candidates[: self.num_segments]
 
-        boundaries = [c for c, _ in top]
-        boundaries = sorted(boundaries)
-
-        boundaries = [0, *boundaries, data_len]
+        boundaries = _finalize_boundaries((c for c, _ in top), data_len)
 
         num_segs = len(boundaries) - 1
         for seg_i in range(num_segs):
@@ -407,47 +528,10 @@ class NNSegmentation:
         return segments, indices
 
 
-"""
-Need to write documentation later TODO, but intuition is:
-
-Uniform is equally spaced segments
-
-Exponential is smaller segments earlier, growing exponentially, in both exponential
-and uniform the last segment is widened if the data length doesn't match perfectly
-
-Reverse exponential is same as exponential, but smaller segments last (Not found in paper)
-
-Matrix profile slope segmentation uses matrix profile (matrix profile uses a sliding window across
-and finds the most similar section elsewhere in the series to that window, and assigns this similarity as
-the value of that time step) differentiated to find where sections change the most, because this is
-intuitively where a unique/distinct pattern for the series would begin or end.
-
-Matrix profile sorted slope segmentation also uses matrix profile but doesn't differentiate; instead
-sorts by the largest difference in sim value between two time steps and creates boundaries at the top
-k steps.
-
-Matrix profile bin segmentation divides the time series similarities into horizontal bins, and sections of
-consecutive time steps whose similarity is in the same bin becomes a single segment.
-
-Sax transform segmentation uses the sax transform (sax transform is the division of a time series into pre-
-determined bins, averaged, and binned horizontally into "symbols", where strings of these symbols form words)
-to convert the time series into words, and substrings of consecutive same letters becomes one segment.
-Difficult in this instance to match precisely with selected number of bins, so tolerance of 10% is given
-per the paper
-
-All transformations above, save inverse exponential, come from TS-Mule paper
-
-NNSegment comes from the LimeSegment paper. This algo segments the series into overlapping windows of size m,
-and finds the index of the most similar window. Intuitively, if we are in a region of "stability" or regularity
-in values, moving along to the next time step's window would result in its most similar window being the
-window one over of the previous index of most similar. When this doesn't hold, we are probably in a regime
-change and can add a candidate boundary. Select actual boundaries based on those windows which are most different
-from neighbors (as function of mean and variance)
-
-TODO: Add BEAST and others?
-
-TODO In general: Safe getting, current development on data without NaNs which gives false security
-
-Idea: Evaluate boundary placement by difference in mean and variance thing from above iteratively for windows
-to left and right
-"""
+# Per-strategy intuition now lives in each class's docstring above.
+#
+# TODO: Add BEAST and other segmenters?
+# TODO (general): harden NaN handling — current development is on data without
+#   NaNs, which gives a false sense of security.
+# Idea: evaluate boundary placement by iterating the rho() mean/variance
+#   dissimilarity over windows to the left and right of each candidate.

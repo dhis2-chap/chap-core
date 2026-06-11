@@ -1,6 +1,4 @@
-import dataclasses
 import datetime
-import json
 import logging
 
 # CHeck if CHAP_DATABASE_URL is set in the environment
@@ -14,19 +12,13 @@ import sqlalchemy
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from chap_core.datatypes import FullData, create_tsdataclass
-from chap_core.geometry import Polygons
 from chap_core.log_config import is_debug_mode
 from chap_core.predictor.naive_estimator import NaiveEstimator
-from chap_core.time_period import Month, Week
 
 from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
 from ..models.external_chapkit_model import ExternalChapkitModelTemplate
-from ..spatio_temporal_data.converters import observations_to_dataset
-from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
-from .dataset_tables import DataSet, DataSetCreateInfo, DataSetInfo, Observation
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
 from .tables import Backtest, Prediction, PredictionSamplesEntry
@@ -66,6 +58,9 @@ class SessionWrapper:
     This is a wrapper around data access operations.
     This class handles cases when putting things in/out of db requires
     more than just adding/getting a row, e.g. transforming data etc.
+
+    Dataset reads/writes are not here: use ``DataSetManager(session)``
+    (``chap_core.database.dataset_manager``) for those.
     """
 
     def __init__(self, local_engine=None, session=None):
@@ -449,89 +444,6 @@ class SessionWrapper:
         self.session.add(prediction)
         self.session.commit()
         return prediction.id
-
-    def add_dataset_from_csv(self, name: str, csv_path: Path, geojson_path: Path | None = None):
-        dataset = _DataSet.from_csv(csv_path, dataclass=FullData)
-        geojson_content = open(geojson_path).read() if geojson_path else None
-        features = None
-        if geojson_content is not None:
-            features = Polygons.from_geojson(json.loads(geojson_content), id_property="NAME_1").feature_collection()
-            features = features.model_dump_json()
-
-        return self.add_dataset(DataSetCreateInfo(name=name), dataset, features)
-
-    def add_dataset(self, dataset_info: DataSetCreateInfo, orig_dataset: _DataSet, polygons):
-        """
-        Add a dataset to the database. The dataset is provided as a spatio-temporal dataclass.
-        The polygons should be provided as a geojson feature collection.
-        The dataset_info should contain information about the dataset, such as its name and data sources.
-        The function sets some derived fields in the dataset_info, such as the first and last time period and the covariates.
-        The function returns the id of the newly created dataset.
-        """
-        logger.info(
-            f"Adding dataset {dataset_info.name} with {len(list(orig_dataset.locations()))} locations and {len(orig_dataset.period_range)} time periods"
-        )
-        field_names = [
-            field.name
-            for field in dataclasses.fields(next(iter(orig_dataset.values())))
-            if field.name not in ["time_period", "location"]
-        ]
-        logger.info(f"Field names in dataset: {field_names}")
-        if isinstance(orig_dataset.period_range[0], Month):
-            period_type = "month"
-        else:
-            assert isinstance(orig_dataset.period_range[0], Week), orig_dataset.period_range[0]
-            period_type = "week"
-        full_info = DataSetInfo(
-            first_period=orig_dataset.period_range[0].id,
-            last_period=orig_dataset.period_range[-1].id,
-            covariates=field_names,
-            created=datetime.datetime.now(),
-            org_units=list(orig_dataset.locations()),
-            period_type=period_type,
-            **dataset_info.model_dump(),
-        )
-        dataset = DataSet(geojson=polygons, **full_info.model_dump())
-
-        for location, data in orig_dataset.items():
-            field_names = [
-                field.name for field in dataclasses.fields(data) if field.name not in ["time_period", "location"]
-            ]
-            for row in data:
-                for field in field_names:
-                    observation = Observation(
-                        period=row.time_period.id,
-                        org_unit=location,
-                        value=float(getattr(row, field)),
-                        feature_name=field,
-                    )
-                    dataset.observations.append(observation)
-
-        self.session.add(dataset)
-        self.session.commit()
-        assert self.session.exec(select(Observation).where(Observation.dataset_id == dataset.id)).first() is not None
-        return dataset.id
-
-    def get_dataset(self, dataset_id: int, dataclass: type | None = None) -> _DataSet:
-        dataset = self.session.get(DataSet, dataset_id)
-        if dataset is None:
-            raise ValueError(f"Dataset with id {dataset_id} not found")
-        if dataclass is None:
-            logger.info(f"Getting dataset with covariates: {dataset.covariates} and name: {dataset.name}")
-            field_names = dataset.covariates
-            dataclass = create_tsdataclass(field_names)
-        observations = dataset.observations
-        new_dataset = observations_to_dataset(dataclass, observations)
-
-        if dataset.geojson:
-            logger.info(f"Loading polygons from geojson for dataset id {dataset_id}")
-            new_dataset.set_polygons(Polygons.from_geojson(json.loads(dataset.geojson), id_property="district").data)
-
-        return cast("_DataSet", new_dataset)
-
-    def get_dataset_by_name(self, dataset_name: str) -> DataSet | None:
-        dataset = self.session.exec(select(DataSet).where(DataSet.name == dataset_name)).first()
-        return dataset
 
 
 def _run_alembic_migrations(engine):
