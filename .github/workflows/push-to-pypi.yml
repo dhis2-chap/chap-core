@@ -6,6 +6,7 @@ on:
 
 jobs:
   deploy:
+    if: github.repository == 'dhis2-chap/chap-core'
     runs-on: ubuntu-latest
     environment: release
     permissions:
