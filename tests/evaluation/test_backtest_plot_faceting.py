@@ -58,7 +58,7 @@ from chap_core.assessment.backtest_plots.predicted_vs_actual_linear_plot import 
 from chap_core.assessment.backtest_plots.predicted_vs_actual_plot import (
     PredictedVsActualPlot,
 )
-from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasPlot
+from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasByHorizonPlot, SampleBiasByTimePeriodPlot
 
 
 CLIM_548 = "CLIM-548: FacetedBacktestPlot refactor not implemented yet"
@@ -223,10 +223,11 @@ def test_get_full_plot_returns_faceted_chart(plot_cls, expected_fields, observat
     assert isinstance(chart, alt.TopLevelMixin)
 
 
-def test_no_dimension_plot_conforms_to_interface(observations_df, forecasts_df):
+@pytest.mark.parametrize("plot_cls", [SampleBiasByHorizonPlot, SampleBiasByTimePeriodPlot])
+def test_no_dimension_plot_conforms_to_interface(plot_cls, observations_df, forecasts_df):
     """A FacetedBacktestPlot may declare no dimensions: facet_coords is empty and a
     subplot with no coordinates renders the full chart."""
-    plotter = SampleBiasPlot()
+    plotter = plot_cls()
     assert plotter.facet_dimensions == []
 
     coords = plotter.facet_coords(observations_df, forecasts_df)
