@@ -41,6 +41,7 @@ behavior.
 
 from __future__ import annotations
 
+import json
 import re
 
 import altair as alt
@@ -235,6 +236,21 @@ def test_no_dimension_plot_conforms_to_interface(plot_cls, observations_df, fore
 
     chart = plotter.get_subplot(observations_df, forecasts_df, {})
     assert isinstance(chart, alt.TopLevelMixin)
+
+
+def test_horizon_grid_cell_title_only_in_full_grid(observations_df, forecasts_df):
+    """The frontend's facet selection already identifies a single-cell subplot, so it
+    carries no '<location> | horizon <n>' title; the full grid keeps the per-cell
+    labels since its layout is the only thing identifying each cell."""
+    plotter = HorizonLocationGridPlot()
+    location = forecasts_df["location"].iloc[0]
+    horizon = int(forecasts_df["horizon_distance"].iloc[0])
+
+    subplot = plotter.get_subplot(observations_df, forecasts_df, {"location": location, "horizon_distance": horizon})
+    assert "| horizon" not in json.dumps(subplot.to_dict(format="vega"))
+
+    full_plot = plotter.get_full_plot(observations_df, forecasts_df)
+    assert f"{location} | horizon {horizon}" in json.dumps(full_plot.to_dict(format="vega"))
 
 
 def test_horizon_grid_subplot_handles_empty_forecasts(observations_df, forecasts_df):
