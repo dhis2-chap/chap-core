@@ -221,16 +221,33 @@ def generate_backtest_plots(visualization_name: str, backtest_id: int, session: 
     return JSONResponse(chart.to_dict(format="vega"))
 
 
-def _fill_container_width(chart: alt.TopLevelMixin) -> alt.TopLevelMixin:
-    """Make a subplot fill its width when the frontend embeds it in a flexible container.
+def _fill_container_width(chart: alt.TopLevelMixin) -> dict[str, Any]:
+    """Compile a subplot to a Vega spec that fills its width when the frontend embeds
+    it in a flexible container (height is left at the plot's fixed value).
 
-    Single-view charts get ``width='container'`` (height is left at the plot's fixed
-    value). Multi-view (concat) and faceted specs can't use container sizing, so their
-    fixed widths are returned untouched.
+    Single-view charts get ``width='container'`` before compiling. Vertically
+    concatenated charts can't use container sizing in Vega-Lite, but when every row
+    shares one width the compiler hoists it to a single top-level ``width`` that all
+    row groups reference; replacing that fixed value with a ``containerSize()``-driven
+    signal in the compiled Vega spec makes the whole stack responsive (the original
+    width stays as the fallback outside a sized DOM container). Other multi-view
+    (concat/facet) specs keep their fixed widths.
     """
-    if isinstance(chart, (alt.ConcatChart, alt.HConcatChart, alt.VConcatChart, alt.FacetChart)):
-        return chart
-    return chart.properties(width="container")
+    if isinstance(chart, alt.VConcatChart):
+        spec = cast("dict[str, Any]", chart.to_dict(format="vega"))
+        if not isinstance(spec.get("width"), (int, float)):
+            return spec
+        fallback = spec.pop("width")
+        expr = f"isFinite(containerSize()[0]) ? containerSize()[0] : {fallback}"
+        spec["autosize"] = {"type": "fit-x", "contains": "padding"}
+        spec.setdefault("signals", []).insert(
+            0,
+            {"name": "width", "init": expr, "on": [{"update": expr, "events": "window:resize"}]},
+        )
+        return spec
+    if isinstance(chart, (alt.ConcatChart, alt.HConcatChart, alt.FacetChart)):
+        return cast("dict[str, Any]", chart.to_dict(format="vega"))
+    return cast("dict[str, Any]", chart.properties(width="container").to_dict(format="vega"))
 
 
 def _get_faceted_plotter_and_backtest(
@@ -309,7 +326,7 @@ def generate_isolated_plots(
         facet_coords,
         cast("Any", flat_data.historical_observations),
     )
-    return JSONResponse(_fill_container_width(chart).to_dict(format="vega"))
+    return JSONResponse(_fill_container_width(chart))
 
 
 @router.get("/backtest-plots/{visualization_name}/{backtest_id}/subplots")
@@ -328,6 +345,4 @@ def generate_all_subplots(
         observations, forecasts, coords=coords_matrix, historical_observations=historical_df
     )
 
-    return [
-        {"key": key, "spec": _fill_container_width(subplot).to_dict(format="vega")} for key, subplot in subplot_tuples
-    ]
+    return [{"key": key, "spec": _fill_container_width(subplot)} for key, subplot in subplot_tuples]

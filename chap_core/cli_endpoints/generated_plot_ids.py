@@ -9,5 +9,6 @@ BACKTEST_PLOT_IDS: tuple[str, ...] = (
     "horizon_location_grid",
     "predicted_vs_actual",
     "predicted_vs_actual_linear",
-    "ratio_of_samples_above_truth",
+    "sample_bias_by_horizon",
+    "sample_bias_by_time_period",
 )

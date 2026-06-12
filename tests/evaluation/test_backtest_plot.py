@@ -17,7 +17,7 @@ from chap_core.assessment.backtest_plots.horizon_location_grid import HorizonLoc
 from chap_core.plotting.backtest_plot import clean_time
 from chap_core.assessment.backtest_plots.predicted_vs_actual_linear_plot import PredictedVsActualLinearPlot
 from chap_core.assessment.backtest_plots.predicted_vs_actual_plot import PredictedVsActualPlot
-from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasPlot
+from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasByHorizonPlot, SampleBiasByTimePeriodPlot
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.cli_endpoints.utils import plot_backtest
 from chap_core.database.tables import Backtest
@@ -29,8 +29,11 @@ def test_backtest_plot_registry():
 
     # Check that expected plots are registered
     assert "horizon_location_grid" in registry
-    assert "ratio_of_samples_above_truth" in registry
+    assert "sample_bias_by_horizon" in registry
+    assert "sample_bias_by_time_period" in registry
     assert "evaluation_plot" in registry
+    # The combined dashboard was split into the two plots above
+    assert "ratio_of_samples_above_truth" not in registry
 
     # Check that all registered plots are subclasses of BacktestPlotBase
     for plot_id, plot_cls in registry.items():
@@ -42,8 +45,11 @@ def test_get_backtest_plot():
     plot_cls = get_backtest_plot("horizon_location_grid")
     assert plot_cls is HorizonLocationGridPlot
 
-    plot_cls = get_backtest_plot("ratio_of_samples_above_truth")
-    assert plot_cls is SampleBiasPlot
+    plot_cls = get_backtest_plot("sample_bias_by_horizon")
+    assert plot_cls is SampleBiasByHorizonPlot
+
+    plot_cls = get_backtest_plot("sample_bias_by_time_period")
+    assert plot_cls is SampleBiasByTimePeriodPlot
 
     plot_cls = get_backtest_plot("evaluation_plot")
     assert plot_cls is EvaluationPlot
@@ -72,11 +78,15 @@ def test_evaluation_plot_directly(flat_observations, flat_forecasts, default_tra
     assert chart is not None
 
 
-def test_sample_bias_plot_directly(flat_observations, flat_forecasts, default_transformer):
-    """Test the sample bias plot with flat data."""
-    plot = SampleBiasPlot()
+@pytest.mark.parametrize("plot_cls", [SampleBiasByHorizonPlot, SampleBiasByTimePeriodPlot])
+def test_sample_bias_plots_directly(plot_cls, flat_observations, flat_forecasts, default_transformer):
+    """Test the sample bias plots produce single-view charts with flat data."""
+    plot = plot_cls()
     chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts))
     assert chart is not None
+    spec = chart.to_dict()
+    assert "vconcat" not in spec and "hconcat" not in spec
+    assert spec["height"] == 300
 
 
 def test_horizon_location_grid_directly(flat_observations, flat_forecasts_multiple_samples, default_transformer):
