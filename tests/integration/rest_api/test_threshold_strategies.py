@@ -1,5 +1,7 @@
 """Tests for the threshold strategy registry and the seasonal strategy."""
 
+import pytest
+
 from chap_core.assessment.thresholds import get_threshold_strategy, list_threshold_strategies
 from chap_core.assessment.thresholds.seasonal import compute_seasonal_thresholds
 from chap_core.spatio_temporal_data.converters import observations_to_dataframe
@@ -44,3 +46,33 @@ def test_seasonal_strategy_parity_with_compute_seasonal_thresholds(dataset_obser
     for row in result.itertuples():
         expected = january[january["location"] == row.location]["threshold"].iloc[0]
         assert row.threshold == expected
+
+
+def test_seasonal_strategy_weekly(dataset_observations_weekly, org_units):
+    df = _disease_cases_df(dataset_observations_weekly)
+    period_ids = ["2023W01", "2023W02"]
+    result = _seasonal_strategy().compute(df, period_ids)
+    assert set(result.columns) == {"period_id", "location", "threshold"}
+    assert len(result) == len(period_ids) * len(org_units)
+    assert set(result["period_id"]) == set(period_ids)
+    assert result["threshold"].notna().all()
+    per_week = compute_seasonal_thresholds(df)
+    week_one = per_week[per_week["week"] == 1]
+    for row in result[result["period_id"] == "2023W01"].itertuples():
+        expected = week_one[week_one["location"] == row.location]["threshold"].iloc[0]
+        assert row.threshold == expected
+
+
+def test_seasonal_strategy_weekly_unpadded_period_ids(dataset_observations_weekly):
+    """2023W1 and 2023W01 refer to the same week and must yield identical thresholds."""
+    df = _disease_cases_df(dataset_observations_weekly)
+    strategy = _seasonal_strategy()
+    padded = strategy.compute(df, ["2023W01"]).set_index("location")["threshold"]
+    unpadded = strategy.compute(df, ["2023W1"]).set_index("location")["threshold"]
+    assert padded.equals(unpadded)
+
+
+def test_seasonal_strategy_frequency_mismatch_raises(dataset_observations_weekly):
+    df = _disease_cases_df(dataset_observations_weekly)
+    with pytest.raises(ValueError, match="frequency"):
+        _seasonal_strategy().compute(df, ["2023-01"])
