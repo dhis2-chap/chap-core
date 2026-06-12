@@ -42,13 +42,13 @@
   name: auto_regressive_monthly_v2
   versions:
     nightly_build: "@main"
-    stable: "@2e067506ebb7c65694fb1da30245c8bca8540b8e"
+    stable: "@d4d6b78212c7079b3d151bb8aba7e042c2393953"
 
 - url: https://github.com/chap-models/auto_regressive_weekly_v2
   name: auto_regressive_weekly_v2
   versions:
     nightly_build: "@main"
-    stable: "@5578dcf0a16d88d7f30d99b29b553a792cf6b437"
+    stable: "@55f8fa523fbf2ebd9e2f7f17358b76c66a16c2c9"
 
 - url: https://github.com/dhis2-chap/ewars_template
   versions:
