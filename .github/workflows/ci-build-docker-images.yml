@@ -18,6 +18,7 @@ env:
 
 jobs:
   build-and-push:
+    if: github.repository == 'dhis2-chap/chap-core'
     runs-on: ubuntu-latest
     strategy:
       matrix:
