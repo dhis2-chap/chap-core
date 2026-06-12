@@ -38,17 +38,17 @@
     uv2: "@842a215551879b69bf401c86817c93380fef6fcf"
     uv3: "@ede034ac2dbf4fa3c2e96a365ccbcac63b77651d"
 
-- url: https://github.com/mortenoh/auto_regressive_monthly
+- url: https://github.com/chap-models/auto_regressive_monthly_v2
   name: auto_regressive_monthly_v2
   versions:
     nightly_build: "@main"
-    stable: "@62f92a792aba6a63bff25438357a0de91d73cb44"
+    stable: "@2e067506ebb7c65694fb1da30245c8bca8540b8e"
 
-- url: https://github.com/mortenoh/auto_regressive_weekly
+- url: https://github.com/chap-models/auto_regressive_weekly_v2
   name: auto_regressive_weekly_v2
   versions:
     nightly_build: "@main"
-    stable: "@28cf38616aebc6938a3ebec45b9be7c20d2fbd59"
+    stable: "@5578dcf0a16d88d7f30d99b29b553a792cf6b437"
 
 - url: https://github.com/dhis2-chap/ewars_template
   versions:
