@@ -226,7 +226,15 @@ def _run_eval(
         configuration = get_configuration(model_configuration_yaml)
         estimator: ExternalModel | HpoModel | ExtendedPredictor
         if estimator_options.mode == EstimatorMode.NORMAL:
-            estimator = get_estimator(template, configuration)
+            # Cap the horizon written into the model config at the model's declared
+            # max: when n_periods exceeds it the estimator is wrapped in
+            # ExtendedPredictor below and the inner model only ever predicts
+            # max_prediction_length periods per call.
+            max_pred_len = template.model_template_config.max_prediction_length
+            prediction_length = backtest_params.n_periods
+            if max_pred_len is not None:
+                prediction_length = min(prediction_length, max_pred_len)
+            estimator = get_estimator(template, configuration, prediction_length=prediction_length)
         elif estimator_options.mode == EstimatorMode.HPO:
             estimator = get_hpo_estimator(
                 template=template,

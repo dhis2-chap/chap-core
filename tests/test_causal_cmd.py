@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock, patch
+
 import pandas as pd
 import pytest
 
@@ -71,6 +73,35 @@ def test_cf_start_period_after_split_raises(tmp_path, make_test_df):
     original_csv, cf_csv = _write_csvs(tmp_path, original, cf)
     with pytest.raises(ValueError, match="strictly before"):
         _call_causal_cmd(tmp_path, original_csv, cf_csv, cf_start_period="2022-02")
+
+
+def test_causal_cmd_passes_test_horizon_as_prediction_length(tmp_path, make_test_df):
+    """causal forwards the split-to-end window length as prediction_length so the
+    model can read the full (single-call) horizon from its config."""
+    periods = ["2021-12", "2022-01", "2022-02", "2022-03"]
+    original = make_test_df(["A"], periods)
+    cf = make_test_df(["A"], periods, extra_col_val=2.0)
+    original_csv, cf_csv = _write_csvs(tmp_path, original, cf)
+
+    class _Stop(Exception):
+        pass
+
+    template_cm = MagicMock()
+    template_cm.__enter__.return_value = template_cm
+    template_cm.__exit__.return_value = False
+    fake_estimator = MagicMock()
+    fake_estimator.train.side_effect = _Stop()  # short-circuit after estimator is built
+
+    with (
+        patch("chap_core.models.model_template.ModelTemplate") as mt,
+        patch("chap_core.cli_endpoints.causal.get_estimator", return_value=fake_estimator) as get_estimator_mock,
+    ):
+        mt.from_directory_or_github_url.return_value = template_cm
+        with pytest.raises(_Stop):
+            _call_causal_cmd(tmp_path, original_csv, cf_csv)
+
+    # split_period is 2022-01, so the test window is 2022-01..2022-03 (3 periods).
+    assert get_estimator_mock.call_args.kwargs["prediction_length"] == 3
 
 
 @pytest.mark.slow
