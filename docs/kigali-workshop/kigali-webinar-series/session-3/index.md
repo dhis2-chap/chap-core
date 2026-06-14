@@ -18,10 +18,6 @@ Install the Chap command-line tool using uv. This tool is required for evaluatin
 
 Fork and clone an example model repository. Choose between Python (uv) or R depending on your preferred language. Then follow the README in the repository for next steps.
 
-### [3. Make your model configurable](configurable-model.md)
-
-Build on the previous step with a model whose behaviour can be configured from the outside: expose tunable options and extra covariates, inspect the configuration spec with the CHAP CLI, and run an evaluation with a specific configuration.
-
 ## Homework
 
 To follow the progression of the webinar series, you should **[verify that you are all set](homework.md)** by January 21, 2026

@@ -1,9 +1,9 @@
-# 3. Make your model configurable
+# Make your model configurable
 
-In [Implement your own model from a minimalist example](fork-example.md) you forked a
-fixed model and changed its code. In this guide you take the next step: building a
-model whose behaviour can be **configured from the outside**, without editing the code
-each time.
+In [Implement your own model from a minimalist example](../kigali-workshop/kigali-webinar-series/session-3/fork-example.md)
+you forked a fixed model and changed its code. In this guide you take the next step:
+building a model whose behaviour can be **configured from the outside**, without editing
+the code each time.
 
 By the end you will be able to:
 

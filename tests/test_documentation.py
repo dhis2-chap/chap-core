@@ -38,6 +38,7 @@ SKIP_FILES = [
     # Workshop tutorials (instructional content, not testable code)
     # Note: 11_feb_presession.md is tested in test_documentation_slow.py
     "docs/kigali-workshop",
+    "docs/dac2026",
 ]
 
 
