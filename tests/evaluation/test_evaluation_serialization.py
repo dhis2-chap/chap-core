@@ -273,6 +273,25 @@ class TestEvaluationSerialization:
         assert len(original_flat.forecasts) == len(loaded_flat.forecasts)
         assert len(original_flat.observations) == len(loaded_flat.observations)
 
+    def test_from_file_populates_monthly_period_metadata(self, old_backtest):
+        """from_file must populate dataset period metadata; a null period_type breaks frontends that sort periods."""
+        dataset = old_backtest.dataset
+        assert dataset.period_type == "month"
+        assert dataset.first_period == "201908"
+        assert dataset.last_period == "201912"
+        assert set(dataset.org_units) == set(old_backtest.org_units)
+
+    def test_roundtrip_populates_weekly_period_type(self, backtest_weeks, tmp_path):
+        """A weekly evaluation roundtripped through file should keep period_type 'week'."""
+        output_file = tmp_path / "test_weekly_period_type.nc"
+        Evaluation.from_backtest(backtest_weeks).to_file(filepath=output_file)
+
+        loaded = Evaluation.from_file(output_file).to_backtest()
+
+        assert loaded.dataset.period_type == "week"
+        assert loaded.dataset.first_period == "2022W01"
+        assert loaded.dataset.last_period == "2022W02"
+
     @pytest.mark.skip(reason="sloooow")
     def test_to_file_handles_large_dataset(self, backtest_weeks_large, tmp_path):
         """Test that to_file can handle large datasets efficiently."""
