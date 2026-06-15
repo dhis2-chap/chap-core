@@ -77,7 +77,7 @@ jobs:
       - name: Install the project
         run: uv sync --dev
       - name: Install pyenv
-        uses: gabrielfalcao/pyenv-action@v18
+        uses: gabrielfalcao/pyenv-action@v19
         with:
           default: "3.13"
           command: ""
