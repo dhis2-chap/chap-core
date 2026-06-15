@@ -16,6 +16,37 @@ We build on the example model
 Open its `README.md` first -- it explains how the pieces fit together. This guide is the
 hands-on exercise that goes with it.
 
+## Prerequisites
+
+This tutorial is a continuation of the
+[Modeling Webinar Series](../kigali-workshop/kigali-webinar-series/index.md) and the
+[Kigali workshop material](../kigali-workshop/kigali-workshop-material/index.md). Before
+starting, you should have worked through the following:
+
+- **[Webinar Session 2](../kigali-workshop/kigali-webinar-series/session-2/index.md)** --
+  you are comfortable on the [command line](../kigali-workshop/kigali-webinar-series/session-2/terminal.md),
+  with [git and GitHub](../kigali-workshop/kigali-webinar-series/session-2/git-github.md)
+  (forking and cloning), and with
+  [virtual environments](../kigali-workshop/kigali-webinar-series/session-2/virtual-environments.md).
+- **[Webinar Session 3](../kigali-workshop/kigali-webinar-series/session-3/index.md)** --
+  you have [installed Chap](../kigali-workshop/kigali-webinar-series/session-3/install-chap.md)
+  and have
+  [run a minimalist example model](../kigali-workshop/kigali-webinar-series/session-3/fork-example.md)
+  both in isolation and through Chap.
+- **[Monday Afternoon workshop material](../kigali-workshop/kigali-workshop-material/monday-afternoon.md)** --
+  you have run a backtest with `chap eval` and looked at the results.
+
+It also helps (but is not required) to have gone through the
+[Pre-session on working with datasets](../kigali-workshop/kigali-workshop-material/11_feb_presession.md),
+so you understand the Chap-compatible CSV format (`time_period`, `location`,
+`disease_cases`, plus covariate columns).
+
+Concretely, you need:
+
+- [uv](https://docs.astral.sh/uv/) installed.
+- The Chap CLI installed and working (`chap --help` runs).
+- A GitHub account, so you can fork the example model.
+
 ## What "configurable" means here
 
 The example model fits a linear regression per location, predicting `disease_cases` from:
