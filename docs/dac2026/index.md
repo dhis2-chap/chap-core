@@ -13,3 +13,9 @@ first model through CHAP.
 Build a model whose behaviour can be configured from the outside: expose tunable options
 and extra covariates, inspect the configuration spec with the CHAP CLI, and run an
 evaluation with a specific configuration.
+
+### [Run many evaluations with a loop](run-many-evaluations.md)
+
+Drive `chap eval` from a small bash script to compare models, sweep a configuration
+parameter, or vary backtest settings on the same dataset, then collect everything into a
+single comparison table.

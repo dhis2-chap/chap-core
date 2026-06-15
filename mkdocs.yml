@@ -183,6 +183,7 @@ nav:
   - DAC2026:
       - Overview: dac2026/index.md
       - Make your model configurable: dac2026/configurable-model.md
+      - Run many evaluations with a loop: dac2026/run-many-evaluations.md
   - Kigali Workshop Material:
       - Overview: kigali-workshop/kigali-workshop-material/index.md
       - Pre-session 11 Feb: kigali-workshop/kigali-workshop-material/11_feb_presession.md
