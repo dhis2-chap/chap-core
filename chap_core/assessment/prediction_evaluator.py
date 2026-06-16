@@ -27,7 +27,7 @@ from chap_core.datatypes import Samples, SamplesWithTruth, TimeSeriesData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import PeriodRange
 
-plt.set_loglevel(level="warning")
+plt.set_loglevel(level="WARNING")
 logger = logging.getLogger(__name__)
 
 
