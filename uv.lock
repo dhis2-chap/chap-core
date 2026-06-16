@@ -520,7 +520,7 @@ dev = [
 
 [[package]]
 name = "chapkit"
-version = "0.27.0"
+version = "0.28.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "geojson-pydantic" },
@@ -529,9 +529,9 @@ dependencies = [
     { name = "servicekit" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/00/8d/e0ac2682ff655f5037941302970d3d0f57c69e453d278484b73fd447f4b9/chapkit-0.27.0.tar.gz", hash = "sha256:9b22bd4652161d5c70e9d8076ffabcce724ed8d10a3bb84c04b0f854b061c9c7", size = 104490, upload-time = "2026-05-27T12:38:57.748Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b0/55/260a557ef9ebfae80d14e9072064ef1fef9918c19fd42f7d855e5751f6f1/chapkit-0.28.0.tar.gz", hash = "sha256:56b415fd5b0f50430065c6fd2421b6d3aea5585b4a7e0ad120e92b522bebacc8", size = 105135, upload-time = "2026-06-14T14:39:47.571Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/30/dd/76a1ba5f0c251c22bde8729197d0f04b99c450ed30ed51c0cfd14282c2dd/chapkit-0.27.0-py3-none-any.whl", hash = "sha256:14a435b4c569b3ab32d9142bae70d8cabf803347f1bfcf138bbcb2955e65c435", size = 134397, upload-time = "2026-05-27T12:38:56.217Z" },
+    { url = "https://files.pythonhosted.org/packages/53/41/f306cabe336471bd8c569ce85f47fc2b02d9b45e5074c77edd7ae3970f3f/chapkit-0.28.0-py3-none-any.whl", hash = "sha256:090ee5f8d91fbce744171546043f568709492d4b9f60b8ccc1139876407267d3", size = 135147, upload-time = "2026-06-14T14:39:46.253Z" },
 ]
 
 [[package]]
