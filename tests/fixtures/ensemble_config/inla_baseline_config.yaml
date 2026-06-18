@@ -1,0 +1,6 @@
+user_option_values:
+  n_lags: 3
+  precision: 1.0
+additional_continuous_covariates:
+  - rainfall
+  - mean_temperature

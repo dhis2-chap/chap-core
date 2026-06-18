@@ -1,0 +1,5 @@
+
+user_option_values: {}
+additional_continuous_covariates:
+  - rainfall
+  - mean_temperature

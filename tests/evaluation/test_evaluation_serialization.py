@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -11,6 +12,16 @@ import xarray as xr
 from chap_core.assessment.evaluation import Evaluation, FlatEvaluationData
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 from chap_core.external.model_configuration import ModelTemplateConfigV2
+
+
+def _open_dataset_safely(path: Path):
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="numpy.ndarray size changed, may indicate binary incompatibility.*",
+            category=RuntimeWarning,
+        )
+        return xr.open_dataset(path)
 
 
 class TestEvaluationSerialization:
@@ -38,7 +49,7 @@ class TestEvaluationSerialization:
 
         evaluation.to_file(filepath=output_file, model_name="TestModel")
 
-        ds = xr.open_dataset(output_file)
+        ds = _open_dataset_safely(output_file)
 
         assert "forecast" in ds.data_vars
         assert "observed" in ds.data_vars
@@ -64,7 +75,7 @@ class TestEvaluationSerialization:
             model_version="2.1.0",
         )
 
-        ds = xr.open_dataset(output_file)
+        ds = _open_dataset_safely(output_file)
 
         assert ds.attrs["title"] == "CHAP Model Evaluation Results"
         assert ds.attrs["model_name"] == "TestModel"
@@ -114,7 +125,7 @@ class TestEvaluationSerialization:
 
         evaluation.to_file(filepath=output_file)
 
-        ds = xr.open_dataset(output_file)
+        ds = _open_dataset_safely(output_file)
 
         split_periods = json.loads(ds.attrs["split_periods"])
         org_units = json.loads(ds.attrs["org_units"])
@@ -250,7 +261,7 @@ class TestEvaluationSerialization:
 
         evaluation.to_file(filepath=output_file)
 
-        ds = xr.open_dataset(output_file)
+        ds = _open_dataset_safely(output_file)
 
         assert ds.attrs["model_name"] == ""
         assert json.loads(ds.attrs["model_configuration"]) == {}
@@ -283,7 +294,7 @@ class TestEvaluationSerialization:
 
         assert output_file.exists()
 
-        ds = xr.open_dataset(output_file)
+        ds = _open_dataset_safely(output_file)
         assert "forecast" in ds.data_vars
         assert ds.attrs["model_name"] == "LargeModel"
         ds.close()
@@ -305,6 +316,58 @@ class TestEvaluationSerialization:
 
         assert original_forecast_count == loaded_forecast_count
         assert original_forecast_count > 10000
+
+    def test_to_file_raises_on_numpy_abi_warning(self, backtest, tmp_path, monkeypatch):
+        """Test that NumPy ABI RuntimeWarning is propagated when writing NetCDF."""
+        evaluation = Evaluation.from_backtest(backtest)
+        output_file = tmp_path / "test_evaluation_fallback.nc"
+        calls = []
+
+        def fake_to_netcdf(self, path, **kwargs):
+            calls.append(kwargs)
+            if len(calls) == 1:
+                raise RuntimeWarning("numpy.ndarray size changed, may indicate binary incompatibility.")
+            Path(path).write_text("stub")
+
+        monkeypatch.setattr(xr.Dataset, "to_netcdf", fake_to_netcdf, raising=True)
+
+        with pytest.raises(RuntimeWarning, match="numpy.ndarray size changed"):
+            evaluation.to_file(filepath=output_file)
+
+        assert calls[0] == {}
+        assert len(calls) == 1
+
+    def test_from_file_raises_on_numpy_abi_warning(self, backtest, monkeypatch):
+        """Test that NumPy ABI RuntimeWarning is propagated when loading from NetCDF."""
+        evaluation = Evaluation.from_backtest(backtest)
+        flat_data = evaluation.to_flat()
+        model_metadata = {
+            "model_name": "",
+            "model_configuration": {},
+            "model_version": "",
+            "split_periods": [],
+            "org_units": [],
+            "historical_context_periods": 0,
+        }
+        ds = xr.Dataset()
+        from chap_core.assessment.evaluation import _flat_data_to_xarray
+
+        ds = _flat_data_to_xarray(flat_data, model_metadata)
+        calls = []
+
+        def fake_open_dataset(_path, **kwargs):
+            calls.append(kwargs)
+            if len(calls) == 1:
+                raise RuntimeWarning("numpy.ndarray size changed, may indicate binary incompatibility.")
+            return ds
+
+        monkeypatch.setattr(xr, "open_dataset", fake_open_dataset, raising=True)
+
+        with pytest.raises(RuntimeWarning, match="numpy.ndarray size changed"):
+            Evaluation.from_file("dummy.nc")
+
+        assert calls[0] == {}
+        assert len(calls) == 1
 
 
 class TestXarrayHelperFunctions:
