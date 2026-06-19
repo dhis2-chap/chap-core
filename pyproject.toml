@@ -193,6 +193,7 @@ no_implicit_optional = true
 strict_equality = true
 follow_imports = "normal"
 files = ["chap_core/", "tests/"]
+exclude = "^(runs/|chap_core/runs/)"
 
 [[tool.mypy.overrides]]
 module = "tests.*"
@@ -263,6 +264,7 @@ include = ["chap_core/", "tests/"]
 exclude = [
     "**/.venv",
     "runs",
+    "chap_core/runs",
     "external_models",
     "tests/.github_cache",
 ]
