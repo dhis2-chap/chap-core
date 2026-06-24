@@ -41,6 +41,7 @@ behavior.
 
 from __future__ import annotations
 
+import json
 import re
 
 import altair as alt
@@ -53,9 +54,12 @@ from chap_core.assessment.backtest_plots import (
     get_backtest_plots_registry,
 )
 from chap_core.assessment.backtest_plots.evaluation_plot import EvaluationPlot
+from chap_core.assessment.backtest_plots.horizon_location_grid import HorizonLocationGridPlot
+from chap_core.assessment.backtest_plots.predicted_vs_actual_linear_plot import PredictedVsActualLinearPlot
 from chap_core.assessment.backtest_plots.predicted_vs_actual_plot import (
     PredictedVsActualPlot,
 )
+from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasByHorizonPlot, SampleBiasByTimePeriodPlot
 
 
 CLIM_548 = "CLIM-548: FacetedBacktestPlot refactor not implemented yet"
@@ -81,6 +85,8 @@ def forecasts_df(flat_forecasts) -> pd.DataFrame:
 PLOT_CASES = [
     pytest.param(EvaluationPlot, ("location", "split_period"), id="evaluation_plot"),
     pytest.param(PredictedVsActualPlot, ("horizon_distance",), id="predicted_vs_actual"),
+    pytest.param(PredictedVsActualLinearPlot, ("horizon_distance",), id="predicted_vs_actual_linear"),
+    pytest.param(HorizonLocationGridPlot, ("location", "horizon_distance"), id="horizon_location_grid"),
 ]
 
 
@@ -218,6 +224,45 @@ def test_get_full_plot_returns_faceted_chart(plot_cls, expected_fields, observat
     assert isinstance(chart, alt.TopLevelMixin)
 
 
+@pytest.mark.parametrize("plot_cls", [SampleBiasByHorizonPlot, SampleBiasByTimePeriodPlot])
+def test_no_dimension_plot_conforms_to_interface(plot_cls, observations_df, forecasts_df):
+    """A FacetedBacktestPlot may declare no dimensions: facet_coords is empty and a
+    subplot with no coordinates renders the full chart."""
+    plotter = plot_cls()
+    assert plotter.facet_dimensions == []
+
+    coords = plotter.facet_coords(observations_df, forecasts_df)
+    assert coords == {}
+
+    chart = plotter.get_subplot(observations_df, forecasts_df, {})
+    assert isinstance(chart, alt.TopLevelMixin)
+
+
+def test_horizon_grid_cell_title_only_in_full_grid(observations_df, forecasts_df):
+    """The frontend's facet selection already identifies a single-cell subplot, so it
+    carries no '<location> | horizon <n>' title; the full grid keeps the per-cell
+    labels since its layout is the only thing identifying each cell."""
+    plotter = HorizonLocationGridPlot()
+    location = forecasts_df["location"].iloc[0]
+    horizon = int(forecasts_df["horizon_distance"].iloc[0])
+
+    subplot = plotter.get_subplot(observations_df, forecasts_df, {"location": location, "horizon_distance": horizon})
+    assert "| horizon" not in json.dumps(subplot.to_dict(format="vega"))
+
+    full_plot = plotter.get_full_plot(observations_df, forecasts_df)
+    assert f"{location} | horizon {horizon}" in json.dumps(full_plot.to_dict(format="vega"))
+
+
+def test_horizon_grid_subplot_handles_empty_forecasts(observations_df, forecasts_df):
+    """A location x horizon cell whose database filter returns no forecasts renders a
+    placeholder instead of erroring on metric computation over an empty frame."""
+    plotter = HorizonLocationGridPlot()
+    empty_forecasts = forecasts_df.iloc[:0]
+
+    chart = plotter.get_subplot(observations_df, empty_forecasts, {"location": "loc1", "horizon_distance": 1})
+    assert isinstance(chart, alt.TopLevelMixin)
+
+
 # --- Registry-level invariant -------------------------------------------
 
 
@@ -231,7 +276,9 @@ def test_every_faceted_plot_in_registry_passes_shape_checks(faceted_base):
     assert faceted, "expected at least one FacetedBacktestPlot in the registry"
     for cls in faceted:
         dims = cls.facet_dimensions
-        assert isinstance(dims, list) and dims
+        # A plot may conform to the interface without faceting (empty dims); any
+        # dimensions it does declare must still use the shorthand shape.
+        assert isinstance(dims, list)
         for entry in dims:
             assert isinstance(entry, FacetDimension), (
                 f"{cls.__name__}.facet_dimensions entry {entry!r} is not a FacetDimension"

@@ -9,7 +9,8 @@ line charts stacked below.
 import altair as alt
 import pandas as pd
 
-from chap_core.assessment.backtest_plots import BacktestPlotBase, ChartType, backtest_plot
+from chap_core.assessment.backtest_plots import ChartType, FacetDimension, FacetedBacktestPlot, backtest_plot
+from chap_core.assessment.backtest_plots.db_dimensions import HorizonDistanceDimension, LocationDimension
 from chap_core.assessment.backtest_plots.evaluation_plot import _compute_quantiles_from_forecasts
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 from chap_core.assessment.metrics.crps import CRPSLog1pMetric, CRPSMetric
@@ -22,13 +23,13 @@ CELL_HEIGHT = 150
 METRIC_HEIGHT = 60
 
 
-def _empty_placeholder(width: int, height: int, title: str = "") -> ChartType:
+def _empty_placeholder(width: int, height: int) -> ChartType:
     """Return an empty chart placeholder that won't trip vegafusion's type checks."""
     return (  # type: ignore[no-any-return]
         alt.Chart(pd.DataFrame({"x": [0]}))
         .mark_point(opacity=0)
         .encode(x=alt.value(0), y=alt.value(0))
-        .properties(width=width, height=height, title=title)
+        .properties(width=width, height=height)
     )
 
 
@@ -48,7 +49,7 @@ def _build_forecast_cell(
     obs = obs[obs["time_period"].isin(fq["time_period"])]
 
     if fq.empty:
-        return _empty_placeholder(CELL_WIDTH, CELL_HEIGHT, f"{location} | horizon {horizon}")
+        return _empty_placeholder(CELL_WIDTH, CELL_HEIGHT)
 
     base_forecast = alt.Chart(fq)
 
@@ -82,9 +83,7 @@ def _build_forecast_cell(
         )
         layers = layers + obs_line
 
-    return layers.properties(  # type: ignore[no-any-return]
-        width=CELL_WIDTH, height=CELL_HEIGHT, title=f"{location} | horizon {horizon}"
-    )
+    return layers.properties(width=CELL_WIDTH, height=CELL_HEIGHT)  # type: ignore[no-any-return]
 
 
 def _build_metric_chart(
@@ -152,68 +151,136 @@ def _build_summary_table(
     )
 
 
+def _metric_instances(historical_observations: pd.DataFrame | None) -> list:
+    """The metrics shown in each grid cell, in display order."""
+    return [
+        CRPSMetric(historical_observations=historical_observations),
+        CRPSLog1pMetric(historical_observations=historical_observations),
+        WinklerScore10_90Metric(historical_observations=historical_observations),
+        WinklerScore10_90Log1pMetric(historical_observations=historical_observations),
+        OutbreakAccuracyMetric(historical_observations=historical_observations),
+    ]
+
+
+def _metric_dfs_from_preprocessed(df: pd.DataFrame) -> list[tuple[str, pd.DataFrame]]:
+    """Recover the per-metric frames from the packed preprocessed frame, in order."""
+    metric_rows = df[df["role"] == "metric"]
+    return [(str(name), group) for name, group in metric_rows.groupby("metric_name", sort=False)]
+
+
 @backtest_plot(
     plot_id="horizon_location_grid",
     name="Forecast Grid (Locations x Horizons)",
     description="Grid of forecast intervals and metrics across locations and forecast horizons.",
     needs_historical=True,
 )
-class HorizonLocationGridPlot(BacktestPlotBase):
-    """Grid plot with locations as rows and forecast horizons as columns."""
+class HorizonLocationGridPlot(FacetedBacktestPlot):
+    """Grid plot with locations as rows and forecast horizons as columns.
 
-    def plot(
+    Each cell is a composite (forecast band + observed + per-metric line charts),
+    so the all-cells view (`get_full_plot`) keeps the hand-built grid, while
+    `facet_coords` / `get_subplot` expose a single location x horizon cell for the
+    database-backed faceting workflow.
+    """
+
+    facet_dimensions: list[FacetDimension] = [
+        HorizonDistanceDimension(field_name="horizon_distance:O", display_name="Horizon Distance"),
+        LocationDimension(field_name="location:N", display_name="Location"),
+    ]
+
+    def _preprocess(
+        self,
+        observations: pd.DataFrame,
+        forecasts: pd.DataFrame,
+        historical_observations: pd.DataFrame | None = None,
+    ) -> pd.DataFrame:
+        """Pack forecast quantiles, observed values and metric series into one frame.
+
+        Each row carries `location` + `horizon_distance` (observations replicated
+        across horizons) so the generic coordinate filter can slice to one cell, plus
+        a `role` discriminator the cell renderer splits back out.
+        """
+        # No forecasts for this coordinate (e.g. a location x horizon cell with no
+        # data): skip metric computation and let the cell render as a placeholder.
+        if forecasts.empty:
+            return pd.DataFrame(columns=["location", "time_period", "horizon_distance", "role"])
+
+        flat_obs = FlatObserved(observations)
+        flat_fc = FlatForecasts(forecasts)
+        horizons = sorted(forecasts["horizon_distance"].unique())
+
+        forecast_quantiles = _compute_quantiles_from_forecasts(forecasts)
+        forecast_quantiles["time_period"] = forecast_quantiles["time_period"].apply(clean_time)
+        forecast_quantiles["role"] = "forecast"
+
+        obs_df = observations.copy()
+        obs_df["time_period"] = obs_df["time_period"].apply(clean_time)
+        # Observations have no horizon; replicate across horizons so the cell filter keeps them.
+        obs_df = obs_df.merge(pd.DataFrame({"horizon_distance": horizons}), how="cross")
+        obs_df["role"] = "observed"
+
+        frames: list[pd.DataFrame] = [forecast_quantiles, obs_df]
+        for m in _metric_instances(historical_observations):
+            if not m.is_applicable(flat_obs):
+                continue
+            detailed = m.get_detailed_metric(flat_obs, flat_fc)
+            detailed["time_period"] = detailed["time_period"].apply(clean_time)
+            detailed["role"] = "metric"
+            detailed["metric_name"] = m.get_name()
+            frames.append(detailed)
+
+        return pd.concat(frames, ignore_index=True)
+
+    def _plot(self, df: pd.DataFrame) -> ChartType:
+        """Render one location x horizon cell from the packed frame."""
+        if df.empty:
+            return _empty_placeholder(CELL_WIDTH, CELL_HEIGHT)
+
+        forecast_rows = df[df["role"] == "forecast"]
+        observed_rows = df[df["role"] == "observed"]
+        key_src = forecast_rows if not forecast_rows.empty else df
+        location = key_src["location"].iloc[0]
+        horizon = int(key_src["horizon_distance"].iloc[0])
+
+        cell_parts: list[ChartType] = [_build_forecast_cell(forecast_rows, observed_rows, location, horizon)]
+        for metric_name, mdf in _metric_dfs_from_preprocessed(df):
+            cell_parts.append(_build_metric_chart(mdf, location, horizon, metric_name))
+
+        return alt.vconcat(*cell_parts).properties(spacing=2)  # type: ignore[no-any-return]
+
+    def get_full_plot(
         self,
         observations: pd.DataFrame,
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None,
     ) -> ChartType:
-        flat_obs = FlatObserved(observations)
-        flat_fc = FlatForecasts(forecasts)
+        """The full grid: composite cells (locations as rows, horizons as columns) plus a summary table.
 
-        # Compute quantiles for forecast cells
-        forecast_quantiles = _compute_quantiles_from_forecasts(forecasts)
-        forecast_quantiles["time_period"] = forecast_quantiles["time_period"].apply(clean_time)
-
-        obs_df = observations.copy()
-        obs_df["time_period"] = obs_df["time_period"].apply(clean_time)
-
+        Overrides the base native-faceting implementation, which cannot tile the
+        composite (vconcat) cells this plot renders.
+        """
+        df = self._preprocess(observations, forecasts, historical_observations)
         locations = sorted(forecasts["location"].unique())
         horizons = sorted(forecasts["horizon_distance"].unique())
 
-        # Compute metrics
-        metric_instances = [
-            CRPSMetric(historical_observations=historical_observations),
-            CRPSLog1pMetric(historical_observations=historical_observations),
-            WinklerScore10_90Metric(historical_observations=historical_observations),
-            WinklerScore10_90Log1pMetric(historical_observations=historical_observations),
-            OutbreakAccuracyMetric(historical_observations=historical_observations),
-        ]
-
-        metric_dfs: list[tuple[str, pd.DataFrame]] = []
-        for m in metric_instances:
-            if not m.is_applicable(flat_obs):
-                continue
-            detailed = m.get_detailed_metric(flat_obs, flat_fc)
-            detailed["time_period"] = detailed["time_period"].apply(clean_time)
-            metric_dfs.append((m.get_name(), detailed))
-
-        # Build grid: rows = locations, columns = horizons
         location_rows: list[ChartType] = []
         for loc in locations:
-            horizon_cells = []
-            for hz in horizons:
-                cell_parts: list[ChartType] = [_build_forecast_cell(forecast_quantiles, obs_df, loc, hz)]
-                for metric_name, mdf in metric_dfs:
-                    cell_parts.append(_build_metric_chart(mdf, loc, hz, metric_name))
-                horizon_cells.append(alt.vconcat(*cell_parts).properties(spacing=2))
+            # The grid layout is the only thing identifying a cell, so label each
+            # one here; the single-cell subplot view leaves identification to the
+            # frontend's facet selection.
+            horizon_cells = [
+                self._plot(df[(df["location"] == loc) & (df["horizon_distance"] == hz)]).properties(
+                    title=f"{loc} | horizon {hz}"
+                )
+                for hz in horizons
+            ]
             location_rows.append(alt.hconcat(*horizon_cells).properties(spacing=10))
 
-        # Aggregated summary tables
+        metric_dfs = _metric_dfs_from_preprocessed(df)
         if metric_dfs:
-            summary = _build_summary_table(metric_dfs, horizons)
-            location_rows.append(summary)
+            location_rows.append(_build_summary_table(metric_dfs, horizons))
 
-        return alt.vconcat(*location_rows).properties(  # type: ignore[return-value]
+        return alt.vconcat(*location_rows).properties(  # type: ignore[no-any-return]
             spacing=15,
             title="Forecast Grid: Locations x Horizons",
         )

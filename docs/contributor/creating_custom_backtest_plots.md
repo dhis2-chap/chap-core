@@ -208,7 +208,7 @@ For Chap to discover your plot at startup, you need to import your module in the
 def _discover_plots():
     """Import all plot modules to trigger decorator registration."""
     from chap_core.assessment.backtest_plots import (
-        metrics_dashboard,
+        horizon_location_grid,
         sample_bias_plot,
         evaluation_plot,
         my_custom_plot,  # Add your module here
@@ -234,7 +234,7 @@ from chap_core.assessment.evaluation import Evaluation
 evaluation = Evaluation.from_file("example_data/example_evaluation.nc")
 
 # Create a plot (using a built-in plot type)
-chart = create_plot_from_evaluation("ratio_of_samples_above_truth", evaluation)
+chart = create_plot_from_evaluation("sample_bias_by_horizon", evaluation)
 
 # Save to HTML for inspection (uncomment to save)
 # chart.save("my_plot.html")
@@ -372,9 +372,9 @@ Study these existing implementations as examples:
 
 | File | Description |
 |------|-------------|
-| `sample_bias_plot.py` | Simple plot showing forecast bias |
-| `metrics_dashboard.py` | Dashboard with multiple metrics |
-| `evaluation_plot.py` | Complex plot with historical context |
+| `sample_bias_plot.py` | Aggregate plots with no facet dimensions |
+| `predicted_vs_actual_plot.py` | Horizon-faceted scatter of predicted vs actual |
+| `evaluation_plot.py` | Complex faceted plot with historical context |
 
 ### API Reference
 
@@ -413,7 +413,7 @@ registry = get_backtest_plots_registry()
 
 # Get a specific plot class
 from chap_core.assessment.backtest_plots import get_backtest_plot
-plot_cls = get_backtest_plot("ratio_of_samples_above_truth")
+plot_cls = get_backtest_plot("sample_bias_by_horizon")
 
 # List all plots with metadata
 from chap_core.assessment.backtest_plots import list_backtest_plots

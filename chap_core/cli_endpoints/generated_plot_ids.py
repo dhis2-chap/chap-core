@@ -7,8 +7,8 @@ Run `make regen-plot-help` after adding or removing a @backtest_plot.
 BACKTEST_PLOT_IDS: tuple[str, ...] = (
     "evaluation_plot",
     "horizon_location_grid",
-    "metrics_dashboard",
     "predicted_vs_actual",
     "predicted_vs_actual_linear",
-    "ratio_of_samples_above_truth",
+    "sample_bias_by_horizon",
+    "sample_bias_by_time_period",
 )

@@ -41,6 +41,7 @@ ALEMBIC_INI = PROJECT_ROOT / "alembic.ini"
 _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("modeltemplatedb", "archived"),
     ("prediction", "prediction_setup_id"),
+    ("backtest", "max_horizon_distance"),
 ]
 
 # Tables added by alembic migrations (not in the baseline schema).

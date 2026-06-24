@@ -64,6 +64,13 @@ def horizon_diff(period: str, period2: str) -> int:
     return int((tp - tp2) // tp.time_delta) + 1
 
 
+def max_horizon_distance(backtest_forecasts: list[BacktestForecast]) -> int | None:
+    """Largest 1-based horizon distance across a backtest's forecasts, or None if empty."""
+    if not backtest_forecasts:
+        return None
+    return max(horizon_diff(str(fc.period), str(fc.last_seen_period)) for fc in backtest_forecasts)
+
+
 def _convert_backtest_to_flat_forecasts(backtest_forecasts: list[BacktestForecast]) -> pd.DataFrame:
     """
     Convert a list of BacktestForecast objects to a flat DataFrame format

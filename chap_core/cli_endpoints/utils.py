@@ -182,7 +182,7 @@ def plot_backtest(
     plot_type: Annotated[
         str,
         Parameter(help=PLOT_TYPE_HELP),
-    ] = "metrics_dashboard",
+    ] = "evaluation_plot",
 ):
     """
     Generate a backtest plot from evaluation data and save to file.
