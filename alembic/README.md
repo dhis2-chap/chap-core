@@ -165,7 +165,7 @@ def downgrade() -> None:
 - `alembic.ini` - Alembic configuration (database URL, logging, etc.)
 - `alembic/env.py` - Migration environment setup (imports SQLModel metadata)
 - `chap_core/database/database.py` - Contains custom migration logic and Alembic integration
-- `Dockerfile` / `Dockerfile.dev` - Include Alembic files in Docker images
+- `Dockerfile` / `Dockerfile.worker` - Include Alembic files in Docker images
 
 ## Learn More
 
