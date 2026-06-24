@@ -674,6 +674,49 @@ def test_winkler_score_observation_above_interval():
     assert score == 110.0
 
 
+def test_crps_closed_form_two_point_sample():
+    """CRPS of a two-point sample has a simple closed form: |a-y|/2 + |b-y|/2 - (b-a)/4."""
+    samples = np.array([0.0, 10.0])
+    observed = 5.0
+
+    score = CRPSMetric().compute_sample_metric(samples, observed)
+
+    # term1 = (|0-5| + |10-5|) / 2 = 5, term2 = (10 - 0) / 4 = 2.5
+    assert score == pytest.approx(2.5)
+
+
+def test_crps_zero_when_samples_equal_observation():
+    """CRPS is zero for a deterministic forecast that equals the observation."""
+    samples = np.array([3.0, 3.0, 3.0, 3.0])
+    observed = 3.0
+
+    assert CRPSMetric().compute_sample_metric(samples, observed) == pytest.approx(0.0)
+
+
+def test_crps_matches_pairwise_definition():
+    """Order-statistic CRPS must equal the E[|X-y|] - 0.5*E[|X-X'|] pairwise definition."""
+    rng = np.random.default_rng(0)
+    samples = rng.normal(50.0, 20.0, size=257)
+    observed = 47.0
+
+    pairwise = float(np.mean(np.abs(samples - observed)) - 0.5 * np.mean(np.abs(samples[:, None] - samples[None, :])))
+    score = CRPSMetric().compute_sample_metric(samples, observed)
+
+    assert score == pytest.approx(pairwise)
+
+
+def test_crps_log1p_applies_log_transform():
+    """CRPS (log1p) equals plain CRPS on log1p-transformed samples and observation."""
+    rng = np.random.default_rng(1)
+    samples = rng.uniform(0.0, 500.0, size=128)
+    observed = 80.0
+
+    expected = CRPSMetric().compute_sample_metric(np.log1p(samples), float(np.log1p(observed)))
+    score = CRPSLog1pMetric().compute_sample_metric(samples, observed)
+
+    assert score == pytest.approx(expected)
+
+
 def test_peak_period_lag_metric_monthly(flat_observations_monthly, flat_forecasts_monthly):
     """
     PeakPeriodLagMetric (monthly) should return:
