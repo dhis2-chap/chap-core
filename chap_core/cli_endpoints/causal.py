@@ -163,12 +163,16 @@ def causal_cmd(
 
     with template:
         configuration = get_configuration(model_configuration_yaml)
-        estimator = get_estimator(template, configuration)
-        warn_unused_covariates(original_dataset, template.model_template_config, configuration)
-        model_info = estimator.model_information
 
         train_data, original_test_data = train_test_split(original_dataset, split_period_obj)
         _, cf_test_data = train_test_split(cf_dataset, split_period_obj)
+
+        # causal predicts the whole split-to-end window in a single call (no
+        # ExtendedPredictor), so the model needs the full horizon.
+        prediction_length = len(original_test_data.period_range)
+        estimator = get_estimator(template, configuration, prediction_length=prediction_length)
+        warn_unused_covariates(original_dataset, template.model_template_config, configuration)
+        model_info = estimator.model_information
 
         logger.info(f"Training on original dataset up to {train_data.period_range[-1]}")
         predictor = estimator.train(train_data)

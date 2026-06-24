@@ -240,9 +240,15 @@ def get_configuration(
 def get_estimator(
     template: ModelTemplate,
     configuration: ModelConfiguration | None,
+    prediction_length: int | None = None,
 ) -> ExternalModel:
-    """Build a plain estimator from a model template and optional configuration."""
-    model = template.get_model(configuration)  # type: ignore[arg-type]
+    """Build a plain estimator from a model template and optional configuration.
+
+    When ``prediction_length`` is given it is written into the model's
+    ``model_configuration_for_run.yaml`` so external models can read the forecast
+    horizon at both train and predict time.
+    """
+    model = template.get_model(configuration, prediction_length=prediction_length)  # type: ignore[arg-type]
     estimator: ExternalModel = model()  # type: ignore[assignment]
     return estimator
 
