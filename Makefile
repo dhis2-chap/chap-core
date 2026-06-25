@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs help install lint lint/flake8 check regen-plot-help test-chapkit-compose force-restart restart chap-version
+.PHONY: clean coverage dist docs help install lint lint/flake8 check regen-plot-help force-restart restart chap-version
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
