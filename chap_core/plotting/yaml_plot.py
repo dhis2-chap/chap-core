@@ -16,7 +16,9 @@ from chap_core.assessment.metric_plots.time_period_sum import MetricByTimePeriod
 from chap_core.assessment.metrics import available_metrics
 from chap_core.database.tables import Backtest
 
-alt.data_transformers.enable("vegafusion")
+# Lift Altair's 5000-row cap so charts embed their full data; vl-convert compiles the
+# Vega spec without vegafusion (and therefore without pyarrow).
+alt.data_transformers.disable_max_rows()
 
 """
     YAML structure example:

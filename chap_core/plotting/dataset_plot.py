@@ -9,7 +9,9 @@ from pydantic import BaseModel
 from chap_core.spatio_temporal_data.converters import dataset_model_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
-alt.data_transformers.enable("vegafusion")
+# Lift Altair's 5000-row cap so charts embed their full data; vl-convert compiles the
+# Vega spec without vegafusion (and therefore without pyarrow).
+alt.data_transformers.disable_max_rows()
 # alt.renderers.enable("browser")
 
 
