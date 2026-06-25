@@ -15,16 +15,17 @@ class MetricByHorizonV2Sum(MetricPlotBase):
 
     def plot_from_df(self, title: str = "Samples above truth by horizon") -> alt.Chart:
         df = self._metric_data
+        adf = df.groupby(["horizon_distance"]).agg({"metric": "sum"}).reset_index()
         return cast(
             "alt.Chart",
-            alt.Chart(df)
+            alt.Chart(adf)
             .mark_bar()
             .encode(
                 x=alt.X("horizon_distance:O", title="Horizon (periods ahead)"),
-                y=alt.Y("sum(metric):Q", title="Samples above truth (count)"),
+                y=alt.Y("metric:Q", title="Samples above truth (count)"),
                 tooltip=[
                     alt.Tooltip("horizon_distance:O", title="Horizon"),
-                    alt.Tooltip("sum(metric):Q", title="Count"),
+                    alt.Tooltip("metric:Q", title="Count"),
                 ],
             )
             .properties(width=300, height=230, title=title),

@@ -15,17 +15,18 @@ class MetricByTimePeriodV2Sum(MetricPlotBase):
 
     def plot_from_df(self, title: str = "Samples above truth by time period") -> alt.Chart:
         df = self._metric_data
+        adf = df.groupby(["time_period", "location"]).agg({"metric": "sum"}).reset_index()
         return cast(
             "alt.Chart",
-            alt.Chart(df)
+            alt.Chart(adf)
             .mark_line()
             .encode(
                 x=alt.X("time_period:O", title="Time Period"),
-                y=alt.Y("sum(metric):Q", title="Samples above truth (count)"),
+                y=alt.Y("metric:Q", title="Samples above truth (count)"),
                 color=alt.Color("location:N", title="Location"),
                 tooltip=[
                     alt.Tooltip("time_period:O", title="Time Period"),
-                    alt.Tooltip("sum(metric):Q", title="Count"),
+                    alt.Tooltip("metric:Q", title="Count"),
                 ],
             )
             .properties(width=300, height=230, title=title),

@@ -9,8 +9,10 @@ from chap_core.assessment.metric_plots import (
     metric_plot,
 )
 from chap_core.assessment.metric_plots.horizon_mean import MetricByHorizonV2Mean
+from chap_core.assessment.metric_plots.horizon_sum import MetricByHorizonV2Sum
 from chap_core.assessment.metric_plots.metric_map import MetricMapV2
 from chap_core.assessment.metric_plots.regional_distribution import RegionalMetricDistributionPlot
+from chap_core.assessment.metric_plots.time_period_sum import MetricByTimePeriodV2Sum
 from chap_core.assessment.metrics.crps import CRPSMetric
 
 
@@ -69,6 +71,17 @@ def test_metric_plot_decorator_rejects_non_subclass():
 def test_registered_plot_produces_chart(plot_cls, metric_data, dummy_geojson):
     chart = plot_cls(metric_data, dummy_geojson).plot_from_df()
     assert chart is not None
+
+
+@pytest.mark.parametrize("plot_cls", [MetricByHorizonV2Sum, MetricByTimePeriodV2Sum])
+def test_sum_plots_pre_aggregate_in_pandas(plot_cls, metric_data, dummy_geojson):
+    # The sum plots aggregate in pandas before charting, so the compiled Vega spec
+    # must not carry an in-spec "sum" aggregate transform (which would embed the raw,
+    # un-aggregated rows for the browser to sum).
+    spec = plot_cls(metric_data, dummy_geojson).plot_from_df().to_dict(format="vega")
+    for data in spec.get("data") or []:
+        for transform in data.get("transform") or []:
+            assert not (transform.get("type") == "aggregate" and "sum" in (transform.get("ops") or []))
 
 
 def test_regional_metric_distribution_empty_data(metric_data):
