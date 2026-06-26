@@ -45,7 +45,7 @@ model {
   }
   modelRepos = system 'Model source repos' {
     #external
-    description 'Git / MLproject definitions for models run in-process by CHAP Core.'
+    description 'Git / MLproject definitions - one per model - run in-process by CHAP Core.'
   }
 
   chapCore = system 'CHAP Core' {
@@ -86,8 +86,8 @@ model {
     }
   }
 
-  chapkit = system 'chapkit model service' {
-    description 'Framework + runtime for self-contained model services exposing the CHAP train/predict contract.'
+  chapkit = system 'chapkit model services [1..N]' {
+    description 'Self-contained model services - one per model, many running concurrently. Each exposes the CHAP train/predict contract over HTTP and registers with CHAP Core.'
 
     serviceApi = container 'Service API' {
       technology 'FastAPI'
