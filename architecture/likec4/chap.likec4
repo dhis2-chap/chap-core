@@ -1,0 +1,189 @@
+// Experimental LikeC4 port of the CHAP architecture model.
+// This is a parallel prototype to evaluate the LikeC4 renderer; the Structurizr
+// workspace.dsl remains the canonical source of truth.
+// Serve it with `make architecture-likec4`.
+
+specification {
+  element person {
+    style {
+      shape person
+      color secondary
+    }
+  }
+  element system
+  element container
+  element component
+  element database {
+    style {
+      shape cylinder
+    }
+  }
+  element queue {
+    style {
+      shape queue
+    }
+  }
+
+  tag external
+}
+
+model {
+  analyst = person 'Implementer / Analyst' {
+    description 'Configures models and reviews forecasts inside the DHIS2 Modelling App.'
+  }
+  modeller = person 'Model developer' {
+    description 'Develops models locally (CHAP CLI or chapkit), then publishes them as an MLproject repo or a chapkit service.'
+  }
+
+  dhis2 = system 'DHIS2' {
+    #external
+    description 'Health information system. Source of case/climate/org-unit data; destination for forecast data values.'
+  }
+  modellingApp = system 'CHAP Modelling App' {
+    #external
+    description 'Embedded DHIS2 app. Primary client of CHAP Core; writes approved forecasts back into DHIS2.'
+  }
+  modelRepos = system 'Model source repos' {
+    #external
+    description 'Git / MLproject definitions for models run in-process by CHAP Core.'
+  }
+
+  chapCore = system 'CHAP Core' {
+    description 'Climate-and-health modelling backend: ingests data, runs evaluations and predictions, serves results.'
+
+    api = container 'REST API' {
+      technology 'FastAPI / Uvicorn'
+      description 'Serves the v1/v2 HTTP API, validates input, enqueues jobs, serves results.'
+
+      common = component 'Common routes' { description 'Health, readiness, system info.' }
+      v1 = component 'v1 routers' { description 'crud, analytics, jobs, visualization.' }
+      v2 = component 'v2 routers' { description 'Service registry endpoints for chapkit services.' }
+      orchestrator = component 'Orchestrator' { description 'Live chapkit service registry; syncs model templates.' }
+    }
+
+    worker = container 'Celery worker' {
+      technology 'Celery'
+      description 'Consumes queued jobs; runs dataset harmonisation, backtests and predictions.'
+
+      dbfns = component 'Worker functions' { description 'Harmonise datasets, run backtests/predictions.' }
+      runners = component 'TrainPredict runners' { description 'Run MLproject models in-process: Docker / UV / Conda / Renv / MLflow / CLI.' }
+      chapkitClient = component 'Chapkit REST client' { description 'httpx client calling remote chapkit services.' }
+    }
+
+    cli = container 'CHAP CLI' {
+      technology 'Cyclopts'
+      description 'Local entry point for running/evaluating models without the API.'
+    }
+
+    redis = queue 'Redis / Valkey' {
+      technology 'Valkey 8'
+      description 'Celery broker, job metadata, chapkit service registry.'
+    }
+
+    db = database 'PostgreSQL' {
+      technology 'PostgreSQL 17'
+      description 'Datasets, observations, model templates/configs, backtests, predictions.'
+    }
+  }
+
+  chapkit = system 'chapkit model service' {
+    description 'Framework + runtime for self-contained model services exposing the CHAP train/predict contract.'
+
+    serviceApi = container 'Service API' {
+      technology 'FastAPI'
+      description 'FastAPI app from chapkit MLServiceBuilder; train/predict/config/artifact/job REST contract.'
+
+      registration = component 'Registration & health' { description 'Registers with CHAP Core; heartbeats; /health, /system.' }
+      mlRouter = component 'ML router' { description '/api/v1/ml: $train, $predict, $validate.' }
+      configRouter = component 'Config router' { description '/api/v1/configs: typed config CRUD.' }
+      artifactRouter = component 'Artifact router' { description '/api/v1/artifacts: hierarchical artifact tree.' }
+      jobsRouter = component 'Jobs router' { description '/api/v1/jobs: async job status/cancel.' }
+      mlManager = component 'ML manager' { description 'Train/predict pipelines; typed artifacts.' }
+      jobScheduler = component 'Job scheduler' { description 'In-memory async scheduler; ULID-tracked jobs.' }
+      modelRunner = component 'Model runner' { description 'Functional / class-based / shell (Python / R).' }
+    }
+
+    store = database 'Artifact & config store' {
+      technology 'SQLite'
+      description 'Trained-model artifacts, predictions and configs; Alembic-migrated.'
+    }
+
+    console = container 'Web console' {
+      technology 'React SPA'
+      description 'Built-in SPA to browse configs/artifacts/jobs and trigger train/predict.'
+    }
+  }
+
+  // --- Relationships ---
+  analyst -> modellingApp 'Configures models, reviews forecasts'
+  modeller -> chapCore.cli 'Develops & evaluates models locally'
+  modeller -> modelRepos 'Publishes a model -- Option A: MLproject repo'
+  modeller -> chapkit.console 'Develops, tests & publishes -- Option B: chapkit service'
+
+  modellingApp -> dhis2 'Reads data; after review, optionally writes approved forecasts'
+  modellingApp -> chapCore.api.v1 'Submits data, runs evaluations/predictions, polls jobs, pulls forecasts'
+
+  chapCore.api.v2 -> chapCore.api.orchestrator 'Registers / lists services'
+  chapCore.api.v1 -> chapCore.redis 'Queues jobs; reads status'
+  chapCore.api.v1 -> chapCore.db 'Reads/writes datasets, models, results'
+  chapCore.api.orchestrator -> chapCore.redis 'Live service registry (TTL keys)'
+  chapCore.api.orchestrator -> chapCore.db 'Syncs model templates'
+
+  chapCore.worker.dbfns -> chapCore.redis 'Fetches jobs; writes metadata'
+  chapCore.worker.dbfns -> chapCore.db 'Reads datasets/models; writes forecasts & metrics'
+  chapCore.worker.dbfns -> chapCore.api.orchestrator 'Resolves live service URL'
+  chapCore.worker.dbfns -> chapCore.worker.runners 'Runs in-process models'
+  chapCore.worker.dbfns -> chapCore.worker.chapkitClient 'Calls remote models'
+  chapCore.worker.runners -> modelRepos 'Clones & runs model code'
+  chapCore.cli -> modelRepos 'Runs model code locally'
+
+  chapCore.worker.chapkitClient -> chapkit.serviceApi.mlRouter 'Trains & predicts ($train / $predict)'
+  chapkit.serviceApi.registration -> chapCore.api.v2 'Registers & heartbeats ($register / $ping)'
+
+  chapkit.serviceApi.mlRouter -> chapkit.serviceApi.mlManager 'Submits train/predict'
+  chapkit.serviceApi.mlManager -> chapkit.serviceApi.jobScheduler 'Schedules job'
+  chapkit.serviceApi.jobScheduler -> chapkit.serviceApi.modelRunner 'Runs train / predict'
+  chapkit.serviceApi.mlManager -> chapkit.store 'Reads/writes artifacts & configs'
+  chapkit.serviceApi.configRouter -> chapkit.store 'Reads/writes configs'
+  chapkit.serviceApi.artifactRouter -> chapkit.store 'Reads artifact tree'
+  chapkit.serviceApi.jobsRouter -> chapkit.serviceApi.jobScheduler 'Reads job status'
+  chapkit.console -> chapkit.serviceApi 'Browses/triggers train/predict'
+}
+
+views {
+  view index {
+    title 'System Landscape'
+    include *
+    autoLayout LeftRight
+  }
+
+  view chapCore of chapCore {
+    title 'CHAP Core - containers'
+    include *
+    autoLayout LeftRight
+  }
+
+  view chapkit of chapkit {
+    title 'chapkit model service - containers'
+    include *
+    autoLayout LeftRight
+  }
+
+  view coreApi of api {
+    title 'CHAP Core REST API - components'
+    include *
+    autoLayout LeftRight
+  }
+
+  view coreWorker of worker {
+    title 'CHAP Core worker - components'
+    include *
+    autoLayout LeftRight
+  }
+
+  view chapkitService of serviceApi {
+    title 'chapkit Service API - components'
+    include *
+    autoLayout LeftRight
+  }
+}

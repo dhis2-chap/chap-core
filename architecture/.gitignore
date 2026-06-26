@@ -6,3 +6,8 @@ workspace.json
 node_modules/
 package-lock.json
 .package-lock.json
+
+# intermediate renderer sources + experimental build outputs (regenerated)
+exports/
+likec4/_site/
+likec4/_png/

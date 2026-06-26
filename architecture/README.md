@@ -118,6 +118,37 @@ persist, so after one `make architecture-export` the diagram-finder thumbnails
 show immediately in later `make architecture` sessions instead of rendering
 lazily on first click.
 
+## Trying other renderers
+
+Structurizr DSL stays the single source of truth, but the same model can be
+re-rendered by other tools so you can compare. These are experimental:
+
+```bash
+make architecture-export-mermaid    # -> architecture/diagrams/mermaid/*.png
+make architecture-export-plantuml   # -> architecture/diagrams/plantuml/*.png
+make architecture-likec4            # interactive LikeC4 viewer at :5173
+```
+
+- **Mermaid** and **C4-PlantUML** are derived automatically (`structurizr export
+  -format …`) and rendered to PNG, so each view sits next to the Structurizr
+  one under `architecture/diagrams/<renderer>/` for side-by-side comparison.
+  Notes: Mermaid has no "pipe" shape, so the Redis broker renders as a cylinder
+  there; neither carries the technology logos.
+- **LikeC4** is a separate, hand-written model ([`likec4/chap.likec4`](likec4/chap.likec4))
+  kept in sync manually - it is *not* derived from `workspace.dsl`. Its strength
+  is the interactive viewer (`make architecture-likec4`); its headless PNG export
+  is finicky in Docker, so we serve it rather than commit LikeC4 PNGs.
+- **D2** and **Ilograph** are not supported by this Structurizr build's exporter.
+
+## A note on Structurizr licensing
+
+Structurizr consolidated its tooling ("vNext"). The functionality we use -
+`local` (viewer), `validate`, and `export` - **remains free and open source**.
+Only the on-prem multi-user *server* (auth, Elasticsearch) needs a paid license
+via prebuilt binaries (free if built from source); that is not used here. The
+one thing that affected us was the cloud-hosted theme EOL (30 Sep 2026), already
+removed in favour of explicit styles.
+
 ## Under the hood
 
 The make targets are thin wrappers around the Structurizr Docker image:

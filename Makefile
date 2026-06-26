@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs help install lint lint/flake8 check regen-plot-help force-restart restart chap-version architecture architecture-validate architecture-export
+.PHONY: clean coverage dist docs help install lint lint/flake8 check regen-plot-help force-restart restart chap-version architecture architecture-validate architecture-export architecture-export-mermaid architecture-export-plantuml architecture-likec4
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -132,3 +132,27 @@ architecture-export: ## export all architecture diagrams to architecture/diagram
 		-v "$(CURDIR)/architecture:/work" -w /work mcr.microsoft.com/playwright:v1.55.0-noble \
 		sh -c 'npm i playwright@1.55.0 --no-save --no-fund --no-audit --silent 2>/dev/null && node export-diagrams.js'; \
 	echo "Diagrams exported to architecture/diagrams/"
+
+architecture-export-mermaid: ## export the model to Mermaid PNGs under architecture/diagrams/mermaid (renderer trial)
+	@set -e; \
+	mkdir -p architecture/exports/mermaid architecture/diagrams/mermaid; \
+	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr export -workspace workspace.dsl -format mermaid -output exports/mermaid >/dev/null; \
+	for f in architecture/exports/mermaid/structurizr-*.mmd; do \
+		n=$$(basename "$$f" .mmd | sed 's/^structurizr-//'); \
+		docker run --rm -v "$(CURDIR)/architecture/exports/mermaid:/src" -v "$(CURDIR)/architecture/diagrams/mermaid:/out" \
+			minlag/mermaid-cli -i "/src/structurizr-$$n.mmd" -o "/out/$$n.png" -b white -w 1800 >/dev/null; \
+	done; \
+	echo "Mermaid PNGs in architecture/diagrams/mermaid/"
+
+architecture-export-plantuml: ## export the model to C4-PlantUML PNGs under architecture/diagrams/plantuml (renderer trial)
+	@set -e; \
+	mkdir -p architecture/exports/plantuml architecture/diagrams/plantuml; \
+	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr export -workspace workspace.dsl -format plantuml/c4plantuml -output exports/plantuml >/dev/null; \
+	docker run --rm -v "$(CURDIR)/architecture/exports/plantuml:/src" -v "$(CURDIR)/architecture/diagrams/plantuml:/out" \
+		plantuml/plantuml -tpng -o /out '/src/structurizr-*.puml' >/dev/null; \
+	for f in architecture/diagrams/plantuml/structurizr-*.png; do mv "$$f" "architecture/diagrams/plantuml/$$(basename "$$f" | sed 's/^structurizr-//')"; done; \
+	echo "C4-PlantUML PNGs in architecture/diagrams/plantuml/"
+
+architecture-likec4: ## serve the experimental LikeC4 model viewer at http://localhost:5173 (renderer trial)
+	docker run --rm -it -p 5173:5173 -v "$(CURDIR)/architecture/likec4:/work" -w /work mcr.microsoft.com/playwright:v1.60.0-noble \
+		sh -c 'apt-get update -qq && apt-get install -y -qq graphviz; npx -y likec4@latest serve --listen 0.0.0.0 .'
