@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs help install lint lint/flake8 check regen-plot-help force-restart restart chap-version
+.PHONY: clean coverage dist docs help install lint lint/flake8 check regen-plot-help force-restart restart chap-version architecture architecture-validate architecture-export
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -113,3 +113,21 @@ restart: ## soft restart docker compose (preserves volumes; rebuilds only on sou
 
 chap-version: ## print the chap_core version running inside the chap container
 	@docker compose -f compose.yml -f compose.chapkit.yml exec -T chap python -c 'import chap_core; print(f"chap_core running in container: {chap_core.__version__}")' 2>/dev/null || echo "chap container not running"
+
+architecture: ## serve the interactive C4 architecture model (Structurizr) at http://localhost:8080
+	docker run -it --rm -p 8080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr local
+
+architecture-validate: ## validate the architecture model DSL (architecture/workspace.dsl)
+	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr validate -workspace workspace.dsl
+
+architecture-export: ## export all architecture diagrams to architecture/diagrams as PNG (needs port 8080 free; also pre-warms viewer thumbnails)
+	@docker rm -f chap-structurizr-export >/dev/null 2>&1 || true
+	@docker run -d --name chap-structurizr-export -p 8080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr local >/dev/null
+	@echo "Waiting for Structurizr to start..."
+	@for i in $$(seq 1 30); do curl -fsS -o /dev/null http://localhost:8080/ 2>/dev/null && break; sleep 2; done
+	-@docker run --rm --network container:chap-structurizr-export \
+		-e STRUCTURIZR_URL=http://localhost:8080 -e PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+		-v "$(CURDIR)/architecture:/work" -w /work mcr.microsoft.com/playwright:v1.55.0-noble \
+		sh -c 'npm i playwright@1.55.0 --no-save --no-fund --no-audit --silent 2>/dev/null && node export-diagrams.js'
+	@docker rm -f chap-structurizr-export >/dev/null 2>&1 || true
+	@echo "Diagrams exported to architecture/diagrams/"

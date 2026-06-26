@@ -1,0 +1,8 @@
+# Structurizr local runtime artifacts (regenerated from workspace.dsl)
+workspace.json
+.structurizr/
+
+# npm artifacts from the diagram-export Playwright run
+node_modules/
+package-lock.json
+.package-lock.json
