@@ -42,7 +42,7 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
             cli = container "CHAP CLI" "Local entry point for running and evaluating models without the API." "Cyclopts (Python)"
 
             redis = container "Redis / Valkey" "Celery broker, job metadata (job_meta) and chapkit service registry." "Valkey 8" {
-                tags "Queue,Redis"
+                tags "Database,Redis"
             }
 
             db = container "PostgreSQL" "Datasets, observations, model templates/configs, backtests, predictions." "PostgreSQL 17" {
@@ -208,12 +208,6 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
                 background #438dd5
                 color #ffffff
             }
-            element "Queue" {
-                shape Pipe
-                background #438dd5
-                color #ffffff
-            }
-
             # Technology logos (C4 leaves icons optional; Structurizr renders them per tag).
             element "PostgreSQL" {
                 icon https://cdn.jsdelivr.net/gh/devicons/devicon/icons/postgresql/postgresql-original.svg

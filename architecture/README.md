@@ -66,8 +66,8 @@ A few directional facts the diagrams encode (and that are easy to get wrong):
 
 Shapes and logos carry meaning, so you can tell what a box is at a glance:
 
-- **Cylinder** = a datastore (PostgreSQL, the chapkit SQLite store).
-- **Pipe** = the Redis/Valkey broker.
+- **Cylinder** = a datastore (PostgreSQL, the Redis/Valkey broker+store, the
+  chapkit SQLite store). Logos tell same-shaped stores apart.
 - **Person** = a human role; plain boxes are systems/containers/components.
 - Technology **logos** (PostgreSQL, Redis, SQLite, FastAPI, React) are shown on
   the relevant containers. They are fetched from a CDN at render time, so the
@@ -126,18 +126,24 @@ re-rendered by other tools so you can compare. These are experimental:
 ```bash
 make architecture-export-mermaid    # -> architecture/diagrams/mermaid/*.png
 make architecture-export-plantuml   # -> architecture/diagrams/plantuml/*.png
-make architecture-likec4            # interactive LikeC4 viewer at :5173
+make architecture-export-likec4     # -> architecture/diagrams/likec4/*.png
+make architecture-likec4            # interactive LikeC4 viewer at :5180
 ```
 
-- **Mermaid** and **C4-PlantUML** are derived automatically (`structurizr export
-  -format …`) and rendered to PNG, so each view sits next to the Structurizr
-  one under `architecture/diagrams/<renderer>/` for side-by-side comparison.
-  Notes: Mermaid has no "pipe" shape, so the Redis broker renders as a cylinder
-  there; neither carries the technology logos.
+Each renderer's PNGs sit next to the Structurizr ones under
+`architecture/diagrams/<renderer>/`, so you can open the same view across folders
+for side-by-side comparison.
+
+- **Mermaid** and **C4-PlantUML** are derived automatically from `workspace.dsl`
+  (`structurizr export -format …`) and rendered to PNG. Note: neither carries the
+  technology logos.
 - **LikeC4** is a separate, hand-written model ([`likec4/chap.likec4`](likec4/chap.likec4))
   kept in sync manually - it is *not* derived from `workspace.dsl`. Its strength
-  is the interactive viewer (`make architecture-likec4`); its headless PNG export
-  is finicky in Docker, so we serve it rather than commit LikeC4 PNGs.
+  is the interactive viewer (`make architecture-likec4`). LikeC4's own headless
+  `export png` fails in Docker ("Failed N of N views"), so the export target
+  instead builds the static site, serves it, and screenshots each view via
+  Playwright ([`export-likec4.js`](export-likec4.js)). It needs Graphviz + a
+  browser, so it is slower than the other two.
 - **D2** and **Ilograph** are not supported by this Structurizr build's exporter.
 
 ## A note on Structurizr licensing
