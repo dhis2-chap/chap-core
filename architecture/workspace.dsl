@@ -51,7 +51,7 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
         }
 
         # --- chapkit model service (own repo: chap-sdk/chapkit) -----------
-        chapkit = softwareSystem "chapkit model services [1..N]" "Self-contained model services - one per model, many running concurrently. Each exposes the standard CHAP train/predict contract over HTTP and registers itself with CHAP Core." {
+        chapkit = softwareSystem "chapkit model services [0..*]" "Self-contained model services - one per model, the now-preferred path. Each exposes the standard CHAP train/predict contract over HTTP and registers itself with CHAP Core." {
 
             serviceApi = container "Service API" "FastAPI app assembled by chapkit's MLServiceBuilder; implements the standard train/predict/config/artifact/job REST contract." "FastAPI (Python)" {
                 tags "FastAPI"

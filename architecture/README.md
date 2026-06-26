@@ -38,7 +38,7 @@ in this order:
 | **Celery worker** | Worker process in CHAP Core. | Does the heavy work (harmonise, backtest, predict). Scale by adding worker replicas behind the same Redis. |
 | **Redis / Valkey** | Broker + state. | Celery broker, job metadata, and the live chapkit service registry. |
 | **PostgreSQL** | Database. | Datasets, model templates/configs, backtests, predictions. |
-| **chapkit model services [1..N]** | Self-contained model services - **one per model**, many running at once (framework + runtime; own repo `chap-sdk/chapkit`). | Not just "an MLproject in a repo": each service is a FastAPI app with its own SQLite store, async job scheduler, typed config/artifact storage and a web console. Each registers with CHAP Core and is called by the worker for train/predict. Run and scale independently. See `L2_Chapkit` / `L3_ChapkitService`. |
+| **chapkit model services [0..*]** | Self-contained model services - **one per model**, zero-to-many running (framework + runtime; own repo `chap-sdk/chapkit`). The now-preferred path over MLproject. | Not just "an MLproject in a repo": each service is a FastAPI app with its own SQLite store, async job scheduler, typed config/artifact storage and a web console. Each registers with CHAP Core and is called by the worker for train/predict. Run and scale independently. See `L2_Chapkit` / `L3_ChapkitService`. |
 | **Model source repos** | Git / MLproject, **one per model**. | MLproject models the worker clones and runs in-process via a runner. |
 | **CHAP CLI** | Local entry point. | Lets a model developer run/evaluate models without the API or DHIS2. |
 
