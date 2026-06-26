@@ -231,7 +231,5 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
                 icon https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg
             }
         }
-
-        theme default
     }
 }

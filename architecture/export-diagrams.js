@@ -37,7 +37,9 @@ async function main() {
           const started = Date.now();
           const poll = () => {
             if (s.isDiagramRendered && s.isDiagramRendered()) {
-              s.exportCurrentDiagramToPNG({ crop: false }, (png) => resolve(png));
+              // metadata:false drops the name/description/timestamp footer so exports
+              // are byte-reproducible (the timestamp was the only source of churn).
+              s.exportCurrentDiagramToPNG({ crop: false, metadata: false }, (png) => resolve(png));
             } else if (Date.now() - started > 30000) {
               reject(new Error(`render timeout for ${viewKey}`));
             } else {

@@ -121,13 +121,14 @@ architecture-validate: ## validate the architecture model DSL (architecture/work
 	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr validate -workspace workspace.dsl
 
 architecture-export: ## export all architecture diagrams to architecture/diagrams as PNG (needs port 8080 free; also pre-warms viewer thumbnails)
-	@docker rm -f chap-structurizr-export >/dev/null 2>&1 || true
-	@docker run -d --name chap-structurizr-export -p 8080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr local >/dev/null
-	@echo "Waiting for Structurizr to start..."
-	@for i in $$(seq 1 30); do curl -fsS -o /dev/null http://localhost:8080/ 2>/dev/null && break; sleep 2; done
-	-@docker run --rm --network container:chap-structurizr-export \
+	@set -e; \
+	docker rm -f chap-structurizr-export >/dev/null 2>&1 || true; \
+	docker run -d --name chap-structurizr-export -p 8080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr local >/dev/null; \
+	trap 'docker rm -f chap-structurizr-export >/dev/null 2>&1 || true' EXIT; \
+	echo "Waiting for Structurizr to start..."; \
+	for i in $$(seq 1 30); do curl -fsS -o /dev/null http://localhost:8080/ 2>/dev/null && break; sleep 2; done; \
+	docker run --rm --network container:chap-structurizr-export \
 		-e STRUCTURIZR_URL=http://localhost:8080 -e PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
 		-v "$(CURDIR)/architecture:/work" -w /work mcr.microsoft.com/playwright:v1.55.0-noble \
-		sh -c 'npm i playwright@1.55.0 --no-save --no-fund --no-audit --silent 2>/dev/null && node export-diagrams.js'
-	@docker rm -f chap-structurizr-export >/dev/null 2>&1 || true
-	@echo "Diagrams exported to architecture/diagrams/"
+		sh -c 'npm i playwright@1.55.0 --no-save --no-fund --no-audit --silent 2>/dev/null && node export-diagrams.js'; \
+	echo "Diagrams exported to architecture/diagrams/"
