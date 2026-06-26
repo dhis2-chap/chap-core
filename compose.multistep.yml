@@ -1,0 +1,19 @@
+services:
+  multistep:
+    image: ghcr.io/chap-models/chapkit_simple_multistep_model:latest
+    pull_policy: always
+    ports:
+      - "5003:8000"
+    environment:
+      SERVICEKIT_ORCHESTRATOR_URL: http://chap:8000/v2/services/$$register
+      # Uncomment if chap has SERVICEKIT_REGISTRATION_KEY set:
+      # SERVICEKIT_REGISTRATION_KEY: ${SERVICEKIT_REGISTRATION_KEY:-}
+    depends_on:
+      chap:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
