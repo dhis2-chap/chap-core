@@ -58,7 +58,7 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
                 registration = component "Registration & health" "Self-registers with CHAP Core and sends heartbeats; serves /health and /system."
                 mlRouter = component "ML router" "/api/v1/ml: $train, $predict, $validate, $generate-sample-data."
                 configRouter = component "Config router" "/api/v1/configs: typed, Pydantic-validated model configuration CRUD."
-                artifactRouter = component "Artifact router" "/api/v1/artifacts: hierarchical artifact tree (trained models, predictions)."
+                artifactRouter = component "Artifact router" "/api/v1/artifacts: artifact CRUD - tree, expand, metadata, linked config, download (trained models, predictions)."
                 jobsRouter = component "Jobs router" "/api/v1/jobs: async job status and cancellation."
                 mlManager = component "ML manager" "Train/predict pipelines; turns runner output into typed, versioned artifacts."
                 jobScheduler = component "Job scheduler" "In-memory async scheduler; runs train/predict as ULID-tracked background jobs."

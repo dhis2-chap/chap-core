@@ -96,7 +96,7 @@ model {
       registration = component 'Registration & health' { description 'Registers with CHAP Core; heartbeats; /health, /system.' }
       mlRouter = component 'ML router' { description '/api/v1/ml: $train, $predict, $validate.' }
       configRouter = component 'Config router' { description '/api/v1/configs: typed config CRUD.' }
-      artifactRouter = component 'Artifact router' { description '/api/v1/artifacts: hierarchical artifact tree.' }
+      artifactRouter = component 'Artifact router' { description '/api/v1/artifacts: artifact CRUD - tree, expand, metadata, linked config, download.' }
       jobsRouter = component 'Jobs router' { description '/api/v1/jobs: async job status/cancel.' }
       mlManager = component 'ML manager' { description 'Train/predict pipelines; typed artifacts.' }
       jobScheduler = component 'Job scheduler' { description 'In-memory async scheduler; ULID-tracked jobs.' }
