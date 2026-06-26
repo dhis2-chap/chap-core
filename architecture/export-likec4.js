@@ -1,6 +1,9 @@
-// Screenshot each LikeC4 view from a running static build (`likec4 build` + served).
-// LikeC4's own `export png` fails headless in Docker ("Failed N of N views"), so we
-// render the static site and screenshot it instead. Driven by `make architecture-export-likec4`.
+// Export each LikeC4 view to a clean, chrome-free PNG.
+// LikeC4's own headless `export png` fails in Docker ("Failed N of N views") and its
+// in-app PNG export does not trigger a capturable download headless, so we render the
+// served static build, hide the LikeC4 UI overlays (nav, Share/Export, attribution,
+// node action buttons), and screenshot just the diagram canvas.
+// Driven by `make architecture-export-likec4`.
 const { chromium } = require("playwright");
 
 const BASE_URL = process.env.LIKEC4_URL || "http://localhost:5180";
@@ -16,15 +19,30 @@ const VIEWS = [
   ["chapkitService", "L3_ChapkitService"],
 ];
 
+// Hide everything that is not the diagram itself. `.likec4-root` has exactly two
+// children: the `.react-flow` canvas and the overlay layer (nav / breadcrumb / search).
+const HIDE_CSS = `
+  .likec4-root > div:not(.react-flow),
+  .likec4-navigation-panel__root,
+  .react-flow__attribution,
+  .react-flow__handle,
+  [class*="details-button"],
+  [class*="action-buttons"],
+  [class*="action-btn"] { display: none !important; }
+`;
+
 async function main() {
   const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 1680, height: 1050 } });
+  const page = await browser.newPage({ viewport: { width: 1680, height: 1050 }, colorScheme: "dark" });
+
   for (const [id, name] of VIEWS) {
     await page.goto(`${BASE_URL}/view/${id}/`, { waitUntil: "networkidle" });
-    await page.waitForTimeout(2500); // let the layout settle / fit to view
+    await page.addStyleTag({ content: HIDE_CSS });
+    await page.waitForTimeout(2000); // let the layout settle / fit to view
     await page.screenshot({ path: `${OUTPUT_DIR}/${name}.png` });
     console.log(`  ${name}.png`);
   }
+
   await browser.close();
 }
 
