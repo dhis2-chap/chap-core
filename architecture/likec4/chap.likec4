@@ -131,7 +131,7 @@ model {
 
   chapCore.worker.dbfns -> chapCore.redis 'Job lifecycle: fetch job, write job_meta (via Celery task wrapper)'
   chapCore.worker.dbfns -> chapCore.db 'Reads datasets/models; writes forecasts & metrics'
-  chapCore.worker.dbfns -> chapCore.api.orchestrator 'Resolves live service URL'
+  chapCore.worker.dbfns -> chapCore.redis 'Resolves live service URL from registry (TTL keys)'
   chapCore.worker.dbfns -> chapCore.worker.runners 'Runs in-process models'
   chapCore.worker.dbfns -> chapCore.worker.chapkitClient 'Calls remote models'
   chapCore.worker.runners -> modelRepos 'Clones & runs model code' {

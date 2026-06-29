@@ -40,6 +40,10 @@ async function main() {
 
   for (const [id, name] of VIEWS) {
     await page.goto(`${BASE_URL}/view/${id}/`, { waitUntil: "networkidle" });
+    // Fail loudly if the view did not actually render. The SPA serves its shell
+    // even for unknown routes (single-page mode), so a fixed wait alone could
+    // silently screenshot an empty/error page after a bad id or route change.
+    await page.waitForSelector(".react-flow__node", { timeout: 15000 });
     await page.addStyleTag({ content: HIDE_CSS });
     await page.waitForTimeout(2000); // let the layout settle / fit to view
     await page.screenshot({ path: `${OUTPUT_DIR}/${name}.png` });

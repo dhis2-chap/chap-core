@@ -118,6 +118,12 @@ persist, so after one `make architecture-export` the diagram-finder thumbnails
 show immediately in later `make architecture` sessions instead of rendering
 lazily on first click.
 
+Because the rendered PNGs are committed, the renderer toolchain is **version
+pinned** so a re-export does not change them without a source change: the
+Structurizr image, the Playwright image, and LikeC4, `serve`, mermaid-cli and
+PlantUML are all pinned to explicit versions in the `Makefile`. Bump those pins
+deliberately and re-export in the same commit.
+
 ## Trying other renderers
 
 Structurizr DSL stays the single source of truth, but the same model can be

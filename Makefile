@@ -116,25 +116,25 @@ chap-version: ## print the chap_core version running inside the chap container
 
 # --- Architecture: serve / view ---
 architecture: ## serve the interactive C4 architecture model (Structurizr) at http://localhost:8080
-	docker run -it --rm -p 8080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr local
+	docker run -it --rm -p 8080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr:2026.05.22 local
 
 architecture-likec4: ## build + serve the experimental LikeC4 viewer at http://localhost:5180 (renderer trial)
 	@set -e; \
 	echo "Building LikeC4 static site..."; \
 	docker run --rm -v "$(CURDIR)/architecture/likec4:/work" -w /work node:22-bookworm-slim \
-		sh -c 'apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq graphviz >/dev/null 2>&1; npx -y likec4@latest build -o _site --base / .'; \
+		sh -c 'apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq graphviz >/dev/null 2>&1; npx -y likec4@1.58.0 build -o _site --base / .'; \
 	echo "Serving at http://localhost:5180 (Ctrl-C to stop)"; \
-	docker run --rm -it -p 5180:5180 -v "$(CURDIR)/architecture/likec4/_site:/site:ro" node:22-bookworm-slim npx -y serve -s -l 5180 /site
+	docker run --rm -it -p 5180:5180 -v "$(CURDIR)/architecture/likec4/_site:/site:ro" node:22-bookworm-slim npx -y serve@14.2.6 -s -l 5180 /site
 
 # --- Architecture: validate ---
 architecture-validate: ## validate the architecture model DSL (architecture/workspace.dsl)
-	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr validate -workspace workspace.dsl
+	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 validate -workspace workspace.dsl
 
 # --- Architecture: export PNGs ---
 architecture-export: ## export all architecture diagrams to architecture/diagrams as PNG (needs port 8080 free; also pre-warms viewer thumbnails)
 	@set -e; \
 	docker rm -f chap-structurizr-export >/dev/null 2>&1 || true; \
-	docker run -d --name chap-structurizr-export -p 8080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr local >/dev/null; \
+	docker run -d --name chap-structurizr-export -p 8080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr:2026.05.22 local >/dev/null; \
 	trap 'docker rm -f chap-structurizr-export >/dev/null 2>&1 || true' EXIT; \
 	echo "Waiting for Structurizr to start..."; \
 	for i in $$(seq 1 30); do curl -fsS -o /dev/null http://localhost:8080/ 2>/dev/null && break; sleep 2; done; \
@@ -147,20 +147,20 @@ architecture-export: ## export all architecture diagrams to architecture/diagram
 architecture-export-mermaid: ## export the model to Mermaid PNGs under architecture/diagrams/mermaid (renderer trial)
 	@set -e; \
 	mkdir -p architecture/exports/mermaid architecture/diagrams/mermaid; \
-	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr export -workspace workspace.dsl -format mermaid -output exports/mermaid >/dev/null; \
+	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 export -workspace workspace.dsl -format mermaid -output exports/mermaid >/dev/null; \
 	for f in architecture/exports/mermaid/structurizr-*.mmd; do \
 		n=$$(basename "$$f" .mmd | sed 's/^structurizr-//'); \
 		docker run --rm -v "$(CURDIR)/architecture/exports/mermaid:/src" -v "$(CURDIR)/architecture/diagrams/mermaid:/out" \
-			minlag/mermaid-cli -i "/src/structurizr-$$n.mmd" -o "/out/$$n.png" -b white -w 1800 >/dev/null; \
+			minlag/mermaid-cli:11.15.0 -i "/src/structurizr-$$n.mmd" -o "/out/$$n.png" -b white -w 1800 >/dev/null; \
 	done; \
 	echo "Mermaid PNGs in architecture/diagrams/mermaid/"
 
 architecture-export-plantuml: ## export the model to C4-PlantUML PNGs under architecture/diagrams/plantuml (renderer trial)
 	@set -e; \
 	mkdir -p architecture/exports/plantuml architecture/diagrams/plantuml; \
-	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr export -workspace workspace.dsl -format plantuml/c4plantuml -output exports/plantuml >/dev/null; \
+	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 export -workspace workspace.dsl -format plantuml/c4plantuml -output exports/plantuml >/dev/null; \
 	docker run --rm -v "$(CURDIR)/architecture/exports/plantuml:/src" -v "$(CURDIR)/architecture/diagrams/plantuml:/out" \
-		plantuml/plantuml -tpng -o /out '/src/structurizr-*.puml' >/dev/null; \
+		plantuml/plantuml:1.2026.6 -tpng -o /out '/src/structurizr-*.puml' >/dev/null; \
 	for f in architecture/diagrams/plantuml/structurizr-*.png; do mv "$$f" "architecture/diagrams/plantuml/$$(basename "$$f" | sed 's/^structurizr-//')"; done; \
 	echo "C4-PlantUML PNGs in architecture/diagrams/plantuml/"
 
@@ -170,8 +170,8 @@ architecture-export-likec4: ## export the experimental LikeC4 views to PNGs unde
 	docker rm -f chap-likec4-serve >/dev/null 2>&1 || true; \
 	echo "Building LikeC4 static site..."; \
 	docker run --rm -v "$(CURDIR)/architecture/likec4:/work" -w /work node:22-bookworm-slim \
-		sh -c 'apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq graphviz >/dev/null 2>&1; npx -y likec4@latest build -o _site --base / .'; \
-	docker run -d --name chap-likec4-serve -p 5180:5180 -v "$(CURDIR)/architecture/likec4/_site:/site:ro" node:22-bookworm-slim npx -y serve -s -l 5180 /site >/dev/null; \
+		sh -c 'apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq graphviz >/dev/null 2>&1; npx -y likec4@1.58.0 build -o _site --base / .'; \
+	docker run -d --name chap-likec4-serve -p 5180:5180 -v "$(CURDIR)/architecture/likec4/_site:/site:ro" node:22-bookworm-slim npx -y serve@14.2.6 -s -l 5180 /site >/dev/null; \
 	trap 'docker rm -f chap-likec4-serve >/dev/null 2>&1 || true' EXIT; \
 	echo "Waiting for static site..."; \
 	for i in $$(seq 1 30); do curl -fsS -o /dev/null http://localhost:5180/ 2>/dev/null && break; sleep 2; done; \

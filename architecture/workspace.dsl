@@ -94,7 +94,7 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
         # --- Relationships: CHAP Core worker components ------------------
         chapCore.worker.dbfns -> chapCore.redis "Job lifecycle: fetch job, write job_meta (via Celery task wrapper)"
         chapCore.worker.dbfns -> chapCore.db "Reads datasets/models; writes forecasts & metrics"
-        chapCore.worker.dbfns -> chapCore.api.orchestrator "Resolves live service URL"
+        chapCore.worker.dbfns -> chapCore.redis "Resolves live service URL from registry (TTL keys)"
         chapCore.worker.dbfns -> chapCore.worker.runners "Runs in-process models"
         chapCore.worker.dbfns -> chapCore.worker.chapkitClient "Calls remote models"
         chapCore.worker.runners -> modelRepos "Clones & runs model code" "git / Docker / MLflow / UV"
