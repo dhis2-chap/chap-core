@@ -1116,7 +1116,7 @@ wheels = [
 
 [[package]]
 name = "gluonts"
-version = "0.16.2"
+version = "0.16.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
@@ -1126,9 +1126,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/95/8e/ac06012148ea68b301d8f041d3c97cca6b5000f58c8ebf94bf71a601f771/gluonts-0.16.2.tar.gz", hash = "sha256:1fef7fff186b567edf9db7cd052c10ee82fb74bb4b4914b925340ba33d494548", size = 1317671, upload-time = "2025-06-27T12:02:33.863Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/b4/c44bd72e9efa43f4fd713d37e9341e8acd7ca567ea7669906b745baed185/gluonts-0.16.3.tar.gz", hash = "sha256:54896aa15255e7bafeb955127c6f8b53f08c08a0eaf5152764e9394b65340245", size = 1319490, upload-time = "2026-06-29T08:45:36.975Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/38/3d/83cbe565f59b1d55b6436576d8d7bc3890aebdd8a55db34e60ff69f8e8ef/gluonts-0.16.2-py3-none-any.whl", hash = "sha256:351497c37bd0dd13776310f132b7f110f45821559cbc1a03c24908051fcf8155", size = 1519207, upload-time = "2025-06-27T12:02:32.058Z" },
+    { url = "https://files.pythonhosted.org/packages/34/1c/a12d24bd32894c1b45f21741859111857855ff285e4b6feddec148ca8a89/gluonts-0.16.3-py3-none-any.whl", hash = "sha256:e6b801565e82b43df27221314328657eb882863d2fa55a79a0cf2d4a190e31e3", size = 1519675, upload-time = "2026-06-29T08:45:35.091Z" },
 ]
 
 [[package]]
