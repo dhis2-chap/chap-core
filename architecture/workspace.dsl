@@ -55,7 +55,7 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
 
             serviceApi = container "Service API" "FastAPI app assembled by chapkit's MLServiceBuilder; implements the standard train/predict/config/artifact/job REST contract." "FastAPI (Python)" {
                 tags "FastAPI"
-                registration = component "Registration & health" "Self-registers with CHAP Core and sends heartbeats; serves /health and /api/v1/system."
+                registration = component "Registration & health" "Self-registers with CHAP Core and sends heartbeats; serves /health and /api/v1/info (service identity CHAP Core reads)."
                 mlRouter = component "ML router" "/api/v1/ml: $train, $predict, $validate, $generate-sample-data."
                 configRouter = component "Config router" "/api/v1/configs: typed, Pydantic-validated model configuration CRUD."
                 artifactRouter = component "Artifact router" "/api/v1/artifacts: artifact CRUD - tree, expand, metadata, linked config, download (trained models, predictions)."

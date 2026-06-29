@@ -88,7 +88,7 @@ model {
       technology 'FastAPI'
       description 'FastAPI app from chapkit MLServiceBuilder; train/predict/config/artifact/job REST contract.'
 
-      registration = component 'Registration & health' { description 'Registers with CHAP Core; heartbeats; /health, /api/v1/system.' }
+      registration = component 'Registration & health' { description 'Registers with CHAP Core; heartbeats; /health, /api/v1/info (service identity CHAP Core reads).' }
       mlRouter = component 'ML router' { description '/api/v1/ml: $train, $predict, $validate, $generate-sample-data.' }
       configRouter = component 'Config router' { description '/api/v1/configs: typed config CRUD.' }
       artifactRouter = component 'Artifact router' { description '/api/v1/artifacts: artifact CRUD - tree, expand, metadata, linked config, download.' }

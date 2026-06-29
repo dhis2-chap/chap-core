@@ -169,12 +169,14 @@ The make targets are thin wrappers around the Structurizr Docker image:
 # make architecture
 docker run -it --rm -p 8080:8080 \
   -v "$(pwd)/architecture:/usr/local/structurizr" \
-  structurizr/structurizr local
+  structurizr/structurizr:2026.05.22 local
 
 # make architecture-validate
 docker run --rm -v "$(pwd)/architecture:/work" -w /work \
-  structurizr/structurizr validate -workspace workspace.dsl
+  structurizr/structurizr:2026.05.22 validate -workspace workspace.dsl
 ```
 
 > Note: the older `structurizr/lite` and `structurizr/cli` images are retired
 > and now only print a migration notice. Use `structurizr/structurizr` as above.
+> The image tag is pinned (see the version-pinning note above); bump it
+> deliberately and re-export in the same commit.
