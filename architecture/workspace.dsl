@@ -151,19 +151,17 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
 
         dynamic chapCore "Flow_IngestDataset" "Flow - import and harmonise a dataset from the Modelling App." {
             modellingApp -> chapCore.api "POST /v1/analytics/make-dataset (observations + geojson)"
-            chapCore.api -> chapCore.db "Insert DataSet + Observations"
-            chapCore.api -> chapCore.redis "Queue harmonise-dataset job"
+            chapCore.api -> chapCore.redis "Validate input, then queue harmonise-dataset job"
             chapCore.worker -> chapCore.redis "Fetch job"
-            chapCore.worker -> chapCore.db "Harmonise & store dataset"
+            chapCore.worker -> chapCore.db "Harmonise & save DataSet + Observations"
             autolayout lr
         }
 
         dynamic chapCore "Flow_Backtest" "Flow - run an evaluation (backtest) and read results." {
             modellingApp -> chapCore.api "POST /v1/analytics/create-backtest-with-data"
-            chapCore.api -> chapCore.db "Insert DataSet + ConfiguredModel"
-            chapCore.api -> chapCore.redis "Queue backtest job"
+            chapCore.api -> chapCore.redis "Validate input, then queue backtest job (existing model_id)"
             chapCore.worker -> chapCore.redis "Fetch job"
-            chapCore.worker -> chapCore.db "Load dataset + model config"
+            chapCore.worker -> chapCore.db "Save DataSet; load ConfiguredModel by id"
             chapCore.worker -> chapkit "Train + predict per fold (chapkit service, or an in-process MLproject runner)"
             chapCore.worker -> chapCore.db "Write Backtest + forecasts + metrics"
             modellingApp -> chapCore.api "GET evaluation results"
