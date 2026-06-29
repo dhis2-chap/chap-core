@@ -17,6 +17,9 @@ const VIEWS = [
   ["coreApi", "L3_CoreAPI"],
   ["coreWorker", "L3_CoreWorker"],
   ["chapkitService", "L3_ChapkitService"],
+  ["flowIngestDataset", "Flow_IngestDataset"],
+  ["flowBacktest", "Flow_Backtest"],
+  ["flowPrediction", "Flow_Prediction"],
 ];
 
 // Hide everything that is not the diagram itself. `.likec4-root` has exactly two

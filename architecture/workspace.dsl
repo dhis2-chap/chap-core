@@ -29,8 +29,8 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
                 tags "FastAPI"
                 common = component "Common routes" "Health, readiness and system-info endpoints."
                 v1 = component "v1 routers" "crud, analytics, jobs, visualization. Datasets, backtests, predictions, job polling."
-                v2 = component "v2 routers" "Service registry endpoints used by chapkit services."
-                orchestrator = component "Orchestrator" "Tracks live chapkit services (TTL registry) and syncs their model templates."
+                v2 = component "v2 routers" "Service registry (chapkit self-registration) plus a read-only reverse proxy to live chapkit services."
+                orchestrator = component "Orchestrator" "Redis-backed TTL registry of live chapkit services; other components read the live set from it."
             }
 
             worker = container "Celery worker" "Consumes queued jobs and runs dataset harmonisation, backtests and predictions." "Celery (Python)" {
@@ -41,7 +41,7 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
 
             cli = container "CHAP CLI" "Local entry point for running and evaluating models without the API." "Cyclopts (Python)"
 
-            redis = container "Redis / Valkey" "Celery broker, job metadata (job_meta) and chapkit service registry." "Valkey 8" {
+            redis = container "Redis / Valkey" "Celery broker and result backend, job metadata (job_meta) and chapkit service registry." "Valkey 8" {
                 tags "Database,Redis"
             }
 
@@ -55,7 +55,7 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
 
             serviceApi = container "Service API" "FastAPI app assembled by chapkit's MLServiceBuilder; implements the standard train/predict/config/artifact/job REST contract." "FastAPI (Python)" {
                 tags "FastAPI"
-                registration = component "Registration & health" "Self-registers with CHAP Core and sends heartbeats; serves /health and /system."
+                registration = component "Registration & health" "Self-registers with CHAP Core and sends heartbeats; serves /health and /api/v1/system."
                 mlRouter = component "ML router" "/api/v1/ml: $train, $predict, $validate, $generate-sample-data."
                 configRouter = component "Config router" "/api/v1/configs: typed, Pydantic-validated model configuration CRUD."
                 artifactRouter = component "Artifact router" "/api/v1/artifacts: artifact CRUD - tree, expand, metadata, linked config, download (trained models, predictions)."
@@ -78,7 +78,8 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
         analyst -> modellingApp "Configures models, reviews forecasts"
         modeller -> chapCore.cli "Develops & evaluates models locally"
         modeller -> modelRepos "Publishes a model -- Option A: MLproject repo"
-        modeller -> chapkit.console "Develops, tests & publishes a model -- Option B: chapkit service"
+        modeller -> chapkit.console "Develops & tests a model -- Option B: chapkit service"
+        modeller -> chapkit.serviceApi "Publishes (deploys the self-registering service)"
 
         modellingApp -> dhis2 "Reads case/climate/org-unit data; after review, optionally writes approved forecast data values" "DHIS2 Web API"
         modellingApp -> chapCore.api.v1 "Submits data, runs evaluations/predictions, polls jobs, pulls forecasts" "HTTPS/JSON (OpenAPI client)"
@@ -88,10 +89,10 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
         chapCore.api.v1 -> chapCore.redis "Queues jobs; reads job status"
         chapCore.api.v1 -> chapCore.db "Reads/writes datasets, models, results"
         chapCore.api.orchestrator -> chapCore.redis "Live service registry (TTL keys)"
-        chapCore.api.orchestrator -> chapCore.db "Syncs model templates"
+        chapCore.api.v1 -> chapCore.api.orchestrator "Reads live services to sync model templates"
 
         # --- Relationships: CHAP Core worker components ------------------
-        chapCore.worker.dbfns -> chapCore.redis "Fetches jobs; writes job metadata"
+        chapCore.worker.dbfns -> chapCore.redis "Job lifecycle: fetch job, write job_meta (via Celery task wrapper)"
         chapCore.worker.dbfns -> chapCore.db "Reads datasets/models; writes forecasts & metrics"
         chapCore.worker.dbfns -> chapCore.api.orchestrator "Resolves live service URL"
         chapCore.worker.dbfns -> chapCore.worker.runners "Runs in-process models"
@@ -104,6 +105,7 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
         # --- Relationships: chapkit <-> CHAP Core ------------------------
         chapCore.worker.chapkitClient -> chapkit.serviceApi.mlRouter "Trains & predicts" "HTTP $train / $predict"
         chapkit.serviceApi.registration -> chapCore.api.v2 "Registers & sends heartbeats" "HTTP $register / $ping"
+        chapCore.api.v2 -> chapkit.serviceApi "Read-only proxy to live service (artifacts/configs/jobs)" "HTTP GET/HEAD"
 
         # --- Relationships: chapkit internals ----------------------------
         chapkit.serviceApi.mlRouter -> chapkit.serviceApi.mlManager "Submits train/predict requests"

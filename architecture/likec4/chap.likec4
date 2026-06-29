@@ -27,14 +27,14 @@ model {
     description 'Configures models and reviews forecasts inside the DHIS2 Modelling App.'
   }
   modeller = person 'Model developer' {
-    description 'Develops models locally (CHAP CLI or chapkit), then publishes them as an MLproject repo or a chapkit service.'
+    description 'Develops models locally (CHAP CLI or chapkit), then publishes them one of two ways: an MLproject repo or a chapkit service.'
   }
 
   dhis2 = system 'DHIS2' {
     #external
     description 'Health information system. Source of case/climate/org-unit data; destination for forecast data values.'
   }
-  modellingApp = system 'CHAP Modelling App' {
+  modellingApp = system 'CHAP Modelling App (chap-frontend)' {
     #external
     description 'Embedded DHIS2 app. Primary client of CHAP Core; writes approved forecasts back into DHIS2.'
   }
@@ -52,8 +52,8 @@ model {
 
       common = component 'Common routes' { description 'Health, readiness, system info.' }
       v1 = component 'v1 routers' { description 'crud, analytics, jobs, visualization.' }
-      v2 = component 'v2 routers' { description 'Service registry endpoints for chapkit services.' }
-      orchestrator = component 'Orchestrator' { description 'Live chapkit service registry; syncs model templates.' }
+      v2 = component 'v2 routers' { description 'Service registry (chapkit self-registration) + read-only reverse proxy to live services.' }
+      orchestrator = component 'Orchestrator' { description 'Redis-backed TTL registry of live chapkit services.' }
     }
 
     worker = container 'Celery worker' {
@@ -72,7 +72,7 @@ model {
 
     redis = database 'Redis / Valkey' {
       technology 'Valkey 8'
-      description 'Celery broker, job metadata, chapkit service registry.'
+      description 'Celery broker and result backend, job metadata, chapkit service registry.'
     }
 
     db = database 'PostgreSQL' {
@@ -88,8 +88,8 @@ model {
       technology 'FastAPI'
       description 'FastAPI app from chapkit MLServiceBuilder; train/predict/config/artifact/job REST contract.'
 
-      registration = component 'Registration & health' { description 'Registers with CHAP Core; heartbeats; /health, /system.' }
-      mlRouter = component 'ML router' { description '/api/v1/ml: $train, $predict, $validate.' }
+      registration = component 'Registration & health' { description 'Registers with CHAP Core; heartbeats; /health, /api/v1/system.' }
+      mlRouter = component 'ML router' { description '/api/v1/ml: $train, $predict, $validate, $generate-sample-data.' }
       configRouter = component 'Config router' { description '/api/v1/configs: typed config CRUD.' }
       artifactRouter = component 'Artifact router' { description '/api/v1/artifacts: artifact CRUD - tree, expand, metadata, linked config, download.' }
       jobsRouter = component 'Jobs router' { description '/api/v1/jobs: async job status/cancel.' }
@@ -113,27 +113,41 @@ model {
   analyst -> modellingApp 'Configures models, reviews forecasts'
   modeller -> chapCore.cli 'Develops & evaluates models locally'
   modeller -> modelRepos 'Publishes a model -- Option A: MLproject repo'
-  modeller -> chapkit.console 'Develops, tests & publishes -- Option B: chapkit service'
+  modeller -> chapkit.console 'Develops & tests -- Option B: chapkit service'
+  modeller -> chapkit.serviceApi 'Publishes (deploys the self-registering service)'
 
-  modellingApp -> dhis2 'Reads data; after review, optionally writes approved forecasts'
-  modellingApp -> chapCore.api.v1 'Submits data, runs evaluations/predictions, polls jobs, pulls forecasts'
+  modellingApp -> dhis2 'Reads data; after review, optionally writes approved forecasts' {
+    technology 'DHIS2 Web API'
+  }
+  modellingApp -> chapCore.api.v1 'Submits data, runs evaluations/predictions, polls jobs, pulls forecasts' {
+    technology 'HTTPS/JSON (OpenAPI client)'
+  }
 
   chapCore.api.v2 -> chapCore.api.orchestrator 'Registers / lists services'
   chapCore.api.v1 -> chapCore.redis 'Queues jobs; reads status'
   chapCore.api.v1 -> chapCore.db 'Reads/writes datasets, models, results'
+  chapCore.api.v1 -> chapCore.api.orchestrator 'Reads live services to sync model templates'
   chapCore.api.orchestrator -> chapCore.redis 'Live service registry (TTL keys)'
-  chapCore.api.orchestrator -> chapCore.db 'Syncs model templates'
 
-  chapCore.worker.dbfns -> chapCore.redis 'Fetches jobs; writes metadata'
+  chapCore.worker.dbfns -> chapCore.redis 'Job lifecycle: fetch job, write job_meta (via Celery task wrapper)'
   chapCore.worker.dbfns -> chapCore.db 'Reads datasets/models; writes forecasts & metrics'
   chapCore.worker.dbfns -> chapCore.api.orchestrator 'Resolves live service URL'
   chapCore.worker.dbfns -> chapCore.worker.runners 'Runs in-process models'
   chapCore.worker.dbfns -> chapCore.worker.chapkitClient 'Calls remote models'
-  chapCore.worker.runners -> modelRepos 'Clones & runs model code'
+  chapCore.worker.runners -> modelRepos 'Clones & runs model code' {
+    technology 'git / Docker / MLflow / UV'
+  }
   chapCore.cli -> modelRepos 'Runs model code locally'
 
-  chapCore.worker.chapkitClient -> chapkit.serviceApi.mlRouter 'Trains & predicts ($train / $predict)'
-  chapkit.serviceApi.registration -> chapCore.api.v2 'Registers & heartbeats ($register / $ping)'
+  chapCore.worker.chapkitClient -> chapkit.serviceApi.mlRouter 'Trains & predicts ($train / $predict)' {
+    technology 'HTTP $train / $predict'
+  }
+  chapkit.serviceApi.registration -> chapCore.api.v2 'Registers & heartbeats ($register / $ping)' {
+    technology 'HTTP $register / $ping'
+  }
+  chapCore.api.v2 -> chapkit.serviceApi 'Read-only proxy to live service (artifacts/configs/jobs)' {
+    technology 'HTTP GET/HEAD'
+  }
 
   chapkit.serviceApi.mlRouter -> chapkit.serviceApi.mlManager 'Submits train/predict'
   chapkit.serviceApi.mlManager -> chapkit.serviceApi.jobScheduler 'Schedules job'
@@ -142,7 +156,9 @@ model {
   chapkit.serviceApi.configRouter -> chapkit.store 'Reads/writes configs'
   chapkit.serviceApi.artifactRouter -> chapkit.store 'Reads artifact tree'
   chapkit.serviceApi.jobsRouter -> chapkit.serviceApi.jobScheduler 'Reads job status'
-  chapkit.console -> chapkit.serviceApi 'Browses/triggers train/predict'
+  chapkit.console -> chapkit.serviceApi 'Browses/triggers train/predict' {
+    technology 'REST'
+  }
 }
 
 views {
@@ -150,35 +166,99 @@ views {
     title 'System Landscape'
     include *
     autoLayout LeftRight
+    style element.tag = #external {
+      color muted
+    }
   }
 
   view chapCore of chapCore {
     title 'CHAP Core - containers'
     include *
     autoLayout LeftRight
+    style element.tag = #external {
+      color muted
+    }
   }
 
   view chapkit of chapkit {
     title 'chapkit model service - containers'
     include *
     autoLayout LeftRight
+    style element.tag = #external {
+      color muted
+    }
   }
 
   view coreApi of api {
     title 'CHAP Core REST API - components'
     include *
     autoLayout LeftRight
+    style element.tag = #external {
+      color muted
+    }
   }
 
   view coreWorker of worker {
     title 'CHAP Core worker - components'
     include *
     autoLayout LeftRight
+    style element.tag = #external {
+      color muted
+    }
   }
 
   view chapkitService of serviceApi {
     title 'chapkit Service API - components'
     include *
     autoLayout LeftRight
+    style element.tag = #external {
+      color muted
+    }
+  }
+
+  dynamic view flowIngestDataset {
+    title 'Flow - import and harmonise a dataset from the Modelling App'
+    modellingApp -> chapCore.api 'POST /v1/analytics/make-dataset (observations + geojson)'
+    chapCore.api -> chapCore.db 'Insert DataSet + Observations'
+    chapCore.api -> chapCore.redis 'Queue harmonise-dataset job'
+    chapCore.worker -> chapCore.redis 'Fetch job'
+    chapCore.worker -> chapCore.db 'Harmonise & store dataset'
+    autoLayout LeftRight
+    style element.tag = #external {
+      color muted
+    }
+  }
+
+  dynamic view flowBacktest {
+    title 'Flow - run an evaluation (backtest) and read results'
+    modellingApp -> chapCore.api 'POST /v1/analytics/create-backtest-with-data'
+    chapCore.api -> chapCore.db 'Insert DataSet + ConfiguredModel'
+    chapCore.api -> chapCore.redis 'Queue backtest job'
+    chapCore.worker -> chapCore.redis 'Fetch job'
+    chapCore.worker -> chapCore.db 'Load dataset + model config'
+    chapCore.worker -> chapkit 'Train + predict per fold (chapkit service, or in-process MLproject runner)'
+    chapCore.worker -> chapCore.db 'Write Backtest + forecasts + metrics'
+    modellingApp -> chapCore.api 'GET evaluation results'
+    chapCore.api -> chapCore.db 'Read forecasts + actuals'
+    autoLayout LeftRight
+    style element.tag = #external {
+      color muted
+    }
+  }
+
+  dynamic view flowPrediction {
+    title 'Flow - run a prediction, review it, and optionally push approved forecasts to DHIS2'
+    modellingApp -> chapCore.api 'Request prediction (or a stored PredictionSetup cron fires)'
+    chapCore.api -> chapCore.redis 'Queue prediction job'
+    chapCore.worker -> chapCore.redis 'Fetch job'
+    chapCore.worker -> chapkit 'Predict quantile forecasts (chapkit service, or in-process MLproject runner)'
+    chapCore.worker -> chapCore.db 'Store Prediction samples (collected in CHAP)'
+    modellingApp -> chapCore.api 'Pull prediction quantiles (/v1/analytics/prediction-entry)'
+    analyst -> modellingApp 'Review forecasts'
+    modellingApp -> dhis2 'If approved, write forecast data values (dataValueSets)'
+    autoLayout LeftRight
+    style element.tag = #external {
+      color muted
+    }
   }
 }
