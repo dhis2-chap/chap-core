@@ -96,11 +96,11 @@ model {
       mlManager = component 'ML manager' { description 'Train/predict pipelines; typed artifacts.' }
       jobScheduler = component 'Job scheduler' { description 'In-memory async scheduler; ULID-tracked jobs.' }
       modelRunner = component 'Model runner' { description 'Functional / class-based / shell (Python / R).' }
-    }
 
-    store = database 'Artifact & config store' {
-      technology 'SQLite'
-      description 'Trained-model artifacts, predictions and configs; Alembic-migrated.'
+      store = database 'Artifact & config store' {
+        technology 'SQLite'
+        description 'Trained-model artifacts, predictions and configs; Alembic-migrated. Embedded in-process (same service).'
+      }
     }
 
     console = container 'Web console' {
@@ -152,9 +152,9 @@ model {
   chapkit.serviceApi.mlRouter -> chapkit.serviceApi.mlManager 'Submits train/predict'
   chapkit.serviceApi.mlManager -> chapkit.serviceApi.jobScheduler 'Schedules job'
   chapkit.serviceApi.jobScheduler -> chapkit.serviceApi.modelRunner 'Runs train / predict'
-  chapkit.serviceApi.mlManager -> chapkit.store 'Reads/writes artifacts & configs'
-  chapkit.serviceApi.configRouter -> chapkit.store 'Reads/writes configs'
-  chapkit.serviceApi.artifactRouter -> chapkit.store 'Reads artifact tree'
+  chapkit.serviceApi.mlManager -> chapkit.serviceApi.store 'Reads/writes artifacts & configs'
+  chapkit.serviceApi.configRouter -> chapkit.serviceApi.store 'Reads/writes configs'
+  chapkit.serviceApi.artifactRouter -> chapkit.serviceApi.store 'Reads artifact tree'
   chapkit.serviceApi.jobsRouter -> chapkit.serviceApi.jobScheduler 'Reads job status'
   chapkit.console -> chapkit.serviceApi 'Browses/triggers train/predict' {
     technology 'REST'

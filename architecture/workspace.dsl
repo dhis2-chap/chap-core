@@ -63,10 +63,9 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
                 mlManager = component "ML manager" "Train/predict pipelines; turns runner output into typed, versioned artifacts."
                 jobScheduler = component "Job scheduler" "In-memory async scheduler; runs train/predict as ULID-tracked background jobs."
                 modelRunner = component "Model runner" "Pluggable train/predict implementation: functional, class-based, or shell (Python / R)."
-            }
-
-            store = container "Artifact & config store" "Trained-model artifacts, predictions and configs; tree-structured and Alembic-migrated." "SQLite" {
-                tags "Database,SQLite"
+                store = component "Artifact & config store" "Trained-model artifacts, predictions and configs; tree-structured and Alembic-migrated. Embedded in-process (same service)." "SQLite" {
+                    tags "Database,SQLite"
+                }
             }
 
             console = container "Web console" "Built-in SPA to browse configs/artifacts/jobs and trigger train/predict against the service." "React SPA" {
@@ -111,9 +110,9 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
         chapkit.serviceApi.mlRouter -> chapkit.serviceApi.mlManager "Submits train/predict requests"
         chapkit.serviceApi.mlManager -> chapkit.serviceApi.jobScheduler "Schedules background job"
         chapkit.serviceApi.jobScheduler -> chapkit.serviceApi.modelRunner "Runs train / predict"
-        chapkit.serviceApi.mlManager -> chapkit.store "Reads/writes artifacts & configs"
-        chapkit.serviceApi.configRouter -> chapkit.store "Reads/writes configs"
-        chapkit.serviceApi.artifactRouter -> chapkit.store "Reads artifact tree"
+        chapkit.serviceApi.mlManager -> chapkit.serviceApi.store "Reads/writes artifacts & configs"
+        chapkit.serviceApi.configRouter -> chapkit.serviceApi.store "Reads/writes configs"
+        chapkit.serviceApi.artifactRouter -> chapkit.serviceApi.store "Reads artifact tree"
         chapkit.serviceApi.jobsRouter -> chapkit.serviceApi.jobScheduler "Reads job status"
         chapkit.console -> chapkit.serviceApi "Browses configs/artifacts/jobs; triggers train/predict" "REST"
     }
