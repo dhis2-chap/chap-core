@@ -120,7 +120,7 @@ architecture: ## serve the interactive C4 architecture model (Structurizr) at ht
 	@echo "Serving at http://localhost:6080 (Ctrl-C to stop)"
 	docker run -it --rm --name chap-structurizr -p 6080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr:2026.05.22 local
 
-architecture-likec4: ## build + serve the experimental LikeC4 viewer at http://localhost:6081 (renderer trial)
+architecture-likec4: ## build + serve the experimental LikeC4 viewer at http://localhost:6081 (alt renderer)
 	@set -e; \
 	echo "Building LikeC4 static site..."; \
 	docker run --rm -v "$(CURDIR)/architecture/likec4:/work" -w /work node:22-bookworm-slim \
@@ -146,7 +146,7 @@ architecture-export: ## export all architecture diagrams to architecture/diagram
 		sh -c 'npm i playwright@1.55.0 --no-save --no-fund --no-audit --silent 2>/dev/null && node export-diagrams.js'; \
 	echo "Diagrams exported to architecture/diagrams/"
 
-architecture-export-mermaid: ## export the model to Mermaid PNGs under architecture/diagrams/mermaid (renderer trial)
+architecture-export-mermaid: ## export the model to Mermaid PNGs under architecture/diagrams/mermaid (alt renderer)
 	@set -e; \
 	mkdir -p architecture/exports/mermaid architecture/diagrams/mermaid; \
 	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 export -workspace workspace.dsl -format mermaid -output exports/mermaid >/dev/null; \
@@ -157,7 +157,7 @@ architecture-export-mermaid: ## export the model to Mermaid PNGs under architect
 	done; \
 	echo "Mermaid PNGs in architecture/diagrams/mermaid/"
 
-architecture-export-plantuml: ## export the model to C4-PlantUML PNGs under architecture/diagrams/plantuml (renderer trial)
+architecture-export-plantuml: ## export the model to C4-PlantUML PNGs under architecture/diagrams/plantuml (alt renderer)
 	@set -e; \
 	mkdir -p architecture/exports/plantuml architecture/diagrams/plantuml; \
 	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 export -workspace workspace.dsl -format plantuml/c4plantuml -output exports/plantuml >/dev/null; \
@@ -166,7 +166,7 @@ architecture-export-plantuml: ## export the model to C4-PlantUML PNGs under arch
 	for f in architecture/diagrams/plantuml/structurizr-*.png; do mv "$$f" "architecture/diagrams/plantuml/$$(basename "$$f" | sed 's/^structurizr-//')"; done; \
 	echo "C4-PlantUML PNGs in architecture/diagrams/plantuml/"
 
-architecture-export-likec4: ## export the experimental LikeC4 views to PNGs under architecture/diagrams/likec4 (renderer trial)
+architecture-export-likec4: ## export the experimental LikeC4 views to PNGs under architecture/diagrams/likec4 (alt renderer)
 	@set -e; \
 	mkdir -p architecture/diagrams/likec4; \
 	docker rm -f chap-likec4-serve >/dev/null 2>&1 || true; \
