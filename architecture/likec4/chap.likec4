@@ -165,7 +165,7 @@ views {
   view index {
     title 'System Landscape'
     include *
-    autoLayout LeftRight
+    autoLayout TopBottom
     style element.tag = #external {
       color muted
     }
