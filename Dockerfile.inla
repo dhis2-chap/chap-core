@@ -15,8 +15,11 @@ ENV MPLCONFIGDIR=/tmp
 # Copy uv binary from official source image
 COPY --from=ghcr.io/astral-sh/uv:0.11 /uv /bin/uv
 
-# Create non-root user 'chap' and prepare /app directory
-RUN useradd -m -s /bin/bash chap && \
+# Create non-root service user 'chap' and prepare /app directory.
+# Keep the home dir (-m): R/renv and matplotlib write caches under $HOME.
+# Use a nologin shell: 'chap' is never used for interactive login, and celery
+# and Rscript subprocesses run via /bin/sh regardless of the account's shell.
+RUN useradd -m -s /usr/sbin/nologin chap && \
     mkdir -p /app && chown -R chap:chap /app
 
 # Install system dependencies (in one efficient layer)
