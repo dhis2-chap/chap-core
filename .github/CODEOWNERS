@@ -1,0 +1,20 @@
+# CODEOWNERS
+# Docker / Kubernetes / Compose infrastructure is owned by the DevOps team.
+# Pattern syntax: https://docs.github.com/articles/about-code-owners
+
+# Docker build files (root only)
+/Dockerfile*            @dhis2-chap/devops
+
+# Docker Compose stacks (incl. compose.override.yml.example)
+/compose.*              @dhis2-chap/devops
+
+# Docker build context
+/.dockerignore          @dhis2-chap/devops
+
+# Helm charts / Kubernetes manifests
+/charts/                @dhis2-chap/devops
+
+# Docker image + Helm chart CI workflows
+/.github/workflows/ci-build-docker-images.yml                   @dhis2-chap/devops
+/.github/workflows/build_chap_worker_docker_image.yml.disabled  @dhis2-chap/devops
+/.github/workflows/release-chart.yaml                           @dhis2-chap/devops
