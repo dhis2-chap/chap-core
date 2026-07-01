@@ -127,7 +127,8 @@ deliberately and re-export in the same commit.
 ## Trying other renderers
 
 Structurizr DSL stays the single source of truth, but the same model can be
-re-rendered by other tools so you can compare. These are experimental:
+re-rendered by other tools so you can compare. These are alternate renderers
+kept for side-by-side comparison:
 
 ```bash
 make architecture-export-mermaid    # -> architecture/diagrams/mermaid/*.png
