@@ -6,7 +6,7 @@
 // Driven by `make architecture-export-likec4`.
 const { chromium } = require("playwright");
 
-const BASE_URL = process.env.LIKEC4_URL || "http://localhost:5180";
+const BASE_URL = process.env.LIKEC4_URL || "http://localhost:6081";
 const OUTPUT_DIR = process.env.OUTPUT_DIR || "/out";
 
 // LikeC4 view id -> output filename (kept aligned with the Structurizr view keys).

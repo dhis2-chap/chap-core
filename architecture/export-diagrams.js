@@ -5,7 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const { chromium } = require("playwright");
 
-const BASE_URL = process.env.STRUCTURIZR_URL || "http://host.docker.internal:8080";
+const BASE_URL = process.env.STRUCTURIZR_URL || "http://host.docker.internal:6080";
 const WORKSPACE_ID = process.env.STRUCTURIZR_WORKSPACE_ID || "1";
 const OUTPUT_DIR = process.env.OUTPUT_DIR || "/work/diagrams";
 

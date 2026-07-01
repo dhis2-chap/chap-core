@@ -83,10 +83,10 @@ Mermaid diagrams in the mkdocs docs do not.
 Run the viewer locally (no account needed), from the repo root:
 
 ```bash
-make architecture          # serves http://localhost:8080
+make architecture          # serves http://localhost:6080
 ```
 
-Then open <http://localhost:8080>. Edit `workspace.dsl` and refresh the browser
+Then open <http://localhost:6080>. Edit `workspace.dsl` and refresh the browser
 to see changes.
 
 To validate the DSL before committing or in CI:
@@ -98,7 +98,7 @@ make architecture-validate
 ## Exporting PNGs and pre-warming thumbnails
 
 ```bash
-make architecture-export      # needs port 8080 free
+make architecture-export      # needs port 6080 free
 ```
 
 This renders every view to `architecture/diagrams/<ViewKey>.png` (committed, so
@@ -133,7 +133,7 @@ re-rendered by other tools so you can compare. These are experimental:
 make architecture-export-mermaid    # -> architecture/diagrams/mermaid/*.png
 make architecture-export-plantuml   # -> architecture/diagrams/plantuml/*.png
 make architecture-export-likec4     # -> architecture/diagrams/likec4/*.png
-make architecture-likec4            # interactive LikeC4 viewer at :5180
+make architecture-likec4            # interactive LikeC4 viewer at :6081
 ```
 
 Each renderer's PNGs sit next to the Structurizr ones under
@@ -167,7 +167,7 @@ The make targets are thin wrappers around the Structurizr Docker image:
 
 ```bash
 # make architecture
-docker run -it --rm -p 8080:8080 \
+docker run -it --rm -p 6080:8080 \
   -v "$(pwd)/architecture:/usr/local/structurizr" \
   structurizr/structurizr:2026.05.22 local
 

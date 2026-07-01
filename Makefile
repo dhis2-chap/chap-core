@@ -115,30 +115,30 @@ chap-version: ## print the chap_core version running inside the chap container
 	@docker compose -f compose.yml -f compose.chapkit.yml exec -T chap python -c 'import chap_core; print(f"chap_core running in container: {chap_core.__version__}")' 2>/dev/null || echo "chap container not running"
 
 # --- Architecture: serve / view ---
-architecture: ## serve the interactive C4 architecture model (Structurizr) at http://localhost:8080
+architecture: ## serve the interactive C4 architecture model (Structurizr) at http://localhost:6080
 	docker rm -f chap-structurizr chap-structurizr-export >/dev/null 2>&1 || true
-	docker run -it --rm --name chap-structurizr -p 8080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr:2026.05.22 local
+	docker run -it --rm --name chap-structurizr -p 6080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr:2026.05.22 local
 
-architecture-likec4: ## build + serve the experimental LikeC4 viewer at http://localhost:5180 (renderer trial)
+architecture-likec4: ## build + serve the experimental LikeC4 viewer at http://localhost:6081 (renderer trial)
 	@set -e; \
 	echo "Building LikeC4 static site..."; \
 	docker run --rm -v "$(CURDIR)/architecture/likec4:/work" -w /work node:22-bookworm-slim \
 		sh -c 'apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq graphviz >/dev/null 2>&1; npx -y likec4@1.58.0 build -o _site --base / .'; \
-	echo "Serving at http://localhost:5180 (Ctrl-C to stop)"; \
-	docker run --rm -it -p 5180:5180 -v "$(CURDIR)/architecture/likec4/_site:/site:ro" node:22-bookworm-slim npx -y serve@14.2.6 -s -l 5180 /site
+	echo "Serving at http://localhost:6081 (Ctrl-C to stop)"; \
+	docker run --rm -it -p 6081:5180 -v "$(CURDIR)/architecture/likec4/_site:/site:ro" node:22-bookworm-slim npx -y serve@14.2.6 -s -l 5180 /site
 
 # --- Architecture: validate ---
 architecture-validate: ## validate the architecture model DSL (architecture/workspace.dsl)
 	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 validate -workspace workspace.dsl
 
 # --- Architecture: export PNGs ---
-architecture-export: ## export all architecture diagrams to architecture/diagrams as PNG (needs port 8080 free; also pre-warms viewer thumbnails)
+architecture-export: ## export all architecture diagrams to architecture/diagrams as PNG (needs port 6080 free; also pre-warms viewer thumbnails)
 	@set -e; \
 	docker rm -f chap-structurizr-export >/dev/null 2>&1 || true; \
-	docker run -d --name chap-structurizr-export -p 8080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr:2026.05.22 local >/dev/null; \
+	docker run -d --name chap-structurizr-export -p 6080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr:2026.05.22 local >/dev/null; \
 	trap 'docker rm -f chap-structurizr-export >/dev/null 2>&1 || true' EXIT; \
 	echo "Waiting for Structurizr to start..."; \
-	for i in $$(seq 1 30); do curl -fsS -o /dev/null http://localhost:8080/ 2>/dev/null && break; sleep 2; done; \
+	for i in $$(seq 1 30); do curl -fsS -o /dev/null http://localhost:6080/ 2>/dev/null && break; sleep 2; done; \
 	docker run --rm --network container:chap-structurizr-export \
 		-e STRUCTURIZR_URL=http://localhost:8080 -e PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
 		-v "$(CURDIR)/architecture:/work" -w /work mcr.microsoft.com/playwright:v1.55.0-noble \
@@ -172,10 +172,10 @@ architecture-export-likec4: ## export the experimental LikeC4 views to PNGs unde
 	echo "Building LikeC4 static site..."; \
 	docker run --rm -v "$(CURDIR)/architecture/likec4:/work" -w /work node:22-bookworm-slim \
 		sh -c 'apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq graphviz >/dev/null 2>&1; npx -y likec4@1.58.0 build -o _site --base / .'; \
-	docker run -d --name chap-likec4-serve -p 5180:5180 -v "$(CURDIR)/architecture/likec4/_site:/site:ro" node:22-bookworm-slim npx -y serve@14.2.6 -s -l 5180 /site >/dev/null; \
+	docker run -d --name chap-likec4-serve -p 6081:5180 -v "$(CURDIR)/architecture/likec4/_site:/site:ro" node:22-bookworm-slim npx -y serve@14.2.6 -s -l 5180 /site >/dev/null; \
 	trap 'docker rm -f chap-likec4-serve >/dev/null 2>&1 || true' EXIT; \
 	echo "Waiting for static site..."; \
-	for i in $$(seq 1 30); do curl -fsS -o /dev/null http://localhost:5180/ 2>/dev/null && break; sleep 2; done; \
+	for i in $$(seq 1 30); do curl -fsS -o /dev/null http://localhost:6081/ 2>/dev/null && break; sleep 2; done; \
 	docker run --rm --network container:chap-likec4-serve -e LIKEC4_URL=http://localhost:5180 -e OUTPUT_DIR=/out -e PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
 		-v "$(CURDIR)/architecture:/work" -v "$(CURDIR)/architecture/diagrams/likec4:/out" -w /work mcr.microsoft.com/playwright:v1.55.0-noble \
 		sh -c 'npm i playwright@1.55.0 --no-save --no-fund --no-audit --silent 2>/dev/null && node export-likec4.js'; \
