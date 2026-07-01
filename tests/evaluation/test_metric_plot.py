@@ -12,6 +12,7 @@ from chap_core.assessment.metric_plots.horizon_mean import MetricByHorizonV2Mean
 from chap_core.assessment.metric_plots.horizon_sum import MetricByHorizonV2Sum
 from chap_core.assessment.metric_plots.metric_map import MetricMapV2
 from chap_core.assessment.metric_plots.regional_distribution import RegionalMetricDistributionPlot
+from chap_core.assessment.metric_plots.time_period_mean import MetricByTimePeriodV2Mean
 from chap_core.assessment.metric_plots.time_period_sum import MetricByTimePeriodV2Sum
 from chap_core.assessment.metrics.crps import CRPSMetric
 
@@ -73,15 +74,19 @@ def test_registered_plot_produces_chart(plot_cls, metric_data, dummy_geojson):
     assert chart is not None
 
 
-@pytest.mark.parametrize("plot_cls", [MetricByHorizonV2Sum, MetricByTimePeriodV2Sum])
-def test_sum_plots_pre_aggregate_in_pandas(plot_cls, metric_data, dummy_geojson):
-    # The sum plots aggregate in pandas before charting, so the compiled Vega spec
-    # must not carry an in-spec "sum" aggregate transform (which would embed the raw,
-    # un-aggregated rows for the browser to sum).
+@pytest.mark.parametrize(
+    "plot_cls",
+    [MetricByHorizonV2Sum, MetricByTimePeriodV2Sum, MetricByHorizonV2Mean, MetricByTimePeriodV2Mean],
+)
+def test_metric_plots_pre_aggregate_in_pandas(plot_cls, metric_data, dummy_geojson):
+    # These plots aggregate in pandas before charting, so the compiled Vega spec must
+    # not carry an in-spec aggregate transform (which would embed the raw, un-aggregated
+    # rows for the browser to reduce).
     spec = plot_cls(metric_data, dummy_geojson).plot_from_df().to_dict(format="vega")
     for data in spec.get("data") or []:
         for transform in data.get("transform") or []:
-            assert not (transform.get("type") == "aggregate" and "sum" in (transform.get("ops") or []))
+            ops = transform.get("ops") or []
+            assert not (transform.get("type") == "aggregate" and ({"sum", "mean"} & set(ops)))
 
 
 def test_regional_metric_distribution_empty_data(metric_data):
