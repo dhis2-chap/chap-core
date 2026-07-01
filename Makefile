@@ -117,6 +117,7 @@ chap-version: ## print the chap_core version running inside the chap container
 # --- Architecture: serve / view ---
 architecture: ## serve the interactive C4 architecture model (Structurizr) at http://localhost:6080
 	docker rm -f chap-structurizr chap-structurizr-export >/dev/null 2>&1 || true
+	@echo "Serving at http://localhost:6080 (Ctrl-C to stop)"
 	docker run -it --rm --name chap-structurizr -p 6080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr:2026.05.22 local
 
 architecture-likec4: ## build + serve the experimental LikeC4 viewer at http://localhost:6081 (renderer trial)
