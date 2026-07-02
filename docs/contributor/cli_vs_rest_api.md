@@ -7,10 +7,8 @@ wrappers over one shared `chap_core` core — `assessment.*`, `models.*` and
 research- and reporting-oriented commands the API does not, and the API has
 persistence, async jobs and a model-service registry the CLI does not.
 
-This page makes that split explicit. It is a **snapshot for discussion** (there
-is deliberately no strict 1-to-1 parity today), not a maintained architecture
-view — treat it as a starting point for deciding where the two surfaces should
-converge. For the structural picture see
+This page makes that split explicit so you can pick the right entry point for a
+task and know which capabilities each one offers. For the structural picture see
 [Architecture diagrams](architecture_diagrams.md) and
 [REST API and database architecture](rest_api_and_database.md).
 
