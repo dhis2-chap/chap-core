@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs help install lint lint/flake8 check regen-plot-help force-restart restart chap-version architecture architecture-validate architecture-export architecture-export-mermaid architecture-export-plantuml architecture-likec4 architecture-export-likec4
+.PHONY: clean coverage dist docs docs-serve help install lint lint/flake8 check regen-plot-help force-restart restart chap-version architecture architecture-validate architecture-export architecture-export-mermaid architecture-export-plantuml architecture-likec4 architecture-export-likec4
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -94,6 +94,10 @@ coverage: ## run tests with coverage reporting
 docs: ## generate MkDocs HTML documentation (strict: warnings fail the build)
 	NO_MKDOCS_2_WARNING=1 uv run mkdocs build --strict
 	@echo "Docs: site/index.html"
+
+docs-serve: ## serve the docs locally with live reload at http://localhost:8000
+	@echo "Serving at http://localhost:8000 (Ctrl-C to stop)"
+	NO_MKDOCS_2_WARNING=1 uv run mkdocs serve
 
 dist: clean ## build source and wheel package
 	uv build
