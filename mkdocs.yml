@@ -33,6 +33,9 @@ theme:
 plugins:
   - search
   - markdown-exec
+  - panzoom:
+      full_screen: true
+      always_show_hint: true
   - mkdocstrings:
       handlers:
         python:
