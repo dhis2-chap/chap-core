@@ -20,7 +20,7 @@ flowchart TB
     ModelingApp[Modelling App / DHIS2]
 
     subgraph CLI["chap CLI (cyclopts)"]
-        CLIonly["CLI-only<br/>explain-lime, preference-learn,<br/>causal + build-counterfactual,<br/>generate-modelcard, report,<br/>aggregate-eval, model schema,<br/>sanity-check-model"]
+        CLIonly["CLI-only<br/>explain-lime, preference-learn,<br/>causal (+ causal build-counterfactual),<br/>generate-modelcard, report,<br/>aggregate-eval, model schema,<br/>sanity-check-model"]
     end
 
     subgraph API["REST API + Celery worker (FastAPI)"]
@@ -62,7 +62,7 @@ capability today.
 | Service registry / proxy (v2) | — | `/v2/services*` (register, ping, list, proxy) | orchestrator (`rest_api/services`) |
 | Explainability (LIME) | `explain-lime` | — | — |
 | Preference learning | `preference-learn` | — | — |
-| Causal / counterfactual | `causal`, `build-counterfactual` | — | — |
+| Causal / counterfactual | `causal`, `causal build-counterfactual` | — | — |
 | Model cards / PDF report | `generate-modelcard`, `report`, `generate-pdf-report` | — | — |
 | Hierarchy aggregation | `aggregate-eval` | — | — |
 

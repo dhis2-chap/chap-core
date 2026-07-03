@@ -15,7 +15,7 @@ The system works by:
 
 ## Architecture
 
-The `preference_learn` CLI command drives this loop:
+The `preference-learn` CLI command drives this loop:
 
 ```mermaid
 flowchart TB
