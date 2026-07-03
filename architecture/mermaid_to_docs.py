@@ -50,10 +50,9 @@ def clean_diagram(text: str) -> str:
     lines: list[str] = []
     for line in text.splitlines():
         stripped = line.strip()
-        # Drop the hard-coded white canvas so the diagram follows the page theme.
-        if stripped.startswith("linkStyle default fill:#ffffff"):
-            continue
-        if stripped.startswith("style diagram fill:#ffffff"):
+        # Drop all hard-coded colours (Structurizr's C4 palette assumes a white
+        # canvas) so the diagram follows MkDocs' light/dark theme and stays legible.
+        if stripped.startswith(("style ", "linkStyle ")):
             continue
         lines.append(line)
     return "\n".join(lines).strip()
