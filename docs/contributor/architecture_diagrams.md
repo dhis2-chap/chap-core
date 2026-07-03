@@ -8,6 +8,7 @@ diagrams.
 The diagrams complement the more detailed guides:
 
 - [Code overview](code_overview.md)
+- [Modeling internals: in-tree vs external ML](modeling_internals.md)
 - [REST API and database architecture](rest_api_and_database.md)
 - [Evaluation pipeline](evaluation_pipeline.md)
 
