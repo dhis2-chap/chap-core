@@ -141,6 +141,18 @@ Each renderer's PNGs sit next to the Structurizr ones under
 `architecture/diagrams/<renderer>/`, so you can open the same view across folders
 for side-by-side comparison.
 
+## Publishing the model into the docs site
+
+```bash
+make architecture-export-docs   # -> docs/contributor/architecture_model.md
+```
+
+This regenerates a contributor docs page with every view as native, theme-aware
+Mermaid (the Structurizr Mermaid export's HTML labels are collapsed to plain text
+by [`mermaid_to_docs.py`](mermaid_to_docs.py)). The page is committed, so the
+mkdocs build needs no Docker; rerun the target and commit whenever the model
+changes.
+
 - **Mermaid** and **C4-PlantUML** are derived automatically from `workspace.dsl`
   (`structurizr export -format …`) and rendered to PNG. Note: neither carries the
   technology logos.

@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs docs-serve help install lint lint/flake8 check regen-plot-help force-restart restart chap-version architecture architecture-validate architecture-export architecture-export-mermaid architecture-export-plantuml architecture-likec4 architecture-export-likec4
+.PHONY: clean coverage dist docs docs-serve help install lint lint/flake8 check regen-plot-help force-restart restart chap-version architecture architecture-validate architecture-export architecture-export-mermaid architecture-export-docs architecture-export-plantuml architecture-likec4 architecture-export-likec4
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -160,6 +160,12 @@ architecture-export-mermaid: ## export the model to Mermaid PNGs under architect
 			minlag/mermaid-cli:11.15.0 -i "/src/structurizr-$$n.mmd" -o "/out/$$n.png" -b white -w 1800 >/dev/null; \
 	done; \
 	echo "Mermaid PNGs in architecture/diagrams/mermaid/"
+
+architecture-export-docs: ## regenerate docs/contributor/architecture_model.md (native mermaid) from workspace.dsl
+	@set -e; \
+	mkdir -p architecture/exports/mermaid; \
+	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 export -workspace workspace.dsl -format mermaid -output exports/mermaid >/dev/null; \
+	uv run python architecture/mermaid_to_docs.py
 
 architecture-export-plantuml: ## export the model to C4-PlantUML PNGs under architecture/diagrams/plantuml (alt renderer)
 	@set -e; \

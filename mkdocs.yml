@@ -147,6 +147,7 @@ nav:
           - Windows Setup: contributor/windows_contributors.md
           - Code Overview: contributor/code_overview.md
           - Architecture Diagrams: contributor/architecture_diagrams.md
+          - Architecture Model (C4): contributor/architecture_model.md
           - Modeling Internals: contributor/modeling_internals.md
           - CLI vs REST API: contributor/cli_vs_rest_api.md
           - REST API and Database: contributor/rest_api_and_database.md
