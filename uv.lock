@@ -520,7 +520,7 @@ dev = [
 
 [[package]]
 name = "chapkit"
-version = "1.0.0"
+version = "1.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "geojson-pydantic" },
@@ -529,9 +529,9 @@ dependencies = [
     { name = "servicekit" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/81/cb/0a779b78748b439b38ab69dd0a592415c3ebaf532f6a032a65259bc85ef2/chapkit-1.0.0.tar.gz", hash = "sha256:6d34f822aabff5b005fad2147c15e87a111588ea8fad9e33711c6f4d66478e6a", size = 105117, upload-time = "2026-06-17T11:36:34.778Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5d/b2/26b1cc05287c643b1dcd7fcb773ccc1679a2a9ed3cd9571cd516faef2e47/chapkit-1.1.0.tar.gz", hash = "sha256:66f4819909bba807a0562e3a63abba9444bf8564d499c09231b872c2c5d1a0a1", size = 952421, upload-time = "2026-06-25T13:44:12.974Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/1c/c79238b56b6391c586412e1e9a4ab53c7d97e578d02b989517879bb2becc/chapkit-1.0.0-py3-none-any.whl", hash = "sha256:1a2465344b4b61f27ea35f5a42210d2cab533c28cab1037e4d96b735256b21e3", size = 135137, upload-time = "2026-06-17T11:36:33.304Z" },
+    { url = "https://files.pythonhosted.org/packages/97/5b/25c1368159fc43429050b9b203bc3d8bd8dbafbe94b6aed4afb296915270/chapkit-1.1.0-py3-none-any.whl", hash = "sha256:83a204ab21608f8a785519ba333c4ac91419ba3a9997e8425956fb0ed64e9a4a", size = 986707, upload-time = "2026-06-25T13:44:11.052Z" },
 ]
 
 [[package]]
@@ -1811,9 +1811,9 @@ resolution-markers = [
     "platform_machine == 'ARM64' and sys_platform == 'win32'",
 ]
 dependencies = [
-    { name = "certifi" },
-    { name = "cftime" },
-    { name = "numpy" },
+    { name = "certifi", marker = "platform_machine == 'ARM64' and sys_platform == 'win32'" },
+    { name = "cftime", marker = "platform_machine == 'ARM64' and sys_platform == 'win32'" },
+    { name = "numpy", marker = "platform_machine == 'ARM64' and sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0e/76/7bc801796dee752c1ce9cd6935564a6ee79d5c9d9ef9192f57b156495a35/netcdf4-1.7.3.tar.gz", hash = "sha256:83f122fc3415e92b1d4904fd6a0898468b5404c09432c34beb6b16c533884673", size = 836095, upload-time = "2025-10-13T18:38:00.76Z" }
 
@@ -1825,9 +1825,9 @@ resolution-markers = [
     "platform_machine != 'ARM64' or sys_platform != 'win32'",
 ]
 dependencies = [
-    { name = "certifi" },
-    { name = "cftime" },
-    { name = "numpy" },
+    { name = "certifi", marker = "platform_machine != 'ARM64' or sys_platform != 'win32'" },
+    { name = "cftime", marker = "platform_machine != 'ARM64' or sys_platform != 'win32'" },
+    { name = "numpy", marker = "platform_machine != 'ARM64' or sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/34/b6/0370bb3af66a12098da06dc5843f3b349b7c83ccbdf7306e7afa6248b533/netcdf4-1.7.4.tar.gz", hash = "sha256:cdbfdc92d6f4d7192ca8506c9b3d4c1d9892969ff28d8e8e1fc97ca08bf12164", size = 838352, upload-time = "2026-01-05T02:27:38.593Z" }
 wheels = [
@@ -2155,7 +2155,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "platform_machine != 'ARM64' or sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
@@ -3031,7 +3031,7 @@ wheels = [
 
 [[package]]
 name = "servicekit"
-version = "1.0.0"
+version = "1.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiosqlite" },
@@ -3049,9 +3049,9 @@ dependencies = [
     { name = "starlette" },
     { name = "structlog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5b/bb/a543ac56929a72b6fc4dff4404fc08823f2de7790eebd717e34d204e9e7c/servicekit-1.0.0.tar.gz", hash = "sha256:d463e0947d5b03c7107cc94982a9a9afc0064da4174c1892ff8a50908c0bffa0", size = 42359, upload-time = "2026-06-17T10:42:16.513Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b5/81/d654464c575f4c45e3eb6a4e4ff45a846497a07064cef005556049f176b7/servicekit-1.0.1.tar.gz", hash = "sha256:a4cfdc5aaefa4c8ca3f03331b13f1036947b32312e62c5d760ade6dad37fb172", size = 42600, upload-time = "2026-06-24T12:43:10.559Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/54/11/243d1d341c1ecf362548bec1c91dd654738bc546be69fbc84ae062a139a7/servicekit-1.0.0-py3-none-any.whl", hash = "sha256:11b968cbb06b8595d33214616121d232ad8da40bcebc541c1714add460a18ea2", size = 54198, upload-time = "2026-06-17T10:42:14.957Z" },
+    { url = "https://files.pythonhosted.org/packages/5f/13/89c193de76a4ed8f802550de92ae16910073eea80b645f7e7b0e5b118dab/servicekit-1.0.1-py3-none-any.whl", hash = "sha256:7845ac2845d4a2c26348f89c176ac495d367b657550c8b7b0a524954c2dfa145", size = 54459, upload-time = "2026-06-24T12:43:09.314Z" },
 ]
 
 [[package]]
