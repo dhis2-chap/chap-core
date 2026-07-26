@@ -143,6 +143,8 @@ worker:
 # Disable and configure externalDatabase to use an existing PostgreSQL server instead.
 db:
   enabled: true
+  # -- Labels applied via CNPG inheritedMetadata to all objects the operator creates (pods, PVCs, ...).
+  podLabels: {}
   # -- Superuser password. Required unless existingSecret is set.
   password: ""
   # -- Existing secret with `username` and `password` keys, used as the CNPG superuser secret.
@@ -182,9 +184,9 @@ valkey:
       # -- The default user requires a `password`, unless auth.usersExistingSecret is set.
       default:
         permissions: "~* &* +@all"
-  persistence:
+  dataStorage:
     enabled: true
-    size: 10Gi
+    requestedSize: 10Gi
   # -- Set to the same labels as global.commonLabels; the valkey subchart does not read global values.
   commonLabels: {}
 

@@ -12,6 +12,9 @@ spec:
       {{- with .Values.global.commonLabels }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
+      {{- with .Values.db.podLabels }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
   instances: {{ .Values.db.instances }}
   {{- if .Values.db.imageName }}
   imageName: {{ .Values.db.imageName }}

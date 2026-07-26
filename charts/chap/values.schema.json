@@ -46,6 +46,7 @@
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean" },
+        "podLabels": { "type": "object" },
         "password": { "type": "string" },
         "existingSecret": { "type": "string" },
         "database": { "type": "string" },
