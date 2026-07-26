@@ -4,23 +4,16 @@ This directory contains Helm charts for deploying CHAP (Climate Health Analysis 
 
 ## Structure
 
-CHAP uses a master/worker architecture. To support deployment on IM (Instance Manager), where individual
-components need to be referenced separately, the deployment is split into multiple charts gathered under
-a single umbrella chart.
-
 | Chart | Description |
 |---|---|
-| [chap](./chap) | Umbrella chart — use this for standalone deployments |
-| [chap-api](./chap-api) | REST API deployment |
-| [chap-worker](./chap-worker) | Celery worker deployment |
-| [chap-db](./chap-db) | PostgreSQL database via CloudNativePG |
+| [chap](./chap) | The CHAP chart — deploys the API, worker, database and Valkey as components of a single release |
+| [chap-api](./chap-api) | Legacy: REST API deployment |
+| [chap-worker](./chap-worker) | Legacy: Celery worker deployment |
+| [chap-db](./chap-db) | Legacy: PostgreSQL database via CloudNativePG |
 
-## Standalone deployment
+The legacy component charts exist only because the current Instance Manager deploys each CHAP component as a separate release. Once the IM component model (which deploys the `chap` chart as a single stack) is rolled out, they will be removed. New deployments should use the `chap` chart.
 
-For deploying outside of IM, use the umbrella chart (`charts/chap`). It bundles all sub-charts and
-their dependencies (including Valkey) for a single-command deployment.
-
-See [charts/chap/README.md](./chap/README.md) for details.
+See [charts/chap/README.md](./chap/README.md) for deployment instructions.
 
 ## Release
 

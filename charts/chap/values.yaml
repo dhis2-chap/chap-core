@@ -1,46 +1,21 @@
-# Default values for CHAP Umbrella Chart
+# Default values for the CHAP chart.
 
-# -- Common labels applied to all Kubernetes resources.
-# When deploying via IM, set these to the IM-required labels so they propagate to all pods.
-commonLabels: {}
-
-chap-db:
-  enabled: true
-  fullnameOverride: "chap-db"
-  postgresql:
-    password: chap
-    cnpg:
-      cluster:
-        enabled: true
-        instances: 1
-        storageSize: 10Gi
-        version: "17"
-        database: chap_core
-    external:
-      enabled: false
+global:
+  # -- Labels applied to all resources and pods of every CHAP component (api, worker, db).
+  # The bundled valkey subchart does not read global values, so set valkey.commonLabels as well.
   commonLabels: {}
 
-valkey:
-  enabled: true
-  fullnameOverride: "chap-valkey"
-  auth:
-    enabled: true
-    aclUsers:
-      default:
-        password: chap
-        permissions: "~* &* +@all"
-  persistence:
-    enabled: true
-    size: 10Gi
-  commonLabels: {}
+nameOverride: ""
+fullnameOverride: ""
 
-chap-api:
+api:
   enabled: true
-  fullnameOverride: "chap-api"
   image:
     repository: ghcr.io/dhis2-chap/chap-core
     pullPolicy: IfNotPresent
+    # -- Defaults to the chart appVersion.
     tag: ""
+  imagePullSecrets: []
   replicaCount: 1
   command:
     - gunicorn
@@ -53,6 +28,17 @@ chap-api:
     - 0.0.0.0:8000
   resources: {}
   volumeMounts: []
+  podAnnotations: {}
+  podLabels: {}
+  podSecurityContext:
+    fsGroup: 1000
+  securityContext:
+    readOnlyRootFilesystem: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    capabilities:
+      drop:
+        - ALL
   serviceAccount:
     create: true
     automount: true
@@ -74,17 +60,13 @@ chap-api:
     periodSeconds: 5
     timeoutSeconds: 3
     failureThreshold: 3
-  autoscaling:
-    enabled: false
-    minReplicas: 1
-    maxReplicas: 100
-    targetCPUUtilizationPercentage: 80
   nodeSelector: {}
   tolerations: []
   affinity: {}
   service:
     type: ClusterIP
     port: 8000
+    annotations: {}
   ingress:
     enabled: false
     className: ""
@@ -95,29 +77,15 @@ chap-api:
           - path: /
             pathType: ImplementationSpecific
     tls: []
-  postgres:
-    host: "chap-db-postgres-rw"
-    port: 5432
-    database: chap_core
-    existingSecret: "chap-db-postgres"
-    secretKeys:
-      username: username
-      password: password
-  valkey:
-    host: "chap-valkey"
-    port: 6379
-    existingSecret: "chap-valkey-auth"
-    secretKeys:
-      password: default-password
-  commonLabels: {}
 
-chap-worker:
+worker:
   enabled: true
-  fullnameOverride: "chap-worker"
   image:
     repository: ghcr.io/dhis2-chap/chap-worker
     pullPolicy: IfNotPresent
+    # -- Defaults to the chart appVersion.
     tag: ""
+  imagePullSecrets: []
   replicaCount: 1
   command:
     - celery
@@ -127,6 +95,17 @@ chap-worker:
     - --loglevel=info
   resources: {}
   volumeMounts: []
+  podAnnotations: {}
+  podLabels: {}
+  podSecurityContext:
+    fsGroup: 1000
+  securityContext:
+    readOnlyRootFilesystem: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    capabilities:
+      drop:
+        - ALL
   serviceAccount:
     create: true
     automount: true
@@ -156,26 +135,77 @@ chap-worker:
     periodSeconds: 30
     timeoutSeconds: 10
     failureThreshold: 3
-  autoscaling:
-    enabled: false
-    minReplicas: 1
-    maxReplicas: 100
-    targetCPUUtilizationPercentage: 80
   nodeSelector: {}
   tolerations: []
   affinity: {}
-  postgres:
-    host: "chap-db-postgres-rw"
-    port: 5432
-    database: chap_core
-    existingSecret: "chap-db-postgres"
-    secretKeys:
-      username: username
-      password: password
-  valkey:
-    host: "chap-valkey"
-    port: 6379
-    existingSecret: "chap-valkey-auth"
-    secretKeys:
-      password: default-password
+
+# PostgreSQL provisioned via the CloudNativePG operator (must be installed on the cluster).
+# Disable and configure externalDatabase to use an existing PostgreSQL server instead.
+db:
+  enabled: true
+  # -- Superuser password. Required unless existingSecret is set.
+  password: ""
+  # -- Existing secret with `username` and `password` keys, used as the CNPG superuser secret.
+  existingSecret: ""
+  database: chap_core
+  instances: 1
+  storageSize: 10Gi
+  version: "17"
+  imageName: ""
+  enableSuperuserAccess: true
+  pooler:
+    enabled: false
+  monitoring:
+    enabled: false
+
+# External PostgreSQL connection, used when db.enabled is false.
+externalDatabase:
+  host: ""
+  port: 5432
+  database: chap_core
+  username: postgres
+  # -- Password for the external database. Ignored when existingSecret is set.
+  password: ""
+  # -- Existing secret with the external database credentials.
+  existingSecret: ""
+  secretKeys:
+    username: username
+    password: password
+
+# Valkey subchart, see https://github.com/valkey-io/valkey-helm for all options.
+# Disable and configure externalValkey to use an existing Valkey/Redis server instead.
+valkey:
+  enabled: true
+  auth:
+    enabled: true
+    aclUsers:
+      # -- The default user requires a `password`, unless auth.usersExistingSecret is set.
+      default:
+        permissions: "~* &* +@all"
+  persistence:
+    enabled: true
+    size: 10Gi
+  # -- Set to the same labels as global.commonLabels; the valkey subchart does not read global values.
   commonLabels: {}
+
+# External Valkey/Redis connection, used when valkey.enabled is false.
+externalValkey:
+  host: ""
+  port: 6379
+  # -- Password for the external Valkey. Ignored when existingSecret is set.
+  password: ""
+  # -- Existing secret with the external Valkey password.
+  existingSecret: ""
+  secretKeys:
+    password: password
+
+# Register CHAP as a route in a DHIS2 instance after install/upgrade.
+dhis2:
+  enabled: false
+  hostname: ""
+  apiVersion: "42"
+  username: "system"
+  # -- Required when dhis2.enabled is true.
+  password: ""
+  registerJob:
+    backoffLimit: 10

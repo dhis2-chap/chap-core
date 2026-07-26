@@ -1,17 +1,19 @@
 # CHAP Helm Chart
 
-Umbrella chart for deploying CHAP (Climate Health Analysis Platform). It bundles the following sub-charts:
+Deploys CHAP (Climate Health Analysis Platform) as a single chart with the following components:
 
-- **chap-api** — REST API
-- **chap-worker** — Celery worker
-- **chap-db** — PostgreSQL via CloudNativePG
-- **valkey** — Valkey (Redis-compatible) message broker
+- **api** — REST API
+- **worker** — Celery worker
+- **db** — PostgreSQL via CloudNativePG
+- **valkey** — Valkey (Redis-compatible) message broker, deployed as a subchart
+
+All internal wiring (hostnames, secrets) between the components is derived from the release name, so no cross-component configuration is needed. Each component can be disabled and replaced with an external service.
 
 ## Deploy
 
 ### Skaffold (recommended for local development)
 
-The easiest way to deploy CHAP locally is to use the skaffold.yaml file found at the root of the repository:
+The easiest way to deploy CHAP locally is to use the skaffold.yaml file found at the root of the repository. It requires the `CHAP_DB_PASSWORD` and `REDIS_PASSWORD` environment variables to be set:
 
 ```shell
 skaffold run
@@ -19,44 +21,7 @@ skaffold run
 
 ### Helm
 
-```shell
-helm dependency update charts/chap
-helm upgrade --install chap charts/chap \
-    --namespace chap \
-    --create-namespace
-```
-
-## Dependencies
-
-### Valkey
-
-Valkey is deployed as a sub-chart dependency by default. To use an external Valkey instance, disable the
-sub-chart and configure the connection:
-
-```yaml
-valkey:
-  enabled: false
-
-chap-api:
-  valkey:
-    host: <your-valkey-host>
-    port: 6379
-    existingSecret: <secret-name>
-    secretKeys:
-      password: <key-in-secret>
-
-chap-worker:
-  valkey:
-    host: <your-valkey-host>
-    port: 6379
-    existingSecret: <secret-name>
-    secretKeys:
-      password: <key-in-secret>
-```
-
-### PostgreSQL
-
-PostgreSQL is deployed by default using the CloudNativePG operator, which must be installed on the cluster:
+PostgreSQL is provisioned through the CloudNativePG operator, which must be installed on the cluster first:
 
 ```shell
 helm repo add cnpg https://cloudnative-pg.github.io/charts
@@ -67,38 +32,57 @@ helm upgrade --install cnpg \
     cnpg/cloudnative-pg
 ```
 
-To use an external PostgreSQL server instead, disable the CloudNativePG cluster, provide the external
-credentials in `chap-db` (which will create the shared secret), and override the host for the API and
-worker (since the default points to the CNPG service):
+The chart has no default credentials, so the database and Valkey passwords must be provided:
+
+```shell
+helm dependency update charts/chap
+helm upgrade --install chap charts/chap \
+    --namespace chap \
+    --create-namespace \
+    --set db.password=<password> \
+    --set valkey.auth.aclUsers.default.password=<password>
+```
+
+## External services
+
+### PostgreSQL
+
+To use an external PostgreSQL server instead of the CloudNativePG cluster:
 
 ```yaml
-chap-db:
-  postgresql:
-    cnpg:
-      cluster:
-        enabled: false
-    external:
-      enabled: true
-      host: <your-postgres-host>
-      user: <username>
-      password: <password>
+db:
+  enabled: false
 
-chap-api:
-  postgres:
-    host: <your-postgres-host>
-
-chap-worker:
-  postgres:
-    host: <your-postgres-host>
+externalDatabase:
+  host: <your-postgres-host>
+  username: <username>
+  password: <password>       # or use existingSecret
 ```
+
+### Valkey
+
+To use an external Valkey/Redis instance instead of the bundled subchart:
+
+```yaml
+valkey:
+  enabled: false
+
+externalValkey:
+  host: <your-valkey-host>
+  password: <password>       # or use existingSecret
+```
+
+## Instance Manager
+
+When deploying via IM, set the IM-required labels once under `global.commonLabels` (and `valkey.commonLabels`, since the valkey subchart does not read global values). They propagate to all resources and pods of every component. Components are distinguished by the `app.kubernetes.io/component` label (`api`, `worker`, `db`), and per-component pod labels can be added via `api.podLabels`/`worker.podLabels`.
 
 See [values.yaml](./values.yaml) for all available configuration options.
 
 ## Connect from DHIS2
 
-To connect DHIS2 to CHAP:
+Setting `dhis2.enabled=true` (with `dhis2.hostname` and credentials) runs a job after each install/upgrade that registers CHAP as a route in the DHIS2 instance. To set up manually:
 
 1. Deploy DHIS2 with the following in `dhis.conf`: `route.remote_servers_allowed=http://*`
 2. Run analytics in DHIS2
 3. Install the Modeling app from App Hub
-4. Configure the connection in the Modeling app. With the default Skaffold setup the URL is `http://chap.chap.svc:8000/**`
+4. Configure the connection in the Modeling app. With the default Skaffold setup the URL is `http://chap-api.chap.svc:8000/**`

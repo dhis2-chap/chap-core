@@ -1,0 +1,43 @@
+{{- if .Values.db.enabled }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "chap.fullname" . }}-db
+  labels:
+    {{- include "chap.componentLabels" (dict "ctx" . "component" "db") | nindent 4 }}
+spec:
+  inheritedMetadata:
+    labels:
+      app.kubernetes.io/component: db
+      {{- with .Values.global.commonLabels }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+  instances: {{ .Values.db.instances }}
+  {{- if .Values.db.imageName }}
+  imageName: {{ .Values.db.imageName }}
+  {{- end }}
+  {{- if .Values.db.version }}
+  postgresVersion: {{ .Values.db.version | int }}
+  {{- end }}
+  storage:
+    size: {{ .Values.db.storageSize }}
+  {{- if .Values.db.database }}
+  bootstrap:
+    initdb:
+      database: {{ .Values.db.database }}
+      owner: postgres
+      secret:
+        name: {{ include "chap.database.secretName" . }}
+  {{- end }}
+  enableSuperuserAccess: {{ .Values.db.enableSuperuserAccess }}
+  superuserSecret:
+    name: {{ include "chap.database.secretName" . }}
+  {{- if .Values.db.pooler.enabled }}
+  pooler:
+    enabled: true
+  {{- end }}
+  {{- if .Values.db.monitoring.enabled }}
+  monitoring:
+    enabled: true
+  {{- end }}
+{{- end }}
