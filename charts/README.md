@@ -4,21 +4,13 @@ This directory contains Helm charts for deploying CHAP (Climate Health Analysis 
 
 ## Structure
 
-| Chart | Description |
-|---|---|
-| [chap](./chap) | The CHAP chart — deploys the API, worker, database and Valkey as components of a single release |
-| [chap-api](./chap-api) | Legacy: REST API deployment |
-| [chap-worker](./chap-worker) | Legacy: Celery worker deployment |
-| [chap-db](./chap-db) | Legacy: PostgreSQL database via CloudNativePG |
+The [chap](./chap) chart deploys the API, worker, database and Valkey as components of a single release. See [charts/chap/README.md](./chap/README.md) for deployment instructions.
 
-The legacy component charts exist only because the current Instance Manager deploys each CHAP component as a separate release. Once the IM component model (which deploys the `chap` chart as a single stack) is rolled out, they will be removed. New deployments should use the `chap` chart.
-
-See [charts/chap/README.md](./chap/README.md) for deployment instructions.
+The previous per-component charts (`chap-api`, `chap-worker`, `chap-db`) have been removed; their released versions remain available through the chart repository index for existing deployments.
 
 ## Release
 
-Each chart is released independently. To release a chart, bump its version in the corresponding
-`Chart.yaml`, commit and push to master.
+To release the chart, bump the version in [chap/Chart.yaml](./chap/Chart.yaml), commit and push to master.
 **NOTE: do not create a tag yourself.**
 
 The release workflow uses [Helm chart releaser action](https://github.com/helm/chart-releaser-action) to:
