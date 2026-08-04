@@ -18,9 +18,13 @@ def add_model_template(model_template: ModelTemplateDB, session_wrapper: Session
     return template_id
 
 
-def add_model_template_from_url(url: str, session_wrapper: SessionWrapper, version: str) -> int:
+def add_model_template_from_url(
+    url: str, session_wrapper: SessionWrapper, version: str, name_override: str | None = None
+) -> int:
     model_template_config = ExternalModelTemplate.fetch_config_from_github_url(url)
     model_template_config.version = version
+    if name_override is not None:
+        model_template_config.name = name_override
     template_id = session_wrapper.add_model_template_from_yaml_config(model_template_config)
     return template_id
 
@@ -112,7 +116,7 @@ def seed_configured_models_from_config_dir(
             config.url = config.url.removesuffix("/")
 
             version_url = f"{config.url}@{version_commit_or_branch}"
-            template_id = add_model_template_from_url(version_url, wrapper, version)
+            template_id = add_model_template_from_url(version_url, wrapper, version, name_override=config.name)
 
             for config_name, configured_model_configuration in config.configurations.items():
                 add_configured_model(template_id, configured_model_configuration, config_name, wrapper)

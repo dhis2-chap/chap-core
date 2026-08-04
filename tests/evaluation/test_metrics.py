@@ -674,6 +674,74 @@ def test_winkler_score_observation_above_interval():
     assert score == 110.0
 
 
+def test_crps_closed_form_two_point_sample():
+    """CRPS of a two-point sample has a simple closed form: |a-y|/2 + |b-y|/2 - (b-a)/4."""
+    samples = np.array([0.0, 10.0])
+    observed = 5.0
+
+    score = CRPSMetric().compute_sample_metric(samples, observed)
+
+    # term1 = (|0-5| + |10-5|) / 2 = 5, term2 = (10 - 0) / 4 = 2.5
+    assert score == pytest.approx(2.5)
+
+
+def test_crps_zero_when_samples_equal_observation():
+    """CRPS is zero for a deterministic forecast that equals the observation."""
+    samples = np.array([3.0, 3.0, 3.0, 3.0])
+    observed = 3.0
+
+    assert CRPSMetric().compute_sample_metric(samples, observed) == pytest.approx(0.0)
+
+
+def _reference_crps_pairwise(samples: np.ndarray, observed: float) -> float:
+    """Verbatim previous O(n^2) implementation, kept as an independent oracle.
+
+    The order-statistic implementation must match this for every input.
+    """
+    term1 = np.mean(np.abs(samples - observed))
+    term2 = 0.5 * np.mean(np.abs(samples[:, None] - samples[None, :]))
+    return float(term1 - term2)
+
+
+def _crps_oracle_cases() -> list[tuple[np.ndarray, float]]:
+    """Edge cases plus random draws covering varied sizes, ties and observation positions."""
+    cases: list[tuple[np.ndarray, float]] = [
+        (np.array([5.0]), 5.0),  # single sample, observation on it
+        (np.array([5.0]), 12.0),  # single sample, observation off it
+        (np.array([3.0, 3.0, 3.0]), 3.0),  # all tied, on observation
+        (np.array([2.0, 2.0, 8.0, 8.0]), 5.0),  # repeated values (ties)
+        (np.array([1.0, 2.0, 3.0, 4.0]), -10.0),  # observation far below range
+        (np.array([1.0, 2.0, 3.0, 4.0]), 100.0),  # observation far above range
+        (np.array([-4.0, -1.0, 0.0, 7.0]), 0.0),  # negative samples
+    ]
+    rng = np.random.default_rng(0)
+    for size in (2, 3, 17, 256, 999):
+        samples = rng.normal(50.0, 20.0, size=size)
+        cases.append((samples, float(rng.normal(50.0, 20.0))))
+    return cases
+
+
+@pytest.mark.parametrize("samples,observed", _crps_oracle_cases())
+def test_crps_matches_pairwise_definition(samples, observed):
+    """Order-statistic CRPS must equal the E[|X-y|] - 0.5*E[|X-X'|] pairwise definition."""
+    score = CRPSMetric().compute_sample_metric(samples, observed)
+
+    assert score == pytest.approx(_reference_crps_pairwise(samples, observed))
+
+
+@pytest.mark.parametrize("samples,observed", _crps_oracle_cases())
+def test_crps_log1p_matches_pairwise_definition_on_log_inputs(samples, observed):
+    """CRPS (log1p) must equal the pairwise definition applied to log1p-transformed inputs."""
+    # log1p requires inputs > -1; shift the negative-sample case into a valid range.
+    samples = np.clip(samples, 0.0, None)
+    observed = max(observed, 0.0)
+
+    score = CRPSLog1pMetric().compute_sample_metric(samples, observed)
+    expected = _reference_crps_pairwise(np.log1p(samples), float(np.log1p(observed)))
+
+    assert score == pytest.approx(expected)
+
+
 def test_peak_period_lag_metric_monthly(flat_observations_monthly, flat_forecasts_monthly):
     """
     PeakPeriodLagMetric (monthly) should return:

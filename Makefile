@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs help install lint lint/flake8 check regen-plot-help test-chapkit-compose force-restart restart chap-version
+.PHONY: clean coverage dist docs help install lint lint/flake8 check regen-plot-help force-restart restart chap-version
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -80,8 +80,8 @@ test-all: ## run comprehensive test suite with examples and coverage
 	./tests/test_docker_compose_integration_flow.sh
 
 	#./tests/test_docker_compose_flow.sh   # this runs pytests inside a docker container, can be skipped
-	CHAP_DEBUG=true uv run pytest --log-cli-level=INFO -o log_cli=true -v --durations=0 --cov=climate_health --cov-report html --run-slow
-	CHAP_DEBUG=true uv run pytest --log-cli-level=INFO -o log_cli=true -v --durations=0 --cov=climate_health --cov-report html --cov-append scripts/*_example.py
+	CHAP_DEBUG=true uv run pytest --log-cli-level=INFO -o log_cli=true -v --durations=0 --cov=chap_core --cov-report html --run-slow
+	CHAP_DEBUG=true uv run pytest --log-cli-level=INFO -o log_cli=true -v --durations=0 --cov=chap_core --cov-report html --cov-append scripts/*_example.py
 
 coverage: ## run tests with coverage reporting
 	@echo ">>> Running tests with coverage"

@@ -18,8 +18,7 @@ Expected endpoints (relative to ``/v1/visualization/backtest-plots``):
 
 from __future__ import annotations
 
-import json
-
+import pytest
 from starlette.testclient import TestClient
 
 from chap_core.rest_api.app import app
@@ -82,9 +81,10 @@ def test_subplot_endpoint_uses_container_width(override_session):
     assert "containerSize" in width_signal["init"]
 
 
-def test_subplot_endpoint_keeps_fixed_width_for_multiview_plot(override_session):
-    """horizon_location_grid renders composite (vconcat) cells; container sizing is
-    invalid on multi-view specs, so its subplot keeps the plot's fixed widths."""
+def test_subplot_endpoint_uses_container_width_for_vconcat_plot(override_session):
+    """horizon_location_grid renders composite (vconcat) cells whose rows share one
+    width; the API replaces the hoisted top-level width with a containerSize signal
+    so the whole stack fills the frontend container."""
     coords_resp = client.get("/v1/visualization/backtest-plots/horizon_location_grid/1/facet-coords")
     assert coords_resp.status_code == 200, coords_resp.text
     payload = coords_resp.json()
@@ -92,7 +92,40 @@ def test_subplot_endpoint_keeps_fixed_width_for_multiview_plot(override_session)
 
     response = client.post("/v1/visualization/backtest-plots/horizon_location_grid/1/subplot", json=body)
     assert response.status_code == 200, response.text
-    assert "containerSize" not in json.dumps(response.json())
+    spec = response.json()
+    assert "width" not in spec
+    assert spec["autosize"]["type"] == "fit-x"
+    width_signal = next(s for s in spec["signals"] if s["name"] == "width")
+    assert "containerSize" in width_signal["init"]
+
+
+def test_catalogue_lists_split_sample_bias_plots(override_session):
+    response = client.get("/v1/visualization/backtest-plots/")
+    assert response.status_code == 200, response.text
+    plots = {entry["id"]: entry for entry in response.json()}
+    assert "ratio_of_samples_above_truth" not in plots
+    for plot_id in ("sample_bias_by_horizon", "sample_bias_by_time_period"):
+        assert plot_id in plots
+        assert plots[plot_id]["displayName"]
+        assert plots[plot_id]["description"]
+
+
+@pytest.mark.parametrize("plot_id", ["sample_bias_by_horizon", "sample_bias_by_time_period"])
+def test_sample_bias_facet_coords_are_empty(plot_id, override_session):
+    response = client.get(f"/v1/visualization/backtest-plots/{plot_id}/1/facet-coords")
+    assert response.status_code == 200, response.text
+    assert response.json() == {}
+
+
+@pytest.mark.parametrize("plot_id", ["sample_bias_by_horizon", "sample_bias_by_time_period"])
+def test_sample_bias_subplot_returns_single_view_container_spec(plot_id, override_session):
+    """Each split plot must return a single-view spec sized to fill the container width."""
+    response = client.post(f"/v1/visualization/backtest-plots/{plot_id}/1/subplot", json={})
+    assert response.status_code == 200, response.text
+    spec = response.json()
+    assert "layout" not in spec
+    assert spec["autosize"]["type"] == "fit-x"
+    assert isinstance(spec["height"], (int, float))
 
 
 def test_subplots_endpoint_returns_one_entry_per_coord_combination(override_session):

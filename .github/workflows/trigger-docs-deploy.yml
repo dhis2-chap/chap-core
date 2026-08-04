@@ -7,6 +7,7 @@ on:
 
 jobs:
   trigger-docs:
+    if: github.repository == 'dhis2-chap/chap-core'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger chap-site deploy
