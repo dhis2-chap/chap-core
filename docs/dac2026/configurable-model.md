@@ -177,13 +177,37 @@ should fit an intercept.
     models[location] = LinearRegression(fit_intercept=config.fit_intercept).fit(features, target)
     ```
 
-3. **Regenerate the MLproject schema.** The `user_options:` block in `MLproject` must stay
-   in sync with `ModelConfig`. Dump the schema from the Pydantic class and paste the result
-   into the `user_options:` block of `MLproject`:
+3. **Regenerate the schema and copy it into `MLproject`.** The `user_options:` block in
+   `MLproject` is what CHAP advertises, but it is *not* updated automatically when you edit
+   `ModelConfig` -- you have to copy it across yourself. First dump the schema from the
+   Pydantic class:
 
     ```console
     uv run python dump_user_options.py
     ```
+
+    This prints a `user_options:` block that now includes `fit_intercept`:
+
+    ```yaml
+    user_options:
+      n_lags:
+        default: 3
+        description: Number of lag periods added as features for each covariate.
+        maximum: 12
+        minimum: 0
+        title: N Lags
+        type: integer
+      fit_intercept:
+        default: true
+        description: Whether the linear regression fits an intercept term.
+        title: Fit Intercept
+        type: boolean
+    ```
+
+    Now **open `MLproject` and replace the existing `user_options:` block with this output**
+    (the rest of the file -- `required_covariates`, `entry_points`, and so on -- stays
+    unchanged). If you skip this copy step, `chap model schema` will keep showing the old
+    options even though the code already understands the new one.
 
 4. **Verify the new option appears** in the spec:
 
