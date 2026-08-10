@@ -1,6 +1,8 @@
+import os
 from pathlib import Path
 from unittest.mock import patch, MagicMock, ANY
 
+import mlflow
 import yaml
 
 from chap_core.exceptions import CommandLineException, ModelFailedException
@@ -19,6 +21,18 @@ from chap_core.external.model_configuration import (
 import pytest
 
 from chap_core.util import docker_available
+
+
+@pytest.fixture
+def mlflow_tracking_uri_reset():
+    """Undo the global tracking URI, which set_tracking_uri also mirrors into the environment."""
+    original_env = os.environ.get("MLFLOW_TRACKING_URI")
+    yield
+    mlflow.set_tracking_uri(None)
+    if original_env is None:
+        os.environ.pop("MLFLOW_TRACKING_URI", None)
+    else:
+        os.environ["MLFLOW_TRACKING_URI"] = original_env
 
 
 def test_command_line_runner():
@@ -326,7 +340,29 @@ def test_command_line_runner_report_raises_when_no_command():
         runner.report("model.pkl", "historic.csv", "report.pdf")
 
 
-def test_mlflow_runner_report_invokes_report_entry_point(tmp_path):
+def test_mlflow_runner_defaults_tracking_uri_to_runs_dir(tmp_path, monkeypatch, mlflow_tracking_uri_reset):
+    """MLflow defaults its tracking store to a sqlite file in the working directory, which is
+    read-only in the worker container. Fall back to the runs directory, which is writable."""
+    mlflow.set_tracking_uri(None)
+    os.environ.pop("MLFLOW_TRACKING_URI", None)
+    monkeypatch.setattr("chap_core.models.utils.CHAP_RUNS_DIR", tmp_path)
+
+    MlFlowTrainPredictRunner(model_path=tmp_path)
+
+    assert mlflow.get_tracking_uri() == f"sqlite:///{tmp_path / 'mlflow.db'}"
+
+
+def test_mlflow_runner_keeps_configured_tracking_uri(tmp_path, mlflow_tracking_uri_reset):
+    """A tracking URI configured by the deployment must win over the fallback."""
+    mlflow.set_tracking_uri(None)
+    os.environ["MLFLOW_TRACKING_URI"] = "http://mlflow.example:5000"
+
+    MlFlowTrainPredictRunner(model_path=tmp_path)
+
+    assert mlflow.get_tracking_uri() == "http://mlflow.example:5000"
+
+
+def test_mlflow_runner_report_invokes_report_entry_point(tmp_path, mlflow_tracking_uri_reset):
     runner = MlFlowTrainPredictRunner(model_path=tmp_path)
     with patch("mlflow.projects.run") as mock_run:
         mock_run.return_value = MagicMock()
@@ -345,7 +381,7 @@ def test_mlflow_runner_report_invokes_report_entry_point(tmp_path):
         }
 
 
-def test_mlflow_runner_report_wraps_execution_errors(tmp_path):
+def test_mlflow_runner_report_wraps_execution_errors(tmp_path, mlflow_tracking_uri_reset):
     import mlflow.exceptions
 
     runner = MlFlowTrainPredictRunner(model_path=tmp_path)

@@ -1,4 +1,5 @@
 import logging
+import os
 
 import mlflow.exceptions
 import mlflow.projects
@@ -10,8 +11,27 @@ from chap_core.runners.runner import TrainPredictRunner
 logger = logging.getLogger(__name__)
 
 
+def _set_default_tracking_uri():
+    """Point MLflow at a writable tracking store when the deployment has not configured one.
+
+    MLflow defaults its tracking store to the relative URI ``sqlite:///mlflow.db``, which it
+    resolves against the process working directory. In the worker container that directory is
+    ``/app`` on a read-only filesystem, so creating a run fails with "unable to open database
+    file". CHAP_RUNS_DIR is writable in every deployment, so use it as the fallback location.
+    """
+    if os.environ.get("MLFLOW_TRACKING_URI"):
+        return
+
+    from chap_core.models.utils import CHAP_RUNS_DIR
+
+    db_path = (CHAP_RUNS_DIR / "mlflow.db").absolute()
+    logger.debug(f"MLFLOW_TRACKING_URI not set, defaulting MLflow tracking store to {db_path}")
+    mlflow.set_tracking_uri(f"sqlite:///{db_path}")
+
+
 class MlFlowTrainPredictRunner(TrainPredictRunner):
     def __init__(self, model_path, model_configuration_filename=None, train_params=None):
+        _set_default_tracking_uri()
         self.model_path = model_path
         self.model_configuration_filename = model_configuration_filename
 
