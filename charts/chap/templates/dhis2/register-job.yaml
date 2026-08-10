@@ -2,13 +2,16 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "chap-api.fullname" . }}-register-{{ .Release.Revision }}
+  name: {{ include "chap.fullname" . }}-dhis2-register-{{ .Release.Revision }}
   labels:
-    {{- include "chap-api.labels" . | nindent 4 }}
+    {{- include "chap.labels" . | nindent 4 }}
 spec:
   ttlSecondsAfterFinished: 3600
   backoffLimit: {{ .Values.dhis2.registerJob.backoffLimit }}
   template:
+    metadata:
+      labels:
+        {{- include "chap.labels" . | nindent 8 }}
     spec:
       restartPolicy: OnFailure
       containers:
@@ -16,10 +19,10 @@ spec:
           image: curlimages/curl:8.11.1
           envFrom:
             - secretRef:
-                name: {{ include "chap-api.fullname" . }}-dhis2
+                name: {{ include "chap.fullname" . }}-dhis2
           env:
             - name: CHAP_URL
-              value: "http://{{ include "chap-api.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}"
+              value: "http://{{ include "chap.fullname" . }}-api.{{ .Release.Namespace }}.svc:{{ .Values.api.service.port }}"
           command:
             - /bin/sh
             - -c

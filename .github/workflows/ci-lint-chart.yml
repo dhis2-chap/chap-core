@@ -1,0 +1,46 @@
+name: Lint Charts
+
+on:
+  pull_request:
+    paths:
+      - "charts/**"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: v4.1.1
+
+      - name: Helm Dependencies
+        run: |
+          helm repo add valkey https://valkey.io/valkey-helm/
+          helm repo update
+          helm dep update charts/chap
+
+      - name: Lint
+        run: |
+          helm lint --strict charts/chap \
+            --set db.password=ci \
+            --set valkey.auth.aclUsers.default.password=ci
+
+      - name: Template
+        run: |
+          helm template chap charts/chap --namespace chap \
+            --set db.password=ci \
+            --set valkey.auth.aclUsers.default.password=ci > /dev/null
+          helm template chap charts/chap --namespace chap \
+            --set db.enabled=false \
+            --set externalDatabase.host=pg.example.org \
+            --set externalDatabase.password=ci \
+            --set valkey.enabled=false \
+            --set externalValkey.host=valkey.example.org \
+            --set externalValkey.password=ci \
+            --set dhis2.enabled=true \
+            --set dhis2.hostname=dhis2.example.org \
+            --set dhis2.password=ci > /dev/null
