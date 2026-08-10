@@ -11,12 +11,16 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
       - name: Install Helm
         uses: azure/setup-helm@v5
@@ -29,47 +33,9 @@ jobs:
           helm repo update
           helm dep update charts/chap
 
-      # skip_upload skips only the index push, which the default branch rejects; the pull request
-      # below replaces it.
-      - name: Release charts
+      - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.7.0
         with:
           config: cr.yaml
-          skip_upload: true
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-
-      # cr index builds the index from the packages it finds, and chart-releaser only packages what
-      # changed since the last tag. Packaging every chart here means a rerun still indexes a release
-      # that already happened, which is the state a failed index step leaves behind.
-      - name: Package charts
-        run: |
-          mkdir -p .cr-release-packages
-          for chart in charts/*/; do
-            helm package "$chart" --destination .cr-release-packages
-          done
-
-      - name: Rebuild the chart index
-        run: |
-          cr index \
-            --owner "${{ github.repository_owner }}" \
-            --git-repo "${{ github.event.repository.name }}" \
-            --config cr.yaml \
-            --index-path index.yaml \
-            --token "${{ secrets.GITHUB_TOKEN }}"
-
-      # The default branch requires pull requests, an approving review and verified signatures, so
-      # chart-releaser cannot commit the index itself. sign-commits makes GitHub author the commit
-      # through its API, which is what makes the signature verified.
-      - name: Propose the chart index
-        uses: peter-evans/create-pull-request@v7
-        with:
-          add-paths: index.yaml
-          branch: chore/chart-index
-          delete-branch: true
-          sign-commits: true
-          commit-message: "chore: update the chart index"
-          title: "chore: update the chart index"
-          body: |
-            Adds the charts released from ${{ github.sha }} to the index Helm reads from GitHub Pages.
-            Until this merges, the released chart versions exist as GitHub releases but cannot be installed.
