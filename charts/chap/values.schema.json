@@ -17,6 +17,8 @@
         "image": { "$ref": "#/$defs/image" },
         "replicaCount": { "type": "integer", "minimum": 0 },
         "command": { "type": "array", "items": { "type": "string" } },
+        "labels": { "type": "object" },
+        "podLabels": { "type": "object" },
         "service": {
           "type": "object",
           "properties": {
@@ -39,13 +41,16 @@
         "enabled": { "type": "boolean" },
         "image": { "$ref": "#/$defs/image" },
         "replicaCount": { "type": "integer", "minimum": 0 },
-        "command": { "type": "array", "items": { "type": "string" } }
+        "command": { "type": "array", "items": { "type": "string" } },
+        "labels": { "type": "object" },
+        "podLabels": { "type": "object" }
       }
     },
     "db": {
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean" },
+        "labels": { "type": "object" },
         "podLabels": { "type": "object" },
         "password": { "type": "string" },
         "existingSecret": { "type": "string" },

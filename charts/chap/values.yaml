@@ -3,6 +3,7 @@
 global:
   # -- Labels applied to all resources and pods of every CHAP component (api, worker, db).
   # The bundled valkey subchart does not read global values, so set valkey.commonLabels as well.
+  # Labels that differ per component belong in api.labels, worker.labels and db.labels.
   commonLabels: {}
 
 nameOverride: ""
@@ -29,6 +30,8 @@ api:
   resources: {}
   volumeMounts: []
   podAnnotations: {}
+  # -- Labels applied to the api resources and pods, on top of global.commonLabels.
+  labels: {}
   podLabels: {}
   podSecurityContext:
     fsGroup: 1000
@@ -96,6 +99,8 @@ worker:
   resources: {}
   volumeMounts: []
   podAnnotations: {}
+  # -- Labels applied to the worker resources and pods, on top of global.commonLabels.
+  labels: {}
   podLabels: {}
   podSecurityContext:
     fsGroup: 1000
@@ -143,6 +148,9 @@ worker:
 # Disable and configure externalDatabase to use an existing PostgreSQL server instead.
 db:
   enabled: true
+  # -- Labels applied to the Cluster resource and, via CNPG inheritedMetadata, to everything the
+  # operator creates from it, on top of global.commonLabels.
+  labels: {}
   # -- Labels applied via CNPG inheritedMetadata to all objects the operator creates (pods, PVCs, ...).
   podLabels: {}
   # -- Superuser password. Required unless existingSecret is set.

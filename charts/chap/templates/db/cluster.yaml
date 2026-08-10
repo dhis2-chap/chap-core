@@ -12,6 +12,9 @@ spec:
       {{- with .Values.global.commonLabels }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
+      {{- with .Values.db.labels }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
       {{- with .Values.db.podLabels }}
       {{- toYaml . | nindent 6 }}
       {{- end }}

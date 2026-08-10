@@ -40,6 +40,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "chap.componentLabels" -}}
 {{ include "chap.labels" .ctx }}
 app.kubernetes.io/component: {{ .component }}
+{{- with (index .ctx.Values .component).labels }}
+{{ toYaml . -}}
+{{- end }}
 {{- end }}
 
 {{/* Selector labels for a component. Expects a dict with `ctx` (root context) and `component`. */}}

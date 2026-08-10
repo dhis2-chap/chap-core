@@ -74,7 +74,7 @@ externalValkey:
 
 ## Instance Manager
 
-When deploying via IM, set the IM-required labels once under `global.commonLabels` (and `valkey.commonLabels`, since the valkey subchart does not read global values). They propagate to all resources, pods and PVCs of every component. Components are distinguished by the `app.kubernetes.io/component` label (`api`, `worker`, `db`), and per-component pod labels (e.g. `im-type`) can be added via `api.podLabels`, `worker.podLabels`, `db.podLabels` and `valkey.podLabels`:
+When deploying via IM, set the IM-required labels once under `global.commonLabels` (and `valkey.commonLabels`, since the valkey subchart does not read global values). They propagate to all resources, pods and PVCs of every component. Components are distinguished by the `app.kubernetes.io/component` label (`api`, `worker`, `db`), and labels that differ per component, such as the `im-type` IM addresses a workload by, go in `api.labels`, `worker.labels` and `db.labels`. Those land on the component's own resources as well as its pods, which is what lets IM restart a single component. `api.podLabels`, `worker.podLabels`, `db.podLabels` and `valkey.podLabels` add labels to the pods only:
 
 ```yaml
 global:
@@ -83,21 +83,22 @@ global:
     # ... other im-* labels
 
 valkey:
-  commonLabels: *common
-  podLabels:
-    im-type: chap-valkey
+  # the subchart has no per-component split, so its own labels carry im-type too
+  commonLabels:
+    <<: *common
+    im-type: valkey
 
 api:
-  podLabels:
-    im-type: chap-api
+  labels:
+    im-type: api
 
 worker:
-  podLabels:
-    im-type: chap-worker
+  labels:
+    im-type: worker
 
 db:
-  podLabels:
-    im-type: chap-db
+  labels:
+    im-type: db
 ```
 
 See [values.yaml](./values.yaml) for all available configuration options.
