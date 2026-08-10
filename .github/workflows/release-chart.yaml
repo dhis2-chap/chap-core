@@ -29,24 +29,25 @@ jobs:
           helm repo update
           helm dep update charts/chap
 
+      # skip_upload skips only the index push, which the default branch rejects; the pull request
+      # below replaces it.
+      - name: Release charts
+        uses: helm/chart-releaser-action@v1.7.0
+        with:
+          config: cr.yaml
+          skip_upload: true
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+
+      # cr index builds the index from the packages it finds, and chart-releaser only packages what
+      # changed since the last tag. Packaging every chart here means a rerun still indexes a release
+      # that already happened, which is the state a failed index step leaves behind.
       - name: Package charts
         run: |
           mkdir -p .cr-release-packages
           for chart in charts/*/; do
             helm package "$chart" --destination .cr-release-packages
           done
-
-      # skip_packaging uses the packages above rather than chart-releaser's own tag diffing, so a
-      # rerun of this workflow reaches the index step even when no chart changed. skip_upload skips
-      # only the index push, which the default branch rejects; the pull request below replaces it.
-      - name: Release charts
-        uses: helm/chart-releaser-action@v1.7.0
-        with:
-          config: cr.yaml
-          skip_packaging: true
-          skip_upload: true
-        env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Rebuild the chart index
         run: |
