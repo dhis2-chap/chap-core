@@ -1,21 +1,21 @@
-{{- if .Values.ingress.enabled -}}
+{{- if and .Values.api.enabled .Values.api.ingress.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "chap-api.fullname" . }}
+  name: {{ include "chap.fullname" . }}-api
   labels:
-    {{- include "chap-api.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+    {{- include "chap.componentLabels" (dict "ctx" . "component" "api") | nindent 4 }}
+  {{- with .Values.api.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- with .Values.ingress.className }}
+  {{- with .Values.api.ingress.className }}
   ingressClassName: {{ . }}
   {{- end }}
-  {{- if .Values.ingress.tls }}
+  {{- if .Values.api.ingress.tls }}
   tls:
-    {{- range .Values.ingress.tls }}
+    {{- range .Values.api.ingress.tls }}
     - hosts:
         {{- range .hosts }}
         - {{ . | quote }}
@@ -24,7 +24,7 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-    {{- range .Values.ingress.hosts }}
+    {{- range .Values.api.ingress.hosts }}
     - host: {{ .host | quote }}
       http:
         paths:
@@ -35,9 +35,9 @@ spec:
             {{- end }}
             backend:
               service:
-                name: {{ include "chap-api.fullname" $ }}
+                name: {{ include "chap.fullname" $ }}-api
                 port:
-                  number: {{ $.Values.service.port }}
+                  number: {{ $.Values.api.service.port }}
           {{- end }}
     {{- end }}
 {{- end }}
