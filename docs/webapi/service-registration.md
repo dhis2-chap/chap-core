@@ -60,10 +60,15 @@ When `SERVICEKIT_REGISTRATION_KEY` is configured on the server:
 
 | Scenario | Response |
 |----------|----------|
-| Missing header | 422 Unprocessable Entity |
+| Missing header | 401 Unauthorized |
 | Invalid key | 401 Unauthorized |
 
 If the environment variable is not set, authentication is skipped and registration proceeds without requiring a key.
+
+!!! note "Changed in 2.2.0"
+    A missing `X-Service-Key` header previously returned 422 Unprocessable Entity. It now returns 401 Unauthorized, consistent with an invalid key.
+
+If the server also sets `CHAP_API_TOKEN`, the whole API is protected, including these endpoints. Because servicekit can only send `X-Service-Key`, the API token is accepted in that header too on `/v2/services` paths: set `SERVICEKIT_REGISTRATION_KEY` on the service to either the registration key or the API token. See [API Authentication](api-authentication.md).
 
 ## Registration Payload
 

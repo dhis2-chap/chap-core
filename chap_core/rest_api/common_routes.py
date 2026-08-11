@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from chap_core.database.database import engine
+from chap_core.rest_api.auth import get_api_token
 from chap_core.rest_api.celery_tasks import app as celery_app
 from chap_core.rest_api.v1.routers.dependencies import get_settings
 from chap_core.util import load_redis
@@ -56,6 +57,13 @@ class SystemInfoResponse(BaseModel):
     server_date: str = Field(description="Current server time as an ISO-8601 UTC string.")
     server_time_zone_id: str = Field(description="Server timezone identifier (always `Etc/UTC`).")
     revision: str = Field(description="Git revision the running image was built from (empty if unknown).")
+    auth_required: bool = Field(
+        description=(
+            "Whether this server requires an API token. When `true`, every endpoint except "
+            "`/health`, `/health/ready` and `/system/info` needs an `Authorization: Bearer <token>` header."
+        ),
+        examples=[False],
+    )
 
 
 # --- Router ---
@@ -221,6 +229,7 @@ async def system_info() -> SystemInfoResponse:
         server_date=server_date,
         server_time_zone_id="Etc/UTC",
         revision=revision,
+        auth_required=get_api_token() is not None,
     )
 
 
