@@ -31,10 +31,14 @@ jobs:
   test:
     needs: changes
     if: needs.changes.outputs.scope != 'inert'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
+      # Report every platform, so one failure does not hide the others.
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # macos-latest is Apple Silicon, macos-15-intel is x86_64. Both are
+        # standard runners and free on public repositories.
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-15-intel]
         python-version: ["3.13"]
     steps:
       - uses: actions/checkout@v7
