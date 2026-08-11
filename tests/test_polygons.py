@@ -1,5 +1,4 @@
 import pytest
-import tempfile
 import json
 import pathlib
 import logging
@@ -7,14 +6,15 @@ from chap_core.geometry import Polygons
 from chap_core.geoutils import simplify_topology, render
 
 
-def test_to_from_geojson_file(data_path):
+def test_to_from_geojson_file(data_path, tmp_path):
     polygons = Polygons.from_file(data_path / "example_polygons.geojson")
 
-    with tempfile.NamedTemporaryFile() as f:
-        polygons.to_file(f.name)
-        polygons2 = Polygons.from_file(f.name)
+    # Windows forbids reopening a NamedTemporaryFile while the handle is open.
+    path = tmp_path / "polygons.geojson"
+    polygons.to_file(path)
+    polygons2 = Polygons.from_file(path)
 
-        assert polygons2 == polygons
+    assert polygons2 == polygons
 
 
 def test_simplify_polygons(data_path, output_path):
