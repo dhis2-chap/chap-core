@@ -12,6 +12,10 @@ import subprocess
 import pytest
 import yaml
 
+# The action's script is bash and only ever runs on ubuntu runners, so the
+# tests that execute it need a shell the Windows leg does not have.
+needs_bash = pytest.mark.skipif(os.name == "nt", reason="The change-scope action is bash and runs on ubuntu only")
+
 
 @pytest.fixture
 def repo_root(tests_path):
@@ -55,6 +59,7 @@ def run_classify(script, tmp_path, changed_files, event_name="pull_request", ski
     return outputs["scope"]
 
 
+@needs_bash
 @pytest.mark.parametrize(
     "changed_files, expected",
     [
@@ -87,11 +92,13 @@ def test_scope_for_changed_files(classify_script, tmp_path, changed_files, expec
     assert run_classify(classify_script, tmp_path, changed_files) == expected
 
 
+@needs_bash
 def test_push_events_always_run_the_full_suite(classify_script, tmp_path):
     """Whatever a pull request skipped is still verified once it lands."""
     assert run_classify(classify_script, tmp_path, ["README.md"], event_name="push") == "full"
 
 
+@needs_bash
 def test_skip_ci_label_overrides_a_code_change(classify_script, tmp_path):
     assert run_classify(classify_script, tmp_path, ["chap_core/api.py"], skip_label="true") == "inert"
 
