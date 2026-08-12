@@ -24,7 +24,7 @@ METRIC_HEIGHT = 60
 
 
 def _empty_placeholder(width: int, height: int) -> ChartType:
-    """Return an empty chart placeholder that won't trip vegafusion's type checks."""
+    """Return an empty chart placeholder that won't trip Altair/Vega type checks."""
     return (  # type: ignore[no-any-return]
         alt.Chart(pd.DataFrame({"x": [0]}))
         .mark_point(opacity=0)
@@ -71,7 +71,7 @@ def _build_forecast_cell(
     layers = error_10_90 + error_25_75 + median_line
 
     # Only add observations layer if there is data; an empty DataFrame with
-    # object-typed columns causes vegafusion to fail on temporal encoding.
+    # object-typed columns causes Altair/Vega to fail on temporal encoding.
     if not obs.empty:
         obs_line = (
             alt.Chart(obs)
