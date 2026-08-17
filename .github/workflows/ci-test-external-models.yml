@@ -13,8 +13,28 @@ permissions:
   contents: read
   packages: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      scope: ${{ steps.scope.outputs.scope }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/actions
+      - id: scope
+        uses: ./.github/actions/change-scope
+
   test-all:
+    needs: changes
+    if: needs.changes.outputs.scope == 'full'
     env:
       REDIS_HOST: localhost
 
