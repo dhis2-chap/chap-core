@@ -2,11 +2,9 @@ import fakeredis
 import pytest
 from fastapi.testclient import TestClient
 
+from chap_core.rest_api.auth import SERVICE_KEY_ENV_VAR
 from chap_core.rest_api.services.orchestrator import Orchestrator
-from chap_core.rest_api.v2.dependencies import (
-    SERVICE_KEY_ENV_VAR,
-    get_orchestrator,
-)
+from chap_core.rest_api.v2.dependencies import get_orchestrator
 from chap_core.rest_api.app import app
 
 TEST_SERVICE_KEY = "test-service-key"
@@ -251,10 +249,10 @@ class TestServiceKeyAuthentication:
         yield TestClient(app, raise_server_exceptions=False)
         app.dependency_overrides.clear()
 
-    def test_register_without_key_returns_422(self, client, sample_registration):
+    def test_register_without_key_returns_401(self, client, sample_registration):
         response = client.post("/v2/services/$register", json=sample_registration)
 
-        assert response.status_code == 422
+        assert response.status_code == 401
 
     def test_register_with_invalid_key_returns_401(self, client, sample_registration):
         response = client.post(
@@ -264,7 +262,7 @@ class TestServiceKeyAuthentication:
         )
 
         assert response.status_code == 401
-        assert response.json()["detail"] == "Invalid service key"
+        assert response.json()["detail"] == "Missing or invalid service key"
 
     def test_register_with_valid_key_succeeds(self, client, sample_registration, auth_headers):
         response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
@@ -281,13 +279,13 @@ class TestServiceKeyAuthentication:
         data = response.json()
         assert data["status"] == "registered"
 
-    def test_ping_without_key_returns_422(self, client, sample_registration, auth_headers):
+    def test_ping_without_key_returns_401(self, client, sample_registration, auth_headers):
         reg_response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
         service_id = reg_response.json()["id"]
 
         response = client.put(f"/v2/services/{service_id}/$ping")
 
-        assert response.status_code == 422
+        assert response.status_code == 401
 
     def test_ping_with_invalid_key_returns_401(self, client, sample_registration, auth_headers):
         reg_response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
@@ -297,13 +295,13 @@ class TestServiceKeyAuthentication:
 
         assert response.status_code == 401
 
-    def test_deregister_without_key_returns_422(self, client, sample_registration, auth_headers):
+    def test_deregister_without_key_returns_401(self, client, sample_registration, auth_headers):
         reg_response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
         service_id = reg_response.json()["id"]
 
         response = client.delete(f"/v2/services/{service_id}")
 
-        assert response.status_code == 422
+        assert response.status_code == 401
 
     def test_deregister_with_invalid_key_returns_401(self, client, sample_registration, auth_headers):
         reg_response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)

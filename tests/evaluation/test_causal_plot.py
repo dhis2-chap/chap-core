@@ -73,30 +73,30 @@ def vietnam_evaluation_pair():
     )
 
 
-def test_plot_counterfactual_returns_chart(vietnam_evaluation_pair, default_transformer):
+def test_plot_counterfactual_returns_chart(vietnam_evaluation_pair):
     eval_orig, eval_cf = vietnam_evaluation_pair
     assert plot_counterfactual(eval_orig, eval_cf, ["rainfall"]) is not None
 
 
-def test_plot_counterfactual_is_vconcat(vietnam_evaluation_pair, default_transformer):
+def test_plot_counterfactual_is_vconcat(vietnam_evaluation_pair):
     eval_orig, eval_cf = vietnam_evaluation_pair
     assert isinstance(plot_counterfactual(eval_orig, eval_cf), alt.VConcatChart)
 
 
-def test_plot_counterfactual_saves_html(vietnam_evaluation_pair, default_transformer, tmp_path):
+def test_plot_counterfactual_saves_html(vietnam_evaluation_pair, tmp_path):
     eval_orig, eval_cf = vietnam_evaluation_pair
     out = tmp_path / "causal.html"
     plot_counterfactual(eval_orig, eval_cf, ["rainfall"]).save(str(out))
     assert out.exists() and out.stat().st_size > 0
 
 
-def test_plot_counterfactual_title_with_columns(vietnam_evaluation_pair, default_transformer):
+def test_plot_counterfactual_title_with_columns(vietnam_evaluation_pair):
     eval_orig, eval_cf = vietnam_evaluation_pair
     chart = plot_counterfactual(eval_orig, eval_cf, ["rainfall", "temperature"])
     assert "rainfall, temperature" in chart.title
 
 
-def test_plot_counterfactual_title_without_columns(vietnam_evaluation_pair, default_transformer):
+def test_plot_counterfactual_title_without_columns(vietnam_evaluation_pair):
     eval_orig, eval_cf = vietnam_evaluation_pair
     chart = plot_counterfactual(eval_orig, eval_cf, None)
     title = chart.title
