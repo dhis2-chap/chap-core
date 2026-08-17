@@ -323,3 +323,30 @@ class TestServiceKeyAuthentication:
         response = client.get(f"/v2/services/{service_id}")
 
         assert response.status_code == 200
+
+
+class TestRegistrationUsesInjectedOrchestrator:
+    """Registration must not reach around FastAPI's dependency overrides.
+
+    The endpoint already has an orchestrator injected. Building a second one
+    opens a real redis connection, which costs a full connect timeout per
+    request when redis is unreachable and lets the registration TTL lapse
+    before the test can read it back. The sync swallows every exception, so
+    this has to observe the call rather than raise from it.
+    """
+
+    def test_register_does_not_build_a_second_orchestrator(
+        self, client, sample_registration, auth_headers, monkeypatch
+    ):
+        calls = []
+
+        def spy():
+            calls.append(1)
+            raise RuntimeError("no registry here")
+
+        monkeypatch.setattr("chap_core.rest_api.v2.dependencies.get_orchestrator", spy)
+
+        response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
+
+        assert response.status_code == 200
+        assert calls == [], "registration built a second orchestrator instead of using the injected one"

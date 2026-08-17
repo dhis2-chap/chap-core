@@ -73,6 +73,9 @@ def pyenv_available():
     return which("pyenv") is not None
 
 
+REDIS_CONNECT_TIMEOUT_SECONDS = 2.0
+
+
 def uv_available():
     return which("uv") is not None
 
@@ -96,5 +99,16 @@ def load_redis(db=0, decode_responses=False):
     host = os.getenv("REDIS_HOST", "localhost")  # default to localhost for backward compatibility
     port = os.getenv("REDIS_PORT", "6379")
     password = os.getenv("REDIS_PASSWORD", None)
-    r = redis.Redis(host=host, port=int(port), db=db, password=password, decode_responses=decode_responses)
+    r = redis.Redis(
+        host=host,
+        port=int(port),
+        db=db,
+        password=password,
+        decode_responses=decode_responses,
+        # A host that drops packets rather than refusing them blocks the
+        # connect forever without this, so callers that treat redis as
+        # optional hang instead of taking their fallback path. Only the
+        # connect is bounded, so long-running commands are unaffected.
+        socket_connect_timeout=REDIS_CONNECT_TIMEOUT_SECONDS,
+    )
     return r

@@ -49,7 +49,7 @@ def register_service(
     try:
         from chap_core.rest_api.v1.routers.crud import _sync_live_chapkit_services
 
-        _sync_live_chapkit_services(session)
+        _sync_live_chapkit_services(session, orchestrator)
     except Exception:
         logger.warning("Eager chapkit DB sync after registration failed", exc_info=True)
 

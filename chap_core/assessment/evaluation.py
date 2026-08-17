@@ -35,7 +35,7 @@ from chap_core.database.tables import Backtest, BacktestForecast
 from chap_core.datatypes import SamplesWithTruth
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.rest_api.data_models import BacktestCreate
-from chap_core.time_period import TimePeriod
+from chap_core.time_period import Month, TimePeriod
 
 try:
     from chap_core import __version__ as CHAP_VERSION
@@ -304,10 +304,12 @@ class Evaluation(EvaluationBase):
         org_units = set()
         split_points = set()
         observations = []
+        period_type: str | None = None
 
         for eval_result in evaluation_results:
             first_period: TimePeriod = eval_result.period_range[0]
             split_points.add(first_period.id)
+            period_type = "month" if isinstance(first_period, Month) else "week"
             for location, samples_with_truth in eval_result.items():
                 # NOTE: samples_with_truth is class datatypes.SamplesWithTruth
                 org_units.add(location)
@@ -351,9 +353,16 @@ class Evaluation(EvaluationBase):
         # For database path, the dataset relationship will be loaded via dataset_id
         # Check if dataset_id is 0 (CLI dummy value) to determine if we need an in-memory dataset
         if info.dataset_id == 0:
+            # Populate the period metadata so frontends that sort/format periods
+            # (which need a non-null period_type) can render the evaluation.
+            periods = [obs.period for obs in unique_observations]
             backtest.dataset = DataSet(
                 name="cli_evaluation_dataset",
                 observations=unique_observations,
+                period_type=period_type,
+                org_units=list(org_units),
+                first_period=min(periods) if periods else None,
+                last_period=max(periods) if periods else None,
             )
 
         return cls(
@@ -691,10 +700,20 @@ class Evaluation(EvaluationBase):
             )
             observations.append(observation)
 
-        # Create in-memory dataset with observations
+        # Create in-memory dataset with observations. Populate the period metadata
+        # (period_type must be non-null) so frontends that sort/format periods can
+        # render the loaded evaluation.
+        periods = [obs.period for obs in observations]
+        period_type = None
+        if periods:
+            period_type = "month" if isinstance(TimePeriod.parse(str(periods[0])), Month) else "week"
         backtest.dataset = DataSet(
             name=f"dataset_from_{Path(filepath).name}",
             observations=observations,
+            period_type=period_type,
+            org_units=org_units,
+            first_period=min(periods) if periods else None,
+            last_period=max(periods) if periods else None,
         )
 
         # Load historical observations if present

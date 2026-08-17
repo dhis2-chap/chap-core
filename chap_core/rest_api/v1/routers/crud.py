@@ -82,7 +82,7 @@ from .dependencies import get_database_url, get_session, get_settings
 logger = logging.getLogger(__name__)
 
 
-def _sync_live_chapkit_services(session: Session) -> set[str]:
+def _sync_live_chapkit_services(session: Session, orchestrator=None) -> set[str]:
     """Sync live chapkit services from the v2 registry into the DB.
 
     Queries the Redis-backed Orchestrator for registered services and
@@ -90,12 +90,18 @@ def _sync_live_chapkit_services(session: Session) -> set[str]:
     models yet), also fetches configs from the chapkit service and
     creates configured models. Silently skips if Redis is unavailable.
 
+    Callers that already hold an orchestrator should pass it in. Building a
+    fresh one here reaches around FastAPI's dependency overrides and opens a
+    second redis connection, which costs a full connect timeout whenever
+    redis is unreachable.
+
     Returns the set of live service IDs from the registry.
     """
     try:
-        from chap_core.rest_api.v2.dependencies import get_orchestrator
+        if orchestrator is None:
+            from chap_core.rest_api.v2.dependencies import get_orchestrator
 
-        orchestrator = get_orchestrator()
+            orchestrator = get_orchestrator()
         service_list = orchestrator.get_all()
     except Exception:
         logger.debug("Could not reach service registry, skipping chapkit sync")
