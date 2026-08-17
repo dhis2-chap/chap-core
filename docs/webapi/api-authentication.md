@@ -123,8 +123,9 @@ checked independently, and either can be enabled without the other. See
 [Service Registration](service-registration.md).
 
 Self-registering chapkit services need special handling because servicekit can only send the
-`X-Service-Key` header -- it has no way to send `Authorization`. So on the `/v2/services`
-paths the token is also accepted in `X-Service-Key`:
+`X-Service-Key` header -- it has no way to send `Authorization`. The API token is therefore
+accepted in `X-Service-Key` as well, on any path, and on the `/v2/services` paths a
+configured registration key is accepted there too:
 
 | Server configuration | What a chapkit service sends |
 |----------------------|------------------------------|
