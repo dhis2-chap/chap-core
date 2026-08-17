@@ -5,13 +5,19 @@ metadata:
   name: {{ include "chap.fullname" . }}-dhis2-register-{{ .Release.Revision }}
   labels:
     {{- include "chap.labels" . | nindent 4 }}
+    {{- with .Values.dhis2.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
-  ttlSecondsAfterFinished: 3600
+  ttlSecondsAfterFinished: {{ .Values.dhis2.registerJob.ttlSecondsAfterFinished }}
   backoffLimit: {{ .Values.dhis2.registerJob.backoffLimit }}
   template:
     metadata:
       labels:
         {{- include "chap.labels" . | nindent 8 }}
+        {{- with .Values.dhis2.labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
       restartPolicy: OnFailure
       containers:

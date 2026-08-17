@@ -217,5 +217,11 @@ dhis2:
   username: "system"
   # -- Required when dhis2.enabled is true.
   password: ""
+  # -- Labels applied to the registration job and its pod, on top of global.commonLabels. The job is
+  # the only evidence that registration happened, so a label is what lets something track it.
+  labels: {}
   registerJob:
     backoffLimit: 10
+    # -- How long the finished job is kept. It is the record of whether registration succeeded, so it
+    # outlives the run by a day rather than the hour a job is usually worth keeping.
+    ttlSecondsAfterFinished: 86400

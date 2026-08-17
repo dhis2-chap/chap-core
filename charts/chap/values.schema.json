@@ -103,10 +103,12 @@
         "apiVersion": { "type": "string" },
         "username": { "type": "string" },
         "password": { "type": "string" },
+        "labels": { "type": "object" },
         "registerJob": {
           "type": "object",
           "properties": {
-            "backoffLimit": { "type": "integer", "minimum": 0 }
+            "backoffLimit": { "type": "integer", "minimum": 0 },
+            "ttlSecondsAfterFinished": { "type": "integer", "minimum": 0 }
           }
         }
       }
