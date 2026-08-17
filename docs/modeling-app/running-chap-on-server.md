@@ -7,7 +7,9 @@
 
 The Modeling App is dependent on connecting to a Chap server, as running the models is a process that needs to be handled by Chap Core. In this tutorial, we will deploy Chap Core to the same server that DHIS2 is running on, and making the Chap Core REST API available internally to the DHIS2 backend. The Modeling App will then use the DHIS2 Route API to connect to the Chap Core endpoint. We will explain the purpose of the Route API later.
 
-**IMPORTANT:** We do not want to make the Chap Core endpoint publicly available on the internet, as Chap Core does not have any method of authenticating requests.
+**IMPORTANT:** We do not want to make the Chap Core endpoint publicly available on the internet. By default Chap Core does not authenticate requests at all, so anyone who can reach the port can read and delete data.
+
+If you cannot keep Chap Core on an internal network -- for instance when connecting a cloud DHIS2 instance to a Chap Core running elsewhere through a tunnel -- enable the opt-in API token and serve it over HTTPS. See [API Authentication](../webapi/api-authentication.md). Network isolation remains the recommended setup; the token is the minimum needed to make an exposed deployment defensible, not a replacement for it.
 
 **NOTE:** Previously, Chap Core required you to configure it with Google Earth Engine Credentials. This is not needed anymore, since the Modeling App is now using climate data imported into DHIS2 by the [DHIS2 Climate App](https://apps.dhis2.org/app/effb986c-a3c7-485e-a2f6-5e54ff9df7c3). Using the DHIS2 Climate App requires you to set up [DHIS2 with Google Earth Engine](https://docs.dhis2.org/en/topics/tutorials/google-earth-engine-sign-up.html)
 
