@@ -10,7 +10,9 @@ import textwrap
 import altair as alt
 import pandas as pd
 
-alt.data_transformers.enable("vegafusion")
+# Lift Altair's 5000-row cap so charts embed their full data; vl-convert compiles the
+# Vega spec without vegafusion (and therefore without pyarrow).
+alt.data_transformers.disable_max_rows()
 
 
 def title_chart(text: str, width: int = 600, font_size: int = 24, pad: int = 10):
@@ -48,7 +50,7 @@ def text_chart(text, line_length=80, font_size=12, align="left", pad_bottom=50):
 
 
 def clean_time(period):
-    """Convert period to ISO date format for Altair/vegafusion compatibility.
+    """Convert period to ISO date format for Altair temporal-encoding compatibility.
 
     Accepts all formats supported by TimePeriod.parse(), including compact
     formats like '202212' and '2022W13'.
