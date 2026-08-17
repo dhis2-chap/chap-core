@@ -110,7 +110,8 @@ async def proxy_to_service(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
     # Forward request headers minus hop-by-hop, Connection-nominated, and host (httpx re-derives host).
-    request_headers = _forwardable(request.headers.items(), drop={"host"})
+    # authorization is dropped too: the caller's CHAP API token must not leak to the service.
+    request_headers = _forwardable(request.headers.items(), drop={"host", "authorization"})
     query_string = request.scope.get("query_string") or b""
 
     try:

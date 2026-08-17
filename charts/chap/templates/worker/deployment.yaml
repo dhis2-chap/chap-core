@@ -1,0 +1,116 @@
+{{- if .Values.worker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "chap.fullname" . }}-worker
+  labels:
+    {{- include "chap.componentLabels" (dict "ctx" . "component" "worker") | nindent 4 }}
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "chap.componentSelectorLabels" (dict "ctx" . "component" "worker") | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/db-secret: {{ include (print $.Template.BasePath "/db/secret.yaml") . | sha256sum }}
+        checksum/valkey-secret: {{ include (print $.Template.BasePath "/valkey/secret.yaml") . | sha256sum }}
+        {{- with .Values.worker.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "chap.componentLabels" (dict "ctx" . "component" "worker") | nindent 8 }}
+        {{- with .Values.worker.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.worker.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "chap.componentServiceAccountName" (dict "ctx" . "component" "worker") }}
+      {{- with .Values.worker.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: worker
+          {{- with .Values.worker.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+          command:
+            {{- toYaml .Values.worker.command | nindent 12 }}
+          {{- with .Values.worker.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.worker.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.worker.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            - name: IS_IN_DOCKER
+              value: "1"
+            {{- include "chap.valkeyEnv" . | nindent 12 }}
+            {{- include "chap.databaseEnv" . | nindent 12 }}
+            - name: RENV_PATHS_ROOT
+              value: /data/renv
+            - name: UV_CACHE_DIR
+              value: /data/uv
+            - name: CHAP_LOGS_DIR
+              value: /data/logs
+            - name: CHAP_RUNS_DIR
+              value: /data/runs
+            - name: PYTENSOR_FLAGS
+              value: "base_compiledir=/data/pytensor"
+          volumeMounts:
+            - name: tmpfs
+              mountPath: /tmp
+            - name: runs
+              mountPath: /data/runs
+            - name: renv
+              mountPath: /data/renv
+            - name: uv
+              mountPath: /data/uv
+            - name: logs
+              mountPath: /data/logs
+            - name: pytensor
+              mountPath: /data/pytensor
+            {{- with .Values.worker.volumeMounts }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: tmpfs
+          emptyDir:
+            medium: Memory
+            sizeLimit: 2Gi
+        - name: runs
+          emptyDir: {}
+        - name: renv
+          emptyDir: {}
+        - name: uv
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
+        - name: pytensor
+          emptyDir: {}
+      {{- with .Values.worker.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
