@@ -5,9 +5,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from chap_core.rest_api.app import app
+from chap_core.rest_api.auth import SERVICE_KEY_ENV_VAR
 from chap_core.rest_api.services.orchestrator import Orchestrator
 from chap_core.rest_api.v1.routers.dependencies import get_settings
-from chap_core.rest_api.v2.dependencies import SERVICE_KEY_ENV_VAR, get_orchestrator
+from chap_core.rest_api.v2.dependencies import get_orchestrator
 from chap_core.rest_api.worker_functions import WorkerConfig
 
 TEST_SERVICE_KEY = "test-service-key"
