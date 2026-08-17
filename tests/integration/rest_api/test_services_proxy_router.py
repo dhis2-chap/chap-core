@@ -170,6 +170,16 @@ def test_connection_nominated_request_header_dropped(client):
     assert "x-keep" in seen
 
 
+def test_authorization_header_not_forwarded(client):
+    response = client.get(
+        f"/v2/services/{SERVICE_ID}/run/api/v1/seen-headers",
+        headers={"Authorization": "Bearer chap-api-token"},
+    )
+
+    # The caller's CHAP API token must not reach the registered service.
+    assert "authorization" not in response.json()["headers"]
+
+
 def test_connection_nominated_response_header_dropped(client):
     response = client.get(f"/v2/services/{SERVICE_ID}/run/api/v1/conn-response")
 

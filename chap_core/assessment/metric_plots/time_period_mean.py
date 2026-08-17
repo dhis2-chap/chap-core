@@ -22,10 +22,10 @@ class MetricByTimePeriodV2Mean(MetricPlotBase):
             .mark_line()
             .encode(
                 x=alt.X("time_period:O", title="Time Period"),
-                y=alt.Y("mean(metric):Q", title="Mean Metric Value"),
+                y=alt.Y("metric:Q", title="Mean Metric Value"),
                 tooltip=[
                     alt.Tooltip("time_period:O", title="Time Period"),
-                    alt.Tooltip("mean(metric):Q", title="Count"),
+                    alt.Tooltip("metric:Q", title="Count"),
                 ],
             )
             .properties(width=300, height=230, title=title),

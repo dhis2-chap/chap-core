@@ -14,6 +14,7 @@ services:
       CELERY_BROKER: redis://redis:6379/0
       CHAP_LOGS_DIR: /data/logs
       CHAP_RUNS_DIR: /data/runs
+      CHAP_API_TOKEN: ${CHAP_API_TOKEN:-}
     container_name: chap
     read_only: true
     security_opt:

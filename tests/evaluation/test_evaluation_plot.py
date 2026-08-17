@@ -19,12 +19,6 @@ from chap_core.plotting.evaluation_plot import (
 import altair as alt
 
 
-@pytest.fixture(autouse=True)
-def default_altair_transformer():
-    alt.data_transformers.enable("default")
-    yield
-
-
 @pytest.fixture
 def rwanda_geojson():
     path = Path("rainfall_pop_temp_cases.json")
