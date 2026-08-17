@@ -9,12 +9,36 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  test:
+  changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      scope: ${{ steps.scope.outputs.scope }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/actions
+      - id: scope
+        uses: ./.github/actions/change-scope
+
+  test:
+    needs: changes
+    if: needs.changes.outputs.scope != 'inert'
+    runs-on: ${{ matrix.os }}
     strategy:
+      # Report every platform, so one failure does not hide the others.
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # macos-latest is Apple Silicon, macos-15-intel is x86_64. Both are
+        # standard runners and free on public repositories.
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-15-intel]
         python-version: ["3.13"]
     steps:
       - uses: actions/checkout@v7

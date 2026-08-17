@@ -1,0 +1,65 @@
+name: Change scope
+description: Classify the files a pull request touches so CI can skip work that cannot be affected by them.
+
+outputs:
+  scope:
+    description: >-
+      full (run everything), docs (skip the heavy suite, doc code blocks still
+      run via tests/test_documentation.py) or inert (skip all test jobs).
+    value: ${{ steps.classify.outputs.scope }}
+
+runs:
+  using: composite
+  steps:
+    - id: classify
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        EVENT_NAME: ${{ github.event_name }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        REPOSITORY: ${{ github.repository }}
+        SKIP_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'skip-ci') }}
+      run: |
+        set -euo pipefail
+
+        emit() {
+          echo "Change scope: $1"
+          echo "scope=$1" >> "$GITHUB_OUTPUT"
+        }
+
+        # Pushes to master/dev always run the full suite, so anything a pull
+        # request skipped is still verified once it lands.
+        if [ "$EVENT_NAME" != "pull_request" ]; then
+          emit full
+          exit 0
+        fi
+
+        if [ "$SKIP_LABEL" = "true" ]; then
+          echo "The skip-ci label is set."
+          emit inert
+          exit 0
+        fi
+
+        changed="$RUNNER_TEMP/changed-files.txt"
+        gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename' > "$changed"
+        echo "Changed files:"
+        cat "$changed"
+
+        scope=inert
+        while read -r file; do
+          [ -n "$file" ] || continue
+          case "$file" in
+            # Markdown under docs/ has Python and bash code blocks that
+            # tests/test_documentation.py executes, so the test job must run.
+            docs/*)
+              [ "$scope" = full ] || scope=docs
+              ;;
+            *.md | .env.example | LICENSE | .gitignore | .gitattributes | .editorconfig | CODEOWNERS | .github/ISSUE_TEMPLATE/*)
+              ;;
+            *)
+              scope=full
+              ;;
+          esac
+        done < "$changed"
+
+        emit "$scope"
