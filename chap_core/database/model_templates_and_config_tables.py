@@ -127,6 +127,26 @@ class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, 
     )
 
 
+# Identity and lifecycle fields; not compared as content drift.
+_NON_CONTENT_TEMPLATE_FIELDS = frozenset(
+    {"id", "name", "version", "source_digest", "source_url", "is_live", "archived", "uses_chapkit"}
+)
+
+
+def drifted_template_content_fields(existing: ModelTemplateDB, incoming: ModelTemplateDB) -> list[str]:
+    """Content fields where a re-seeded template disagrees with the version already stored.
+
+    A template version is write-once, so these differences are dropped rather than applied.
+    Naming them lets the caller tell the operator that their edit did not land.
+    """
+    return sorted(
+        field
+        for field in ModelTemplateDB.model_fields
+        if field not in _NON_CONTENT_TEMPLATE_FIELDS
+        and getattr(existing, field, None) != getattr(incoming, field, None)
+    )
+
+
 class ModelConfiguration(SQLModel):
     """A specific choice of user-option values + extra covariates layered on top of a model template."""
 

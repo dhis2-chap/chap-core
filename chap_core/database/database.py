@@ -26,6 +26,7 @@ from .model_templates_and_config_tables import (
     ModelConfiguration,
     ModelTemplateDB,
     compute_configuration_digest,
+    drifted_template_content_fields,
 )
 from .tables import Backtest, Prediction, PredictionSamplesEntry
 
@@ -132,6 +133,14 @@ class SessionWrapper:
                     f"{existing_template.source_digest!r}, but its ref now resolves to "
                     f"{model_template.source_digest!r}. Keeping the seeded revision; use a new version "
                     "label to pick up the new source."
+                )
+            drifted = drifted_template_content_fields(existing_template, model_template)
+            if drifted:
+                # A template version is write-once, so the re-seeded values are ignored; publish them under a new version label.
+                logger.warning(
+                    f"Model template {model_name!r} version {model_template.version!r} is already seeded with "
+                    f"different {', '.join(drifted)}. A template version is write-once, so the re-seeded "
+                    "values are ignored; publish them under a new version label."
                 )
             # Write-once: in-place updates would rewrite completed backtest provenance.
             template_id = self._return_model_template_id(model_name, existing_template)

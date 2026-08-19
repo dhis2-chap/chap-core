@@ -218,6 +218,34 @@ def test_new_template_version_is_added_as_new_row(model_template_yaml_config, en
         assert session.get_model_template(v2_id).is_live is True
 
 
+def test_reseeding_changed_contents_under_the_same_version_warns(model_template_yaml_config, engine, caplog):
+    """A reused version label drops the edit, so the operator has to be told why."""
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        seeded_covariates = list(model_template_yaml_config.required_covariates)
+        model_template_yaml_config.required_covariates = ["rainfall", "population"]
+        model_template_yaml_config.meta_data.display_name = "Renamed model"
+
+        with caplog.at_level(logging.WARNING):
+            assert session.add_model_template_from_yaml_config(model_template_yaml_config) == template_id
+
+        template = session.get_model_template(template_id)
+        assert template.required_covariates == seeded_covariates
+        assert template.display_name != "Renamed model"
+        assert "display_name, required_covariates" in caplog.text
+        assert "new version label" in caplog.text
+
+
+def test_reseeding_identical_contents_does_not_warn(model_template_yaml_config, engine, caplog):
+    with SessionWrapper(engine) as session:
+        session.add_model_template_from_yaml_config(model_template_yaml_config)
+
+        with caplog.at_level(logging.WARNING):
+            session.add_model_template_from_yaml_config(model_template_yaml_config)
+
+        assert "write-once" not in caplog.text
+
+
 def test_reseeding_older_template_version_makes_it_live_again(model_template_yaml_config, engine):
     with SessionWrapper(engine) as session:
         model_template_yaml_config.version = "v1"
