@@ -44,7 +44,7 @@ dataset_names = [
 ]
 local_datasets = ["laos_full_data", "uganda_data"]
 remote_datasets = {
-    "ISIMIP_dengue_harmonized": "https://github.com/dhis2/chap-core/raw/dev/example_data/full_data.tar.gz"
+    "ISIMIP_dengue_harmonized": "https://raw.githubusercontent.com/dhis2-chap/chap-core/master/example_data/full_data.tar.gz"
 }
 type DataSetType = Literal[
     "hydro_met_subset",
