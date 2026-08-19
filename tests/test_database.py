@@ -89,6 +89,7 @@ def test_add_predictions(engine_with_dataset):
 def model_template_yaml_config():
     return ModelTemplateConfigV2(
         name="test_model",
+        version="test-version",
         required_covariates=["rainfall", "mean_temperature"],
         allow_free_additional_continuous_covariates=False,
         user_options={},
@@ -119,6 +120,13 @@ def test_add_model_template_from_yaml_config(model_template_yaml_config, engine)
         )
         assert model_template.user_options == model_template_yaml_config.user_options
         assert model_template.author_assessed_status == model_template_yaml_config.meta_data.author_assessed_status
+
+
+def test_add_model_template_from_yaml_config_requires_version(model_template_yaml_config, engine):
+    model_template_yaml_config.version = None
+
+    with SessionWrapper(engine) as session, pytest.raises(ValueError, match="must declare a version"):
+        session.add_model_template_from_yaml_config(model_template_yaml_config)
 
 
 def test_add_model_template_unarchives_existing(model_template_yaml_config, engine):
@@ -154,6 +162,7 @@ def test_add_configured_model_chapkit_skips_required_validation(engine):
     }
     config = ModelTemplateConfigV2(
         name="chapkit_default_factory",
+        version="1.0.0",
         required_covariates=["population"],
         allow_free_additional_continuous_covariates=False,
         user_options=chapkit_schema_user_options,
@@ -195,6 +204,113 @@ def test_yaml_update_preserves_uses_chapkit(model_template_yaml_config, engine):
         assert template.uses_chapkit is True
 
 
+def test_new_template_version_is_added_as_new_row(model_template_yaml_config, engine):
+    with SessionWrapper(engine) as session:
+        model_template_yaml_config.version = "v1"
+        v1_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        model_template_yaml_config.version = "v2"
+        v2_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+
+        assert v1_id != v2_id
+        # the old version keeps its own row so old backtests keep their provenance
+        assert session.get_model_template(v1_id).version == "v1"
+        assert session.get_model_template(v1_id).is_live is False
+        assert session.get_model_template(v2_id).is_live is True
+
+
+def test_reseeding_older_template_version_makes_it_live_again(model_template_yaml_config, engine):
+    with SessionWrapper(engine) as session:
+        model_template_yaml_config.version = "v1"
+        v1_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        model_template_yaml_config.version = "v2"
+        v2_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        model_template_yaml_config.version = "v1"
+
+        assert session.add_model_template_from_yaml_config(model_template_yaml_config) == v1_id
+        assert session.get_model_template(v1_id).is_live is True
+        assert session.get_model_template(v2_id).is_live is False
+
+
+def test_new_template_version_gets_its_own_configured_model(model_template_yaml_config, engine):
+    with SessionWrapper(engine) as session:
+        model_template_yaml_config.version = "v1"
+        v1_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        v1_configured_id = session.add_configured_model(v1_id, ModelConfiguration(user_option_values={}))
+        model_template_yaml_config.version = "v2"
+        v2_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        v2_configured_id = session.add_configured_model(v2_id, ModelConfiguration(user_option_values={}))
+
+        assert v1_configured_id != v2_configured_id
+        # only the live version is offered, and by name it resolves to the new template
+        assert [model.id for model in session.get_configured_models()] == [v2_configured_id]
+        assert session.get_configured_model_by_name("test_model").id == v2_configured_id
+
+
+def test_add_model_template_from_url_stores_source_digest(engine, model_template_yaml_config, monkeypatch):
+    commit_sha = "0c41b1d9bd187521e62c58d581e6f5bd5127f7b5"
+    fetched_urls = []
+
+    def fetch_config(url):
+        fetched_urls.append(url)
+        return model_template_yaml_config
+
+    monkeypatch.setattr(
+        "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
+        fetch_config,
+    )
+    with SessionWrapper(engine) as session:
+        template_id = add_model_template_from_url(
+            f"https://github.com/example/test_model@{commit_sha}", session, version="v1"
+        )
+        assert session.get_model_template(template_id).source_digest == commit_sha
+    assert fetched_urls == [f"https://github.com/example/test_model@{commit_sha}"]
+
+
+def test_reseeding_a_moved_ref_keeps_the_originally_seeded_source(model_template_yaml_config, engine):
+    """A branch ref such as @main moves on its own, so re-seeding must not fail or rewrite provenance."""
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config, source_digest="a" * 40)
+
+        assert session.add_model_template_from_yaml_config(model_template_yaml_config, source_digest="b" * 40) == (
+            template_id
+        )
+        # the row keeps the revision it was seeded from, so finished backtests stay truthful
+        assert session.get_model_template(template_id).source_digest == "a" * 40
+
+
+def test_changed_configuration_is_added_as_new_configured_model(model_template_yaml_config, engine):
+    with SessionWrapper(engine) as session:
+        # the shared fixture declares no user options, and the schema is closed
+        model_template_yaml_config.user_options = {"n_lags": {"type": "integer"}}
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        first_id = session.add_configured_model(
+            template_id,
+            ModelConfiguration(user_option_values={"n_lags": 3}, additional_continuous_covariates=["rainfall"]),
+        )
+        second_id = session.add_configured_model(
+            template_id,
+            ModelConfiguration(user_option_values={"n_lags": 5}, additional_continuous_covariates=["rainfall"]),
+        )
+
+        assert first_id != second_id
+        # the original configuration is left intact for the backtests that used it
+        first = session.session.get(ConfiguredModelDB, first_id)
+        assert first.additional_continuous_covariates == ["rainfall"]
+        assert first.user_option_values == {"n_lags": 3}
+        assert first.is_live is False
+        assert [model.id for model in session.get_configured_models()] == [second_id]
+
+
+def test_unchanged_configuration_reuses_configured_model(model_template_yaml_config, engine):
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        configuration = ModelConfiguration(user_option_values={}, additional_continuous_covariates=["rainfall"])
+        first_id = session.add_configured_model(template_id, configuration)
+
+        assert session.add_configured_model(template_id, configuration) == first_id
+        assert [model.id for model in session.get_configured_models()] == [first_id]
+
+
 @pytest.mark.parametrize("url", template_urls)
 # @pytest.mark.slow
 def test_add_model_template_from_url(engine, url):
@@ -213,12 +329,20 @@ def test_add_model_template_from_url_name_override(engine, model_template_yaml_c
         "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
         lambda url: model_template_yaml_config,
     )
+    monkeypatch.setattr("chap_core.database.model_template_seed.resolve_commit_sha", lambda url: "a" * 40)
     with SessionWrapper(engine) as session:
         template_id = add_model_template_from_url(
             "https://github.com/example/test_model@main", session, version="test", name_override="my_distinct_name"
         )
         template = session.session.get(ModelTemplateDB, template_id)
         assert template.name == "my_distinct_name"
+
+
+def test_add_model_template_from_url_requires_a_resolvable_source_digest(engine, monkeypatch):
+    """A git-sourced template that cannot be pinned to a revision is not seeded at all."""
+    monkeypatch.setattr("chap_core.database.model_template_seed.resolve_commit_sha", lambda url: None)
+    with SessionWrapper(engine) as session, pytest.raises(ValueError, match="immutable source digest"):
+        add_model_template_from_url("https://github.com/example/test_model@main", session, version="test")
 
 
 def test_seed_configured_models(engine):

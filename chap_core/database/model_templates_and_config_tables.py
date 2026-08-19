@@ -1,9 +1,11 @@
+import hashlib
+import json
 import logging
 from enum import Enum
 
 import jsonschema
 from pydantic import ConfigDict
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 from chap_core.database.base_tables import DBModel
@@ -93,15 +95,29 @@ class ModelTemplateInformation(SQLModel):
 
 
 class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, table=True):
-    """Persisted model-template row. Flat composition of metadata + capability mixins."""
+    """Persisted model-template row. Flat composition of metadata + capability mixins.
+    A template version is immutable: seeding a new version inserts a new row and
+    marks the previous one superseded, so a backtest keeps describing the code it
+    actually ran.
+    """
 
-    name: str = Field(unique=True, description="Canonical unique identifier of the template.")
+    __table_args__ = (UniqueConstraint("name", "version", name="uq_modeltemplatedb_name_version"),)
+
+    name: str = Field(description="Canonical identifier of the template, unique together with `version`.")
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
     source_url: str | None = Field(
         default=None, description="URL where the template's source lives (e.g. a GitHub repo)."
     )
     configured_models: list["ConfiguredModelDB"] = Relationship(back_populates="model_template", cascade_delete=True)
-    version: str | None = Field(default=None, description="Template version string, typically a git tag or commit sha.")
+    version: str = Field(description="Template version label, typically a git tag or a seeding-config key.")
+    source_digest: str | None = Field(
+        default=None,
+        description="Immutable revision the version was seeded from (for example, a Git commit SHA).",
+    )
+    is_live: bool = Field(
+        default=True,
+        description="True for the version currently served under this name. Older versions stay resolvable by id.",
+    )
     archived: bool = Field(
         default=False, description="When True, the template is hidden from default pickers but still resolvable."
     )
@@ -128,16 +144,50 @@ class ModelConfiguration(SQLModel):
     )
 
 
+def compute_configuration_digest(configuration: ModelConfiguration) -> str:
+    """Digest of a configuration's contents, used as part of its identity.
+
+    Configurations are immutable for the same reason template versions are:
+    backtests reference a `ConfiguredModelDB` row directly and read the option
+    values off it, so editing one in place would rewrite what an already-finished
+    backtest claims it ran. The digest is what makes an edited configuration a new
+    row rather than an overwrite.
+    """
+    payload = json.dumps(
+        {
+            "user_option_values": configuration.user_option_values or {},
+            "additional_continuous_covariates": configuration.additional_continuous_covariates or [],
+        },
+        sort_keys=True,
+    )
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
 class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
     """Persisted configured-model row — a `ModelTemplateDB` together with a specific configuration."""
 
-    #  unique constraint on name
     # model_config = ConfigDict(protected_namespaces=())
+    __table_args__ = (
+        UniqueConstraint(
+            "model_template_id",
+            "name",
+            "configuration_digest",
+            name="uq_configuredmodeldb_template_name_digest",
+        ),
+    )
+
     name: str = Field(
-        unique=True,
-        description="Canonical unique identifier; conventionally `<template_name>` or `<template_name>:<config_stub>`.",
+        description="Canonical identifier; conventionally `<template_name>` or `<template_name>:<config_stub>`. "
+        "Unique per template version and configuration digest.",
     )
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
+    configuration_digest: str = Field(
+        default="", description="Digest of the configuration contents, see `compute_configuration_digest`."
+    )
+    is_live: bool = Field(
+        default=True,
+        description="True for the configuration currently served under this name. Older ones stay resolvable by id.",
+    )
     model_template_id: int = Field(
         foreign_key="modeltemplatedb.id",
         ondelete="CASCADE",

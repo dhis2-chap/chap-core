@@ -11,6 +11,7 @@ import psycopg2
 import sqlalchemy
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel.sql.expression import SelectOfScalar
 
 from chap_core.log_config import is_debug_mode
 from chap_core.predictor.naive_estimator import NaiveEstimator
@@ -20,7 +21,12 @@ from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
 from ..models.external_chapkit_model import ExternalChapkitModelTemplate
 from .model_spec_tables import ModelSpecRead
-from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
+from .model_templates_and_config_tables import (
+    ConfiguredModelDB,
+    ModelConfiguration,
+    ModelTemplateDB,
+    compute_configuration_digest,
+)
 from .tables import Backtest, Prediction, PredictionSamplesEntry
 
 logger = logging.getLogger(__name__)
@@ -84,25 +90,15 @@ class SessionWrapper:
     def list_all(self, model):
         return self.session.exec(select(model)).all()
 
-    def _if_exists(self, model_name: str) -> ModelTemplateDB | None:
-        # check if model template already exists
-        existing_template = self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == model_name)).first()
+    def _if_exists(self, model_name: str, version: str) -> ModelTemplateDB | None:
+        # check if this version of the model template already exists
+        existing_template = self.session.exec(
+            select(ModelTemplateDB).where(ModelTemplateDB.name == model_name, ModelTemplateDB.version == version)
+        ).first()
         return existing_template
 
     def _return_model_template_id(self, model_name: str, existing_template: ModelTemplateDB) -> int:
         logger.info(f"Model template with name {model_name} already exists. Returning existing id")
-        return cast("int", existing_template.id)
-
-    def _update_model_template(self, existing_template: ModelTemplateDB, new_model_template: ModelTemplateDB) -> int:
-        logger.info(f"Model template with name {new_model_template.name} already exists. Updating it")
-        # Update the existing template with new data except id and fields newly added when casted to ModelTemplateDB
-        data = new_model_template.model_dump(exclude={"id"}, exclude_unset=True)
-        for key, value in data.items():
-            if hasattr(existing_template, key):
-                setattr(existing_template, key, value)
-        # Unarchive if it was previously archived
-        existing_template.archived = False
-        self.session.commit()
         return cast("int", existing_template.id)
 
     def _add_model_template(self, model_template: ModelTemplateDB) -> int:
@@ -113,24 +109,54 @@ class SessionWrapper:
         # return id
         return cast("int", model_template.id)
 
-    def add_or_update_model_template(self, model_template: ModelTemplateDB, update: bool) -> int:
-        model_name = model_template.name
-        existing_template = self._if_exists(model_name)
-        if existing_template:
-            if update:
-                return self._update_model_template(existing_template, new_model_template=model_template)
-            else:
-                return self._return_model_template_id(model_name, existing_template)
-        else:
-            return self._add_model_template(model_template)
+    def _make_live_template_version(self, model_name: str, model_template_id: int) -> None:
+        # only one version of a template is live at a time: the other versions keep
+        # their rows, and stay resolvable by id, so old backtests keep their provenance
+        templates = self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == model_name)).all()
+        for template in templates:
+            template.is_live = template.id == model_template_id
+        self.session.commit()
 
-    def add_model_template_from_yaml_config(self, model_template_config: ModelTemplateConfigV2) -> int:
-        # convert yaml config to model template db object and add to db
+    def add_or_update_model_template(self, model_template: ModelTemplateDB) -> int:
+        model_name = model_template.name
+        existing_template = self._if_exists(model_name, model_template.version)
+        if existing_template:
+            if (
+                model_template.source_digest is not None
+                and existing_template.source_digest is not None
+                and model_template.source_digest != existing_template.source_digest
+            ):
+                # Moving refs (e.g. @main) can change digest; keep the seeded revision.
+                logger.warning(
+                    f"Model template {model_name!r} version {model_template.version!r} was seeded from "
+                    f"{existing_template.source_digest!r}, but its ref now resolves to "
+                    f"{model_template.source_digest!r}. Keeping the seeded revision; use a new version "
+                    "label to pick up the new source."
+                )
+            # Write-once: in-place updates would rewrite completed backtest provenance.
+            template_id = self._return_model_template_id(model_name, existing_template)
+            # Re-seeding un-archives for discovery only; provenance is unchanged.
+            if existing_template.archived:
+                existing_template.archived = False
+                self.session.commit()
+        else:
+            # Git templates get a digest from add_model_template_from_url; others stay None.
+            template_id = self._add_model_template(model_template)
+        self._make_live_template_version(model_name, template_id)
+        return template_id
+
+    def add_model_template_from_yaml_config(
+        self, model_template_config: ModelTemplateConfigV2, source_digest: str | None = None
+    ) -> int:
         d = model_template_config.model_dump()
         info = d.pop("meta_data")
         d = d | info
+        # Version is part of identity; do not invent a placeholder.
+        if not d["version"]:
+            raise ValueError(f"Model template {d['name']!r} must declare a version")
         model_template = ModelTemplateDB(**d)
-        return self.add_or_update_model_template(model_template, update=True)
+        model_template.source_digest = source_digest
+        return self.add_or_update_model_template(model_template)
 
     def add_configured_model(
         self,
@@ -155,10 +181,20 @@ class SessionWrapper:
             # combine model template with configuration name to make the name unique
             name = f"{template_name}:{configuration_name}"
 
-        # check if configured model already exists
-        existing_configured = self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == name)).first()
+        # check if this exact configuration already exists
+        digest = compute_configuration_digest(configuration)
+        existing_configured = self.session.exec(
+            select(ConfiguredModelDB).where(
+                ConfiguredModelDB.model_template_id == model_template_id,
+                ConfiguredModelDB.name == name,
+                ConfiguredModelDB.configuration_digest == digest,
+            )
+        ).first()
         if existing_configured:
-            logger.info(f"Configured model with name {name} already exists. Returning existing id")
+            logger.info(
+                f"Configured model {name} with an identical configuration already exists. Returning existing id"
+            )
+            self._make_live_configured_model(model_template_id, name, cast("int", existing_configured.id))
             return cast("int", existing_configured.id)
 
         # create and add db entry
@@ -166,6 +202,7 @@ class SessionWrapper:
             name=name,
             model_template_id=model_template_id,
             **configuration.model_dump(),
+            configuration_digest=digest,
             model_template=model_template,
             uses_chapkit=uses_chapkit,
         )
@@ -179,18 +216,39 @@ class SessionWrapper:
         logger.info(f"Adding configured model: {configured_model}")
         self.session.add(configured_model)
         self.session.commit()
+        self._make_live_configured_model(model_template_id, name, cast("int", configured_model.id))
 
         # return id
         return cast("int", configured_model.id)
+
+    def _make_live_configured_model(self, model_template_id: int, name: str, configured_model_id: int) -> None:
+        # only one configuration per name is live per template version: earlier ones keep
+        # their rows, and stay resolvable by id, so old backtests keep their option values
+        configured_models = self.session.exec(
+            select(ConfiguredModelDB).where(
+                ConfiguredModelDB.model_template_id == model_template_id, ConfiguredModelDB.name == name
+            )
+        ).all()
+        for configured_model in configured_models:
+            configured_model.is_live = configured_model.id == configured_model_id
+        self.session.commit()
+
+    def _select_live_configured_models(self) -> SelectOfScalar[ConfiguredModelDB]:
+        # names are no longer unique: superseded template versions and superseded
+        # configurations keep their rows, so only the live ones can be looked up by name
+        return (
+            select(ConfiguredModelDB)
+            .join(ModelTemplateDB)
+            .where(ConfiguredModelDB.is_live == True, ModelTemplateDB.is_live == True)
+        )
 
     def get_configured_models(self) -> list[ModelSpecRead]:
         # TODO: using ModelSpecRead for backwards compatibility, should in future return ConfiguredModelDB?
 
         # get configured models from db, excluding those with archived templates
         configured_models = self.session.exec(
-            select(ConfiguredModelDB)
+            self._select_live_configured_models()
             .options(selectinload(ConfiguredModelDB.model_template))  # type: ignore[arg-type]
-            .join(ModelTemplateDB)
             .where(ModelTemplateDB.archived == False)
         ).all()
 
@@ -274,15 +332,14 @@ class SessionWrapper:
         return configured_models_read
 
     def get_configured_model_by_name(self, configured_model_name: str) -> ConfiguredModelDB:
-        try:
-            configured_model = self.session.exec(
-                select(ConfiguredModelDB).where(ConfiguredModelDB.name == configured_model_name)
-            ).one()
-        except sqlalchemy.exc.NoResultFound:
+        configured_model = self.session.exec(
+            self._select_live_configured_models().where(ConfiguredModelDB.name == configured_model_name)
+        ).one_or_none()
+        if configured_model is None:
             all_names = self.session.exec(select(ConfiguredModelDB.name)).all()
             raise ValueError(
                 f"Configured model with name {configured_model_name} not found. Available names: {all_names}"
-            ) from None
+            )
 
         return configured_model
 
@@ -415,6 +472,7 @@ class SessionWrapper:
         dataset_id,
         model_id,
         name,
+        configured_model_id: int,
         metadata: dict | None = None,
         prediction_setup_id: int | None = None,
     ):
@@ -427,7 +485,6 @@ class SessionWrapper:
             for period, value in zip(data.time_period, data.samples, strict=False)
         ]
         org_units = list(predictions.keys())
-        model_db_id = self.session.exec(select(ConfiguredModelDB.id).where(ConfiguredModelDB.name == model_id)).first()
 
         prediction = Prediction(
             dataset_id=dataset_id,
@@ -438,7 +495,7 @@ class SessionWrapper:
             meta_data=metadata,
             forecasts=samples_,
             org_units=org_units,
-            model_db_id=model_db_id,
+            model_db_id=configured_model_id,
             prediction_setup_id=prediction_setup_id,
         )
         self.session.add(prediction)

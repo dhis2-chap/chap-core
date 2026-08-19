@@ -40,6 +40,10 @@ ALEMBIC_INI = PROJECT_ROOT / "alembic.ini"
 # SQLModel metadata then drop these columns so the migration can re-add them.
 _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("modeltemplatedb", "archived"),
+    ("modeltemplatedb", "source_digest"),
+    ("modeltemplatedb", "is_live"),
+    ("configuredmodeldb", "configuration_digest"),
+    ("configuredmodeldb", "is_live"),
     ("prediction", "prediction_setup_id"),
     ("backtest", "max_horizon_distance"),
 ]
@@ -48,6 +52,20 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
 # These are dropped after create_all so the migration can re-create them.
 _TABLES_ADDED_BY_MIGRATIONS = [
     "predictionsetup",
+]
+
+# Unique constraints added by alembic migrations, paired with the baseline constraint
+# they replaced. create_all builds these from current SQLModel metadata, so the
+# baseline has to be walked back to the pre-migration shape for the migration to run.
+_CONSTRAINTS_REPLACED_BY_MIGRATIONS = [
+    ("modeltemplatedb", "uq_modeltemplatedb_name_version", "modeltemplatedb_name_key", "name"),
+    ("configuredmodeldb", "uq_configuredmodeldb_template_name_digest", "configuredmodeldb_name_key", "name"),
+]
+
+# Columns the baseline had as nullable and a migration made NOT NULL. Reverting these
+# is what exercises the migration's backfill.
+_COLUMNS_MADE_NOT_NULL_BY_MIGRATIONS = [
+    ("modeltemplatedb", "version"),
 ]
 
 
@@ -111,6 +129,13 @@ def _create_baseline_schema(engine):
             conn.execute(sa.text(f"ALTER TABLE {table} DROP COLUMN IF EXISTS {column}"))
         for table in _TABLES_ADDED_BY_MIGRATIONS:
             conn.execute(sa.text(f"DROP TABLE IF EXISTS {table}"))
+        for table, new_constraint, baseline_constraint, baseline_columns in _CONSTRAINTS_REPLACED_BY_MIGRATIONS:
+            conn.execute(sa.text(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {new_constraint}"))
+            conn.execute(
+                sa.text(f"ALTER TABLE {table} ADD CONSTRAINT {baseline_constraint} UNIQUE ({baseline_columns})")
+            )
+        for table, column in _COLUMNS_MADE_NOT_NULL_BY_MIGRATIONS:
+            conn.execute(sa.text(f"ALTER TABLE {table} ALTER COLUMN {column} DROP NOT NULL"))
         conn.commit()
 
 

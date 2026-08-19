@@ -172,6 +172,7 @@ def run_prediction(
         dataset_id,
         model_id,
         name,
+        configured_model.id,
         prediction_setup_id=prediction_setup_id,
     )
     assert db_id is not None

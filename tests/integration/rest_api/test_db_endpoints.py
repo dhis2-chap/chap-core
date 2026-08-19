@@ -177,7 +177,15 @@ def test_list_configured_models(celery_session_worker, dependency_overrides):
         logger.info(m)
     assert len(response.json()) > 0
     assert "id" in response.json()[0]
-    for attr_name in ("displayName", "id", "description", "userOptionValues", "additionalContinuousCovariates"):
+    for attr_name in (
+        "displayName",
+        "id",
+        "description",
+        "version",
+        "sourceDigest",
+        "userOptionValues",
+        "additionalContinuousCovariates",
+    ):
         """Check these here to make sure camelCase in response"""
         assert attr_name in response.json()[0], response.json()[0].keys()
     models = [ModelSpecRead.model_validate(m) for m in response.json()]
@@ -186,6 +194,7 @@ def test_list_configured_models(celery_session_worker, dependency_overrides):
     assert "population" in (f.name for f in ewars_model.covariates)
     assert ewars_model.source_url is not None
     assert ewars_model.source_url.startswith("https:/")
+    assert ewars_model.version
     assert isinstance(ewars_model.additional_continuous_covariates, list)
 
 

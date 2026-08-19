@@ -34,7 +34,7 @@ def engine():
 
 
 def _make_parents(session: Session) -> tuple[int, int, int]:
-    template = ModelTemplateDB(name="tpl")
+    template = ModelTemplateDB(name="tpl", version="1.0.0")
     session.add(template)
     session.commit()
     assert template.id is not None
