@@ -119,9 +119,10 @@ chap-version: ## print the chap_core version running inside the chap container
 	@docker compose -f compose.yml -f compose.chapkit.yml exec -T chap python -c 'import chap_core; print(f"chap_core running in container: {chap_core.__version__}")' 2>/dev/null || echo "chap container not running"
 
 # --- Architecture: serve / view ---
-# Structurizr's export writes .mmd/.puml into the bind-mounted repo. The image runs
-# as its own uid, so on Linux (and CI) those files land unwritable/undeletable for
-# the host user; Docker Desktop on macOS hides this. Run the export as the caller.
+# Every container below writes generated files into the bind-mounted repo, and each
+# image runs as its own uid (structurizr and mermaid-cli non-root, plantuml and
+# playwright as root). On Linux that leaves output unwritable or root-owned for the
+# host user; Docker Desktop on macOS virtualises this away. Run them as the caller.
 DOCKER_AS_HOST_USER := --user $(shell id -u):$(shell id -g)
 
 architecture: ## serve the interactive C4 architecture model (Structurizr) at http://localhost:6080
@@ -141,8 +142,9 @@ architecture-export: ## export all architecture diagrams to architecture/diagram
 	trap 'docker rm -f chap-structurizr-export >/dev/null 2>&1 || true' EXIT; \
 	echo "Waiting for Structurizr to start..."; \
 	for i in $$(seq 1 30); do curl -fsS -o /dev/null http://localhost:6080/ 2>/dev/null && break; sleep 2; done; \
-	docker run --rm --network container:chap-structurizr-export \
+	docker run --rm --network container:chap-structurizr-export $(DOCKER_AS_HOST_USER) \
 		-e STRUCTURIZR_URL=http://localhost:8080 -e PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+		-e HOME=/tmp -e npm_config_cache=/tmp/.npm \
 		-v "$(CURDIR)/architecture:/work" -w /work mcr.microsoft.com/playwright:v1.55.0-noble \
 		sh -c 'npm i playwright@1.55.0 --no-save --no-fund --no-audit --silent 2>/dev/null && node export-diagrams.js'; \
 	echo "Diagrams exported to architecture/diagrams/"
@@ -153,7 +155,7 @@ architecture-export-mermaid: ## export the model to Mermaid PNGs under architect
 	docker run --rm $(DOCKER_AS_HOST_USER) -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 export -workspace workspace.dsl -format mermaid -output exports/mermaid >/dev/null; \
 	for f in architecture/exports/mermaid/structurizr-*.mmd; do \
 		n=$$(basename "$$f" .mmd | sed 's/^structurizr-//'); \
-		docker run --rm -v "$(CURDIR)/architecture/exports/mermaid:/src" -v "$(CURDIR)/architecture/diagrams/mermaid:/out" \
+		docker run --rm $(DOCKER_AS_HOST_USER) -v "$(CURDIR)/architecture/exports/mermaid:/src" -v "$(CURDIR)/architecture/diagrams/mermaid:/out" \
 			minlag/mermaid-cli:11.15.0 -i "/src/structurizr-$$n.mmd" -o "/out/$$n.png" -b white -w 1800 >/dev/null; \
 	done; \
 	echo "Mermaid PNGs in architecture/diagrams/mermaid/"
@@ -184,7 +186,7 @@ architecture-export-plantuml: ## export the model to C4-PlantUML PNGs under arch
 	@set -e; \
 	mkdir -p architecture/exports/plantuml architecture/diagrams/plantuml; \
 	docker run --rm $(DOCKER_AS_HOST_USER) -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 export -workspace workspace.dsl -format plantuml/c4plantuml -output exports/plantuml >/dev/null; \
-	docker run --rm -v "$(CURDIR)/architecture/exports/plantuml:/src" -v "$(CURDIR)/architecture/diagrams/plantuml:/out" \
+	docker run --rm $(DOCKER_AS_HOST_USER) -v "$(CURDIR)/architecture/exports/plantuml:/src" -v "$(CURDIR)/architecture/diagrams/plantuml:/out" \
 		plantuml/plantuml:1.2026.6 -tpng -o /out '/src/structurizr-*.puml' >/dev/null; \
 	for f in architecture/diagrams/plantuml/structurizr-*.png; do mv "$$f" "architecture/diagrams/plantuml/$$(basename "$$f" | sed 's/^structurizr-//')"; done; \
 	echo "C4-PlantUML PNGs in architecture/diagrams/plantuml/"
