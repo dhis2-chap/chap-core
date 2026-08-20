@@ -1,17 +1,38 @@
-# Modeling internals: in-tree vs external ML
+# Modeling internals: where the modelling actually happens
 
-A recurring question is whether `chap_core` contains real ML code, or whether it
-is "just data preparation and orchestration" for models that live elsewhere. The
-honest answer is nuanced, and this page draws the boundary explicitly.
+**`chap_core` is not where models are implemented.** Models are developed and
+maintained independently, outside this repository; `chap_core` is the tooling
+*around* them — running them, evaluating them, and storing and serving the results.
 
-## TL;DR
+If you are looking for the code that learns disease dynamics from data, it is not
+in this package. This page explains the boundary, and then — because the question
+keeps coming up — accounts for the ML-looking code you will nonetheless find in the
+tree.
 
-`chap_core` is primarily an **orchestration + evaluation framework**. The actual
-forecasting models — the ones that learn disease dynamics from data — live in
-**external model repositories** and run through a `TrainPredictRunner` or a chapkit
-HTTP service (see [Architecture diagrams](architecture_diagrams.md)).
+## The external boundary
 
-The ML that *does* live inside `chap_core` is **classical/statistical only**. There
+Everything with real modeling weight lives outside `chap_core`. The production
+forecasting models (for example the DeepAR-based autoregressive models, and R/INLA
+models) are maintained in their own repositories and executed through a
+`TrainPredictRunner` implementation (Docker, UV, Conda, Renv, command-line, MLflow)
+or against a remote chapkit HTTP service (see
+[Architecture diagrams](architecture_diagrams.md)). `chap_core` discovers them,
+feeds them data, runs them, scores what comes back, and persists it.
+
+The plumbing that loads and runs them is documented in
+[Code overview](code_overview.md), and the reference/example models are catalogued
+in [Running models in Chap](../external_models/running_models_in_chap.md). The two
+entry points into this shared core — the `chap` CLI and the REST API — are compared
+in [CLI vs REST API](cli_vs_rest_api.md).
+
+## Why there is still ML-looking code in the tree
+
+A few things inside `chap_core` do use ML libraries. None of them are the
+forecasting models the platform exists to run: they are support machinery
+(covariate preparation, hyperparameter search, explainability) plus a handful of
+trivial baselines used in tests and as fast stand-ins.
+
+The ML that does live inside `chap_core` is **classical/statistical only**. There
 is no deep learning in the package. Confirmed absent from `chap_core`: `torch`,
 `tensorflow`, `jax`, `statsmodels`, `xgboost`, `lightgbm`, `pymc`, `prophet`,
 `numpyro`, `pyro`, `gpflow`.
@@ -92,23 +113,10 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
 - gluonts `Evaluator` usage in **`chap_core/assessment/prediction_evaluator.py`** —
   quantile-based evaluation plumbing, not a model.
 
-## The external boundary
-
-Everything with real modeling weight lives outside `chap_core`. The production
-forecasting models (for example the DeepAR-based autoregressive models, and R/INLA
-models) are maintained in their own repositories and executed through a
-`TrainPredictRunner` implementation (Docker, UV, Conda, Renv, command-line, MLflow)
-or against a remote chapkit HTTP service. The plumbing that loads and runs them is
-documented in [Code overview](code_overview.md), and the reference/example models
-are catalogued in
-[Running models in Chap](../external_models/running_models_in_chap.md).
-
-The two entry points into this shared core — the `chap` CLI and the REST API — are
-compared in [CLI vs REST API](cli_vs_rest_api.md).
-
 ## One-line answer
 
-The only strictly-ML (learns-to-predict) code in `chap_core` is the scikit-learn
-climate-covariate predictor and the Poisson/naive baselines, plus KMeans clustering.
-HPO and LIME are ML *tooling*; the metrics and preference learning are statistics and
-heuristics. All heavy and deep-learning modeling is external.
+The models are external. The only strictly-ML (learns-to-predict) code in
+`chap_core` is the scikit-learn climate-covariate predictor and the Poisson/naive
+baselines, plus KMeans clustering — support machinery and baselines, not the
+platform's forecasting models. HPO and LIME are ML *tooling*; the metrics and
+preference learning are statistics and heuristics.

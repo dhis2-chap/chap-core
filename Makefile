@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs docs-serve help install lint lint/flake8 check regen-plot-help force-restart restart chap-version architecture architecture-validate architecture-export architecture-export-mermaid architecture-export-docs architecture-export-plantuml architecture-likec4 architecture-export-likec4
+.PHONY: clean coverage dist docs docs-serve help install lint lint/flake8 check regen-plot-help force-restart restart chap-version architecture architecture-validate architecture-export architecture-export-mermaid architecture-export-docs architecture-export-plantuml architecture-check-docs
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -124,14 +124,6 @@ architecture: ## serve the interactive C4 architecture model (Structurizr) at ht
 	@echo "Serving at http://localhost:6080 (Ctrl-C to stop)"
 	docker run -it --rm --name chap-structurizr -p 6080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr:2026.05.22 local
 
-architecture-likec4: ## build + serve the experimental LikeC4 viewer at http://localhost:6081 (alt renderer)
-	@set -e; \
-	echo "Building LikeC4 static site..."; \
-	docker run --rm -v "$(CURDIR)/architecture/likec4:/work" -w /work node:22-bookworm-slim \
-		sh -c 'apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq graphviz >/dev/null 2>&1; npx -y likec4@1.58.0 build -o _site --base / .'; \
-	echo "Serving at http://localhost:6081 (Ctrl-C to stop)"; \
-	docker run --rm -it -p 6081:5180 -v "$(CURDIR)/architecture/likec4/_site:/site:ro" node:22-bookworm-slim npx -y serve@14.2.6 -s -l 5180 /site
-
 # --- Architecture: validate ---
 architecture-validate: ## validate the architecture model DSL (architecture/workspace.dsl)
 	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 validate -workspace workspace.dsl
@@ -167,6 +159,22 @@ architecture-export-docs: ## regenerate docs/contributor/architecture_model.md (
 	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 export -workspace workspace.dsl -format mermaid -output exports/mermaid >/dev/null; \
 	uv run python architecture/mermaid_to_docs.py
 
+architecture-check-docs: ## fail if docs/contributor/architecture_model.md is stale vs workspace.dsl
+	@set -e; \
+	page=docs/contributor/architecture_model.md; \
+	before=$$(mktemp); \
+	cp "$$page" "$$before"; \
+	$(MAKE) --no-print-directory architecture-export-docs >/dev/null; \
+	if ! diff -u "$$before" "$$page"; then \
+		echo; \
+		echo "ERROR: $$page is out of sync with architecture/workspace.dsl."; \
+		echo "It has been regenerated in place - review and commit it."; \
+		rm -f "$$before"; \
+		exit 1; \
+	fi; \
+	rm -f "$$before"; \
+	echo "$$page is in sync with workspace.dsl"
+
 architecture-export-plantuml: ## export the model to C4-PlantUML PNGs under architecture/diagrams/plantuml (alt renderer)
 	@set -e; \
 	mkdir -p architecture/exports/plantuml architecture/diagrams/plantuml; \
@@ -175,19 +183,3 @@ architecture-export-plantuml: ## export the model to C4-PlantUML PNGs under arch
 		plantuml/plantuml:1.2026.6 -tpng -o /out '/src/structurizr-*.puml' >/dev/null; \
 	for f in architecture/diagrams/plantuml/structurizr-*.png; do mv "$$f" "architecture/diagrams/plantuml/$$(basename "$$f" | sed 's/^structurizr-//')"; done; \
 	echo "C4-PlantUML PNGs in architecture/diagrams/plantuml/"
-
-architecture-export-likec4: ## export the experimental LikeC4 views to PNGs under architecture/diagrams/likec4 (alt renderer)
-	@set -e; \
-	mkdir -p architecture/diagrams/likec4; \
-	docker rm -f chap-likec4-serve >/dev/null 2>&1 || true; \
-	echo "Building LikeC4 static site..."; \
-	docker run --rm -v "$(CURDIR)/architecture/likec4:/work" -w /work node:22-bookworm-slim \
-		sh -c 'apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq graphviz >/dev/null 2>&1; npx -y likec4@1.58.0 build -o _site --base / .'; \
-	docker run -d --name chap-likec4-serve -p 6081:5180 -v "$(CURDIR)/architecture/likec4/_site:/site:ro" node:22-bookworm-slim npx -y serve@14.2.6 -s -l 5180 /site >/dev/null; \
-	trap 'docker rm -f chap-likec4-serve >/dev/null 2>&1 || true' EXIT; \
-	echo "Waiting for static site..."; \
-	for i in $$(seq 1 30); do curl -fsS -o /dev/null http://localhost:6081/ 2>/dev/null && break; sleep 2; done; \
-	docker run --rm --network container:chap-likec4-serve -e LIKEC4_URL=http://localhost:5180 -e OUTPUT_DIR=/out -e PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
-		-v "$(CURDIR)/architecture:/work" -v "$(CURDIR)/architecture/diagrams/likec4:/out" -w /work mcr.microsoft.com/playwright:v1.55.0-noble \
-		sh -c 'npm i playwright@1.55.0 --no-save --no-fund --no-audit --silent 2>/dev/null && node export-likec4.js'; \
-	echo "LikeC4 PNGs in architecture/diagrams/likec4/"

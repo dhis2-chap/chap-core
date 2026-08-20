@@ -4,8 +4,10 @@ Reads ``architecture/exports/mermaid/structurizr-<ViewKey>.mmd`` (produced by
 ``structurizr export -format mermaid``) and rewrites each view into clean, native
 Mermaid that renders inside MkDocs (Material, strict security): the HTML ``<div>``
 labels Structurizr emits for PNG rendering are collapsed to plain text with
-``<br/>`` breaks, and the hard-coded white canvas is dropped so the diagram adapts
-to light/dark themes. The C4 node colours and shapes are kept.
+``<br/>`` breaks, and every ``style``/``linkStyle`` line is dropped so the diagram
+follows the MkDocs light/dark theme instead of Structurizr's white-canvas palette.
+The C4 node *shapes* survive (they are node syntax, not styles), but the colours
+and the technology logos do not - for those, use the interactive viewer.
 
 Regenerate with ``make architecture-export-docs``. Do not edit the output by hand.
 """
@@ -27,9 +29,9 @@ VIEWS: list[tuple[str, str]] = [
     ("L3_CoreAPI", "L3 - Components: CHAP Core REST API"),
     ("L3_CoreWorker", "L3 - Components: CHAP Core worker"),
     ("L3_ChapkitService", "L3 - Components: chapkit Service API"),
-    ("Flow_IngestDataset", "Flow - Ingest a dataset"),
     ("Flow_Backtest", "Flow - Run a backtest"),
     ("Flow_Prediction", "Flow - Run a prediction"),
+    ("Flow_IngestDataset", "Flow - Import a reusable dataset (not the Modelling App path)"),
 ]
 
 

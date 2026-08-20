@@ -64,7 +64,8 @@ A few directional facts the diagrams encode (and that are easy to get wrong):
 
 ## Reading the diagrams
 
-Shapes and logos carry meaning, so you can tell what a box is at a glance:
+In the **interactive viewer** (`make architecture`) and its PNG export, shape,
+colour and logo all carry meaning, so you can tell what a box is at a glance:
 
 - **Cylinder** = a datastore (PostgreSQL, the Redis/Valkey broker+store, the
   chapkit SQLite store). Logos tell same-shaped stores apart.
@@ -73,6 +74,14 @@ Shapes and logos carry meaning, so you can tell what a box is at a glance:
   the relevant containers. They are fetched from a CDN at render time, so the
   interactive viewer and the export need network access; offline, the boxes
   still render, just without the logo.
+
+The committed [Mermaid docs page](../docs/contributor/architecture_model.md)
+deliberately carries fewer of these cues: **cylinders survive**, but the C4
+colours, the person shape and the technology logos do not - the palette is
+dropped so the diagrams follow the MkDocs light/dark theme. Every box there is
+labelled with its type (`[Person]`, `[Software System]`, `[Container: …]`,
+`[Component]`) instead, so nothing is ambiguous - it is just plainer. Use the
+interactive viewer when you want the full visual encoding.
 
 ## Viewing and editing the diagrams
 
@@ -101,11 +110,12 @@ make architecture-validate
 make architecture-export      # needs port 6080 free
 ```
 
-This renders every view to `architecture/diagrams/<ViewKey>.png` (committed, so
-the diagrams are viewable in the repo without running anything). The target is
-self-contained: it starts a temporary Structurizr instance, drives a headless
-browser over each view via Structurizr's diagram scripting API, writes the PNGs,
-and tears the instance down.
+This renders every view to `architecture/diagrams/<ViewKey>.png`. The output is
+**gitignored, not committed** - the viewable-in-the-repo copy of the model is the
+Mermaid docs page (see below), which stays in sync with `workspace.dsl` without
+carrying binaries. The target is self-contained: it starts a temporary Structurizr
+instance, drives a headless browser over each view via Structurizr's diagram
+scripting API, writes the PNGs, and tears the instance down.
 
 The prebuilt `structurizr/structurizr` image cannot export PNG/SVG itself
 ("not supported in this build"), so the export uses the official Playwright
@@ -118,28 +128,29 @@ persist, so after one `make architecture-export` the diagram-finder thumbnails
 show immediately in later `make architecture` sessions instead of rendering
 lazily on first click.
 
-Because the rendered PNGs are committed, the renderer toolchain is **version
-pinned** so a re-export does not change them without a source change: the
-Structurizr image, the Playwright image, and LikeC4, `serve`, mermaid-cli and
-PlantUML are all pinned to explicit versions in the `Makefile`. Bump those pins
-deliberately and re-export in the same commit.
+The renderer toolchain is **version pinned** so a re-export does not change the
+output without a source change: the Structurizr image, the Playwright image,
+mermaid-cli and PlantUML are all pinned to explicit versions in the `Makefile`.
 
 ## Trying other renderers
 
 Structurizr DSL stays the single source of truth, but the same model can be
-re-rendered by other tools so you can compare. These are alternate renderers
-kept for side-by-side comparison:
+re-rendered by other tools if you want to compare locally:
 
 ```bash
 make architecture-export-mermaid    # -> architecture/diagrams/mermaid/*.png
 make architecture-export-plantuml   # -> architecture/diagrams/plantuml/*.png
-make architecture-export-likec4     # -> architecture/diagrams/likec4/*.png
-make architecture-likec4            # interactive LikeC4 viewer at :6081
 ```
 
-Each renderer's PNGs sit next to the Structurizr ones under
-`architecture/diagrams/<renderer>/`, so you can open the same view across folders
-for side-by-side comparison.
+Both write under `architecture/diagrams/<renderer>/`, which is gitignored.
+
+- **Mermaid** and **C4-PlantUML** are derived automatically from `workspace.dsl`
+  (`structurizr export -format …`) and rendered to PNG. Note: neither carries the
+  technology logos.
+- **D2** and **Ilograph** are not supported by this Structurizr build's exporter.
+- **LikeC4** was evaluated and dropped: it cannot consume `workspace.dsl`, so it
+  needed a hand-maintained second copy of the whole model that silently drifted
+  from the source of truth.
 
 ## Publishing the model into the docs site
 
@@ -149,21 +160,16 @@ make architecture-export-docs   # -> docs/contributor/architecture_model.md
 
 This regenerates a contributor docs page with every view as native, theme-aware
 Mermaid (the Structurizr Mermaid export's HTML labels are collapsed to plain text
-by [`mermaid_to_docs.py`](mermaid_to_docs.py)). The page is committed, so the
-mkdocs build needs no Docker; rerun the target and commit whenever the model
-changes.
+by [`mermaid_to_docs.py`](mermaid_to_docs.py)). mkdocs renders those fences
+natively via `pymdownx.superfences`, so the build needs no Docker and no image
+files. **This page is the committed, reviewable rendering of the model** - rerun
+the target and commit it whenever `workspace.dsl` changes.
 
-- **Mermaid** and **C4-PlantUML** are derived automatically from `workspace.dsl`
-  (`structurizr export -format …`) and rendered to PNG. Note: neither carries the
-  technology logos.
-- **LikeC4** is a separate, hand-written model ([`likec4/chap.likec4`](likec4/chap.likec4))
-  kept in sync manually - it is *not* derived from `workspace.dsl`. Its strength
-  is the interactive viewer (`make architecture-likec4`). LikeC4's own headless
-  `export png` fails in Docker ("Failed N of N views"), so the export target
-  instead builds the static site, serves it, and screenshots each view via
-  Playwright ([`export-likec4.js`](export-likec4.js)). It needs Graphviz + a
-  browser, so it is slower than the other two.
-- **D2** and **Ilograph** are not supported by this Structurizr build's exporter.
+CI enforces that. `make architecture-check-docs` regenerates the page and fails if
+the result differs from what is committed, and the docs workflow runs it on every
+pull request. The export is byte-reproducible (no hidden state in the gitignored
+`workspace.json`, and identical output on arm64 and amd64), so a diff there always
+means the page is stale - not that the renderer drifted.
 
 ## A note on Structurizr licensing
 

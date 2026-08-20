@@ -65,13 +65,17 @@ capability today.
 | Causal / counterfactual | `causal`, `causal build-counterfactual` | — | — |
 | Model cards / PDF report | `generate-modelcard`, `report`, `generate-pdf-report` | — | — |
 | Hierarchy aggregation | `aggregate-eval` | — | — |
+| Metric export to CSV | `export-metrics` | — | `chap_core.assessment.metrics` |
+| Request format conversion | `convert-request` | — | — |
+| Local tooling / diagnostics | `test`, `write-open-api-spec` | — | — |
 
 ## Reading this
 
 - **CLI-only** commands cluster around research and reporting: explainability,
   preference learning, causal analysis, model cards and PDF/report generation,
-  hierarchy aggregation, and schema/self-test introspection. They read and write
-  files (CSV, GeoJSON, NetCDF, PNG, PDF, HTML) and run models locally.
+  hierarchy aggregation, metric export, and schema/self-test introspection. They
+  read and write files (CSV, GeoJSON, NetCDF, PNG, PDF, HTML) and run models
+  locally.
 - **API-only** endpoints cluster around operating a service: persistent CRUD over
   datasets/backtests/predictions/models, the async job lifecycle, scheduled
   prediction setups, thresholds, and the v2 model-service registry used by the

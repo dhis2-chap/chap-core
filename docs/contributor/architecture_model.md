@@ -18,22 +18,24 @@ graph LR
   subgraph diagram ["System Landscape View"]
 
     1["Implementer / Analyst<br/>[Person]<br/>Configures models and reviews forecasts inside the DHIS2 Modelling App."]
-    19["chapkit model services [0..*]<br/>[Software System]<br/>Self-contained model services - one per model, the now-preferred path. Each exposes the standard CHAP train/predict contract over HTTP and registers itself with CHAP Core."]
     2["Model developer<br/>[Person]<br/>Develops models locally (CHAP CLI or chapkit), then publishes them one of two ways: an MLproject repo or a chapkit service."]
+    20["chapkit model services [0..*]<br/>[Software System]<br/>Self-contained model services - one per model, the now-preferred path. Each exposes the standard CHAP train/predict contract over HTTP and registers itself with CHAP Core."]
     3["DHIS2<br/>[Software System]<br/>Health information system. Source of case, climate and org-unit data; destination for forecast data values."]
     4["CHAP Modelling App (chap-frontend)<br/>[Software System]<br/>Embedded DHIS2 app. The primary client of CHAP Core and the component that writes forecasts back into DHIS2."]
-    5["Model source repos<br/>[Software System]<br/>Git repositories / MLproject definitions - one per model - run in-process by CHAP Core."]
-    6["CHAP Core<br/>[Software System]<br/>Climate-and-health modelling backend: ingests data, runs evaluations and predictions, and serves results."]
+    5["Direct API client<br/>[Software System]<br/>Scripts, integrations and the CHAP CLI driving the REST API directly (OpenAPI client) rather than through the Modelling App."]
+    6["Model source repos<br/>[Software System]<br/>Git repositories / MLproject definitions - one per model - run in-process by CHAP Core."]
+    7["CHAP Core<br/>[Software System]<br/>Climate-and-health modelling backend: ingests data, runs evaluations and predictions, and serves results."]
 
     1-. "Configures models, reviews forecasts" .->4
-    2-. "Develops & evaluates models locally" .->6
-    2-. "Publishes a model -- Option A: MLproject repo" .->5
-    2-. "Develops & tests a model -- Option B: chapkit service" .->19
+    2-. "Develops & evaluates models locally" .->7
+    2-. "Publishes a model -- Option A: MLproject repo" .->6
+    2-. "Develops & tests a model -- Option B: chapkit service" .->20
     4-. "Reads case/climate/org-unit data; after review, optionally writes approved forecast data values<br/>[DHIS2 Web API]" .->3
-    4-. "Submits data, runs evaluations/predictions, polls jobs, pulls forecasts<br/>[HTTPS/JSON (OpenAPI client)]" .->6
-    6-. "Clones & runs model code<br/>[git / Docker / MLflow / UV]" .->5
-    6-. "Trains & predicts<br/>[HTTP $train / $predict]" .->19
-    19-. "Registers & sends heartbeats<br/>[HTTP $register / $ping]" .->6
+    4-. "Submits data, runs evaluations/predictions, polls jobs, pulls forecasts<br/>[HTTPS/JSON (OpenAPI client)]" .->7
+    5-. "Imports reusable datasets, runs evaluations/predictions<br/>[HTTPS/JSON (OpenAPI client)]" .->7
+    7-. "Clones & runs model code<br/>[git / Docker / MLflow / UV]" .->6
+    7-. "Trains & predicts<br/>[HTTP $train / $predict]" .->20
+    20-. "Registers & sends heartbeats<br/>[HTTP $register / $ping]" .->7
 
   end
 ```
@@ -47,31 +49,33 @@ graph LR
 
     2["Model developer<br/>[Person]<br/>Develops models locally (CHAP CLI or chapkit), then publishes them one of two ways: an MLproject repo or a chapkit service."]
     4["CHAP Modelling App (chap-frontend)<br/>[Software System]<br/>Embedded DHIS2 app. The primary client of CHAP Core and the component that writes forecasts back into DHIS2."]
-    5["Model source repos<br/>[Software System]<br/>Git repositories / MLproject definitions - one per model - run in-process by CHAP Core."]
-    19["chapkit model services [0..*]<br/>[Software System]<br/>Self-contained model services - one per model, the now-preferred path. Each exposes the standard CHAP train/predict contract over HTTP and registers itself with CHAP Core."]
+    5["Direct API client<br/>[Software System]<br/>Scripts, integrations and the CHAP CLI driving the REST API directly (OpenAPI client) rather than through the Modelling App."]
+    6["Model source repos<br/>[Software System]<br/>Git repositories / MLproject definitions - one per model - run in-process by CHAP Core."]
+    20["chapkit model services [0..*]<br/>[Software System]<br/>Self-contained model services - one per model, the now-preferred path. Each exposes the standard CHAP train/predict contract over HTTP and registers itself with CHAP Core."]
 
-    subgraph 6 ["CHAP Core"]
+    subgraph 7 ["CHAP Core"]
 
-      12["Celery worker<br/>[Container: Celery (Python)]<br/>Consumes queued jobs and runs dataset harmonisation, backtests and predictions."]
-      16["CHAP CLI<br/>[Container: Cyclopts (Python)]<br/>Local entry point for running and evaluating models without the API."]
-      17[("Redis / Valkey<br/>[Container: Valkey 8]<br/>Celery broker and result backend, job metadata (job_meta) and chapkit service registry.")]
-      18[("PostgreSQL<br/>[Container: PostgreSQL 17]<br/>Datasets, observations, model templates/configs, backtests, predictions.")]
-      7["REST API<br/>[Container: FastAPI / Uvicorn (Python)]<br/>Serves the v1/v2 HTTP API, validates input, enqueues long-running jobs and serves results."]
+      13["Celery worker<br/>[Container: Celery (Python)]<br/>Consumes queued jobs and runs dataset harmonisation, backtests and predictions."]
+      17["CHAP CLI<br/>[Container: Cyclopts (Python)]<br/>Local entry point for running and evaluating models without the API."]
+      18[("Redis / Valkey<br/>[Container: Valkey 8]<br/>Celery broker and result backend, job metadata (job_meta) and chapkit service registry.")]
+      19[("PostgreSQL<br/>[Container: PostgreSQL 17]<br/>Datasets, observations, model templates/configs, backtests, predictions.")]
+      8["REST API<br/>[Container: FastAPI / Uvicorn (Python)]<br/>Serves the v1/v2 HTTP API, validates input, enqueues long-running jobs and serves results."]
     end
 
-    2-. "Develops & evaluates models locally" .->16
-    2-. "Publishes a model -- Option A: MLproject repo" .->5
-    2-. "Develops & tests a model -- Option B: chapkit service" .->19
-    4-. "Submits data, runs evaluations/predictions, polls jobs, pulls forecasts<br/>[HTTPS/JSON (OpenAPI client)]" .->7
-    7-. "Queues jobs; reads job status" .->17
-    7-. "Reads/writes datasets, models, results" .->18
-    12-. "Job lifecycle: fetch job, write job_meta (via Celery task wrapper)" .->17
-    12-. "Reads datasets/models; writes forecasts & metrics" .->18
-    12-. "Clones & runs model code<br/>[git / Docker / MLflow / UV]" .->5
-    16-. "Runs model code locally" .->5
-    12-. "Trains & predicts<br/>[HTTP $train / $predict]" .->19
-    19-. "Registers & sends heartbeats<br/>[HTTP $register / $ping]" .->7
-    7-. "Read-only proxy to live service (artifacts/configs/jobs)<br/>[HTTP GET/HEAD]" .->19
+    2-. "Develops & evaluates models locally" .->17
+    2-. "Publishes a model -- Option A: MLproject repo" .->6
+    2-. "Develops & tests a model -- Option B: chapkit service" .->20
+    4-. "Submits data, runs evaluations/predictions, polls jobs, pulls forecasts<br/>[HTTPS/JSON (OpenAPI client)]" .->8
+    5-. "Imports reusable datasets, runs evaluations/predictions<br/>[HTTPS/JSON (OpenAPI client)]" .->8
+    8-. "Readiness / deep probe: connectivity check" .->19
+    8-. "Readiness / deep probe: broker ping and Celery round-trip" .->18
+    13-. "Job lifecycle: fetch job, write job_meta (via Celery task wrapper)" .->18
+    13-. "Reads datasets/models; writes forecasts & metrics" .->19
+    13-. "Clones & runs model code<br/>[git / Docker / MLflow / UV]" .->6
+    17-. "Runs model code locally" .->6
+    13-. "Trains & predicts<br/>[HTTP $train / $predict]" .->20
+    20-. "Registers & sends heartbeats<br/>[HTTP $register / $ping]" .->8
+    8-. "Read-only proxy to live service (artifacts/configs/jobs)<br/>[HTTP GET/HEAD]" .->20
 
   end
 ```
@@ -84,20 +88,20 @@ graph LR
   subgraph diagram ["Container View: chapkit model services [0..*]"]
 
     2["Model developer<br/>[Person]<br/>Develops models locally (CHAP CLI or chapkit), then publishes them one of two ways: an MLproject repo or a chapkit service."]
-    6["CHAP Core<br/>[Software System]<br/>Climate-and-health modelling backend: ingests data, runs evaluations and predictions, and serves results."]
+    7["CHAP Core<br/>[Software System]<br/>Climate-and-health modelling backend: ingests data, runs evaluations and predictions, and serves results."]
 
-    subgraph 19 ["chapkit model services [0..*]"]
+    subgraph 20 ["chapkit model services [0..*]"]
 
-      20["Service API<br/>[Container: FastAPI (Python)]<br/>FastAPI app assembled by chapkit's MLServiceBuilder; implements the standard train/predict/config/artifact/job REST contract."]
-      30["Web console<br/>[Container: React SPA]<br/>Built-in SPA to browse configs/artifacts/jobs and trigger train/predict against the service."]
+      21["Service API<br/>[Container: FastAPI (Python)]<br/>FastAPI app assembled by chapkit's MLServiceBuilder; implements the standard train/predict/config/artifact/job REST contract."]
+      31["Web console<br/>[Container: React SPA]<br/>Built-in SPA to browse configs/artifacts/jobs and trigger train/predict against the service."]
     end
 
-    2-. "Develops & evaluates models locally" .->6
-    2-. "Develops & tests a model -- Option B: chapkit service" .->30
-    2-. "Publishes (deploys the self-registering service)" .->20
-    6-. "Trains & predicts<br/>[HTTP $train / $predict]" .->20
-    20-. "Registers & sends heartbeats<br/>[HTTP $register / $ping]" .->6
-    30-. "Browses configs/artifacts/jobs; triggers train/predict<br/>[REST]" .->20
+    2-. "Develops & evaluates models locally" .->7
+    2-. "Develops & tests a model -- Option B: chapkit service" .->31
+    2-. "Publishes (deploys the self-registering service)" .->21
+    7-. "Trains & predicts<br/>[HTTP $train / $predict]" .->21
+    21-. "Registers & sends heartbeats<br/>[HTTP $register / $ping]" .->7
+    31-. "Browses configs/artifacts/jobs; triggers train/predict<br/>[REST]" .->21
 
   end
 ```
@@ -109,31 +113,35 @@ graph LR
 
   subgraph diagram ["Component View: CHAP Core - REST API"]
 
-    19["chapkit model services [0..*]<br/>[Software System]<br/>Self-contained model services - one per model, the now-preferred path. Each exposes the standard CHAP train/predict contract over HTTP and registers itself with CHAP Core."]
+    20["chapkit model services [0..*]<br/>[Software System]<br/>Self-contained model services - one per model, the now-preferred path. Each exposes the standard CHAP train/predict contract over HTTP and registers itself with CHAP Core."]
     4["CHAP Modelling App (chap-frontend)<br/>[Software System]<br/>Embedded DHIS2 app. The primary client of CHAP Core and the component that writes forecasts back into DHIS2."]
+    5["Direct API client<br/>[Software System]<br/>Scripts, integrations and the CHAP CLI driving the REST API directly (OpenAPI client) rather than through the Modelling App."]
 
-    subgraph 6 ["CHAP Core"]
+    subgraph 7 ["CHAP Core"]
 
-      subgraph 7 ["REST API"]
+      subgraph 8 ["REST API"]
 
-        10["v2 routers<br/>[Component]<br/>Service registry (chapkit self-registration) plus a read-only reverse proxy to live chapkit services."]
-        11["Orchestrator<br/>[Component]<br/>Redis-backed TTL registry of live chapkit services; other components read the live set from it."]
-        8["Common routes<br/>[Component]<br/>Health, readiness and system-info endpoints."]
-        9["v1 routers<br/>[Component]<br/>crud, analytics, jobs, visualization. Datasets, backtests, predictions, job polling."]
+        10["v1 routers<br/>[Component]<br/>crud, analytics, jobs, visualization. Datasets, backtests, predictions, job polling."]
+        11["v2 routers<br/>[Component]<br/>Service registry (chapkit self-registration) plus a read-only reverse proxy to live chapkit services."]
+        12["Orchestrator<br/>[Component]<br/>Redis-backed TTL registry of live chapkit services. Shared module (chap_core.rest_api.services.orchestrator): the API components and the Celery worker both resolve live services through it."]
+        9["Common routes<br/>[Component]<br/>Health, readiness and system-info endpoints."]
       end
 
-      17[("Redis / Valkey<br/>[Container: Valkey 8]<br/>Celery broker and result backend, job metadata (job_meta) and chapkit service registry.")]
-      18[("PostgreSQL<br/>[Container: PostgreSQL 17]<br/>Datasets, observations, model templates/configs, backtests, predictions.")]
+      18[("Redis / Valkey<br/>[Container: Valkey 8]<br/>Celery broker and result backend, job metadata (job_meta) and chapkit service registry.")]
+      19[("PostgreSQL<br/>[Container: PostgreSQL 17]<br/>Datasets, observations, model templates/configs, backtests, predictions.")]
     end
 
-    4-. "Submits data, runs evaluations/predictions, polls jobs, pulls forecasts<br/>[HTTPS/JSON (OpenAPI client)]" .->9
-    10-. "Registers / lists services" .->11
-    9-. "Queues jobs; reads job status" .->17
-    9-. "Reads/writes datasets, models, results" .->18
-    11-. "Live service registry (TTL keys)" .->17
-    9-. "Reads live services to sync model templates" .->11
-    19-. "Registers & sends heartbeats<br/>[HTTP $register / $ping]" .->10
-    10-. "Read-only proxy to live service (artifacts/configs/jobs)<br/>[HTTP GET/HEAD]" .->19
+    4-. "Submits data, runs evaluations/predictions, polls jobs, pulls forecasts<br/>[HTTPS/JSON (OpenAPI client)]" .->10
+    5-. "Imports reusable datasets, runs evaluations/predictions<br/>[HTTPS/JSON (OpenAPI client)]" .->10
+    9-. "Readiness / deep probe: connectivity check" .->19
+    9-. "Readiness / deep probe: broker ping and Celery round-trip" .->18
+    11-. "Registers / lists services" .->12
+    10-. "Queues jobs; reads job status" .->18
+    10-. "Reads/writes datasets, models, results" .->19
+    12-. "Live service registry (TTL keys)" .->18
+    10-. "Reads live services to sync model templates" .->12
+    20-. "Registers & sends heartbeats<br/>[HTTP $register / $ping]" .->11
+    11-. "Read-only proxy to live service (artifacts/configs/jobs)<br/>[HTTP GET/HEAD]" .->20
 
   end
 ```
@@ -145,29 +153,29 @@ graph LR
 
   subgraph diagram ["Component View: CHAP Core - Celery worker"]
 
-    19["chapkit model services [0..*]<br/>[Software System]<br/>Self-contained model services - one per model, the now-preferred path. Each exposes the standard CHAP train/predict contract over HTTP and registers itself with CHAP Core."]
-    5["Model source repos<br/>[Software System]<br/>Git repositories / MLproject definitions - one per model - run in-process by CHAP Core."]
+    20["chapkit model services [0..*]<br/>[Software System]<br/>Self-contained model services - one per model, the now-preferred path. Each exposes the standard CHAP train/predict contract over HTTP and registers itself with CHAP Core."]
+    6["Model source repos<br/>[Software System]<br/>Git repositories / MLproject definitions - one per model - run in-process by CHAP Core."]
 
-    subgraph 6 ["CHAP Core"]
+    subgraph 7 ["CHAP Core"]
 
-      subgraph 12 ["Celery worker"]
+      subgraph 13 ["Celery worker"]
 
-        13["Worker functions<br/>[Component]<br/>db_worker_functions: harmonise datasets, run backtests, run predictions; read/write the database."]
-        14["TrainPredict runners<br/>[Component]<br/>Run MLproject models in-process: Docker / UV / Conda / Renv / MLflow / CLI."]
-        15["Chapkit REST client<br/>[Component]<br/>CHAPKitRestAPIWrapper: httpx client calling remote chapkit model services."]
+        14["Worker functions<br/>[Component]<br/>db_worker_functions: harmonise datasets, run backtests, run predictions; read/write the database."]
+        15["TrainPredict runners<br/>[Component]<br/>Run MLproject models in-process: Docker / UV / Conda / Renv / MLflow / CLI."]
+        16["Chapkit REST client<br/>[Component]<br/>CHAPKitRestAPIWrapper: httpx client calling remote chapkit model services."]
       end
 
-      17[("Redis / Valkey<br/>[Container: Valkey 8]<br/>Celery broker and result backend, job metadata (job_meta) and chapkit service registry.")]
-      18[("PostgreSQL<br/>[Container: PostgreSQL 17]<br/>Datasets, observations, model templates/configs, backtests, predictions.")]
+      18[("Redis / Valkey<br/>[Container: Valkey 8]<br/>Celery broker and result backend, job metadata (job_meta) and chapkit service registry.")]
+      19[("PostgreSQL<br/>[Container: PostgreSQL 17]<br/>Datasets, observations, model templates/configs, backtests, predictions.")]
     end
 
-    13-. "Job lifecycle: fetch job, write job_meta (via Celery task wrapper)" .->17
-    13-. "Reads datasets/models; writes forecasts & metrics" .->18
-    13-. "Resolves live service URL from registry (TTL keys)" .->17
-    13-. "Runs in-process models" .->14
-    13-. "Calls remote models" .->15
-    14-. "Clones & runs model code<br/>[git / Docker / MLflow / UV]" .->5
-    15-. "Trains & predicts<br/>[HTTP $train / $predict]" .->19
+    14-. "Job lifecycle: fetch job, write job_meta (via Celery task wrapper)" .->18
+    14-. "Reads datasets/models; writes forecasts & metrics" .->19
+    14-. "Resolves live service URL from registry (TTL keys, via the shared Orchestrator module)" .->18
+    14-. "Runs in-process models" .->15
+    14-. "Calls remote models" .->16
+    15-. "Clones & runs model code<br/>[git / Docker / MLflow / UV]" .->6
+    16-. "Trains & predicts<br/>[HTTP $train / $predict]" .->20
 
   end
 ```
@@ -179,59 +187,34 @@ graph LR
 
   subgraph diagram ["Component View: chapkit model services [0..*] - Service API"]
 
-    6["CHAP Core<br/>[Software System]<br/>Climate-and-health modelling backend: ingests data, runs evaluations and predictions, and serves results."]
+    7["CHAP Core<br/>[Software System]<br/>Climate-and-health modelling backend: ingests data, runs evaluations and predictions, and serves results."]
 
-    subgraph 19 ["chapkit model services [0..*]"]
+    subgraph 20 ["chapkit model services [0..*]"]
 
-      subgraph 20 ["Service API"]
+      subgraph 21 ["Service API"]
 
-        21["Registration & health<br/>[Component]<br/>Self-registers with CHAP Core and sends heartbeats; serves /health and /api/v1/info (service identity CHAP Core reads)."]
-        22["ML router<br/>[Component]<br/>/api/v1/ml: $train, $predict, $validate, $generate-sample-data."]
-        23["Config router<br/>[Component]<br/>/api/v1/configs: typed, Pydantic-validated model configuration CRUD."]
-        24["Artifact router<br/>[Component]<br/>/api/v1/artifacts: artifact CRUD - tree, expand, metadata, linked config, download (trained models, predictions)."]
-        25["Jobs router<br/>[Component]<br/>/api/v1/jobs: async job status and cancellation."]
-        26["ML manager<br/>[Component]<br/>Train/predict pipelines; turns runner output into typed, versioned artifacts."]
-        27["Job scheduler<br/>[Component]<br/>In-memory async scheduler; runs train/predict as ULID-tracked background jobs."]
-        28["Model runner<br/>[Component]<br/>Pluggable train/predict implementation: functional, class-based, or shell (Python / R)."]
-        29[("Artifact & config store<br/>[Component: SQLite]<br/>Trained-model artifacts, predictions and configs; tree-structured and Alembic-migrated. Embedded in-process (same service).")]
+        22["Registration & health<br/>[Component]<br/>Self-registers with CHAP Core and sends heartbeats; serves /health and /api/v1/info (service identity CHAP Core reads)."]
+        23["ML router<br/>[Component]<br/>/api/v1/ml: $train, $predict, $validate, $generate-sample-data."]
+        24["Config router<br/>[Component]<br/>/api/v1/configs: typed, Pydantic-validated model configuration CRUD."]
+        25["Artifact router<br/>[Component]<br/>/api/v1/artifacts: artifact CRUD - tree, expand, metadata, linked config, download (trained models, predictions)."]
+        26["Jobs router<br/>[Component]<br/>/api/v1/jobs: async job status and cancellation."]
+        27["ML manager<br/>[Component]<br/>Train/predict pipelines; turns runner output into typed, versioned artifacts."]
+        28["Job scheduler<br/>[Component]<br/>In-memory async scheduler; runs train/predict as ULID-tracked background jobs."]
+        29["Model runner<br/>[Component]<br/>Pluggable train/predict implementation: functional, class-based, or shell (Python / R)."]
+        30[("Artifact & config store<br/>[Component: SQLite]<br/>Trained-model artifacts, predictions and configs; tree-structured and Alembic-migrated. Embedded in-process (same service).")]
       end
 
     end
 
-    6-. "Trains & predicts<br/>[HTTP $train / $predict]" .->22
-    21-. "Registers & sends heartbeats<br/>[HTTP $register / $ping]" .->6
-    22-. "Submits train/predict requests" .->26
-    26-. "Schedules background job" .->27
-    27-. "Runs train / predict" .->28
-    26-. "Reads/writes artifacts & configs" .->29
-    23-. "Reads/writes configs" .->29
-    24-. "Reads artifact tree" .->29
-    25-. "Reads job status" .->27
-
-  end
-```
-
-## Flow - Ingest a dataset
-
-```mermaid
-graph LR
-
-  subgraph diagram ["Dynamic View: CHAP Core"]
-
-    subgraph 6 ["CHAP Core"]
-
-      12["Celery worker<br/>[Container: Celery (Python)]<br/>Consumes queued jobs and runs dataset harmonisation, backtests and predictions."]
-      17[("Redis / Valkey<br/>[Container: Valkey 8]<br/>Celery broker and result backend, job metadata (job_meta) and chapkit service registry.")]
-      18[("PostgreSQL<br/>[Container: PostgreSQL 17]<br/>Datasets, observations, model templates/configs, backtests, predictions.")]
-      7["REST API<br/>[Container: FastAPI / Uvicorn (Python)]<br/>Serves the v1/v2 HTTP API, validates input, enqueues long-running jobs and serves results."]
-    end
-
-    4["CHAP Modelling App (chap-frontend)<br/>[Software System]<br/>Embedded DHIS2 app. The primary client of CHAP Core and the component that writes forecasts back into DHIS2."]
-
-    4-. "1. POST /v1/analytics/make-dataset (observations + geojson)<br/>[HTTPS/JSON (OpenAPI client)]" .->7
-    7-. "2. Validate input, then queue harmonise-dataset job" .->17
-    12-. "3. Fetch job" .->17
-    12-. "4. Harmonise & save DataSet + Observations" .->18
+    7-. "Trains & predicts<br/>[HTTP $train / $predict]" .->23
+    22-. "Registers & sends heartbeats<br/>[HTTP $register / $ping]" .->7
+    23-. "Submits train/predict requests" .->27
+    27-. "Schedules background job" .->28
+    28-. "Runs train / predict" .->29
+    27-. "Reads/writes artifacts & configs" .->30
+    24-. "Reads/writes configs" .->30
+    25-. "Reads artifact tree" .->30
+    26-. "Reads job status" .->28
 
   end
 ```
@@ -243,25 +226,25 @@ graph LR
 
   subgraph diagram ["Dynamic View: CHAP Core"]
 
-    subgraph 6 ["CHAP Core"]
+    subgraph 7 ["CHAP Core"]
 
-      12["Celery worker<br/>[Container: Celery (Python)]<br/>Consumes queued jobs and runs dataset harmonisation, backtests and predictions."]
-      17[("Redis / Valkey<br/>[Container: Valkey 8]<br/>Celery broker and result backend, job metadata (job_meta) and chapkit service registry.")]
-      18[("PostgreSQL<br/>[Container: PostgreSQL 17]<br/>Datasets, observations, model templates/configs, backtests, predictions.")]
-      7["REST API<br/>[Container: FastAPI / Uvicorn (Python)]<br/>Serves the v1/v2 HTTP API, validates input, enqueues long-running jobs and serves results."]
+      13["Celery worker<br/>[Container: Celery (Python)]<br/>Consumes queued jobs and runs dataset harmonisation, backtests and predictions."]
+      18[("Redis / Valkey<br/>[Container: Valkey 8]<br/>Celery broker and result backend, job metadata (job_meta) and chapkit service registry.")]
+      19[("PostgreSQL<br/>[Container: PostgreSQL 17]<br/>Datasets, observations, model templates/configs, backtests, predictions.")]
+      8["REST API<br/>[Container: FastAPI / Uvicorn (Python)]<br/>Serves the v1/v2 HTTP API, validates input, enqueues long-running jobs and serves results."]
     end
 
     4["CHAP Modelling App (chap-frontend)<br/>[Software System]<br/>Embedded DHIS2 app. The primary client of CHAP Core and the component that writes forecasts back into DHIS2."]
-    19["chapkit model services [0..*]<br/>[Software System]<br/>Self-contained model services - one per model, the now-preferred path. Each exposes the standard CHAP train/predict contract over HTTP and registers itself with CHAP Core."]
+    20["chapkit model services [0..*]<br/>[Software System]<br/>Self-contained model services - one per model, the now-preferred path. Each exposes the standard CHAP train/predict contract over HTTP and registers itself with CHAP Core."]
 
-    4-. "1. POST /v1/analytics/create-backtest-with-data<br/>[HTTPS/JSON (OpenAPI client)]" .->7
-    7-. "2. Validate input, then queue backtest job (existing model_id)" .->17
-    12-. "3. Fetch job" .->17
-    12-. "4. Save DataSet; load ConfiguredModel by id" .->18
-    12-. "5. Train + predict per fold (chapkit service, or an in-process MLproject runner)<br/>[HTTP $train / $predict]" .->19
-    12-. "6. Write Backtest + forecasts + metrics" .->18
-    4-. "7. GET evaluation results<br/>[HTTPS/JSON (OpenAPI client)]" .->7
-    7-. "8. Read forecasts + actuals" .->18
+    4-. "1. POST /v1/analytics/create-backtest-with-data<br/>[HTTPS/JSON (OpenAPI client)]" .->8
+    8-. "2. Validate input, then queue backtest job (existing model_id)" .->18
+    13-. "3. Fetch job" .->18
+    13-. "4. Save DataSet; load ConfiguredModel by id" .->19
+    13-. "5. Train + predict per fold (chapkit service, or an in-process MLproject runner)<br/>[HTTP $train / $predict]" .->20
+    13-. "6. Write Backtest + forecasts + metrics" .->19
+    4-. "7. GET evaluation results<br/>[HTTPS/JSON (OpenAPI client)]" .->8
+    8-. "8. Read forecasts + actuals" .->19
 
   end
 ```
@@ -273,27 +256,52 @@ graph LR
 
   subgraph diagram ["Dynamic View: CHAP Core"]
 
-    subgraph 6 ["CHAP Core"]
+    subgraph 7 ["CHAP Core"]
 
-      12["Celery worker<br/>[Container: Celery (Python)]<br/>Consumes queued jobs and runs dataset harmonisation, backtests and predictions."]
-      17[("Redis / Valkey<br/>[Container: Valkey 8]<br/>Celery broker and result backend, job metadata (job_meta) and chapkit service registry.")]
-      18[("PostgreSQL<br/>[Container: PostgreSQL 17]<br/>Datasets, observations, model templates/configs, backtests, predictions.")]
-      7["REST API<br/>[Container: FastAPI / Uvicorn (Python)]<br/>Serves the v1/v2 HTTP API, validates input, enqueues long-running jobs and serves results."]
+      13["Celery worker<br/>[Container: Celery (Python)]<br/>Consumes queued jobs and runs dataset harmonisation, backtests and predictions."]
+      18[("Redis / Valkey<br/>[Container: Valkey 8]<br/>Celery broker and result backend, job metadata (job_meta) and chapkit service registry.")]
+      19[("PostgreSQL<br/>[Container: PostgreSQL 17]<br/>Datasets, observations, model templates/configs, backtests, predictions.")]
+      8["REST API<br/>[Container: FastAPI / Uvicorn (Python)]<br/>Serves the v1/v2 HTTP API, validates input, enqueues long-running jobs and serves results."]
     end
 
     1["Implementer / Analyst<br/>[Person]<br/>Configures models and reviews forecasts inside the DHIS2 Modelling App."]
     3["DHIS2<br/>[Software System]<br/>Health information system. Source of case, climate and org-unit data; destination for forecast data values."]
     4["CHAP Modelling App (chap-frontend)<br/>[Software System]<br/>Embedded DHIS2 app. The primary client of CHAP Core and the component that writes forecasts back into DHIS2."]
-    19["chapkit model services [0..*]<br/>[Software System]<br/>Self-contained model services - one per model, the now-preferred path. Each exposes the standard CHAP train/predict contract over HTTP and registers itself with CHAP Core."]
+    20["chapkit model services [0..*]<br/>[Software System]<br/>Self-contained model services - one per model, the now-preferred path. Each exposes the standard CHAP train/predict contract over HTTP and registers itself with CHAP Core."]
 
-    4-. "1. Request prediction (or a stored PredictionSetup cron fires)<br/>[HTTPS/JSON (OpenAPI client)]" .->7
-    7-. "2. Queue prediction job" .->17
-    12-. "3. Fetch job" .->17
-    12-. "4. Predict quantile forecasts (chapkit service, or an in-process MLproject runner)<br/>[HTTP $train / $predict]" .->19
-    12-. "5. Store Prediction samples (collected in CHAP)" .->18
-    4-. "6. Pull prediction quantiles (/v1/analytics/prediction-entry)<br/>[HTTPS/JSON (OpenAPI client)]" .->7
+    4-. "1. POST /v1/analytics/make-prediction (observations + geojson; a stored PredictionSetup fires the same job on a schedule)<br/>[HTTPS/JSON (OpenAPI client)]" .->8
+    8-. "2. Queue prediction job" .->18
+    13-. "3. Fetch job" .->18
+    13-. "4. Predict quantile forecasts (chapkit service, or an in-process MLproject runner)<br/>[HTTP $train / $predict]" .->20
+    13-. "5. Store Prediction samples (collected in CHAP)" .->19
+    4-. "6. Pull prediction quantiles (/v1/analytics/prediction-entry)<br/>[HTTPS/JSON (OpenAPI client)]" .->8
     1-. "7. Review forecasts" .->4
     4-. "8. If approved, write forecast data values (dataValueSets)<br/>[DHIS2 Web API]" .->3
+
+  end
+```
+
+## Flow - Import a reusable dataset (not the Modelling App path)
+
+```mermaid
+graph LR
+
+  subgraph diagram ["Dynamic View: CHAP Core"]
+
+    subgraph 7 ["CHAP Core"]
+
+      13["Celery worker<br/>[Container: Celery (Python)]<br/>Consumes queued jobs and runs dataset harmonisation, backtests and predictions."]
+      18[("Redis / Valkey<br/>[Container: Valkey 8]<br/>Celery broker and result backend, job metadata (job_meta) and chapkit service registry.")]
+      19[("PostgreSQL<br/>[Container: PostgreSQL 17]<br/>Datasets, observations, model templates/configs, backtests, predictions.")]
+      8["REST API<br/>[Container: FastAPI / Uvicorn (Python)]<br/>Serves the v1/v2 HTTP API, validates input, enqueues long-running jobs and serves results."]
+    end
+
+    5["Direct API client<br/>[Software System]<br/>Scripts, integrations and the CHAP CLI driving the REST API directly (OpenAPI client) rather than through the Modelling App."]
+
+    5-. "1. POST /v1/analytics/make-dataset (observations + geojson)<br/>[HTTPS/JSON (OpenAPI client)]" .->8
+    8-. "2. Validate input, then queue harmonise-dataset job" .->18
+    13-. "3. Fetch job" .->18
+    13-. "4. Harmonise & save DataSet + Observations" .->19
 
   end
 ```

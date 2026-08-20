@@ -18,6 +18,10 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
             tags "External"
         }
 
+        apiClient = softwareSystem "Direct API client" "Scripts, integrations and the CHAP CLI driving the REST API directly (OpenAPI client) rather than through the Modelling App." {
+            tags "External"
+        }
+
         modelRepos = softwareSystem "Model source repos" "Git repositories / MLproject definitions - one per model - run in-process by CHAP Core." {
             tags "External"
         }
@@ -30,7 +34,7 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
                 common = component "Common routes" "Health, readiness and system-info endpoints."
                 v1 = component "v1 routers" "crud, analytics, jobs, visualization. Datasets, backtests, predictions, job polling."
                 v2 = component "v2 routers" "Service registry (chapkit self-registration) plus a read-only reverse proxy to live chapkit services."
-                orchestrator = component "Orchestrator" "Redis-backed TTL registry of live chapkit services; other components read the live set from it."
+                orchestrator = component "Orchestrator" "Redis-backed TTL registry of live chapkit services. Shared module (chap_core.rest_api.services.orchestrator): the API components and the Celery worker both resolve live services through it."
             }
 
             worker = container "Celery worker" "Consumes queued jobs and runs dataset harmonisation, backtests and predictions." "Celery (Python)" {
@@ -82,8 +86,11 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
 
         modellingApp -> dhis2 "Reads case/climate/org-unit data; after review, optionally writes approved forecast data values" "DHIS2 Web API"
         modellingApp -> chapCore.api.v1 "Submits data, runs evaluations/predictions, polls jobs, pulls forecasts" "HTTPS/JSON (OpenAPI client)"
+        apiClient -> chapCore.api.v1 "Imports reusable datasets, runs evaluations/predictions" "HTTPS/JSON (OpenAPI client)"
 
         # --- Relationships: CHAP Core API components ---------------------
+        chapCore.api.common -> chapCore.db "Readiness / deep probe: connectivity check"
+        chapCore.api.common -> chapCore.redis "Readiness / deep probe: broker ping and Celery round-trip"
         chapCore.api.v2 -> chapCore.api.orchestrator "Registers / lists services"
         chapCore.api.v1 -> chapCore.redis "Queues jobs; reads job status"
         chapCore.api.v1 -> chapCore.db "Reads/writes datasets, models, results"
@@ -93,7 +100,7 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
         # --- Relationships: CHAP Core worker components ------------------
         chapCore.worker.dbfns -> chapCore.redis "Job lifecycle: fetch job, write job_meta (via Celery task wrapper)"
         chapCore.worker.dbfns -> chapCore.db "Reads datasets/models; writes forecasts & metrics"
-        chapCore.worker.dbfns -> chapCore.redis "Resolves live service URL from registry (TTL keys)"
+        chapCore.worker.dbfns -> chapCore.redis "Resolves live service URL from registry (TTL keys, via the shared Orchestrator module)"
         chapCore.worker.dbfns -> chapCore.worker.runners "Runs in-process models"
         chapCore.worker.dbfns -> chapCore.worker.chapkitClient "Calls remote models"
         chapCore.worker.runners -> modelRepos "Clones & runs model code" "git / Docker / MLflow / UV"
@@ -148,14 +155,6 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
             autolayout lr
         }
 
-        dynamic chapCore "Flow_IngestDataset" "Flow - import and harmonise a dataset from the Modelling App." {
-            modellingApp -> chapCore.api "POST /v1/analytics/make-dataset (observations + geojson)"
-            chapCore.api -> chapCore.redis "Validate input, then queue harmonise-dataset job"
-            chapCore.worker -> chapCore.redis "Fetch job"
-            chapCore.worker -> chapCore.db "Harmonise & save DataSet + Observations"
-            autolayout lr
-        }
-
         dynamic chapCore "Flow_Backtest" "Flow - run an evaluation (backtest) and read results." {
             modellingApp -> chapCore.api "POST /v1/analytics/create-backtest-with-data"
             chapCore.api -> chapCore.redis "Validate input, then queue backtest job (existing model_id)"
@@ -169,7 +168,7 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
         }
 
         dynamic chapCore "Flow_Prediction" "Flow - run a prediction, review it, and optionally push approved forecasts to DHIS2." {
-            modellingApp -> chapCore.api "Request prediction (or a stored PredictionSetup cron fires)"
+            modellingApp -> chapCore.api "POST /v1/analytics/make-prediction (observations + geojson; a stored PredictionSetup fires the same job on a schedule)"
             chapCore.api -> chapCore.redis "Queue prediction job"
             chapCore.worker -> chapCore.redis "Fetch job"
             chapCore.worker -> chapkit "Predict quantile forecasts (chapkit service, or an in-process MLproject runner)"
@@ -177,6 +176,14 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
             modellingApp -> chapCore.api "Pull prediction quantiles (/v1/analytics/prediction-entry)"
             analyst -> modellingApp "Review forecasts"
             modellingApp -> dhis2 "If approved, write forecast data values (dataValueSets)"
+            autolayout lr
+        }
+
+        dynamic chapCore "Flow_IngestDataset" "Flow - import a reusable dataset (API / CLI clients; not the Modelling App path)." {
+            apiClient -> chapCore.api "POST /v1/analytics/make-dataset (observations + geojson)"
+            chapCore.api -> chapCore.redis "Validate input, then queue harmonise-dataset job"
+            chapCore.worker -> chapCore.redis "Fetch job"
+            chapCore.worker -> chapCore.db "Harmonise & save DataSet + Observations"
             autolayout lr
         }
 
