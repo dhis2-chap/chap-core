@@ -45,7 +45,9 @@ SKIP_FILES = [
 def get_doc_files():
     """Get all markdown files in docs/ that are not in SKIP_FILES."""
     all_files = list(pathlib.Path("docs").glob("**/*.md"))
-    return [f for f in all_files if not any(str(f).startswith(skip) for skip in SKIP_FILES)]
+    # as_posix() so the forward-slash prefixes above also match on Windows,
+    # where str(Path) yields backslashes and the skip list silently misses.
+    return [f for f in all_files if not any(f.as_posix().startswith(skip) for skip in SKIP_FILES)]
 
 
 @pytest.mark.parametrize("fpath", get_doc_files(), ids=str)
