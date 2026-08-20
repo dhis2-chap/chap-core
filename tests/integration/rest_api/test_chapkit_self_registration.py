@@ -96,6 +96,29 @@ def test_registered_service_appears_in_model_templates(client, register_service)
     assert matching[0]["healthStatus"] == "live"
 
 
+def test_schema_fetch_failure_does_not_freeze_empty_user_options(client, register_service, mock_wrapper_cls):
+    schema = {
+        "properties": {
+            "n_lags": {"type": "integer", "default": 3},
+            "prediction_periods": {"type": "integer", "default": 1},
+        }
+    }
+    mock_wrapper_cls.return_value.get_config_schema.side_effect = [
+        ConnectionError("service temporarily unavailable"),
+        schema,
+    ]
+    register_service()
+
+    # An incomplete template is not created while the schema endpoint is down.
+    assert client.get("/v1/crud/model-templates").json() == []
+
+    # The next sync succeeds and creates the template with its user options.
+    templates = client.get("/v1/crud/model-templates").json()
+    matching = [template for template in templates if template["name"] == "test-model"]
+    assert len(matching) == 1
+    assert matching[0]["userOptions"] == {"n_lags": {"type": "integer", "default": 3}}
+
+
 def test_registered_service_has_configured_model(client, register_service):
     register_service()
     # Trigger sync
