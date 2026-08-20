@@ -119,6 +119,11 @@ chap-version: ## print the chap_core version running inside the chap container
 	@docker compose -f compose.yml -f compose.chapkit.yml exec -T chap python -c 'import chap_core; print(f"chap_core running in container: {chap_core.__version__}")' 2>/dev/null || echo "chap container not running"
 
 # --- Architecture: serve / view ---
+# Structurizr's export writes .mmd/.puml into the bind-mounted repo. The image runs
+# as its own uid, so on Linux (and CI) those files land unwritable/undeletable for
+# the host user; Docker Desktop on macOS hides this. Run the export as the caller.
+DOCKER_AS_HOST_USER := --user $(shell id -u):$(shell id -g)
+
 architecture: ## serve the interactive C4 architecture model (Structurizr) at http://localhost:6080
 	docker rm -f chap-structurizr chap-structurizr-export >/dev/null 2>&1 || true
 	@echo "Serving at http://localhost:6080 (Ctrl-C to stop)"
@@ -145,7 +150,7 @@ architecture-export: ## export all architecture diagrams to architecture/diagram
 architecture-export-mermaid: ## export the model to Mermaid PNGs under architecture/diagrams/mermaid (alt renderer)
 	@set -e; \
 	mkdir -p architecture/exports/mermaid architecture/diagrams/mermaid; \
-	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 export -workspace workspace.dsl -format mermaid -output exports/mermaid >/dev/null; \
+	docker run --rm $(DOCKER_AS_HOST_USER) -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 export -workspace workspace.dsl -format mermaid -output exports/mermaid >/dev/null; \
 	for f in architecture/exports/mermaid/structurizr-*.mmd; do \
 		n=$$(basename "$$f" .mmd | sed 's/^structurizr-//'); \
 		docker run --rm -v "$(CURDIR)/architecture/exports/mermaid:/src" -v "$(CURDIR)/architecture/diagrams/mermaid:/out" \
@@ -156,7 +161,7 @@ architecture-export-mermaid: ## export the model to Mermaid PNGs under architect
 architecture-export-docs: ## regenerate docs/contributor/architecture_model.md (native mermaid) from workspace.dsl
 	@set -e; \
 	mkdir -p architecture/exports/mermaid; \
-	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 export -workspace workspace.dsl -format mermaid -output exports/mermaid >/dev/null; \
+	docker run --rm $(DOCKER_AS_HOST_USER) -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 export -workspace workspace.dsl -format mermaid -output exports/mermaid >/dev/null; \
 	uv run python architecture/mermaid_to_docs.py
 
 architecture-check-docs: ## fail if docs/contributor/architecture_model.md is stale vs workspace.dsl
@@ -178,7 +183,7 @@ architecture-check-docs: ## fail if docs/contributor/architecture_model.md is st
 architecture-export-plantuml: ## export the model to C4-PlantUML PNGs under architecture/diagrams/plantuml (alt renderer)
 	@set -e; \
 	mkdir -p architecture/exports/plantuml architecture/diagrams/plantuml; \
-	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 export -workspace workspace.dsl -format plantuml/c4plantuml -output exports/plantuml >/dev/null; \
+	docker run --rm $(DOCKER_AS_HOST_USER) -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 export -workspace workspace.dsl -format plantuml/c4plantuml -output exports/plantuml >/dev/null; \
 	docker run --rm -v "$(CURDIR)/architecture/exports/plantuml:/src" -v "$(CURDIR)/architecture/diagrams/plantuml:/out" \
 		plantuml/plantuml:1.2026.6 -tpng -o /out '/src/structurizr-*.puml' >/dev/null; \
 	for f in architecture/diagrams/plantuml/structurizr-*.png; do mv "$$f" "architecture/diagrams/plantuml/$$(basename "$$f" | sed 's/^structurizr-//')"; done; \
