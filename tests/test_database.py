@@ -272,6 +272,8 @@ def test_new_template_version_gets_its_own_configured_model(model_template_yaml_
         # CHAP offers only the live version.
         assert [model.id for model in session.get_configured_models()] == [v2_configured_id]
         assert session.get_configured_model_by_name("test_model").id == v2_configured_id
+        # A pinned id still resolves the version that it points at.
+        assert session.get_configured_model_by_id_or_name(v1_configured_id).id == v1_configured_id
 
 
 def test_add_model_template_from_url_stores_source_digest(engine, model_template_yaml_config, monkeypatch):

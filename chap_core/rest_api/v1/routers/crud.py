@@ -1111,6 +1111,7 @@ async def run_prediction_setup(
         dataset_create_info=dataset_info,
         prediction_params=prediction_params,
         prediction_setup_id=prediction_setup_id,
+        configured_model_id=setup.configured_model_id,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
