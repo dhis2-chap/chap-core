@@ -54,16 +54,14 @@ _TABLES_ADDED_BY_MIGRATIONS = [
     "predictionsetup",
 ]
 
-# Unique constraints added by alembic migrations, paired with the baseline constraint
-# they replaced. create_all builds these from current SQLModel metadata, so the
-# baseline has to be walked back to the pre-migration shape for the migration to run.
+# Unique constraints from migrations, with the baseline constraint that each one replaced.
+# create_all makes the new shape, so the baseline must go back to the old shape.
 _CONSTRAINTS_REPLACED_BY_MIGRATIONS = [
     ("modeltemplatedb", "uq_modeltemplatedb_name_version", "modeltemplatedb_name_key", "name"),
     ("configuredmodeldb", "uq_configuredmodeldb_template_name_digest", "configuredmodeldb_name_key", "name"),
 ]
 
-# Columns the baseline had as nullable and a migration made NOT NULL. Reverting these
-# is what exercises the migration's backfill.
+# Columns that a migration made NOT NULL. This makes the test run the backfill.
 _COLUMNS_MADE_NOT_NULL_BY_MIGRATIONS = [
     ("modeltemplatedb", "version"),
 ]

@@ -1,14 +1,10 @@
 """version_templates_and_configurations
 
-Makes template versions and configurations immutable. Uniqueness moves from
-`name` to `(name, version)` on modeltemplatedb and to
-`(model_template_id, name, configuration_digest)` on configuredmodeldb, so a new
-version or an edited configuration becomes a new row instead of rewriting the row
-that finished backtests still point at. Both tables get an `is_live` flag marking
-the row currently served under a given name.
+Template versions and configurations become immutable. A new version or a changed
+configuration adds a row. It does not overwrite the row that a backtest points to.
+The `is_live` flag shows the row that CHAP serves for a name.
 
-Note that `downgrade` restores globally unique names, so it only succeeds while
-each name still has a single row. Superseded rows must be resolved by hand first.
+`downgrade` makes each name unique again. It fails if a name has more than one row.
 
 Revision ID: b8c9d0e1f2a3
 Revises: a7b8c9d0e1f2
@@ -24,8 +20,7 @@ import sqlalchemy as sa
 
 from alembic import op
 
-# Existing rows predate versioned template identity. This is deliberately local
-# to the migration: new registrations must supply an actual version.
+# Only for rows that CHAP made before the version became part of the identity.
 LEGACY_UNVERSIONED_VERSION = "legacy-unversioned"
 
 revision: str = "b8c9d0e1f2a3"
@@ -35,15 +30,10 @@ depends_on: str | Sequence[str] | None = None
 
 
 def _backfill_configuration_digests() -> None:
-    """Give existing configurations the digest of the values they already hold.
+    """Give each configuration the digest of the values it holds.
 
-    Without this, every configured model would look edited on the next seeding and
-    be superseded by an identical copy of itself.
-
-    The hashing is inlined rather than imported from
-    ``chap_core.database.model_templates_and_config_tables.compute_configuration_digest``
-    so that a later change to that function cannot retroactively alter what this
-    migration writes.
+    Without a digest, the next seed replaces each configuration with an identical copy.
+    The hash is local to this migration, so later code changes cannot change the result.
     """
     connection = op.get_bind()
     rows = connection.execute(
@@ -66,16 +56,14 @@ def _backfill_configuration_digests() -> None:
 
 def upgrade() -> None:
     """Make (name, version) the template identity and add configuration digests."""
-    # This remains nullable only for rows created before source provenance was
-    # enforced. New template inserts are rejected by SessionWrapper unless they
-    # supply an immutable source digest.
+    # Nullable only for old rows. A new template must have a source digest.
     op.add_column("modeltemplatedb", sa.Column("source_digest", sa.String(), nullable=True))
-    # every pre-migration row is the only one under its name, so all of them are live
+    # Each old row is the only row for its name, so each old row is live.
     op.add_column(
         "modeltemplatedb", sa.Column("is_live", sa.Boolean(), nullable=False, server_default=sa.true())
     )
     op.alter_column("modeltemplatedb", "is_live", server_default=None)
-    # version is part of the template identity, so it can never be null
+    # Version is part of the identity, so it cannot be null.
     op.execute(
         sa.text("UPDATE modeltemplatedb SET version = :version WHERE version IS NULL").bindparams(
             version=LEGACY_UNVERSIONED_VERSION

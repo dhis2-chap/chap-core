@@ -266,7 +266,7 @@ def test_creates_multiple_configured_models_from_service_configs(client, registe
 
 
 def test_re_registered_service_with_new_version_adds_new_template(client, register_service, fake_orchestrator):
-    """Re-registering a service with a new version adds a template version instead of rewriting the old one."""
+    """A service with a new version adds a template version. It does not change the old one."""
     register_service()
     templates = client.get("/v1/crud/model-templates").json()
     matching = [t for t in templates if t["name"] == "test-model"]
@@ -295,7 +295,7 @@ def test_re_registered_service_with_new_version_adds_new_template(client, regist
     assert live[0]["displayName"] == "Updated Model"
     assert live[0]["requiresGeo"] is True
     assert live[0]["requiredCovariates"] == ["rainfall"]
-    # the previous version is kept, so backtests that ran against it stay resolvable
+    # The old version stays available.
     superseded = next(t for t in matching if t["id"] == first_id)
     assert superseded["version"] == "1.0.0"
     assert superseded["isLive"] is False

@@ -30,12 +30,10 @@ def parse_github_url(github_url) -> GithubUrl:
 
 
 def resolve_commit_sha(github_url: str) -> str | None:
-    """Resolve the ref in a github url to the commit sha it points at.
+    """Resolve the ref in a github url to the commit sha it points to.
 
-    Branch refs such as ``@main`` move over time, so the sha is what makes a seeded
-    model template version reproducible. A url that already pins a full sha needs no
-    lookup. Returns None when a moving ref cannot be resolved; callers that require a
-    pinned revision must treat that as an error.
+    A branch ref such as ``@main`` can move, but a sha cannot. A url that already
+    has a full sha needs no lookup. Returns None if the lookup fails.
     """
     parsed = parse_github_url(github_url)
     if COMMIT_SHA_PATTERN.fullmatch(parsed.commit):

@@ -175,11 +175,11 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
         default=None, description="JSON-schema-like dict describing the template's user-configurable options."
     )
     required_covariates: list[str] = Field(default=[], description="Covariate names the template must be given to run.")
-    version: str = Field(description="Template version label used when this template was seeded.")
+    version: str = Field(description="Version label of this template.")
     source_digest: str | None = Field(
-        default=None, description="Resolved immutable source revision (for example, a Git commit SHA)."
+        default=None, description="The revision that this template came from, for example a Git commit SHA."
     )
-    is_live: bool = Field(default=True, description="True for the version currently served under this template name.")
+    is_live: bool = Field(default=True, description="True for the version that CHAP serves for this template name.")
     archived: bool = Field(default=False, description="When True, the template is hidden from default pickers.")
     health_status: str | None = Field(
         default=None, description="Reported health status of the template, used by chapkit-hosted models."

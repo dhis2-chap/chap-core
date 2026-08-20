@@ -22,15 +22,11 @@ def add_model_template(model_template: ModelTemplateDB, session_wrapper: Session
 def add_model_template_from_url(
     url: str, session_wrapper: SessionWrapper, version: str, name_override: str | None = None
 ) -> int:
-    # A git-sourced template must be pinned to a revision, so an unresolvable ref is an
-    # error rather than a template seeded without provenance. A url that already names a
-    # full sha resolves without a network call, which is the case for the seeding config.
+    # A git template must point to one revision, so an unknown ref is an error.
     source_digest = resolve_commit_sha(url)
     if source_digest is None:
         raise ValueError(f"Could not resolve an immutable source digest for model template URL {url!r}")
-    # Fetch the same immutable revision that will be recorded on the template.
-    # Resolving after the fetch leaves a race where a moving branch can yield a
-    # config from one commit and a digest for another.
+    # Read the same revision that CHAP records, because a branch can move.
     source_url = f"{url.partition('@')[0]}@{source_digest}"
     model_template_config = ExternalModelTemplate.fetch_config_from_github_url(source_url)
     model_template_config.version = version

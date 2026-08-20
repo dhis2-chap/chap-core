@@ -96,9 +96,8 @@ class ModelTemplateInformation(SQLModel):
 
 class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, table=True):
     """Persisted model-template row. Flat composition of metadata + capability mixins.
-    A template version is immutable: seeding a new version inserts a new row and
-    marks the previous one superseded, so a backtest keeps describing the code it
-    actually ran.
+
+    A version is immutable. A new version adds a row and the old row becomes not live.
     """
 
     __table_args__ = (UniqueConstraint("name", "version", name="uq_modeltemplatedb_name_version"),)
@@ -112,11 +111,11 @@ class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, 
     version: str = Field(description="Template version label, typically a git tag or a seeding-config key.")
     source_digest: str | None = Field(
         default=None,
-        description="Immutable revision the version was seeded from (for example, a Git commit SHA).",
+        description="The revision that this version came from, for example a Git commit SHA. It cannot change.",
     )
     is_live: bool = Field(
         default=True,
-        description="True for the version currently served under this name. Older versions stay resolvable by id.",
+        description="True for the version that CHAP serves for this name. Old versions stay available by id.",
     )
     archived: bool = Field(
         default=False, description="When True, the template is hidden from default pickers but still resolvable."
@@ -127,17 +126,16 @@ class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, 
     )
 
 
-# Identity and lifecycle fields; not compared as content drift.
+# Identity and lifecycle fields. CHAP does not compare these fields for drift.
 _NON_CONTENT_TEMPLATE_FIELDS = frozenset(
     {"id", "name", "version", "source_digest", "source_url", "is_live", "archived", "uses_chapkit"}
 )
 
 
 def drifted_template_content_fields(existing: ModelTemplateDB, incoming: ModelTemplateDB) -> list[str]:
-    """Content fields where a re-seeded template disagrees with the version already stored.
+    """Content fields where a new template differs from the stored version.
 
-    A template version is write-once, so these differences are dropped rather than applied.
-    Naming them lets the caller tell the operator that their edit did not land.
+    A version is write-once, so CHAP drops these differences and tells the operator.
     """
     return sorted(
         field
@@ -165,13 +163,10 @@ class ModelConfiguration(SQLModel):
 
 
 def compute_configuration_digest(configuration: ModelConfiguration) -> str:
-    """Digest of a configuration's contents, used as part of its identity.
+    """Digest of the configuration contents. It is part of the configuration identity.
 
-    Configurations are immutable for the same reason template versions are:
-    backtests reference a `ConfiguredModelDB` row directly and read the option
-    values off it, so editing one in place would rewrite what an already-finished
-    backtest claims it ran. The digest is what makes an edited configuration a new
-    row rather than an overwrite.
+    A backtest reads its option values from its `ConfiguredModelDB` row. The digest
+    makes a changed configuration a new row, so the old row keeps its values.
     """
     payload = json.dumps(
         {
@@ -206,7 +201,7 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
     )
     is_live: bool = Field(
         default=True,
-        description="True for the configuration currently served under this name. Older ones stay resolvable by id.",
+        description="True for the configuration that CHAP serves for this name. Old ones stay available by id.",
     )
     model_template_id: int = Field(
         foreign_key="modeltemplatedb.id",

@@ -111,8 +111,7 @@ class SessionWrapper:
         return cast("int", model_template.id)
 
     def _make_live_template_version(self, model_name: str, model_template_id: int) -> None:
-        # only one version of a template is live at a time: the other versions keep
-        # their rows, and stay resolvable by id, so old backtests keep their provenance
+        # Only one version is live. The other versions keep their rows and their ids.
         templates = self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == model_name)).all()
         for template in templates:
             template.is_live = template.id == model_template_id
@@ -127,29 +126,27 @@ class SessionWrapper:
                 and existing_template.source_digest is not None
                 and model_template.source_digest != existing_template.source_digest
             ):
-                # Moving refs (e.g. @main) can change digest; keep the seeded revision.
                 logger.warning(
-                    f"Model template {model_name!r} version {model_template.version!r} was seeded from "
-                    f"{existing_template.source_digest!r}, but its ref now resolves to "
-                    f"{model_template.source_digest!r}. Keeping the seeded revision; use a new version "
-                    "label to pick up the new source."
+                    f"Model template {model_name!r} version {model_template.version!r} came from "
+                    f"{existing_template.source_digest!r}, but its ref now points to "
+                    f"{model_template.source_digest!r}. CHAP keeps the first revision. Use a new "
+                    "version label to get the new source."
                 )
             drifted = drifted_template_content_fields(existing_template, model_template)
             if drifted:
-                # A template version is write-once, so the re-seeded values are ignored; publish them under a new version label.
                 logger.warning(
-                    f"Model template {model_name!r} version {model_template.version!r} is already seeded with "
-                    f"different {', '.join(drifted)}. A template version is write-once, so the re-seeded "
-                    "values are ignored; publish them under a new version label."
+                    f"Model template {model_name!r} version {model_template.version!r} is already stored with "
+                    f"different {', '.join(drifted)}. A version is write-once, so CHAP ignores the new "
+                    "values. Use a new version label."
                 )
-            # Write-once: in-place updates would rewrite completed backtest provenance.
+            # A version is write-once, so keep the stored row.
             template_id = self._return_model_template_id(model_name, existing_template)
-            # Re-seeding un-archives for discovery only; provenance is unchanged.
+            # Show the template again, but do not change its contents.
             if existing_template.archived:
                 existing_template.archived = False
                 self.session.commit()
         else:
-            # Git templates get a digest from add_model_template_from_url; others stay None.
+            # add_model_template_from_url gives git templates a digest. Other sources give None.
             template_id = self._add_model_template(model_template)
         self._make_live_template_version(model_name, template_id)
         return template_id
@@ -160,7 +157,7 @@ class SessionWrapper:
         d = model_template_config.model_dump()
         info = d.pop("meta_data")
         d = d | info
-        # Version is part of identity; do not invent a placeholder.
+        # The version is part of the identity, so it cannot be empty.
         if not d["version"]:
             raise ValueError(f"Model template {d['name']!r} must declare a version")
         model_template = ModelTemplateDB(**d)
@@ -231,8 +228,7 @@ class SessionWrapper:
         return cast("int", configured_model.id)
 
     def _make_live_configured_model(self, model_template_id: int, name: str, configured_model_id: int) -> None:
-        # only one configuration per name is live per template version: earlier ones keep
-        # their rows, and stay resolvable by id, so old backtests keep their option values
+        # Only one configuration per name is live. The others keep their rows and their ids.
         configured_models = self.session.exec(
             select(ConfiguredModelDB).where(
                 ConfiguredModelDB.model_template_id == model_template_id, ConfiguredModelDB.name == name
@@ -243,8 +239,7 @@ class SessionWrapper:
         self.session.commit()
 
     def _select_live_configured_models(self) -> SelectOfScalar[ConfiguredModelDB]:
-        # names are no longer unique: superseded template versions and superseded
-        # configurations keep their rows, so only the live ones can be looked up by name
+        # Names are not unique, so a name can only find the live rows.
         return (
             select(ConfiguredModelDB)
             .join(ModelTemplateDB)

@@ -5,7 +5,7 @@ from chap_core.external.github import resolve_commit_sha
 
 def test_resolve_commit_sha_returns_pinned_sha_without_lookup(monkeypatch):
     def fail(*args, **kwargs):
-        raise AssertionError("a pinned sha should not need a lookup")
+        raise AssertionError("a full sha must not need a lookup")
 
     monkeypatch.setattr("chap_core.external.github.requests.get", fail)
     commit_sha = "0c41b1d9bd187521e62c58d581e6f5bd5127f7b5"

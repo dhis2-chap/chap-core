@@ -39,10 +39,10 @@ class ModelSpecRead(ModelSpecBase):
     """
 
     id: int = Field(description="Primary key of the underlying `ModelSpec` row.")
-    version: str = Field(description="Immutable version label of the underlying model template.")
+    version: str = Field(description="Version label of the model template. It cannot change.")
     source_digest: str | None = Field(
         default=None,
-        description="Resolved immutable source revision for the underlying model template.",
+        description="The revision that the model template came from.",
     )
     covariates: list[FeatureType] = Field(description="Covariate feature types this model supports.")
     target: FeatureType = Field(description="The feature type this model predicts.")
