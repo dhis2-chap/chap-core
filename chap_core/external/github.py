@@ -1,9 +1,12 @@
 import logging
+import re
 from dataclasses import dataclass
 
 import requests
 
 logger = logging.getLogger(__name__)
+
+COMMIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
 
 
 @dataclass
@@ -24,6 +27,26 @@ def parse_github_url(github_url) -> GithubUrl:
         repo_name, commit = repo_name.split("@")
 
     return GithubUrl(owner=owner, repo_name=repo_name, commit=commit)
+
+
+def resolve_commit_sha(github_url: str) -> str | None:
+    """Resolve the ref in a github url to the commit sha it points to.
+
+    A branch ref such as ``@main`` can move, but a sha cannot. A url that already
+    has a full sha needs no lookup. Returns None if the lookup fails.
+    """
+    parsed = parse_github_url(github_url)
+    if COMMIT_SHA_PATTERN.fullmatch(parsed.commit):
+        return parsed.commit
+    api_url = f"https://api.github.com/repos/{parsed.owner}/{parsed.repo_name}/commits/{parsed.commit}"
+    try:
+        fetched = requests.get(api_url, timeout=10)
+        fetched.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Could not resolve commit sha for {github_url}: {e}")
+        return None
+    sha = fetched.json().get("sha")
+    return str(sha) if sha is not None else None
 
 
 def fetch_mlproject_content(github_url: str) -> str:

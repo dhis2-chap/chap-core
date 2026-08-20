@@ -96,6 +96,29 @@ def test_registered_service_appears_in_model_templates(client, register_service)
     assert matching[0]["healthStatus"] == "live"
 
 
+def test_schema_fetch_failure_does_not_freeze_empty_user_options(client, register_service, mock_wrapper_cls):
+    schema = {
+        "properties": {
+            "n_lags": {"type": "integer", "default": 3},
+            "prediction_periods": {"type": "integer", "default": 1},
+        }
+    }
+    mock_wrapper_cls.return_value.get_config_schema.side_effect = [
+        ConnectionError("service temporarily unavailable"),
+        schema,
+    ]
+    register_service()
+
+    # An incomplete template is not created while the schema endpoint is down.
+    assert client.get("/v1/crud/model-templates").json() == []
+
+    # The next sync succeeds and creates the template with its user options.
+    templates = client.get("/v1/crud/model-templates").json()
+    matching = [template for template in templates if template["name"] == "test-model"]
+    assert len(matching) == 1
+    assert matching[0]["userOptions"] == {"n_lags": {"type": "integer", "default": 3}}
+
+
 def test_registered_service_has_configured_model(client, register_service):
     register_service()
     # Trigger sync
@@ -265,14 +288,15 @@ def test_creates_multiple_configured_models_from_service_configs(client, registe
     assert len(names) == 2
 
 
-def test_re_registered_service_updates_template_metadata(client, register_service, fake_orchestrator):
-    """Re-registering a service with updated metadata should update the template, not duplicate it."""
+def test_re_registered_service_with_new_version_adds_new_template(client, register_service, fake_orchestrator):
+    """A service with a new version adds a template version. It does not change the old one."""
     register_service()
     templates = client.get("/v1/crud/model-templates").json()
     matching = [t for t in templates if t["name"] == "test-model"]
     assert len(matching) == 1
     assert matching[0]["version"] == "1.0.0"
     assert matching[0]["requiresGeo"] is False
+    first_id = matching[0]["id"]
 
     # Re-register with updated metadata
     updated_info = {
@@ -287,11 +311,17 @@ def test_re_registered_service_updates_template_metadata(client, register_servic
 
     templates = client.get("/v1/crud/model-templates").json()
     matching = [t for t in templates if t["name"] == "test-model"]
-    assert len(matching) == 1
-    assert matching[0]["version"] == "2.0.0"
-    assert matching[0]["displayName"] == "Updated Model"
-    assert matching[0]["requiresGeo"] is True
-    assert matching[0]["requiredCovariates"] == ["rainfall"]
+    assert len(matching) == 2
+    live = [t for t in matching if t["isLive"]]
+    assert len(live) == 1
+    assert live[0]["version"] == "2.0.0"
+    assert live[0]["displayName"] == "Updated Model"
+    assert live[0]["requiresGeo"] is True
+    assert live[0]["requiredCovariates"] == ["rainfall"]
+    # The old version stays available.
+    superseded = next(t for t in matching if t["id"] == first_id)
+    assert superseded["version"] == "1.0.0"
+    assert superseded["isLive"] is False
 
 
 def test_non_chapkit_orphan_template_not_archived(client, register_service, fake_orchestrator, db_engine):
@@ -300,7 +330,7 @@ def test_non_chapkit_orphan_template_not_archived(client, register_service, fake
 
     # Create a non-chapkit template with no configured models
     with Session(db_engine) as session:
-        template = ModelTemplateDB(name="manual-template", source_url="http://example.com")
+        template = ModelTemplateDB(name="manual-template", version="1.0.0", source_url="http://example.com")
         session.add(template)
         session.commit()
 
