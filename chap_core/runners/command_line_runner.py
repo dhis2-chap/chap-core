@@ -52,16 +52,15 @@ def run_command(command: str, working_directory=Path("."), env: dict | None = No
         output = ''.join(output)
         """
 
-        streamdata = process.communicate()[0]  # finnish before getting return code
         return_code = process.returncode
 
         if return_code != 0:
-            logger.error(
-                f"Command '{command}' failed with return code {return_code}, ({''.join(map(str, streamdata))}, {output}"
+            message = (
+                f"Command '{command}' failed with return code {return_code}, "
+                f"Full output from command below: \n ----- \n{output} \n--------"
             )
-            raise CommandLineException(
-                f"Command '{command}' failed with return code {return_code}, Full output from command below: \n ----- \n({''.join(map(str, streamdata))}, {output} \n--------"
-            )
+            logger.error(message)
+            raise CommandLineException(message)
         # output = subprocess.check_output(' '.join(command), cwd=working_directory, shell=True)
         # logging.info(output)
     except subprocess.CalledProcessError as e:
