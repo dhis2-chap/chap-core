@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs docs-serve help install lint lint/flake8 check regen-plot-help force-restart restart chap-version architecture architecture-validate architecture-export architecture-export-mermaid architecture-export-docs architecture-export-plantuml architecture-check-docs
+.PHONY: clean coverage dist docs docs-serve help install lint lint/flake8 check regen-plot-help force-restart restart chap-version architecture architecture-validate architecture-export architecture-export-mermaid architecture-export-docs architecture-export-plantuml architecture-check-docs architecture-clean
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -190,3 +190,8 @@ architecture-export-plantuml: ## export the model to C4-PlantUML PNGs under arch
 		plantuml/plantuml:1.2026.6 -tpng -o /out '/src/structurizr-*.puml' >/dev/null; \
 	for f in architecture/diagrams/plantuml/structurizr-*.png; do mv "$$f" "architecture/diagrams/plantuml/$$(basename "$$f" | sed 's/^structurizr-//')"; done; \
 	echo "C4-PlantUML PNGs in architecture/diagrams/plantuml/"
+
+architecture-clean: ## remove regenerable architecture artifacts (diagrams, exports, Structurizr and npm state)
+	@echo ">>> Cleaning up architecture artifacts"
+	@rm -rf architecture/diagrams architecture/exports architecture/node_modules \
+		architecture/.structurizr architecture/workspace.json

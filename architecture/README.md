@@ -152,6 +152,19 @@ Both write under `architecture/diagrams/<renderer>/`, which is gitignored.
   needed a hand-maintained second copy of the whole model that silently drifted
   from the source of truth.
 
+## Cleaning up
+
+Everything the targets above generate is gitignored, so it survives a branch
+switch and can be left behind in an otherwise-empty `architecture/` directory on
+branches that do not carry the model. To remove it all:
+
+```bash
+make architecture-clean
+```
+
+This deletes `diagrams/`, `exports/`, `node_modules/`, `.structurizr/` and
+`workspace.json`. All of it is regenerated on demand from `workspace.dsl`.
+
 ## Publishing the model into the docs site
 
 ```bash
