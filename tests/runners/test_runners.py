@@ -46,6 +46,22 @@ def test_run_command():
     assert "test2" in output, "Output from command not as expected, output is: " + output
 
 
+def test_run_command_failure_reports_output_as_text():
+    """A failing command must report stdout/stderr as text.
+
+    The message used to include a second, byte-wise stringified copy of stdout
+    (``''.join(map(str, streamdata))``), which rendered the output as a run of
+    concatenated decimal byte values and made model failures unreadable.
+    """
+    with pytest.raises(CommandLineException) as exc_info:
+        CommandLineRunner("./").run_command("echo 'boom-stdout'; echo 'boom-stderr' >&2; exit 1")
+
+    message = str(exc_info.value)
+    assert "boom-stdout" in message
+    assert "boom-stderr" in message
+    assert "".join(str(byte) for byte in b"boom-stdout") not in message
+
+
 def test_uv_runner_prepends_uv_run():
     """Test that UvRunner correctly prepends 'uv run' to commands"""
     with patch.object(UvRunner, "_execute") as mock_execute:

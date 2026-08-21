@@ -24,6 +24,7 @@ from chap_core.assessment.dataset_splitting import (
 )
 from chap_core.data.gluonts_adaptor.dataset import ForecastAdaptor
 from chap_core.datatypes import Samples, SamplesWithTruth, TimeSeriesData
+from chap_core.exceptions import ModelFailedException, NoPredictionsError
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import PeriodRange
 
@@ -95,23 +96,48 @@ def backtest(
     DataSet[SamplesWithTruth]
         For each test split, a dataset mapping locations to
         ``SamplesWithTruth`` (predicted samples merged with observed values).
+
+    Raises
+    ------
+    ModelFailedException
+        If every split failed to predict. Individual split failures are logged
+        and skipped so that one unstable split does not discard the results of
+        all the others; training failures are always fatal.
     """
     train_set, test_generator = train_test_generator(
         data, prediction_length, n_test_sets, stride=stride, future_weather_provider=weather_provider
     )
     retrain_at = _retrain_split_indices(n_test_sets, n_retrain)
     predictor: Predictor | None = None
+    n_failed = 0
+    n_predicted = 0
     for i, (historic_data, future_data, future_truth) in enumerate(test_generator):
         if i in retrain_at:
             # Split 0 trains on the dedicated train_set (preserving the single-train
             # behaviour exactly); later retrains use the expanding historic window.
             predictor = estimator.train(train_set if i == 0 else historic_data)
         assert predictor is not None, "First split must trigger training"
-        r = predictor.predict(historic_data, future_data)
+        try:
+            r = predictor.predict(historic_data, future_data)
+        except (ModelFailedException, NoPredictionsError):
+            # A model can fail on a single split (numerical instability, a
+            # degenerate window) while succeeding on the rest. Keep the usable
+            # splits instead of discarding the whole backtest.
+            n_failed += 1
+            logger.exception("Model failed on evaluation split %d, skipping it", i)
+            continue
         if r is None:
             continue
+        n_predicted += 1
         samples_with_truth = future_truth.merge(r, result_dataclass=SamplesWithTruth)  # type: ignore[arg-type]
         yield samples_with_truth
+
+    if n_failed:
+        if not n_predicted:
+            raise ModelFailedException(
+                f"All {n_failed} evaluation splits failed. See the logs for the underlying model errors."
+            )
+        logger.warning("%d of %d evaluation splits failed and were skipped", n_failed, n_failed + n_predicted)
 
 
 def evaluate_model(
