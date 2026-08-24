@@ -1,5 +1,6 @@
 services:
   chap:
+    restart: unless-stopped
     build: .
     init: true
     environment:
@@ -40,16 +41,19 @@ services:
       start_period: 30s
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
       worker:
         condition: service_started
       postgres:
         condition: service_healthy
 
   worker:
+    restart: unless-stopped
     init: true
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     # NOTE: Built from Dockerfile.worker which extends the INLA worker image with chap-core
     build:
@@ -67,12 +71,6 @@ services:
       CHAP_RUNS_DIR: /data/runs
       PYTENSOR_FLAGS: "base_compiledir=/data/pytensor"
     command: "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks worker --loglevel=info"
-    healthcheck:
-      test: ["CMD-SHELL", "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks inspect ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
     working_dir: /app
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -103,9 +101,17 @@ services:
         source: pytensor
         target: /data/pytensor
   redis:
+    restart: unless-stopped
     image: valkey/valkey:8
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   postgres:
+    restart: unless-stopped
     image: postgres:17
     environment:
       POSTGRES_USER: ${POSTGRES_USER}

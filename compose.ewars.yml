@@ -1,5 +1,6 @@
 services:
   ewars:
+    restart: unless-stopped
     image: ghcr.io/chap-models/chapkit_ewars_model:latest
     platform: linux/amd64
     pull_policy: always
