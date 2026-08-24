@@ -1,5 +1,6 @@
 """Tests for the threshold strategy registry and the seasonal strategy."""
 
+import pandas as pd
 import pytest
 
 from chap_core.assessment.thresholds import get_threshold_strategy, list_threshold_strategies
@@ -76,3 +77,124 @@ def test_seasonal_strategy_frequency_mismatch_raises(dataset_observations_weekly
     df = _disease_cases_df(dataset_observations_weekly)
     with pytest.raises(ValueError, match="frequency"):
         _seasonal_strategy().compute(df, ["2023-01"])
+
+
+def _percentile_strategy():
+    strategy_cls = get_threshold_strategy("percentile")
+    assert strategy_cls is not None
+    return strategy_cls()
+
+
+def test_percentile_strategy_is_registered():
+    assert "percentile" in {s["id"] for s in list_threshold_strategies()}
+
+
+def test_percentile_strategy_shape(dataset_observations, org_units):
+    df = _disease_cases_df(dataset_observations)
+    period_ids = ["2023-01", "2023-02"]
+    result = _percentile_strategy().compute(df, period_ids)
+    assert set(result.columns) == {"period_id", "location", "threshold"}
+    assert len(result) == len(period_ids) * len(org_units)
+    assert set(result["period_id"]) == set(period_ids)
+    assert set(result["location"]) == set(org_units)
+
+
+def test_percentile_strategy_weekly(dataset_observations_weekly, org_units):
+    df = _disease_cases_df(dataset_observations_weekly)
+    period_ids = ["2023W01", "2023W02"]
+    result = _percentile_strategy().compute(df, period_ids)
+    assert len(result) == len(period_ids) * len(org_units)
+    assert result["threshold"].notna().all()
+
+
+def test_percentile_strategy_frequency_mismatch_raises(dataset_observations_weekly):
+    df = _disease_cases_df(dataset_observations_weekly)
+    with pytest.raises(ValueError, match="frequency"):
+        _percentile_strategy().compute(df, ["2023-01"])
+
+
+def test_percentile_quantile_param_selects_the_line(endemic_channel_observations):
+    """The quantile param moves the threshold: lower channel line < median < upper line."""
+    strategy = _percentile_strategy()
+
+    def line(q):
+        result = strategy.compute(endemic_channel_observations, ["2023-01"], {"quantile": q})
+        return result.set_index("location")["threshold"]
+
+    lower, median, upper = line(0.25), line(0.5), line(0.75)
+    assert (lower < median).all()
+    assert (median < upper).all()
+
+
+def test_percentile_rejects_out_of_range_quantile(dataset_observations):
+    df = _disease_cases_df(dataset_observations)
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        _percentile_strategy().compute(df, ["2023-01"], {"quantile": 75})
+
+
+def test_percentile_lookback_window_excludes_older_years(dataset_observations):
+    """A one-year lookback from 2023 must use only 2022, not the full 2020-2022 history."""
+    df = _disease_cases_df(dataset_observations)
+    strategy = _percentile_strategy()
+
+    windowed = strategy.compute(df, ["2023-01"], {"lookback_years": 1})
+    only_2022 = df[df["time_period"].astype(str).str.startswith("2022")]
+    expected = strategy.compute(only_2022, ["2023-01"], {"lookback_years": None})
+
+    pd.testing.assert_series_equal(
+        windowed.set_index("location")["threshold"],
+        expected.set_index("location")["threshold"],
+    )
+
+
+def test_percentile_lookback_excludes_the_anchor_year(dataset_observations):
+    """The requested period's own year is not part of its baseline."""
+    df = _disease_cases_df(dataset_observations)
+    strategy = _percentile_strategy()
+
+    # Anchored on 2022, a 1-year window is 2021 alone -- 2022's own values must not contribute.
+    windowed = strategy.compute(df, ["2022-01"], {"lookback_years": 1})
+    only_2021 = df[df["time_period"].astype(str).str.startswith("2021")]
+    expected = strategy.compute(only_2021, ["2022-01"], {"lookback_years": None})
+
+    pd.testing.assert_series_equal(
+        windowed.set_index("location")["threshold"],
+        expected.set_index("location")["threshold"],
+    )
+
+
+def test_percentile_lookback_with_no_data_in_window_raises(dataset_observations):
+    df = _disease_cases_df(dataset_observations)
+    with pytest.raises(ValueError, match="No observations in the"):
+        _percentile_strategy().compute(df, ["2050-01"], {"lookback_years": 1})
+
+
+def test_percentile_is_not_inflated_by_a_past_epidemic(endemic_channel_observations):
+    """The Uganda regression: one past epidemic year must not drag the threshold far above normal.
+
+    Reported symptom was an actual around 2,500 against a threshold around 20,000. mean + k*std
+    is pulled up because the outlier inflates the standard deviation; a percentile is not.
+    """
+    january = endemic_channel_observations["time_period"].str.endswith("-01")
+    normal_level = float(endemic_channel_observations.loc[january, "disease_cases"].max())
+    epidemic = pd.DataFrame([{"location": "loc_1", "time_period": "2020-01", "disease_cases": normal_level * 10}])
+    with_epidemic = pd.concat(
+        [endemic_channel_observations[~january | (endemic_channel_observations["time_period"] != "2020-01")], epidemic],
+        ignore_index=True,
+    )
+
+    percentile = _percentile_strategy().compute(with_epidemic, ["2023-01"])
+    seasonal = _seasonal_strategy().compute(with_epidemic, ["2023-01"])
+
+    pct = float(percentile.set_index("location").loc["loc_1", "threshold"])
+    std_based = float(seasonal.set_index("location").loc["loc_1", "threshold"])
+
+    assert pct <= normal_level * 1.5, "percentile should stay near the endemic level"
+    assert std_based > pct * 3, "mean + k*std should be visibly inflated by the epidemic year"
+
+
+def test_percentile_single_observation_yields_a_value():
+    """mean + k*std is NaN for a single point because std is undefined; a percentile is not."""
+    df = pd.DataFrame([{"location": "loc_1", "time_period": "2022-01", "disease_cases": 2500.0}])
+    result = _percentile_strategy().compute(df, ["2023-01"], {"lookback_years": None})
+    assert result["threshold"].iloc[0] == 2500.0

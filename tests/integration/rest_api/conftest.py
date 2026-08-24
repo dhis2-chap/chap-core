@@ -2,6 +2,7 @@ import datetime
 import typing
 
 import numpy as np
+import pandas as pd
 import pytest
 from geojson_pydantic import Point
 from sqlmodel import select, Session
@@ -53,6 +54,29 @@ def geojson(org_units) -> FeatureCollectionModel:
             for ou in org_units
         ],
     )
+
+
+@pytest.fixture
+def endemic_channel_observations() -> pd.DataFrame:
+    """Malaria-like monthly case counts that vary from year to year within each season.
+
+    ``dataset_observations`` derives its values from ``sin(t % 12)``, which repeats the same
+    value for a given month in every year, so its within-season variance is exactly zero and
+    it cannot exercise a percentile at all. These counts vary across years, which is what
+    both percentile and mean + k*std thresholds need to be distinguishable.
+    """
+    counts = {
+        ("loc_1", 1): [2100, 2400, 2300, 2600, 2200],
+        ("loc_1", 2): [1800, 2000, 1750, 2150, 1900],
+        ("loc_2", 1): [520, 610, 480, 700, 560],
+        ("loc_2", 2): [430, 500, 390, 610, 470],
+    }
+    rows = [
+        {"location": location, "time_period": f"{year}-{month:02d}", "disease_cases": float(value)}
+        for (location, month), values in counts.items()
+        for year, value in zip(range(2018, 2023), values)
+    ]
+    return pd.DataFrame(rows)
 
 
 @pytest.fixture
