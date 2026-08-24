@@ -6,7 +6,7 @@ import pandas as pd
 
 from chap_core.assessment.thresholds import threshold
 from chap_core.assessment.thresholds.base import ThresholdStrategyBase
-from chap_core.assessment.thresholds.period_buckets import season_column
+from chap_core.time_period.vectorized import season_column
 
 
 def compute_seasonal_thresholds(historical_observations: pd.DataFrame, k: float = 2.0) -> pd.DataFrame:

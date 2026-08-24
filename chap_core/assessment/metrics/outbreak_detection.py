@@ -15,13 +15,13 @@ from chap_core.assessment.metrics.base import (
     Metric,
     MetricSpec,
 )
-from chap_core.assessment.thresholds.period_buckets import extract_month
 
 # The outbreak metrics score forecasts against seasonal thresholds, computed by the
 # threshold strategy module. This calls the seasonal strategy directly rather than resolving
 # one from the registry, so it does not pick up percentile or any other registered strategy.
 from chap_core.assessment.thresholds.seasonal import compute_seasonal_thresholds
 from chap_core.time_period import TimePeriod
+from chap_core.time_period.vectorized import extract_month
 
 
 def _get_thresholds(metric_instance: Metric) -> pd.DataFrame:

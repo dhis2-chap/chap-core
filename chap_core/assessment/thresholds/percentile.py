@@ -12,7 +12,7 @@ import pandas as pd
 
 from chap_core.assessment.thresholds import threshold
 from chap_core.assessment.thresholds.base import ThresholdStrategyBase
-from chap_core.assessment.thresholds.period_buckets import extract_year, season_column
+from chap_core.time_period.vectorized import extract_year, season_column
 
 DEFAULT_QUANTILE = 0.75
 DEFAULT_LOOKBACK_YEARS = 5
