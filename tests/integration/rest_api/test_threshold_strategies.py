@@ -163,6 +163,12 @@ def test_percentile_lookback_excludes_the_anchor_year(dataset_observations):
     )
 
 
+def test_percentile_rejects_non_positive_lookback_years(dataset_observations):
+    df = _disease_cases_df(dataset_observations)
+    with pytest.raises(ValueError, match="positive number of years or null"):
+        _percentile_strategy().compute(df, ["2023-01"], {"lookback_years": 0})
+
+
 def test_percentile_lookback_with_no_data_in_window_raises(dataset_observations):
     df = _disease_cases_df(dataset_observations)
     with pytest.raises(ValueError, match="No observations in the"):

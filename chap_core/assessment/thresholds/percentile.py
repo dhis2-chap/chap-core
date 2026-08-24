@@ -25,16 +25,17 @@ def filter_to_lookback(
 ) -> pd.DataFrame:
     """Restrict observations to the complete years preceding the periods being requested.
 
-    The window is the ``lookback_years`` years before the latest requested period's year. That
-    year is itself excluded: a channel for the current year is built from previous complete
-    years, so an outbreak in progress cannot raise its own threshold. Pass ``None`` to use all
-    available history.
+    The window is anchored on the latest requested period's year: it spans the ``lookback_years``
+    years before that year, and all requested periods share this one window. The anchor year is
+    itself excluded, so an outbreak in progress cannot raise its own threshold. When a request
+    spans a year boundary, the earlier periods' own year is still inside the window. Pass
+    ``None`` to use all available history.
     """
     if lookback_years is None:
         return historical_observations
 
     anchor = int(extract_year(pd.Series(period_ids)).max())
-    first_year = anchor - int(lookback_years)
+    first_year = anchor - lookback_years
     years = extract_year(historical_observations["time_period"])
     windowed = historical_observations[(years >= first_year) & (years < anchor)]
 
@@ -88,6 +89,10 @@ class PercentileThresholdStrategy(ThresholdStrategyBase):
         if not 0.0 <= quantile <= 1.0:
             raise ValueError(f"quantile must be between 0 and 1, got {quantile}")
         lookback_years = params.get("lookback_years", DEFAULT_LOOKBACK_YEARS)
+        if lookback_years is not None:
+            lookback_years = int(lookback_years)
+            if lookback_years < 1:
+                raise ValueError(f"lookback_years must be a positive number of years or null, got {lookback_years}")
 
         windowed = filter_to_lookback(historical_observations, period_ids, lookback_years)
         per_season = compute_percentile_thresholds(windowed, quantile=quantile)

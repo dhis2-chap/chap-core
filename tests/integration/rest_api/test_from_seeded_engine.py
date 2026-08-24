@@ -153,6 +153,13 @@ def test_compute_thresholds_unknown_strategy(override_session):
     assert response.status_code == 404, response.text
 
 
+def test_compute_thresholds_period_outside_data_returns_400(override_session):
+    body = {"dataset_id": 1, "period_ids": ["2050-01"], "strategy": "percentile"}
+    response = client.post("/v1/analytics/thresholds", json=body)
+    assert response.status_code == 400, response.text
+    assert "No observations in the" in response.json()["detail"]
+
+
 def test_compute_thresholds_unknown_dataset(override_session):
     body = {"dataset_id": 9999, "period_ids": ["2023-01"], "strategy": "seasonal"}
     response = client.post("/v1/analytics/thresholds", json=body)
