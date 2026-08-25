@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from contextlib import ExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, cast
 
@@ -19,6 +20,7 @@ from chap_core.cli_endpoints._common import (
     discover_geojson,
     load_dataset,
     load_dataset_from_csv,
+    resolve_csv_path,
     save_results,
 )
 from chap_core.database.model_templates_and_config_tables import (
@@ -72,17 +74,11 @@ def _load_dataset(
         with open(data_source_mapping) as f:
             column_mapping = json.load(f)
 
-    # dataset_csv can be either a local file path (Path or string) or a URL
-    if polygons_json is not None:
-        geojson: Path | None = polygons_json
-    elif isinstance(dataset_csv, Path):
-        geojson = discover_geojson(dataset_csv)
-    else:
-        # If we have a URL, we do not try to auto-discover GeoJSON
-        geojson = None
-
-    csv_arg = str(dataset_csv) if isinstance(dataset_csv, Path) else dataset_csv
-    return load_dataset_from_csv(csv_arg, geojson, column_mapping)
+    # dataset_csv may be a local path or a URL; resolve_csv_path downloads the CSV
+    # and any companion .geojson, matching how `chap evaluate` loads its dataset.
+    csv_path, url_geojson_path = resolve_csv_path(dataset_csv)
+    geojson = polygons_json or url_geojson_path or discover_geojson(csv_path)
+    return load_dataset_from_csv(csv_path, geojson, column_mapping)
 
 
 def _compute_metrics(flat: Any, ensemble_method: str) -> tuple[str, dict[str, float | str], pd.DataFrame]:
@@ -131,7 +127,7 @@ def _evaluate_ensemble_core(
     backtest_params: BacktestParams,
     run_config: RunConfig,
     model_configuration_yaml: str | None,
-    random_state: int | None,
+    inner_val_periods: int,
     data_source_mapping: Path | None,
     historical_context_years: int,
     model_template_id: str,
@@ -150,6 +146,17 @@ def _evaluate_ensemble_core(
         data_source_mapping=data_source_mapping,
     )
 
+    # Imported lazily, as in evaluate.py, to keep the REST stack off the CLI startup path.
+    from chap_core.rest_api.db_worker_functions import validate_and_filter_dataset_for_evaluation
+
+    dataset = validate_and_filter_dataset_for_evaluation(
+        dataset,
+        target_name="disease_cases",
+        n_periods=backtest_params.n_periods,
+        n_splits=backtest_params.n_splits,
+        stride=backtest_params.stride,
+    )
+
     if ensemble_method not in ("deterministic", "probabilistic"):
         raise ValueError(f"ensemble_method must be 'deterministic' or 'probabilistic', not {ensemble_method!r}")
 
@@ -166,52 +173,56 @@ def _evaluate_ensemble_core(
     )
     logger.info("Model configurations: %s", model_configuration_yaml_list)
 
-    base_templates_with_config: list[TemplateWithConfig] = []
-    for name, cfg_yaml in zip(base_model_list, model_configuration_yaml_list, strict=False):
-        logger.info("Loading base model template from %s", name)
-        template = ModelTemplate.from_directory_or_github_url(
-            name,
-            base_working_dir=CHAP_RUNS_DIR,
-            ignore_env=run_config.ignore_environment,
-            run_dir_type=run_config.run_directory_type,
-            is_chapkit_model=run_config.is_chapkit_model,
+    # Templates must stay open for the whole run: for chapkit models __enter__ is what
+    # starts the backing service and sets up the client, and __exit__ shuts it down.
+    with ExitStack() as stack:
+        base_templates_with_config: list[TemplateWithConfig] = []
+        for name, cfg_yaml in zip(base_model_list, model_configuration_yaml_list, strict=False):
+            logger.info("Loading base model template from %s", name)
+            template = ModelTemplate.from_directory_or_github_url(
+                name,
+                base_working_dir=CHAP_RUNS_DIR,
+                ignore_env=run_config.ignore_environment,
+                run_dir_type=run_config.run_directory_type,
+                is_chapkit_model=run_config.is_chapkit_model,
+            )
+            stack.enter_context(template)
+
+            model_config: ModelConfiguration | None = None
+            if cfg_yaml is not None:
+                logger.info("Loading model configuration from yaml file %s", cfg_yaml)
+                with open(cfg_yaml, encoding="utf-8") as f:
+                    cfg_data = yaml.safe_load(f)
+                model_config = ModelConfiguration.model_validate(cfg_data)
+                logger.info("Loaded model configuration for %s", name)
+
+            base_templates_with_config.append(TemplateWithConfig(template, model_config))
+
+        ensemble = EnsembleModel(
+            base_templates=base_templates_with_config,
+            method=ensemble_method,
+            inner_val_periods=inner_val_periods,
+            horizon=backtest_params.n_periods,
+            target_col="disease_cases",
+            n_samples=100,
         )
 
-        model_config: ModelConfiguration | None = None
-        if cfg_yaml is not None:
-            logger.info("Loading model configuration from yaml file %s", cfg_yaml)
-            with open(cfg_yaml, encoding="utf-8") as f:
-                cfg_data = yaml.safe_load(f)
-            model_config = ModelConfiguration.model_validate(cfg_data)
-            logger.info("Loaded model configuration for %s", name)
+        model_db = ModelTemplateDB(id=model_template_id, name=model_template_id, version="0.1")
+        configured_db = ConfiguredModelDB(
+            id=configured_model_id,
+            model_template_id=model_db.id,
+            model_template=model_db,
+            configuration={},  # Multiple base models, so no single merged config.
+        )
 
-        base_templates_with_config.append(TemplateWithConfig(template, model_config))
-
-    ensemble = EnsembleModel(
-        base_templates=base_templates_with_config,
-        method=ensemble_method,
-        inner_val_periods=12,
-        target_col="disease_cases",
-        n_samples=100,
-        random_state=random_state,
-    )
-
-    model_db = ModelTemplateDB(id=model_template_id, name=model_template_id, version="0.1")
-    configured_db = ConfiguredModelDB(
-        id=configured_model_id,
-        model_template_id=model_db.id,
-        model_template=model_db,
-        configuration={},  # Multiple base models, so no single merged config.
-    )
-
-    evaluation = Evaluation.create(
-        configured_model=configured_db,
-        estimator=ensemble,
-        dataset=dataset,
-        backtest_params=backtest_params,
-        backtest_name=backtest_name,
-        historical_context_years=historical_context_years,
-    )
+        evaluation = Evaluation.create(
+            configured_model=configured_db,
+            estimator=ensemble,
+            dataset=dataset,
+            backtest_params=backtest_params,
+            backtest_name=backtest_name,
+            historical_context_years=historical_context_years,
+        )
 
     eval_nc = output_file or report_filename.with_suffix(".nc")
     evaluation.to_file(str(eval_nc))
@@ -261,10 +272,16 @@ def evaluate_ensemble(
             )
         ),
     ] = None,
-    random_state: Annotated[
-        int | None,
-        Parameter(help="Random seed for the ensemble meta model (e.g. 42)."),
-    ] = 42,
+    inner_val_periods: Annotated[
+        int,
+        Parameter(
+            help=(
+                "Number of trailing training periods held out to fit the ensemble weights. "
+                "Split into windows of --backtest-params.n-periods so base models are ranked "
+                "at the horizon they are actually used at."
+            )
+        ),
+    ] = 12,
     data_source_mapping: Annotated[Path | None, Parameter(help="Optional JSON column mapping.")] = None,
     historical_context_years: Annotated[
         int,
@@ -284,7 +301,7 @@ def evaluate_ensemble(
         backtest_params=backtest_params,
         run_config=run_config,
         model_configuration_yaml=model_configuration_yaml,
-        random_state=random_state,
+        inner_val_periods=inner_val_periods,
         data_source_mapping=data_source_mapping,
         historical_context_years=historical_context_years,
         model_template_id="ensemble_model",

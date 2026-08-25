@@ -65,6 +65,47 @@ class NaNEstimator:
         return NaNPredictor(self._value, self._n_samples, self._nan_index)
 
 
+class RecordingPredictor(ConstantPredictor):
+    """Constant predictor that records the columns present in each future_data it sees."""
+
+    def __init__(self, value: float, n_samples: int, seen_future_fields: list[list[str]]):
+        super().__init__(value, n_samples)
+        self.seen_future_fields = seen_future_fields
+
+    def predict(self, historic_data, future_data):
+        self.seen_future_fields.append(list(future_data.to_pandas().columns))
+        return super().predict(historic_data, future_data)
+
+
+class RecordingEstimator:
+    def __init__(self, value: float, n_samples: int, seen_future_fields: list[list[str]]):
+        self._value = value
+        self._n_samples = n_samples
+        self._seen_future_fields = seen_future_fields
+
+    def train(self, _train_data):
+        return RecordingPredictor(self._value, self._n_samples, self._seen_future_fields)
+
+
+class RecordingTemplate(DummyTemplate):
+    """Template whose predictors share one record of the future_data columns seen."""
+
+    def __init__(self, value: float, n_samples: int, name: str):
+        self.seen_future_fields: list[list[str]] = []
+        super().__init__(
+            lambda: RecordingEstimator(value, n_samples, self.seen_future_fields),
+            name,
+        )
+
+
+@pytest.fixture
+def recording_template_factory():
+    def _make(value: float, n_samples: int, name: str):
+        return RecordingTemplate(value, n_samples, name)
+
+    return _make
+
+
 @pytest.fixture
 def constant_template_factory():
     def _make(value: float, n_samples: int, name: str):

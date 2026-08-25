@@ -16,8 +16,21 @@ def test_evaluate_ensemble_smoke(weekly_full_data, tmp_path, monkeypatch):
         def __init__(self, name: str, value: float):
             self.name = name
             self._value = value
+            self.entered = False
+            self.exited = False
+
+        def __enter__(self):
+            # The CLI must enter the template: for chapkit models this is what starts
+            # the backing service, and skipping it left get_model raising at runtime.
+            self.entered = True
+            return self
+
+        def __exit__(self, *_exc):
+            self.exited = True
+            return False
 
         def get_model(self, _config):
+            assert self.entered, "get_model called before the template was entered"
             return lambda: _ConstantEstimator(self._value, 1)
 
     class _ConstantPredictor:
@@ -42,9 +55,13 @@ def test_evaluate_ensemble_smoke(weekly_full_data, tmp_path, monkeypatch):
         def train(self, _train_data):
             return _ConstantPredictor(self._value, self._n_samples)
 
+    created: list[_DummyTemplate] = []
+
     def fake_from_directory_or_github_url(cls, name, **_kwargs):
         value = 2.0 if "b" in name else 1.0
-        return _DummyTemplate(name, value)
+        template = _DummyTemplate(name, value)
+        created.append(template)
+        return template
 
     monkeypatch.setattr(
         ensemble_cli.ModelTemplate,
@@ -66,10 +83,12 @@ def test_evaluate_ensemble_smoke(weekly_full_data, tmp_path, monkeypatch):
         backtest_params=BacktestParams(n_periods=1, n_splits=1, stride=1),
         run_config=RunConfig(),
         model_configuration_yaml=None,
-        random_state=123,
+        inner_val_periods=4,
         data_source_mapping=None,
         historical_context_years=1,
     )
 
     assert results
     assert report_path.with_suffix(".csv").exists()
+    assert created, "no templates were loaded"
+    assert all(t.entered and t.exited for t in created)

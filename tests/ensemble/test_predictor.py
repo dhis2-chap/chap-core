@@ -39,7 +39,6 @@ def test_predictor_probabilistic_samples(weekly_full_data, constant_predictor_fa
         meta=meta,
         probabilistic=True,
         n_samples=4,
-        rng=np.random.default_rng(7),
     )
 
     preds = predictor.predict(weekly_full_data, weekly_full_data)
@@ -76,7 +75,6 @@ def test_predictor_deterministic_missing_rows_raises(weekly_full_data, constant_
         meta=meta,
         probabilistic=False,
         n_samples=1,
-        rng=np.random.default_rng(11),
     )
 
     with pytest.raises(ValueError, match="Missing base model predictions"):

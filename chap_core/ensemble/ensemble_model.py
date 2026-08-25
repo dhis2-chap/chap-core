@@ -6,8 +6,8 @@ import logging
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
+import pandas as pd
 
-from chap_core.assessment.dataset_splitting import train_test_split
 from chap_core.ensemble._meta_models import (
     NonNegativeMetaModel,
     ProbabilisticMetaModel,
@@ -37,10 +37,10 @@ class EnsembleModel(ConfiguredModel):
         base_templates: Sequence[Any] | None = None,
         method: str = "probabilistic",
         inner_val_periods: int = 12,
+        horizon: int = 3,
         target_col: str = "disease_cases",
         n_samples: int = 100,
         meta_model: NonNegativeMetaModel | ProbabilisticMetaModel | None = None,
-        random_state: int | None = None,
     ) -> None:
         super().__init__()
         self.base_templates = list(base_templates or [])
@@ -48,13 +48,15 @@ class EnsembleModel(ConfiguredModel):
             raise ValueError("Need at least one base model")
         if method not in ("deterministic", "probabilistic"):
             raise ValueError(method)
+        if horizon < 1:
+            raise ValueError(f"horizon must be at least 1, got {horizon}")
         self.method = method
         self.inner_val_periods = inner_val_periods
+        self.horizon = horizon
         self.target_col = target_col
         self.n_samples = n_samples
         self.meta_model: NonNegativeMetaModel | ProbabilisticMetaModel | None = meta_model
         self.weights: np.ndarray | None = None
-        self.random_state: int | None = random_state
 
     def _base_names(self) -> list[str]:
         names: list[str] = []
@@ -69,10 +71,14 @@ class EnsembleModel(ConfiguredModel):
             names.append(name)
         return names
 
-    def train(self, train_data: DataSet, extra_args: Any = None) -> EnsemblePredictor:
-        # Local RNG for reproducibility.
-        rng = np.random.default_rng(self.random_state)
+    def inner_validation_windows(self, train_data: DataSet) -> list[tuple[DataSet, DataSet]]:
+        """Split the tail of ``train_data`` into (historic, future) windows of ``horizon`` periods.
 
+        Base models are asked for exactly ``horizon`` steps in each window, matching the
+        horizon they are used at during the outer backtest. Fitting the meta-weights on a
+        single long window instead would rank the base models at the wrong horizon, since
+        relative forecast skill is strongly horizon-dependent.
+        """
         periods = list(train_data.period_range)
         if len(periods) < 2:
             raise ValueError("Need at least two time periods for training")
@@ -81,16 +87,27 @@ class EnsembleModel(ConfiguredModel):
         )
         if split_idx <= 0 or split_idx >= len(periods):
             raise ValueError("Invalid inner validation split")
-        split_period = periods[split_idx]
+
+        windows: list[tuple[DataSet, DataSet]] = []
+        for start in range(split_idx, len(periods), self.horizon):
+            stop = min(start + self.horizon, len(periods))
+            historic = train_data.restrict_time_period(slice(None, periods[start - 1]))
+            future = train_data.restrict_time_period(slice(periods[start], periods[stop - 1]))
+            windows.append((historic, future))
 
         logger.info(
-            "Inner split: %d periods, train=%d, val=%d",
+            "Inner validation: %d periods, train=%d, val=%d, %d window(s) of horizon %d",
             len(periods),
             split_idx,
             len(periods) - split_idx,
+            len(windows),
+            self.horizon,
         )
+        return windows
 
-        inner_train, val_data = train_test_split(train_data, split_period)
+    def train(self, train_data: DataSet, extra_args: Any = None) -> EnsemblePredictor:
+        windows = self.inner_validation_windows(train_data)
+        inner_train = windows[0][0]
 
         ests: list[Any] = []
         for tmpl in self.base_templates:
@@ -98,29 +115,39 @@ class EnsembleModel(ConfiguredModel):
             ests.append(est_cls())
         preds_inner = [e.train(inner_train) for e in ests]
 
-        df_val = val_data.to_pandas()
-        y_val = df_val[self.target_col].to_numpy()
         key_cols = ["location", "time_period"]
+        df_val = pd.concat([w[1].to_pandas() for w in windows], ignore_index=True)
+        y_val = df_val[self.target_col].to_numpy()
+
+        # The target must never reach the base models: ExternalModel writes future_data
+        # verbatim to the CSV it hands the model, so leaving disease_cases in place would
+        # let a base model read the very values the meta-weights are fitted against.
+        masked_windows = [(historic, future.remove_field(self.target_col)) for historic, future in windows]
 
         meta_list: list[np.ndarray] | None = None
         meta_mat: np.ndarray | None = None
         if self.method == "probabilistic":
-            meta_list = [
-                _SampleExtractor.reshape_samples(
-                    p.predict(inner_train, val_data),
-                    df_val,
-                    self.n_samples,
-                    rng=rng,  # keep a shared RNG for reproducibility
-                )
-                for p in preds_inner
-            ]
+            meta_list = []
+            for p in preds_inner:
+                per_window = [
+                    _SampleExtractor.reshape_samples(
+                        p.predict(historic, future),
+                        future.to_pandas(),
+                        self.n_samples,
+                    )
+                    for historic, future in masked_windows
+                ]
+                meta_list.append(np.concatenate(per_window, axis=0))
         else:
             cols = []
             for p in preds_inner:
-                preds_ds = p.predict(inner_train, val_data)
-                df_pred = _SampleExtractor.samples_to_flat(preds_ds)
-                merged = df_val[key_cols].merge(df_pred, on=key_cols, how="left")
-                cols.append(merged["forecast"].to_numpy())
+                per_window = []
+                for historic, future in masked_windows:
+                    preds_ds = p.predict(historic, future)
+                    df_pred = _SampleExtractor.samples_to_flat(preds_ds)
+                    merged = future.to_pandas()[key_cols].merge(df_pred, on=key_cols, how="left")
+                    per_window.append(merged["forecast"].to_numpy())
+                cols.append(np.concatenate(per_window))
             meta_mat = np.column_stack(cols)
 
         nan_in_features = np.zeros(len(y_val), dtype=bool)
@@ -166,12 +193,12 @@ class EnsembleModel(ConfiguredModel):
         assert self.meta_model is not None
         coef_raw = cast("np.ndarray", self.meta_model.coef_)
         coef = np.maximum(np.asarray(coef_raw, float), 0.0)
-        s = float(np.sum(coef))
-        if s <= 0:
-            logger.warning("Non-positive meta-model weights; falling back to uniform weights")
-            self.weights = np.full(len(coef), 100.0 / len(coef))
-        else:
-            self.weights = coef / s * 100.0
+        total = float(np.sum(coef))
+        if total <= 0:
+            # Both meta-models fall back to uniform weights rather than returning an
+            # all-zero solution, so this should be unreachable.
+            raise ValueError("Meta-model produced non-positive weights")
+        self.weights = coef / total * 100.0
 
         names = self._base_names()
         assert self.weights is not None
@@ -190,7 +217,6 @@ class EnsembleModel(ConfiguredModel):
             meta=self.meta_model,
             probabilistic=(self.method == "probabilistic"),
             n_samples=self.n_samples,
-            rng=rng,  # forward the shared RNG
         )
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
@@ -206,6 +232,7 @@ class EnsembleEstimator(EnsembleModel):
         base_model_specs: Sequence[BaseModelSpec] | None = None,
         target_column: str = "disease_cases",
         inner_val_periods: int = 12,
+        horizon: int = 3,
         meta_model: Any | None = None,
         probabilistic_meta_model: bool = False,
         n_samples: int = 100,
@@ -224,6 +251,7 @@ class EnsembleEstimator(EnsembleModel):
             base_templates=[TemplateWithConfig(s.template, s.config) for s in specs],
             method=method,
             inner_val_periods=inner_val_periods,
+            horizon=horizon,
             target_col=target_column,
             n_samples=n_samples,
             meta_model=meta_model,

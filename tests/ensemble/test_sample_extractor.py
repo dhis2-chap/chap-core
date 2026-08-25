@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from chap_core.datatypes import Samples
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -14,20 +15,49 @@ def _samples_from_weekly_data(weekly_full_data):
     return Samples(series.time_period, samples)
 
 
-def test_reshape_samples_respects_rng(weekly_full_data):
+def _single_location_preds(weekly_full_data):
+    """A DataSet of predictions plus the reference frame for the same single location."""
+    location = next(iter(weekly_full_data.locations()))
     samples = _samples_from_weekly_data(weekly_full_data)
-    df_ref = weekly_full_data.to_pandas()[["location", "time_period"]].copy()
-    n_samp = samples.samples.shape[1]
-    target_n = n_samp - 1
+    preds_ds = DataSet({location: samples})
+    df_all = weekly_full_data.to_pandas()
+    df_ref = df_all[df_all["location"] == location][["location", "time_period"]].copy()
+    return preds_ds, df_ref, samples
 
-    rng_expected = np.random.default_rng(123)
-    idx = rng_expected.choice(n_samp, target_n, replace=True)
-    expected = samples.samples[:, idx]
 
-    rng_call = np.random.default_rng(123)
-    actual = SampleExtractor.reshape_samples(samples, df_ref, target_n, rng=rng_call)
+def test_reshape_samples_is_deterministic(weekly_full_data):
+    preds_ds, df_ref, samples = _single_location_preds(weekly_full_data)
+    target_n = samples.samples.shape[1] - 1
 
-    assert np.allclose(actual, expected, equal_nan=True)
+    first = SampleExtractor.reshape_samples(preds_ds, df_ref, target_n)
+    second = SampleExtractor.reshape_samples(preds_ds, df_ref, target_n)
+
+    assert np.allclose(first, second, equal_nan=True)
+
+
+def test_reshape_samples_preserves_row_range(weekly_full_data):
+    """Resampling interpolates each row's own quantiles, so no row leaves its own range."""
+    preds_ds, df_ref, samples = _single_location_preds(weekly_full_data)
+
+    for target_n in (2, 7):
+        actual = SampleExtractor.reshape_samples(preds_ds, df_ref, target_n)
+        assert actual.shape == (samples.samples.shape[0], target_n)
+        row_min = samples.samples.min(axis=1)
+        row_max = samples.samples.max(axis=1)
+        finite = np.isfinite(row_min) & np.isfinite(row_max)
+        assert finite.any()
+        assert np.all(actual[finite] >= row_min[finite, None] - 1e-9)
+        assert np.all(actual[finite] <= row_max[finite, None] + 1e-9)
+
+
+def test_reshape_samples_row_order_fallback_checks_length(weekly_full_data):
+    """Row-order alignment is only safe when the row counts actually match."""
+    _preds_ds, df_ref, samples = _single_location_preds(weekly_full_data)
+    # A bare Samples object carries no location column, so alignment falls back to row order.
+    truncated = Samples(samples.time_period[:-1], samples.samples[:-1])
+
+    with pytest.raises(ValueError, match="Cannot align predictions by row order"):
+        SampleExtractor.reshape_samples(truncated, df_ref, 3)
 
 
 def test_samples_to_flat_uses_median_for_samples(weekly_full_data):

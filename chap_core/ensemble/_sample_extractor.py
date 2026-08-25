@@ -14,6 +14,24 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _resample_to_quantiles(mat: np.ndarray, target_n: int) -> np.ndarray:
+    """Resample each row to ``target_n`` samples via its empirical quantile function.
+
+    Downstream vincentization sorts the samples and treats them as quantile
+    estimates, so interpolating the per-row quantile function preserves the
+    spread exactly. Drawing indices at random would instead reuse the same
+    draws for every row and distort every location's spread identically.
+    """
+    n_rows, n_samp = mat.shape
+    sorted_mat = np.sort(mat, axis=1)
+    src = (np.arange(n_samp) + 0.5) / n_samp
+    dst = (np.arange(target_n) + 0.5) / target_n
+    out = np.empty((n_rows, target_n), dtype=float)
+    for i in range(n_rows):
+        out[i] = np.interp(dst, src, sorted_mat[i])
+    return out
+
+
 class SampleExtractor:
     @staticmethod
     def samples_to_flat(preds_ds: Samples) -> pd.DataFrame:
@@ -33,8 +51,6 @@ class SampleExtractor:
                 pred_col = "forecast"
             else:
                 raise ValueError(f"No forecast/value/sample_* in columns: {list(df.columns)}")
-        if "horizon_distance" in df.columns:
-            df = df[df["horizon_distance"] == 0].copy()
         missing = [c for c in ("location", "time_period") if c not in df.columns]
         if missing:
             raise ValueError(f"Missing {missing} in prediction DataFrame")
@@ -42,10 +58,7 @@ class SampleExtractor:
         return out.rename(columns={pred_col: "forecast"})
 
     @staticmethod
-    def reshape_samples(
-        preds_ds: Samples, df_ref: pd.DataFrame, target_n: int, rng: np.random.Generator | None = None
-    ) -> np.ndarray:
-        rng = rng or np.random.default_rng()
+    def reshape_samples(preds_ds: Samples, df_ref: pd.DataFrame, target_n: int) -> np.ndarray:
         df_pred = pd.DataFrame(preds_ds.to_pandas())
 
         # Always align on location/time_period first.
@@ -54,6 +67,17 @@ class SampleExtractor:
             # Fall back to row order; this is less robust.
             sample_cols = [c for c in df_pred.columns if c.startswith("sample_")]
             if sample_cols:
+                if len(df_pred) != len(df_ref):
+                    raise ValueError(
+                        f"Cannot align predictions by row order: got {len(df_pred)} prediction rows "
+                        f"for {len(df_ref)} reference rows. Predictions are missing "
+                        f"{', '.join(key_cols)} columns needed for a reliable merge."
+                    )
+                logger.warning(
+                    "Predictions lack %s; falling back to row-order alignment, which assumes the base model "
+                    "returns rows in the same order as the reference frame",
+                    ", ".join(key_cols),
+                )
                 mat = df_pred[sample_cols].to_numpy(float)
             else:
                 df_flat = SampleExtractor.samples_to_flat(preds_ds)
@@ -83,6 +107,5 @@ class SampleExtractor:
             if n_samp == 1:
                 mat = np.tile(mat, (1, target_n))
             else:
-                idx = rng.choice(n_samp, target_n, replace=True)
-                mat = mat[:, idx]
+                mat = _resample_to_quantiles(mat, target_n)
         return mat

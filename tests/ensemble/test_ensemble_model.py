@@ -3,8 +3,6 @@ import pytest
 from chap_core.ensemble.ensemble_model import EnsembleModel
 from chap_core.datatypes import FullData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core.time_period import TimePeriod
-from chap_core.assessment.dataset_splitting import train_test_split as real_train_test_split
 
 
 def test_train_masks_nan_features(weekly_full_data, constant_template_factory, nan_template_factory):
@@ -51,23 +49,26 @@ def test_train_invalid_split_raises(weekly_full_data, constant_template_factory)
         model.train(weekly_full_data)
 
 
-def test_train_uses_timeperiod_split(weekly_full_data, constant_template_factory, monkeypatch):
+def test_inner_validation_windows_match_horizon(weekly_full_data, constant_template_factory):
+    """Weights must be fitted at the horizon the ensemble is actually used at."""
     templates = [constant_template_factory(1.0, 1, "model_a")]
-    model = EnsembleModel(base_templates=templates, method="deterministic", inner_val_periods=2)
+    model = EnsembleModel(base_templates=templates, method="deterministic", inner_val_periods=6, horizon=3)
 
-    periods = list(weekly_full_data.period_range)
-    split_idx = len(periods) // 2 if len(periods) <= model.inner_val_periods else len(periods) - model.inner_val_periods
-    expected_split = periods[split_idx]
+    windows = model.inner_validation_windows(weekly_full_data)
 
-    called = {}
+    assert len(windows) == 2
+    for _historic, future in windows:
+        assert len(list(future.period_range)) == 3
 
-    def _spy_split(data_set, prediction_start_period, extension=None, restrict_test=True):
-        called["period"] = prediction_start_period
-        return real_train_test_split(data_set, prediction_start_period, extension, restrict_test)
 
-    monkeypatch.setattr("chap_core.ensemble.ensemble_model.train_test_split", _spy_split)
+def test_inner_validation_masks_target(weekly_full_data, recording_template_factory):
+    """The target must never reach a base model's future_data."""
+    templates = [recording_template_factory(1.0, 1, "model_a")]
+    model = EnsembleModel(base_templates=templates, method="deterministic", inner_val_periods=4, horizon=2)
 
     model.train(weekly_full_data)
 
-    assert called["period"] == expected_split
-    assert isinstance(called["period"], TimePeriod)
+    seen = templates[0].seen_future_fields
+    assert seen, "base model was never asked to predict"
+    for fields in seen:
+        assert "disease_cases" not in fields

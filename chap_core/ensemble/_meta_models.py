@@ -7,13 +7,13 @@ import logging
 import numpy as np
 from scipy.optimize import minimize, nnls
 
-from chap_core.assessment.metrics.crps import crps_score_unbiased_matrix
+from chap_core.assessment.metrics.crps import crps_matrix
 
 logger = logging.getLogger(__name__)
 
 
 def crps_ensemble(observations: np.ndarray, forecasts: np.ndarray) -> float:
-    return crps_score_unbiased_matrix(observations, forecasts)
+    return crps_matrix(observations, forecasts)
 
 
 def _vincentize_samples(X_samples: list[np.ndarray], weights: np.ndarray) -> np.ndarray:
@@ -37,6 +37,10 @@ class NonNegativeMetaModel:
     def fit(self, X: np.ndarray, y: np.ndarray) -> NonNegativeMetaModel:
         coef_raw, _ = nnls(X, y)
         coef = np.asarray(coef_raw, float)
+        if not np.any(coef > 0):
+            n = coef.shape[0]
+            logger.warning("NNLS produced no positive weights; falling back to uniform weights over %d base models", n)
+            coef = np.ones(n, dtype=float) / n
         self.coef_ = coef
         return self
 
@@ -68,6 +72,8 @@ class ProbabilisticMetaModel:
         self.verbose = verbose
 
     def fit(self, X_samples: list[np.ndarray], y: np.ndarray) -> ProbabilisticMetaModel:
+        if not X_samples:
+            raise ValueError("X_samples must not be empty")
         target_shape = X_samples[0].shape
         for i, s in enumerate(X_samples):
             if s.shape != target_shape:
@@ -77,7 +83,7 @@ class ProbabilisticMetaModel:
 
         def obj(w: np.ndarray) -> float:
             ens = _vincentize_samples(X_samples, w)
-            return crps_score_unbiased_matrix(y, ens)
+            return crps_matrix(y, ens)
 
         n = len(X_samples)
         w0 = np.ones(n) / n
@@ -104,7 +110,14 @@ class ProbabilisticMetaModel:
             coef = np.ones(n, dtype=float) / n
         else:
             coef = np.maximum(coef, 0.0)
-            coef /= coef.sum() + 1e-12
+            total = float(coef.sum())
+            if total <= 0.0:
+                # SLSQP can report success on a degenerate all-non-positive solution;
+                # normalising that would yield an all-zero forecast distribution.
+                logger.warning("Probabilistic meta-model returned non-positive weights; falling back to uniform")
+                coef = np.ones(n, dtype=float) / n
+            else:
+                coef /= total
 
         self.coef_ = coef
         return self

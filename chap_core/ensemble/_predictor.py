@@ -25,25 +25,34 @@ class EnsemblePredictor:
         meta: NonNegativeMetaModel | ProbabilisticMetaModel,
         probabilistic: bool,
         n_samples: int,
-        rng: np.random.Generator | None = None,
     ) -> None:
         self._predictors = list(predictors)
         self._meta = meta
         self._prob = probabilistic
         self._n_samples = n_samples
-        self._rng = rng or np.random.default_rng()
+        if not probabilistic:
+            logger.warning(
+                "Deterministic ensemble outputs a single sample; CRPS reduces to MAE "
+                "and is not comparable to multi-sample CRPS"
+            )
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet[Samples]:
         df_future = future_data.to_pandas()
         key_cols = ["location", "time_period"]
 
         if self._prob:
-            base_samp = [
-                _SampleExtractor.reshape_samples(
-                    p.predict(historic_data, future_data), df_future, self._n_samples, rng=self._rng
+            base_samp = []
+            for i, p in enumerate(self._predictors):
+                samples = _SampleExtractor.reshape_samples(
+                    p.predict(historic_data, future_data), df_future, self._n_samples
                 )
-                for p in self._predictors
-            ]
+                missing = int(np.sum(np.any(np.isnan(samples), axis=1)))
+                if missing:
+                    raise ValueError(
+                        f"Missing base model predictions for {missing} of {samples.shape[0]} rows "
+                        f"from base model at index {i}"
+                    )
+                base_samp.append(samples)
             meta_prob = cast("ProbabilisticMetaModel", self._meta)
             ens_samp = meta_prob.predict(base_samp)
             return self._pack_samples(ens_samp, df_future, future_data)
@@ -60,9 +69,6 @@ class EnsemblePredictor:
         meta_det = cast("NonNegativeMetaModel", self._meta)
         y_point = meta_det.predict(X_meta_future)
 
-        logger.warning(
-            "Deterministic ensemble outputs a single sample; CRPS reduces to MAE and is not comparable to multi-sample CRPS"
-        )
         df_out = df_future.copy()
         df_out["forecast"] = y_point
         df_out = df_out.sort_values(key_cols)

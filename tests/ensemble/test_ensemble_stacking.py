@@ -29,7 +29,7 @@ def test_probabilistic_predict_samples_count(weekly_full_data, constant_template
         constant_template_factory(6.0, 2, "model_b"),
     ]
     n_samples = 6
-    model = EnsembleModel(base_templates=templates, method="probabilistic", n_samples=n_samples, random_state=7)
+    model = EnsembleModel(base_templates=templates, method="probabilistic", n_samples=n_samples)
 
     predictor = model.train(weekly_full_data)
     preds = predictor.predict(weekly_full_data, weekly_full_data)
@@ -45,7 +45,7 @@ def test_probabilistic_ensemble_outputs_sorted_samples(weekly_full_data, constan
         constant_template_factory(3.0, 2, "model_a"),
         constant_template_factory(6.0, 2, "model_b"),
     ]
-    model = EnsembleModel(base_templates=templates, method="probabilistic", n_samples=6, random_state=7)
+    model = EnsembleModel(base_templates=templates, method="probabilistic", n_samples=6)
 
     predictor = model.train(weekly_full_data)
     preds = predictor.predict(weekly_full_data, weekly_full_data)
