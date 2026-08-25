@@ -8,13 +8,10 @@ from contextlib import ExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, cast
 
-import pandas as pd
 import yaml
 from cyclopts import Parameter
 
 from chap_core.api_types import BacktestParams, RunConfig
-from chap_core.assessment.evaluation import Evaluation
-from chap_core.assessment.metrics import available_metrics
 from chap_core.cli_endpoints._common import (
     create_model_lists,
     discover_geojson,
@@ -23,20 +20,15 @@ from chap_core.cli_endpoints._common import (
     resolve_csv_path,
     save_results,
 )
-from chap_core.database.model_templates_and_config_tables import (
-    ConfiguredModelDB,
-    ModelConfiguration,
-    ModelTemplateDB,
-)
-from chap_core.ensemble.ensemble_model import EnsembleModel
-from chap_core.ensemble.wrappers import TemplateWithConfig
 from chap_core.log_config import initialize_logging
-from chap_core.models.model_template import ModelTemplate
-from chap_core.models.utils import CHAP_RUNS_DIR
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    import pandas as pd
+
+    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+    from chap_core.ensemble.wrappers import TemplateWithConfig
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger(__name__)
@@ -82,6 +74,10 @@ def _load_dataset(
 
 
 def _compute_metrics(flat: Any, ensemble_method: str) -> tuple[str, dict[str, float | str], pd.DataFrame]:
+    import pandas as pd
+
+    from chap_core.assessment.metrics import available_metrics
+
     metrics_dict: dict[str, float | str] = {}
     forecasts_df = pd.DataFrame(cast("Any", flat.forecasts))
     for metric_id, metric_cls in available_metrics.items():
@@ -172,6 +168,20 @@ def _evaluate_ensemble_core(
         model_name=base_model_names,
     )
     logger.info("Model configurations: %s", model_configuration_yaml_list)
+
+    # Imported here rather than at module level, as in evaluate.py: these pull in
+    # scipy, chapkit and the DB layer, which would otherwise land on the startup
+    # path of every chap CLI command.
+    from chap_core.assessment.evaluation import Evaluation
+    from chap_core.database.model_templates_and_config_tables import (
+        ConfiguredModelDB,
+        ModelConfiguration,
+        ModelTemplateDB,
+    )
+    from chap_core.ensemble.ensemble_model import EnsembleModel
+    from chap_core.ensemble.wrappers import TemplateWithConfig
+    from chap_core.models.model_template import ModelTemplate
+    from chap_core.models.utils import CHAP_RUNS_DIR
 
     # Templates must stay open for the whole run: for chapkit models __enter__ is what
     # starts the backing service and sets up the client, and __exit__ shuts it down.

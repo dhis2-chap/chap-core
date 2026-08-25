@@ -63,8 +63,10 @@ def test_evaluate_ensemble_smoke(weekly_full_data, tmp_path, monkeypatch):
         created.append(template)
         return template
 
+    from chap_core.models.model_template import ModelTemplate
+
     monkeypatch.setattr(
-        ensemble_cli.ModelTemplate,
+        ModelTemplate,
         "from_directory_or_github_url",
         classmethod(fake_from_directory_or_github_url),
     )
