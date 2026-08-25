@@ -5,6 +5,7 @@
 # cap_drop entries because compose appends list fields on overlay.
 services:
   chap:
+    restart: unless-stopped
     image: ghcr.io/dhis2-chap/chap-core:latest
     platform: linux/amd64
     environment:
@@ -36,15 +37,18 @@ services:
       - "8000:8000"
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
       worker:
         condition: service_started
       postgres:
         condition: service_healthy
 
   worker:
+    restart: unless-stopped
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     image: ghcr.io/dhis2-chap/chap-worker:latest
     platform: linux/amd64
@@ -90,9 +94,17 @@ services:
         source: pytensor
         target: /data/pytensor
   redis:
+    restart: unless-stopped
     image: valkey/valkey:8
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   postgres:
+    restart: unless-stopped
     image: postgres:17
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
