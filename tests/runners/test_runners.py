@@ -62,6 +62,18 @@ def test_run_command_failure_reports_output_as_text():
     assert "".join(str(byte) for byte in b"boom-stdout") not in message
 
 
+def test_run_command_failure_with_non_utf8_output_is_still_readable():
+    """Model output is not guaranteed to be valid UTF-8; a failing command must
+    still raise CommandLineException with a readable message instead of
+    crashing with UnicodeDecodeError."""
+    with pytest.raises(CommandLineException) as exc_info:
+        CommandLineRunner("./").run_command("printf 'boom-\\xff-stderr' >&2; exit 1")
+
+    message = str(exc_info.value)
+    assert "boom-" in message
+    assert "-stderr" in message
+
+
 def test_uv_runner_prepends_uv_run():
     """Test that UvRunner correctly prepends 'uv run' to commands"""
     with patch.object(UvRunner, "_execute") as mock_execute:
