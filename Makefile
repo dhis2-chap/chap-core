@@ -128,17 +128,17 @@ DOCKER_AS_HOST_USER := --user $(shell id -u):$(shell id -g)
 architecture: ## serve the interactive C4 architecture model (Structurizr) at http://localhost:6080
 	docker rm -f chap-structurizr chap-structurizr-export >/dev/null 2>&1 || true
 	@echo "Serving at http://localhost:6080 (Ctrl-C to stop)"
-	docker run -it --rm --name chap-structurizr -p 6080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr:2026.05.22 local
+	docker run -it --rm --name chap-structurizr $(DOCKER_AS_HOST_USER) -p 6080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr:2026.05.22 local
 
 # --- Architecture: validate ---
 architecture-validate: ## validate the architecture model DSL (architecture/workspace.dsl)
-	docker run --rm -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 validate -workspace workspace.dsl
+	docker run --rm $(DOCKER_AS_HOST_USER) -v "$(CURDIR)/architecture:/work" -w /work structurizr/structurizr:2026.05.22 validate -workspace workspace.dsl
 
 # --- Architecture: export PNGs ---
 architecture-export: ## export all architecture diagrams to architecture/diagrams as PNG (needs port 6080 free; also pre-warms viewer thumbnails)
 	@set -e; \
 	docker rm -f chap-structurizr-export >/dev/null 2>&1 || true; \
-	docker run -d --name chap-structurizr-export -p 6080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr:2026.05.22 local >/dev/null; \
+	docker run -d --name chap-structurizr-export $(DOCKER_AS_HOST_USER) -p 6080:8080 -v "$(CURDIR)/architecture:/usr/local/structurizr" structurizr/structurizr:2026.05.22 local >/dev/null; \
 	trap 'docker rm -f chap-structurizr-export >/dev/null 2>&1 || true' EXIT; \
 	echo "Waiting for Structurizr to start..."; \
 	for i in $$(seq 1 30); do curl -fsS -o /dev/null http://localhost:6080/ 2>/dev/null && break; sleep 2; done; \

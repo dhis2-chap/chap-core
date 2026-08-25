@@ -199,14 +199,21 @@ The make targets are thin wrappers around the Structurizr Docker image:
 
 ```bash
 # make architecture
-docker run -it --rm -p 6080:8080 \
+docker run -it --rm -p 6080:8080 --user "$(id -u):$(id -g)" \
   -v "$(pwd)/architecture:/usr/local/structurizr" \
   structurizr/structurizr:2026.05.22 local
 
 # make architecture-validate
-docker run --rm -v "$(pwd)/architecture:/work" -w /work \
+docker run --rm --user "$(id -u):$(id -g)" \
+  -v "$(pwd)/architecture:/work" -w /work \
   structurizr/structurizr:2026.05.22 validate -workspace workspace.dsl
 ```
+
+The `--user` flag matters on Linux: the image runs as its own non-root uid, so
+without it Structurizr cannot write to the bind-mounted `architecture/`
+directory and exits with `Data directory /usr/local/structurizr is not
+writable`. Docker Desktop on macOS virtualises this away. The make targets pass
+it for you.
 
 > Note: the older `structurizr/lite` and `structurizr/cli` images are retired
 > and now only print a migration notice. Use `structurizr/structurizr` as above.
