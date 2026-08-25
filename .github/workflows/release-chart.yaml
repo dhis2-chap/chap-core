@@ -7,12 +7,13 @@ on:
 
 jobs:
   release:
+    if: github.repository == 'dhis2-chap/chap-core'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 

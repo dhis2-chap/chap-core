@@ -1,14 +1,11 @@
-import os
 from functools import lru_cache
 
 import httpx
 from fastapi import Header, HTTPException, status
 
+from chap_core.rest_api.auth import SERVICE_KEY_HEADER, get_service_key, secret_matches
 from chap_core.rest_api.services.orchestrator import Orchestrator
 from chap_core.util import load_redis
-
-SERVICE_KEY_HEADER = "X-Service-Key"
-SERVICE_KEY_ENV_VAR = "SERVICEKIT_REGISTRATION_KEY"
 
 # Generous read/write timeouts: proxied artifact downloads can stream large payloads.
 # Train/predict return 202 immediately, so they don't need a long window here.
@@ -43,26 +40,18 @@ def verify_service_key(
     If SERVICEKIT_REGISTRATION_KEY is not configured, authentication is skipped.
 
     Raises:
-        HTTPException 422: If key is configured but header is missing
-        HTTPException 401: If the provided key doesn't match
+        HTTPException 401: If the key is configured and the header is missing or wrong
     """
-    expected_key = os.getenv(SERVICE_KEY_ENV_VAR)
+    expected_key = get_service_key()
 
     # If no key configured on server, skip authentication
-    if not expected_key:
+    if expected_key is None:
         return None
 
-    # Key is configured, so header is required
-    if not x_service_key:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="X-Service-Key header is required",
-        )
-
-    if x_service_key != expected_key:
+    if not secret_matches(x_service_key, expected_key):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid service key",
+            detail="Missing or invalid service key",
         )
 
     return x_service_key

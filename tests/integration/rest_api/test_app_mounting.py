@@ -5,9 +5,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from chap_core.rest_api.app import app
+from chap_core.rest_api.auth import SERVICE_KEY_ENV_VAR
 from chap_core.rest_api.services.orchestrator import Orchestrator
 from chap_core.rest_api.v1.routers.dependencies import get_settings
-from chap_core.rest_api.v2.dependencies import SERVICE_KEY_ENV_VAR, get_orchestrator
+from chap_core.rest_api.v2.dependencies import get_orchestrator
 from chap_core.rest_api.worker_functions import WorkerConfig
 
 TEST_SERVICE_KEY = "test-service-key"
@@ -177,6 +178,37 @@ class TestOpenAPITags:
                     assert endpoint_tags, f"{method.upper()} {path} has no tags"
                     for tag in endpoint_tags:
                         assert tag in defined_tags, f"{method.upper()} {path} uses undefined tag '{tag}'"
+
+
+class TestOpenAPIOperationIds:
+    """A duplicate operationId silently breaks generated clients, so lock uniqueness in."""
+
+    HTTP_METHODS = ("get", "put", "post", "delete", "options", "head", "patch", "trace")
+
+    def _operations(self, schema):
+        for path, methods in schema["paths"].items():
+            for method, details in methods.items():
+                if method in self.HTTP_METHODS:
+                    yield path, method, details
+
+    def test_operation_ids_are_unique(self, client):
+        response = client.get("/openapi.json")
+        assert response.status_code == 200
+        schema = response.json()
+
+        seen = {}
+        for path, method, details in self._operations(schema):
+            operation_id = details["operationId"]
+            assert operation_id not in seen, (
+                f"{method.upper()} {path} reuses operationId '{operation_id}' from {seen[operation_id]}"
+            )
+            seen[operation_id] = f"{method.upper()} {path}"
+
+    def test_proxy_route_is_not_in_the_schema(self, client):
+        """A pass-through proxy has no describable schema, so it stays out of the generated client."""
+        schema = client.get("/openapi.json").json()
+
+        assert "/v2/services/{service_id}/run/{path}" not in schema["paths"]
 
 
 class TestDocs:

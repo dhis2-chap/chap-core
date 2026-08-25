@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "global": {
+      "type": "object",
+      "properties": {
+        "commonLabels": { "type": "object" }
+      }
+    },
+    "nameOverride": { "type": "string" },
+    "fullnameOverride": { "type": "string" },
+    "api": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "image": { "$ref": "#/$defs/image" },
+        "replicaCount": { "type": "integer", "minimum": 0 },
+        "command": { "type": "array", "items": { "type": "string" } },
+        "labels": { "type": "object" },
+        "podLabels": { "type": "object" },
+        "service": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string" },
+            "port": { "type": "integer" },
+            "annotations": { "type": "object" }
+          }
+        },
+        "ingress": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "worker": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "image": { "$ref": "#/$defs/image" },
+        "replicaCount": { "type": "integer", "minimum": 0 },
+        "command": { "type": "array", "items": { "type": "string" } },
+        "labels": { "type": "object" },
+        "podLabels": { "type": "object" }
+      }
+    },
+    "db": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "labels": { "type": "object" },
+        "podLabels": { "type": "object" },
+        "password": { "type": "string" },
+        "existingSecret": { "type": "string" },
+        "database": { "type": "string" },
+        "instances": { "type": "integer", "minimum": 1 },
+        "storageSize": { "type": "string" },
+        "version": { "type": "string" },
+        "imageName": { "type": "string" },
+        "enableSuperuserAccess": { "type": "boolean" }
+      }
+    },
+    "externalDatabase": {
+      "type": "object",
+      "properties": {
+        "host": { "type": "string" },
+        "port": { "type": "integer" },
+        "database": { "type": "string" },
+        "username": { "type": "string" },
+        "password": { "type": "string" },
+        "existingSecret": { "type": "string" },
+        "secretKeys": {
+          "type": "object",
+          "properties": {
+            "username": { "type": "string" },
+            "password": { "type": "string" }
+          }
+        }
+      }
+    },
+    "externalValkey": {
+      "type": "object",
+      "properties": {
+        "host": { "type": "string" },
+        "port": { "type": "integer" },
+        "password": { "type": "string" },
+        "existingSecret": { "type": "string" },
+        "secretKeys": {
+          "type": "object",
+          "properties": {
+            "password": { "type": "string" }
+          }
+        }
+      }
+    },
+    "dhis2": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "hostname": { "type": "string" },
+        "apiVersion": { "type": "string" },
+        "username": { "type": "string" },
+        "password": { "type": "string" },
+        "labels": { "type": "object" },
+        "registerJob": {
+          "type": "object",
+          "properties": {
+            "backoffLimit": { "type": "integer", "minimum": 0 },
+            "ttlSecondsAfterFinished": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "image": {
+      "type": "object",
+      "properties": {
+        "repository": { "type": "string" },
+        "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] },
+        "tag": { "type": "string" }
+      }
+    }
+  }
+}

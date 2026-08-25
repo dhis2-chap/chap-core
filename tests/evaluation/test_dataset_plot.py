@@ -1,5 +1,4 @@
 import pytest
-import altair as alt
 
 from chap_core.plotting.dataset_plot import (
     DatasetPlot,
@@ -12,18 +11,10 @@ from chap_core.plotting.dataset_plot import (
 from chap_core.plotting.season_plot import SeasonCorrelationBarPlot, SeasonalityComparisonPlot
 
 
-@pytest.fixture()
-def default_transformer():
-    import altair as alt
-
-    alt.data_transformers.enable("default")
-    yield
-
-
 @pytest.mark.parametrize(
     "plt_cls", [DiseaseCasesMap, StandardizedFeaturePlot, SeasonCorrelationBarPlot, SeasonalityComparisonPlot]
 )
-def test_standardized_feautre_plot(simulated_dataset, plt_cls, default_transformer):
+def test_standardized_feautre_plot(simulated_dataset, plt_cls):
     plotter = plt_cls.from_dataset_model(simulated_dataset)
     chart = plotter.plot()
 
@@ -51,7 +42,7 @@ def test_list_dataset_plots():
 
 
 @pytest.mark.parametrize("plot_id", list(get_dataset_plots_registry().keys()))
-def test_create_plot_from_dataset(simulated_dataset, plot_id, default_transformer):
+def test_create_plot_from_dataset(simulated_dataset, plot_id):
     spec = create_plot_from_dataset(plot_id, simulated_dataset)
     assert isinstance(spec, dict)
 

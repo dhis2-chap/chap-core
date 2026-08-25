@@ -17,7 +17,7 @@ from chap_core.assessment.backtest_plots.horizon_location_grid import HorizonLoc
 from chap_core.plotting.backtest_plot import clean_time
 from chap_core.assessment.backtest_plots.predicted_vs_actual_linear_plot import PredictedVsActualLinearPlot
 from chap_core.assessment.backtest_plots.predicted_vs_actual_plot import PredictedVsActualPlot
-from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasPlot
+from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasByHorizonPlot, SampleBiasByTimePeriodPlot
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.cli_endpoints.utils import plot_backtest
 from chap_core.database.tables import Backtest
@@ -29,8 +29,11 @@ def test_backtest_plot_registry():
 
     # Check that expected plots are registered
     assert "horizon_location_grid" in registry
-    assert "ratio_of_samples_above_truth" in registry
+    assert "sample_bias_by_horizon" in registry
+    assert "sample_bias_by_time_period" in registry
     assert "evaluation_plot" in registry
+    # The combined dashboard was split into the two plots above
+    assert "ratio_of_samples_above_truth" not in registry
 
     # Check that all registered plots are subclasses of BacktestPlotBase
     for plot_id, plot_cls in registry.items():
@@ -42,8 +45,11 @@ def test_get_backtest_plot():
     plot_cls = get_backtest_plot("horizon_location_grid")
     assert plot_cls is HorizonLocationGridPlot
 
-    plot_cls = get_backtest_plot("ratio_of_samples_above_truth")
-    assert plot_cls is SampleBiasPlot
+    plot_cls = get_backtest_plot("sample_bias_by_horizon")
+    assert plot_cls is SampleBiasByHorizonPlot
+
+    plot_cls = get_backtest_plot("sample_bias_by_time_period")
+    assert plot_cls is SampleBiasByTimePeriodPlot
 
     plot_cls = get_backtest_plot("evaluation_plot")
     assert plot_cls is EvaluationPlot
@@ -65,37 +71,39 @@ def test_list_backtest_plots():
         assert "needs_historical" in plot
 
 
-def test_evaluation_plot_directly(flat_observations, flat_forecasts, default_transformer):
+def test_evaluation_plot_directly(flat_observations, flat_forecasts):
     """Test the evaluation plot with flat data."""
     plot = EvaluationPlot()
     chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts))
     assert chart is not None
 
 
-def test_sample_bias_plot_directly(flat_observations, flat_forecasts, default_transformer):
-    """Test the sample bias plot with flat data."""
-    plot = SampleBiasPlot()
+@pytest.mark.parametrize("plot_cls", [SampleBiasByHorizonPlot, SampleBiasByTimePeriodPlot])
+def test_sample_bias_plots_directly(plot_cls, flat_observations, flat_forecasts):
+    """Test the sample bias plots produce single-view charts with flat data."""
+    plot = plot_cls()
     chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts))
     assert chart is not None
+    spec = chart.to_dict()
+    assert "vconcat" not in spec and "hconcat" not in spec
+    assert spec["height"] == 300
 
 
-def test_horizon_location_grid_directly(flat_observations, flat_forecasts_multiple_samples, default_transformer):
+def test_horizon_location_grid_directly(flat_observations, flat_forecasts_multiple_samples):
     """Test the horizon location grid plot with multiple-sample forecasts."""
     plot = HorizonLocationGridPlot()
     chart = plot.get_full_plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts_multiple_samples))
     assert chart is not None
 
 
-def test_predicted_vs_actual_plot_directly(flat_observations, flat_forecasts_multiple_samples, default_transformer):
+def test_predicted_vs_actual_plot_directly(flat_observations, flat_forecasts_multiple_samples):
     """Test the predicted vs actual scatter plot with multiple-sample forecasts."""
     plot = PredictedVsActualPlot()
     chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts_multiple_samples))
     assert chart is not None
 
 
-def test_predicted_vs_actual_linear_plot_directly(
-    flat_observations, flat_forecasts_multiple_samples, default_transformer
-):
+def test_predicted_vs_actual_linear_plot_directly(flat_observations, flat_forecasts_multiple_samples):
     """Test the linear predicted vs actual scatter plot with multiple-sample forecasts."""
     plot = PredictedVsActualLinearPlot()
     chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts_multiple_samples))
@@ -133,7 +141,7 @@ def test_clean_time_accepts_all_period_formats(period_str, expected):
     assert clean_time(period_str) == expected
 
 
-def test_evaluation_plot_monthly_data(default_transformer):
+def test_evaluation_plot_monthly_data():
     """Test that evaluation plot works with monthly time periods."""
     forecasts = pd.DataFrame(
         {
@@ -160,7 +168,7 @@ def test_evaluation_plot_monthly_data(default_transformer):
     "plot_id, _backtest",
     list(itertools.product(list(get_backtest_plots_registry().keys()), ["simulated_backtest", "old_backtest"])),
 )
-def test_all_registered_plots_from_backtest(plot_id: str, _backtest: Backtest, default_transformer, request):
+def test_all_registered_plots_from_backtest(plot_id: str, _backtest: Backtest, request):
     """Test that all registered plots can be successfully generated from a Backtest."""
     chart = create_plot_from_backtest(plot_id, request.getfixturevalue(_backtest))
     assert chart is not None
@@ -170,14 +178,14 @@ def test_all_registered_plots_from_backtest(plot_id: str, _backtest: Backtest, d
     "plot_id, _backtest",
     list(itertools.product(list(get_backtest_plots_registry().keys()), ["simulated_backtest", "old_backtest"])),
 )
-def test_all_registered_plots_from_evaluation(plot_id: str, _backtest: Backtest, default_transformer, request):
+def test_all_registered_plots_from_evaluation(plot_id: str, _backtest: Backtest, request):
     """Test that all registered plots can be successfully generated from an Evaluation."""
     evaluation = Evaluation.from_backtest(request.getfixturevalue(_backtest))
     chart = create_plot_from_evaluation(plot_id, evaluation)
     assert chart is not None
 
 
-def test_plot_backtest_cli(backtest: Backtest, tmp_path: Path, default_transformer):
+def test_plot_backtest_cli(backtest: Backtest, tmp_path: Path):
     """Test the CLI plot_backtest function."""
     evaluation = Evaluation.from_backtest(backtest)
     input_file = tmp_path / "evaluation.nc"
@@ -190,7 +198,7 @@ def test_plot_backtest_cli(backtest: Backtest, tmp_path: Path, default_transform
     assert output_file.stat().st_size > 0
 
 
-def test_eval_cmd_plot_flag(backtest: Backtest, tmp_path: Path, default_transformer):
+def test_eval_cmd_plot_flag(backtest: Backtest, tmp_path: Path):
     """Test that eval_cmd's plot flag generates an HTML plot file."""
     from chap_core.assessment.backtest_plots import create_plot_from_evaluation
 

@@ -23,13 +23,13 @@ CELL_HEIGHT = 150
 METRIC_HEIGHT = 60
 
 
-def _empty_placeholder(width: int, height: int, title: str = "") -> ChartType:
-    """Return an empty chart placeholder that won't trip vegafusion's type checks."""
+def _empty_placeholder(width: int, height: int) -> ChartType:
+    """Return an empty chart placeholder that won't trip Altair/Vega type checks."""
     return (  # type: ignore[no-any-return]
         alt.Chart(pd.DataFrame({"x": [0]}))
         .mark_point(opacity=0)
         .encode(x=alt.value(0), y=alt.value(0))
-        .properties(width=width, height=height, title=title)
+        .properties(width=width, height=height)
     )
 
 
@@ -49,7 +49,7 @@ def _build_forecast_cell(
     obs = obs[obs["time_period"].isin(fq["time_period"])]
 
     if fq.empty:
-        return _empty_placeholder(CELL_WIDTH, CELL_HEIGHT, f"{location} | horizon {horizon}")
+        return _empty_placeholder(CELL_WIDTH, CELL_HEIGHT)
 
     base_forecast = alt.Chart(fq)
 
@@ -71,7 +71,7 @@ def _build_forecast_cell(
     layers = error_10_90 + error_25_75 + median_line
 
     # Only add observations layer if there is data; an empty DataFrame with
-    # object-typed columns causes vegafusion to fail on temporal encoding.
+    # object-typed columns causes Altair/Vega to fail on temporal encoding.
     if not obs.empty:
         obs_line = (
             alt.Chart(obs)
@@ -83,9 +83,7 @@ def _build_forecast_cell(
         )
         layers = layers + obs_line
 
-    return layers.properties(  # type: ignore[no-any-return]
-        width=CELL_WIDTH, height=CELL_HEIGHT, title=f"{location} | horizon {horizon}"
-    )
+    return layers.properties(width=CELL_WIDTH, height=CELL_HEIGHT)  # type: ignore[no-any-return]
 
 
 def _build_metric_chart(
@@ -267,8 +265,14 @@ class HorizonLocationGridPlot(FacetedBacktestPlot):
 
         location_rows: list[ChartType] = []
         for loc in locations:
+            # The grid layout is the only thing identifying a cell, so label each
+            # one here; the single-cell subplot view leaves identification to the
+            # frontend's facet selection.
             horizon_cells = [
-                self._plot(df[(df["location"] == loc) & (df["horizon_distance"] == hz)]) for hz in horizons
+                self._plot(df[(df["location"] == loc) & (df["horizon_distance"] == hz)]).properties(
+                    title=f"{loc} | horizon {hz}"
+                )
+                for hz in horizons
             ]
             location_rows.append(alt.hconcat(*horizon_cells).properties(spacing=10))
 

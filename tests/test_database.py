@@ -208,6 +208,19 @@ def test_add_model_template_from_url(engine, url):
         assert isinstance(external_model, ExternalModel)
 
 
+def test_add_model_template_from_url_name_override(engine, model_template_yaml_config, monkeypatch):
+    monkeypatch.setattr(
+        "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
+        lambda url: model_template_yaml_config,
+    )
+    with SessionWrapper(engine) as session:
+        template_id = add_model_template_from_url(
+            "https://github.com/example/test_model@main", session, version="test", name_override="my_distinct_name"
+        )
+        template = session.session.get(ModelTemplateDB, template_id)
+        assert template.name == "my_distinct_name"
+
+
 def test_seed_configured_models(engine):
     # make sure is clean
     SQLModel.metadata.drop_all(engine)
