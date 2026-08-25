@@ -15,7 +15,7 @@ from chap_core.assessment.thresholds.base import ThresholdStrategyBase
 from chap_core.time_period.vectorized import extract_year, season_column
 
 DEFAULT_QUANTILE = 0.75
-DEFAULT_LOOKBACK_YEARS = 5
+DEFAULT_LOOKBACK_YEARS = 3
 
 
 def filter_to_lookback(
@@ -72,8 +72,8 @@ def compute_percentile_thresholds(
     "percentile",
     "Seasonal percentile (WHO endemic channel)",
     "Outbreak threshold as a percentile of historical same-month (or same-week) values, over a "
-    "trailing window of complete years. Defaults to the 75th percentile over 5 years, following "
-    "WHO malaria channel practice. Robust to past epidemic years, which inflate mean + k*std.",
+    "trailing window of complete years. Defaults to the 75th percentile over 3 years; WHO "
+    "malaria channel practice uses 5. Robust to past epidemic years, which inflate mean + k*std.",
 )
 class PercentileThresholdStrategy(ThresholdStrategyBase):
     """Wraps :func:`compute_percentile_thresholds` as a registered strategy."""

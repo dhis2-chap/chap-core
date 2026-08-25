@@ -180,6 +180,10 @@ def test_percentile_is_not_inflated_by_a_past_epidemic(endemic_channel_observati
 
     Reported symptom was an actual around 2,500 against a threshold around 20,000. mean + k*std
     is pulled up because the outlier inflates the standard deviation; a percentile is not.
+
+    Pinned to a 5-year window: quartile robustness to one outlier needs about five samples.
+    With three, Q3 interpolates between the top two values and one epidemic year drags it
+    halfway to the epidemic level.
     """
     january = endemic_channel_observations["time_period"].str.endswith("-01")
     normal_level = float(endemic_channel_observations.loc[january, "disease_cases"].max())
@@ -189,7 +193,7 @@ def test_percentile_is_not_inflated_by_a_past_epidemic(endemic_channel_observati
         ignore_index=True,
     )
 
-    percentile = _percentile_strategy().compute(with_epidemic, ["2023-01"])
+    percentile = _percentile_strategy().compute(with_epidemic, ["2023-01"], {"lookback_years": 5})
     seasonal = _seasonal_strategy().compute(with_epidemic, ["2023-01"])
 
     pct = float(percentile.set_index("location").loc["loc_1", "threshold"])
