@@ -24,12 +24,19 @@ from chap_core.assessment.dataset_splitting import (
 )
 from chap_core.data.gluonts_adaptor.dataset import ForecastAdaptor
 from chap_core.datatypes import Samples, SamplesWithTruth, TimeSeriesData
-from chap_core.exceptions import ModelFailedException, NoPredictionsError
+from chap_core.exceptions import ModelFailedException
+from chap_core.log_config import get_status_logger
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import PeriodRange
 
 plt.set_loglevel(level="WARNING")
 logger = logging.getLogger(__name__)
+status_logger = get_status_logger()
+
+# With no successful split yet, this many consecutive failures is treated as a
+# systemically broken model and aborts the backtest instead of retrying every
+# remaining split.
+_MAX_INITIAL_FAILURES = 2
 
 
 FeatureType = TypeVar("FeatureType", bound=TimeSeriesData)
@@ -100,7 +107,9 @@ def backtest(
     Raises
     ------
     ModelFailedException
-        If every split failed to predict. Individual split failures are logged
+        If no split has succeeded yet and ``_MAX_INITIAL_FAILURES`` splits in
+        a row have failed (the model is considered systemically broken), or if
+        every split failed to predict. Individual split failures are logged
         and skipped so that one unstable split does not discard the results of
         all the others; training failures are always fatal.
     """
@@ -111,6 +120,7 @@ def backtest(
     predictor: Predictor | None = None
     n_failed = 0
     n_predicted = 0
+    last_error: Exception | None = None
     for i, (historic_data, future_data, future_truth) in enumerate(test_generator):
         if i in retrain_at:
             # Split 0 trains on the dedicated train_set (preserving the single-train
@@ -119,12 +129,23 @@ def backtest(
         assert predictor is not None, "First split must trigger training"
         try:
             r = predictor.predict(historic_data, future_data)
-        except (ModelFailedException, NoPredictionsError):
+        except Exception as e:
             # A model can fail on a single split (numerical instability, a
             # degenerate window) while succeeding on the rest. Keep the usable
-            # splits instead of discarding the whole backtest.
+            # splits instead of discarding the whole backtest. The catch is
+            # deliberately broad: chapkit and in-process models raise raw
+            # exceptions rather than ModelFailedException.
             n_failed += 1
+            last_error = e
             logger.exception("Model failed on evaluation split %d, skipping it", i)
+            status_logger.warning(f"Model failed on evaluation split {i}, skipping it")
+            if not n_predicted and n_failed >= min(_MAX_INITIAL_FAILURES, n_test_sets):
+                # No split has succeeded yet: the model is likely broken for
+                # this dataset, not unstable on one window. Fail fast instead
+                # of paying for a full model run per remaining split.
+                raise ModelFailedException(
+                    f"The first {n_failed} evaluation split(s) failed, aborting the backtest. Last error: {e}"
+                ) from e
             continue
         if r is None:
             continue
@@ -135,9 +156,11 @@ def backtest(
     if n_failed:
         if not n_predicted:
             raise ModelFailedException(
-                f"All {n_failed} evaluation splits failed. See the logs for the underlying model errors."
-            )
-        logger.warning("%d of %d evaluation splits failed and were skipped", n_failed, n_failed + n_predicted)
+                f"All {n_failed} evaluation splits failed. Last error: {last_error}"
+            ) from last_error
+        message = f"{n_failed} of {n_failed + n_predicted} evaluation splits failed and were skipped"
+        logger.warning(message)
+        status_logger.warning(message)
 
 
 def evaluate_model(
