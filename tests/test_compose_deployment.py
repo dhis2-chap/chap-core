@@ -12,8 +12,14 @@ import yaml
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-# Test and integration compose files are excluded: a restart policy there would hang CI.
+# Test and integration compose files are excluded: they overlay compose.yml rather than
+# declaring their own services, so restart policies reach them by inheritance.
 DEPLOYMENT_COMPOSE_FILES = ["compose.yml", "compose.ghcr.yml", "compose.ewars.yml"]
+
+# Services that overlay a compose.yml service but run to completion instead of staying up.
+# They inherit its restart policy, which would restart them after they exit and mask the
+# exit code the shell scripts in tests/ read back.
+ONE_SHOT_OVERLAY_SERVICES = [("compose.test.yml", "chap")]
 
 IMAGE_TO_DOCKERFILE = {
     "ghcr.io/dhis2-chap/chap-core": "Dockerfile",
@@ -91,4 +97,14 @@ def test_deployed_service_reports_health(compose_file, service_name, service):
         f"{compose_file}: service '{service_name}' has no healthcheck in compose and its "
         f"image carries none either, so depends_on conditions and restart-on-unhealthy "
         f"cannot work for it"
+    )
+
+
+@pytest.mark.parametrize(("compose_file", "service_name"), ONE_SHOT_OVERLAY_SERVICES)
+def test_one_shot_overlay_service_cancels_inherited_restart(compose_file, service_name):
+    service = _services(compose_file)[service_name]
+    assert service.get("restart") == "no", (
+        f"{compose_file}: service '{service_name}' runs to completion but does not set "
+        f'restart: "no", so it inherits the deployment restart policy and will be restarted '
+        f"after it exits, hiding its exit code from the test scripts"
     )
