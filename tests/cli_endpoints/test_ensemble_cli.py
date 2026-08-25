@@ -94,3 +94,10 @@ def test_evaluate_ensemble_smoke(weekly_full_data, tmp_path, monkeypatch):
     assert report_path.with_suffix(".csv").exists()
     assert created, "no templates were loaded"
     assert all(t.entered and t.exited for t in created)
+
+
+def test_evaluate_ensemble_help_marks_command_experimental():
+    """The experimental status must reach CLI users, not just the source."""
+    help_text = ensemble_cli.evaluate_ensemble.__doc__
+    assert help_text is not None
+    assert help_text.lstrip().startswith("EXPERIMENTAL:")

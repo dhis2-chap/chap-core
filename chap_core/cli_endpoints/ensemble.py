@@ -1,4 +1,8 @@
-"""Ensemble CLI endpoints."""
+"""Ensemble CLI endpoints.
+
+EXPERIMENTAL: the evaluate-ensemble command and the ensemble API behind it are
+under active development and may change or be removed without notice.
+"""
 
 from __future__ import annotations
 
@@ -298,6 +302,18 @@ def evaluate_ensemble(
         Parameter(help="Historical context (years)."),
     ] = 6,
 ):
+    """EXPERIMENTAL: evaluate a stacking ensemble of several base models.
+
+    This command is experimental. Its interface, defaults and outputs may change
+    or be removed in any release, and the results should not yet be relied on for
+    production evaluations.
+
+    Trains the base models on an inner split of the training data, fits ensemble
+    weights on the held-out windows, then backtests the combined model. Base models
+    are given as a comma-separated list of local folders or GitHub URLs, optionally
+    paired with a matching list of configuration YAML files.
+    """
+    logger.warning("evaluate-ensemble is EXPERIMENTAL: its interface and results may change without notice")
     return _evaluate_ensemble_core(
         base_model_names=base_model_names,
         ensemble_method=ensemble_method,
