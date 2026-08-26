@@ -4,6 +4,7 @@ Verifies that services registered via the v2 Orchestrator appear in
 GET /v1/crud/model-templates with correct health status and configured models.
 """
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import fakeredis
@@ -96,7 +97,7 @@ def test_registered_service_appears_in_model_templates(client, register_service)
     assert matching[0]["healthStatus"] == "live"
 
 
-def test_schema_fetch_failure_does_not_freeze_empty_user_options(client, register_service, mock_wrapper_cls):
+def test_schema_fetch_failure_does_not_freeze_empty_user_options(client, register_service, mock_wrapper_cls, caplog):
     schema = {
         "properties": {
             "n_lags": {"type": "integer", "default": 3},
@@ -110,7 +111,15 @@ def test_schema_fetch_failure_does_not_freeze_empty_user_options(client, registe
     register_service()
 
     # An incomplete template is not created while the schema endpoint is down.
-    assert client.get("/v1/crud/model-templates").json() == []
+    with caplog.at_level(logging.WARNING, logger="chap_core.rest_api.v1.routers.crud"):
+        assert client.get("/v1/crud/model-templates").json() == []
+    assert any(
+        record.levelno == logging.WARNING
+        and "Could not fetch config schema" in record.message
+        and "will retry next sync" in record.message
+        and record.exc_info is not None
+        for record in caplog.records
+    )
 
     # The next sync succeeds and creates the template with its user options.
     templates = client.get("/v1/crud/model-templates").json()

@@ -127,7 +127,11 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> set[str]
                     schema = client.get_config_schema()
                     user_options = _parse_user_options_from_config_schema(schema)
                 except Exception:
-                    logger.debug("Could not fetch config schema from %s, will retry next sync", service.url)
+                    logger.warning(
+                        "Could not fetch config schema from %s, will retry next sync",
+                        service.url,
+                        exc_info=True,
+                    )
                     continue
 
                 config = ml_service_info_to_model_template_config(service.info, service.url, user_options)
