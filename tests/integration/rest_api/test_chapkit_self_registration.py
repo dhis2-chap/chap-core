@@ -297,7 +297,9 @@ def test_creates_multiple_configured_models_from_service_configs(client, registe
     assert len(names) == 2
 
 
-def test_re_registered_service_with_new_version_adds_new_template(client, register_service, fake_orchestrator):
+def test_re_registered_service_with_new_version_adds_new_template(
+    client, register_service, fake_orchestrator, db_engine
+):
     """A service with a new version adds a template version. It does not change the old one."""
     register_service()
     templates = client.get("/v1/crud/model-templates").json()
@@ -318,19 +320,25 @@ def test_re_registered_service_with_new_version_adds_new_template(client, regist
     fake_orchestrator.deregister("test-model")
     register_service(info_dict=updated_info)
 
+    # Only the live version is listed.
     templates = client.get("/v1/crud/model-templates").json()
     matching = [t for t in templates if t["name"] == "test-model"]
-    assert len(matching) == 2
-    live = [t for t in matching if t["isLive"]]
-    assert len(live) == 1
-    assert live[0]["version"] == "2.0.0"
-    assert live[0]["displayName"] == "Updated Model"
-    assert live[0]["requiresGeo"] is True
-    assert live[0]["requiredCovariates"] == ["rainfall"]
-    # The old version stays available.
-    superseded = next(t for t in matching if t["id"] == first_id)
-    assert superseded["version"] == "1.0.0"
-    assert superseded["isLive"] is False
+    assert len(matching) == 1
+    live = matching[0]
+    assert live["isLive"] is True
+    assert live["version"] == "2.0.0"
+    assert live["displayName"] == "Updated Model"
+    assert live["requiresGeo"] is True
+    assert live["requiredCovariates"] == ["rainfall"]
+    assert live["id"] != first_id
+    # The old version keeps its row and id, but is no longer live.
+    from chap_core.database.model_templates_and_config_tables import ModelTemplateDB
+
+    with Session(db_engine) as session:
+        superseded = session.get(ModelTemplateDB, first_id)
+        assert superseded is not None
+        assert superseded.version == "1.0.0"
+        assert superseded.is_live is False
 
 
 def test_non_chapkit_orphan_template_not_archived(client, register_service, fake_orchestrator, db_engine):

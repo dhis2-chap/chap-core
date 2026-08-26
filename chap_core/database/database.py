@@ -129,13 +129,15 @@ class SessionWrapper:
 
     def _make_live_template_version(self, model_name: str, model_template_id: int) -> None:
         # Only one version is live. The other versions keep their rows and their ids.
-        # Stay on the previous live version until this one has a configured model.
+        # Stay on the previous live version until this one has a configured model,
+        # except when no version is live yet — then this one is live immediately
+        # so the template stays discoverable and configurable.
+        templates = self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == model_name)).all()
         has_configured_model = self.session.exec(
             select(ConfiguredModelDB.id).where(ConfiguredModelDB.model_template_id == model_template_id)
         ).first()
-        if has_configured_model is None:
+        if has_configured_model is None and any(template.is_live for template in templates):
             return
-        templates = self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == model_name)).all()
         for template in templates:
             template.is_live = template.id == model_template_id
         self.session.commit()
@@ -363,9 +365,9 @@ class SessionWrapper:
             self._select_live_configured_models().where(ConfiguredModelDB.name == configured_model_name)
         ).one_or_none()
         if configured_model is None:
-            all_names = self.session.exec(select(ConfiguredModelDB.name)).all()
+            available_names = [model.name for model in self.session.exec(self._select_live_configured_models()).all()]
             raise ValueError(
-                f"Configured model with name {configured_model_name} not found. Available names: {all_names}"
+                f"Configured model with name {configured_model_name} not found. Available names: {available_names}"
             )
 
         return configured_model

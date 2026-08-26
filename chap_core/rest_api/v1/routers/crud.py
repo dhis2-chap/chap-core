@@ -755,7 +755,7 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], se
     summary="Browse available model templates",
 )
 async def list_model_templates(session: Session = Depends(get_session)):
-    """List every model template that can be configured into a runnable model — including archived ones, so historical references stay resolvable.
+    """List every live model template that can be configured into a runnable model — one per template name; superseded versions keep their rows but are not listed.
 
     Acts as the discovery endpoint: it is also where the CHAPKit v2 service registry
     gets pulled in, so a template's ``health_status = "live"`` reflects whether the
@@ -763,7 +763,7 @@ async def list_model_templates(session: Session = Depends(get_session)):
     services have disappeared are auto-archived as a side effect.
     """
     live_ids = _sync_live_chapkit_services(session)
-    model_templates = session.exec(select(ModelTemplateDB)).all()
+    model_templates = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.is_live == True)).all()
 
     results = []
     for t in model_templates:

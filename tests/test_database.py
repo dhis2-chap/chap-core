@@ -237,6 +237,13 @@ def test_new_template_version_is_added_as_new_row(model_template_yaml_config, en
         assert session.get_model_template(v2_id).version == "v2"
 
 
+def test_first_template_version_is_live_before_it_has_a_configured_model(model_template_yaml_config, engine):
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+
+        assert session.get_model_template(template_id).is_live is True
+
+
 def test_new_template_version_stays_hidden_until_it_has_a_configured_model(model_template_yaml_config, engine):
     with SessionWrapper(engine) as session:
         model_template_yaml_config.version = "v1"
@@ -316,6 +323,23 @@ def test_new_template_version_gets_its_own_configured_model(model_template_yaml_
         assert session.get_configured_model_by_name("test_model").id == v2_configured_id
         # A pinned id still resolves the version that it points at.
         assert session.get_configured_model_by_id_or_name(v1_configured_id).id == v1_configured_id
+
+
+def test_missing_configured_model_error_lists_only_live_names(model_template_yaml_config, engine):
+    with SessionWrapper(engine) as session:
+        model_template_yaml_config.version = "v1"
+        v1_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        session.add_configured_model(v1_id, ModelConfiguration(user_option_values={}))
+        session.add_configured_model(v1_id, ModelConfiguration(user_option_values={}), "legacy")
+        model_template_yaml_config.version = "v2"
+        v2_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        session.add_configured_model(v2_id, ModelConfiguration(user_option_values={}))
+
+        with pytest.raises(ValueError, match="not found") as exc_info:
+            session.get_configured_model_by_name("test_model:legacy")
+
+        available = str(exc_info.value).split("Available names: ", 1)[1]
+        assert available == "['test_model']"
 
 
 def test_add_model_template_from_url_stores_source_digest(engine, model_template_yaml_config, monkeypatch):
