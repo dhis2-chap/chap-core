@@ -13,6 +13,7 @@ from chap_core.database.model_template_seed import (
     add_model_template_from_url,
     seed_configured_models_from_config_dir,
 )
+from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.model_templates_and_config_tables import (
     ConfiguredModelDB,
     drifted_template_content_fields,
@@ -29,7 +30,7 @@ from chap_core.external.model_configuration import (
     ModelTemplateConfigV2,
 )
 from chap_core.models.external_model import ExternalModel
-from chap_core.rest_api.data_models import BacktestCreate
+from chap_core.rest_api.data_models import BacktestCreate, ModelTemplateRead
 from chap_core.rest_api.db_worker_functions import run_backtest, run_prediction
 from chap_core.testing.testing import assert_dataset_equal
 
@@ -128,6 +129,24 @@ def test_add_model_template_from_yaml_config_requires_version(model_template_yam
 
     with SessionWrapper(engine) as session, pytest.raises(ValueError, match="must declare a version"):
         session.add_model_template_from_yaml_config(model_template_yaml_config)
+
+
+def test_model_template_read_accepts_null_version():
+    read = ModelTemplateRead.model_validate({"name": "legacy", "id": 1, "version": None})
+    assert read.version is None
+
+
+def test_model_spec_read_accepts_null_version():
+    read = ModelSpecRead.model_validate(
+        {
+            "name": "legacy",
+            "id": 1,
+            "version": None,
+            "covariates": [],
+            "target": {"name": "disease_cases", "displayName": "Disease cases", "description": "Disease cases"},
+        }
+    )
+    assert read.version is None
 
 
 def test_add_model_template_unarchives_existing(model_template_yaml_config, engine):

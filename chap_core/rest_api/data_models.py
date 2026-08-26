@@ -175,7 +175,7 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
         default=None, description="JSON-schema-like dict describing the template's user-configurable options."
     )
     required_covariates: list[str] = Field(default=[], description="Covariate names the template must be given to run.")
-    version: str = Field(description="Version label of this template.")
+    version: str | None = Field(default=None, description="Version label of this template.")
     source_digest: str | None = Field(
         default=None, description="The revision that this template came from, for example a Git commit SHA."
     )

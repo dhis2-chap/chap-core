@@ -39,7 +39,7 @@ class ModelSpecRead(ModelSpecBase):
     """
 
     id: int = Field(description="Primary key of the underlying `ModelSpec` row.")
-    version: str = Field(description="Version label of the model template. It cannot change.")
+    version: str | None = Field(default=None, description="Version label of the model template. It cannot change.")
     source_digest: str | None = Field(
         default=None,
         description="The revision that the model template came from.",
