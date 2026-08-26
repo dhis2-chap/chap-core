@@ -105,6 +105,7 @@ class SessionWrapper:
     def _add_model_template(self, model_template: ModelTemplateDB) -> int:
         # add db entry
         logger.info(f"Adding model template: {model_template}")
+        model_template.is_live = False
         self.session.add(model_template)
         self.session.commit()
         # return id
@@ -112,6 +113,12 @@ class SessionWrapper:
 
     def _make_live_template_version(self, model_name: str, model_template_id: int) -> None:
         # Only one version is live. The other versions keep their rows and their ids.
+        # Stay on the previous live version until this one has a configured model.
+        has_configured_model = self.session.exec(
+            select(ConfiguredModelDB.id).where(ConfiguredModelDB.model_template_id == model_template_id)
+        ).first()
+        if has_configured_model is None:
+            return
         templates = self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == model_name)).all()
         for template in templates:
             template.is_live = template.id == model_template_id
@@ -200,32 +207,32 @@ class SessionWrapper:
             logger.info(
                 f"Configured model {name} with an identical configuration already exists. Returning existing id"
             )
-            self._make_live_configured_model(model_template_id, name, cast("int", existing_configured.id))
-            return cast("int", existing_configured.id)
+            configured_model_id = cast("int", existing_configured.id)
+        else:
+            # create and add db entry
+            configured_model = ConfiguredModelDB(
+                name=name,
+                model_template_id=model_template_id,
+                **configuration.model_dump(),
+                configuration_digest=digest,
+                model_template=model_template,
+                uses_chapkit=uses_chapkit,
+            )
+            # Chapkit owns its config schema and validates server-side; chap-core
+            # stores user_option_values={} as a "use chapkit defaults" sentinel.
+            # The local heuristic-based validator wrongly flags any default_factory
+            # field as required (no literal "default" key in the schema), so skip it.
+            if not uses_chapkit:
+                configured_model.validate_user_options(configured_model)
+            # configured_model.validate_user_options(model_template)
+            logger.info(f"Adding configured model: {configured_model}")
+            self.session.add(configured_model)
+            self.session.commit()
+            configured_model_id = cast("int", configured_model.id)
 
-        # create and add db entry
-        configured_model = ConfiguredModelDB(
-            name=name,
-            model_template_id=model_template_id,
-            **configuration.model_dump(),
-            configuration_digest=digest,
-            model_template=model_template,
-            uses_chapkit=uses_chapkit,
-        )
-        # Chapkit owns its config schema and validates server-side; chap-core
-        # stores user_option_values={} as a "use chapkit defaults" sentinel.
-        # The local heuristic-based validator wrongly flags any default_factory
-        # field as required (no literal "default" key in the schema), so skip it.
-        if not uses_chapkit:
-            configured_model.validate_user_options(configured_model)
-        # configured_model.validate_user_options(model_template)
-        logger.info(f"Adding configured model: {configured_model}")
-        self.session.add(configured_model)
-        self.session.commit()
-        self._make_live_configured_model(model_template_id, name, cast("int", configured_model.id))
-
-        # return id
-        return cast("int", configured_model.id)
+        self._make_live_configured_model(model_template_id, name, configured_model_id)
+        self._make_live_template_version(template_name, model_template_id)
+        return configured_model_id
 
     def _make_live_configured_model(self, model_template_id: int, name: str, configured_model_id: int) -> None:
         # Only one configuration per name is live. The others keep their rows and their ids.

@@ -215,8 +215,28 @@ def test_new_template_version_is_added_as_new_row(model_template_yaml_config, en
         assert v1_id != v2_id
         # The old version keeps its own row.
         assert session.get_model_template(v1_id).version == "v1"
+        assert session.get_model_template(v2_id).version == "v2"
+
+
+def test_new_template_version_stays_hidden_until_it_has_a_configured_model(model_template_yaml_config, engine):
+    with SessionWrapper(engine) as session:
+        model_template_yaml_config.version = "v1"
+        v1_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        v1_configured_id = session.add_configured_model(v1_id, ModelConfiguration(user_option_values={}))
+
+        model_template_yaml_config.version = "v2"
+        v2_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+
+        assert session.get_model_template(v1_id).is_live is True
+        assert session.get_model_template(v2_id).is_live is False
+        assert session.get_configured_model_by_name("test_model").id == v1_configured_id
+        assert [model.id for model in session.get_configured_models()] == [v1_configured_id]
+
+        v2_configured_id = session.add_configured_model(v2_id, ModelConfiguration(user_option_values={}))
+
         assert session.get_model_template(v1_id).is_live is False
         assert session.get_model_template(v2_id).is_live is True
+        assert session.get_configured_model_by_name("test_model").id == v2_configured_id
 
 
 def test_reseeding_changed_contents_under_the_same_version_keeps_stored_row(model_template_yaml_config, engine):
@@ -250,13 +270,16 @@ def test_reseeding_older_template_version_makes_it_live_again(model_template_yam
     with SessionWrapper(engine) as session:
         model_template_yaml_config.version = "v1"
         v1_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        v1_configured_id = session.add_configured_model(v1_id, ModelConfiguration(user_option_values={}))
         model_template_yaml_config.version = "v2"
         v2_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        session.add_configured_model(v2_id, ModelConfiguration(user_option_values={}))
         model_template_yaml_config.version = "v1"
 
         assert session.add_model_template_from_yaml_config(model_template_yaml_config) == v1_id
         assert session.get_model_template(v1_id).is_live is True
         assert session.get_model_template(v2_id).is_live is False
+        assert session.get_configured_model_by_name("test_model").id == v1_configured_id
 
 
 def test_new_template_version_gets_its_own_configured_model(model_template_yaml_config, engine):
