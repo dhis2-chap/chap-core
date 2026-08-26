@@ -4,7 +4,7 @@ from pathlib import Path
 
 import docker
 
-from chap_core.exceptions import DockerUnavailableError
+from chap_core.exceptions import CommandLineException, DockerUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -86,8 +86,17 @@ def run_command_through_docker_container(
 
     result = container.wait()
     exit_code = result["StatusCode"]
-    log_output = container.logs().decode("utf-8")
-    assert exit_code == 0, f"Command failed with exit code {exit_code}: {log_output}"
+    log_output = container.logs().decode("utf-8", errors="replace")
+    if exit_code != 0:
+        # Raise the same exception type as CommandLineRunner so callers
+        # (e.g. the per-split backtest error handling) treat a failed
+        # container like any other failed model command.
+        message = (
+            f"Command '{command}' in docker image {docker_image_name} failed with exit code {exit_code}, "
+            f"Full output from command below: \n ----- \n{log_output} \n--------"
+        )
+        logger.error(message)
+        raise CommandLineException(message)
     container.remove()
 
     return log_output
