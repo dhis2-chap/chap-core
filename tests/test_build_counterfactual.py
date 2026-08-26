@@ -306,3 +306,208 @@ def test_one_minus_x(tmp_path, make_test_df):
     build_counterfactual_cmd(csv, ["rainfall=1-x"])
     out = pd.read_csv(tmp_path / "data_cf.csv")
     assert out["rainfall"][0] == pytest.approx(0.7)
+
+
+# --- seasonal_min / seasonal_max ---
+
+
+def test_seasonal_min_same_month_previous_years(tmp_path, make_row_df):
+    csv = tmp_path / "data.csv"
+    make_row_df(
+        [
+            ("A", "2021-06", 40.0),
+            ("A", "2022-06", 55.0),
+            ("A", "2023-06", 999.0),
+        ]
+    ).to_csv(csv, index=False)
+    build_counterfactual_cmd(csv, ["rainfall=seasonal_min"], start_time_period="2023-06")
+    out = pd.read_csv(tmp_path / "data_cf.csv")
+    assert out["rainfall"][2] == 40.0
+
+
+def test_seasonal_max_same_week_previous_years(tmp_path, make_row_df):
+    csv = tmp_path / "data.csv"
+    make_row_df(
+        [
+            ("A", "2021-W10", 40.0),
+            ("A", "2022-W10", 55.0),
+            ("A", "2023-W10", 999.0),
+        ]
+    ).to_csv(csv, index=False)
+    build_counterfactual_cmd(csv, ["rainfall=seasonal_max"], start_time_period="2023-W10")
+    out = pd.read_csv(tmp_path / "data_cf.csv")
+    assert out["rainfall"][2] == 55.0
+
+
+def test_seasonal_ignores_out_of_season_rows(tmp_path, make_row_df):
+    csv = tmp_path / "data.csv"
+    make_row_df(
+        [
+            ("A", "2021-06", 40.0),
+            ("A", "2022-06", 55.0),
+            ("A", "2022-07", 1.0),
+            ("A", "2023-06", 999.0),
+        ]
+    ).to_csv(csv, index=False)
+    build_counterfactual_cmd(csv, ["rainfall=seasonal_min"], start_time_period="2023-06")
+    out = pd.read_csv(tmp_path / "data_cf.csv")
+    assert out["rainfall"][3] == 40.0  # not the out-of-season 1.0
+
+
+def test_seasonal_per_location_isolation(tmp_path, make_row_df):
+    csv = tmp_path / "data.csv"
+    make_row_df(
+        [
+            ("A", "2022-06", 40.0),
+            ("A", "2023-06", 999.0),
+            ("B", "2022-06", 1.0),
+            ("B", "2023-06", 999.0),
+        ]
+    ).to_csv(csv, index=False)
+    build_counterfactual_cmd(csv, ["rainfall=seasonal_min"], start_time_period="2023-06")
+    out = pd.read_csv(tmp_path / "data_cf.csv")
+    assert out["rainfall"][1] == 40.0  # A's target, from A's history only
+    assert out["rainfall"][3] == 1.0  # B's target, from B's history only
+
+
+def test_seasonal_unsupported_period_type(tmp_path, make_row_df):
+    csv = tmp_path / "data.csv"
+    make_row_df([("A", "2022", 40.0), ("A", "2023", 999.0)]).to_csv(csv, index=False)
+    with pytest.raises(ValueError, match="require Month or Week"):
+        build_counterfactual_cmd(csv, ["rainfall=seasonal_min"], start_time_period="2023")
+
+
+def test_seasonal_missing_location_column(tmp_path, make_row_df):
+    csv = tmp_path / "data.csv"
+    make_row_df(
+        [("2022-06", 40.0), ("2023-06", 999.0)],
+        columns=("time_period", "rainfall"),
+    ).to_csv(csv, index=False)
+    with pytest.raises(ValueError, match="Column 'location' not found"):
+        build_counterfactual_cmd(csv, ["rainfall=seasonal_min"], start_time_period="2023-06")
+
+
+def test_seasonal_requires_start_time_period(tmp_path, make_test_df):
+    csv = tmp_path / "data.csv"
+    make_test_df(_LOCATIONS, _PERIODS).to_csv(csv, index=False)
+    with pytest.raises(ValueError, match="--start-time-period is required"):
+        build_counterfactual_cmd(csv, ["rainfall=seasonal_min"])
+
+
+def test_seasonal_no_history_warns_and_skips(tmp_path, make_row_df):
+    csv = tmp_path / "data.csv"
+    make_row_df([("A", "2023-06", 999.0)]).to_csv(csv, index=False)
+    with patch("chap_core.cli_endpoints.build_counterfactual.logger") as mock_logger:
+        build_counterfactual_cmd(csv, ["rainfall=seasonal_min"], start_time_period="2023-06")
+        mock_logger.warning.assert_called_once()
+    out = pd.read_csv(tmp_path / "data_cf.csv")
+    assert out["rainfall"][0] == 999.0
+
+
+def test_seasonal_overrides_nan_target(tmp_path, make_row_df):
+    csv = tmp_path / "data.csv"
+    make_row_df(
+        [
+            ("A", "2021-06", 40.0),
+            ("A", "2022-06", 55.0),
+            ("A", "2023-06", float("nan")),
+        ]
+    ).to_csv(csv, index=False)
+    build_counterfactual_cmd(csv, ["rainfall=seasonal_min"], start_time_period="2023-06")
+    out = pd.read_csv(tmp_path / "data_cf.csv")
+    assert out["rainfall"][2] == 40.0
+
+
+# --- window_avg_min / window_avg_max ---
+
+_WINDOW_AVG_ROWS = [
+    ("A", "2021-01", 10.0),
+    ("A", "2021-02", 20.0),
+    ("A", "2021-03", 30.0),
+    ("A", "2021-04", 5.0),
+    ("A", "2021-05", 999.0),
+    ("A", "2021-06", 999.0),
+]
+
+
+def test_window_avg_min_basic(tmp_path, make_row_df):
+    csv = tmp_path / "data.csv"
+    make_row_df(_WINDOW_AVG_ROWS).to_csv(csv, index=False)
+    build_counterfactual_cmd(csv, ["rainfall=window_avg_min"], start_time_period="2021-05")
+    out = pd.read_csv(tmp_path / "data_cf.csv")
+    # windows [10,20] -> min 10, [30,5] -> min 5; avg = 7.5
+    assert out["rainfall"][4] == pytest.approx(7.5)
+    assert out["rainfall"][5] == pytest.approx(7.5)
+
+
+def test_window_avg_max_basic(tmp_path, make_row_df):
+    csv = tmp_path / "data.csv"
+    make_row_df(_WINDOW_AVG_ROWS).to_csv(csv, index=False)
+    build_counterfactual_cmd(csv, ["rainfall=window_avg_max"], start_time_period="2021-05")
+    out = pd.read_csv(tmp_path / "data_cf.csv")
+    # windows [10,20] -> max 20, [30,5] -> max 30; avg = 25
+    assert out["rainfall"][4] == pytest.approx(25.0)
+    assert out["rainfall"][5] == pytest.approx(25.0)
+
+
+def test_window_avg_drops_partial_trailing_window(tmp_path, make_row_df):
+    csv = tmp_path / "data.csv"
+    make_row_df(
+        [
+            ("A", "2021-01", 10.0),
+            ("A", "2021-02", 20.0),
+            ("A", "2021-03", 1.0),
+            ("A", "2021-04", 999.0),
+            ("A", "2021-05", 999.0),
+        ]
+    ).to_csv(csv, index=False)
+    build_counterfactual_cmd(csv, ["rainfall=window_avg_min"], start_time_period="2021-04")
+    out = pd.read_csv(tmp_path / "data_cf.csv")
+    # only one full window [10,20] -> min 10; the leftover 2021-03=1.0 is dropped, not averaged in
+    assert out["rainfall"][3] == pytest.approx(10.0)
+    assert out["rainfall"][4] == pytest.approx(10.0)
+
+
+def test_window_avg_per_location_window_length(tmp_path, make_row_df):
+    csv = tmp_path / "data.csv"
+    make_row_df(
+        [
+            ("A", "2021-01", 100.0),
+            ("A", "2021-02", 200.0),
+            ("A", "2021-05", 999.0),
+            ("B", "2021-01", 10.0),
+            ("B", "2021-02", 20.0),
+            ("B", "2021-03", 30.0),
+            ("B", "2021-04", 40.0),
+            ("B", "2021-05", 999.0),
+            ("B", "2021-06", 999.0),
+        ]
+    ).to_csv(csv, index=False)
+    build_counterfactual_cmd(csv, ["rainfall=window_avg_min"], start_time_period="2021-05")
+    out = pd.read_csv(tmp_path / "data_cf.csv").set_index(["location", "time_period"])["rainfall"]
+    # A: window length 1 -> windows [100],[200] -> avg(100,200) = 150
+    assert out[("A", "2021-05")] == pytest.approx(150.0)
+    # B: window length 2 -> windows [10,20]->10, [30,40]->30 -> avg = 20
+    assert out[("B", "2021-05")] == pytest.approx(20.0)
+    assert out[("B", "2021-06")] == pytest.approx(20.0)
+
+
+def test_mixed_arithmetic_and_seasonal_columns(tmp_path, make_row_df):
+    csv = tmp_path / "data.csv"
+    make_row_df(
+        [
+            ("A", "2021-06", 40.0, 10.0),
+            ("A", "2022-06", 55.0, 10.0),
+            ("A", "2023-06", 999.0, 10.0),
+        ],
+        columns=("location", "time_period", "rainfall", "temperature"),
+    ).to_csv(csv, index=False)
+    build_counterfactual_cmd(
+        csv,
+        ["rainfall=seasonal_min", "temperature=x-5"],
+        start_time_period="2023-06",
+    )
+    out = pd.read_csv(tmp_path / "data_cf.csv")
+    assert out["rainfall"][2] == 40.0
+    assert out["temperature"][2] == 5.0
+    assert out["temperature"][0] == 10.0  # outside active range, unchanged
