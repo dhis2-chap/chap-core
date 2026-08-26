@@ -67,11 +67,14 @@ def test_run_command_failure_with_non_utf8_output_is_still_readable():
     still raise CommandLineException with a readable message instead of
     crashing with UnicodeDecodeError."""
     with pytest.raises(CommandLineException) as exc_info:
-        CommandLineRunner("./").run_command("printf 'boom-\\xff-stderr' >&2; exit 1")
+        # Octal escape, not \xff: /bin/sh is dash on CI and dash's printf does not
+        # implement hex escapes, so \xff would emit literal ASCII instead of a raw byte.
+        CommandLineRunner("./").run_command("printf 'boom-\\377-stderr' >&2; exit 1")
 
     message = str(exc_info.value)
     assert "boom-" in message
     assert "-stderr" in message
+    assert "\ufffd" in message
 
 
 def test_uv_runner_prepends_uv_run():
