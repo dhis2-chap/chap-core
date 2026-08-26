@@ -375,6 +375,68 @@ def test_add_model_template_from_url_requires_a_resolvable_source_digest(engine,
         add_model_template_from_url("https://github.com/example/test_model@main", session, version="test")
 
 
+def _two_git_model_config_dir(tmp_path):
+    config_dir = tmp_path / "configured_models"
+    config_dir.mkdir()
+    (config_dir / "default.yaml").write_text(
+        "- url: https://github.com/example/broken_model\n"
+        "  name: broken_model\n"
+        "  versions:\n"
+        '    nightly_build: "@main"\n'
+        "- url: https://github.com/example/ok_model\n"
+        "  name: ok_model\n"
+        "  versions:\n"
+        '    v1: "@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\n'
+    )
+    return config_dir
+
+
+def _seeded_template_names(engine):
+    with Session(engine) as session:
+        return {template.name for template in session.exec(select(ModelTemplateDB)).all()}
+
+
+def test_seed_skips_git_model_when_source_digest_cannot_be_resolved(
+    engine, tmp_path, model_template_yaml_config, monkeypatch
+):
+    monkeypatch.setattr(
+        "chap_core.database.model_template_seed.resolve_commit_sha",
+        lambda url: None if "broken_model" in url else "a" * 40,
+    )
+    monkeypatch.setattr(
+        "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
+        lambda url: model_template_yaml_config.model_copy(deep=True),
+    )
+    with Session(engine) as session:
+        seed_configured_models_from_config_dir(session, directory=_two_git_model_config_dir(tmp_path))
+
+    names = _seeded_template_names(engine)
+    assert "broken_model" not in names
+    assert "ok_model" in names
+    assert "naive_model" in names
+
+
+def test_seed_skips_git_model_when_github_fetch_fails(engine, tmp_path, model_template_yaml_config, monkeypatch):
+    monkeypatch.setattr("chap_core.database.model_template_seed.resolve_commit_sha", lambda url: "a" * 40)
+
+    def fetch_config(url):
+        if "broken_model" in url:
+            raise AssertionError("Error fetching MLProject file")
+        return model_template_yaml_config.model_copy(deep=True)
+
+    monkeypatch.setattr(
+        "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
+        fetch_config,
+    )
+    with Session(engine) as session:
+        seed_configured_models_from_config_dir(session, directory=_two_git_model_config_dir(tmp_path))
+
+    names = _seeded_template_names(engine)
+    assert "broken_model" not in names
+    assert "ok_model" in names
+    assert "naive_model" in names
+
+
 def test_seed_configured_models(engine):
     # make sure is clean
     SQLModel.metadata.drop_all(engine)

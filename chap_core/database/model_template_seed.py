@@ -119,17 +119,23 @@ def seed_configured_models_from_config_dir(
                 )
                 continue
         else:
-            # for every version, add one for each configured model configuration
-            # find latest version in yaml, add that as a model template before for loop
-            version, version_commit_or_branch = list(config.versions.items())[-1]
-            version_commit_or_branch = version_commit_or_branch.strip("@")
-            config.url = config.url.removesuffix("/")
+            try:
+                # for every version, add one for each configured model configuration
+                # find latest version in yaml, add that as a model template before for loop
+                version, version_commit_or_branch = list(config.versions.items())[-1]
+                version_commit_or_branch = version_commit_or_branch.strip("@")
+                config.url = config.url.removesuffix("/")
 
-            version_url = f"{config.url}@{version_commit_or_branch}"
-            template_id = add_model_template_from_url(version_url, wrapper, version, name_override=config.name)
+                version_url = f"{config.url}@{version_commit_or_branch}"
+                template_id = add_model_template_from_url(version_url, wrapper, version, name_override=config.name)
 
-            for config_name, configured_model_configuration in config.configurations.items():
-                add_configured_model(template_id, configured_model_configuration, config_name, wrapper)
+                for config_name, configured_model_configuration in config.configurations.items():
+                    add_configured_model(template_id, configured_model_configuration, config_name, wrapper)
+            except Exception as e:
+                logger.error(
+                    f"Could not seed git model at {config.url}: {e}. Skipping this model when seeding the database."
+                )
+                continue
 
     # add naive model template
     naive_template = get_naive_model_template()
