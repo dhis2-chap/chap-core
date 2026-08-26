@@ -437,6 +437,52 @@ def test_seed_skips_git_model_when_github_fetch_fails(engine, tmp_path, model_te
     assert "naive_model" in names
 
 
+def _two_chapkit_model_config_dir(tmp_path):
+    config_dir = tmp_path / "configured_models"
+    config_dir.mkdir()
+    (config_dir / "default.yaml").write_text(
+        "- url: http://broken-chapkit:8000\n"
+        "  uses_chapkit: true\n"
+        "  versions:\n"
+        '    v1: "/v1"\n'
+        "- url: http://ok-chapkit:8000\n"
+        "  uses_chapkit: true\n"
+        "  versions:\n"
+        '    v1: "/v1"\n'
+    )
+    return config_dir
+
+
+def test_seed_skips_chapkit_model_when_version_is_missing(engine, tmp_path, model_template_yaml_config, monkeypatch):
+    class FakeChapkitTemplate:
+        def __init__(self, url):
+            self.url = url
+
+        def wait_for_healthy(self, timeout=30):
+            return None
+
+        def get_model_template_config(self):
+            config = model_template_yaml_config.model_copy(deep=True)
+            if "broken" in self.url:
+                config.name = "broken_chapkit"
+                config.version = None
+                return config
+            config.name = "ok_chapkit"
+            return config
+
+    monkeypatch.setattr(
+        "chap_core.database.model_template_seed.ExternalChapkitModelTemplate",
+        FakeChapkitTemplate,
+    )
+    with Session(engine) as session:
+        seed_configured_models_from_config_dir(session, directory=_two_chapkit_model_config_dir(tmp_path))
+
+    names = _seeded_template_names(engine)
+    assert "broken_chapkit" not in names
+    assert "ok_chapkit" in names
+    assert "naive_model" in names
+
+
 def test_seed_configured_models(engine):
     # make sure is clean
     SQLModel.metadata.drop_all(engine)

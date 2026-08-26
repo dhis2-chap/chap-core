@@ -113,9 +113,9 @@ def seed_configured_models_from_config_dir(
                     add_configured_model(
                         template_id, configured_model_configuration, config_name, wrapper, uses_chapkit=True
                     )
-            except TimeoutError:
+            except Exception as e:
                 logger.error(
-                    f"Chapkit model at {config.url} did not respond as healthy. Skipping this model when seeding the database."
+                    f"Could not seed chapkit model at {config.url}: {e}. Skipping this model when seeding the database."
                 )
                 continue
         else:
