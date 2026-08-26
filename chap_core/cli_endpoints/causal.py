@@ -20,6 +20,7 @@ from chap_core.cli_endpoints._common import (
     get_estimator,
     load_dataset_from_csv,
     resolve_csv_path,
+    resolve_period_arg,
     warn_unused_covariates,
 )
 
@@ -66,7 +67,13 @@ def causal_cmd(
     ],
     split_period: Annotated[
         str,
-        Parameter(help="Period string where training ends and prediction begins (e.g. '2023-01' or '2023W01')"),
+        Parameter(
+            help=(
+                "Period where training ends and prediction begins (e.g. '2023-01' or '2023W01'). "
+                "Also accepts a relative index: '+n' for the n-th period from the start, '-n' for "
+                "the n-th period from the end of the dataset (both 1-based)."
+            )
+        ),
     ],
     output_file: Annotated[
         Path,
@@ -78,7 +85,9 @@ def causal_cmd(
             help=(
                 "Period where counterfactual values begin as historic context during prediction "
                 "(must be before split_period). When set, periods from here up to split_period "
-                "use counterfactual covariates instead of original values. Defaults to split_period."
+                "use counterfactual covariates instead of original values. Defaults to split_period. "
+                "Also accepts a relative index: '+n' for the n-th period from the start, '-n' for "
+                "the n-th period from the end of the dataset (both 1-based)."
             )
         ),
     ] = None,
@@ -110,6 +119,10 @@ def causal_cmd(
     Results are written to two NetCDF files: output_file (original) and
     output_file with a _cf suffix (counterfactual).
 
+    split_period and cf_start_period also accept a relative period index instead of an exact
+    period string: '+n' selects the n-th period from the start of the dataset, '-n' selects the
+    n-th period from the end (both 1-based, e.g. '-1' is the dataset's last period).
+
     Examples:
         # Train on original data up to 2023-01, predict on both scenarios
         chap causal --model-name https://github.com/dhis2-chap/minimalist_example_lag \\
@@ -117,6 +130,14 @@ def causal_cmd(
             --counterfactual-csv ./data/counterfactual.csv \\
             --counterfactual-columns rainfall \\
             --split-period 2023-01 \\
+            --output-file ./results/causal.nc
+
+        # Equivalent, using a relative index for split_period (3rd-to-last period)
+        chap causal --model-name https://github.com/dhis2-chap/minimalist_example_lag \\
+            --dataset-csv ./data/original.csv \\
+            --counterfactual-csv ./data/counterfactual.csv \\
+            --counterfactual-columns rainfall \\
+            --split-period=-3 \\
             --output-file ./results/causal.nc
 
     """
@@ -132,15 +153,6 @@ def causal_cmd(
 
     initialize_logging(run_config.debug, run_config.log_file)
 
-    split_period_obj = TimePeriod.parse(split_period)
-    cf_start_period_obj = None
-    if cf_start_period is not None:
-        cf_start_period_obj = TimePeriod.parse(cf_start_period)
-        if cf_start_period_obj >= split_period_obj:
-            raise ValueError(
-                f"cf_start_period ({cf_start_period}) must be strictly before split_period ({split_period})."
-            )
-
     original_csv_path, url_geojson_path = resolve_csv_path(dataset_csv)
     cf_csv_path, _ = resolve_csv_path(counterfactual_csv)
     geojson_path = url_geojson_path or discover_geojson(original_csv_path)
@@ -148,6 +160,16 @@ def causal_cmd(
     original_df = pd.read_csv(original_csv_path)
     cf_df = pd.read_csv(cf_csv_path)
     _validate_datasets(original_df, cf_df, counterfactual_columns)
+
+    available_periods = original_df["time_period"].apply(TimePeriod.parse)
+    split_period_obj = resolve_period_arg(split_period, available_periods, "split_period")
+    cf_start_period_obj = None
+    if cf_start_period is not None:
+        cf_start_period_obj = resolve_period_arg(cf_start_period, available_periods, "cf_start_period")
+        if cf_start_period_obj >= split_period_obj:
+            raise ValueError(
+                f"cf_start_period ({cf_start_period}) must be strictly before split_period ({split_period})."
+            )
 
     original_dataset = load_dataset_from_csv(original_csv_path, geojson_path)
     cf_dataset = load_dataset_from_csv(cf_csv_path, geojson_path)

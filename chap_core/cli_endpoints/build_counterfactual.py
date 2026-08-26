@@ -11,6 +11,8 @@ import numpy as np
 import pandas as pd
 from cyclopts import Parameter
 
+from chap_core.cli_endpoints._common import resolve_period_arg
+
 logger = logging.getLogger(__name__)
 
 _SEASONAL_KEYWORDS = frozenset({"seasonal_min", "seasonal_max", "window_avg_min", "window_avg_max"})
@@ -231,9 +233,11 @@ def _build_row_mask(
     parsed = df["time_period"].apply(TimePeriod.parse)
     row_mask = pd.Series([True] * len(df), index=df.index)
     if start_time_period:
-        row_mask &= parsed >= TimePeriod.parse(start_time_period)
+        start_obj = resolve_period_arg(start_time_period, parsed, "start_time_period")
+        row_mask &= parsed >= start_obj
     if end_time_period:
-        row_mask &= parsed <= TimePeriod.parse(end_time_period)
+        end_obj = resolve_period_arg(end_time_period, parsed, "end_time_period")
+        row_mask &= parsed <= end_obj
     return row_mask, parsed
 
 
@@ -277,11 +281,25 @@ def build_counterfactual_cmd(
     *,
     start_time_period: Annotated[
         str | None,
-        Parameter("--start-time-period", help="Apply transformation from this period onward (inclusive)"),
+        Parameter(
+            "--start-time-period",
+            help=(
+                "Apply transformation from this period onward (inclusive). Accepts an exact period "
+                "(e.g. '2023-01') or a relative index: '+n' for the n-th period from the start, "
+                "'-n' for the n-th period from the end (both 1-based)."
+            ),
+        ),
     ] = None,
     end_time_period: Annotated[
         str | None,
-        Parameter("--end-time-period", help="Apply transformation up to this period (inclusive)"),
+        Parameter(
+            "--end-time-period",
+            help=(
+                "Apply transformation up to this period (inclusive). Accepts an exact period "
+                "(e.g. '2023-01') or a relative index: '+n' for the n-th period from the start, "
+                "'-n' for the n-th period from the end (both 1-based)."
+            ),
+        ),
     ] = None,
     output_csv: Annotated[
         Path | None,
@@ -329,12 +347,17 @@ def build_counterfactual_cmd(
     currently NaN — they are meant to fill in unset forecast-horizon covariate values. If a
     location has no usable history, its cells are left unchanged and a warning is logged.
 
+    --start-time-period/--end-time-period also accept a relative period index instead of an exact
+    period string: '+n' selects the n-th period from the start of the dataset, '-n' selects the
+    n-th period from the end (both 1-based, e.g. '-1' is the dataset's last period).
+
     Examples:
         chap causal build-counterfactual data.csv rainfall=x*0.01 temperature=x-30
         chap causal build-counterfactual data.csv rainfall=abs(x) --start-time-period 2022-06
         chap causal build-counterfactual data.csv cases=round(x*1.1) --output-csv data_cf.csv
         chap causal build-counterfactual data.csv rainfall=seasonal_min --start-time-period 2023-06
         chap causal build-counterfactual data.csv rainfall=window_avg_max --start-time-period 2023-06
+        chap causal build-counterfactual data.csv rainfall=x*0.01 --start-time-period=-3
     """
     pairs = FeatureTransformations.parse_transformations(transformations)
     seasonal_pairs = [(col, expr) for col, expr in pairs if expr.strip() in _SEASONAL_KEYWORDS]

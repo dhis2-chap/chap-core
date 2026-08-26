@@ -222,6 +222,51 @@ def test_time_period_range(tmp_path, make_test_df):
     assert out["rainfall"][2] == 1.0  # unchanged
 
 
+# --- relative period indices ---
+
+
+def test_start_time_period_relative_from_end(tmp_path, make_test_df):
+    csv = tmp_path / "data.csv"
+    make_test_df(_LOCATIONS, _PERIODS).to_csv(csv, index=False)
+    build_counterfactual_cmd(csv, ["rainfall=x+100"], start_time_period="-2")
+    out = pd.read_csv(tmp_path / "data_cf.csv")
+    assert out["rainfall"][0] == 1.0  # unchanged
+    assert out["rainfall"][1] == 101.0  # modified: 2nd-to-last period onward
+    assert out["rainfall"][2] == 101.0  # modified
+
+
+def test_end_time_period_relative_from_start(tmp_path, make_test_df):
+    csv = tmp_path / "data.csv"
+    make_test_df(_LOCATIONS, _PERIODS).to_csv(csv, index=False)
+    build_counterfactual_cmd(csv, ["rainfall=x+100"], end_time_period="+2")
+    out = pd.read_csv(tmp_path / "data_cf.csv")
+    assert out["rainfall"][0] == 101.0  # modified
+    assert out["rainfall"][1] == 101.0  # modified: up to 2nd period
+    assert out["rainfall"][2] == 1.0  # unchanged
+
+
+def test_relative_period_out_of_range(tmp_path, make_test_df):
+    csv = tmp_path / "data.csv"
+    make_test_df(_LOCATIONS, _PERIODS).to_csv(csv, index=False)
+    with pytest.raises(ValueError, match="only 3 distinct periods"):
+        build_counterfactual_cmd(csv, ["rainfall=x+100"], start_time_period="-10")
+
+
+def test_relative_period_zero_index_invalid(tmp_path, make_test_df):
+    csv = tmp_path / "data.csv"
+    make_test_df(_LOCATIONS, _PERIODS).to_csv(csv, index=False)
+    with pytest.raises(ValueError, match="must be at least 1"):
+        build_counterfactual_cmd(csv, ["rainfall=x+100"], start_time_period="+0")
+
+
+def test_relative_period_logs_resolved_period(tmp_path, make_test_df, caplog):
+    csv = tmp_path / "data.csv"
+    make_test_df(_LOCATIONS, _PERIODS).to_csv(csv, index=False)
+    with caplog.at_level("INFO"):
+        build_counterfactual_cmd(csv, ["rainfall=x+100"], start_time_period="-1")
+    assert "resolved relative period '-1'" in caplog.text
+
+
 def test_default_output_name(tmp_path, make_test_df):
     csv = tmp_path / "my_data.csv"
     make_test_df(_LOCATIONS, _PERIODS).to_csv(csv, index=False)

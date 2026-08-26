@@ -73,6 +73,26 @@ def test_cf_start_period_after_split_raises(tmp_path, make_test_df):
         _call_causal_cmd(tmp_path, original_csv, cf_csv, cf_start_period="2022-02")
 
 
+def test_relative_cf_start_period_equal_to_split_raises(tmp_path, make_test_df):
+    # split_period="2022-01" (exact) is the last period; cf_start_period="-1" resolves to the
+    # same period, so it should fail the "strictly before" check just like the exact-string case.
+    original = make_test_df(["A"], ["2021-01", "2022-01"])
+    cf = make_test_df(["A"], ["2021-01", "2022-01"], extra_col_val=2.0)
+    original_csv, cf_csv = _write_csvs(tmp_path, original, cf)
+    with pytest.raises(ValueError, match="strictly before"):
+        _call_causal_cmd(tmp_path, original_csv, cf_csv, cf_start_period="-1")
+
+
+def test_relative_cf_start_period_resolves_before_split(tmp_path, make_test_df):
+    # cf_start_period="+1" (first period) is strictly before split_period="2022-01" (last period),
+    # so the check passes and execution proceeds past period resolution, into model loading.
+    original = make_test_df(["A"], ["2021-11", "2021-12", "2022-01"])
+    cf = make_test_df(["A"], ["2021-11", "2021-12", "2022-01"], extra_col_val=2.0)
+    original_csv, cf_csv = _write_csvs(tmp_path, original, cf)
+    with pytest.raises(Exception, match="nonexistent"):
+        _call_causal_cmd(tmp_path, original_csv, cf_csv, cf_start_period="+1")
+
+
 @pytest.mark.slow
 def test_causal_cmd_integration(tmp_path):
     from chap_core.api_types import RunConfig
