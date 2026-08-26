@@ -6,7 +6,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-COMMIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
+COMMIT_SHA_PATTERN = re.compile(r"[0-9a-fA-F]{7,40}")
 
 
 @dataclass
@@ -33,11 +33,11 @@ def resolve_commit_sha(github_url: str) -> str | None:
     """Resolve the ref in a github url to the commit sha it points to.
 
     A branch ref such as ``@main`` can move, but a sha cannot. A url that already
-    has a full sha needs no lookup. Returns None if the lookup fails.
+    has a commit sha (full or abbreviated) needs no lookup. Returns None if the lookup fails.
     """
     parsed = parse_github_url(github_url)
     if COMMIT_SHA_PATTERN.fullmatch(parsed.commit):
-        return parsed.commit
+        return parsed.commit.lower()
     api_url = f"https://api.github.com/repos/{parsed.owner}/{parsed.repo_name}/commits/{parsed.commit}"
     try:
         fetched = requests.get(api_url, timeout=10)

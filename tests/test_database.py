@@ -398,6 +398,82 @@ def test_add_model_template_from_url_requires_a_resolvable_source_digest(engine,
         add_model_template_from_url("https://github.com/example/test_model@main", session, version="test")
 
 
+def test_add_model_template_from_url_skips_github_when_version_exists(engine, model_template_yaml_config, monkeypatch):
+    fetched_urls = []
+
+    def fetch_config(url):
+        fetched_urls.append(url)
+        config = model_template_yaml_config.model_copy(deep=True)
+        config.source_url = url
+        return config
+
+    monkeypatch.setattr(
+        "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
+        fetch_config,
+    )
+    monkeypatch.setattr("chap_core.database.model_template_seed.resolve_commit_sha", lambda url: "a" * 40)
+    with SessionWrapper(engine) as session:
+        first_id = add_model_template_from_url(
+            "https://github.com/example/test_model@main",
+            session,
+            version="v1",
+            name_override="test_model",
+        )
+
+        def fail_resolve(url):
+            raise AssertionError("existing version must not resolve a commit")
+
+        def fail_fetch(url):
+            raise AssertionError("existing version must not fetch github")
+
+        monkeypatch.setattr("chap_core.database.model_template_seed.resolve_commit_sha", fail_resolve)
+        monkeypatch.setattr(
+            "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
+            fail_fetch,
+        )
+        second_id = add_model_template_from_url(
+            "https://github.com/example/test_model@main",
+            session,
+            version="v1",
+            name_override="test_model",
+        )
+
+        assert second_id == first_id
+    assert fetched_urls == ["https://github.com/example/test_model@" + "a" * 40]
+
+
+def test_add_model_template_from_url_skips_github_when_version_exists_without_name_override(
+    engine, model_template_yaml_config, monkeypatch
+):
+    def fetch_config(url):
+        config = model_template_yaml_config.model_copy(deep=True)
+        config.source_url = url
+        return config
+
+    monkeypatch.setattr(
+        "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
+        fetch_config,
+    )
+    monkeypatch.setattr("chap_core.database.model_template_seed.resolve_commit_sha", lambda url: "a" * 40)
+    with SessionWrapper(engine) as session:
+        first_id = add_model_template_from_url("https://github.com/example/test_model@main", session, version="v1")
+
+        def fail_resolve(url):
+            raise AssertionError("existing version must not resolve a commit")
+
+        def fail_fetch(url):
+            raise AssertionError("existing version must not fetch github")
+
+        monkeypatch.setattr("chap_core.database.model_template_seed.resolve_commit_sha", fail_resolve)
+        monkeypatch.setattr(
+            "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
+            fail_fetch,
+        )
+        second_id = add_model_template_from_url("https://github.com/example/test_model@main", session, version="v1")
+
+        assert second_id == first_id
+
+
 def _two_git_model_config_dir(tmp_path):
     config_dir = tmp_path / "configured_models"
     config_dir.mkdir()

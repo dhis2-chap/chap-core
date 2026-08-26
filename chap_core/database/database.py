@@ -98,6 +98,22 @@ class SessionWrapper:
         ).first()
         return existing_template
 
+    def find_existing_git_model_template(
+        self, version: str, *, name: str | None = None, github_url: str | None = None
+    ) -> ModelTemplateDB | None:
+        if name:
+            return self._if_exists(name, version)
+        if github_url is None:
+            return None
+        repo_url = github_url.partition("@")[0]
+        templates = self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.version == version)).all()
+        matches = [
+            template
+            for template in templates
+            if template.source_url is not None and template.source_url.partition("@")[0] == repo_url
+        ]
+        return matches[0] if len(matches) == 1 else None
+
     def _return_model_template_id(self, model_name: str, existing_template: ModelTemplateDB) -> int:
         logger.info(f"Model template with name {model_name} already exists. Returning existing id")
         return cast("int", existing_template.id)

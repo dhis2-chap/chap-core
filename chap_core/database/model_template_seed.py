@@ -22,6 +22,9 @@ def add_model_template(model_template: ModelTemplateDB, session_wrapper: Session
 def add_model_template_from_url(
     url: str, session_wrapper: SessionWrapper, version: str, name_override: str | None = None
 ) -> int:
+    existing = session_wrapper.find_existing_git_model_template(version, name=name_override, github_url=url)
+    if existing is not None:
+        return session_wrapper.add_or_update_model_template(existing)
     # A git template must point to one revision, so an unknown ref is an error.
     source_digest = resolve_commit_sha(url)
     if source_digest is None:
