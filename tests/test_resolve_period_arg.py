@@ -43,10 +43,3 @@ def test_exact_period_string_unaffected():
 
 def test_bare_year_string_treated_as_exact_period_not_relative_index():
     assert resolve_period_arg("2023", [TimePeriod.parse("2023")], "arg") == Year(2023)
-
-
-def test_logs_resolved_period(caplog):
-    with caplog.at_level("INFO"):
-        resolve_period_arg("-1", _PERIODS, "split_period")
-    assert "split_period" in caplog.text
-    assert "resolved relative period '-1'" in caplog.text

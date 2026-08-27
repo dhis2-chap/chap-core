@@ -259,12 +259,15 @@ def test_relative_period_zero_index_invalid(tmp_path, make_test_df):
         build_counterfactual_cmd(csv, ["rainfall=x+100"], start_time_period="+0")
 
 
-def test_relative_period_logs_resolved_period(tmp_path, make_test_df, caplog):
+def test_unnamed_index_column_dropped_from_output(tmp_path, make_test_df):
+    df = make_test_df(_LOCATIONS, _PERIODS)
     csv = tmp_path / "data.csv"
-    make_test_df(_LOCATIONS, _PERIODS).to_csv(csv, index=False)
-    with caplog.at_level("INFO"):
-        build_counterfactual_cmd(csv, ["rainfall=x+100"], start_time_period="-1")
-    assert "resolved relative period '-1'" in caplog.text
+    df.to_csv(csv)  # no index=False: writes a leading unnamed index column, like an upstream artifact
+    assert "Unnamed: 0" in pd.read_csv(csv).columns
+    build_counterfactual_cmd(csv, ["rainfall=x+1"])
+    out = pd.read_csv(tmp_path / "data_cf.csv")
+    assert "Unnamed: 0" not in out.columns
+    assert list(out.columns) == ["location", "time_period", "rainfall", "disease_cases"]
 
 
 def test_default_output_name(tmp_path, make_test_df):

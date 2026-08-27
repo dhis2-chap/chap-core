@@ -363,6 +363,7 @@ def build_counterfactual_cmd(
     seasonal_pairs = [(col, expr) for col, expr in pairs if expr.strip() in _SEASONAL_KEYWORDS]
 
     df = pd.read_csv(dataset_csv)
+    df = df.loc[:, ~df.columns.str.match(r"^Unnamed: \d+$")]
     _validate_inputs(df, pairs, seasonal_pairs, start_time_period, end_time_period)
     row_mask, parsed = _build_row_mask(df, start_time_period, end_time_period)
 
