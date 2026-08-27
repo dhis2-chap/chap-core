@@ -117,6 +117,8 @@ def seed_configured_models_from_config_dir(
                         template_id, configured_model_configuration, config_name, wrapper, uses_chapkit=True
                     )
             except Exception as e:
+                # A failed flush leaves the session unusable until it is rolled back.
+                session.rollback()
                 logger.error(
                     f"Could not seed chapkit model at {config.url}: {e}. Skipping this model when seeding the database."
                 )
@@ -135,19 +137,26 @@ def seed_configured_models_from_config_dir(
                 for config_name, configured_model_configuration in config.configurations.items():
                     add_configured_model(template_id, configured_model_configuration, config_name, wrapper)
             except Exception as e:
+                # A failed flush leaves the session unusable until it is rolled back.
+                session.rollback()
                 logger.error(
                     f"Could not seed git model at {config.url}: {e}. Skipping this model when seeding the database."
                 )
                 continue
 
     # add naive model template
-    naive_template = get_naive_model_template()
-    naive_template_id = add_model_template(naive_template, wrapper)
-    # and naive configured model
-    add_configured_model(
-        naive_template_id,
-        ModelConfiguration(additional_continuous_covariates=[], user_option_values={}),
-        "default",
-        wrapper,
-    )
-    session.commit()
+    try:
+        naive_template = get_naive_model_template()
+        naive_template_id = add_model_template(naive_template, wrapper)
+        # and naive configured model
+        add_configured_model(
+            naive_template_id,
+            ModelConfiguration(additional_continuous_covariates=[], user_option_values={}),
+            "default",
+            wrapper,
+        )
+        session.commit()
+    except Exception as e:
+        # Startup must continue without the naive model rather than abort the API.
+        session.rollback()
+        logger.error(f"Could not seed the naive model: {e}")

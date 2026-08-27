@@ -1,7 +1,7 @@
 import logging
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlmodel import Session, SQLModel, select
 
 from chap_core.database.database import SessionWrapper
@@ -622,6 +622,28 @@ def test_seed_skips_chapkit_model_when_version_is_missing(engine, tmp_path, mode
     names = _seeded_template_names(engine)
     assert "broken_chapkit" not in names
     assert "ok_chapkit" in names
+    assert "naive_model" in names
+
+
+def test_seed_recovers_after_a_failed_commit(engine, tmp_path, model_template_yaml_config, monkeypatch):
+    monkeypatch.setattr("chap_core.database.model_template_seed.resolve_commit_sha", lambda url: "a" * 40)
+    monkeypatch.setattr(
+        "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
+        lambda url: model_template_yaml_config.model_copy(deep=True),
+    )
+    # A legacy unique name constraint, as on a deployment where the (name, version) swap has not run.
+    with engine.connect() as connection:
+        connection.execute(text("CREATE UNIQUE INDEX legacy_name_key ON modeltemplatedb (name)"))
+        connection.commit()
+    with Session(engine) as session:
+        session.add(ModelTemplateDB(name="broken_model", version="old"))
+        session.commit()
+        # broken_model's insert violates the legacy constraint mid-commit. The other
+        # models and the naive model must still be seeded.
+        seed_configured_models_from_config_dir(session, directory=_two_git_model_config_dir(tmp_path))
+
+    names = _seeded_template_names(engine)
+    assert "ok_model" in names
     assert "naive_model" in names
 
 
