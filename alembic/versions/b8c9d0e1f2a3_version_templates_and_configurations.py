@@ -54,15 +54,36 @@ def _backfill_configuration_digests() -> None:
         )
 
 
+def _has_column(table: str, column: str) -> bool:
+    inspector = sa.inspect(op.get_bind())
+    return any(col["name"] == column for col in inspector.get_columns(table))
+
+
 def upgrade() -> None:
-    """Make (name, version) the template identity and add configuration digests."""
-    # Nullable only for old rows. A new template must have a source digest.
-    op.add_column("modeltemplatedb", sa.Column("source_digest", sa.String(), nullable=True))
-    # Each old row is the only row for its name, so each old row is live.
-    op.add_column(
-        "modeltemplatedb", sa.Column("is_live", sa.Boolean(), nullable=False, server_default=sa.true())
-    )
-    op.alter_column("modeltemplatedb", "is_live", server_default=None)
+    """Make (name, version) the template identity and add configuration digests.
+
+    Startup runs a generic metadata migration before Alembic, so each column here
+    may already exist — nullable, with generic defaults backfilled. Each column is
+    therefore added only if missing, and the backfills and constraint swaps below
+    give both paths the same outcome.
+    """
+    if not _has_column("modeltemplatedb", "source_digest"):
+        # Nullable only for old rows. A new template must have a source digest.
+        op.add_column("modeltemplatedb", sa.Column("source_digest", sa.String(), nullable=True))
+    else:
+        # The generic migration backfills text columns with ''. An unknown revision is NULL.
+        op.execute(sa.text("UPDATE modeltemplatedb SET source_digest = NULL WHERE source_digest = ''"))
+
+    if not _has_column("modeltemplatedb", "is_live"):
+        op.add_column(
+            "modeltemplatedb", sa.Column("is_live", sa.Boolean(), nullable=False, server_default=sa.true())
+        )
+        op.alter_column("modeltemplatedb", "is_live", server_default=None)
+    else:
+        # Names were unique until this migration, so each row is the live row for its name.
+        op.execute(sa.text("UPDATE modeltemplatedb SET is_live = TRUE"))
+        op.alter_column("modeltemplatedb", "is_live", existing_type=sa.Boolean(), nullable=False)
+
     # Version is part of the identity, so it cannot be null.
     op.execute(
         sa.text("UPDATE modeltemplatedb SET version = :version WHERE version IS NULL").bindparams(
@@ -73,15 +94,24 @@ def upgrade() -> None:
     op.execute("ALTER TABLE modeltemplatedb DROP CONSTRAINT IF EXISTS modeltemplatedb_name_key")
     op.create_unique_constraint("uq_modeltemplatedb_name_version", "modeltemplatedb", ["name", "version"])
 
-    op.add_column(
-        "configuredmodeldb", sa.Column("configuration_digest", sa.String(), nullable=False, server_default="")
-    )
-    op.add_column(
-        "configuredmodeldb", sa.Column("is_live", sa.Boolean(), nullable=False, server_default=sa.true())
-    )
-    op.alter_column("configuredmodeldb", "is_live", server_default=None)
+    if not _has_column("configuredmodeldb", "configuration_digest"):
+        op.add_column(
+            "configuredmodeldb", sa.Column("configuration_digest", sa.String(), nullable=False, server_default="")
+        )
+
+    if not _has_column("configuredmodeldb", "is_live"):
+        op.add_column(
+            "configuredmodeldb", sa.Column("is_live", sa.Boolean(), nullable=False, server_default=sa.true())
+        )
+        op.alter_column("configuredmodeldb", "is_live", server_default=None)
+    else:
+        op.execute(sa.text("UPDATE configuredmodeldb SET is_live = TRUE"))
+        op.alter_column("configuredmodeldb", "is_live", existing_type=sa.Boolean(), nullable=False)
+
     _backfill_configuration_digests()
-    op.alter_column("configuredmodeldb", "configuration_digest", server_default=None)
+    op.alter_column(
+        "configuredmodeldb", "configuration_digest", existing_type=sa.String(), nullable=False, server_default=None
+    )
     op.execute("ALTER TABLE configuredmodeldb DROP CONSTRAINT IF EXISTS configuredmodeldb_name_key")
     op.create_unique_constraint(
         "uq_configuredmodeldb_template_name_digest",

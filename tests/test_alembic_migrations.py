@@ -197,6 +197,64 @@ class TestAlembicMigrations:
             current = result.scalar_one()
             assert current == head_rev
 
+    def test_upgrade_applies_after_generic_startup_migration(self, engine):
+        """
+        create_db_and_tables adds missing columns from model metadata before it
+        runs Alembic, so the columns of the versioning migration can already
+        exist. The migration must still run its backfills and constraint swap.
+        """
+        from alembic import command
+
+        alembic_cfg = _make_alembic_cfg(engine)
+
+        with engine.connect() as conn:
+            conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+            conn.execute(sa.text("CREATE SCHEMA public"))
+            conn.commit()
+        _create_baseline_schema(engine)
+        command.stamp(alembic_cfg, "fe59a33965ed")
+        # The state of a deployment on the previous release.
+        command.upgrade(alembic_cfg, "a7b8c9d0e1f2")
+
+        with engine.connect() as conn:
+            conn.execute(
+                sa.text(
+                    "INSERT INTO modeltemplatedb "
+                    "(name, display_name, description, author_note, author_assessed_status, author, "
+                    "supported_period_type, target, allow_free_additional_continuous_covariates, requires_geo, "
+                    "uses_chapkit) "
+                    "VALUES ('legacy_model', 'Legacy', 'legacy', 'note', 'gray', 'author', "
+                    "'any', 'disease_cases', false, false, false)"
+                )
+            )
+            # What the generic startup migration does before Alembic runs.
+            for statement in [
+                "ALTER TABLE modeltemplatedb ADD COLUMN source_digest VARCHAR",
+                "UPDATE modeltemplatedb SET source_digest = ''",
+                "ALTER TABLE modeltemplatedb ADD COLUMN is_live BOOLEAN",
+                "UPDATE modeltemplatedb SET is_live = true",
+                "ALTER TABLE configuredmodeldb ADD COLUMN configuration_digest VARCHAR",
+                "UPDATE configuredmodeldb SET configuration_digest = ''",
+                "ALTER TABLE configuredmodeldb ADD COLUMN is_live BOOLEAN",
+                "UPDATE configuredmodeldb SET is_live = true",
+            ]:
+                conn.execute(sa.text(statement))
+            conn.commit()
+
+        command.upgrade(alembic_cfg, "head")
+
+        with engine.connect() as conn:
+            row = conn.execute(
+                sa.text("SELECT version, source_digest, is_live FROM modeltemplatedb WHERE name = 'legacy_model'")
+            ).one()
+            assert row.version == "legacy-unversioned"
+            assert row.source_digest is None
+            assert row.is_live is True
+
+        constraints = {c["name"] for c in sa.inspect(engine).get_unique_constraints("modeltemplatedb")}
+        assert "uq_modeltemplatedb_name_version" in constraints
+        assert "modeltemplatedb_name_key" not in constraints
+
     def test_all_revisions_have_downgrade(self):
         """Verify every migration revision defines a non-empty downgrade."""
         from alembic.config import Config
