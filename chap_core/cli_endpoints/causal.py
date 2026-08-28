@@ -133,6 +133,13 @@ def causal_cmd(
         str,
         Parameter("--counterfactual-label", help="Display name for the counterfactual dataset in plots"),
     ] = "Counterfactual",
+    confidence_intervals: Annotated[
+        bool,
+        Parameter(
+            "--confidence-intervals",
+            help="Draw forecast confidence-interval bands in plots (both plot modes)",
+        ),
+    ] = True,
 ):
     """Train a model on the original dataset up to split_period and predict on both datasets.
 
@@ -157,9 +164,10 @@ def causal_cmd(
     overlaid plot where the original and counterfactual forecasts share one set of axes and the
     observed cases are drawn only up to the split period. The two flags are mutually exclusive.
     --plot-title overrides the chart title, --plot-x-label / --plot-y-label set the axis titles,
-    and --original-label / --counterfactual-label set the dataset display names (default
+    --original-label / --counterfactual-label set the dataset display names (default
     "Original" / "Counterfactual") used for the subplot titles, legend entries, and the composed
-    chart title. All of these apply to both --plot and --plot-overlayed.
+    chart title, and --no-confidence-intervals hides the forecast uncertainty bands. All of these
+    apply to both --plot and --plot-overlayed.
 
     Examples:
         # Train on original data up to 2023-01, predict on both scenarios
@@ -334,6 +342,7 @@ def causal_cmd(
                     y_label=plot_y_label,
                     original_label=original_label,
                     counterfactual_label=counterfactual_label,
+                    show_confidence_intervals=confidence_intervals,
                 )
             else:
                 from chap_core.assessment.causal_plot import plot_counterfactual
@@ -347,6 +356,7 @@ def causal_cmd(
                     y_label=plot_y_label,
                     original_label=original_label,
                     counterfactual_label=counterfactual_label,
+                    show_confidence_intervals=confidence_intervals,
                 )
             chart.save(str(plot_path))
             logger.info(f"Plot saved to {plot_path}")

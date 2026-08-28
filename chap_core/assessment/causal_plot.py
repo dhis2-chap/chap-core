@@ -20,7 +20,14 @@ _COUNTERFACTUAL_LABEL = "Counterfactual"
 _OBSERVED_LABEL = "Observed (pre-split)"
 
 
-def _chart_for_location(flat_evaluation, location: str, title: str) -> ChartType:
+def _mark_type(layer) -> str | None:
+    mark = getattr(layer, "mark", None)
+    return getattr(mark, "type", mark)
+
+
+def _chart_for_location(
+    flat_evaluation, location: str, title: str, *, show_confidence_intervals: bool = True
+) -> ChartType:
     obs = pd.DataFrame(flat_evaluation.observations)
     forecasts = pd.DataFrame(flat_evaluation.forecasts)
     historical = None
@@ -28,7 +35,7 @@ def _chart_for_location(flat_evaluation, location: str, title: str) -> ChartType
         hist = pd.DataFrame(flat_evaluation.historical_observations)
         loc_hist = hist[hist["location"] == location]
         historical = loc_hist if not loc_hist.empty else None
-    return (
+    chart = (
         EvaluationPlot()
         .plot(
             obs[obs["location"] == location],
@@ -37,6 +44,9 @@ def _chart_for_location(flat_evaluation, location: str, title: str) -> ChartType
         )
         .properties(title=title)
     )
+    if not show_confidence_intervals:
+        chart.layer = [layer for layer in chart.layer if _mark_type(layer) != "errorband"]
+    return chart
 
 
 def plot_counterfactual(
@@ -49,6 +59,7 @@ def plot_counterfactual(
     y_label: str | None = None,
     original_label: str = _ORIGINAL_LABEL,
     counterfactual_label: str = _COUNTERFACTUAL_LABEL,
+    show_confidence_intervals: bool = True,
 ) -> ChartType:
     """Return a per-location vconcat of side-by-side Altair charts comparing original vs counterfactual."""
     locations = sorted(pd.DataFrame(eval_original.to_flat().observations)["location"].unique())
@@ -57,8 +68,12 @@ def plot_counterfactual(
 
     rows = []
     for loc in locations:
-        orig_chart = _chart_for_location(flat_evaluation, loc, original_label)
-        cf_chart = _chart_for_location(flat_evaluation_cf, loc, counterfactual_label)
+        orig_chart = _chart_for_location(
+            flat_evaluation, loc, original_label, show_confidence_intervals=show_confidence_intervals
+        )
+        cf_chart = _chart_for_location(
+            flat_evaluation_cf, loc, counterfactual_label, show_confidence_intervals=show_confidence_intervals
+        )
         rows.append(alt.hconcat(orig_chart, cf_chart).resolve_scale(y="shared"))
 
     chart = alt.vconcat(*rows).properties(
@@ -131,21 +146,24 @@ def _overlay_for_location(
     x_label: str | None,
     y_label: str | None,
     color_scale: alt.Scale,
+    show_confidence_intervals: bool = True,
 ) -> ChartType:
-    band_outer = (
-        alt.Chart(quantiles)
-        .mark_errorband(opacity=0.15)
-        .encode(x=_x(x_label), y=_y("q_10", y_label), y2="q_90:Q", color=_color(color_scale))
-    )
-    band_inner = (
-        alt.Chart(quantiles)
-        .mark_errorband(opacity=0.3)
-        .encode(x=_x(x_label), y=_y("q_25", y_label), y2="q_75:Q", color=_color(color_scale))
-    )
     median_line = (
         alt.Chart(quantiles).mark_line().encode(x=_x(x_label), y=_y("q_50", y_label), color=_color(color_scale))
     )
-    layers = [band_outer, band_inner, median_line]
+    layers = []
+    if show_confidence_intervals:
+        layers.append(
+            alt.Chart(quantiles)
+            .mark_errorband(opacity=0.15)
+            .encode(x=_x(x_label), y=_y("q_10", y_label), y2="q_90:Q", color=_color(color_scale))
+        )
+        layers.append(
+            alt.Chart(quantiles)
+            .mark_errorband(opacity=0.3)
+            .encode(x=_x(x_label), y=_y("q_25", y_label), y2="q_75:Q", color=_color(color_scale))
+        )
+    layers.append(median_line)
     if observed is not None and not observed.empty:
         layers.append(
             alt.Chart(observed)
@@ -165,6 +183,7 @@ def plot_counterfactual_overlayed(
     y_label: str | None = None,
     original_label: str = _ORIGINAL_LABEL,
     counterfactual_label: str = _COUNTERFACTUAL_LABEL,
+    show_confidence_intervals: bool = True,
 ) -> ChartType:
     """Return a per-location vconcat of single overlaid charts: original vs counterfactual forecasts
     on shared axes, with the observed line drawn only up to the split point."""
@@ -189,7 +208,9 @@ def plot_counterfactual_overlayed(
             ignore_index=True,
         )
         observed = _location_observed(flat_original, loc)
-        rows.append(_overlay_for_location(quantiles, observed, loc, x_label, y_label, color_scale))
+        rows.append(
+            _overlay_for_location(quantiles, observed, loc, x_label, y_label, color_scale, show_confidence_intervals)
+        )
 
     return alt.vconcat(*rows).properties(
         title=_compose_title(title, counterfactual_columns, original_label, counterfactual_label)

@@ -118,6 +118,28 @@ def test_plot_counterfactual_custom_dataset_labels(vietnam_evaluation_pair):
     assert chart.title == "Causal Analysis: Baseline vs Scenario A"
 
 
+def _mark_types(spec) -> list[str]:
+    found = []
+    if isinstance(spec, dict):
+        if "mark" in spec:
+            mark = spec["mark"]
+            found.append(mark["type"] if isinstance(mark, dict) else mark)
+        for value in spec.values():
+            found += _mark_types(value)
+    elif isinstance(spec, list):
+        for value in spec:
+            found += _mark_types(value)
+    return found
+
+
+def test_plot_counterfactual_confidence_intervals_toggle(vietnam_evaluation_pair):
+    eval_orig, eval_cf = vietnam_evaluation_pair
+    assert "errorband" in _mark_types(plot_counterfactual(eval_orig, eval_cf, ["rainfall"]).to_dict())
+    assert "errorband" not in _mark_types(
+        plot_counterfactual(eval_orig, eval_cf, ["rainfall"], show_confidence_intervals=False).to_dict()
+    )
+
+
 def _make_vietnam_evaluation_with_history(
     df: pd.DataFrame, periods: list[str], geojson: str, scale: float, split_index: int
 ) -> Evaluation:
@@ -251,6 +273,14 @@ def test_plot_overlayed_custom_dataset_labels(vietnam_evaluation_pair):
     ]
     assert color_domains and all(d[:2] == ["Baseline", "Scenario A"] for d in color_domains)
     assert chart.title == "Causal Analysis: Baseline vs Scenario A (rainfall)"
+
+
+def test_plot_overlayed_confidence_intervals_toggle(vietnam_evaluation_pair):
+    eval_orig, eval_cf = vietnam_evaluation_pair
+    assert "errorband" in _mark_types(plot_counterfactual_overlayed(eval_orig, eval_cf, ["rainfall"]).to_dict())
+    assert "errorband" not in _mark_types(
+        plot_counterfactual_overlayed(eval_orig, eval_cf, ["rainfall"], show_confidence_intervals=False).to_dict()
+    )
 
 
 def test_plot_overlayed_observed_truncated_at_split(vietnam_evaluation_pair_with_history):
