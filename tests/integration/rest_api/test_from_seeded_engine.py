@@ -121,40 +121,71 @@ def test_backtest_plot(override_session, tmp_path):
 def test_threshold_strategies_discovery(override_session):
     strategies = client.get_json("/v1/analytics/thresholds/strategies")
     ids = {s["id"] for s in strategies}
-    assert "seasonal" in ids
+    assert {"seasonal", "percentile"}.issubset(ids)
     seasonal = next(s for s in strategies if s["id"] == "seasonal")
     assert seasonal["displayName"]
     assert seasonal["description"]
 
 
 def test_compute_thresholds(override_session):
-    body = {"dataset_id": 1, "period_ids": ["2023-01", "2023-02"], "strategy": "seasonal"}
+    body = {"dataset_id": 1, "period_ids": ["2023-01", "2023-02"], "params": {"type": "seasonal"}}
     response = client.post("/v1/analytics/thresholds", json=body)
     assert response.status_code == 200, response.json()
-    entries = response.json()
+    result = response.json()
+    # the resolved params echo back the applied defaults
+    assert result["params"] == {"type": "seasonal", "stdMultiplier": 2.0}
+    entries = result["entries"]
     # 2 requested periods x 3 locations in the seeded dataset
     assert len(entries) == 6
     assert {e["period"] for e in entries} == {"2023-01", "2023-02"}
     assert {e["location"] for e in entries} == {"loc_1", "loc_2", "loc_3"}
-    assert all(e["value"] is not None for e in entries)
+    assert all(len(e["values"]) == 1 and e["values"][0] is not None for e in entries)
+
+
+def test_compute_thresholds_multi_line(override_session):
+    body = {
+        "dataset_id": 1,
+        "period_ids": ["2023-01"],
+        "params": {"type": "percentile", "quantile": [0.25, 0.75], "baselineYears": None},
+    }
+    response = client.post("/v1/analytics/thresholds", json=body)
+    assert response.status_code == 200, response.json()
+    result = response.json()
+    assert result["params"] == {"type": "percentile", "quantile": [0.25, 0.75], "baselineYears": None}
+    for entry in result["entries"]:
+        assert len(entry["values"]) == 2
+        # values are positional in request order: 25th percentile <= 75th percentile
+        assert entry["values"][0] <= entry["values"][1]
 
 
 def test_compute_thresholds_filters_by_locations(override_session):
-    body = {"dataset_id": 1, "period_ids": ["2023-01"], "strategy": "seasonal", "locations": ["loc_1"]}
+    body = {"dataset_id": 1, "period_ids": ["2023-01"], "params": {"type": "seasonal"}, "locations": ["loc_1"]}
     response = client.post("/v1/analytics/thresholds", json=body)
     assert response.status_code == 200, response.json()
-    entries = response.json()
-    assert {e["location"] for e in entries} == {"loc_1"}
+    assert {e["location"] for e in response.json()["entries"]} == {"loc_1"}
 
 
-def test_compute_thresholds_unknown_strategy(override_session):
-    body = {"dataset_id": 1, "period_ids": ["2023-01"], "strategy": "does_not_exist"}
+def test_compute_thresholds_unknown_strategy_type(override_session):
+    body = {"dataset_id": 1, "period_ids": ["2023-01"], "params": {"type": "does_not_exist"}}
     response = client.post("/v1/analytics/thresholds", json=body)
-    assert response.status_code == 404, response.text
+    assert response.status_code == 422, response.text
+
+
+def test_compute_thresholds_invalid_params(override_session):
+    body = {"dataset_id": 1, "period_ids": ["2023-01"], "params": {"type": "percentile", "quantile": 1.5}}
+    response = client.post("/v1/analytics/thresholds", json=body)
+    assert response.status_code == 422, response.text
+
+
+def test_compute_thresholds_period_outside_data_returns_400(override_session):
+    body = {"dataset_id": 1, "period_ids": ["2050-01"], "params": {"type": "percentile"}}
+    response = client.post("/v1/analytics/thresholds", json=body)
+    assert response.status_code == 400, response.text
+    assert "No observations in the" in response.json()["detail"]
 
 
 def test_compute_thresholds_unknown_dataset(override_session):
-    body = {"dataset_id": 9999, "period_ids": ["2023-01"], "strategy": "seasonal"}
+    body = {"dataset_id": 9999, "period_ids": ["2023-01"], "params": {"type": "seasonal"}}
     response = client.post("/v1/analytics/thresholds", json=body)
     assert response.status_code == 404, response.text
 
