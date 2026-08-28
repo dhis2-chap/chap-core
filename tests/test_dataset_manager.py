@@ -8,8 +8,9 @@ from sqlalchemy import create_engine
 from sqlmodel import Session, SQLModel
 
 from chap_core.database.dataset_manager import DataSetManager
-from chap_core.database.dataset_tables import DataSetCreateInfo
-from chap_core.spatio_temporal_data.converters import observations_to_dataframe
+from chap_core.database.dataset_tables import DataSetCreateInfo, Observation
+from chap_core.datatypes import create_tsdataclass
+from chap_core.spatio_temporal_data.converters import observations_to_dataframe, observations_to_dataset
 
 EXAMPLE_DATA = Path(__file__).parent.parent / "example_data"
 
@@ -211,10 +212,6 @@ def test_observations_to_dataset_large_frame_pivots_uniquely():
     """Canary for numpy/pandas corruption: pandas switches sort algorithm at 2^15
     rows in the pivot/unstack path, and a numpy source-built for an unsupported
     Python (e.g. numpy 2.1.x on 3.14) silently scrambles the result there."""
-    from chap_core.database.dataset_tables import Observation
-    from chap_core.datatypes import create_tsdataclass
-    from chap_core.spatio_temporal_data.converters import observations_to_dataset
-
     n_locations, n_years, features = 42, 17, ["disease_cases", "rainfall", "mean_temperature", "population"]
     periods = [f"{2000 + y}{m:02d}" for y in range(n_years) for m in range(1, 13)]
     observations = [
