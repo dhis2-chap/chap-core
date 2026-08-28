@@ -156,3 +156,28 @@ def vincentization_samples(weekly_full_data):
     x2_perm = x2[:, perm[::-1]]
     weights = np.array([0.3, 0.7], dtype=float)
     return x1, x2, x1_perm, x2_perm, weights
+
+
+class PointForecastOnly:
+    """Predictions carrying only a point forecast column, without the merge keys.
+
+    A predictor shaped like this is what the row-order fallback in reshape_samples
+    exists for; ``Samples`` itself always carries a time_period column.
+    """
+
+    def __init__(self, values, column: str = "forecast"):
+        self._values = list(values)
+        self._column = column
+
+    def to_pandas(self):
+        import pandas as pd
+
+        return pd.DataFrame({self._column: self._values})
+
+
+@pytest.fixture
+def point_forecast_only_factory():
+    def _make(values, column: str = "forecast"):
+        return PointForecastOnly(values, column)
+
+    return _make

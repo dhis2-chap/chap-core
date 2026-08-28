@@ -93,3 +93,23 @@ def test_probabilistic_meta_model_fallback_on_failed_opt(monkeypatch, weekly_ful
     model.fit(X_samples, y)
 
     assert np.allclose(model.coef_, np.array([0.5, 0.5]))
+
+
+def test_reshape_samples_repeats_keyless_point_forecasts(weekly_full_data, point_forecast_only_factory):
+    """The documented point-forecast fallback was unreachable: it called samples_to_flat,
+    which raises on exactly the columns this branch is entered for."""
+    _preds_ds, df_ref, _samples = _single_location_preds(weekly_full_data)
+    values = np.arange(len(df_ref), dtype=float)
+
+    actual = SampleExtractor.reshape_samples(point_forecast_only_factory(values), df_ref, 4)
+
+    assert actual.shape == (len(df_ref), 4)
+    np.testing.assert_allclose(actual, np.tile(values.reshape(-1, 1), (1, 4)))
+
+
+def test_reshape_samples_keyless_point_forecasts_check_length(weekly_full_data, point_forecast_only_factory):
+    _preds_ds, df_ref, _samples = _single_location_preds(weekly_full_data)
+    values = np.arange(len(df_ref) - 1, dtype=float)
+
+    with pytest.raises(ValueError, match="Cannot align predictions by row order"):
+        SampleExtractor.reshape_samples(point_forecast_only_factory(values), df_ref, 4)

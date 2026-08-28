@@ -1,3 +1,4 @@
+from chap_core.external.ExtendedPredictor import ExtendedPredictor
 from chap_core.ensemble.wrappers import BaseModelSpec, TemplateWithConfig
 
 
@@ -27,3 +28,13 @@ def test_base_model_spec_stores_values():
 
     assert spec.config is None
     assert spec.template is not None
+
+
+def test_template_with_config_extends_short_horizon_model():
+    """A base model capped below the backtest horizon must be iterated, not overasked."""
+    template = _DummyTemplate()
+    wrapper = TemplateWithConfig(template, None, extend_to_prediction_length=3)
+
+    model = wrapper.get_model()()
+
+    assert isinstance(model, ExtendedPredictor)

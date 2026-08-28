@@ -72,3 +72,24 @@ def test_inner_validation_masks_target(weekly_full_data, recording_template_fact
     assert seen, "base model was never asked to predict"
     for fields in seen:
         assert "disease_cases" not in fields
+
+
+def test_inner_validation_drops_partial_trailing_window(weekly_full_data, constant_template_factory):
+    """A short trailing window would score base models at horizons 1..k and mix those
+    rows into the same weight fit as the full-horizon rows."""
+    templates = [constant_template_factory(1.0, 1, "model_a")]
+    model = EnsembleModel(base_templates=templates, method="deterministic", inner_val_periods=10, horizon=4)
+
+    windows = model.inner_validation_windows(weekly_full_data)
+
+    assert len(windows) == 2
+    for _historic, future in windows:
+        assert len(list(future.period_range)) == 4
+
+
+def test_inner_validation_requires_one_full_window(weekly_full_data, constant_template_factory):
+    templates = [constant_template_factory(1.0, 1, "model_a")]
+    model = EnsembleModel(base_templates=templates, method="deterministic", inner_val_periods=2, horizon=5)
+
+    with pytest.raises(ValueError, match="at least 5 periods"):
+        model.inner_validation_windows(weekly_full_data)

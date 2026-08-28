@@ -23,6 +23,7 @@ from chap_core.cli_endpoints._common import (
     load_dataset_from_csv,
     resolve_csv_path,
     save_results,
+    warn_unused_covariates,
 )
 from chap_core.log_config import initialize_logging
 
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
 
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
     from chap_core.ensemble.wrappers import TemplateWithConfig
+    from chap_core.models.model_template import ModelTemplate
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger(__name__)
@@ -106,11 +108,68 @@ def _save_reports(
     save_results(str(report_filename), results)
 
 
-def _write_meta_report(report_filename: Path, model_names: list[str], weights: Sequence[float]) -> None:
-    report_path = report_filename.with_name("ensemble_meta_report.csv")
-    header = "Model," + ",".join(model_names) + "\n"
-    row = "ensemble_meta," + ",".join(f"{float(w):.6f}" for w in weights) + "\n"
-    report_path.write_text(header + row, encoding="utf-8")
+def _write_meta_report(
+    report_filename: Path,
+    model_names: list[str],
+    fit_history: Sequence[tuple[Sequence[float], Sequence[float]]],
+) -> Path:
+    """Write one weight_percent and one coefficient row per meta-model fit.
+
+    The path follows the report stem: a fixed filename would let two runs in the same
+    directory with different ``--report-filename`` clobber each other's weights while
+    their other outputs stayed distinct.
+
+    The deterministic meta-model applies the raw coefficients, whose sum need not be 1,
+    so reporting only the normalised shares would hide the scaling. Backtests with
+    ``n_retrain > 1`` fit the meta-model more than once, and every round is recorded
+    rather than only the last.
+    """
+    report_path = report_filename.with_name(f"{report_filename.stem}_meta.csv")
+    lines = ["Model,round,quantity," + ",".join(model_names)]
+    for round_no, (weights, coefficients) in enumerate(fit_history, start=1):
+        for quantity, values in (("weight_percent", weights), ("coefficient", coefficients)):
+            lines.append(f"ensemble_meta,{round_no},{quantity}," + ",".join(f"{float(v):.6f}" for v in values))
+    report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return report_path
+
+
+def _prepare_base_template(
+    template: ModelTemplate,
+    model_config: ModelConfiguration | None,
+    dataset: DataSet[Any],
+    n_periods: int,
+) -> TemplateWithConfig:
+    """Apply the per-model checks ``chap evaluate`` applies, then bind template to config.
+
+    Without these a base model capped at fewer periods than the backtest horizon is
+    silently asked for too many, and its short prediction frame either drops rows from
+    the weight fit or fails the backtest mid-run.
+    """
+    from chap_core.ensemble.wrappers import TemplateWithConfig
+
+    config = template.model_template_config
+    warn_unused_covariates(dataset, config, model_config)
+
+    min_length = config.min_prediction_length
+    max_length = config.max_prediction_length
+    if min_length is None and max_length is None:
+        logger.warning("Base model %s has not specified minimum and maximum predicted length", config.name)
+    if min_length is not None and min_length > n_periods:
+        raise ValueError(
+            f"The desired prediction length of {n_periods} is less than the minimum prediction length of "
+            f"{min_length} for base model {config.name}"
+        )
+    extend_to = None
+    if max_length is not None and max_length < n_periods:
+        logger.warning(
+            "Wrapping base model %s to extend prediction length from %d to %d. This is done iteratively, "
+            "and may worsen model performance",
+            config.name,
+            max_length,
+            n_periods,
+        )
+        extend_to = n_periods
+    return TemplateWithConfig(template, model_config, extend_to_prediction_length=extend_to)
 
 
 def _evaluate_ensemble_core(
@@ -128,6 +187,7 @@ def _evaluate_ensemble_core(
     run_config: RunConfig,
     model_configuration_yaml: str | None,
     inner_val_periods: int,
+    n_samples: int,
     data_source_mapping: Path | None,
     historical_context_years: int,
     model_template_id: str,
@@ -135,6 +195,12 @@ def _evaluate_ensemble_core(
     backtest_name: str,
 ) -> dict[str, tuple[dict[str, float | str], pd.DataFrame]]:
     initialize_logging(run_config.debug, run_config.log_file)
+    # Validated before the dataset is loaded: loading may download a remote CSV plus a
+    # companion GeoJSON, which is a long wait to pay for a typo in --ensemble-method.
+    if ensemble_method not in ("deterministic", "probabilistic"):
+        raise ValueError(f"ensemble_method must be 'deterministic' or 'probabilistic', not {ensemble_method!r}")
+    if n_samples < 1:
+        raise ValueError(f"n_samples must be at least 1, got {n_samples}")
     logger.info("Evaluating ensemble with base models: %s", base_model_names)
 
     dataset: DataSet[Any] = _load_dataset(
@@ -156,9 +222,6 @@ def _evaluate_ensemble_core(
         n_splits=backtest_params.n_splits,
         stride=backtest_params.stride,
     )
-
-    if ensemble_method not in ("deterministic", "probabilistic"):
-        raise ValueError(f"ensemble_method must be 'deterministic' or 'probabilistic', not {ensemble_method!r}")
 
     logger.info(
         "Backtest config: n_splits=%d, n_periods=%d, stride=%d",
@@ -183,7 +246,6 @@ def _evaluate_ensemble_core(
         ModelTemplateDB,
     )
     from chap_core.ensemble.ensemble_model import EnsembleModel
-    from chap_core.ensemble.wrappers import TemplateWithConfig
     from chap_core.models.model_template import ModelTemplate
     from chap_core.models.utils import CHAP_RUNS_DIR
 
@@ -210,7 +272,9 @@ def _evaluate_ensemble_core(
                 model_config = ModelConfiguration.model_validate(cfg_data)
                 logger.info("Loaded model configuration for %s", name)
 
-            base_templates_with_config.append(TemplateWithConfig(template, model_config))
+            base_templates_with_config.append(
+                _prepare_base_template(template, model_config, dataset, backtest_params.n_periods)
+            )
 
         ensemble = EnsembleModel(
             base_templates=base_templates_with_config,
@@ -218,7 +282,7 @@ def _evaluate_ensemble_core(
             inner_val_periods=inner_val_periods,
             horizon=backtest_params.n_periods,
             target_col="disease_cases",
-            n_samples=100,
+            n_samples=n_samples,
         )
 
         model_db = ModelTemplateDB(id=model_template_id, name=model_template_id, version="0.1")
@@ -242,11 +306,12 @@ def _evaluate_ensemble_core(
     evaluation.to_file(str(eval_nc))
     logger.info("Saved ensemble NetCDF to %s", eval_nc)
 
-    if ensemble.weights is not None:
-        logger.info("Ensemble base model weights (percent): %s", ensemble.weights)
+    if ensemble.fit_history:
+        logger.info("Ensemble base model weights (percent): %s", ensemble.fit_history[-1][0])
+        history = [(w.tolist(), c.tolist()) for w, c in ensemble.fit_history]
         try:
-            _write_meta_report(report_filename, base_model_list, ensemble.weights.tolist())
-            logger.info("Saved ensemble meta report to %s", report_filename.with_name("ensemble_meta_report.csv"))
+            meta_path = _write_meta_report(report_filename, base_model_list, history)
+            logger.info("Saved ensemble meta report to %s", meta_path)
         except OSError as exc:
             logger.warning("Failed to write ensemble meta report: %s", exc)
 
@@ -296,6 +361,16 @@ def evaluate_ensemble(
             )
         ),
     ] = 12,
+    n_samples: Annotated[
+        int,
+        Parameter(
+            help=(
+                "Number of samples the ensemble forecast is represented by. Base models "
+                "producing fewer samples are resampled up to this number, which cannot add "
+                "distributional resolution they do not have."
+            )
+        ),
+    ] = 100,
     data_source_mapping: Annotated[Path | None, Parameter(help="Optional JSON column mapping.")] = None,
     historical_context_years: Annotated[
         int,
@@ -328,6 +403,7 @@ def evaluate_ensemble(
         run_config=run_config,
         model_configuration_yaml=model_configuration_yaml,
         inner_val_periods=inner_val_periods,
+        n_samples=n_samples,
         data_source_mapping=data_source_mapping,
         historical_context_years=historical_context_years,
         model_template_id="ensemble_model",

@@ -8,11 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 import pandas as pd
 
-from chap_core.ensemble._meta_models import (
-    NonNegativeMetaModel,
-    ProbabilisticMetaModel,
-    crps_ensemble,
-)
+from chap_core.ensemble._meta_models import NonNegativeMetaModel, ProbabilisticMetaModel
 from chap_core.ensemble._predictor import EnsemblePredictor
 from chap_core.ensemble._sample_extractor import SampleExtractor as _SampleExtractor
 from chap_core.ensemble.wrappers import BaseModelSpec, TemplateWithConfig
@@ -47,7 +43,7 @@ class EnsembleModel(ConfiguredModel):
         if not self.base_templates:
             raise ValueError("Need at least one base model")
         if method not in ("deterministic", "probabilistic"):
-            raise ValueError(method)
+            raise ValueError(f"method must be 'deterministic' or 'probabilistic', got {method!r}")
         if horizon < 1:
             raise ValueError(f"horizon must be at least 1, got {horizon}")
         self.method = method
@@ -57,6 +53,10 @@ class EnsembleModel(ConfiguredModel):
         self.n_samples = n_samples
         self.meta_model: NonNegativeMetaModel | ProbabilisticMetaModel | None = meta_model
         self.weights: np.ndarray | None = None
+        # One entry per train() call: with n_retrain > 1 the outer backtest fits the
+        # meta-model more than once, and a single reported vector would silently
+        # describe only the last round.
+        self.fit_history: list[tuple[np.ndarray, np.ndarray]] = []
 
     def _base_names(self) -> list[str]:
         names: list[str] = []
@@ -88,9 +88,29 @@ class EnsembleModel(ConfiguredModel):
         if split_idx <= 0 or split_idx >= len(periods):
             raise ValueError("Invalid inner validation split")
 
+        # Only whole windows are used. A shorter trailing window would score the base
+        # models at horizons 1..k and feed those rows into the same weight fit as the
+        # full-horizon rows, reintroducing the horizon mismatch this split exists to
+        # avoid, so the remainder is moved back into the inner training data instead.
+        n_windows = (len(periods) - split_idx) // self.horizon
+        if n_windows == 0:
+            raise ValueError(
+                f"Inner validation needs at least {self.horizon} periods to form one window of horizon "
+                f"{self.horizon}, but only {len(periods) - split_idx} are held out. Increase "
+                "inner_val_periods or lower the horizon."
+            )
+        remainder = len(periods) - split_idx - n_windows * self.horizon
+        if remainder:
+            logger.info(
+                "Inner validation: moving %d leading validation period(s) into training so every window has horizon %d",
+                remainder,
+                self.horizon,
+            )
+            split_idx += remainder
+
         windows: list[tuple[DataSet, DataSet]] = []
         for start in range(split_idx, len(periods), self.horizon):
-            stop = min(start + self.horizon, len(periods))
+            stop = start + self.horizon
             historic = train_data.restrict_time_period(slice(None, periods[start - 1]))
             future = train_data.restrict_time_period(slice(periods[start], periods[stop - 1]))
             windows.append((historic, future))
@@ -175,23 +195,30 @@ class EnsembleModel(ConfiguredModel):
         if not np.any(mask):
             raise ValueError("No valid targets in validation")
         y_clean = y_val[mask]
+        # A meta-model per train() call. The outer backtest calls train() once per retrain,
+        # and re-fitting a cached instance in place would also mutate the meta-model of an
+        # EnsemblePredictor handed out by an earlier call.
+        meta_model: NonNegativeMetaModel | ProbabilisticMetaModel
         if self.method == "probabilistic":
             assert meta_list is not None
             X_clean_samples = [m[mask, :] for m in meta_list]
-            if self.meta_model is None:
-                self.meta_model = ProbabilisticMetaModel(verbose=True)
-            meta_model_prob = cast("ProbabilisticMetaModel", self.meta_model)
+            meta_model_prob = (
+                cast("ProbabilisticMetaModel", self.meta_model)
+                if self.meta_model is not None
+                else ProbabilisticMetaModel(verbose=True)
+            )
             meta_model_prob.fit(X_clean_samples, y_clean)
+            meta_model = meta_model_prob
         else:
             assert meta_mat is not None
             X_clean_mat = meta_mat[mask, :]
-            if self.meta_model is None:
-                self.meta_model = NonNegativeMetaModel()
-            meta_model_det = cast("NonNegativeMetaModel", self.meta_model)
+            meta_model_det = (
+                cast("NonNegativeMetaModel", self.meta_model) if self.meta_model is not None else NonNegativeMetaModel()
+            )
             meta_model_det.fit(X_clean_mat, y_clean)
+            meta_model = meta_model_det
 
-        assert self.meta_model is not None
-        coef_raw = cast("np.ndarray", self.meta_model.coef_)
+        coef_raw = cast("np.ndarray", meta_model.coef_)
         coef = np.maximum(np.asarray(coef_raw, float), 0.0)
         total = float(np.sum(coef))
         if total <= 0:
@@ -199,12 +226,20 @@ class EnsembleModel(ConfiguredModel):
             # all-zero solution, so this should be unreachable.
             raise ValueError("Meta-model produced non-positive weights")
         self.weights = coef / total * 100.0
+        # The deterministic meta-model applies the raw NNLS coefficients, whose sum need
+        # not be 1, so the normalised shares alone would hide the shrinkage the ensemble
+        # actually applies. Both are kept and both are reported.
+        self.fit_history.append((self.weights, coef))
 
         names = self._base_names()
-        assert self.weights is not None
         logger.info("Meta-weights (percent): %s", self.weights)
-        for name, w in zip(names, self.weights, strict=True):
-            logger.info("  %s: %.2f%%", name, w)
+        for name, w, c in zip(names, self.weights, coef, strict=True):
+            logger.info("  %s: %.2f%% (coefficient %.6f)", name, w, c)
+        if self.method == "deterministic" and not np.isclose(total, 1.0):
+            logger.info(
+                "NNLS coefficients sum to %.6f: the forecast is the weighted average scaled by this factor",
+                total,
+            )
 
         full_ests: list[Any] = []
         for tmpl in self.base_templates:
@@ -214,7 +249,7 @@ class EnsembleModel(ConfiguredModel):
 
         return EnsemblePredictor(
             predictors=full_predictors,
-            meta=self.meta_model,
+            meta=meta_model,
             probabilistic=(self.method == "probabilistic"),
             n_samples=self.n_samples,
         )
@@ -279,5 +314,4 @@ __all__ = [
     "EnsembleModel",
     "NonNegativeMetaModel",
     "ProbabilisticMetaModel",
-    "crps_ensemble",
 ]

@@ -12,10 +12,6 @@ from chap_core.assessment.metrics.crps import crps_matrix
 logger = logging.getLogger(__name__)
 
 
-def crps_ensemble(observations: np.ndarray, forecasts: np.ndarray) -> float:
-    return crps_matrix(observations, forecasts)
-
-
 def _vincentize_samples(X_samples: list[np.ndarray], weights: np.ndarray) -> np.ndarray:
     if not X_samples:
         raise ValueError("X_samples must not be empty")
@@ -32,7 +28,6 @@ def _vincentize_samples(X_samples: list[np.ndarray], weights: np.ndarray) -> np.
 class NonNegativeMetaModel:
     def __init__(self) -> None:
         self.coef_: np.ndarray | None = None
-        self.intercept_: float = 0.0
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> NonNegativeMetaModel:
         coef_raw, _ = nnls(X, y)
@@ -68,7 +63,6 @@ class ProbabilisticMetaModel:
 
     def __init__(self, verbose: bool = False) -> None:
         self.coef_: np.ndarray | None = None
-        self.intercept_: float = 0.0
         self.verbose = verbose
 
     def fit(self, X_samples: list[np.ndarray], y: np.ndarray) -> ProbabilisticMetaModel:
@@ -134,5 +128,4 @@ class ProbabilisticMetaModel:
 __all__ = [
     "NonNegativeMetaModel",
     "ProbabilisticMetaModel",
-    "crps_ensemble",
 ]
