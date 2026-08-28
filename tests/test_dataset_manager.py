@@ -205,3 +205,23 @@ def test_save_dataset_from_csv_with_geojson_loads_polygons(manager):
 def test_save_dataset_from_csv_weekly_sets_period_type(manager):
     manager.save_dataset_from_csv("nicaragua", EXAMPLE_DATA / "nicaragua_weekly_data.csv")
     assert manager.find_by_name("nicaragua").period_type == "week"
+
+
+def test_observations_to_dataset_large_frame_pivots_uniquely():
+    """Canary for numpy/pandas corruption: pandas switches sort algorithm at 2^15
+    rows in the pivot/unstack path, and a numpy source-built for an unsupported
+    Python (e.g. numpy 2.1.x on 3.14) silently scrambles the result there."""
+    from chap_core.database.dataset_tables import Observation
+    from chap_core.datatypes import create_tsdataclass
+    from chap_core.spatio_temporal_data.converters import observations_to_dataset
+
+    n_locations, n_years, features = 42, 17, ["disease_cases", "rainfall", "mean_temperature", "population"]
+    periods = [f"{2000 + y}{m:02d}" for y in range(n_years) for m in range(1, 13)]
+    observations = [
+        Observation(period=p, org_unit=f"loc_{i}", value=float(j), feature_name=f)
+        for j, (i, p, f) in enumerate((i, p, f) for i in range(n_locations) for p in periods for f in features)
+    ]
+    assert len(observations) > 2**15
+    dataset = observations_to_dataset(create_tsdataclass(features), observations)
+    assert len(list(dataset.locations())) == n_locations
+    assert len(dataset.period_range) == len(periods)
