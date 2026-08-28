@@ -5,6 +5,8 @@ Some models require an external service to be running alongside Chap. These serv
 !!! note
     This page covers models that are **not** part of the bundled overlay. The bundled model services started by `compose.chapkit.yml` (see [First-time Setup](fresh-installation.md)) register themselves automatically and need no config edits or rebuild. Use the steps below only for additional services like `ewars_plus` or `chtorch`.
 
+    To add a model service of your **own**, see [Running Your Own Model](running-your-own-model.md).
+
 ## Available Optional Services
 
 | Service | Image | Port | Description |

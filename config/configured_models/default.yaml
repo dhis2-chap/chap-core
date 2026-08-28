@@ -127,7 +127,7 @@
 #    v1: "@chap"
 
 
-## chtorch model (thrugh chapkit, defined in compose.yml)
+## chtorch model (through chapkit, service defined in compose.override.yml.example)
 #- url: http://chtorch:8000
 ##- url: http://193.157.251.13:5004  # for testing locally, replace with local ip
 #  uses_chapkit: true

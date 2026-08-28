@@ -58,19 +58,24 @@ For latest release go to: [https://github.com/dhis2-chap/chap-core/releases](htt
 
 ## 3. Upgrade Chap Core
 
+!!! warning "Pass the same `-f` flags you started with"
+    Docker Compose has no memory of the overlay files you used last time. If you started Chap with `docker compose -f compose.yml -f compose.chapkit.yml up -d` (as [First-time Setup](fresh-installation.md) instructs) and then upgrade with a bare `docker compose up`, the bundled model services are silently left out and their models disappear from the modeling app.
+
+    The commands below assume the `compose.chapkit.yml` overlay from the first-time setup guide. Adjust them to match how you started Chap — see the [overlay reference](../webapi/docker-compose-doc.md#compose-file-reference). If you use a `compose.override.yml` file, it is merged automatically and needs no flag.
+
 ```console
 # Stop all containers first
-docker compose down
+docker compose -f compose.yml -f compose.chapkit.yml down
 
 # Spin the containers up with --build to get new changes
-docker compose up --build -d
+docker compose -f compose.yml -f compose.chapkit.yml up --build -d
 ```
 
 NOTE: There might be issues with cached images. If you encounter problems, try forcing a fresh pull of all images:
 
 ```console
-docker compose build --no-cache
-docker compose up -d
+docker compose -f compose.yml -f compose.chapkit.yml build --no-cache
+docker compose -f compose.yml -f compose.chapkit.yml up -d
 ```
 
 Docker compose up will:
@@ -95,20 +100,20 @@ If you encounter issues and need to restore from your backup:
 
 ```console
 # Stop the services
-docker compose down
+docker compose -f compose.yml -f compose.chapkit.yml down
 
 # Remove the database volume to start fresh
-docker compose down --volumes
+docker compose -f compose.yml -f compose.chapkit.yml down --volumes
 
 # Start only the database
-docker compose up -d postgres
+docker compose -f compose.yml -f compose.chapkit.yml up -d postgres
 
 # Wait for postgres to initialize, then restore the backup
 
 cat backup_20241023_120000.sql | docker compose exec -T postgres psql -U ${POSTGRES_USER} chap_core
 
 # Start all services
-docker compose up --build
+docker compose -f compose.yml -f compose.chapkit.yml up --build
 ```
 
 ---
@@ -117,13 +122,13 @@ docker compose up --build
 
 ### Stopping Chap Core
 
-To stop all services:
+To stop all services (pass the same `-f` flags used to start them):
 
 ```console
-docker compose down
+docker compose -f compose.yml -f compose.chapkit.yml down
 ```
 
-This preserves your database data. To start again, simply run `docker compose up`.
+This preserves your database data. To start again, run the same `docker compose -f compose.yml -f compose.chapkit.yml up -d` command from step 3.
 
 ### Viewing Logs
 
