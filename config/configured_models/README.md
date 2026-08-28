@@ -43,6 +43,10 @@ Models that already exist in the database (matched by name) are updated rather t
 
 ### Chapkit service example
 
+Chapkit services normally do **not** belong in these files. They register themselves with Chap on startup via `SERVICEKIT_ORCHESTRATOR_URL`, which needs no entry here and no image rebuild -- see [Running Your Own Model](../../docs/modeling-app/running-your-own-model.md).
+
+Seed a chapkit service from configuration only when it cannot be given the registration environment variables:
+
 ```yaml
 # config/configured_models/local.yaml
 - url: http://my-model:8000

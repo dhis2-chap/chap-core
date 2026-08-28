@@ -14,17 +14,12 @@ The supported way to do this is to package the model as a **chapkit service** an
 
 ## How model services attach to Chap
 
-There are two mechanisms, and it is worth knowing which one you are using:
+**Chapkit services register themselves with Chap on startup.** You give the service the address of Chap's registration endpoint, it announces itself, and Chap pulls in its model template and configurations automatically. Nothing needs to be listed in a configuration file, and Chap does not need rebuilding when you add or change a model.
 
-| | Self-registration | Seeding from config |
-|---|---|---|
-| Who initiates | The model service calls Chap on startup | Chap reads a YAML file on startup |
-| Configuration | `SERVICEKIT_ORCHESTRATOR_URL` on the model service | `config/configured_models/*.yaml` in the Chap repo |
-| Requires rebuilding Chap | No | Yes, the config is baked into the image |
-| Startup order | Model service can start at any time | Model service must be healthy before Chap seeds |
-| Survives model restarts | Yes, it re-registers | Only across a Chap restart |
+This is how the bundled model services work, and it is the way to attach a model service. The rest of this page assumes it.
 
-**Self-registration is the recommended path** and the one used by the bundled model services. Use the config-seeding path only for a service that cannot be given the registration environment variables.
+!!! note "Older configuration-based path"
+    Chap can also be told about a chapkit service up front, through a `uses_chapkit: true` entry in `config/configured_models/`. That path predates self-registration: it requires rebuilding the Chap image, and the service has to be healthy at the moment Chap starts or the model is skipped. It remains supported for services that cannot be given the registration environment variables, and is covered in [the configured models reference](https://github.com/dhis2-chap/chap-core/blob/master/config/configured_models/README.md). Prefer self-registration.
 
 ## Adding a self-registering model service
 
@@ -116,9 +111,9 @@ docker compose build my-model && docker compose up -d my-model
 
 Note that the build context must be reachable from the Chap repository directory, and that a relative path like `../my-model` ties the deployment to your directory layout. For a server deployment, publishing an image to a registry is more robust.
 
-## Alternative: seeding from configuration
+## Fallback: seeding from configuration
 
-If your service cannot self-register, Chap can be told about it at startup. Add a YAML file to `config/configured_models/` — do **not** edit `default.yaml`, which is overwritten on upgrade:
+Use this only if your service cannot self-register — for example a third-party service you cannot set environment variables on. Add a YAML file to `config/configured_models/` — do **not** edit `default.yaml`, which is overwritten on upgrade:
 
 ```yaml
 # config/configured_models/local.yaml
