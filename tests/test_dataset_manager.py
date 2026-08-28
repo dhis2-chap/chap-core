@@ -222,3 +222,11 @@ def test_observations_to_dataset_large_frame_pivots_uniquely():
     dataset = observations_to_dataset(create_tsdataclass(features), observations)
     assert len(list(dataset.locations())) == n_locations
     assert len(dataset.period_range) == len(periods)
+    # Shape alone would miss a corruption that permutes values across cells, so
+    # spot-check corner values: value j maps to (location i, period p, feature f)
+    # with j = (i * len(periods) + p) * len(features) + f.
+    first, last = dataset["loc_0"], dataset[f"loc_{n_locations - 1}"]
+    assert first.disease_cases[0] == 0.0
+    assert first.population[0] == float(len(features) - 1)
+    assert last.disease_cases[0] == float((n_locations - 1) * len(periods) * len(features))
+    assert last.population[-1] == float(n_locations * len(periods) * len(features) - 1)
