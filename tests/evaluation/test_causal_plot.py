@@ -103,6 +103,13 @@ def test_plot_counterfactual_title_without_columns(vietnam_evaluation_pair):
     assert "(" not in title and ")" not in title
 
 
+def test_plot_counterfactual_axis_labels(vietnam_evaluation_pair):
+    eval_orig, eval_cf = vietnam_evaluation_pair
+    config = plot_counterfactual(eval_orig, eval_cf, ["rainfall"], x_label="Month", y_label="Cases").to_dict()["config"]
+    assert config["axisX"]["title"] == "Month"
+    assert config["axisY"]["title"] == "Cases"
+
+
 def test_plot_counterfactual_custom_dataset_labels(vietnam_evaluation_pair):
     eval_orig, eval_cf = vietnam_evaluation_pair
     chart = plot_counterfactual(eval_orig, eval_cf, None, original_label="Baseline", counterfactual_label="Scenario A")

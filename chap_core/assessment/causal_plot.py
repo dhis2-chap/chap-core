@@ -45,6 +45,8 @@ def plot_counterfactual(
     counterfactual_columns: list[str] | None = None,
     *,
     title: str | None = None,
+    x_label: str | None = None,
+    y_label: str | None = None,
     original_label: str = _ORIGINAL_LABEL,
     counterfactual_label: str = _COUNTERFACTUAL_LABEL,
 ) -> ChartType:
@@ -59,9 +61,14 @@ def plot_counterfactual(
         cf_chart = _chart_for_location(flat_evaluation_cf, loc, counterfactual_label)
         rows.append(alt.hconcat(orig_chart, cf_chart).resolve_scale(y="shared"))
 
-    return alt.vconcat(*rows).properties(
+    chart = alt.vconcat(*rows).properties(
         title=_compose_title(title, counterfactual_columns, original_label, counterfactual_label)
     )
+    if x_label is not None:
+        chart = chart.configure_axisX(title=x_label)
+    if y_label is not None:
+        chart = chart.configure_axisY(title=y_label)
+    return chart
 
 
 def _compose_title(

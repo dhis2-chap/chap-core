@@ -119,11 +119,11 @@ def causal_cmd(
     ] = None,
     plot_x_label: Annotated[
         str | None,
-        Parameter("--plot-x-label", help="X-axis title; only affects --plot-overlayed"),
+        Parameter("--plot-x-label", help="X-axis title (both plot modes)"),
     ] = None,
     plot_y_label: Annotated[
         str | None,
-        Parameter("--plot-y-label", help="Y-axis title; only affects --plot-overlayed"),
+        Parameter("--plot-y-label", help="Y-axis title (both plot modes)"),
     ] = None,
     original_label: Annotated[
         str,
@@ -156,10 +156,10 @@ def causal_cmd(
     Pass --plot for a per-location side-by-side comparison plot, or --plot-overlayed for a single
     overlaid plot where the original and counterfactual forecasts share one set of axes and the
     observed cases are drawn only up to the split period. The two flags are mutually exclusive.
-    --plot-title overrides the chart title for either mode; --plot-x-label / --plot-y-label set
-    the axis titles and only apply to --plot-overlayed. --original-label / --counterfactual-label
-    set the dataset display names (default "Original" / "Counterfactual") used for the subplot
-    titles, legend entries, and the composed chart title.
+    --plot-title overrides the chart title, --plot-x-label / --plot-y-label set the axis titles,
+    and --original-label / --counterfactual-label set the dataset display names (default
+    "Original" / "Counterfactual") used for the subplot titles, legend entries, and the composed
+    chart title. All of these apply to both --plot and --plot-overlayed.
 
     Examples:
         # Train on original data up to 2023-01, predict on both scenarios
@@ -343,6 +343,8 @@ def causal_cmd(
                     eval_cf,
                     counterfactual_columns,
                     title=plot_title,
+                    x_label=plot_x_label,
+                    y_label=plot_y_label,
                     original_label=original_label,
                     counterfactual_label=counterfactual_label,
                 )
