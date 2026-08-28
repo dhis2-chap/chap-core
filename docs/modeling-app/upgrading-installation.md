@@ -61,7 +61,7 @@ For latest release go to: [https://github.com/dhis2-chap/chap-core/releases](htt
 !!! warning "Pass the same `-f` flags you started with"
     Docker Compose has no memory of the overlay files you used last time. If you started Chap with `docker compose -f compose.yml -f compose.chapkit.yml up -d` (as [First-time Setup](fresh-installation.md) instructs) and then upgrade with a bare `docker compose up`, the bundled model services are silently left out and their models disappear from the modeling app.
 
-    The commands below assume the `compose.chapkit.yml` overlay from the first-time setup guide. Adjust them to match how you started Chap — see the [overlay reference](../webapi/docker-compose-doc.md#compose-file-reference). If you use a `compose.override.yml` file, it is merged automatically and needs no flag.
+    The commands below assume the `compose.chapkit.yml` overlay from the first-time setup guide. Adjust them to match how you started Chap — see the [overlay reference](../webapi/docker-compose-doc.md#compose-file-reference). If you use a `compose.override.yml` file, add `-f compose.override.yml` to every command below — Compose only picks that file up on its own when no `-f` flag is passed at all, so with the flags below it would otherwise be dropped and its services removed on upgrade.
 
 ```console
 # Stop all containers first

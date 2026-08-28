@@ -29,7 +29,7 @@ The repository ships several compose files. `compose.yml` and `compose.ghcr.yml`
 | `compose.ghcr.yml` | base | Same services pulled as pre-built images from GHCR. Use *instead of* `compose.yml`. |
 | `compose.chapkit.yml` | overlay | Umbrella overlay pulling in every bundled chapkit model service via the `include:` directive. Requires Compose v2.20+. |
 | `compose.ewars.yml` | overlay | The EWARS chapkit model service on its own. Already included by `compose.chapkit.yml`. |
-| `compose.override.yml.example` | overlay template | Optional extra services (`chtorch`, `ewars_plus`). Copy to `compose.override.yml`, which Compose merges automatically with no `-f` flag. |
+| `compose.override.yml.example` | overlay template | Optional extra services (`chtorch`, `ewars_plus`). Copy to `compose.override.yml`. Compose merges that file automatically **only** when no `-f` flag is used; with any `-f` flag you must list it explicitly, last. |
 | `compose.dev.yml` | overlay | Bind-mounts local source into `chap`, builds the worker from `Dockerfile.inla`, and exposes the postgres port on the host. |
 | `compose.test.yml` | overlay | One-shot pytest container. |
 | `compose.integration.test.yml` | overlay | Frontend emulator running the end-to-end database flow. |
@@ -38,7 +38,7 @@ The repository ships several compose files. `compose.yml` and `compose.ghcr.yml`
 Common combinations:
 
 ```console
-# Base only
+# Base only (plus compose.override.yml, if one exists)
 docker compose up -d
 
 # With all bundled model services (what the installation guide uses)

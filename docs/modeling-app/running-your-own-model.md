@@ -25,13 +25,16 @@ This is how the bundled model services work, and it is the way to attach a model
 
 ### 1. Create a Compose override file
 
-Chap picks up a `compose.override.yml` file automatically, with no extra `-f` flag. Start from the shipped example:
+Declare your service in a `compose.override.yml` file. Start from the shipped example:
 
 ```console
 cp compose.override.yml.example compose.override.yml
 ```
 
 Remove the sample services you do not need, and add your own.
+
+!!! warning "Pass `-f compose.override.yml` explicitly"
+    Compose only discovers `compose.override.yml` on its own when you run a bare `docker compose` with no `-f` flags at all. As soon as you pass any `-f` — as the installation guide does — the override file is ignored, silently and with no error, so your model never starts. Every command on this page therefore lists it explicitly, last, so its settings win.
 
 ### 2. Declare your service
 
@@ -56,7 +59,7 @@ The important parts:
 
 - **`SERVICEKIT_ORCHESTRATOR_URL`** points at Chap's registration endpoint using the Compose service name `chap`, not `localhost`. The `$$` is not a typo — Compose expands `$` as a variable, so `$$register` is how you write a literal `$register`.
 - **`depends_on: chap: condition: service_healthy`** makes your model wait until Chap answers its health check, so the first registration attempt succeeds.
-- **`ports`** is optional and only needed if you want to reach the model directly from the host for debugging. Chap itself reaches it over the internal network. Pick a host port that is not already taken — the bundled services use 5001 and 5002.
+- **`ports`** is optional and only needed if you want to reach the model directly from the host for debugging. Chap itself reaches it over the internal network. Pick a host port that is not already taken — the bundled stack uses 8000 for `chap` and 5002 for `ewars`, and the sample services in `compose.override.yml.example` add 5001 (`chtorch`) and 3288 (`ewars_plus`).
 - If your Chap deployment sets `SERVICEKIT_REGISTRATION_KEY` in `.env`, uncomment that line, or registration will be rejected.
 
 `compose.ewars.yml` in the repository root is a working example of exactly this shape.
@@ -64,10 +67,10 @@ The important parts:
 ### 3. Start the stack
 
 ```console
-docker compose -f compose.yml -f compose.chapkit.yml up -d
+docker compose -f compose.yml -f compose.chapkit.yml -f compose.override.yml up -d
 ```
 
-`compose.override.yml` is merged in automatically, so your service starts along with everything else. Use whichever base and overlays you normally use — see the [overlay reference](../webapi/docker-compose-doc.md#compose-file-reference).
+Your service starts along with everything else. Use whichever base and overlays you normally use, with `compose.override.yml` last — see the [overlay reference](../webapi/docker-compose-doc.md#compose-file-reference). Pass the same `-f` flags to every later `down`, `build` and `logs` command in this stack.
 
 ### 4. Verify
 
@@ -106,7 +109,8 @@ services:
 Rebuild after changing the model with:
 
 ```console
-docker compose build my-model && docker compose up -d my-model
+docker compose -f compose.yml -f compose.chapkit.yml -f compose.override.yml build my-model
+docker compose -f compose.yml -f compose.chapkit.yml -f compose.override.yml up -d my-model
 ```
 
 Note that the build context must be reachable from the Chap repository directory, and that a relative path like `../my-model` ties the deployment to your directory layout. For a server deployment, publishing an image to a registry is more robust.
@@ -131,11 +135,16 @@ Use this only if your service cannot self-register — for example a third-party
 Because this configuration is baked into the Chap image, you must rebuild after editing it:
 
 ```console
-docker compose build chap worker
-docker compose up -d
+docker compose -f compose.yml -f compose.chapkit.yml build chap worker
+docker compose -f compose.yml -f compose.chapkit.yml up -d
 ```
 
+Pass the same `-f` flags you started the stack with. A bare `docker compose up -d` here drops the overlays and recreates the project without the bundled model services.
+
 Chap waits up to 30 seconds for the service to report healthy while seeding. If it does not respond in time, the model is skipped with an error in the Chap log and startup continues — restart Chap once the service is up.
+
+!!! warning "Does not work if the service advertises a `repository_url`"
+    When a chapkit service reports a `repository_url` in its metadata, Chap stores that GitHub address as the template's source and keeps no record of the service's HTTP address. A self-registering service is unaffected, because Chap looks its live address up in the service registry — but a service seeded from configuration is by definition not registered, so the lookup falls back to the stored GitHub URL and every prediction fails. Use this fallback only with services whose metadata leaves `repository_url` unset, or give the service the registration environment variables after all.
 
 ## Lifecycle and troubleshooting
 
