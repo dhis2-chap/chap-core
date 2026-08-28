@@ -18,9 +18,6 @@ The supported way to do this is to package the model as a **chapkit service** an
 
 This is how the bundled model services work, and it is the way to attach a model service. The rest of this page assumes it.
 
-!!! note "Older configuration-based path"
-    Chap can also be told about a chapkit service up front, through a `uses_chapkit: true` entry in `config/configured_models/`. That path predates self-registration: it requires rebuilding the Chap image, and the service has to be healthy at the moment Chap starts or the model is skipped. It remains supported for services that cannot be given the registration environment variables, and is covered in [the configured models reference](https://github.com/dhis2-chap/chap-core/blob/master/config/configured_models/README.md). Prefer self-registration.
-
 ## Adding a self-registering model service
 
 ### 1. Create a Compose override file
@@ -114,37 +111,6 @@ docker compose -f compose.yml -f compose.chapkit.yml -f compose.override.yml up 
 ```
 
 Note that the build context must be reachable from the Chap repository directory, and that a relative path like `../my-model` ties the deployment to your directory layout. For a server deployment, publishing an image to a registry is more robust.
-
-## Fallback: seeding from configuration
-
-Use this only if your service cannot self-register — for example a third-party service you cannot set environment variables on. Add a YAML file to `config/configured_models/` — do **not** edit `default.yaml`, which is overwritten on upgrade:
-
-```yaml
-# config/configured_models/local.yaml
-- url: http://my-model:8000
-  uses_chapkit: true
-  versions:
-    v1: "/v1"
-  configurations:
-    default:
-      user_option_values: {}
-```
-
-`url` is the service's address on the Compose network, and `uses_chapkit: true` tells Chap to read the model template over HTTP rather than fetching an `MLProject.yaml` from GitHub. See [the configured models reference](https://github.com/dhis2-chap/chap-core/blob/master/config/configured_models/README.md) for the full file format.
-
-Because this configuration is baked into the Chap image, you must rebuild after editing it:
-
-```console
-docker compose -f compose.yml -f compose.chapkit.yml build chap worker
-docker compose -f compose.yml -f compose.chapkit.yml up -d
-```
-
-Pass the same `-f` flags you started the stack with. A bare `docker compose up -d` here drops the overlays and recreates the project without the bundled model services.
-
-Chap waits up to 30 seconds for the service to report healthy while seeding. If it does not respond in time, the model is skipped with an error in the Chap log and startup continues — restart Chap once the service is up.
-
-!!! warning "Does not work if the service advertises a `repository_url`"
-    When a chapkit service reports a `repository_url` in its metadata, Chap stores that GitHub address as the template's source and keeps no record of the service's HTTP address. A self-registering service is unaffected, because Chap looks its live address up in the service registry — but a service seeded from configuration is by definition not registered, so the lookup falls back to the stored GitHub URL and every prediction fails. Use this fallback only with services whose metadata leaves `repository_url` unset, or give the service the registration environment variables after all.
 
 ## Lifecycle and troubleshooting
 
