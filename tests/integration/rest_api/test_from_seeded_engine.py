@@ -127,6 +127,17 @@ def test_threshold_strategies_discovery(override_session):
     assert seasonal["description"]
 
 
+def test_threshold_params_schema_is_discriminated_union():
+    """Lock in the tagged union in OpenAPI: sqlmodel.Field on the params field silently drops it."""
+    schema = client.get_json("/openapi.json")
+    for model in ("ThresholdRequest", "ThresholdResponse"):
+        params = schema["components"]["schemas"][model]["properties"]["params"]
+        assert "oneOf" in params, params
+        assert params["discriminator"]["propertyName"] == "type"
+        mapping = params["discriminator"]["mapping"]
+        assert set(mapping) == {"seasonal", "percentile"}
+
+
 def test_compute_thresholds(override_session):
     body = {"dataset_id": 1, "period_ids": ["2023-01", "2023-02"], "params": {"type": "seasonal"}}
     response = client.post("/v1/analytics/thresholds", json=body)
