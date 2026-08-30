@@ -540,6 +540,49 @@ def test_window_avg_per_location_window_length(tmp_path, make_row_df):
     assert out[("B", "2021-06")] == pytest.approx(20.0)
 
 
+def test_window_avg_gap_uses_only_present_periods_on_fixed_grid(tmp_path, make_row_df):
+    csv = tmp_path / "data.csv"
+    make_row_df(
+        [
+            ("A", "2021-01", 10.0),
+            ("A", "2021-02", 20.0),
+            # gap: no 2021-03
+            ("A", "2021-04", 4.0),
+            ("A", "2021-05", 5.0),
+            ("A", "2021-06", 6.0),
+            # active range (length 2)
+            ("A", "2021-10", 999.0),
+            ("A", "2021-11", 999.0),
+        ]
+    ).to_csv(csv, index=False)
+    build_counterfactual_cmd(csv, ["rainfall=window_avg_min"], start_time_period="2021-10")
+    out = pd.read_csv(tmp_path / "data_cf.csv")
+    # fixed 2-period grid from 2021-01: [Jan,Feb] -> min(10,20)=10;
+    # [Mar,Apr] -> only Apr present -> 4; [May,Jun] -> min(5,6)=5. avg(10, 4, 5)
+    assert out["rainfall"][5] == pytest.approx(19 / 3)
+    assert out["rainfall"][6] == pytest.approx(19 / 3)
+
+
+def test_window_avg_skips_window_whose_span_is_entirely_gap(tmp_path, make_row_df):
+    csv = tmp_path / "data.csv"
+    make_row_df(
+        [
+            ("A", "2021-01", 10.0),
+            ("A", "2021-02", 20.0),
+            # gap: no 2021-03, 2021-04 -> the [Mar,Apr] grid window is empty and skipped
+            ("A", "2021-05", 5.0),
+            ("A", "2021-06", 50.0),
+            ("A", "2021-10", 999.0),
+            ("A", "2021-11", 999.0),
+        ]
+    ).to_csv(csv, index=False)
+    build_counterfactual_cmd(csv, ["rainfall=window_avg_min"], start_time_period="2021-10")
+    out = pd.read_csv(tmp_path / "data_cf.csv")
+    # grid: [Jan,Feb] -> 10; [Mar,Apr] -> no present period, skipped; [May,Jun] -> 5. avg(10, 5) = 7.5
+    assert out["rainfall"][4] == pytest.approx(7.5)
+    assert out["rainfall"][5] == pytest.approx(7.5)
+
+
 def test_mixed_arithmetic_and_seasonal_columns(tmp_path, make_row_df):
     csv = tmp_path / "data.csv"
     make_row_df(

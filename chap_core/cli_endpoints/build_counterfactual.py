@@ -156,9 +156,13 @@ class SeasonalAggregation:
         parsed_periods: pd.Series,
         agg: Literal["min", "max"],
     ) -> pd.Series:
-        """For each location, average the min/max of `col` over consecutive, non-overlapping windows of rows
-        outside the active range, each the same length as that location's active range, then assign the
-        scalar to every active row."""
+        """For each location, tile that location's historical periods (rows outside the active range) into
+        a fixed grid of consecutive, non-overlapping windows, each spanning as many calendar periods as
+        the location's active range and starting at its earliest historical period. Each window
+        contributes the min/max of `col` over the periods actually present within its span -- a gap just
+        means fewer points, and a window with no present period is skipped. A trailing window whose
+        calendar span runs past the last historical period is dropped. The mean of the per-window
+        extrema is assigned to every active row for that location."""
         result = df[col].copy()
         for location, location_index in df.groupby("location").groups.items():
             active_index = [i for i in location_index if active_mask.at[i]]
@@ -170,14 +174,25 @@ class SeasonalAggregation:
                 key=lambda i: parsed_periods.at[i],  # type: ignore[arg-type,return-value]
             )
 
-            window_extrema = []
-            for start in range(0, len(historical_index), window_length):
-                window_index = historical_index[start : start + window_length]
-                if len(window_index) < window_length:
-                    break
-                window_value = df.loc[window_index, col].agg(agg)
-                if pd.notna(window_value):
-                    window_extrema.append(window_value)
+            window_extrema: list[float] = []
+            if historical_index:
+                hist_periods: list = [parsed_periods.at[i] for i in historical_index]
+                hist_values: list = [df.at[i, col] for i in historical_index]
+                step = hist_periods[0].time_delta
+                last_period = hist_periods[-1]
+                span_start = hist_periods[0]
+                while True:
+                    span_end = span_start + step * (window_length - 1)
+                    if span_end > last_period:
+                        break  # trailing window whose span runs past the last historical period
+                    present: list[float] = [
+                        value
+                        for period, value in zip(hist_periods, hist_values, strict=True)
+                        if span_start <= period <= span_end and pd.notna(value)
+                    ]
+                    if present:
+                        window_extrema.append(min(present) if agg == "min" else max(present))
+                    span_start = span_start + step * window_length
 
             if not window_extrema:
                 logger.warning(
@@ -341,7 +356,10 @@ def build_counterfactual_cmd(
       - ``seasonal_min`` / ``seasonal_max``: per location, the min/max of the column across rows
         sharing the same month-of-year (Month periods) or ISO week-of-year (Week periods).
       - ``window_avg_min`` / ``window_avg_max``: per location, the average of the min/max computed
-        over consecutive, non-overlapping windows the same length as the active range.
+        over a fixed grid of consecutive, non-overlapping windows starting at the earliest historical
+        period, each spanning as many calendar periods as the active range. A window's min/max uses
+        only the periods actually present in its span (gaps just mean fewer points); a window whose
+        span runs past the last historical period is dropped.
 
     Unlike arithmetic expressions, these keywords always overwrite the target cell, even if it is
     currently NaN — they are meant to fill in unset forecast-horizon covariate values. If a
