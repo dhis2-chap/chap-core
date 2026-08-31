@@ -255,6 +255,48 @@ class TestAlembicMigrations:
         assert "uq_modeltemplatedb_name_version" in constraints
         assert "modeltemplatedb_name_key" not in constraints
 
+    def test_unversioned_create_all_schema_is_bootstrapped_to_head(self, engine):
+        """A legacy create_all database must still run the versioning migration."""
+        from alembic.script import ScriptDirectory
+
+        from chap_core.database.database import _run_alembic_migrations
+
+        with engine.connect() as conn:
+            conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+            conn.execute(sa.text("CREATE SCHEMA public"))
+            conn.commit()
+
+        # Startup's generic migration and create_all call give an unversioned
+        # database current columns and tables, but cannot replace constraints on
+        # existing tables. Startup must still run the versioning migration.
+        SQLModel.metadata.create_all(engine)
+        with engine.connect() as conn:
+            for table, new_constraint, baseline_constraint, baseline_columns in _CONSTRAINTS_REPLACED_BY_MIGRATIONS:
+                conn.execute(sa.text(f"ALTER TABLE {table} DROP CONSTRAINT {new_constraint}"))
+                conn.execute(
+                    sa.text(f"ALTER TABLE {table} ADD CONSTRAINT {baseline_constraint} UNIQUE ({baseline_columns})")
+                )
+            conn.commit()
+
+        _run_alembic_migrations(engine)
+
+        script = ScriptDirectory.from_config(_make_alembic_cfg(engine))
+        with engine.connect() as conn:
+            current = conn.execute(sa.text("SELECT version_num FROM alembic_version")).scalar_one()
+        assert current == script.get_current_head()
+
+        template_constraints = {
+            constraint["name"] for constraint in sa.inspect(engine).get_unique_constraints("modeltemplatedb")
+        }
+        assert "uq_modeltemplatedb_name_version" in template_constraints
+        assert "modeltemplatedb_name_key" not in template_constraints
+
+        configured_model_constraints = {
+            constraint["name"] for constraint in sa.inspect(engine).get_unique_constraints("configuredmodeldb")
+        }
+        assert "uq_configuredmodeldb_template_name_digest" in configured_model_constraints
+        assert "configuredmodeldb_name_key" not in configured_model_constraints
+
     def test_all_revisions_have_downgrade(self):
         """Verify every migration revision defines a non-empty downgrade."""
         from alembic.config import Config

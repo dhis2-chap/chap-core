@@ -1,5 +1,7 @@
 import logging
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from chap_core.model_spec import PeriodType
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.local_configuration import parse_local_model_config_from_directory
@@ -119,6 +121,8 @@ def seed_configured_models_from_config_dir(
             except Exception as e:
                 # A failed flush leaves the session unusable until it is rolled back.
                 session.rollback()
+                if isinstance(e, SQLAlchemyError):
+                    raise
                 logger.error(
                     f"Could not seed chapkit model at {config.url}: {e}. Skipping this model when seeding the database."
                 )
@@ -139,6 +143,8 @@ def seed_configured_models_from_config_dir(
             except Exception as e:
                 # A failed flush leaves the session unusable until it is rolled back.
                 session.rollback()
+                if isinstance(e, SQLAlchemyError):
+                    raise
                 logger.error(
                     f"Could not seed git model at {config.url}: {e}. Skipping this model when seeding the database."
                 )
@@ -159,4 +165,6 @@ def seed_configured_models_from_config_dir(
     except Exception as e:
         # Startup must continue without the naive model rather than abort the API.
         session.rollback()
+        if isinstance(e, SQLAlchemyError):
+            raise
         logger.error(f"Could not seed the naive model: {e}")

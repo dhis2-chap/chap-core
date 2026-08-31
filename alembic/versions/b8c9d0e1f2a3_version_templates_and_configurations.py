@@ -59,6 +59,10 @@ def _has_column(table: str, column: str) -> bool:
     return any(col["name"] == column for col in inspector.get_columns(table))
 
 
+def _has_unique_constraint(table: str, name: str) -> bool:
+    return any(item["name"] == name for item in sa.inspect(op.get_bind()).get_unique_constraints(table))
+
+
 def upgrade() -> None:
     """Make (name, version) the template identity and add configuration digests.
 
@@ -92,7 +96,8 @@ def upgrade() -> None:
     )
     op.alter_column("modeltemplatedb", "version", existing_type=sa.String(), nullable=False)
     op.execute("ALTER TABLE modeltemplatedb DROP CONSTRAINT IF EXISTS modeltemplatedb_name_key")
-    op.create_unique_constraint("uq_modeltemplatedb_name_version", "modeltemplatedb", ["name", "version"])
+    if not _has_unique_constraint("modeltemplatedb", "uq_modeltemplatedb_name_version"):
+        op.create_unique_constraint("uq_modeltemplatedb_name_version", "modeltemplatedb", ["name", "version"])
 
     if not _has_column("configuredmodeldb", "configuration_digest"):
         op.add_column(
@@ -113,11 +118,12 @@ def upgrade() -> None:
         "configuredmodeldb", "configuration_digest", existing_type=sa.String(), nullable=False, server_default=None
     )
     op.execute("ALTER TABLE configuredmodeldb DROP CONSTRAINT IF EXISTS configuredmodeldb_name_key")
-    op.create_unique_constraint(
-        "uq_configuredmodeldb_template_name_digest",
-        "configuredmodeldb",
-        ["model_template_id", "name", "configuration_digest"],
-    )
+    if not _has_unique_constraint("configuredmodeldb", "uq_configuredmodeldb_template_name_digest"):
+        op.create_unique_constraint(
+            "uq_configuredmodeldb_template_name_digest",
+            "configuredmodeldb",
+            ["model_template_id", "name", "configuration_digest"],
+        )
 
 
 def downgrade() -> None:

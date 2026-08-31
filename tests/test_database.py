@@ -2,6 +2,7 @@ import logging
 
 import pytest
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, select
 
 from chap_core.database.database import SessionWrapper
@@ -625,7 +626,7 @@ def test_seed_skips_chapkit_model_when_version_is_missing(engine, tmp_path, mode
     assert "naive_model" in names
 
 
-def test_seed_recovers_after_a_failed_commit(engine, tmp_path, model_template_yaml_config, monkeypatch):
+def test_seed_raises_database_error_instead_of_hiding_model(engine, tmp_path, model_template_yaml_config, monkeypatch):
     monkeypatch.setattr("chap_core.database.model_template_seed.resolve_commit_sha", lambda url: "a" * 40)
     monkeypatch.setattr(
         "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
@@ -638,13 +639,14 @@ def test_seed_recovers_after_a_failed_commit(engine, tmp_path, model_template_ya
     with Session(engine) as session:
         session.add(ModelTemplateDB(name="broken_model", version="old"))
         session.commit()
-        # broken_model's insert violates the legacy constraint mid-commit. The other
-        # models and the naive model must still be seeded.
-        seed_configured_models_from_config_dir(session, directory=_two_git_model_config_dir(tmp_path))
+        # broken_model's insert violates the legacy constraint mid-commit. A schema
+        # error must fail startup rather than silently omit that model.
+        with pytest.raises(IntegrityError):
+            seed_configured_models_from_config_dir(session, directory=_two_git_model_config_dir(tmp_path))
 
     names = _seeded_template_names(engine)
-    assert "ok_model" in names
-    assert "naive_model" in names
+    assert "ok_model" not in names
+    assert "naive_model" not in names
 
 
 def test_seed_configured_models(engine):

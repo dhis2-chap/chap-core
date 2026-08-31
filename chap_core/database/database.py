@@ -33,6 +33,12 @@ from .tables import Backtest, Prediction, PredictionSamplesEntry
 logger = logging.getLogger(__name__)
 engine = None
 database_url = os.getenv("CHAP_DATABASE_URL", default=None)
+
+# The generic migration plus create_all() already provide the schema through
+# this revision for databases that predate Alembic. The following revision must
+# still run because it contains data backfills and constraint replacements.
+_GENERIC_SCHEMA_ALEMBIC_REVISION = "a7b8c9d0e1f2"
+
 # Log database URL with credentials masked for security
 if database_url:
     masked_url = database_url.split("@")[-1] if "@" in database_url else database_url
@@ -542,6 +548,7 @@ def _run_alembic_migrations(engine):
     This is called after the custom migration system to apply any Alembic-managed schema changes.
     """
     from alembic.config import Config
+    from alembic.migration import MigrationContext
 
     from alembic import command
 
@@ -562,6 +569,14 @@ def _run_alembic_migrations(engine):
         # Pass the engine connection to Alembic for programmatic usage
         with engine.connect() as connection:
             alembic_cfg.attributes["connection"] = connection
+
+            migration_context = MigrationContext.configure(connection)
+            if migration_context.get_current_revision() is None:
+                existing_tables = set(sqlalchemy.inspect(connection).get_table_names())
+                if "modeltemplatedb" in existing_tables:
+                    command.stamp(alembic_cfg, _GENERIC_SCHEMA_ALEMBIC_REVISION)
+                    connection.commit()
+
             command.upgrade(alembic_cfg, "head")
 
         logger.info("Completed Alembic migrations successfully")
