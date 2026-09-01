@@ -33,6 +33,9 @@ theme:
 plugins:
   - search
   - markdown-exec
+  - panzoom:
+      full_screen: true
+      always_show_hint: true
   - mkdocstrings:
       handlers:
         python:
@@ -86,6 +89,7 @@ nav:
           - First-time Setup: modeling-app/fresh-installation.md
           - Updating to a New Version: modeling-app/upgrading-installation.md
           - Enabling Optional Model Services: modeling-app/enabling-optional-model-services.md
+          - Running Your Own Model: modeling-app/running-your-own-model.md
       - Managing models: modeling-app/managing-model-templates.md
       - Troubleshooting:
           - Viewing Logs: modeling-app/troubleshooting/logs.md
@@ -144,6 +148,9 @@ nav:
           - Windows Setup: contributor/windows_contributors.md
           - Code Overview: contributor/code_overview.md
           - Architecture Diagrams: contributor/architecture_diagrams.md
+          - Architecture Model (C4): contributor/architecture_model.md
+          - Modeling Internals: contributor/modeling_internals.md
+          - CLI vs REST API: contributor/cli_vs_rest_api.md
           - REST API and Database: contributor/rest_api_and_database.md
           - MLproject Configuration: contributor/mlproject_configuration.md
           - Vocabulary: contributor/vocabulary.md

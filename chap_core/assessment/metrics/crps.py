@@ -31,6 +31,32 @@ def _crps_sample(samples: np.ndarray, observed: float) -> float:
     return term1 - term2
 
 
+def crps_matrix(observations: np.ndarray, forecasts: np.ndarray) -> float:
+    """Mean CRPS over a batch of observations and their forecast samples.
+
+    ``forecasts`` is ``(n_rows, n_samples)`` and ``observations`` is ``(n_rows,)``.
+    Uses the same order-statistic estimator as :func:`_crps_sample`, applied
+    row-wise and averaged, so a batch score is directly comparable to the
+    per-row scores reported by :class:`CRPSMetric`.
+    """
+    observations = np.asarray(observations, float).reshape(-1)
+    forecasts = np.asarray(forecasts, float)
+    if forecasts.ndim != 2:
+        raise ValueError(f"forecasts must be 2D (n_rows, n_samples), got shape {forecasts.shape}")
+    if forecasts.shape[0] != observations.shape[0]:
+        raise ValueError(
+            f"observations length {observations.shape[0]} does not match forecast rows {forecasts.shape[0]}"
+        )
+    n = forecasts.shape[1]
+    term1 = np.mean(np.abs(forecasts - observations[:, None]), axis=1)
+    if n == 0:
+        return float(np.mean(term1))
+    xs = np.sort(forecasts, axis=1)
+    coeffs = 2.0 * np.arange(1, n + 1) - n - 1
+    term2 = np.sum(coeffs * xs, axis=1) / (n * n)
+    return float(np.mean(term1 - term2))
+
+
 @metric()
 class CRPSMetric(ProbabilisticMetric):
     """
