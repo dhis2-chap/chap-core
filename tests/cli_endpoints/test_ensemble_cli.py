@@ -116,7 +116,7 @@ def test_evaluate_ensemble_smoke(weekly_full_data, tmp_path, monkeypatch):
     created = _install_templates(
         monkeypatch,
         weekly_full_data,
-        lambda name: ModelTemplateConfigV2(name=name, min_prediction_length=1, max_prediction_length=4),
+        lambda name: ModelTemplateConfigV2(name=name, min_prediction_periods=1, max_prediction_periods=4),
     )
 
     report_path = tmp_path / "ensemble_report.csv"
@@ -133,7 +133,7 @@ def test_meta_report_follows_report_stem_and_keeps_coefficients(weekly_full_data
     _install_templates(
         monkeypatch,
         weekly_full_data,
-        lambda name: ModelTemplateConfigV2(name=name, min_prediction_length=1, max_prediction_length=4),
+        lambda name: ModelTemplateConfigV2(name=name, min_prediction_periods=1, max_prediction_periods=4),
     )
 
     report_path = tmp_path / "run_one.csv"
@@ -154,7 +154,7 @@ def test_base_model_below_minimum_prediction_length_is_rejected(weekly_full_data
     _install_templates(
         monkeypatch,
         weekly_full_data,
-        lambda name: ModelTemplateConfigV2(name=name, min_prediction_length=3, max_prediction_length=6),
+        lambda name: ModelTemplateConfigV2(name=name, min_prediction_periods=3, max_prediction_periods=6),
     )
 
     with pytest.raises(ValueError, match="minimum prediction length"):
@@ -166,7 +166,7 @@ def test_base_model_above_maximum_prediction_length_is_extended(weekly_full_data
     created = _install_templates(
         monkeypatch,
         weekly_full_data,
-        lambda name: ModelTemplateConfigV2(name=name, min_prediction_length=1, max_prediction_length=1),
+        lambda name: ModelTemplateConfigV2(name=name, min_prediction_periods=1, max_prediction_periods=1),
     )
 
     _run(

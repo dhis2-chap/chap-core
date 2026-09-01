@@ -150,8 +150,8 @@ def _prepare_base_template(
     config = template.model_template_config
     warn_unused_covariates(dataset, config, model_config)
 
-    min_length = config.min_prediction_length
-    max_length = config.max_prediction_length
+    min_length = config.min_prediction_periods
+    max_length = config.max_prediction_periods
     if min_length is None and max_length is None:
         logger.warning("Base model %s has not specified minimum and maximum predicted length", config.name)
     if min_length is not None and min_length > n_periods:

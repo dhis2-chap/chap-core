@@ -13,7 +13,7 @@ class MockModel(ConfiguredModel):
 
     def __init__(self, min_pred_length=2, max_pred_length=4):
         self._model_information = ModelTemplateConfigV2(
-            name="mock_model", min_prediction_length=min_pred_length, max_prediction_length=max_pred_length
+            name="mock_model", min_prediction_periods=min_pred_length, max_prediction_periods=max_pred_length
         )
         self.trained = False
         self.predict_call_count = 0
@@ -52,8 +52,8 @@ class TrackingMockModel(ConfiguredModel):
     def __init__(self, locations, future_periods, min_pred_length=2, max_pred_length=3):
         self._model_information = ModelTemplateConfigV2(
             name="tracking_mock",
-            min_prediction_length=min_pred_length,
-            max_prediction_length=max_pred_length,
+            min_prediction_periods=min_pred_length,
+            max_prediction_periods=max_pred_length,
         )
         self.locations = locations
         self.future_periods = future_periods
@@ -169,10 +169,10 @@ def test_extended_predictor_adapts_model_information():
     extended_predictor = ExtendedPredictor(mock_model, desired_scope)
     info = extended_predictor.model_information
 
-    assert info.max_prediction_length == desired_scope
-    assert info.min_prediction_length == 2
+    assert info.max_prediction_periods == desired_scope
+    assert info.min_prediction_periods == 2
     # Inner model's information should be unchanged
-    assert mock_model.model_information.max_prediction_length == 4
+    assert mock_model.model_information.max_prediction_periods == 4
 
 
 def test_extended_predictor_returns_none_when_inner_model_information_is_none():
@@ -198,7 +198,7 @@ def test_extended_predictor_train():
 
 
 def test_extended_predictor_scope_validation():
-    """Test that assertion fails when desired_scope is less than min_prediction_length."""
+    """Test that assertion fails when desired_scope is less than min_prediction_periods."""
     mock_model = MockModel(min_pred_length=5, max_pred_length=10)
     desired_scope = 3
     extended_predictor = ExtendedPredictor(mock_model, desired_scope)
@@ -220,7 +220,7 @@ def test_extended_predictor_with_external_model_interface():
         runner=mock_runner,
         name="test_model",
         model_information=ModelTemplateConfigV2(
-            name="test_external_model", min_prediction_length=2, max_prediction_length=4
+            name="test_external_model", min_prediction_periods=2, max_prediction_periods=4
         ),
     )
 
@@ -228,11 +228,11 @@ def test_extended_predictor_with_external_model_interface():
 
     assert extended_predictor._config_model == external_model
     assert extended_predictor._desired_scope == 6
-    # Wrapper adapts max_prediction_length to desired_scope
-    assert extended_predictor.model_information.max_prediction_length == 6
-    assert extended_predictor.model_information.min_prediction_length == 2
+    # Wrapper adapts max_prediction_periods to desired_scope
+    assert extended_predictor.model_information.max_prediction_periods == 6
+    assert extended_predictor.model_information.min_prediction_periods == 2
     # Inner model is unchanged
-    assert external_model.model_information.max_prediction_length == 4
+    assert external_model.model_information.max_prediction_periods == 4
 
 
 def test_update_historic_data_includes_all_locations():
@@ -477,7 +477,7 @@ def test_covariates_preserved_in_historic_data_between_iterations():
     recorded_historic: list[pd.DataFrame] = []
 
     class SamplesOnlyModel(ConfiguredModel):
-        _model_information = ModelTemplateConfigV2(name="m", min_prediction_length=1, max_prediction_length=2)
+        _model_information = ModelTemplateConfigV2(name="m", min_prediction_periods=1, max_prediction_periods=2)
 
         @property
         def model_information(self):
