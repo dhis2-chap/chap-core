@@ -7,7 +7,7 @@ This directory contains YAML files that define which model templates and configu
 On startup, the REST API calls `seed_configured_models_from_config_dir()` (in `chap_core/database/model_template_seed.py`), which:
 
 1. Parses `default.yaml` first, keeping only the **last version** listed for each model (earlier versions serve as historical documentation).
-2. Parses all other `*.yaml` files in this directory (e.g. `local.yaml`, `benchmark_models.yaml`), keeping **all versions** listed.
+2. Parses all other `*.yaml` files in this directory (e.g. `local.yaml`, `benchmark_models.yaml`). These keep all versions through parsing, but seeding still only uses the last one, so listing several has no effect.
 3. For each model entry, takes the last version and constructs a GitHub URL (`{url}@{commit}`).
 4. Fetches the `MLProject.yaml` from the GitHub repository at that commit to get model metadata (name, description, covariates, user options, etc.).
 5. Inserts a `ModelTemplateDB` row for the `(name, version)` pair, unless that pair is already stored.
@@ -35,7 +35,7 @@ describing the code they ran.
 ```yaml
 - url: https://github.com/org/model-repo
   versions:
-    v1: "@<commit-sha>"          # historical, ignored in default.yaml
+    v1: "@<commit-sha>"           # historical documentation only
     v2: "@<commit-sha-or-branch>" # last entry is the one that gets seeded
   configurations:                 # optional, defaults to a single "default" config
     config_name:
@@ -48,9 +48,12 @@ describing the code they ran.
 
 ### Fields
 
-- **url**: GitHub repository URL for the model.
-- **versions**: Named versions mapping to git refs. Prefix with `@` for commits/branches. In `default.yaml`, only the last version is used; in other files, all versions are available.
+- **url**: The GitHub repository URL for the model.
+- **name** (optional): Overrides the template name declared by the model itself. Use it to avoid name clashes when seeding two variants of the same model.
+- **versions** (required): Named versions mapping to git refs. Prefix with `@` for commits/branches. Only the last entry is seeded, in every file -- earlier entries serve as historical documentation.
 - **configurations** (optional): Named configurations for the model template. Each configuration can set `user_option_values` (model-specific parameters) and `additional_continuous_covariates`. If omitted, a single "default" configuration with empty values is created.
+
+Chapkit model services do **not** belong in these files. They register themselves with Chap on startup via `SERVICEKIT_ORCHESTRATOR_URL`, which needs no entry here and no image rebuild -- see [Running Your Own Model](../../docs/modeling-app/running-your-own-model.md).
 
 ## Adding models
 
