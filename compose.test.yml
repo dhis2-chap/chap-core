@@ -4,6 +4,9 @@ services:
         context: .
         dockerfile: Dockerfile.test
     init: true
+    # One-shot pytest container: cancel the restart policy inherited from compose.yml,
+    # which would otherwise restart it after pytest exits and mask the exit code.
+    restart: "no"
     # multine command
     depends_on:
         -  worker

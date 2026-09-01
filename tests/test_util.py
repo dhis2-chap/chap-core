@@ -2,7 +2,13 @@
 
 import re
 
-from chap_core.util import generate_run_name, generate_short_id
+from chap_core.util import REDIS_CONNECT_TIMEOUT_SECONDS, generate_run_name, generate_short_id, load_redis
+
+
+def test_load_redis_bounds_the_connect():
+    """An unreachable host that drops packets must not block the caller forever."""
+    kwargs = load_redis().connection_pool.connection_kwargs
+    assert kwargs["socket_connect_timeout"] == REDIS_CONNECT_TIMEOUT_SECONDS
 
 
 def test_generate_short_id_default_is_8_hex_chars():

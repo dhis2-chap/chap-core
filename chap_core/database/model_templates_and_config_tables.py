@@ -1,9 +1,11 @@
+import hashlib
+import json
 import logging
 from enum import Enum
 
 import jsonschema
 from pydantic import ConfigDict
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 from chap_core.database.base_tables import DBModel
@@ -93,21 +95,53 @@ class ModelTemplateInformation(SQLModel):
 
 
 class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, table=True):
-    """Persisted model-template row. Flat composition of metadata + capability mixins."""
+    """Persisted model-template row. Flat composition of metadata + capability mixins.
 
-    name: str = Field(unique=True, description="Canonical unique identifier of the template.")
+    A version is immutable. A new version adds a row and the old row becomes not live.
+    """
+
+    __table_args__ = (UniqueConstraint("name", "version", name="uq_modeltemplatedb_name_version"),)
+
+    name: str = Field(description="Canonical identifier of the template, unique together with `version`.")
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
     source_url: str | None = Field(
         default=None, description="URL where the template's source lives (e.g. a GitHub repo)."
     )
     configured_models: list["ConfiguredModelDB"] = Relationship(back_populates="model_template", cascade_delete=True)
-    version: str | None = Field(default=None, description="Template version string, typically a git tag or commit sha.")
+    version: str = Field(description="Template version label, typically a git tag or a seeding-config key.")
+    source_digest: str | None = Field(
+        default=None,
+        description="The revision that this version came from, for example a Git commit SHA. It cannot change.",
+    )
+    is_live: bool = Field(
+        default=True,
+        description="True for the version that CHAP serves for this name. Old versions stay available by id.",
+    )
     archived: bool = Field(
         default=False, description="When True, the template is hidden from default pickers but still resolvable."
     )
     uses_chapkit: bool = Field(
         default=False,
         description="When True, the template is served by a chapkit REST endpoint rather than an MLproject directory.",
+    )
+
+
+# Identity and lifecycle fields. CHAP does not compare these fields for drift.
+_NON_CONTENT_TEMPLATE_FIELDS = frozenset(
+    {"id", "name", "version", "source_digest", "source_url", "is_live", "archived", "uses_chapkit"}
+)
+
+
+def drifted_template_content_fields(existing: ModelTemplateDB, incoming: ModelTemplateDB) -> list[str]:
+    """Content fields where a new template differs from the stored version.
+
+    A version is write-once, so CHAP drops these differences and tells the operator.
+    """
+    return sorted(
+        field
+        for field in ModelTemplateDB.model_fields
+        if field not in _NON_CONTENT_TEMPLATE_FIELDS
+        and getattr(existing, field, None) != getattr(incoming, field, None)
     )
 
 
@@ -128,16 +162,47 @@ class ModelConfiguration(SQLModel):
     )
 
 
+def compute_configuration_digest(configuration: ModelConfiguration) -> str:
+    """Digest of the configuration contents. It is part of the configuration identity.
+
+    A backtest reads its option values from its `ConfiguredModelDB` row. The digest
+    makes a changed configuration a new row, so the old row keeps its values.
+    """
+    payload = json.dumps(
+        {
+            "user_option_values": configuration.user_option_values or {},
+            "additional_continuous_covariates": configuration.additional_continuous_covariates or [],
+        },
+        sort_keys=True,
+    )
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
 class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
     """Persisted configured-model row — a `ModelTemplateDB` together with a specific configuration."""
 
-    #  unique constraint on name
     # model_config = ConfigDict(protected_namespaces=())
+    __table_args__ = (
+        UniqueConstraint(
+            "model_template_id",
+            "name",
+            "configuration_digest",
+            name="uq_configuredmodeldb_template_name_digest",
+        ),
+    )
+
     name: str = Field(
-        unique=True,
-        description="Canonical unique identifier; conventionally `<template_name>` or `<template_name>:<config_stub>`.",
+        description="Canonical identifier; conventionally `<template_name>` or `<template_name>:<config_stub>`. "
+        "Unique per template version and configuration digest.",
     )
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
+    configuration_digest: str = Field(
+        default="", description="Digest of the configuration contents, see `compute_configuration_digest`."
+    )
+    is_live: bool = Field(
+        default=True,
+        description="True for the configuration that CHAP serves for this name. Old ones stay available by id.",
+    )
     model_template_id: int = Field(
         foreign_key="modeltemplatedb.id",
         ondelete="CASCADE",
