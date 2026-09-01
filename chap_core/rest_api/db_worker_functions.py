@@ -154,6 +154,7 @@ def run_prediction(
     name: str,
     session: SessionWrapper,
     prediction_setup_id: int | None = None,
+    configured_model_id: int | None = None,
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     status_logger.info(f"Starting prediction for model '{model_id}' on dataset ID {dataset_id}")
@@ -163,7 +164,11 @@ def run_prediction(
         n_periods = _get_n_periods(dataset)
 
     status_logger.info(f"Training model and generating {n_periods} period forecast")
-    configured_model = session.get_configured_model_by_name(model_id)
+    # A name resolves to the live configuration. Callers with a pinned row, such as a
+    # prediction setup, must give the id so a newer version does not take over the run.
+    configured_model = session.get_configured_model_by_id_or_name(
+        model_id if configured_model_id is None else configured_model_id
+    )
     assert configured_model.id is not None, "configured_model.id is required"
     estimator = session.get_configured_model_with_code(configured_model.id, prediction_length=n_periods)
     predictions = forecast_ahead(estimator, dataset, n_periods)
@@ -172,6 +177,7 @@ def run_prediction(
         dataset_id,
         model_id,
         name,
+        configured_model.id,
         prediction_setup_id=prediction_setup_id,
     )
     assert db_id is not None
@@ -234,6 +240,7 @@ def predict_pipeline_from_composite_dataset(
     session: SessionWrapper,
     worker_config=WorkerConfig(),
     prediction_setup_id: int | None = None,
+    configured_model_id: int | None = None,
 ) -> int:
     """
     This is the main pipeline function to run prediction from a dataset.
@@ -252,6 +259,7 @@ def predict_pipeline_from_composite_dataset(
         name,
         session,
         prediction_setup_id=prediction_setup_id,
+        configured_model_id=configured_model_id,
     )
     return result
 
