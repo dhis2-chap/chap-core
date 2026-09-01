@@ -220,22 +220,22 @@ class SessionWrapper:
 
         # check if this exact configuration already exists
         digest = compute_configuration_digest(configuration)
-        existing_configured = self.session.exec(
+        identical_configured_model = self.session.exec(
             select(ConfiguredModelDB).where(
                 ConfiguredModelDB.model_template_id == model_template_id,
                 ConfiguredModelDB.name == name,
                 ConfiguredModelDB.configuration_digest == digest,
             )
         ).first()
-        if existing_configured:
+        if identical_configured_model:
             logger.info(
                 f"Configured model {name} with an identical configuration already exists. Returning existing id"
             )
-            configured_model_id = cast("int", existing_configured.id)
+            reactivated_model_id = cast("int", identical_configured_model.id)
             # Still flip is_live so that re-adding a previous configuration makes it live again.
-            self._make_live_configured_model(model_template_id, name, configured_model_id)
+            self._make_live_configured_model(model_template_id, name, reactivated_model_id)
             self._make_live_template_version(template_name, model_template_id)
-            return configured_model_id
+            return reactivated_model_id
 
         # create and add db entry
         configured_model = ConfiguredModelDB(
