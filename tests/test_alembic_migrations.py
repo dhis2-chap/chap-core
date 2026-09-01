@@ -40,6 +40,10 @@ ALEMBIC_INI = PROJECT_ROOT / "alembic.ini"
 # SQLModel metadata then drop these columns so the migration can re-add them.
 _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("modeltemplatedb", "archived"),
+    ("modeltemplatedb", "source_digest"),
+    ("modeltemplatedb", "is_live"),
+    ("configuredmodeldb", "configuration_digest"),
+    ("configuredmodeldb", "is_live"),
     ("prediction", "prediction_setup_id"),
     ("backtest", "max_horizon_distance"),
 ]
@@ -48,6 +52,18 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
 # These are dropped after create_all so the migration can re-create them.
 _TABLES_ADDED_BY_MIGRATIONS = [
     "predictionsetup",
+]
+
+# Unique constraints from migrations, with the baseline constraint that each one replaced.
+# create_all makes the new shape, so the baseline must go back to the old shape.
+_CONSTRAINTS_REPLACED_BY_MIGRATIONS = [
+    ("modeltemplatedb", "uq_modeltemplatedb_name_version", "modeltemplatedb_name_key", "name"),
+    ("configuredmodeldb", "uq_configuredmodeldb_template_name_digest", "configuredmodeldb_name_key", "name"),
+]
+
+# Columns that a migration made NOT NULL. This makes the test run the backfill.
+_COLUMNS_MADE_NOT_NULL_BY_MIGRATIONS = [
+    ("modeltemplatedb", "version"),
 ]
 
 
@@ -111,6 +127,13 @@ def _create_baseline_schema(engine):
             conn.execute(sa.text(f"ALTER TABLE {table} DROP COLUMN IF EXISTS {column}"))
         for table in _TABLES_ADDED_BY_MIGRATIONS:
             conn.execute(sa.text(f"DROP TABLE IF EXISTS {table}"))
+        for table, new_constraint, baseline_constraint, baseline_columns in _CONSTRAINTS_REPLACED_BY_MIGRATIONS:
+            conn.execute(sa.text(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {new_constraint}"))
+            conn.execute(
+                sa.text(f"ALTER TABLE {table} ADD CONSTRAINT {baseline_constraint} UNIQUE ({baseline_columns})")
+            )
+        for table, column in _COLUMNS_MADE_NOT_NULL_BY_MIGRATIONS:
+            conn.execute(sa.text(f"ALTER TABLE {table} ALTER COLUMN {column} DROP NOT NULL"))
         conn.commit()
 
 
@@ -173,6 +196,106 @@ class TestAlembicMigrations:
             result = conn.execute(sa.text("SELECT version_num FROM alembic_version"))
             current = result.scalar_one()
             assert current == head_rev
+
+    def test_upgrade_applies_after_generic_startup_migration(self, engine):
+        """
+        create_db_and_tables adds missing columns from model metadata before it
+        runs Alembic, so the columns of the versioning migration can already
+        exist. The migration must still run its backfills and constraint swap.
+        """
+        from alembic import command
+
+        alembic_cfg = _make_alembic_cfg(engine)
+
+        with engine.connect() as conn:
+            conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+            conn.execute(sa.text("CREATE SCHEMA public"))
+            conn.commit()
+        _create_baseline_schema(engine)
+        command.stamp(alembic_cfg, "fe59a33965ed")
+        # The state of a deployment on the previous release.
+        command.upgrade(alembic_cfg, "a7b8c9d0e1f2")
+
+        with engine.connect() as conn:
+            conn.execute(
+                sa.text(
+                    "INSERT INTO modeltemplatedb "
+                    "(name, display_name, description, author_note, author_assessed_status, author, "
+                    "supported_period_type, target, allow_free_additional_continuous_covariates, requires_geo, "
+                    "uses_chapkit) "
+                    "VALUES ('legacy_model', 'Legacy', 'legacy', 'note', 'gray', 'author', "
+                    "'any', 'disease_cases', false, false, false)"
+                )
+            )
+            # What the generic startup migration does before Alembic runs.
+            for statement in [
+                "ALTER TABLE modeltemplatedb ADD COLUMN source_digest VARCHAR",
+                "UPDATE modeltemplatedb SET source_digest = ''",
+                "ALTER TABLE modeltemplatedb ADD COLUMN is_live BOOLEAN",
+                "UPDATE modeltemplatedb SET is_live = true",
+                "ALTER TABLE configuredmodeldb ADD COLUMN configuration_digest VARCHAR",
+                "UPDATE configuredmodeldb SET configuration_digest = ''",
+                "ALTER TABLE configuredmodeldb ADD COLUMN is_live BOOLEAN",
+                "UPDATE configuredmodeldb SET is_live = true",
+            ]:
+                conn.execute(sa.text(statement))
+            conn.commit()
+
+        command.upgrade(alembic_cfg, "head")
+
+        with engine.connect() as conn:
+            row = conn.execute(
+                sa.text("SELECT version, source_digest, is_live FROM modeltemplatedb WHERE name = 'legacy_model'")
+            ).one()
+            assert row.version == "legacy-unversioned"
+            assert row.source_digest is None
+            assert row.is_live is True
+
+        constraints = {c["name"] for c in sa.inspect(engine).get_unique_constraints("modeltemplatedb")}
+        assert "uq_modeltemplatedb_name_version" in constraints
+        assert "modeltemplatedb_name_key" not in constraints
+
+    def test_unversioned_create_all_schema_is_bootstrapped_to_head(self, engine):
+        """A legacy create_all database must still run the versioning migration."""
+        from alembic.script import ScriptDirectory
+
+        from chap_core.database.database import _run_alembic_migrations
+
+        with engine.connect() as conn:
+            conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+            conn.execute(sa.text("CREATE SCHEMA public"))
+            conn.commit()
+
+        # Startup's generic migration and create_all call give an unversioned
+        # database current columns and tables, but cannot replace constraints on
+        # existing tables. Startup must still run the versioning migration.
+        SQLModel.metadata.create_all(engine)
+        with engine.connect() as conn:
+            for table, new_constraint, baseline_constraint, baseline_columns in _CONSTRAINTS_REPLACED_BY_MIGRATIONS:
+                conn.execute(sa.text(f"ALTER TABLE {table} DROP CONSTRAINT {new_constraint}"))
+                conn.execute(
+                    sa.text(f"ALTER TABLE {table} ADD CONSTRAINT {baseline_constraint} UNIQUE ({baseline_columns})")
+                )
+            conn.commit()
+
+        _run_alembic_migrations(engine)
+
+        script = ScriptDirectory.from_config(_make_alembic_cfg(engine))
+        with engine.connect() as conn:
+            current = conn.execute(sa.text("SELECT version_num FROM alembic_version")).scalar_one()
+        assert current == script.get_current_head()
+
+        template_constraints = {
+            constraint["name"] for constraint in sa.inspect(engine).get_unique_constraints("modeltemplatedb")
+        }
+        assert "uq_modeltemplatedb_name_version" in template_constraints
+        assert "modeltemplatedb_name_key" not in template_constraints
+
+        configured_model_constraints = {
+            constraint["name"] for constraint in sa.inspect(engine).get_unique_constraints("configuredmodeldb")
+        }
+        assert "uq_configuredmodeldb_template_name_digest" in configured_model_constraints
+        assert "configuredmodeldb_name_key" not in configured_model_constraints
 
     def test_all_revisions_have_downgrade(self):
         """Verify every migration revision defines a non-empty downgrade."""
