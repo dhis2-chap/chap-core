@@ -6,7 +6,7 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      CHAP_DATABASE_URL: ${CHAP_DATABASE_URL:-postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}}
       CELERY_BROKER: redis://redis:6379/0
       CHAP_LOGS_DIR: /data/logs
       CHAP_RUNS_DIR: /data/runs
@@ -60,7 +60,7 @@ services:
       IS_IN_DOCKER: 1
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      CHAP_DATABASE_URL: ${CHAP_DATABASE_URL:-postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}}
       CELERY_BROKER: redis://redis:6379
       RENV_PATHS_ROOT: /data/renv
       UV_CACHE_DIR: /data/uv

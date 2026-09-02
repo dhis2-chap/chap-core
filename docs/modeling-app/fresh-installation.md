@@ -45,7 +45,7 @@ cp .env.example .env
 This creates a `.env` file with default database credentials used by Docker Compose.
 
 !!! tip "Production deployments"
-    For production, open `.env` and change at least `POSTGRES_PASSWORD` to a strong, unique value. You can optionally change `POSTGRES_USER` as well. These credentials are set permanently when the database volume is first created, so choose them before running `docker compose up` for the first time.
+    For production, open `.env` and change at least `POSTGRES_PASSWORD` to a strong, unique value. The password is interpolated into a database URL, so keep it URL-safe -- no `@`, `:`, `/`, `?`, `#` or `%` -- or set `CHAP_DATABASE_URL` to a full percent-encoded URL instead. You can optionally change `POSTGRES_USER` as well. These credentials are set permanently when the database volume is first created, so choose them before running `docker compose up` for the first time.
 
     If Chap Core will be reachable from outside your internal network, also set `CHAP_API_TOKEN` to require an API token on every request. See [API Authentication](../webapi/api-authentication.md).
 
