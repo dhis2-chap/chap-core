@@ -12,9 +12,6 @@ services:
       CHAP_RUNS_DIR: /data/runs
       CHAP_ROOT_PATH: ${CHAP_ROOT_PATH:-}
       CHAP_API_TOKEN: ${CHAP_API_TOKEN:-}
-    # for now some of the tests uses hardcoded names so we need to set the container name
-    # TODO: Update the tests so they don't rely on hardcoded container names
-    container_name: chap
     read_only: true
     security_opt:
       - no-new-privileges:true
