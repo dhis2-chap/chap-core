@@ -1,11 +1,17 @@
 # Deployment file. Download this file on its own and run `docker compose up -d`:
 # it pulls prebuilt images from GHCR and needs no source checkout and no .env.
 #
-# Pin a release with CHAP_IMAGE_TAG, which defaults to `latest`:
-#   CHAP_IMAGE_TAG=v1.2.3 docker compose -f compose.ghcr.yml up -d
+# Pin a release with CHAP_IMAGE_TAG, which defaults to `latest`. Put it in an
+# .env file next to this one rather than on the command line -- it is read on
+# every compose command, so a later `pull` or `up` cannot silently fall back to
+# `latest` and replace the pinned release:
+#   echo CHAP_IMAGE_TAG=v1.2.3 > .env
+#   docker compose -f compose.ghcr.yml up -d
 #
 # Every variable below has a default so the file runs as downloaded. Override
-# POSTGRES_PASSWORD for anything but a local trial.
+# POSTGRES_PASSWORD for anything but a local trial. It is interpolated into a
+# database URI, so it must be URL-safe (no @ : / ? # or %); for anything else,
+# set CHAP_DATABASE_URL to a full, percent-encoded URL, which takes precedence.
 #
 # Use this file INSTEAD OF compose.yml, not layered on top of it. The two files
 # define the same services -- compose.yml builds chap+worker from the local
@@ -20,7 +26,7 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      CHAP_DATABASE_URL: postgresql://${POSTGRES_USER:-chap}:${POSTGRES_PASSWORD:-chap}@postgres:5432/${POSTGRES_DB:-chap_core}
+      CHAP_DATABASE_URL: ${CHAP_DATABASE_URL:-postgresql://${POSTGRES_USER:-chap}:${POSTGRES_PASSWORD:-chap}@postgres:5432/${POSTGRES_DB:-chap_core}}
       CELERY_BROKER: redis://redis:6379/0
       CHAP_LOGS_DIR: /data/logs
       CHAP_RUNS_DIR: /data/runs
@@ -72,7 +78,7 @@ services:
       IS_IN_DOCKER: 1
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      CHAP_DATABASE_URL: postgresql://${POSTGRES_USER:-chap}:${POSTGRES_PASSWORD:-chap}@postgres:5432/${POSTGRES_DB:-chap_core}
+      CHAP_DATABASE_URL: ${CHAP_DATABASE_URL:-postgresql://${POSTGRES_USER:-chap}:${POSTGRES_PASSWORD:-chap}@postgres:5432/${POSTGRES_DB:-chap_core}}
       CELERY_BROKER: redis://redis:6379
       RENV_PATHS_ROOT: /data/renv
       UV_CACHE_DIR: /data/uv
@@ -81,6 +87,14 @@ services:
       PYTENSOR_FLAGS: "base_compiledir=/data/pytensor"
     command: "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks worker --loglevel=info"
     working_dir: /app
+    # Declared here rather than relied on from the image: CHAP_IMAGE_TAG can select a
+    # release older than the worker HEALTHCHECK, which images before v2.2 do not carry.
+    healthcheck:
+      test: ["CMD-SHELL", "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks inspect ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     extra_hosts:
       - "host.docker.internal:host-gateway"
     read_only: true

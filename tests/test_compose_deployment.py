@@ -115,6 +115,17 @@ def test_standalone_compose_needs_no_env_file():
     )
 
 
+# CHAP_IMAGE_TAG can select a release older than the healthcheck baked into the
+# current Dockerfiles, so the standalone file cannot rely on the image for one.
+@pytest.mark.parametrize("service_name", ["chap", "worker"])
+def test_standalone_compose_declares_own_healthcheck(service_name):
+    service = _services(STANDALONE_COMPOSE_FILE)[service_name]
+    assert _healthcheck_source(service) == "compose", (
+        f"{STANDALONE_COMPOSE_FILE}: service '{service_name}' inherits its healthcheck from the "
+        f"image, so pinning a tag published before that healthcheck existed leaves it unmonitored"
+    )
+
+
 @pytest.mark.parametrize("service_name", ["chap", "worker"])
 def test_standalone_compose_image_tag_is_pinnable(service_name):
     image = _services(STANDALONE_COMPOSE_FILE)[service_name]["image"]

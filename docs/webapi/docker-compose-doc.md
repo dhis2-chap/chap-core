@@ -62,18 +62,35 @@ docker compose -f compose.ghcr.yml up -d
 ```
 
 That deploys `latest`. Set `CHAP_IMAGE_TAG` to deploy a specific release
-instead, which is what you want on anything but a scratch instance:
+instead, which is what you want on anything but a scratch instance. Put it in
+an `.env` file beside the compose file rather than passing it inline:
 
 ```console
-CHAP_IMAGE_TAG=v1.2.3 docker compose -f compose.ghcr.yml up -d
+echo CHAP_IMAGE_TAG=v1.2.3 > .env
+docker compose -f compose.ghcr.yml up -d
 ```
 
-The tag must exist in [GHCR](https://github.com/orgs/dhis2-chap/packages);
-release tags are published by the image build workflow. The database
-credentials default to `chap` / `chap` / `chap_core`; Postgres is never
-published to the host, but override `POSTGRES_PASSWORD` for anything beyond a
-local trial. Pass the same `-f compose.ghcr.yml` flag to every later `down`,
-`pull` and `logs` command in that stack.
+An inline `CHAP_IMAGE_TAG=v1.2.3 docker compose ...` applies to that one
+command only, so a later `pull` or `up` would resolve back to `latest` and
+quietly replace the pinned release. Compose reads `.env` on every command, so
+the pin holds. The tag must exist in
+[GHCR](https://github.com/orgs/dhis2-chap/packages); release tags are published
+by the image build workflow.
+
+The database credentials default to `chap` / `chap` / `chap_core`. Postgres is
+never published to the host, but override `POSTGRES_PASSWORD` for anything
+beyond a local trial. The password is interpolated into a database URI, so it
+must be URL-safe -- no `@`, `:`, `/`, `?`, `#` or `%`. To use a password
+containing those, set `CHAP_DATABASE_URL` to a full percent-encoded URL, which
+takes precedence over the composed one:
+
+```console
+POSTGRES_PASSWORD='str@ng/pass'
+CHAP_DATABASE_URL='postgresql://chap:str%40ng%2Fpass@postgres:5432/chap_core'
+```
+
+Pass the same `-f compose.ghcr.yml` flag to every later `down`, `pull` and
+`logs` command in that stack.
 
 Docker Compose does not remember which overlays you used, so pass the same `-f` flags to every subsequent `down`, `build` and `logs` command in that stack. The `make restart`, `make force-restart` and `make chap-version` targets already carry the `compose.yml` + `compose.chapkit.yml` pair.
 
