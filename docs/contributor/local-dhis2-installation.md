@@ -11,6 +11,8 @@ If you want to test chap-core with the Modeling app, follow these steps to set u
 
 With both A and B, docker-dhis2-core downloads and loads the demo database on first start, runs analytics for you, and registers the DHIS2 Route that points DHIS2 at chap-core, so with Option 1 you can skip the manual URL step below.
 
+Inspect `http://localhost:8080` to see if your instance is up and running.
+
 ## Option 2: a plain DHIS2 instance without test data
 
 - [Follow these instructions](https://developers.dhis2.org/docs/cli) to install the DHIS2 cli tools
