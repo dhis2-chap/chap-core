@@ -923,6 +923,7 @@ class _LimeInputs:
     """Prepared inputs shared by explain() and explain_adaptive() before they
     diverge into standard vs. adaptive mask selection."""
 
+    dataset: DataSet
     full_future_weather: DataSet
     hist_type: type
     fut_type: type
@@ -976,6 +977,14 @@ def _prepare_lime_inputs(
     climate_predictor = get_climate_predictor(climate_data)
     full_future_weather = climate_predictor.predict(prediction_range)
 
+    # Restricts every locations dataset to last_n periods if set.
+    if last_n is not None:
+        assert last_n > 0, f"last_n must be positive, got {last_n}"
+
+        window = min(last_n, len(dataset.period_range))
+        start_period = dataset.period_range[-window]
+        dataset = dataset.restrict_time_period(slice(start_period, None))
+
     # Isolate the target location and fetch its dataframe classes for later instantiation
     dataset_loc = dataset.filter_locations([location])
     future_weather = full_future_weather.filter_locations([location])
@@ -998,13 +1007,7 @@ def _prepare_lime_inputs(
     ]
     assert len(features_hist) > 0, "No numeric historical features found in dataset"
 
-    # Optionally restrict explanation to the most recent time steps
     hist_df = hist_df.copy()
-    if last_n is not None:
-        assert last_n > 0, f"last_n must be positive, got {last_n}"
-        hist_df = hist_df.iloc[-last_n:].reset_index(drop=True)
-        assert len(hist_df) > 0, f"No data remaining after selecting last {last_n} steps"
-
     nan_counts = hist_df[features_hist].isna().sum()
     if nan_counts.any():
         logger.warning(
@@ -1035,6 +1038,7 @@ def _prepare_lime_inputs(
     )
 
     return _LimeInputs(
+        dataset=dataset,
         full_future_weather=full_future_weather,
         hist_type=hist_type,
         fut_type=fut_type,
@@ -1111,6 +1115,7 @@ def explain(
         timed=timed,
         start=start,
     )
+    dataset = inputs.dataset
     full_future_weather = inputs.full_future_weather
     hist_type = inputs.hist_type
     fut_type = inputs.fut_type
@@ -1395,6 +1400,7 @@ def explain_adaptive(
         timed=timed,
         start=start,
     )
+    dataset = inputs.dataset
     full_future_weather = inputs.full_future_weather
     hist_type = inputs.hist_type
     fut_type = inputs.fut_type
