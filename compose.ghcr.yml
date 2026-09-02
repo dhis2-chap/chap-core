@@ -1,20 +1,30 @@
-# Use this file INSTEAD OF compose.yml, not layered on top of it.
-# The two files define the same services -- compose.yml builds chap+worker
-# from the local source, compose.ghcr.yml pulls prebuilt images from GHCR.
-# Layering them breaks compose validation with duplicate security_opt /
-# cap_drop entries because compose appends list fields on overlay.
+# Deployment file. Download this file on its own and run `docker compose up -d`:
+# it pulls prebuilt images from GHCR and needs no source checkout and no .env.
+#
+# Pin a release with CHAP_IMAGE_TAG, which defaults to `latest`:
+#   CHAP_IMAGE_TAG=v1.2.3 docker compose -f compose.ghcr.yml up -d
+#
+# Every variable below has a default so the file runs as downloaded. Override
+# POSTGRES_PASSWORD for anything but a local trial.
+#
+# Use this file INSTEAD OF compose.yml, not layered on top of it. The two files
+# define the same services -- compose.yml builds chap+worker from the local
+# source, this one pulls them. Layering breaks compose validation with duplicate
+# security_opt / cap_drop entries because compose appends list fields on overlay.
 services:
   chap:
     restart: unless-stopped
-    image: ghcr.io/dhis2-chap/chap-core:latest
+    image: ghcr.io/dhis2-chap/chap-core:${CHAP_IMAGE_TAG:-latest}
     platform: linux/amd64
+    init: true
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      CHAP_DATABASE_URL: postgresql://${POSTGRES_USER:-chap}:${POSTGRES_PASSWORD:-chap}@postgres:5432/${POSTGRES_DB:-chap_core}
       CELERY_BROKER: redis://redis:6379/0
       CHAP_LOGS_DIR: /data/logs
       CHAP_RUNS_DIR: /data/runs
+      CHAP_ROOT_PATH: ${CHAP_ROOT_PATH:-}
       CHAP_API_TOKEN: ${CHAP_API_TOKEN:-}
     read_only: true
     security_opt:
@@ -34,6 +44,12 @@ services:
       - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     depends_on:
       redis:
         condition: service_healthy
@@ -49,13 +65,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    image: ghcr.io/dhis2-chap/chap-worker:latest
+    image: ghcr.io/dhis2-chap/chap-worker:${CHAP_IMAGE_TAG:-latest}
     platform: linux/amd64
+    init: true
     environment:
       IS_IN_DOCKER: 1
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      CHAP_DATABASE_URL: postgresql://${POSTGRES_USER:-chap}:${POSTGRES_PASSWORD:-chap}@postgres:5432/${POSTGRES_DB:-chap_core}
       CELERY_BROKER: redis://redis:6379
       RENV_PATHS_ROOT: /data/renv
       UV_CACHE_DIR: /data/uv
@@ -106,11 +123,11 @@ services:
     restart: unless-stopped
     image: postgres:17
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-chap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chap}
+      POSTGRES_DB: ${POSTGRES_DB:-chap_core}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chap} -d ${POSTGRES_DB:-chap_core}"]
       interval: 10s
       timeout: 10s
       retries: 10
