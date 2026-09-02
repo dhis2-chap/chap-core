@@ -99,8 +99,7 @@ def test_deployed_service_reports_health(compose_file, service_name, service):
     )
 
 
-# compose.ghcr.yml is the file users download on its own and run without a checkout,
-# so it must render with no .env and must let a release be pinned.
+# The file users download on its own and run without a checkout.
 STANDALONE_COMPOSE_FILE = "compose.ghcr.yml"
 
 INTERPOLATION = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(:?-[^}]*)?\}")
@@ -115,10 +114,9 @@ def test_standalone_compose_needs_no_env_file():
     )
 
 
-# CHAP_IMAGE_TAG can select a release older than the healthcheck baked into the
-# current Dockerfiles, so the standalone file cannot rely on the image for one.
 @pytest.mark.parametrize("service_name", ["chap", "worker"])
 def test_standalone_compose_declares_own_healthcheck(service_name):
+    """A pinned tag may predate the healthcheck baked into the current Dockerfiles."""
     service = _services(STANDALONE_COMPOSE_FILE)[service_name]
     assert _healthcheck_source(service) == "compose", (
         f"{STANDALONE_COMPOSE_FILE}: service '{service_name}' inherits its healthcheck from the "
@@ -135,4 +133,20 @@ def test_standalone_compose_image_tag_is_pinnable(service_name):
     assert tag == "${CHAP_IMAGE_TAG:-latest}", (
         f"{STANDALONE_COMPOSE_FILE}: service '{service_name}' pins {image!r}, so a specific "
         f"release cannot be deployed without editing the file"
+    )
+
+
+def test_env_example_leaves_redis_password_unset():
+    """The compose valkey service takes no --requirepass, so an AUTH from the client fails."""
+    requirepass = [f for f in DEPLOYMENT_COMPOSE_FILES if "requirepass" in str(_services(f).get("redis", {}))]
+    assert not requirepass, f"{requirepass} configure a redis password; update this test"
+
+    active = [
+        line
+        for line in (REPO_ROOT / ".env.example").read_text().splitlines()
+        if line.strip().startswith("REDIS_PASSWORD=") and line.split("=", 1)[1].strip()
+    ]
+    assert not active, (
+        f".env.example sets {active}, so copying it to .env makes the redis client send AUTH "
+        f"to a valkey service that has no password configured"
     )

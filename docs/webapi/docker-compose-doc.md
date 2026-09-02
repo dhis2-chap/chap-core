@@ -54,39 +54,40 @@ docker compose -f compose.ghcr.yml up -d
 ### Deploying a release without a checkout
 
 `compose.ghcr.yml` is the only file you need on a server. It pulls pre-built
-images and gives every variable a default, so it runs as downloaded:
+images and every setting has a working default, so it runs exactly as
+downloaded -- no checkout, no `.env`, no edits:
 
 ```console
 curl -O https://raw.githubusercontent.com/dhis2-chap/chap-core/master/compose.ghcr.yml
 docker compose -f compose.ghcr.yml up -d
 ```
 
-That deploys `latest`. Set `CHAP_IMAGE_TAG` to deploy a specific release
-instead, which is what you want on anything but a scratch instance. Put it in
-an `.env` file beside the compose file rather than passing it inline:
+#### Available settings
+
+All optional. Put them in an `.env` file beside the compose file rather than
+inline on the command line: Compose reads `.env` on every command, so a later
+`pull` or `up` keeps the same values, whereas an inline `VAR=x docker compose
+...` applies to that one command and silently reverts afterwards.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `CHAP_IMAGE_TAG` | `latest` | Tag for both the `chap-core` and `chap-worker` images. Set a release tag (for example `v1.2.3`) to pin a version. The tag must exist in [GHCR](https://github.com/orgs/dhis2-chap/packages); release tags are published by the image build workflow. |
+| `POSTGRES_USER` | `chap` | Database user. |
+| `POSTGRES_PASSWORD` | `chap` | Database password. Postgres is never published to the host, but override this for anything beyond a local trial. It is interpolated into a database URI, so it must be URL-safe -- no `@`, `:`, `/`, `?`, `#` or `%`. |
+| `POSTGRES_DB` | `chap_core` | Database name. |
+| `CHAP_DATABASE_URL` | composed from the three above | Full, percent-encoded database URL. Takes precedence, and is how you use a password containing reserved characters. |
+| `CHAP_ROOT_PATH` | empty | Path prefix when serving behind a reverse proxy. |
+| `CHAP_API_TOKEN` | empty | API token. Unset means no authentication. |
+
+Pinning a release and setting a password with reserved characters:
 
 ```console
-echo CHAP_IMAGE_TAG=v1.2.3 > .env
+cat > .env <<'EOF'
+CHAP_IMAGE_TAG=v1.2.3
+POSTGRES_PASSWORD=str@ng/pass
+CHAP_DATABASE_URL=postgresql://chap:str%40ng%2Fpass@postgres:5432/chap_core
+EOF
 docker compose -f compose.ghcr.yml up -d
-```
-
-An inline `CHAP_IMAGE_TAG=v1.2.3 docker compose ...` applies to that one
-command only, so a later `pull` or `up` would resolve back to `latest` and
-quietly replace the pinned release. Compose reads `.env` on every command, so
-the pin holds. The tag must exist in
-[GHCR](https://github.com/orgs/dhis2-chap/packages); release tags are published
-by the image build workflow.
-
-The database credentials default to `chap` / `chap` / `chap_core`. Postgres is
-never published to the host, but override `POSTGRES_PASSWORD` for anything
-beyond a local trial. The password is interpolated into a database URI, so it
-must be URL-safe -- no `@`, `:`, `/`, `?`, `#` or `%`. To use a password
-containing those, set `CHAP_DATABASE_URL` to a full percent-encoded URL, which
-takes precedence over the composed one:
-
-```console
-POSTGRES_PASSWORD='str@ng/pass'
-CHAP_DATABASE_URL='postgresql://chap:str%40ng%2Fpass@postgres:5432/chap_core'
 ```
 
 Pass the same `-f compose.ghcr.yml` flag to every later `down`, `pull` and

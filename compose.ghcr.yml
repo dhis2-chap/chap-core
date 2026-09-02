@@ -1,22 +1,17 @@
-# Deployment file. Download this file on its own and run `docker compose up -d`:
-# it pulls prebuilt images from GHCR and needs no source checkout and no .env.
+# Standalone deployment file: download it on its own and `docker compose up -d`.
+# It pulls prebuilt images from GHCR and every setting below has a default.
 #
-# Pin a release with CHAP_IMAGE_TAG, which defaults to `latest`. Put it in an
-# .env file next to this one rather than on the command line -- it is read on
-# every compose command, so a later `pull` or `up` cannot silently fall back to
-# `latest` and replace the pinned release:
-#   echo CHAP_IMAGE_TAG=v1.2.3 > .env
-#   docker compose -f compose.ghcr.yml up -d
+# Optional, best set in an .env file beside this one so later commands keep them:
+#   CHAP_IMAGE_TAG     tag for both images                  (default: latest)
+#   POSTGRES_USER      database user                        (default: chap)
+#   POSTGRES_PASSWORD  database password, must be URL-safe  (default: chap)
+#   POSTGRES_DB        database name                        (default: chap_core)
+#   CHAP_DATABASE_URL  full percent-encoded URL, overrides the POSTGRES_* values
+#   CHAP_ROOT_PATH     path prefix when served behind a reverse proxy
+#   CHAP_API_TOKEN     API token; unset means no authentication
 #
-# Every variable below has a default so the file runs as downloaded. Override
-# POSTGRES_PASSWORD for anything but a local trial. It is interpolated into a
-# database URI, so it must be URL-safe (no @ : / ? # or %); for anything else,
-# set CHAP_DATABASE_URL to a full, percent-encoded URL, which takes precedence.
-#
-# Use this file INSTEAD OF compose.yml, not layered on top of it. The two files
-# define the same services -- compose.yml builds chap+worker from the local
-# source, this one pulls them. Layering breaks compose validation with duplicate
-# security_opt / cap_drop entries because compose appends list fields on overlay.
+# An alternative to compose.yml, not an overlay: layering the two duplicates
+# security_opt / cap_drop entries and fails validation.
 services:
   chap:
     restart: unless-stopped
@@ -87,8 +82,7 @@ services:
       PYTENSOR_FLAGS: "base_compiledir=/data/pytensor"
     command: "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks worker --loglevel=info"
     working_dir: /app
-    # Declared here rather than relied on from the image: CHAP_IMAGE_TAG can select a
-    # release older than the worker HEALTHCHECK, which images before v2.2 do not carry.
+    # Declared here, not inherited: a pinned tag may predate the image's HEALTHCHECK.
     healthcheck:
       test: ["CMD-SHELL", "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks inspect ping || exit 1"]
       interval: 30s
