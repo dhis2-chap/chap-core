@@ -977,8 +977,8 @@ def _prepare_lime_inputs(
     climate_predictor = get_climate_predictor(climate_data)
     full_future_weather = climate_predictor.predict(prediction_range)
 
-    # Restrict every location's history to each locations own last last_n
-    # periods, so the dataset later spliced into model.predict() (see produce_lime_dataset)
+    # Restricts every location's history to each locations own last_n periods,
+    # so that the datasets can later be spliced into model.predict() (see produce_lime_dataset)
     restricted_dataset = dataset
     if last_n is not None:
         assert last_n > 0, f"last_n must be positive, got {last_n}"
@@ -992,7 +992,8 @@ def _prepare_lime_inputs(
             loc for loc in restricted_dataset.locations() if len(restricted_dataset[loc].time_period) != window
         ]
 
-        assert location not in mismatched_locations, f"{location} is missing its own last_n window"
+        # Target location's cant be part of mismatched_locations, since the window is based on
+        # target location's own timer period.
 
         if mismatched_locations:
             logger.warning(

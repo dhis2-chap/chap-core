@@ -39,7 +39,7 @@ class LimeParams(BaseModel):
     last_n: int | None = Field(
         default=None,
         description=(
-            "If set, restricts every location's historical data fed to the model to the last "
+            "If set, restricts every location's historical data fed to the model to the "
             "last_n time steps of the explained location's own timeline (other locations may end "
             "up with fewer steps, or be dropped, if their range doesn't reach that far back). Does "
             "not affect the background sampler's pool or the per-feature global means, which still "
