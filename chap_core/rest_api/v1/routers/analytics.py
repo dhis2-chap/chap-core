@@ -774,7 +774,8 @@ def compute_thresholds(request: ThresholdRequest, session: Session = Depends(get
     """Compute one outbreak threshold per (period, org unit) from a dataset's historical disease_cases, using the chosen strategy.
 
     404 if the strategy id is not registered or the dataset has no `disease_cases`
-    observations.
+    observations. 400 if the strategy parameters are invalid or the requested periods
+    fall outside the available data.
     """
     strategy_cls = get_threshold_strategy(request.strategy)
     if strategy_cls is None:
@@ -794,7 +795,10 @@ def compute_thresholds(request: ThresholdRequest, session: Session = Depends(get
     df = observations_to_dataframe(observations).rename(columns={"value": "disease_cases"})[
         ["location", "time_period", "disease_cases"]
     ]
-    result = strategy_cls().compute(df, request.period_ids, request.params)
+    try:
+        result = strategy_cls().compute(df, request.period_ids, request.params)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return [
         ThresholdEntry(
             period=str(row["period_id"]),
