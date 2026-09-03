@@ -74,6 +74,37 @@ def small_full_dataset() -> DataSet:
     )
 
 
+@pytest.fixture
+def staggered_locations_dataset() -> DataSet:
+    """Test 4 differend locations with differend historical coverage, to exercise last_n's handling of
+    locations that don't fully overlap the explained location's restriction window.
+
+    """
+    full_range = PeriodRange.from_time_periods(Month(2020, 1), Month(2021, 8))
+    partial_range = PeriodRange.from_time_periods(Month(2021, 5), Month(2021, 8))
+    early_range = PeriodRange.from_time_periods(Month(2020, 1), Month(2020, 12))
+    rng = np.random.default_rng(0)
+
+    def _make(time_period: PeriodRange) -> FullData:
+        n = len(time_period)
+        return FullData(
+            time_period,
+            rng.normal(50, 5, n).round(1).clip(0).tolist(),
+            rng.normal(25, 3, n).round(1).tolist(),
+            rng.integers(10, 100, n).tolist(),
+            [100_000] * n,
+        )
+
+    return DataSet(
+        {
+            "alpha": _make(full_range),
+            "beta": _make(full_range),
+            "gamma": _make(partial_range),
+            "delta": _make(early_range),
+        }
+    )
+
+
 def _explain_with_defaults(model, dataset, **overrides):
     """Run explain() with sane test defaults: small budget, no I/O side effects."""
     kwargs = {
@@ -186,6 +217,51 @@ class TestLog1pHelperEndToEnd:
         assert any("non-finite" in rec.message and "dropping" in rec.message for rec in caplog.records), (
             "expected diagnostic about dropping non-finite perturbations"
         )
+
+
+class TestLastN:
+    """last_n must restrict every location consistently, not just the one
+    being explained, otherwise produce_lime_dataset() gives back datasets of different lengths
+    based on the locations, which it wont be able to splice back together.
+    """
+
+    def test_all_locations_share_the_truncated_history_length(self, small_full_dataset):
+        seen_lengths: set[int] = set()
+
+        model = MockExternalModel()
+        inner_predict = model.predict
+
+        def recording_predict(historic_data, future_data):
+            seen_lengths.update(len(historic_data[loc].time_period) for loc in historic_data.locations())
+            return inner_predict(historic_data, future_data)
+
+        model.predict = recording_predict  # type: ignore[method-assign]
+
+        last_n = 6
+        _explain_with_defaults(model, small_full_dataset, last_n=last_n)
+
+        assert seen_lengths == {last_n}, seen_lengths
+
+    def test_locations_not_fully_covering_the_window_are_dropped(self, staggered_locations_dataset):
+        """gamma and delta locations dont cover alphas last_n window, both must be dropped rather than handed to
+        the model at a shorter, mismatched length. beta (same full range as alpha) fully covers the window and must be kept.
+        """
+        seen_lengths: dict[str, set[int]] = {}
+
+        model = MockExternalModel()
+        inner_predict = model.predict
+
+        def recording_predict(historic_data, future_data):
+            for loc in historic_data.locations():
+                seen_lengths.setdefault(loc, set()).add(len(historic_data[loc].time_period))
+            return inner_predict(historic_data, future_data)
+
+        model.predict = recording_predict  # type: ignore[method-assign]
+
+        last_n = 6
+        _explain_with_defaults(model, staggered_locations_dataset, last_n=last_n)
+
+        assert seen_lengths == {"alpha": {last_n}, "beta": {last_n}}, seen_lengths
 
 
 class TestSinglePredictionPath:

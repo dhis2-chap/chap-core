@@ -992,6 +992,8 @@ def _prepare_lime_inputs(
             loc for loc in restricted_dataset.locations() if len(restricted_dataset[loc].time_period) != window
         ]
 
+        assert location not in mismatched_locations, f"{location} is missing its own last_n window"
+
         if mismatched_locations:
             logger.warning(
                 "Dropping location(s) that don't fully cover %s's last_n window: %s",
@@ -1001,8 +1003,6 @@ def _prepare_lime_inputs(
             restricted_dataset = restricted_dataset.filter_locations(
                 [loc for loc in restricted_dataset.locations() if loc not in mismatched_locations]
             )
-
-        assert location not in mismatched_locations, f"{location} is missing its own last_n window"
 
     # Isolate the target location and fetch its dataframe classes for later instantiation
     dataset_loc = restricted_dataset.filter_locations([location])
