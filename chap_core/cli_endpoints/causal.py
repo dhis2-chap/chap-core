@@ -119,11 +119,11 @@ def causal_cmd(
     ] = None,
     plot_x_label: Annotated[
         str | None,
-        Parameter("--plot-x-label", help="X-axis title (both plot modes)"),
+        Parameter("--plot-x-label", help='X-axis title (both plot modes); defaults to "Time period"'),
     ] = None,
     plot_y_label: Annotated[
         str | None,
-        Parameter("--plot-y-label", help="Y-axis title (both plot modes)"),
+        Parameter("--plot-y-label", help='Y-axis title (both plot modes); defaults to "Disease cases"'),
     ] = None,
     original_label: Annotated[
         str,
@@ -163,7 +163,8 @@ def causal_cmd(
     Pass --plot for a per-location side-by-side comparison plot, or --plot-overlayed for a single
     overlaid plot where the original and counterfactual forecasts share one set of axes and the
     observed cases are drawn only up to the split period. The two flags are mutually exclusive.
-    --plot-title overrides the chart title, --plot-x-label / --plot-y-label set the axis titles,
+    --plot-title overrides the chart title, --plot-x-label / --plot-y-label override the default
+    axis titles ("Time period" / "Disease cases"),
     --original-label / --counterfactual-label set the dataset display names (default
     "Original" / "Counterfactual") used for the subplot titles, legend entries, and the composed
     chart title, and --no-confidence-intervals hides the forecast uncertainty bands. All of these

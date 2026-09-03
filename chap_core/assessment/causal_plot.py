@@ -18,6 +18,8 @@ _QUANTILES = (0.1, 0.25, 0.5, 0.75, 0.9)
 _ORIGINAL_LABEL = "Original"
 _COUNTERFACTUAL_LABEL = "Counterfactual"
 _OBSERVED_LABEL = "Observed (pre-split)"
+_DEFAULT_X_LABEL = "Time period"
+_DEFAULT_Y_LABEL = "Disease cases"
 
 
 def _mark_type(layer) -> str | None:
@@ -25,8 +27,29 @@ def _mark_type(layer) -> str | None:
     return getattr(mark, "type", mark)
 
 
+def _set_axis_titles(chart: ChartType, x_label: str, y_label: str) -> None:
+    """Set axis titles on every layer of a layered chart.
+
+    Vega-Lite ignores `title` in axis config, so `configure_axisX` / `configure_axisY`
+    cannot be used to label the axes. Every layer needs the same explicit title, or
+    Vega-Lite merges the per-layer field names into titles like "q_10, q_25".
+    """
+    for layer in chart.layer:
+        encoding = getattr(layer, "encoding", None)
+        for channel, label in (("x", x_label), ("y", y_label)):
+            channel_def = getattr(encoding, channel, None)
+            if channel_def is not None and channel_def is not alt.Undefined:
+                channel_def.title = label
+
+
 def _chart_for_location(
-    flat_evaluation, location: str, title: str, *, show_confidence_intervals: bool = True
+    flat_evaluation,
+    location: str,
+    title: str,
+    *,
+    x_label: str,
+    y_label: str,
+    show_confidence_intervals: bool = True,
 ) -> ChartType:
     obs = pd.DataFrame(flat_evaluation.observations)
     forecasts = pd.DataFrame(flat_evaluation.forecasts)
@@ -46,6 +69,7 @@ def _chart_for_location(
     )
     if not show_confidence_intervals:
         chart.layer = [layer for layer in chart.layer if _mark_type(layer) != "errorband"]
+    _set_axis_titles(chart, x_label, y_label)
     return chart
 
 
@@ -62,6 +86,8 @@ def plot_counterfactual(
     show_confidence_intervals: bool = True,
 ) -> ChartType:
     """Return a per-location vconcat of side-by-side Altair charts comparing original vs counterfactual."""
+    x_label = x_label if x_label is not None else _DEFAULT_X_LABEL
+    y_label = y_label if y_label is not None else _DEFAULT_Y_LABEL
     locations = sorted(pd.DataFrame(eval_original.to_flat().observations)["location"].unique())
     flat_evaluation = eval_original.to_flat()
     flat_evaluation_cf = eval_cf.to_flat()
@@ -69,21 +95,26 @@ def plot_counterfactual(
     rows = []
     for loc in locations:
         orig_chart = _chart_for_location(
-            flat_evaluation, loc, original_label, show_confidence_intervals=show_confidence_intervals
+            flat_evaluation,
+            loc,
+            original_label,
+            x_label=x_label,
+            y_label=y_label,
+            show_confidence_intervals=show_confidence_intervals,
         )
         cf_chart = _chart_for_location(
-            flat_evaluation_cf, loc, counterfactual_label, show_confidence_intervals=show_confidence_intervals
+            flat_evaluation_cf,
+            loc,
+            counterfactual_label,
+            x_label=x_label,
+            y_label=y_label,
+            show_confidence_intervals=show_confidence_intervals,
         )
         rows.append(alt.hconcat(orig_chart, cf_chart).resolve_scale(y="shared"))
 
-    chart = alt.vconcat(*rows).properties(
+    return alt.vconcat(*rows).properties(
         title=_compose_title(title, counterfactual_columns, original_label, counterfactual_label)
     )
-    if x_label is not None:
-        chart = chart.configure_axisX(title=x_label)
-    if y_label is not None:
-        chart = chart.configure_axisY(title=y_label)
-    return chart
 
 
 def _compose_title(
@@ -123,16 +154,12 @@ def _location_observed(flat_evaluation, location: str) -> pd.DataFrame | None:
     return df
 
 
-def _x(x_label: str | None) -> alt.X:
-    return alt.X("time_period:T", title=x_label if x_label is not None else alt.Undefined)
+def _x(x_label: str) -> alt.X:
+    return alt.X("time_period:T", title=x_label)
 
 
-def _y(field: str, y_label: str | None) -> alt.Y:
-    return alt.Y(
-        f"{field}:Q",
-        scale=alt.Scale(zero=False),
-        title=y_label if y_label is not None else alt.Undefined,
-    )
+def _y(field: str, y_label: str) -> alt.Y:
+    return alt.Y(f"{field}:Q", scale=alt.Scale(zero=False), title=y_label)
 
 
 def _color(color_scale: alt.Scale) -> alt.Color:
@@ -143,8 +170,8 @@ def _overlay_for_location(
     quantiles: pd.DataFrame,
     observed: pd.DataFrame | None,
     location: str,
-    x_label: str | None,
-    y_label: str | None,
+    x_label: str,
+    y_label: str,
     color_scale: alt.Scale,
     show_confidence_intervals: bool = True,
 ) -> ChartType:
@@ -187,6 +214,8 @@ def plot_counterfactual_overlayed(
 ) -> ChartType:
     """Return a per-location vconcat of single overlaid charts: original vs counterfactual forecasts
     on shared axes, with the observed line drawn only up to the split point."""
+    x_label = x_label if x_label is not None else _DEFAULT_X_LABEL
+    y_label = y_label if y_label is not None else _DEFAULT_Y_LABEL
     flat_original = eval_original.to_flat()
     flat_cf = eval_cf.to_flat()
     original_forecasts = pd.DataFrame(flat_original.forecasts)

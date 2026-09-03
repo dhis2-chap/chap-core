@@ -105,9 +105,21 @@ def test_plot_counterfactual_title_without_columns(vietnam_evaluation_pair):
 
 def test_plot_counterfactual_axis_labels(vietnam_evaluation_pair):
     eval_orig, eval_cf = vietnam_evaluation_pair
-    config = plot_counterfactual(eval_orig, eval_cf, ["rainfall"], x_label="Month", y_label="Cases").to_dict()["config"]
-    assert config["axisX"]["title"] == "Month"
-    assert config["axisY"]["title"] == "Cases"
+    spec = plot_counterfactual(eval_orig, eval_cf, ["rainfall"], x_label="Month", y_label="Cases").to_dict()
+    encodings = [layer["encoding"] for row in spec["vconcat"] for panel in row["hconcat"] for layer in panel["layer"]]
+    # Titles must sit on the encodings: Vega-Lite ignores "title" in axis config.
+    assert encodings
+    assert all(e["x"]["title"] == "Month" for e in encodings)
+    assert all(e["y"]["title"] == "Cases" for e in encodings)
+
+
+def test_plot_counterfactual_default_axis_labels(vietnam_evaluation_pair):
+    eval_orig, eval_cf = vietnam_evaluation_pair
+    spec = plot_counterfactual(eval_orig, eval_cf, ["rainfall"]).to_dict()
+    encodings = [layer["encoding"] for row in spec["vconcat"] for panel in row["hconcat"] for layer in panel["layer"]]
+    assert encodings
+    assert all(e["x"]["title"] == "Time period" for e in encodings)
+    assert all(e["y"]["title"] == "Disease cases" for e in encodings)
 
 
 def test_plot_counterfactual_custom_dataset_labels(vietnam_evaluation_pair):
@@ -258,8 +270,18 @@ def test_plot_overlayed_axis_labels(vietnam_evaluation_pair):
     eval_orig, eval_cf = vietnam_evaluation_pair
     spec = plot_counterfactual_overlayed(eval_orig, eval_cf, ["rainfall"], x_label="Month", y_label="Cases").to_dict()
     encodings = [layer["encoding"] for panel in spec["vconcat"] for layer in panel["layer"]]
-    assert any(e["x"].get("title") == "Month" for e in encodings)
-    assert any(e["y"].get("title") == "Cases" for e in encodings)
+    assert encodings
+    assert all(e["x"]["title"] == "Month" for e in encodings)
+    assert all(e["y"]["title"] == "Cases" for e in encodings)
+
+
+def test_plot_overlayed_default_axis_labels(vietnam_evaluation_pair):
+    eval_orig, eval_cf = vietnam_evaluation_pair
+    spec = plot_counterfactual_overlayed(eval_orig, eval_cf, ["rainfall"]).to_dict()
+    encodings = [layer["encoding"] for panel in spec["vconcat"] for layer in panel["layer"]]
+    assert encodings
+    assert all(e["x"]["title"] == "Time period" for e in encodings)
+    assert all(e["y"]["title"] == "Disease cases" for e in encodings)
 
 
 def test_plot_overlayed_custom_dataset_labels(vietnam_evaluation_pair):
