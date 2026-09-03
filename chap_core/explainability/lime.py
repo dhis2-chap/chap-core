@@ -977,16 +977,35 @@ def _prepare_lime_inputs(
     climate_predictor = get_climate_predictor(climate_data)
     full_future_weather = climate_predictor.predict(prediction_range)
 
-    # Restricts every locations dataset to last_n periods if set.
+    # Restrict every location's history to each locations own last last_n
+    # periods, so the dataset later spliced into model.predict() (see produce_lime_dataset)
+    restricted_dataset = dataset
     if last_n is not None:
         assert last_n > 0, f"last_n must be positive, got {last_n}"
 
-        window = min(last_n, len(dataset.period_range))
-        start_period = dataset.period_range[-window]
-        dataset = dataset.restrict_time_period(slice(start_period, None))
+        target_period_range = dataset[location].time_period
+        window = min(last_n, len(target_period_range))
+        start_period = target_period_range[-window]
+        restricted_dataset = dataset.restrict_time_period(slice(start_period, None))
+
+        mismatched_locations = [
+            loc for loc in restricted_dataset.locations() if len(restricted_dataset[loc].time_period) != window
+        ]
+
+        if mismatched_locations:
+            logger.warning(
+                "Dropping location(s) that don't fully cover %s's last_n window: %s",
+                location,
+                mismatched_locations,
+            )
+            restricted_dataset = restricted_dataset.filter_locations(
+                [loc for loc in restricted_dataset.locations() if loc not in mismatched_locations]
+            )
+
+        assert location not in mismatched_locations, f"{location} is missing its own last_n window"
 
     # Isolate the target location and fetch its dataframe classes for later instantiation
-    dataset_loc = dataset.filter_locations([location])
+    dataset_loc = restricted_dataset.filter_locations([location])
     future_weather = full_future_weather.filter_locations([location])
     hist_type = dataset_loc[location].__class__
     fut_type = future_weather[location].__class__
@@ -1038,7 +1057,7 @@ def _prepare_lime_inputs(
     )
 
     return _LimeInputs(
-        dataset=dataset,
+        dataset=restricted_dataset,
         full_future_weather=full_future_weather,
         hist_type=hist_type,
         fut_type=fut_type,
@@ -1087,7 +1106,11 @@ def explain(
                               "matrix_diff", "matrix_bins", "sax", "nn"] (default uniform)
         sampler_name (str): The sampling strategy used to replace features "turned off" - one of ["background"] (default background)
         weighter_name (str): The strategy for weighting perturbations according to distance to original (default pairwise)
-        last_n (int | None): If set, only the last last_n time steps of the location's historical data are used for the explanation.
+        last_n (int | None): If set, every location's historical data fed to the model is restricted
+            to the last last_n time steps of `location`'s own timeline (other locations may end up
+            with fewer steps, or be dropped, if their range doesn't reach that far back). Does not
+            affect the background sampler's pool or the per-feature global means, which still draw
+            from the full unrestricted dataset.
         seed (int): Seeding for RNG
         timed (bool): Flag for whether to print execution time for LIME pipeline stages
         save (bool): Whether to save the calculated importance weighting
@@ -1372,7 +1395,11 @@ def explain_adaptive(
                               "matrix_diff", "matrix_bins", "sax", "nn"] (default uniform)
         sampler_name (str): The sampling strategy used to replace features "turned off" - one of ["background"] (default background)
         weighter_name (str): The strategy for weighting perturbations according to distance to original (default pairwise)
-        last_n (int | None): If set, only the last last_n time steps of the location's historical data are used for the explanation.
+        last_n (int | None): If set, every location's historical data fed to the model is restricted
+            to the last last_n time steps of `location`'s own timeline (other locations may end up
+            with fewer steps, or be dropped, if their range doesn't reach that far back). Does not
+            affect the background sampler's pool or the per-feature global means, which still draw
+            from the full, unrestricted dataset.
         seed (int): Seeding for RNG
         timed (bool): Flag for whether to print execution time for LIME pipeline stages
         save (bool): Whether to save the calculated importance weighting
