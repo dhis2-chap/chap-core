@@ -33,41 +33,23 @@ def run_command(command: str, working_directory=Path("."), env: dict | None = No
         Environment variables to use. If None, uses the current environment.
     """
     logging.debug(f"Running command: {command}")
-    # command = command.split()
+    process = subprocess.Popen(
+        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=working_directory, shell=True, env=env
+    )
+    stdout, stderr = process.communicate()
+    # Model output is not guaranteed to be valid UTF-8 (locale-dependent R
+    # warnings, for instance); a failed model must still produce a readable
+    # error message rather than a UnicodeDecodeError.
+    output = stdout.decode(errors="replace") + "\n" + stderr.decode(errors="replace")
+    return_code = process.returncode
 
-    try:
-        process = subprocess.Popen(
-            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=working_directory, shell=True, env=env
+    if return_code != 0:
+        message = (
+            f"Command '{command}' failed with return code {return_code}, "
+            f"Full output from command below: \n ----- \n{output} \n--------"
         )
-        stdout, stderr = process.communicate()
-        output = stdout.decode() + "\n" + stderr.decode()
-        """
-        output = []
-        for c in iter(lambda: process.stdout.read(1), b""):
-            sys.stdout.buffer.write(c)
-            output.append(c.decode("utf-8"))
-        for c in iter(lambda: process.stderr.read(1), b""):
-            sys.stderr.buffer.write(c)
-            output.append(c.decode("utf-8"))
-        output = ''.join(output)
-        """
-
-        streamdata = process.communicate()[0]  # finnish before getting return code
-        return_code = process.returncode
-
-        if return_code != 0:
-            logger.error(
-                f"Command '{command}' failed with return code {return_code}, ({''.join(map(str, streamdata))}, {output}"
-            )
-            raise CommandLineException(
-                f"Command '{command}' failed with return code {return_code}, Full output from command below: \n ----- \n({''.join(map(str, streamdata))}, {output} \n--------"
-            )
-        # output = subprocess.check_output(' '.join(command), cwd=working_directory, shell=True)
-        # logging.info(output)
-    except subprocess.CalledProcessError as e:
-        error = e.output.decode()
-        logger.info(error)
-        raise e
+        logger.error(message)
+        raise CommandLineException(message)
 
     return output
 
