@@ -3,6 +3,7 @@ from typing import Annotated, Any
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from pydantic import Field as PydanticField
 from sqlalchemy.orm import selectinload
 from sqlmodel import Field, Session, select
 
@@ -17,6 +18,7 @@ from chap_core.api_types import (
 )
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.assessment.thresholds import get_threshold_strategy, list_threshold_strategies
+from chap_core.assessment.thresholds.params import ThresholdParams
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet as DataSetTable
@@ -721,21 +723,37 @@ class ThresholdRequest(DBModel):
     """Request body for computing thresholds (endemic channel) for a dataset."""
 
     dataset_id: int = Field(description="Primary key of the dataset to compute thresholds from.")
-    period_ids: list[str] = Field(description='Periods to produce a threshold for, e.g. `["2024-01", "2024-02"]`.')
-    strategy: str = Field(description="Registered threshold strategy id (see GET /thresholds/strategies).")
+    period_ids: list[str] = Field(description='Periods to produce thresholds for, e.g. `["2024-01", "2024-02"]`.')
     locations: list[str] | None = Field(
         default=None,
         description="Optional locations to restrict the result to. When omitted or empty, every location in the dataset is returned.",
     )
-    params: dict = Field(default={}, description="Optional strategy-specific parameters.")
+    # pydantic's Field, not sqlmodel's: sqlmodel.Field drops the union's discriminator metadata
+    params: ThresholdParams = PydanticField(
+        description="Strategy-specific parameters; the `type` field selects the strategy."
+    )
 
 
 class ThresholdEntry(DBModel):
-    """One computed threshold for a single (period, location)."""
+    """Computed threshold lines for a single (period, location)."""
 
-    period: str = Field(description="Period the threshold applies to.")
-    location: str = Field(description="Location the threshold applies to.")
-    value: float | None = Field(description="Computed threshold value, or `None` if it could not be computed.")
+    period: str = Field(description="Period the thresholds apply to.")
+    location: str = Field(description="Location the thresholds apply to.")
+    values: list[float | None] = Field(
+        description="One threshold per requested line, in the order of the request's line parameter list "
+        "(`quantile`, `stdMultiplier`, ...). A scalar or default request yields one element. "
+        "An element is `null` when that line could not be computed."
+    )
+
+
+class ThresholdResponse(DBModel):
+    """Threshold lines for every requested (period, location), with the resolved params echoed back."""
+
+    params: ThresholdParams = PydanticField(
+        description="The resolved parameters the thresholds were computed with, defaults applied. "
+        "Its line parameter list states the ordering of each entry's `values`."
+    )
+    entries: list[ThresholdEntry] = Field(description="One entry per (period, location).")
 
 
 class ThresholdStrategyInfo(DBModel):
@@ -766,21 +784,24 @@ def list_threshold_strategy_types():
 
 @router.post(
     "/thresholds",
-    response_model=list[ThresholdEntry],
+    response_model=ThresholdResponse,
     tags=["Datasets"],
     summary="Compute thresholds (endemic channel) for a dataset",
 )
 def compute_thresholds(request: ThresholdRequest, session: Session = Depends(get_session)):
-    """Compute one outbreak threshold per (period, org unit) from a dataset's historical disease_cases, using the chosen strategy.
+    """Compute outbreak threshold lines per (period, org unit) from a dataset's historical disease_cases.
 
-    404 if the strategy id is not registered or the dataset has no `disease_cases`
-    observations.
+    The `type` field of `params` selects the strategy; the strategy's line parameter
+    (`quantile`, `stdMultiplier`, ...) accepts a scalar or a list, and each entry's `values`
+    array holds one threshold per requested line, in request order. 404 if the dataset has
+    no `disease_cases` observations. 400 if the requested periods fall outside the
+    available data.
     """
-    strategy_cls = get_threshold_strategy(request.strategy)
+    strategy_cls = get_threshold_strategy(request.params.type)
     if strategy_cls is None:
-        available = ", ".join(s["id"] for s in list_threshold_strategies())
         raise HTTPException(
-            status_code=404, detail=f"Unknown threshold strategy: {request.strategy}. Available: {available}"
+            status_code=500,
+            detail=f"Threshold strategy {request.params.type} is in the request schema but not registered",
         )
 
     observations = DataSetManager(session).observations(
@@ -794,12 +815,20 @@ def compute_thresholds(request: ThresholdRequest, session: Session = Depends(get
     df = observations_to_dataframe(observations).rename(columns={"value": "disease_cases"})[
         ["location", "time_period", "disease_cases"]
     ]
-    result = strategy_cls().compute(df, request.period_ids, request.params)
-    return [
+    try:
+        result = strategy_cls().compute(df, request.period_ids, request.params)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    entries = [
         ThresholdEntry(
-            period=str(row["period_id"]),
-            location=str(row["location"]),
-            value=None if (row["threshold"] is None or np.isnan(row["threshold"])) else float(row["threshold"]),
+            period=str(period),
+            location=str(location),
+            values=[
+                None if (value is None or np.isnan(value)) else float(value)
+                for value in group.sort_values("line")["threshold"]
+            ],
         )
-        for row in result.to_dict("records")
+        for (period, location), group in result.groupby(["period_id", "location"], sort=True)
     ]
+    return ThresholdResponse(params=request.params, entries=entries)
