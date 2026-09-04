@@ -4,7 +4,7 @@ import logging
 from enum import Enum
 
 import jsonschema
-from pydantic import ConfigDict
+from pydantic import AliasChoices, ConfigDict
 from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -12,6 +12,23 @@ from chap_core.database.base_tables import DBModel
 from chap_core.model_spec import PeriodType
 
 logger = logging.getLogger(__name__)
+
+
+def _horizon_aliases(bound: str) -> tuple[str, ...]:
+    """Names accepted for a prediction-horizon field, canonical first.
+
+    The `_length` spellings are what CHAP called these fields before they were
+    aligned with chapkit's `_periods`. MLproject files in model repositories are
+    written against the old names and are parsed with `extra="forbid"`, so those
+    names have to keep validating. The camelCase forms mirror the REST API, whose
+    request bodies use the alias generator on `DBModel`.
+    """
+    return (
+        f"{bound}_prediction_periods",
+        f"{bound}PredictionPeriods",
+        f"{bound}_prediction_length",
+        f"{bound}PredictionLength",
+    )
 
 
 class AuthorAssessedStatus(Enum):
@@ -78,11 +95,17 @@ class ModelTemplateInformation(SQLModel):
         sa_column=Column(JSON),
         description="Covariate names the template must be given to run.",
     )
-    min_prediction_length: int | None = Field(
-        default=None, description="Minimum forecast horizon (in periods) the template supports."
+    # SQLModel's Field stub types validation_alias as str, but it is handed straight to
+    # pydantic, which takes AliasChoices. The aliases are covered by tests/test_tables.py.
+    min_prediction_periods: int | None = Field(  # type: ignore[call-overload]
+        default=None,
+        validation_alias=AliasChoices(*_horizon_aliases("min")),
+        description="Minimum forecast horizon (in periods) the template supports.",
     )
-    max_prediction_length: int | None = Field(
-        default=None, description="Maximum forecast horizon (in periods) the template supports."
+    max_prediction_periods: int | None = Field(  # type: ignore[call-overload]
+        default=None,
+        validation_alias=AliasChoices(*_horizon_aliases("max")),
+        description="Maximum forecast horizon (in periods) the template supports.",
     )
     target: str = Field(default="disease_cases", description="Name of the variable the model predicts.")
     allow_free_additional_continuous_covariates: bool = Field(

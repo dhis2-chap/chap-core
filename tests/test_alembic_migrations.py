@@ -66,6 +66,14 @@ _COLUMNS_MADE_NOT_NULL_BY_MIGRATIONS = [
     ("modeltemplatedb", "version"),
 ]
 
+# Columns a migration renamed, as (table, baseline name, current name). create_all
+# makes the current name, so the baseline has to be put back to the old one for the
+# rename to be exercised.
+_COLUMNS_RENAMED_BY_MIGRATIONS = [
+    ("modeltemplatedb", "min_prediction_length", "min_prediction_periods"),
+    ("modeltemplatedb", "max_prediction_length", "max_prediction_periods"),
+]
+
 
 def _pg_container():
     """Create and start a PostgreSQL testcontainer."""
@@ -134,6 +142,8 @@ def _create_baseline_schema(engine):
             )
         for table, column in _COLUMNS_MADE_NOT_NULL_BY_MIGRATIONS:
             conn.execute(sa.text(f"ALTER TABLE {table} ALTER COLUMN {column} DROP NOT NULL"))
+        for table, baseline_name, current_name in _COLUMNS_RENAMED_BY_MIGRATIONS:
+            conn.execute(sa.text(f"ALTER TABLE {table} RENAME COLUMN {current_name} TO {baseline_name}"))
         conn.commit()
 
 
@@ -254,6 +264,59 @@ class TestAlembicMigrations:
         constraints = {c["name"] for c in sa.inspect(engine).get_unique_constraints("modeltemplatedb")}
         assert "uq_modeltemplatedb_name_version" in constraints
         assert "modeltemplatedb_name_key" not in constraints
+
+    @pytest.mark.parametrize("generic_migration_ran_first", [False, True])
+    def test_prediction_horizon_values_survive_rename(self, engine, generic_migration_ran_first):
+        """The horizons a template declares must still be there under the new names.
+
+        Startup adds missing columns from model metadata before Alembic runs, so the
+        renamed column can already exist, empty, beside the populated old one. A plain
+        rename would fail there, and dropping the old column would lose the horizons,
+        which decide whether a model can serve a requested backtest length.
+        """
+        from alembic import command
+
+        alembic_cfg = _make_alembic_cfg(engine)
+
+        with engine.connect() as conn:
+            conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+            conn.execute(sa.text("CREATE SCHEMA public"))
+            conn.commit()
+        _create_baseline_schema(engine)
+        command.stamp(alembic_cfg, "fe59a33965ed")
+        command.upgrade(alembic_cfg, "b8c9d0e1f2a3")
+
+        with engine.connect() as conn:
+            conn.execute(
+                sa.text(
+                    "INSERT INTO modeltemplatedb "
+                    "(name, version, display_name, description, author_note, author_assessed_status, author, "
+                    "supported_period_type, target, allow_free_additional_continuous_covariates, requires_geo, "
+                    "uses_chapkit, is_live, archived, min_prediction_length, max_prediction_length) "
+                    "VALUES ('bounded_model', 'v1', 'Bounded', 'desc', 'note', 'gray', 'author', "
+                    "'any', 'disease_cases', false, false, false, true, false, 2, 6)"
+                )
+            )
+            if generic_migration_ran_first:
+                for column in ("min_prediction_periods", "max_prediction_periods"):
+                    conn.execute(sa.text(f"ALTER TABLE modeltemplatedb ADD COLUMN {column} INTEGER"))
+            conn.commit()
+
+        command.upgrade(alembic_cfg, "head")
+
+        columns = {col["name"] for col in sa.inspect(engine).get_columns("modeltemplatedb")}
+        assert "min_prediction_length" not in columns
+        assert "max_prediction_length" not in columns
+
+        with engine.connect() as conn:
+            row = conn.execute(
+                sa.text(
+                    "SELECT min_prediction_periods, max_prediction_periods "
+                    "FROM modeltemplatedb WHERE name = 'bounded_model'"
+                )
+            ).one()
+        assert row.min_prediction_periods == 2
+        assert row.max_prediction_periods == 6
 
     def test_unversioned_create_all_schema_is_bootstrapped_to_head(self, engine):
         """A legacy create_all database must still run the versioning migration."""

@@ -79,12 +79,12 @@ def _make_config_out(config_id=None, name="test", data=None):
 class TestExternalChapkitModelInformation:
     def test_model_has_model_information_when_provided(self):
         mock_config = MagicMock()
-        mock_config.min_prediction_length = 1
-        mock_config.max_prediction_length = 12
+        mock_config.min_prediction_periods = 1
+        mock_config.max_prediction_periods = 12
         model = ExternalChapkitModel("test", "http://localhost:8000", "config-id", model_information=mock_config)
         assert model.model_information is mock_config
-        assert model.model_information.min_prediction_length == 1
-        assert model.model_information.max_prediction_length == 12
+        assert model.model_information.min_prediction_periods == 1
+        assert model.model_information.max_prediction_periods == 12
 
     def test_model_information_defaults_to_none(self):
         model = ExternalChapkitModel("test", "http://localhost:8000", "config-id")
@@ -123,8 +123,8 @@ class TestGetModelTemplateConfig:
         template._initialized = True
 
         config = template.get_model_template_config()
-        assert config.min_prediction_length == 1
-        assert config.max_prediction_length == 12
+        assert config.min_prediction_periods == 1
+        assert config.max_prediction_periods == 12
 
     def test_config_name_uses_service_id(self):
         template = ExternalChapkitModelTemplate("http://localhost:8000")
@@ -194,8 +194,8 @@ class TestGetModelTemplateConfig:
         template._initialized = True
 
         config = template.get_model_template_config()
-        assert config.min_prediction_length == 0
-        assert config.max_prediction_length == 100
+        assert config.min_prediction_periods == 0
+        assert config.max_prediction_periods == 100
 
 
 class TestGetModelPassesModelInformation:
@@ -215,8 +215,8 @@ class TestGetModelPassesModelInformation:
 
         model = template.get_model({})
         assert model.model_information is not None
-        assert model.model_information.min_prediction_length == 1
-        assert model.model_information.max_prediction_length == 12
+        assert model.model_information.min_prediction_periods == 1
+        assert model.model_information.max_prediction_periods == 12
 
 
 class FakeGeoModel(BaseModel):
@@ -373,8 +373,8 @@ class TestMlServiceInfoToModelTemplateConfig:
         assert config.name == "test-model"
         assert config.version == "1.0.0"
         assert config.rest_api_url == "http://localhost:8000"
-        assert config.min_prediction_length == 1
-        assert config.max_prediction_length == 12
+        assert config.min_prediction_periods == 1
+        assert config.max_prediction_periods == 12
 
     def test_converts_local_schema_ml_service_info(self):
         local_info = LocalMLServiceInfo.model_validate(MOCK_INFO_DICT)
