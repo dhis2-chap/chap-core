@@ -43,7 +43,7 @@ def engine():
 
 
 def _make_parents(session: Session) -> tuple[int, int, int]:
-    template = ModelTemplateDB(name="tpl")
+    template = ModelTemplateDB(name="tpl", version="1.0.0")
     session.add(template)
     session.commit()
     assert template.id is not None
@@ -340,7 +340,7 @@ def test_session_wrapper_add_predictions_links_to_setup(engine):
     from chap_core.database.database import SessionWrapper
 
     with Session(engine) as session:
-        backtest_id, _, dataset_id = _make_parents(session)
+        backtest_id, configured_model_id, dataset_id = _make_parents(session)
         setup = _create_default_setup(session, backtest_id)
         assert setup.id is not None
         setup_id = setup.id
@@ -362,6 +362,7 @@ def test_session_wrapper_add_predictions_links_to_setup(engine):
             dataset_id,
             "cfg",
             "wired",
+            configured_model_id,
             prediction_setup_id=setup_id,
         )
 

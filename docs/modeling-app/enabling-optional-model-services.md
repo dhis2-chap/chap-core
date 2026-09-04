@@ -5,6 +5,8 @@ Some models require an external service to be running alongside Chap. These serv
 !!! note
     This page covers models that are **not** part of the bundled overlay. The bundled model services started by `compose.chapkit.yml` (see [First-time Setup](fresh-installation.md)) register themselves automatically and need no config edits or rebuild. Use the steps below only for additional services like `ewars_plus` or `chtorch`.
 
+    To add a model service of your **own**, see [Running Your Own Model](running-your-own-model.md).
+
 ## Available Optional Services
 
 | Service | Image | Port | Description |
@@ -14,7 +16,10 @@ Some models require an external service to be running alongside Chap. These serv
 
 ## Setup
 
-Chap ships with a `compose.override.yml.example` file that defines these optional services. Docker Compose automatically merges `compose.override.yml` with `compose.yml` when both are present.
+Chap ships with a `compose.override.yml.example` file that defines these optional services.
+
+!!! warning "Pass `-f compose.override.yml` explicitly"
+    Compose only merges `compose.override.yml` on its own when you run a bare `docker compose` with no `-f` flags at all. As soon as you pass any `-f` — as [First-time Setup](fresh-installation.md) does — the override file is ignored, silently and with no error, so the optional services never start. The commands below assume the `compose.chapkit.yml` overlay from that guide; adjust them to match how you started Chap, keeping `compose.override.yml` last.
 
 ### 1. Copy the overlay file
 
@@ -53,8 +58,8 @@ See [Managing models](managing-model-templates.md) for details on the configured
 After adding the overlay and the model configuration, rebuild the Chap images (so the new config is included) and start all services:
 
 ```console
-docker compose build chap worker
-docker compose up -d
+docker compose -f compose.yml -f compose.chapkit.yml -f compose.override.yml build chap worker
+docker compose -f compose.yml -f compose.chapkit.yml -f compose.override.yml up -d
 ```
 
 ### 5. Verify
@@ -62,7 +67,7 @@ docker compose up -d
 Check that the service is running and the model appears in the API:
 
 ```console
-docker compose ps
+docker compose -f compose.yml -f compose.chapkit.yml -f compose.override.yml ps
 curl http://localhost:8000/v1/crud/configured-models
 ```
 

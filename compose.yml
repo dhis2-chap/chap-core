@@ -6,15 +6,12 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      CHAP_DATABASE_URL: ${CHAP_DATABASE_URL:-postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}}
       CELERY_BROKER: redis://redis:6379/0
       CHAP_LOGS_DIR: /data/logs
       CHAP_RUNS_DIR: /data/runs
       CHAP_ROOT_PATH: ${CHAP_ROOT_PATH:-}
       CHAP_API_TOKEN: ${CHAP_API_TOKEN:-}
-    # for now some of the tests uses hardcoded names so we need to set the container name
-    # TODO: Update the tests so they don't rely on hardcoded container names
-    container_name: chap
     read_only: true
     security_opt:
       - no-new-privileges:true
@@ -63,7 +60,7 @@ services:
       IS_IN_DOCKER: 1
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      CHAP_DATABASE_URL: ${CHAP_DATABASE_URL:-postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}}
       CELERY_BROKER: redis://redis:6379
       RENV_PATHS_ROOT: /data/renv
       UV_CACHE_DIR: /data/uv
