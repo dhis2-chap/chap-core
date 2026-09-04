@@ -76,7 +76,7 @@ def small_full_dataset() -> DataSet:
 
 @pytest.fixture
 def staggered_locations_dataset() -> DataSet:
-    """Test 4 differend locations with differend historical coverage, to exercise last_n's handling of
+    """Tests 4 different locations with different historical coverage, to check whether the last_n fix handles
     locations that don't fully overlap the explained location's restriction window.
 
     """
@@ -220,9 +220,9 @@ class TestLog1pHelperEndToEnd:
 
 
 class TestLastN:
-    """last_n must restrict every location consistently, not just the one
-    being explained, otherwise produce_lime_dataset() gives back datasets of different lengths
-    based on the locations, which it wont be able to splice back together.
+    """last_n must restrict every location consistently, not just the one location being explained.
+    If this is not done the model in model.predict() can receive a dict of locations with different lengths, which
+    might not be supported by the model.
     """
 
     def test_all_locations_share_the_truncated_history_length(self, small_full_dataset):
@@ -244,7 +244,7 @@ class TestLastN:
 
     def test_locations_not_fully_covering_the_window_are_dropped(self, staggered_locations_dataset):
         """gamma and delta locations dont cover alphas last_n window, both must be dropped rather than handed to
-        the model at a shorter, mismatched length. beta (same full range as alpha) fully covers the window and must be kept.
+        the model at a shorter and mismatched length. beta, which has the same full range as alpha, fully covers the window and will be kept.
         """
         seen_lengths: dict[str, set[int]] = {}
 

@@ -6,7 +6,7 @@ import logging
 from typing import Annotated
 
 from cyclopts import Parameter
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from chap_core.api_types import RunConfig
 from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
@@ -36,16 +36,7 @@ class LimeParams(BaseModel):
     seed: int | None = None
     timed: bool = False
     adaptive: bool = False
-    last_n: int | None = Field(
-        default=None,
-        description=(
-            "If set, restricts every location's historical data fed to the model to the "
-            "last_n time steps of the explained location's own timeline (other locations may end "
-            "up with fewer steps, or be dropped, if their range doesn't reach that far back). Does "
-            "not affect the background sampler's pool or the per-feature global means, which still "
-            "draw from the full unrestricted dataset."
-        ),
-    )
+    last_n: int | None = None
     with_metrics: bool = False
 
 
@@ -97,7 +88,8 @@ def explain_lime(
             "--lime-params.segmenter-name for segmentation strategy, "
             "--lime-params.sampler-name for perturbation strategy, "
             "--lime-params.num-perturbations for sample count, "
-            "--lime-params.adaptive to enable adaptive mode"
+            "--lime-params.adaptive to enable adaptive mode, "
+            "--lime-params.last_n to enable truncation of the dataset"
         ),
     ] = LimeParams(),
     run_config: RunConfigArg = RunConfig(),
