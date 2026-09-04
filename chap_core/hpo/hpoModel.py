@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Literal, cast
+from typing import Any, cast
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -7,10 +7,7 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from .base import write_yaml
 from .hpoModelInterface import HpoModelInterface
 from .objective import Objective
-from .searcher import DEFAULT_SEARCH_TRIALS, RandomSearcher, Searcher
-
-Direction = Literal["maximize", "minimize"]
-
+from .searcher import Searcher
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -19,18 +16,20 @@ logger.setLevel(logging.INFO)
 class HpoModel(HpoModelInterface):
     def __init__(
         self,
+        *,
         objective: Objective,
-        searcher: Searcher | None = None,
-        direction: Direction = "minimize",
-        model_configuration: dict[str, list] | None = None,
+        searcher: Searcher,
+        configuration: ModelConfiguration | None,
+        search_space: dict[str, Any],
+        max_trials: int | None,
+        seed: int | None,
     ):
-        if direction not in ("maximize", "minimize"):
-            raise ValueError("direction must be 'maximize' or 'minimize'")
-
         self._objective = objective
-        self._searcher = searcher if searcher is not None else RandomSearcher(DEFAULT_SEARCH_TRIALS)
-        self._direction = direction
-        self.base_configs = model_configuration
+        self._searcher = searcher
+        self._configuration = configuration
+        self._search_space = search_space
+        self._max_trials = max_trials
+        self._seed = seed
         self._best_config: dict[str, dict[str, Any]] | None = None
         self._leaderboard: list[dict[str, Any]] = []
         self._predictor: Any = None
@@ -38,23 +37,27 @@ class HpoModel(HpoModelInterface):
     def train(self, dataset: DataSet) -> Any:  # type: ignore[override]
         """
         Calls get_leaderboard to find the optimal configuration.
-        Then trains the tuned model on the whole input dataset (train + validation).
+        Then trains the tuned model on the whole input dataset (outer training set).
         """
-        self.get_leaderboard(
-            dataset
-        )  # calculates leaderboard, don't need the return value here bc best_config it stores best_config in self
-        template = self._objective.model_template  # not sure if accessing template from objective is correct, maybe pass template to hpoModel and hpoModel calls get_model?
-        # TODO: validate config without "user_option_values"
-        config = None
-        if self._best_config is not None:
-            logger.info(f"Validating best model configuration: {self._best_config}")
-            config = ModelConfiguration.model_validate(self._best_config)
-            logger.info(f"Validated best model configuration: {config}")
+        if self._best_config is None:
+            logger.info("Running hyperparameter optimization to find the best configuration...")
+            self._metadata = self.get_leaderboard(dataset)
         else:
-            raise ValueError("No best configuration found. Have you run get_leaderboard()?")
+            logger.info("Using previously found best configuration for retraining...")
+        logger.info(f"Validating optimized model configuration: {self._best_config}")
+        config = ModelConfiguration.model_validate(self._best_config)
+
+        # updates the originial configuration for outer evaluation logging as long as user_option_values stays mutable
+        # can also include additional_continuous_covariates if given in OG configuration for the optimized model below
+        # if self._configuration is not None:
+        #     self._configuration.user_option_values = dict(self._best_config["user_option_values"])
+        # new object instead of overwrite
+        # haven't decided on wether to merge
+
+        template = self._objective.model_template
         estimator = template.get_model(config)  # type: ignore[arg-type]
         self._predictor = estimator.train(dataset)
-        return self._predictor
+        return self._predictor  # return self.....
 
     def predict(self, historic_data: DataSet[Any], future_data: DataSet[Any]) -> DataSet[Any]:
         assert self._predictor is not None, "Model not trained yet"
@@ -65,57 +68,59 @@ class HpoModel(HpoModelInterface):
         Runs hyperparameter optimization over the search space.
         Returns a sorted list of configurations together with their score.
         """
+        self._searcher.reset(self._search_space, self._seed)
+        best_score: float | None = None
+        best_params: dict[str, Any] | None = None
+        trial_count = 0
 
-        best_score = float("inf") if self._direction == "minimize" else float("-inf")
-        best_params: dict[str, Any] = {}
-        self._leaderboard = []
-
-        self._searcher.reset(self.base_configs)
         while True:
-            params = self._searcher.ask()
-            if params is None:
+            if self._max_trials is not None and trial_count >= self._max_trials:
                 break
 
-            trial_number = None
-            if params.get("_trial_id") is not None:  # for TPESearcher
-                trial_number = params.pop("_trial_id")
+            candidate = self._searcher.ask()
+            if candidate is None:  # search exhausted
+                break
 
-            # Maybe best to seperate hpo_config and other configs in two files ??
-            score = self._objective(params, dataset)
-            if trial_number is not None:  # for parallel TPE search
-                params["_trial_id"] = trial_number
-                self._searcher.tell(params, score)
-                params.pop("_trial_id")
-            else:
-                self._searcher.tell(params, score)
+            trial_count += 1
+            score = self._objective(candidate.params, dataset)
+            self._searcher.tell(candidate, score)
 
             self._leaderboard.append(
                 {
-                    "config": params,
+                    "config": candidate.params,
                     "score": score,
                 }
             )
 
-            is_better = (score < best_score) if self._direction == "minimize" else (score > best_score)
-            if is_better or best_params is None:
+            if self._is_better(score, best_score):
                 best_score = score
-                best_params = params
-                # best_config = config # vs. model_config, safe_load vs. model_validate
+                best_params = dict(candidate.params)
 
-            logger.info(f"Tried {params} -> score={score}")
+            logger.info(f"Validated {candidate.params} -> score={score}")
 
-        self._best_config = {"user_option_values": best_params}
+        if best_params is None or best_score is None:
+            raise RuntimeError("HPO completed without any successful trials")
+        self._best_config = {
+            "user_option_values": best_params
+        }  # this can be written to file and used as configuration for template
         logger.info(f"\nBest params: {best_params} | best score: {best_score}")
-        self._leaderboard.sort(key=lambda conf: conf["score"], reverse=self._direction == "maximize")
+        self._leaderboard.sort(key=lambda conf: conf["score"], reverse=self._objective.direction.value == "maximize")
         assert best_params == self._leaderboard[0]["config"], "best params is not the first in leaderboard"
         return self._leaderboard
+
+    def _is_better(self, score: float, incumbent: float | None) -> bool:
+        if incumbent is None:
+            return True
+        if self._objective.direction.value == "minimize":
+            return score < incumbent
+        return score > incumbent
 
     @property
     def model_information(self):
         return self._objective.model_template.model_template_config
 
     @property
-    def get_best_config(self):
+    def best_configuration(self):
         return self._best_config
 
     def write_best_config(self, output_yaml):

@@ -13,6 +13,7 @@ from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime v
     BacktestParamsArg,
     DatasetCsvArg,
     DataSourceMappingArg,
+    HpoSearchSpaceYamlArg,
     ModelConfigYamlArg,
     ModelNameArg,
     RunConfigArg,
@@ -45,6 +46,7 @@ def eval_cmd(
     backtest_params: BacktestParamsArg = BacktestParams(n_periods=3, n_splits=7, stride=1),
     run_config: RunConfigArg = RunConfig(),
     model_configuration_yaml: ModelConfigYamlArg = None,
+    hpo_search_space_yaml: HpoSearchSpaceYamlArg = None,
     historical_context_years: Annotated[
         int,
         Parameter(help="Years of historical data to include for plotting context."),
@@ -82,6 +84,7 @@ def eval_cmd(
             backtest_params=backtest_params,
             run_config=run_config,
             model_configuration_yaml=model_configuration_yaml,
+            hpo_search_space_yaml=hpo_search_space_yaml,
             historical_context_years=historical_context_years,
             data_source_mapping=data_source_mapping,
             dry_run=dry_run,
@@ -104,6 +107,7 @@ def _run_eval(
     backtest_params: BacktestParamsArg = BacktestParams(n_periods=3, n_splits=7, stride=1),
     run_config: RunConfigArg = RunConfig(),
     model_configuration_yaml: ModelConfigYamlArg = None,
+    hpo_search_space_yaml: HpoSearchSpaceYamlArg = None,
     historical_context_years: Annotated[
         int,
         Parameter(
@@ -131,7 +135,9 @@ def _run_eval(
             "Use --estimator-options.mode=hpo for hyperparameter optimization. "
             "Use --estimator-options.mode=ensemble for ensemble learning. "
             "Optionally --estimator-options.metric=<metric> for hpo. "
-            "Optionally --estimator-options.searcher=<searcher> for hpo."
+            "Optionally --estimator-options.searcher=<searcher> for hpo. "
+            "Optionally --estimator-options.max_trials=<max_trials> for hpo. "
+            "Optionally --estimator-options.seed=<seed> for hpo."
         ),
     ] = None,
 ):
@@ -147,7 +153,7 @@ def _run_eval(
 
     HPO can be activated through estimator_options.mode, which will run a hyperparameter
     optimization over the search space defined in the model template or in the provided
-    model_configuration_yaml file. The best configuration is selected based on the specified
+    hpo_search_space_yaml file. The best configuration is selected based on the specified
     estimator_options.metric.
 
     Examples:
@@ -164,10 +170,10 @@ def _run_eval(
             --output-file ./eval.nc --data-source-mapping ./column_mapping.json
 
         # Evaluate with hyperparameter optimization
-        chap eval --model-name https://github.com/dhis2-chap/minimalist_example \\
+        chap eval --model-name https://github.com/chap-models/minimal_template_example \\
             --dataset-csv ./example_data/vietnam_monthly.csv --output-file ./chap_core/hpo/eval.nc \\
-            --model-configuration-yaml ./chap_core/hpo/config3.yaml --estimator-options.mode hpo \\
-            --estimator_options.metric sensitivity
+            --hpo_search_space_yaml ./chap_core/hpo/config3.yaml --estimator-options.mode hpo \\
+            --estimator_options.metric rmse --estimator_options.searcher tpe
     """
     from chap_core.assessment.evaluation import Evaluation
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
@@ -226,14 +232,14 @@ def _run_eval(
         configuration = get_configuration(model_configuration_yaml)
         estimator: ExternalModel | HpoModel | ExtendedPredictor
         if estimator_options.mode == EstimatorMode.NORMAL:
-            estimator = get_estimator(template, configuration)
+            estimator = get_estimator(template=template, configuration=configuration)
         elif estimator_options.mode == EstimatorMode.HPO:
             estimator = get_hpo_estimator(
                 template=template,
-                model_configuration_yaml=model_configuration_yaml,
+                configuration=configuration,
+                search_space_yaml=hpo_search_space_yaml,
                 backtest_params=backtest_params,
-                metric=estimator_options.metric,
-                searcher_inp=estimator_options.searcher,
+                options=estimator_options,
             )
         elif estimator_options.mode == EstimatorMode.ENSEMBLE:
             raise NotImplementedError("Ensemble mode is not yet implemented")
@@ -269,7 +275,7 @@ def _run_eval(
             id="cli_eval",
             model_template_id=model_template_db.id,
             model_template=model_template_db,
-            configuration=configuration.model_dump() if configuration else {},
+            **configuration.model_dump() if configuration else {},
         )
 
         logger.info(

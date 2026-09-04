@@ -9,6 +9,7 @@ from chap_core.assessment.metrics import metric
 from chap_core.assessment.metrics.base import (
     AggregationOp,
     MetricSpec,
+    OptimizationDirection,
     ProbabilisticMetric,
 )
 from chap_core.assessment.metrics.crps import CRPSMetric
@@ -34,6 +35,7 @@ class CRPSNormMetric(ProbabilisticMetric):
         metric_name="CRPS Normalized",
         aggregation_op=AggregationOp.MEAN,
         description="Normalized CRPS - CRPS divided by the range of observed values",
+        optimization_direction=OptimizationDirection.MINIMIZE,
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:

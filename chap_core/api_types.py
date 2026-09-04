@@ -215,5 +215,14 @@ class EstimatorOptions(BaseModel):
     )
     searcher: SearcherType | None = Field(
         default=None,
-        description="Searcher used for HPO. If not provided, a default RandomSearcher will be used. Ignored in normal and ensemble modes.",
+        description="Searcher used for HPO. If not provided, a default TPESearcher will be used. Ignored in normal and ensemble modes.",
+    )
+    max_trials: int | None = Field(
+        default=None,
+        gt=0,
+        description="Maximum HPO trials. If omitted, grid search is exhaustive while random/TPE use the default HPO trial count.",
+    )
+    seed: int | None = Field(
+        default=None,
+        description="Random seed used by stochastic search strategies.",
     )

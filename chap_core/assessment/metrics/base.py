@@ -36,6 +36,11 @@ DEFAULT_OUTPUT_DIMENSIONS: tuple[DataDimension, ...] = (
 )
 
 
+class OptimizationDirection(StrEnum):
+    MINIMIZE = "minimize"
+    MAXIMIZE = "maximize"
+
+
 @dataclass(frozen=True)
 class MetricSpec:
     """
@@ -44,9 +49,11 @@ class MetricSpec:
 
     metric_id: str
     metric_name: str
+    optimization_direction: OptimizationDirection | None
     output_dimensions: tuple[DataDimension, ...] = DEFAULT_OUTPUT_DIMENSIONS
     aggregation_op: AggregationOp = AggregationOp.MEAN
     description: str = "No description provided"
+    # None means the metic is not directly usable as a scalar optimization objective.
 
 
 class Metric(ABC):

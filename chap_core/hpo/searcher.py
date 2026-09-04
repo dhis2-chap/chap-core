@@ -6,12 +6,10 @@ from typing import TYPE_CHECKING, Any
 import optuna
 
 from .base import Float, Int
+from .types import SearchCandidate
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-
-_TRIAL_ID_KEY = "_trial_id"  # reserved key we inject into params
-DEFAULT_SEARCH_TRIALS = 3
 
 
 class Searcher:
@@ -23,9 +21,9 @@ class Searcher:
     - receive feedback via `tell(params, result)`
     """
 
-    def reset(self, space: Any) -> None: ...
-    def ask(self) -> dict[str, Any] | None: ...
-    def tell(self, params: dict[str, Any], result: float) -> None: ...
+    def reset(self, search_space: dict[str, Any], seed: int | None) -> None: ...
+    def ask(self) -> SearchCandidate | None: ...
+    def tell(self, candidate: SearchCandidate, result: float) -> None: ...
 
 
 class GridSearcher(Searcher):
@@ -33,44 +31,38 @@ class GridSearcher(Searcher):
         self._iterator: Iterator[tuple[Any, ...]] | None = None
         self.keys: list[str] = []
 
-    def reset(self, search_space: dict[str, list]) -> None:
+    def reset(self, search_space: dict[str, list], seed: int | None) -> None:
+        del seed
         self.keys = list(search_space.keys())
         for value in search_space.values():
             if not isinstance(value, list):
                 raise ValueError("GridSearcher only supports list-based search spaces")
         self._iterator = itertools.product(*search_space.values())
 
-    def ask(self) -> dict[str, Any] | None:
+    def ask(self) -> SearchCandidate | None:
         if self._iterator is None:
-            raise RuntimeError("GridSearch not initialized. Call reset(params).")
+            raise RuntimeError("GridSearch not initialized. Call reset.")
         try:
-            ne: tuple[Any, ...] = next(self._iterator)
-            print(f"SEARCHER params: {dict(zip(self.keys, ne, strict=False))}")
-            return dict(zip(self.keys, ne, strict=False))
+            values = next(self._iterator)
         except StopIteration:
             return None
+        params = dict(zip(self.keys, values, strict=True))
+        return SearchCandidate(params=params)
 
-    def tell(self, params: dict[str, Any], result: float) -> None:
+    def tell(self, candidate: SearchCandidate, result: float) -> None:
         # Grid search doesn't adapt, but we keep the hook for API symmetry.
         return
 
 
 class RandomSearcher(Searcher):
     """
-    Samples with replacement max_trials number of configurations.
+    Samples with replacement.
     """
-
-    def __init__(self, max_trials: int):
-        if not isinstance(max_trials, int) or max_trials <= 0:
-            raise ValueError("max_trials must be a positive integer")
-        self.max_trials = max_trials
 
     def reset(self, search_space: dict[str, Any], seed: int | None = None) -> None:
         self.search_space = _validate_search_space_extended(search_space)
-        print(f"randomSearcher search space in reset: {self.search_space}")
         self.rng = random.Random(seed)
         self.keys = list(search_space.keys())
-        self.emitted = 0
 
     def _sample_float(self, s: Float) -> float:
         if s.log:
@@ -109,83 +101,63 @@ class RandomSearcher(Searcher):
             return self._sample_int(spec)
         raise TypeError(f"Unsupported spec at runtime: {spec!r}")
 
-    def ask(self) -> dict[str, Any] | None:
+    def ask(self) -> SearchCandidate:
         if self.rng is None:
-            raise RuntimeError("RandomSearch not initialized. Call reset(search_space, seed)")
-        if self.emitted >= self.max_trials:
-            return None
+            raise RuntimeError("RandomSearch not initialized. Call reset")
         params = {k: self._sample_one(self.search_space[k]) for k in self.keys}
-        # config = {k: self.rng.choice(self.search_space[k]) for k in self.keys}
-        self.emitted += 1
-        return params
+        return SearchCandidate(params=params)
 
-    def tell(self, params: dict[str, Any], result: float) -> None:
+    def tell(self, candidate: SearchCandidate, result: float) -> None:
         # Random search doesn't adapt, but we keep the hook for API symmetry.
         return
 
 
 class TPESearcher(Searcher):
     """
-    Tree Parzen Estimator.
-    Parallel-safe TPE searcher using Optuna's ask/tell with native distributions.
-    - ask() returns a params dict that includes a reserved '_trial_id'.
-    - tell() extracts '_trial_id' from params to update the correct trial.
+    Tree Parzen Estimator searcher using Optuna's ask/tell with native distributions.
     Supports:
     - list[...] -> CategoricalDistribution
     - Float(low, high, step=None|>0, log=bool) -> FloatDistribution
     - Int(low, high, step>1, log=bool) -> IntDistribution
     """
 
-    def __init__(self, max_trials: int, direction: str = "minimize"):
+    def __init__(self, direction: str):
         if direction not in ("maximize", "minimize"):
-            raise ValueError("direction must be 'maximize' or 'minimize'")
+            raise ValueError("Invalid optimization direction")
         self.direction = direction
-        self.max_trials = max_trials
         self._pending: dict[int, optuna.trial.Trial] = {}
         self._study: optuna.study.Study | None = None
-        self._asked = 0
 
-    def reset(self, search_space: dict[str, list], seed: int | None = None) -> None:
-        # validate_search_space(search_space)
+    def reset(self, search_space: dict[str, Any], seed: int | None = None) -> None:
         search_space = _validate_search_space_extended(search_space)
 
         self._keys = list(search_space.keys())
-        self._dists = {
-            k: _to_optuna_distr(v)
-            for k, v in search_space.items()
-            # k: optuna.distributions.CategoricalDistribution(tuple(search_space[k]))
-            # for k in self._keys
-        }
+        self._dists = {k: _to_optuna_distr(v) for k, v in search_space.items()}
         self._study = optuna.create_study(
             direction=self.direction,
             sampler=optuna.samplers.TPESampler(seed=seed),
         )
         self._pending.clear()
-        self._asked = 0
 
-    def ask(self) -> dict[str, Any] | None:
+    def ask(self) -> SearchCandidate:
         if self._study is None:
-            raise RuntimeError("TPESearcher not initialized. Call reset(search_space, seed)")
+            raise RuntimeError("TPESearcher not initialized. Call reset")
 
-        if self.max_trials is not None and self._asked >= self.max_trials:
-            return None
-
-        trial = self._study.ask(self._dists)
+        trial = self._study.ask(fixed_distributions=self._dists)
         self._pending[trial.number] = trial
-        self._asked += 1
 
-        params = dict(trial.params)
-        params[_TRIAL_ID_KEY] = trial.number
-        return params
+        return SearchCandidate(params=dict(trial.params), token=trial.number)
 
-    def tell(self, params: dict[str, Any], result: float) -> None:
-        if _TRIAL_ID_KEY not in params:
-            raise ValueError(f"params must include '{_TRIAL_ID_KEY}' returned by ask()")
+    def _pop_trial(self, candidate: SearchCandidate) -> optuna.trial.Trial:
+        if candidate.token is None:
+            raise ValueError("TPE candidate is missing its trial token")
+        try:
+            return self._pending.pop(candidate.token)
+        except KeyError:
+            raise KeyError(f"No pending TPE trial {candidate.token}") from None
 
-        trial_id = params[_TRIAL_ID_KEY]
-        trial = self._pending.pop(trial_id, None)
-        if trial is None:
-            raise KeyError(f"No pending trial with id {trial_id}")
+    def tell(self, candidate: SearchCandidate, result: float) -> None:
+        trial = self._pop_trial(candidate)
 
         assert self._study is not None
         self._study.tell(trial, result)
