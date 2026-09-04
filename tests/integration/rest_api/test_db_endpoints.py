@@ -177,7 +177,15 @@ def test_list_configured_models(celery_session_worker, dependency_overrides):
         logger.info(m)
     assert len(response.json()) > 0
     assert "id" in response.json()[0]
-    for attr_name in ("displayName", "id", "description", "userOptionValues", "additionalContinuousCovariates"):
+    for attr_name in (
+        "displayName",
+        "id",
+        "description",
+        "version",
+        "sourceDigest",
+        "userOptionValues",
+        "additionalContinuousCovariates",
+    ):
         """Check these here to make sure camelCase in response"""
         assert attr_name in response.json()[0], response.json()[0].keys()
     models = [ModelSpecRead.model_validate(m) for m in response.json()]
@@ -186,6 +194,7 @@ def test_list_configured_models(celery_session_worker, dependency_overrides):
     assert "population" in (f.name for f in ewars_model.covariates)
     assert ewars_model.source_url is not None
     assert ewars_model.source_url.startswith("https:/")
+    assert ewars_model.version
     assert isinstance(ewars_model.additional_continuous_covariates, list)
 
 
@@ -862,6 +871,41 @@ def test_run_prediction_setup_archived_model_returns_409(override_session, seede
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
     assert response.status_code == 409, response.json()
+
+
+def test_run_prediction_setup_queues_the_pinned_configured_model(
+    override_session, seeded_session, example_polygons, monkeypatch
+):
+    """A setup must run the configuration it was created with, not whatever its name now resolves to."""
+    from chap_core.rest_api.v1.routers import crud
+
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Pinned model")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    captured: dict = {}
+
+    class _FakeJob:
+        id = "captured-job"
+
+    class _CapturingWorker:
+        def queue_db(self, *args, **kwargs):
+            captured.update(kwargs)
+            return _FakeJob()
+
+    monkeypatch.setattr(crud, "worker", _CapturingWorker())
+
+    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    payload = request.model_dump(mode="json")
+    payload.pop("data_to_be_fetched", None)
+    payload.pop("data_sources", None)
+    payload["nPeriods"] = 3
+
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    assert response.status_code == 200, response.json()
+    assert captured["configured_model_id"] == backtest.model_db_id
 
 
 def test_run_prediction_setup_logs_rejection_count(

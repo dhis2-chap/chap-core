@@ -33,6 +33,11 @@ def _dockerfile_has_healthcheck(dockerfile):
     return re.search(r"^HEALTHCHECK\s", path.read_text(), re.MULTILINE) is not None
 
 
+def _image_repository(image):
+    """Image reference without its tag, which may itself be a ${VAR:-default}."""
+    return re.sub(r":[^/]*$", "", image)
+
+
 def _healthcheck_source(service):
     """Which file supplies this service's healthcheck, or None if nothing does."""
     if service.get("healthcheck"):
@@ -50,7 +55,7 @@ def _healthcheck_source(service):
 
     image = service.get("image")
     if image:
-        repo = image.rsplit(":", 1)[0]
+        repo = _image_repository(image)
         dockerfile = IMAGE_TO_DOCKERFILE.get(repo)
         if dockerfile and _dockerfile_has_healthcheck(dockerfile):
             return dockerfile
@@ -91,4 +96,57 @@ def test_deployed_service_reports_health(compose_file, service_name, service):
         f"{compose_file}: service '{service_name}' has no healthcheck in compose and its "
         f"image carries none either, so depends_on conditions and restart-on-unhealthy "
         f"cannot work for it"
+    )
+
+
+# The file users download on its own and run without a checkout.
+STANDALONE_COMPOSE_FILE = "compose.ghcr.yml"
+
+INTERPOLATION = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(:?-[^}]*)?\}")
+
+
+def test_standalone_compose_needs_no_env_file():
+    text = (REPO_ROOT / STANDALONE_COMPOSE_FILE).read_text()
+    missing_default = sorted({m.group(1) for m in INTERPOLATION.finditer(text) if not m.group(2)})
+    assert not missing_default, (
+        f"{STANDALONE_COMPOSE_FILE}: {missing_default} have no default, so the file cannot be "
+        f"downloaded on its own and started with `docker compose up`"
+    )
+
+
+@pytest.mark.parametrize("service_name", ["chap", "worker"])
+def test_standalone_compose_declares_own_healthcheck(service_name):
+    """A pinned tag may predate the healthcheck baked into the current Dockerfiles."""
+    service = _services(STANDALONE_COMPOSE_FILE)[service_name]
+    assert _healthcheck_source(service) == "compose", (
+        f"{STANDALONE_COMPOSE_FILE}: service '{service_name}' inherits its healthcheck from the "
+        f"image, so pinning a tag published before that healthcheck existed leaves it unmonitored"
+    )
+
+
+@pytest.mark.parametrize("service_name", ["chap", "worker"])
+def test_standalone_compose_image_tag_is_pinnable(service_name):
+    image = _services(STANDALONE_COMPOSE_FILE)[service_name]["image"]
+    repo = _image_repository(image)
+    tag = image[len(repo) + 1 :]
+    assert repo in IMAGE_TO_DOCKERFILE, f"unexpected image repository {repo!r}"
+    assert tag == "${CHAP_IMAGE_TAG:-latest}", (
+        f"{STANDALONE_COMPOSE_FILE}: service '{service_name}' pins {image!r}, so a specific "
+        f"release cannot be deployed without editing the file"
+    )
+
+
+def test_env_example_leaves_redis_password_unset():
+    """The compose valkey service takes no --requirepass, so an AUTH from the client fails."""
+    requirepass = [f for f in DEPLOYMENT_COMPOSE_FILES if "requirepass" in str(_services(f).get("redis", {}))]
+    assert not requirepass, f"{requirepass} configure a redis password; update this test"
+
+    active = [
+        line
+        for line in (REPO_ROOT / ".env.example").read_text().splitlines()
+        if line.strip().startswith("REDIS_PASSWORD=") and line.split("=", 1)[1].strip()
+    ]
+    assert not active, (
+        f".env.example sets {active}, so copying it to .env makes the redis client send AUTH "
+        f"to a valkey service that has no password configured"
     )
