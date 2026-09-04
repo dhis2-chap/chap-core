@@ -26,7 +26,7 @@ The repository ships several compose files. `compose.yml` and `compose.ghcr.yml`
 | File | Kind | Purpose |
 |------|------|---------|
 | `compose.yml` | base | Builds `chap` and `worker` from local source. The default for development and for the documented server install. |
-| `compose.ghcr.yml` | base | Same services pulled as pre-built images from GHCR. Use *instead of* `compose.yml`. |
+| `compose.ghcr.yml` | base | Same services pulled as pre-built images from GHCR. Use *instead of* `compose.yml`. Self-contained: download this one file and run it without a checkout or an `.env`. |
 | `compose.chapkit.yml` | overlay | Umbrella overlay pulling in every bundled chapkit model service via the `include:` directive. Requires Compose v2.20+. |
 | `compose.ewars.yml` | overlay | The EWARS chapkit model service on its own. Already included by `compose.chapkit.yml`. |
 | `compose.override.yml.example` | overlay template | Optional extra services (`chtorch`, `ewars_plus`). Copy to `compose.override.yml`. Compose merges that file automatically **only** when no `-f` flag is used; with any `-f` flag you must list it explicitly, last. |
@@ -50,6 +50,48 @@ docker compose -f compose.yml -f compose.dev.yml up -d
 # Pre-built images instead of a local build
 docker compose -f compose.ghcr.yml up -d
 ```
+
+### Deploying a release without a checkout
+
+`compose.ghcr.yml` is the only file you need on a server. It pulls pre-built
+images and every setting has a working default, so it runs exactly as
+downloaded -- no checkout, no `.env`, no edits:
+
+```console
+curl -O https://raw.githubusercontent.com/dhis2-chap/chap-core/master/compose.ghcr.yml
+docker compose -f compose.ghcr.yml up -d
+```
+
+#### Available settings
+
+All optional. Put them in an `.env` file beside the compose file rather than
+inline on the command line: Compose reads `.env` on every command, so a later
+`pull` or `up` keeps the same values, whereas an inline `VAR=x docker compose
+...` applies to that one command and silently reverts afterwards.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `CHAP_IMAGE_TAG` | `latest` | Tag for both the `chap-core` and `chap-worker` images. Set a release tag (for example `v1.2.3`) to pin a version. The tag must exist in [GHCR](https://github.com/orgs/dhis2-chap/packages); release tags are published by the image build workflow. |
+| `POSTGRES_USER` | `chap` | Database user. |
+| `POSTGRES_PASSWORD` | `chap` | Database password. Postgres is never published to the host, but override this for anything beyond a local trial. It is interpolated into a database URI, so it must be URL-safe -- no `@`, `:`, `/`, `?`, `#` or `%`. |
+| `POSTGRES_DB` | `chap_core` | Database name. |
+| `CHAP_DATABASE_URL` | composed from the three above | Full, percent-encoded database URL. Takes precedence, and is how you use a password containing reserved characters. |
+| `CHAP_ROOT_PATH` | empty | Path prefix when serving behind a reverse proxy. |
+| `CHAP_API_TOKEN` | empty | API token. Unset means no authentication. |
+
+Pinning a release and setting a password with reserved characters:
+
+```console
+cat > .env <<'EOF'
+CHAP_IMAGE_TAG=v1.2.3
+POSTGRES_PASSWORD=str@ng/pass
+CHAP_DATABASE_URL=postgresql://chap:str%40ng%2Fpass@postgres:5432/chap_core
+EOF
+docker compose -f compose.ghcr.yml up -d
+```
+
+Pass the same `-f compose.ghcr.yml` flag to every later `down`, `pull` and
+`logs` command in that stack.
 
 Docker Compose does not remember which overlays you used, so pass the same `-f` flags to every subsequent `down`, `build` and `logs` command in that stack. The `make restart`, `make force-restart` and `make chap-version` targets already carry the `compose.yml` + `compose.chapkit.yml` pair.
 
