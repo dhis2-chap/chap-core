@@ -8,6 +8,7 @@ from chap_core.assessment.metrics import metric
 from chap_core.assessment.metrics.base import (
     AggregationOp,
     MetricSpec,
+    OptimizationDirection,
     ProbabilisticMetric,
 )
 
@@ -31,6 +32,7 @@ class SampleCountMetric(ProbabilisticMetric):
         metric_name="Sample Count",
         aggregation_op=AggregationOp.SUM,
         description="Number of forecast samples (sum across aggregation)",
+        optimization_direction=OptimizationDirection.MINIMIZE,
     )
 
     def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:

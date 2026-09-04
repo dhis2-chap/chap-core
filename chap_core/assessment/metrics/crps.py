@@ -8,6 +8,7 @@ from chap_core.assessment.metrics import metric
 from chap_core.assessment.metrics.base import (
     AggregationOp,
     MetricSpec,
+    OptimizationDirection,
     ProbabilisticMetric,
 )
 
@@ -80,6 +81,7 @@ class CRPSMetric(ProbabilisticMetric):
         metric_name="CRPS",
         aggregation_op=AggregationOp.MEAN,
         description="Continuous Ranked Probability Score - measures calibration and sharpness",
+        optimization_direction=OptimizationDirection.MINIMIZE,
     )
 
     def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:
@@ -102,6 +104,7 @@ class CRPSLog1pMetric(ProbabilisticMetric):
         metric_name="CRPS (log1p)",
         aggregation_op=AggregationOp.MEAN,
         description="CRPS computed on log(1+x)-transformed forecasts and observations",
+        optimization_direction=OptimizationDirection.MINIMIZE,
     )
 
     def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:

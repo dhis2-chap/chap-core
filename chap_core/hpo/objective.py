@@ -22,23 +22,24 @@ class Objective:
         historical_context_years: int = 6,
         eval_output_dir: Path | None = None,
     ):
+        from chap_core.assessment.metrics import get_optimization_direction
+
         self.model_template = model_template
         self.backtest_params = backtest_params
-        self.metric = metric if metric is not None else "rmse"
+        self.metric = metric or "rmse"
+        self.direction = get_optimization_direction(self.metric)
         self.historical_context_years = historical_context_years
         self.eval_output_dir = eval_output_dir
 
-    def __call__(self, config, dataset: DataSet) -> float:
+    def __call__(self, params: dict, dataset: DataSet) -> float:
         """
         This method takes a concrete configuration produced by a Searcher,
-        runs model evaluation, and returns a scalar score of the selected metric.
-        dry_run and plot from eval_cmd are not currently included.
+        runs model validation, and returns a scalar score of the selected metric.
         """
         from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 
-        logger.info("Validating model configuration")
-        model_configs = {"user_option_values": config}  # TODO: should prob be removed
-        configuration = ModelConfiguration.model_validate(model_configs)
+        base_config = {"user_option_values": params}  # chap configuration file structure
+        configuration = ModelConfiguration.model_validate(base_config)
 
         model = self.model_template.get_model(configuration)  # type: ignore[arg-type]
         estimator = model()
@@ -52,14 +53,14 @@ class Objective:
         )
 
         configured_model_db = ConfiguredModelDB(
-            id=f"cli_hpo_eval_{run_id}",
+            id=f"hpo_{run_id}",
             model_template_id=model_template_db.id,
             model_template=model_template_db,
-            configuration=configuration.model_dump() if configuration else {},
+            **configuration.model_dump() if configuration else {},
         )
 
         logger.info(
-            f"Running backtest with {self.backtest_params.n_splits} splits, {self.backtest_params.n_periods} periods, stride {self.backtest_params.stride}"
+            f"Running validation backtest with {self.backtest_params.n_splits} splits, {self.backtest_params.n_periods} periods, stride {self.backtest_params.stride}"
         )
         logger.debug(f"Including {self.historical_context_years} years of historical context for plotting")
 
@@ -69,34 +70,34 @@ class Objective:
                 estimator=estimator,
                 dataset=dataset,
                 backtest_params=self.backtest_params,
-                backtest_name=f"hpo_evaluation_{run_id}",
+                backtest_name=f"hpo_validation_{run_id}",
                 historical_context_years=self.historical_context_years,
             )
         except Exception:
-            logger.exception(f"Evaluation failed for configuration {config}")
+            logger.exception(f"Validation failed for configuration {base_config}")
             raise
 
         if self.eval_output_dir is not None:
             self.eval_output_dir.mkdir(parents=True, exist_ok=True)
-            eval_file = self.eval_output_dir / f"hpo_eval_{run_id}.nc"
+            eval_file = self.eval_output_dir / f"hpo_validation_{run_id}.nc"
 
-            logger.info(f"Exporting hpo evaluation to {eval_file}")
+            logger.info(f"Exporting hpo validation to {eval_file}")
             evaluation.to_file(
                 filepath=eval_file,
                 model_name=f"hpo_config_{run_id}",
                 model_configuration=configuration.model_dump() if configuration else {},
                 model_version=self.model_template.model_template_config.version or "unknown",
             )
-            logger.info(f"Evaluation complete. Results saved to {eval_file}")
+            logger.info(f"Validation complete. Results saved to {eval_file}")
 
-        logger.info("Calculating metrics for objective evaluation")
-        metrics_results = calculate_metrics(
+        logger.info("Calculating metrics for objective validation")
+        metrics = calculate_metrics(
             evaluation=evaluation,
             metric_ids=[self.metric],
         )
-        logger.info(f"Metrics calculation complete. Results: {metrics_results}")
+        logger.info(f"Metrics calculation complete: {metrics}")
 
-        metric_value = metrics_results[self.metric]
-        if metric_value is None:
+        score = metrics[self.metric]
+        if score is None:
             raise ValueError(f"Metric {self.metric} could not be calculated for this configuration.")
-        return float(metric_value)
+        return float(score)

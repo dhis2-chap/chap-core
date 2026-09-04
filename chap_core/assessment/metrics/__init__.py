@@ -21,6 +21,7 @@ from chap_core.assessment.metrics.base import (
     DeterministicMetric,
     Metric,
     MetricSpec,
+    OptimizationDirection,
     ProbabilisticMetric,
 )
 from chap_core.database.tables import Backtest
@@ -67,6 +68,9 @@ def list_metrics() -> list[dict]:
                 "name": spec.metric_name,
                 "description": spec.description,
                 "aggregation_op": spec.aggregation_op.value,
+                "optimization_direction": (
+                    spec.optimization_direction.value if spec.optimization_direction is not None else None
+                ),
             }
         )
     return result
@@ -276,3 +280,19 @@ def calculate_metrics(
             result[metric_id] = None
 
     return result
+
+
+def get_optimization_direction(metric_id: str) -> OptimizationDirection:
+    metric_cls = get_metric(metric_id)
+
+    if metric_cls is None:
+        raise ValueError(f"Unknown metric {metric_id!r}")
+
+    direction = metric_cls.spec.optimization_direction
+    if direction is None:
+        raise ValueError(
+            f"Metric {metric_id!r} is not defined as a direct HPO objective. "
+            "Choose a metric with an explicit optimization direction."
+        )
+
+    return direction

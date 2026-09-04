@@ -9,6 +9,7 @@ from chap_core.assessment.metrics.base import (
     AggregationOp,
     DeterministicMetric,
     MetricSpec,
+    OptimizationDirection,
 )
 
 
@@ -32,6 +33,7 @@ class MAPEMetric(DeterministicMetric):
         metric_name="MAPE",
         aggregation_op=AggregationOp.MEAN,
         description="Mean Absolute Percentage Error - measures average absolute prediction error",
+        optimization_direction=OptimizationDirection.MINIMIZE,
     )
 
     def compute_point_metric(self, forecast: float, observed: float) -> float:

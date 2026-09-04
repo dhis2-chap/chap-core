@@ -43,6 +43,7 @@ class Coverage10_90Metric(PercentileCoverageMetric):
         metric_name="Coverage 10-90",
         aggregation_op=AggregationOp.MEAN,
         description="Proportion of observations within 10th-90th percentile",
+        optimization_direction=None,
     )
     low_percentile = 10
     high_percentile = 90
@@ -57,6 +58,7 @@ class Coverage25_75Metric(PercentileCoverageMetric):
         metric_name="Coverage 25-75",
         aggregation_op=AggregationOp.MEAN,
         description="Proportion of observations within 25th-75th percentile",
+        optimization_direction=None,
     )
     low_percentile = 25
     high_percentile = 75

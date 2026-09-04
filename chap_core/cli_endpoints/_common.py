@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     import pandas as pd
 
-    from chap_core.api_types import BacktestParams, SearcherType
+    from chap_core.api_types import BacktestParams, EstimatorOptions
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
     from chap_core.external.model_configuration import ModelTemplateConfigV2
     from chap_core.hpo.hpoModel import HpoModel
@@ -278,11 +278,12 @@ def warn_unused_covariates(
 
 
 def get_hpo_estimator(
+    *,
     template: ModelTemplate,
-    model_configuration_yaml: Path | None,
+    configuration: ModelConfiguration | None,
+    search_space_yaml: Path | None,
     backtest_params: BacktestParams,
-    metric: str | None = None,
-    searcher_inp: SearcherType | None = None,
+    options: EstimatorOptions,
 ) -> HpoModel:
     """
     Build an HPO-backend estimator from either:
@@ -295,28 +296,48 @@ def get_hpo_estimator(
     from chap_core.hpo.base import load_search_space_from_config
     from chap_core.hpo.hpoModel import HpoModel
     from chap_core.hpo.objective import Objective
-    from chap_core.hpo.searcher import DEFAULT_SEARCH_TRIALS, GridSearcher, RandomSearcher, Searcher, TPESearcher
+    from chap_core.hpo.searcher import GridSearcher, RandomSearcher, Searcher, TPESearcher
+    from chap_core.hpo.types import DEFAULT_HPO_TRIALS
 
-    if model_configuration_yaml is not None:
-        logger.info(f"Loading model configuration from {model_configuration_yaml}")
-        with open(model_configuration_yaml, encoding="utf-8") as f:
-            config = yaml.safe_load(f)
-        if not isinstance(config, dict) or not config:
-            raise ValueError("YAML must define a non-empty mapping of parameters")
+    if search_space_yaml is not None:
+        logger.info(f"Loading hpo search space from {search_space_yaml}")
+        with open(search_space_yaml, encoding="utf-8") as f:
+            search_space_raw = yaml.safe_load(f)
     else:
-        config = template.model_template_config.hpo_search_space
+        search_space_raw = template.model_template_config.hpo_search_space
 
-    search_space = load_search_space_from_config(config)
-    objective = Objective(model_template=template, backtest_params=backtest_params, metric=metric)
-    searcher: Searcher | None = None
-    if searcher_inp is not None:
-        if searcher_inp == SearcherType.GRID:
-            searcher = GridSearcher()
-        elif searcher_inp == SearcherType.RANDOM:
-            searcher = RandomSearcher(DEFAULT_SEARCH_TRIALS)  # TODO: make number of iterations configurable
-        elif searcher_inp == SearcherType.TPE:
-            searcher = TPESearcher(DEFAULT_SEARCH_TRIALS)  # TODO: make number of iterations configurable
-        else:
-            raise ValueError(f"Unknown searcher: {searcher_inp!r}")
+    if not search_space_raw or not isinstance(search_space_raw, dict):
+        raise ValueError(
+            "HPO search space YAML must define a non-empty mapping of parameters, either "
+            "through --hpo-search-space-yaml or the model's "
+            "MLProject hpo_search_space."
+        )
 
-    return HpoModel(objective=objective, searcher=searcher, direction="minimize", model_configuration=search_space)
+    search_space = load_search_space_from_config(search_space_raw)
+
+    # to avoid retraining during validation even when outer n_retrain>1
+    # validation_backtest_params = backtest_params.model_copy(update={"n_retrain": 1})
+    objective = Objective(model_template=template, backtest_params=backtest_params, metric=options.metric)
+
+    searcher_type = options.searcher or SearcherType.TPE
+    searcher: Searcher
+    if searcher_type == SearcherType.GRID:
+        searcher = GridSearcher()
+        default_max_trials = None
+    elif searcher_type == SearcherType.RANDOM:
+        searcher = RandomSearcher()
+        default_max_trials = DEFAULT_HPO_TRIALS
+    elif searcher_type == SearcherType.TPE:
+        searcher = TPESearcher(objective.direction.value)
+        default_max_trials = DEFAULT_HPO_TRIALS
+    else:
+        raise ValueError(f"Unknown searcher: {searcher_type!r}")
+
+    return HpoModel(
+        objective=objective,
+        searcher=searcher,
+        configuration=configuration,
+        search_space=search_space,
+        max_trials=options.max_trials if options.max_trials is not None else default_max_trials,
+        seed=options.seed,
+    )

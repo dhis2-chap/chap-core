@@ -52,6 +52,15 @@ ModelConfigYamlArg = Annotated[
     Parameter(help="Path to YAML file with model-specific configuration parameters"),
 ]
 
+HpoSearchSpaceYamlArg = Annotated[
+    Path | None,
+    Parameter(
+        help=(
+            "Path to YAML defining the HPO search space. If omitted, hpo_search_space from model's MLProject is used."
+        )
+    ),
+]
+
 DataSourceMappingArg = Annotated[
     Path | None,
     Parameter(
