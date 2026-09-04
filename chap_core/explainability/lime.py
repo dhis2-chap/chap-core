@@ -977,8 +977,6 @@ def _prepare_lime_inputs(
     climate_predictor = get_climate_predictor(climate_data)
     full_future_weather = climate_predictor.predict(prediction_range)
 
-    # Restricts every location's history to each locations own last_n periods,
-    # so that the datasets can later be spliced into model.predict() (see produce_lime_dataset)
     restricted_dataset = dataset
     if last_n is not None:
         assert last_n > 0, f"last_n must be positive, got {last_n}"
@@ -986,15 +984,17 @@ def _prepare_lime_inputs(
         target_period_range = dataset[location].time_period
         window = min(last_n, len(target_period_range))
         start_period = target_period_range[-window]
+
+        # Restricts every location's history to the selected location's last_n periods,
+        # so that the dataset for the different locations can be spliced together before being passed to model.predict()
         restricted_dataset = dataset.restrict_time_period(slice(start_period, None))
 
         mismatched_locations = [
             loc for loc in restricted_dataset.locations() if len(restricted_dataset[loc].time_period) != window
         ]
 
-        # Target location's cant be part of mismatched_locations, since the window is based on
-        # target location's own timer period.
-
+        # Target location can't be part of mismatched_locations, since the window is based on
+        # target location's own time period.
         if mismatched_locations:
             logger.warning(
                 "Dropping location(s) that don't fully cover %s's last_n window: %s",
@@ -1102,16 +1102,14 @@ def explain(
         horizon (int): The number of time steps into the future on which to explain
         granularity (int): Number of segments to divide the time series data into for importance weighting (default: 10)
         num_perturbations (int): Number of generated perturbed variations of input vector (default 300)
-        surrogate_name (str): The model used as explainable surrogate - one of ["ridge", "tree"] (default ridge)
+        surrogate_name (str): The model used as explainable surrogate - one of ["ridge", "bayesian"] (default ridge)
         segmenter_name (str): The model used for segmentation - one of ["uniform", "exponential", "matrix_slope",
                               "matrix_diff", "matrix_bins", "sax", "nn"] (default uniform)
         sampler_name (str): The sampling strategy used to replace features "turned off" - one of ["background"] (default background)
         weighter_name (str): The strategy for weighting perturbations according to distance to original (default pairwise)
-        last_n (int | None): If set, every location's historical data fed to the model is restricted
-            to the last last_n time steps of `location`'s own timeline (other locations may end up
-            with fewer steps, or be dropped, if their range doesn't reach that far back). Does not
-            affect the background sampler's pool or the per-feature global means, which still draw
-            from the full unrestricted dataset.
+        last_n (int | None): Restricts every location's historic data that is given to the model to the last_n timesteps of the
+            selected location. Will only restrict what the model actually uses, not background sampler's pool etc. Locations that don't fit
+            into the last_n period will be dropped.
         seed (int): Seeding for RNG
         timed (bool): Flag for whether to print execution time for LIME pipeline stages
         save (bool): Whether to save the calculated importance weighting
@@ -1396,11 +1394,9 @@ def explain_adaptive(
                               "matrix_diff", "matrix_bins", "sax", "nn"] (default uniform)
         sampler_name (str): The sampling strategy used to replace features "turned off" - one of ["background"] (default background)
         weighter_name (str): The strategy for weighting perturbations according to distance to original (default pairwise)
-        last_n (int | None): If set, every location's historical data fed to the model is restricted
-            to the last last_n time steps of `location`'s own timeline (other locations may end up
-            with fewer steps, or be dropped, if their range doesn't reach that far back). Does not
-            affect the background sampler's pool or the per-feature global means, which still draw
-            from the full, unrestricted dataset.
+        last_n (int | None): Restricts every location's historic data that is given to the model to the last_n timesteps of the
+            selected location. Will only restrict what the model actually uses, not background sampler's pool etc. Locations that don't fit
+            into the last_n period will be dropped.
         seed (int): Seeding for RNG
         timed (bool): Flag for whether to print execution time for LIME pipeline stages
         save (bool): Whether to save the calculated importance weighting
