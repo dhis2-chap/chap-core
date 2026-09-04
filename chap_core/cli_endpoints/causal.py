@@ -20,6 +20,7 @@ from chap_core.cli_endpoints._common import (
     get_estimator,
     load_dataset_from_csv,
     resolve_csv_path,
+    resolve_period_arg,
     warn_unused_covariates,
 )
 
@@ -66,7 +67,13 @@ def causal_cmd(
     ],
     split_period: Annotated[
         str,
-        Parameter(help="Period string where training ends and prediction begins (e.g. '2023-01' or '2023W01')"),
+        Parameter(
+            help=(
+                "Period where training ends and prediction begins (e.g. '2023-01' or '2023W01'). "
+                "Also accepts a relative index: '+n' for the n-th period from the start, '-n' for "
+                "the n-th period from the end of the dataset (both 1-based)."
+            )
+        ),
     ],
     output_file: Annotated[
         Path,
@@ -78,7 +85,9 @@ def causal_cmd(
             help=(
                 "Period where counterfactual values begin as historic context during prediction "
                 "(must be before split_period). When set, periods from here up to split_period "
-                "use counterfactual covariates instead of original values. Defaults to split_period."
+                "use counterfactual covariates instead of original values. Defaults to split_period. "
+                "Also accepts a relative index: '+n' for the n-th period from the start, '-n' for "
+                "the n-th period from the end of the dataset (both 1-based)."
             )
         ),
     ] = None,
@@ -94,6 +103,43 @@ def causal_cmd(
         bool,
         Parameter(help="Generate a side-by-side comparison plot (HTML) alongside the NetCDF output"),
     ] = False,
+    plot_overlayed: Annotated[
+        bool,
+        Parameter(
+            "--plot-overlayed",
+            help=(
+                "Generate a single overlaid original-vs-counterfactual plot (HTML); mutually "
+                "exclusive with --plot. Observed cases are shown only up to the split period."
+            ),
+        ),
+    ] = False,
+    plot_title: Annotated[
+        str | None,
+        Parameter("--plot-title", help="Override the top-level chart title (both plot modes)"),
+    ] = None,
+    plot_x_label: Annotated[
+        str | None,
+        Parameter("--plot-x-label", help='X-axis title (both plot modes); defaults to "Time period"'),
+    ] = None,
+    plot_y_label: Annotated[
+        str | None,
+        Parameter("--plot-y-label", help='Y-axis title (both plot modes); defaults to "Disease cases"'),
+    ] = None,
+    original_label: Annotated[
+        str,
+        Parameter("--original-label", help="Display name for the original dataset in plots"),
+    ] = "Original",
+    counterfactual_label: Annotated[
+        str,
+        Parameter("--counterfactual-label", help="Display name for the counterfactual dataset in plots"),
+    ] = "Counterfactual",
+    confidence_intervals: Annotated[
+        bool,
+        Parameter(
+            "--confidence-intervals",
+            help="Draw forecast confidence-interval bands in plots (both plot modes)",
+        ),
+    ] = True,
 ):
     """Train a model on the original dataset up to split_period and predict on both datasets.
 
@@ -110,6 +156,20 @@ def causal_cmd(
     Results are written to two NetCDF files: output_file (original) and
     output_file with a _cf suffix (counterfactual).
 
+    split_period and cf_start_period also accept a relative period index instead of an exact
+    period string: '+n' selects the n-th period from the start of the dataset, '-n' selects the
+    n-th period from the end (both 1-based, e.g. '-1' is the dataset's last period).
+
+    Pass --plot for a per-location side-by-side comparison plot, or --plot-overlayed for a single
+    overlaid plot where the original and counterfactual forecasts share one set of axes and the
+    observed cases are drawn only up to the split period. The two flags are mutually exclusive.
+    --plot-title overrides the chart title, --plot-x-label / --plot-y-label override the default
+    axis titles ("Time period" / "Disease cases"),
+    --original-label / --counterfactual-label set the dataset display names (default
+    "Original" / "Counterfactual") used for the subplot titles, legend entries, and the composed
+    chart title, and --no-confidence-intervals hides the forecast uncertainty bands. All of these
+    apply to both --plot and --plot-overlayed.
+
     Examples:
         # Train on original data up to 2023-01, predict on both scenarios
         chap causal --model-name https://github.com/dhis2-chap/minimalist_example_lag \\
@@ -118,6 +178,23 @@ def causal_cmd(
             --counterfactual-columns rainfall \\
             --split-period 2023-01 \\
             --output-file ./results/causal.nc
+
+        # Equivalent, using a relative index for split_period (3rd-to-last period)
+        chap causal --model-name https://github.com/dhis2-chap/minimalist_example_lag \\
+            --dataset-csv ./data/original.csv \\
+            --counterfactual-csv ./data/counterfactual.csv \\
+            --counterfactual-columns rainfall \\
+            --split-period=-3 \\
+            --output-file ./results/causal.nc
+
+        # Overlaid plot with custom title and axis labels
+        chap causal --model-name https://github.com/dhis2-chap/minimalist_example_lag \\
+            --dataset-csv ./data/original.csv \\
+            --counterfactual-csv ./data/counterfactual.csv \\
+            --counterfactual-columns rainfall \\
+            --split-period 2023-01 \\
+            --output-file ./results/causal.nc \\
+            --plot-overlayed --plot-title "Rainfall scenario" --plot-x-label Month --plot-y-label Cases
 
     """
     from chap_core.assessment.dataset_splitting import train_test_split
@@ -132,14 +209,8 @@ def causal_cmd(
 
     initialize_logging(run_config.debug, run_config.log_file)
 
-    split_period_obj = TimePeriod.parse(split_period)
-    cf_start_period_obj = None
-    if cf_start_period is not None:
-        cf_start_period_obj = TimePeriod.parse(cf_start_period)
-        if cf_start_period_obj >= split_period_obj:
-            raise ValueError(
-                f"cf_start_period ({cf_start_period}) must be strictly before split_period ({split_period})."
-            )
+    if plot and plot_overlayed:
+        raise ValueError("Specify only one of --plot and --plot-overlayed")
 
     original_csv_path, url_geojson_path = resolve_csv_path(dataset_csv)
     cf_csv_path, _ = resolve_csv_path(counterfactual_csv)
@@ -148,6 +219,16 @@ def causal_cmd(
     original_df = pd.read_csv(original_csv_path)
     cf_df = pd.read_csv(cf_csv_path)
     _validate_datasets(original_df, cf_df, counterfactual_columns)
+
+    available_periods = original_df["time_period"].apply(TimePeriod.parse)
+    split_period_obj = resolve_period_arg(split_period, available_periods, "split_period")
+    cf_start_period_obj = None
+    if cf_start_period is not None:
+        cf_start_period_obj = resolve_period_arg(cf_start_period, available_periods, "cf_start_period")
+        if cf_start_period_obj >= split_period_obj:
+            raise ValueError(
+                f"cf_start_period ({cf_start_period}) must be strictly before split_period ({split_period})."
+            )
 
     original_dataset = load_dataset_from_csv(original_csv_path, geojson_path)
     cf_dataset = load_dataset_from_csv(cf_csv_path, geojson_path)
@@ -247,12 +328,37 @@ def causal_cmd(
         logger.info(f"Saving counterfactual predictions to {cf_output_file}")
         eval_cf.to_file(cf_output_file, **shared_kwargs)
 
-        if plot:
-            from chap_core.assessment.causal_plot import plot_counterfactual
-
+        if plot or plot_overlayed:
             plot_path = output_file.with_suffix(".html")
             logger.info(f"Generating counterfactual plot to {plot_path}")
-            chart = plot_counterfactual(eval_original, eval_cf, counterfactual_columns)
+            if plot_overlayed:
+                from chap_core.assessment.causal_plot import plot_counterfactual_overlayed
+
+                chart = plot_counterfactual_overlayed(
+                    eval_original,
+                    eval_cf,
+                    counterfactual_columns,
+                    title=plot_title,
+                    x_label=plot_x_label,
+                    y_label=plot_y_label,
+                    original_label=original_label,
+                    counterfactual_label=counterfactual_label,
+                    show_confidence_intervals=confidence_intervals,
+                )
+            else:
+                from chap_core.assessment.causal_plot import plot_counterfactual
+
+                chart = plot_counterfactual(
+                    eval_original,
+                    eval_cf,
+                    counterfactual_columns,
+                    title=plot_title,
+                    x_label=plot_x_label,
+                    y_label=plot_y_label,
+                    original_label=original_label,
+                    counterfactual_label=counterfactual_label,
+                    show_confidence_intervals=confidence_intervals,
+                )
             chart.save(str(plot_path))
             logger.info(f"Plot saved to {plot_path}")
 

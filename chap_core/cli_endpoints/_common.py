@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -16,8 +17,47 @@ if TYPE_CHECKING:
     from chap_core.models.external_model import ExternalModel
     from chap_core.models.model_template import ModelTemplate
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+    from chap_core.time_period import TimePeriod
 
 logger = logging.getLogger(__name__)
+
+_RELATIVE_PERIOD_RE = re.compile(r"[+-]\d+")
+
+
+def resolve_period_arg(value: str, available_periods: Any, arg_name: str) -> TimePeriod:
+    """Resolve a period CLI argument to a TimePeriod.
+
+    `value` is either an exact period string (e.g. "2023-01", "2023W01", "2023"), or a relative
+    index into the sorted unique periods in `available_periods`:
+      - "-n": the n-th period from the end (n >= 1; "-1" is the last period).
+      - "+n": the n-th period from the start (n >= 1; "+1" is the first period).
+
+    Logs the resolved period at INFO level.
+    """
+    from typing import cast
+
+    from chap_core.time_period import TimePeriod
+
+    stripped = value.strip()
+    if _RELATIVE_PERIOD_RE.fullmatch(stripped):
+        sign, n = stripped[0], int(stripped[1:])
+        if n < 1:
+            raise ValueError(f"{arg_name}: relative period index must be at least 1 (got '{value}')")
+        all_periods = sorted(available_periods)
+        sorted_periods = [p for i, p in enumerate(all_periods) if i == 0 or p != all_periods[i - 1]]
+        if not sorted_periods:
+            raise ValueError(f"{arg_name}: no periods available in dataset to resolve '{value}' against")
+        if n > len(sorted_periods):
+            raise ValueError(
+                f"{arg_name}: only {len(sorted_periods)} distinct periods in dataset, cannot resolve '{value}'"
+            )
+        resolved: TimePeriod = sorted_periods[-n] if sign == "-" else sorted_periods[n - 1]
+        logger.info("%s: resolved relative period '%s' to %s", arg_name, value, resolved)
+        return resolved
+
+    resolved = cast("TimePeriod", TimePeriod.parse(stripped))
+    logger.info("%s: resolved to period %s", arg_name, resolved)
+    return resolved
 
 
 def append_to_csv(file_object, data_frame: pd.DataFrame):
