@@ -2,6 +2,7 @@ import logging
 from typing import Annotated, Any
 
 import numpy as np
+import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import Field as PydanticField
 from sqlalchemy.orm import selectinload
@@ -740,9 +741,8 @@ class ThresholdEntry(DBModel):
     period: str = Field(description="Period the thresholds apply to.")
     location: str = Field(description="Location the thresholds apply to.")
     values: list[float | None] = Field(
-        description="One threshold per requested line, in the order of the request's line parameter list "
-        "(`quantile`, `stdMultiplier`, ...). A scalar or default request yields one element. "
-        "An element is `null` when that line could not be computed."
+        description="One threshold per line, in the same order as the response's `lines`. "
+        "An element is `null` when that line could not be computed for this (period, location)."
     )
 
 
@@ -750,10 +750,16 @@ class ThresholdResponse(DBModel):
     """Threshold lines for every requested (period, location), with the resolved params echoed back."""
 
     params: ThresholdParams = PydanticField(
-        description="The resolved parameters the thresholds were computed with, defaults applied. "
-        "Its line parameter list states the ordering of each entry's `values`."
+        description="The resolved parameters the thresholds were computed with, defaults applied."
     )
-    entries: list[ThresholdEntry] = Field(description="One entry per (period, location).")
+    lines: list[float] = Field(
+        description="The line parameter value each threshold was computed from (a quantile, a std multiplier, ...), "
+        "one per line, in the order of every entry's `values`. A scalar or default request yields one element."
+    )
+    entries: list[ThresholdEntry] = Field(
+        description="One entry per requested (period, location), including combinations no threshold "
+        "could be computed for, whose `values` are then `null`."
+    )
 
 
 class ThresholdStrategyInfo(DBModel):
@@ -793,7 +799,9 @@ def compute_thresholds(request: ThresholdRequest, session: Session = Depends(get
 
     The `type` field of `params` selects the strategy; the strategy's line parameter
     (`quantile`, `stdMultiplier`, ...) accepts a scalar or a list, and each entry's `values`
-    array holds one threshold per requested line, in request order. 404 if the dataset has
+    array holds one threshold per requested line, in the order of `lines`. Every requested
+    (period, location) gets an entry; cells no threshold could be computed for are `null`.
+    404 if the dataset has
     no `disease_cases` observations. 400 if the requested periods do not match the dataset's
     frequency, or if the dataset has no complete year to compute a baseline from.
     """
@@ -820,15 +828,21 @@ def compute_thresholds(request: ThresholdRequest, session: Session = Depends(get
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
+    lines = request.params.lines
+    locations = request.locations or sorted(df["location"].unique())
+    grid = pd.MultiIndex.from_product(
+        [request.period_ids, locations, range(len(lines))], names=["period_id", "location", "line"]
+    )
+    thresholds = result.set_index(["period_id", "location", "line"])["threshold"].reindex(grid)
+    # reindex keeps the grid's period-major, then location, then line ordering
+    values = thresholds.to_numpy(dtype=float).reshape(len(request.period_ids), len(locations), len(lines))
     entries = [
         ThresholdEntry(
             period=str(period),
             location=str(location),
-            values=[
-                None if (value is None or np.isnan(value)) else float(value)
-                for value in group.sort_values("line")["threshold"]
-            ],
+            values=[None if np.isnan(value) else float(value) for value in row],
         )
-        for (period, location), group in result.groupby(["period_id", "location"], sort=True)
+        for period, per_location in zip(request.period_ids, values, strict=True)
+        for location, row in zip(locations, per_location, strict=True)
     ]
-    return ThresholdResponse(params=request.params, entries=entries)
+    return ThresholdResponse(params=request.params, lines=lines, entries=entries)

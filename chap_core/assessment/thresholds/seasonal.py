@@ -6,7 +6,7 @@ import pandas as pd
 
 from chap_core.assessment.thresholds import threshold
 from chap_core.assessment.thresholds.base import ThresholdStrategyBase, align_seasonal_to_periods
-from chap_core.assessment.thresholds.params import SeasonalParams, line_values
+from chap_core.assessment.thresholds.params import SeasonalParams
 from chap_core.time_period.vectorized import season_column
 
 
@@ -57,7 +57,7 @@ class SeasonalThresholdStrategy(ThresholdStrategyBase[SeasonalParams]):
     ) -> pd.DataFrame:
         season, stats = seasonal_stats(historical_observations)
         lines = []
-        for i, multiplier in enumerate(line_values(params.std_multiplier)):
+        for i, multiplier in enumerate(params.lines):
             line = stats[["location", season]].copy()
             line["line"] = i
             line["threshold"] = stats["mean"] + multiplier * stats["std"]

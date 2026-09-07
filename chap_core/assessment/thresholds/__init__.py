@@ -10,7 +10,7 @@ code never needs editing.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, get_args
 
 from chap_core.assessment.thresholds.base import ThresholdStrategyBase
 
@@ -21,6 +21,12 @@ if TYPE_CHECKING:
 _threshold_strategies_registry: dict[str, type[ThresholdStrategyBase]] = {}
 
 
+def params_type_literal(params_model: type[BaseModel]) -> str:
+    """The value of a params model's required ``type: Literal[...]`` discriminator field."""
+    (literal,) = get_args(params_model.model_fields["type"].annotation)
+    return str(literal)
+
+
 def threshold(strategy_id: str, name: str, params_model: type[BaseModel], description: str = ""):
     """Decorator to register a threshold strategy class with its typed params model."""
 
@@ -28,7 +34,7 @@ def threshold(strategy_id: str, name: str, params_model: type[BaseModel], descri
         if not issubclass(cls, ThresholdStrategyBase):
             raise TypeError(f"{cls.__name__} must inherit from ThresholdStrategyBase")
 
-        type_literal = params_model.model_fields["type"].default
+        type_literal = params_type_literal(params_model)
         if type_literal != strategy_id:
             raise ValueError(
                 f"{params_model.__name__}.type literal {type_literal!r} does not match "

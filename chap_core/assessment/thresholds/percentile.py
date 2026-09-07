@@ -18,7 +18,7 @@ import pandas as pd
 
 from chap_core.assessment.thresholds import threshold
 from chap_core.assessment.thresholds.base import ThresholdStrategyBase, align_seasonal_to_periods
-from chap_core.assessment.thresholds.params import PercentileParams, line_values
+from chap_core.assessment.thresholds.params import PercentileParams
 from chap_core.time_period.vectorized import extract_year, season_column
 
 _FULL_YEAR_BUCKETS = {"month": 12, "week": 52}
@@ -109,5 +109,5 @@ class PercentileThresholdStrategy(ThresholdStrategyBase[PercentileParams]):
         params: PercentileParams,
     ) -> pd.DataFrame:
         windowed = filter_to_baseline(historical_observations, params.baseline_years)
-        per_season = compute_percentile_thresholds(windowed, line_values(params.quantile))
+        per_season = compute_percentile_thresholds(windowed, params.lines)
         return align_seasonal_to_periods(per_season, period_ids)

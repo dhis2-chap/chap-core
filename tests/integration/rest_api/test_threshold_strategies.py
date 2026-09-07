@@ -5,7 +5,12 @@ from typing import get_args
 import pandas as pd
 import pytest
 
-from chap_core.assessment.thresholds import get_threshold_strategy, list_threshold_strategies, threshold
+from chap_core.assessment.thresholds import (
+    get_threshold_strategy,
+    list_threshold_strategies,
+    params_type_literal,
+    threshold,
+)
 from chap_core.assessment.thresholds.base import ThresholdStrategyBase
 from chap_core.assessment.thresholds.params import PercentileParams, SeasonalParams, ThresholdParams
 from chap_core.assessment.thresholds.seasonal import compute_seasonal_thresholds
@@ -48,7 +53,7 @@ def test_registered_params_models_match_strategy_ids():
     for strategy_id in (s["id"] for s in list_threshold_strategies()):
         cls = get_threshold_strategy(strategy_id)
         assert cls is not None
-        assert cls.params_model.model_fields["type"].default == strategy_id
+        assert params_type_literal(cls.params_model) == strategy_id
 
 
 def test_builtin_strategies_are_in_params_union():
@@ -59,7 +64,7 @@ def test_builtin_strategies_are_in_params_union():
     example) are excluded, since adding them to the union is a separate step.
     """
     union, _ = get_args(ThresholdParams)
-    union_ids = {model.model_fields["type"].default for model in get_args(union)}
+    union_ids = {params_type_literal(model) for model in get_args(union)}
     builtin_ids = {
         strategy_id
         for strategy_id in (s["id"] for s in list_threshold_strategies())
@@ -71,7 +76,7 @@ def test_builtin_strategies_are_in_params_union():
 def test_seasonal_strategy_shape(dataset_observations, org_units):
     df = _disease_cases_df(dataset_observations)
     period_ids = ["2023-01", "2023-02"]
-    result = _strategy("seasonal").compute(df, period_ids, SeasonalParams())
+    result = _strategy("seasonal").compute(df, period_ids, SeasonalParams(type="seasonal"))
     assert set(result.columns) == {"period_id", "location", "line", "threshold"}
     assert len(result) == len(period_ids) * len(org_units)
     assert set(result["period_id"]) == set(period_ids)
@@ -81,7 +86,7 @@ def test_seasonal_strategy_shape(dataset_observations, org_units):
 
 def test_seasonal_strategy_parity_with_compute_seasonal_thresholds(dataset_observations):
     df = _disease_cases_df(dataset_observations)
-    result = _strategy("seasonal").compute(df, ["2023-01"], SeasonalParams())
+    result = _strategy("seasonal").compute(df, ["2023-01"], SeasonalParams(type="seasonal"))
     per_month = compute_seasonal_thresholds(df)
     january = per_month[per_month["month"] == 1]
     for row in result.itertuples():
@@ -91,7 +96,7 @@ def test_seasonal_strategy_parity_with_compute_seasonal_thresholds(dataset_obser
 
 def test_seasonal_strategy_multi_line(endemic_channel_observations):
     result = _strategy("seasonal").compute(
-        endemic_channel_observations, ["2023-01"], SeasonalParams(std_multiplier=[1.0, 2.0])
+        endemic_channel_observations, ["2023-01"], SeasonalParams(type="seasonal", std_multiplier=[1.0, 2.0])
     )
     assert set(result["line"]) == {0, 1}
     for location in ("loc_1", "loc_2"):
@@ -105,7 +110,7 @@ def test_seasonal_strategy_multi_line(endemic_channel_observations):
 def test_seasonal_strategy_weekly(dataset_observations_weekly, org_units):
     df = _disease_cases_df(dataset_observations_weekly)
     period_ids = ["2023W01", "2023W02"]
-    result = _strategy("seasonal").compute(df, period_ids, SeasonalParams())
+    result = _strategy("seasonal").compute(df, period_ids, SeasonalParams(type="seasonal"))
     assert len(result) == len(period_ids) * len(org_units)
     assert set(result["period_id"]) == set(period_ids)
     assert result["threshold"].notna().all()
@@ -120,19 +125,21 @@ def test_seasonal_strategy_weekly_unpadded_period_ids(dataset_observations_weekl
     """2023W1 and 2023W01 refer to the same week and must yield identical thresholds."""
     df = _disease_cases_df(dataset_observations_weekly)
     strategy = _strategy("seasonal")
-    padded = strategy.compute(df, ["2023W01"], SeasonalParams()).set_index("location")["threshold"]
-    unpadded = strategy.compute(df, ["2023W1"], SeasonalParams()).set_index("location")["threshold"]
+    padded = strategy.compute(df, ["2023W01"], SeasonalParams(type="seasonal")).set_index("location")["threshold"]
+    unpadded = strategy.compute(df, ["2023W1"], SeasonalParams(type="seasonal")).set_index("location")["threshold"]
     assert padded.equals(unpadded)
 
 
 def test_seasonal_strategy_frequency_mismatch_raises(dataset_observations_weekly):
     df = _disease_cases_df(dataset_observations_weekly)
     with pytest.raises(ValueError, match="frequency"):
-        _strategy("seasonal").compute(df, ["2023-01"], SeasonalParams())
+        _strategy("seasonal").compute(df, ["2023-01"], SeasonalParams(type="seasonal"))
 
 
 def test_percentile_strategy_values(endemic_channel_observations):
-    result = _strategy("percentile").compute(endemic_channel_observations, ["2023-01"], PercentileParams(quantile=0.75))
+    result = _strategy("percentile").compute(
+        endemic_channel_observations, ["2023-01"], PercentileParams(type="percentile", quantile=0.75)
+    )
     expected = (
         endemic_channel_observations[endemic_channel_observations["time_period"].str.endswith("-01")]
         .groupby("location")["disease_cases"]
@@ -144,7 +151,7 @@ def test_percentile_strategy_values(endemic_channel_observations):
 
 def test_percentile_strategy_multi_line_order(endemic_channel_observations):
     result = _strategy("percentile").compute(
-        endemic_channel_observations, ["2023-01"], PercentileParams(quantile=[0.75, 0.25])
+        endemic_channel_observations, ["2023-01"], PercentileParams(type="percentile", quantile=[0.75, 0.25])
     )
     assert set(result["line"]) == {0, 1}
     for location in ("loc_1", "loc_2"):
@@ -157,7 +164,7 @@ def test_percentile_strategy_baseline_window(endemic_channel_observations):
     """A 2-year baseline over data ending in 2022 uses only 2021-2022 observations."""
     strategy = _strategy("percentile")
     windowed = strategy.compute(
-        endemic_channel_observations, ["2023-01"], PercentileParams(quantile=0.5, baseline_years=2)
+        endemic_channel_observations, ["2023-01"], PercentileParams(type="percentile", quantile=0.5, baseline_years=2)
     )
     expected = (
         endemic_channel_observations[endemic_channel_observations["time_period"].isin(["2021-01", "2022-01"])]
@@ -170,7 +177,9 @@ def test_percentile_strategy_baseline_window(endemic_channel_observations):
 
 def test_percentile_strategy_all_history_with_null_baseline(endemic_channel_observations):
     result = _strategy("percentile").compute(
-        endemic_channel_observations, ["2023-01"], PercentileParams(quantile=0.5, baseline_years=None)
+        endemic_channel_observations,
+        ["2023-01"],
+        PercentileParams(type="percentile", quantile=0.5, baseline_years=None),
     )
     expected = (
         endemic_channel_observations[endemic_channel_observations["time_period"].str.endswith("-01")]
@@ -184,7 +193,7 @@ def test_percentile_strategy_all_history_with_null_baseline(endemic_channel_obse
 def test_percentile_strategy_is_static_across_requested_periods(endemic_channel_observations):
     """Past, in-range and future periods of the same season get the same line."""
     strategy = _strategy("percentile")
-    params = PercentileParams(quantile=0.75, baseline_years=3)
+    params = PercentileParams(type="percentile", quantile=0.75, baseline_years=3)
     separate = [
         strategy.compute(endemic_channel_observations, [period], params).set_index("location")["threshold"]
         for period in ("2019-01", "2022-01", "2030-01")
@@ -201,7 +210,7 @@ def test_percentile_strategy_excludes_partial_final_year(
 ):
     """An in-progress final year is not part of the baseline, so it cannot raise its own threshold."""
     strategy = _strategy("percentile")
-    params = PercentileParams(quantile=0.75, baseline_years=2)
+    params = PercentileParams(type="percentile", quantile=0.75, baseline_years=2)
     complete = strategy.compute(endemic_channel_observations, ["2023-03"], params)
     with_partial = strategy.compute(endemic_channel_observations_partial_year, ["2023-03"], params)
     pd.testing.assert_frame_equal(with_partial, complete)
@@ -212,15 +221,29 @@ def test_percentile_strategy_no_complete_year_raises(endemic_channel_observation
         endemic_channel_observations_partial_year["time_period"].str.startswith("2023")
     ]
     with pytest.raises(ValueError, match="No complete years"):
-        _strategy("percentile").compute(only_partial, ["2023-03"], PercentileParams())
+        _strategy("percentile").compute(only_partial, ["2023-03"], PercentileParams(type="percentile"))
+
+
+def test_params_lines_follow_request_order():
+    assert SeasonalParams(type="seasonal").lines == [2.0]
+    assert SeasonalParams(type="seasonal", std_multiplier=[1.0, 2.0]).lines == [1.0, 2.0]
+    assert PercentileParams(type="percentile").lines == [0.75]
+    assert PercentileParams(type="percentile", quantile=[0.75, 0.25]).lines == [0.75, 0.25]
+
+
+def test_params_type_is_required():
+    with pytest.raises(ValueError):
+        PercentileParams()  # type: ignore[call-arg]
+    with pytest.raises(ValueError):
+        SeasonalParams()  # type: ignore[call-arg]
 
 
 def test_percentile_params_validation():
     with pytest.raises(ValueError):
-        PercentileParams(quantile=1.5)
+        PercentileParams(type="percentile", quantile=1.5)
     with pytest.raises(ValueError):
-        PercentileParams(quantile=[0.5, -0.1])
+        PercentileParams(type="percentile", quantile=[0.5, -0.1])
     with pytest.raises(ValueError):
-        PercentileParams(quantile=[])
+        PercentileParams(type="percentile", quantile=[])
     with pytest.raises(ValueError):
-        PercentileParams(baseline_years=0)
+        PercentileParams(type="percentile", baseline_years=0)

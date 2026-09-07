@@ -136,6 +136,11 @@ def test_threshold_params_schema_is_discriminated_union():
         assert params["discriminator"]["propertyName"] == "type"
         mapping = params["discriminator"]["mapping"]
         assert set(mapping) == {"seasonal", "percentile"}
+        # the discriminator must be required, or generated clients get `type?: string` and cannot narrow the union
+        for ref in mapping.values():
+            member = schema["components"]["schemas"][ref.rsplit("/", 1)[-1]]
+            assert "type" in member.get("required", []), member
+    assert schema["components"]["schemas"]["ThresholdResponse"]["properties"]["lines"]["type"] == "array"
 
 
 def test_compute_thresholds(override_session):
@@ -145,6 +150,7 @@ def test_compute_thresholds(override_session):
     result = response.json()
     # the resolved params echo back the applied defaults
     assert result["params"] == {"type": "seasonal", "stdMultiplier": 2.0}
+    assert result["lines"] == [2.0]
     entries = result["entries"]
     # 2 requested periods x 3 locations in the seeded dataset
     assert len(entries) == 6
@@ -163,6 +169,7 @@ def test_compute_thresholds_multi_line(override_session):
     assert response.status_code == 200, response.json()
     result = response.json()
     assert result["params"] == {"type": "percentile", "quantile": [0.25, 0.75], "baselineYears": None}
+    assert result["lines"] == [0.25, 0.75]
     for entry in result["entries"]:
         assert len(entry["values"]) == 2
         # values are positional in request order: 25th percentile <= 75th percentile
@@ -174,6 +181,28 @@ def test_compute_thresholds_filters_by_locations(override_session):
     response = client.post("/v1/analytics/thresholds", json=body)
     assert response.status_code == 200, response.json()
     assert {e["location"] for e in response.json()["entries"]} == {"loc_1"}
+
+
+def test_compute_thresholds_fills_missing_combinations_with_null(override_session):
+    """Every requested (period, location) gets an entry, even without data to compute it from."""
+    body = {
+        "dataset_id": 1,
+        "period_ids": ["2023-01", "2023-02"],
+        "params": {"type": "seasonal", "stdMultiplier": [1.0, 2.0]},
+        "locations": ["loc_1", "loc_missing"],
+    }
+    response = client.post("/v1/analytics/thresholds", json=body)
+    assert response.status_code == 200, response.json()
+    entries = response.json()["entries"]
+    assert {(e["period"], e["location"]) for e in entries} == {
+        (period, location) for period in ("2023-01", "2023-02") for location in ("loc_1", "loc_missing")
+    }
+    for entry in entries:
+        assert len(entry["values"]) == 2
+        if entry["location"] == "loc_missing":
+            assert entry["values"] == [None, None]
+        else:
+            assert None not in entry["values"]
 
 
 def test_compute_thresholds_unknown_strategy_type(override_session):

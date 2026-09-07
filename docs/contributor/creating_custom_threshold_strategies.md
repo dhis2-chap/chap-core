@@ -54,12 +54,16 @@ from pydantic import Field
 
 from chap_core.assessment.thresholds import threshold
 from chap_core.assessment.thresholds.base import ThresholdStrategyBase
-from chap_core.database.base_tables import DBModel
+from chap_core.assessment.thresholds.params import ThresholdParamsBase
 
 
-class HistoricalPercentileParams(DBModel):
-    type: Literal["historical_percentile"] = "historical_percentile"
+class HistoricalPercentileParams(ThresholdParamsBase):
+    type: Literal["historical_percentile"]
     percentile: float = Field(0.95, ge=0.0, le=1.0, description="Percentile of historical same-month values.")
+
+    @property
+    def lines(self) -> list[float]:
+        return [self.percentile]
 
 
 @threshold(
@@ -78,6 +82,13 @@ class HistoricalPercentileStrategy(ThresholdStrategyBase[HistoricalPercentilePar
         q = params.percentile
         ...  # return DataFrame with columns [period_id, location, line, threshold]
 ```
+
+The `type` literal must not have a default: a default makes it optional in the OpenAPI
+schema, and generated clients then cannot tell the union members apart. `lines` returns the
+line parameter as a list, one value per threshold line; the endpoint echoes it in the
+response so clients can label each `values` entry. Strategies may omit
+`(period_id, location)` combinations they cannot compute; the endpoint fills those with
+`null` so every requested combination gets an entry.
 
 The decorator asserts that the params model's `type` literal matches the registered strategy
 id, and binds the model as `params_model` on the class. Pydantic field constraints

@@ -48,7 +48,8 @@ class ThresholdStrategyBase[ParamsT: BaseModel](ABC):
         Returns:
             DataFrame with columns ``[period_id, location, line, threshold]`` —
             one row per ``(period_id, location, line)``, where ``line`` is the
-            zero-based index into the requested line parameter list.
+            zero-based index into ``params.lines``. Combinations the strategy
+            cannot compute may be omitted; the endpoint fills them with ``null``.
         """
 
 
