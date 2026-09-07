@@ -65,6 +65,10 @@ dependencies = [
     "fastdtw>=0.3.4",
 ]
 
+[project.optional-dependencies]
+# Export trained tabular models to ONNX (`chap tabular evaluate --model-format onnx`).
+onnx = ["skl2onnx>=1.17"]
+
 [dependency-groups]
 dev = [
     "ruff>=0.15.16",
@@ -256,6 +260,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["fastdtw.*", "stumpy.*", "pyts.*", "scipy.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["joblib.*", "skl2onnx.*"]
 ignore_missing_imports = true
 
 [tool.pyright]

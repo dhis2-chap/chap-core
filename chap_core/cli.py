@@ -22,6 +22,7 @@ from chap_core.cli_endpoints import (
     model,
     preference_learn,
     report,
+    tabular,
     utils,
     validate,
 )
@@ -48,6 +49,7 @@ utils.register_commands(app)
 validate.register_commands(app)
 generate_modelcard.register_commands(app)
 ensemble.register_commands(app)
+tabular.register_commands(app)
 
 
 def main():
