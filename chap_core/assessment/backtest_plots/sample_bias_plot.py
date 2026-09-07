@@ -38,8 +38,8 @@ class SampleBiasPlotBase(FacetedBacktestPlot):
         historical_observations: pd.DataFrame | None = None,
     ) -> pd.DataFrame:
         """Compute the ratio-of-samples-above-truth metric per forecast row."""
-        flat_observations = FlatObserved(observations)
-        flat_forecasts = FlatForecasts(forecasts)
+        flat_observations = FlatObserved.validate(observations)
+        flat_forecasts = FlatForecasts.validate(forecasts)
         metric = RatioAboveTruthMetric()
         return metric.get_detailed_metric(flat_observations, flat_forecasts)
 
