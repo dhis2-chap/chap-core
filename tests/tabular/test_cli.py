@@ -1,11 +1,12 @@
-"""Tests for the `chap tabular evaluate` CLI command."""
+"""Tests for the `chap tabular` CLI commands."""
 
 import json
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
-from chap_core.cli_endpoints.tabular import evaluate
+from chap_core.cli_endpoints.tabular import evaluate, predict
 from chap_core.tabular.dataset import DatasetAssumptionError
 
 
@@ -104,3 +105,32 @@ def test_evaluate_rejects_bad_dataset(classification_frame, tmp_path):
 
     with pytest.raises(DatasetAssumptionError):
         evaluate("logistic_regression", path, output_folder=tmp_path / "runs")
+
+
+def test_predict_writes_csv_and_performance_report(classifier_joblib, classification_csv, tmp_path):
+    folder = tmp_path / "preds"
+
+    predict(classifier_joblib, classification_csv, output_folder=folder)
+
+    frame = pd.read_csv(folder / "predictions.csv")
+    assert {"prediction", "probability"} <= set(frame.columns)
+    assert len(frame) == 60
+
+    performance = json.loads((folder / "predictions.performance.json").read_text())
+    assert "balanced_accuracy" in performance
+
+    report = (folder / "predictions.report.html").read_text()
+    assert "Confusion matrix" in report
+    assert "data:image/png;base64," in report
+
+
+def test_predict_without_target_skips_performance_report(regressor_joblib, regression_frame, tmp_path):
+    features_only = tmp_path / "features.csv"
+    regression_frame.drop(columns=["target"]).to_csv(features_only, index=False)
+    folder = tmp_path / "preds"
+
+    predict(regressor_joblib, features_only, output_folder=folder)
+
+    assert (folder / "predictions.csv").exists()
+    assert not (folder / "predictions.performance.json").exists()
+    assert not (folder / "predictions.report.html").exists()
