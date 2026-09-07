@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Literal
 import git
 import httpx
 import yaml
-from chapkit.api.service_builder import MLServiceInfo
 
 from chap_core.exceptions import InvalidModelException
 from chap_core.external.external_model import logger
@@ -15,6 +14,7 @@ from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.chapkit_service_manager import is_url
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.model_template import ModelTemplate
+from chap_core.rest_api.services.schemas import MLServiceInfo
 from chap_core.util import generate_run_name
 
 CHAP_RUNS_DIR = Path(os.getenv("CHAP_RUNS_DIR", "runs/"))
