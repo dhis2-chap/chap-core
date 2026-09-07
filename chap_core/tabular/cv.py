@@ -1,4 +1,4 @@
-"""Seeded 5-fold cross-validation for the phase-1 tabular models.
+"""Seeded 5-fold cross-validation for the tabular models.
 
 Stratified for classification, plain K-fold for regression. By default there is
 no held-out test set and every number is a cross-validation number. When a

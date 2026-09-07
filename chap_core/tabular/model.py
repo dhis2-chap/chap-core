@@ -1,4 +1,4 @@
-"""The two phase-1 models: logistic regression and ridge.
+"""The two tabular models: logistic regression and ridge.
 
 Nothing else is selectable. Each entry fixes the task type (classification or
 regression) and the estimator; the CLI ``MODEL`` argument is restricted to

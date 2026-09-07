@@ -1,4 +1,4 @@
-"""Apply a saved phase-1 model to a new dataset.
+"""Apply a saved tabular model to a new dataset.
 
 Loads a model (joblib or ONNX), scores every row, and appends the predictions
 to the input frame. When the dataset carries the target column, the same fixed

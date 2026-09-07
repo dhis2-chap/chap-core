@@ -1,4 +1,4 @@
-"""Fixtures for phase-1 tabular evaluation tests.
+"""Fixtures for tabular evaluation tests.
 
 The existing conftest fixtures are all spatio-temporal disease data, which the
 tabular subsystem does not consume, so small preprocessed tables are defined

@@ -1,4 +1,4 @@
-"""Fixed metric sets for phase-1 evaluation.
+"""Fixed metric sets for tabular evaluation.
 
 Classification uses a fixed 0.5 decision threshold. The metric sets are fixed:
 nothing is configurable.

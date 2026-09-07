@@ -1,9 +1,9 @@
 """Load and validate a fully preprocessed tabular dataset.
 
-Phase-1 works on datasets that are already model-ready: numeric or encoded,
-no missing values, deduplicated, one target, global analysis only. The
-assumptions are *checked*, not assumed - :func:`load_tabular_dataset` refuses
-to run and names the offending columns when any of them is violated.
+The dataset must already be model-ready: numeric or encoded, no missing values,
+deduplicated, one target, global analysis only. The assumptions are *checked*,
+not assumed - :func:`load_tabular_dataset` refuses to run and names the
+offending columns when any of them is violated.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 class DatasetAssumptionError(ValueError):
-    """Raised when the input dataset violates a phase-1 input assumption."""
+    """Raised when the input dataset violates an input assumption."""
 
 
 @dataclass(frozen=True)
@@ -27,7 +27,7 @@ class TabularDataset:
     """A validated, fully preprocessed tabular dataset.
 
     ``features`` is a numeric, missing-free design matrix and ``target`` is the
-    single target column. There is no location or time structure - phase 1 is
+    single target column. There is no location or time structure - this is
     global analysis only.
     """
 
