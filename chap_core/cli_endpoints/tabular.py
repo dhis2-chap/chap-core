@@ -1,4 +1,4 @@
-"""Phase-1 tabular evaluation commands for the CHAP CLI."""
+"""Tabular model evaluation commands for the CHAP CLI."""
 
 from __future__ import annotations
 
@@ -124,7 +124,7 @@ def predict(
         str, Parameter(help="Target column name; if present in the dataset, a report is written.")
     ] = "target",
 ):
-    """Score a dataset with a saved phase-1 model.
+    """Score a dataset with a saved tabular model.
 
     Loads the model (format inferred from the extension: .joblib or .onnx),
     predicts every row, and writes the input rows with a ``prediction`` column
@@ -169,7 +169,7 @@ def predict(
 def register_commands(app):
     from cyclopts import App
 
-    tabular_app = App(name="tabular", help="Phase-1 tabular model evaluation.")
+    tabular_app = App(name="tabular", help="Tabular model evaluation.")
     tabular_app.command(name="evaluate")(evaluate)
     tabular_app.command(name="predict")(predict)
     app.command(tabular_app)

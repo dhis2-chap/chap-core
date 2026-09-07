@@ -1,4 +1,4 @@
-"""Minimal HTML report for a phase-1 evaluation.
+"""Minimal HTML report for a tabular evaluation.
 
 Manifest, the list of input assumptions that were checked, the per-fold metric
 table, and the headline metric. The report states plainly that the numbers are

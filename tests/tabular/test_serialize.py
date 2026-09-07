@@ -1,4 +1,4 @@
-"""Tests for persisting and restoring a fitted phase-1 model."""
+"""Tests for persisting and restoring a fitted tabular model."""
 
 import sys
 

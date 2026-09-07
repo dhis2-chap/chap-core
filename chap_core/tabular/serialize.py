@@ -1,4 +1,4 @@
-"""Persist and restore a fitted phase-1 model as joblib or ONNX.
+"""Persist and restore a fitted tabular model as joblib or ONNX.
 
 joblib keeps the native scikit-learn object. ONNX is an inference-only format
 (scoring, and class probabilities for the classifier) and needs the optional

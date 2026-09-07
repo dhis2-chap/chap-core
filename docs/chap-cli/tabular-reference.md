@@ -1,7 +1,7 @@
 # tabular Command Reference
 
 The `chap tabular` commands evaluate plain (non-temporal) tabular models and run
-predictions from a saved model. Phase 1 supports two models: `logistic_regression`
+predictions from a saved model. Two models are supported: `logistic_regression`
 for binary classification and `ridge` for regression.
 
 The input CSV must be fully preprocessed: numeric or encoded columns, no missing

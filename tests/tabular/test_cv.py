@@ -1,4 +1,4 @@
-"""Tests for seeded cross-validation of the phase-1 tabular models."""
+"""Tests for seeded cross-validation of the tabular models."""
 
 from chap_core.tabular.cv import N_SPLITS, cross_validate, evaluate_tabular
 from chap_core.tabular.dataset import load_tabular_dataset
