@@ -136,6 +136,24 @@ def test_standalone_compose_image_tag_is_pinnable(service_name):
     )
 
 
+MODEL_OVERLAY_FILES = ["compose.ewars.yml"]
+
+
+@pytest.mark.parametrize("compose_file", MODEL_OVERLAY_FILES)
+def test_model_overlay_pins_image_by_commit(compose_file):
+    """Model overlays pin a sha-<commit> build with an overridable tag variable, never latest."""
+    for service_name, service in _services(compose_file).items():
+        image = service["image"]
+        tag = image[len(_image_repository(image)) + 1 :]
+        assert re.fullmatch(r"\$\{[A-Z_]+_IMAGE_TAG:-sha-[0-9a-f]{7}\}", tag), (
+            f"{compose_file}: service '{service_name}' uses {image!r}; expected "
+            "${<SERVICE>_IMAGE_TAG:-sha-<commit>} so the deployment is reproducible and pinnable"
+        )
+        assert service.get("pull_policy") != "always", (
+            f"{compose_file}: service '{service_name}' pulls on every up, which defeats the pin"
+        )
+
+
 def test_env_example_leaves_redis_password_unset():
     """The compose valkey service takes no --requirepass, so an AUTH from the client fails."""
     requirepass = [f for f in DEPLOYMENT_COMPOSE_FILES if "requirepass" in str(_services(f).get("redis", {}))]

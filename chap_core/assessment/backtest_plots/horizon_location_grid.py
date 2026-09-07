@@ -205,8 +205,8 @@ class HorizonLocationGridPlot(FacetedBacktestPlot):
         if forecasts.empty:
             return pd.DataFrame(columns=["location", "time_period", "horizon_distance", "role"])
 
-        flat_obs = FlatObserved(observations)
-        flat_fc = FlatForecasts(forecasts)
+        flat_obs = FlatObserved.validate(observations)
+        flat_fc = FlatForecasts.validate(forecasts)
         horizons = sorted(forecasts["horizon_distance"].unique())
 
         forecast_quantiles = _compute_quantiles_from_forecasts(forecasts)
