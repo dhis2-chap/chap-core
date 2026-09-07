@@ -281,7 +281,6 @@ def get_hpo_estimator(
     *,
     template: ModelTemplate,
     configuration: ModelConfiguration | None,
-    search_space_yaml: Path | None,
     backtest_params: BacktestParams,
     options: EstimatorOptions,
 ) -> HpoModel:
@@ -299,9 +298,9 @@ def get_hpo_estimator(
     from chap_core.hpo.searcher import GridSearcher, RandomSearcher, Searcher, TPESearcher
     from chap_core.hpo.types import DEFAULT_HPO_TRIALS
 
-    if search_space_yaml is not None:
-        logger.info(f"Loading hpo search space from {search_space_yaml}")
-        with open(search_space_yaml, encoding="utf-8") as f:
+    if options.search_space is not None:
+        logger.info(f"Loading hpo search space from {options.search_space}")
+        with open(options.search_space, encoding="utf-8") as f:
             search_space_raw = yaml.safe_load(f)
     else:
         search_space_raw = template.model_template_config.hpo_search_space
@@ -309,7 +308,7 @@ def get_hpo_estimator(
     if not search_space_raw or not isinstance(search_space_raw, dict):
         raise ValueError(
             "HPO search space YAML must define a non-empty mapping of parameters, either "
-            "through --hpo-search-space-yaml or the model's "
+            "through --estimator-options.search-space-yaml or the model's "
             "MLProject hpo_search_space."
         )
 

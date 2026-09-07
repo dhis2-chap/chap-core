@@ -49,11 +49,11 @@ class MetricSpec:
 
     metric_id: str
     metric_name: str
-    optimization_direction: OptimizationDirection | None
     output_dimensions: tuple[DataDimension, ...] = DEFAULT_OUTPUT_DIMENSIONS
     aggregation_op: AggregationOp = AggregationOp.MEAN
     description: str = "No description provided"
     # None means the metic is not directly usable as a scalar optimization objective.
+    optimization_direction: OptimizationDirection | None = None
 
 
 class Metric(ABC):

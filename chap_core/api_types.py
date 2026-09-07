@@ -1,4 +1,5 @@
 from enum import StrEnum
+from pathlib import Path
 from typing import Any, Literal
 
 import numpy as np
@@ -208,6 +209,10 @@ class EstimatorOptions(BaseModel):
     mode: EstimatorMode = Field(
         default=EstimatorMode.NORMAL,
         description="Estimator mode: 'normal' = normal run, 'hpo' = hyperparameter optimization, 'ensemble' = ensemble learning.",
+    )
+    search_space: Path | None = Field(
+        default=None,
+        description="YAML defining the HPO search space. If omitted, hpo_search_space from model's MLProject is used.",
     )
     metric: str | None = Field(
         default=None,

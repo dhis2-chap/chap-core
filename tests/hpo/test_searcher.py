@@ -9,7 +9,7 @@ def test_tpe_searcher_ask_tell_basic():
     tp.tell(p1, 1.23)
 
     p2 = tp.ask()
-    assert p2 is not None and p1.token is not None
+    assert p2 is not None and p2.token is not None
     tp.tell(p2, 0.99)
 
 

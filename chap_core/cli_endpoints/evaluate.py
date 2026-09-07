@@ -13,7 +13,6 @@ from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime v
     BacktestParamsArg,
     DatasetCsvArg,
     DataSourceMappingArg,
-    HpoSearchSpaceYamlArg,
     ModelConfigYamlArg,
     ModelNameArg,
     RunConfigArg,
@@ -46,7 +45,6 @@ def eval_cmd(
     backtest_params: BacktestParamsArg = BacktestParams(n_periods=3, n_splits=7, stride=1),
     run_config: RunConfigArg = RunConfig(),
     model_configuration_yaml: ModelConfigYamlArg = None,
-    hpo_search_space_yaml: HpoSearchSpaceYamlArg = None,
     historical_context_years: Annotated[
         int,
         Parameter(help="Years of historical data to include for plotting context."),
@@ -84,7 +82,6 @@ def eval_cmd(
             backtest_params=backtest_params,
             run_config=run_config,
             model_configuration_yaml=model_configuration_yaml,
-            hpo_search_space_yaml=hpo_search_space_yaml,
             historical_context_years=historical_context_years,
             data_source_mapping=data_source_mapping,
             dry_run=dry_run,
@@ -107,7 +104,6 @@ def _run_eval(
     backtest_params: BacktestParamsArg = BacktestParams(n_periods=3, n_splits=7, stride=1),
     run_config: RunConfigArg = RunConfig(),
     model_configuration_yaml: ModelConfigYamlArg = None,
-    hpo_search_space_yaml: HpoSearchSpaceYamlArg = None,
     historical_context_years: Annotated[
         int,
         Parameter(
@@ -134,9 +130,10 @@ def _run_eval(
             "Use --estimator-options.mode=normal for a normal evaluation run. "
             "Use --estimator-options.mode=hpo for hyperparameter optimization. "
             "Use --estimator-options.mode=ensemble for ensemble learning. "
+            "Optionally --estimator-options.search_space_yaml=<path> for hpo. "
             "Optionally --estimator-options.metric=<metric> for hpo. "
             "Optionally --estimator-options.searcher=<searcher> for hpo. "
-            "Optionally --estimator-options.max_trials=<max_trials> for hpo. "
+            "Optionally --estimator-options.max-trials=<max_trials> for hpo. "
             "Optionally --estimator-options.seed=<seed> for hpo."
         ),
     ] = None,
@@ -172,8 +169,8 @@ def _run_eval(
         # Evaluate with hyperparameter optimization
         chap eval --model-name https://github.com/chap-models/minimal_template_example \\
             --dataset-csv ./example_data/vietnam_monthly.csv --output-file ./chap_core/hpo/eval.nc \\
-            --hpo_search_space_yaml ./chap_core/hpo/config3.yaml --estimator-options.mode hpo \\
-            --estimator_options.metric rmse --estimator_options.searcher tpe
+            --estimator-options.mode hpo --estimator-options.search-space-yaml ./chap_core/hpo/config3.yaml \\
+            --estimator-options.metric rmse --estimator-options.searcher tpe
     """
     from chap_core.assessment.evaluation import Evaluation
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
@@ -237,7 +234,6 @@ def _run_eval(
             estimator = get_hpo_estimator(
                 template=template,
                 configuration=configuration,
-                search_space_yaml=hpo_search_space_yaml,
                 backtest_params=backtest_params,
                 options=estimator_options,
             )
