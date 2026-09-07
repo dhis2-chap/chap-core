@@ -794,8 +794,8 @@ def compute_thresholds(request: ThresholdRequest, session: Session = Depends(get
     The `type` field of `params` selects the strategy; the strategy's line parameter
     (`quantile`, `stdMultiplier`, ...) accepts a scalar or a list, and each entry's `values`
     array holds one threshold per requested line, in request order. 404 if the dataset has
-    no `disease_cases` observations. 400 if the requested periods fall outside the
-    available data.
+    no `disease_cases` observations. 400 if the requested periods do not match the dataset's
+    frequency, or if the dataset has no complete year to compute a baseline from.
     """
     strategy_cls = get_threshold_strategy(request.params.type)
     if strategy_cls is None:

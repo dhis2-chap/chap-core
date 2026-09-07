@@ -188,11 +188,25 @@ def test_compute_thresholds_invalid_params(override_session):
     assert response.status_code == 422, response.text
 
 
-def test_compute_thresholds_period_outside_data_returns_400(override_session):
-    body = {"dataset_id": 1, "period_ids": ["2050-01"], "params": {"type": "percentile"}}
+def test_compute_thresholds_future_period_matches_static_channel(override_session):
+    """A period beyond the data gets the same line as an in-range period of the same season."""
+    params = {"type": "percentile", "baselineYears": None}
+    in_range = client.post(
+        "/v1/analytics/thresholds", json={"dataset_id": 1, "period_ids": ["2023-01"], "params": params}
+    )
+    future = client.post(
+        "/v1/analytics/thresholds", json={"dataset_id": 1, "period_ids": ["2050-01"], "params": params}
+    )
+    assert in_range.status_code == 200, in_range.text
+    assert future.status_code == 200, future.text
+    by_location = {e["location"]: e["values"] for e in in_range.json()["entries"]}
+    assert {e["location"]: e["values"] for e in future.json()["entries"]} == by_location
+
+
+def test_compute_thresholds_frequency_mismatch_returns_400(override_session):
+    body = {"dataset_id": 1, "period_ids": ["2023W01"], "params": {"type": "percentile"}}
     response = client.post("/v1/analytics/thresholds", json=body)
     assert response.status_code == 400, response.text
-    assert "No observations in the" in response.json()["detail"]
 
 
 def test_compute_thresholds_unknown_dataset(override_session):

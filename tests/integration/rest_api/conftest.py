@@ -58,25 +58,35 @@ def geojson(org_units) -> FeatureCollectionModel:
 
 @pytest.fixture
 def endemic_channel_observations() -> pd.DataFrame:
-    """Malaria-like monthly case counts that vary from year to year within each season.
+    """Malaria-like monthly case counts over five complete years that vary from year to year.
 
     ``dataset_observations`` derives its values from ``sin(t % 12)``, which repeats the same
     value for a given month in every year, so its within-season variance is exactly zero and
     it cannot exercise a percentile at all. These counts vary across years, which is what
     both percentile and mean + k*std thresholds need to be distinguishable.
     """
-    counts = {
-        ("loc_1", 1): [2100, 2400, 2300, 2600, 2200],
-        ("loc_1", 2): [1800, 2000, 1750, 2150, 1900],
-        ("loc_2", 1): [520, 610, 480, 700, 560],
-        ("loc_2", 2): [430, 500, 390, 610, 470],
-    }
+    seasonal_profile = [2100, 1800, 1500, 1300, 1200, 1400, 1900, 2400, 2600, 2500, 2300, 2200]
+    year_factor = [1.0, 1.15, 1.08, 1.25, 1.04]
+    base = {"loc_1": 1.0, "loc_2": 0.25}
     rows = [
-        {"location": location, "time_period": f"{year}-{month:02d}", "disease_cases": float(value)}
-        for (location, month), values in counts.items()
-        for year, value in zip(range(2018, 2023), values)
+        {
+            "location": location,
+            "time_period": f"{year}-{month:02d}",
+            "disease_cases": float(round(seasonal_profile[month - 1] * factor * scale)),
+        }
+        for location, scale in base.items()
+        for year, factor in zip(range(2018, 2023), year_factor)
+        for month in range(1, 13)
     ]
     return pd.DataFrame(rows)
+
+
+@pytest.fixture
+def endemic_channel_observations_partial_year(endemic_channel_observations) -> pd.DataFrame:
+    """The endemic channel data plus an in-progress final year with only January and February."""
+    partial = endemic_channel_observations[endemic_channel_observations["time_period"].isin(["2022-01", "2022-02"])]
+    partial = partial.assign(time_period=partial["time_period"].str.replace("2022", "2023"))
+    return pd.concat([endemic_channel_observations, partial], ignore_index=True)
 
 
 @pytest.fixture

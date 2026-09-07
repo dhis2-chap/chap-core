@@ -45,8 +45,8 @@ class PercentileParams(DBModel):
     baseline_years: int | None = Field(
         5,
         ge=1,
-        description="Number of complete years before the requested periods to compute the baseline from. "
-        "`null` uses all available history.",
+        description="Number of the most recent complete years in the dataset to compute the baseline from. "
+        "A partial final year is excluded. `null` uses all available history.",
     )
 
 

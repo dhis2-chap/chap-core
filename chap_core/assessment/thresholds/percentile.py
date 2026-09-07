@@ -4,6 +4,12 @@ Malaria surveillance programmes plot channel graphs from a percentile of the pre
 complete years, reading a value above the upper line as an outbreak. A percentile is used
 rather than mean + k*std because case counts are heavily right-skewed and a single past
 epidemic year inflates the standard deviation far above any plausible endemic level.
+
+The channel is static: one dataset defines one threshold per (location, season), computed
+from the most recent complete years in the dataset, and the requested periods only select
+which rows come back. Past and future periods therefore share one line. A consequence is
+that a past period is scored against a baseline that includes it, so a historical epidemic
+partly raises the line it is plotted against. That is inherent to the endemic-channel idiom.
 """
 
 from __future__ import annotations
@@ -15,32 +21,45 @@ from chap_core.assessment.thresholds.base import ThresholdStrategyBase, align_se
 from chap_core.assessment.thresholds.params import PercentileParams, line_values
 from chap_core.time_period.vectorized import extract_year, season_column
 
+_FULL_YEAR_BUCKETS = {"month": 12, "week": 52}
 
-def filter_to_baseline(
-    historical_observations: pd.DataFrame,
-    period_ids: list[str],
-    baseline_years: int | None,
-) -> pd.DataFrame:
-    """Restrict observations to the complete years preceding the periods being requested.
 
-    The baseline window is anchored on the latest requested period's year: it spans the
-    ``baseline_years`` years before that year, and all requested periods share this one
-    window. The anchor year is itself excluded, so an outbreak in progress cannot raise
-    its own threshold. When a request spans a year boundary, the earlier periods' own
-    year is still inside the window. Pass ``None`` to use all available history.
+def last_complete_year(historical_observations: pd.DataFrame) -> int:
+    """Return the latest year in the data, or the year before it when the latest year is partial.
+
+    A year is complete when it has every season bucket (12 months or at least 52 weeks).
+    A live dataset's final year is usually in progress; including it would give the
+    early-season buckets one more observation than the late-season ones, and would let an
+    outbreak in progress raise the threshold it is about to be compared against.
+    """
+    years = extract_year(historical_observations["time_period"])
+    season, buckets = season_column(historical_observations["time_period"])
+    latest = int(years.max())
+    latest_buckets = pd.Index(buckets)[years == latest].nunique()
+    if latest_buckets < _FULL_YEAR_BUCKETS[season]:
+        return latest - 1
+    return latest
+
+
+def filter_to_baseline(historical_observations: pd.DataFrame, baseline_years: int | None) -> pd.DataFrame:
+    """Restrict observations to the most recent ``baseline_years`` complete years in the dataset.
+
+    The window is anchored on the dataset, not on the requested periods, so every requested
+    period, past or future, is compared against the same line. A partial final year is
+    excluded (see :func:`last_complete_year`). Pass ``None`` to use all available history.
     """
     if baseline_years is None:
         return historical_observations
 
-    anchor = int(extract_year(pd.Series(period_ids)).max())
-    first_year = anchor - baseline_years
     years = extract_year(historical_observations["time_period"])
-    windowed = historical_observations[(years >= first_year) & (years < anchor)]
+    last = last_complete_year(historical_observations)
+    first = last - baseline_years + 1
+    windowed = historical_observations[(years >= first) & (years <= last)]
 
     if windowed.empty:
         raise ValueError(
-            f"No observations in the {baseline_years}-year baseline window {first_year}-{anchor - 1} "
-            f"for requested periods up to {anchor}; the data covers {int(years.min())}-{int(years.max())}"
+            f"No complete years in the {baseline_years}-year baseline window {first}-{last}; "
+            f"the data covers {int(years.min())}-{int(years.max())}"
         )
     return windowed
 
@@ -76,7 +95,8 @@ def compute_percentile_thresholds(historical_observations: pd.DataFrame, quantil
     "Seasonal percentile (WHO endemic channel)",
     PercentileParams,
     "Outbreak threshold as a percentile of historical same-month (or same-week) values, over a "
-    "baseline window of complete years. Defaults to the 75th percentile over 5 years, the WHO "
+    "baseline window of the most recent complete years in the dataset. Defaults to the 75th "
+    "percentile over 5 years, the WHO "
     "malaria channel practice. Robust to past epidemic years, which inflate mean + k*std.",
 )
 class PercentileThresholdStrategy(ThresholdStrategyBase[PercentileParams]):
@@ -88,6 +108,6 @@ class PercentileThresholdStrategy(ThresholdStrategyBase[PercentileParams]):
         period_ids: list[str],
         params: PercentileParams,
     ) -> pd.DataFrame:
-        windowed = filter_to_baseline(historical_observations, period_ids, params.baseline_years)
+        windowed = filter_to_baseline(historical_observations, params.baseline_years)
         per_season = compute_percentile_thresholds(windowed, line_values(params.quantile))
         return align_seasonal_to_periods(per_season, period_ids)

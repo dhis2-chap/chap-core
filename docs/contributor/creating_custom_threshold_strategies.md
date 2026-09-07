@@ -105,4 +105,7 @@ def _discover_strategies():
 Finally, add the params model to the `ThresholdParams` discriminated union in
 `chap_core/assessment/thresholds/params.py`. The union is what
 `POST /v1/analytics/thresholds` accepts as `params` — the `type` field selects your
-strategy — and the strategy appears in `GET /v1/analytics/thresholds/strategies`.
+strategy — and the strategy appears in `GET /v1/analytics/thresholds/strategies`. A test
+(`test_builtin_strategies_are_in_params_union`) checks that every strategy shipped in
+`chap_core` is a member of the union, so forgetting this step fails CI rather than
+producing a strategy the picker advertises but the request schema rejects.

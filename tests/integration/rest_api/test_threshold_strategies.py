@@ -1,10 +1,13 @@
 """Tests for the threshold strategy registry and the seasonal and percentile strategies."""
 
+from typing import get_args
+
+import pandas as pd
 import pytest
 
 from chap_core.assessment.thresholds import get_threshold_strategy, list_threshold_strategies, threshold
 from chap_core.assessment.thresholds.base import ThresholdStrategyBase
-from chap_core.assessment.thresholds.params import PercentileParams, SeasonalParams
+from chap_core.assessment.thresholds.params import PercentileParams, SeasonalParams, ThresholdParams
 from chap_core.assessment.thresholds.seasonal import compute_seasonal_thresholds
 from chap_core.spatio_temporal_data.converters import observations_to_dataframe
 
@@ -46,6 +49,23 @@ def test_registered_params_models_match_strategy_ids():
         cls = get_threshold_strategy(strategy_id)
         assert cls is not None
         assert cls.params_model.model_fields["type"].default == strategy_id
+
+
+def test_builtin_strategies_are_in_params_union():
+    """Every strategy shipped with chap_core must be a member of ThresholdParams, and vice versa.
+
+    Otherwise GET /thresholds/strategies advertises a strategy that POST /thresholds rejects
+    with a 422. Strategies registered from outside the package (e.g. the contributor guide's
+    example) are excluded, since adding them to the union is a separate step.
+    """
+    union, _ = get_args(ThresholdParams)
+    union_ids = {model.model_fields["type"].default for model in get_args(union)}
+    builtin_ids = {
+        strategy_id
+        for strategy_id in (s["id"] for s in list_threshold_strategies())
+        if get_threshold_strategy(strategy_id).__module__.startswith("chap_core.assessment.thresholds")
+    }
+    assert builtin_ids == union_ids
 
 
 def test_seasonal_strategy_shape(dataset_observations, org_units):
@@ -134,7 +154,7 @@ def test_percentile_strategy_multi_line_order(endemic_channel_observations):
 
 
 def test_percentile_strategy_baseline_window(endemic_channel_observations):
-    """A 2-year baseline anchored at 2023 uses only 2021-2022 observations."""
+    """A 2-year baseline over data ending in 2022 uses only 2021-2022 observations."""
     strategy = _strategy("percentile")
     windowed = strategy.compute(
         endemic_channel_observations, ["2023-01"], PercentileParams(quantile=0.5, baseline_years=2)
@@ -161,9 +181,38 @@ def test_percentile_strategy_all_history_with_null_baseline(endemic_channel_obse
         assert row.threshold == expected[row.location]
 
 
-def test_percentile_strategy_empty_window_raises(endemic_channel_observations):
-    with pytest.raises(ValueError, match="No observations"):
-        _strategy("percentile").compute(endemic_channel_observations, ["2050-01"], PercentileParams())
+def test_percentile_strategy_is_static_across_requested_periods(endemic_channel_observations):
+    """Past, in-range and future periods of the same season get the same line."""
+    strategy = _strategy("percentile")
+    params = PercentileParams(quantile=0.75, baseline_years=3)
+    separate = [
+        strategy.compute(endemic_channel_observations, [period], params).set_index("location")["threshold"]
+        for period in ("2019-01", "2022-01", "2030-01")
+    ]
+    combined = strategy.compute(endemic_channel_observations, ["2019-01", "2022-01", "2030-01"], params)
+    for single in separate[1:]:
+        pd.testing.assert_series_equal(single, separate[0])
+    for row in combined.itertuples():
+        assert row.threshold == separate[0][row.location]
+
+
+def test_percentile_strategy_excludes_partial_final_year(
+    endemic_channel_observations, endemic_channel_observations_partial_year
+):
+    """An in-progress final year is not part of the baseline, so it cannot raise its own threshold."""
+    strategy = _strategy("percentile")
+    params = PercentileParams(quantile=0.75, baseline_years=2)
+    complete = strategy.compute(endemic_channel_observations, ["2023-03"], params)
+    with_partial = strategy.compute(endemic_channel_observations_partial_year, ["2023-03"], params)
+    pd.testing.assert_frame_equal(with_partial, complete)
+
+
+def test_percentile_strategy_no_complete_year_raises(endemic_channel_observations_partial_year):
+    only_partial = endemic_channel_observations_partial_year[
+        endemic_channel_observations_partial_year["time_period"].str.startswith("2023")
+    ]
+    with pytest.raises(ValueError, match="No complete years"):
+        _strategy("percentile").compute(only_partial, ["2023-03"], PercentileParams())
 
 
 def test_percentile_params_validation():
