@@ -73,6 +73,7 @@ inline on the command line: Compose reads `.env` on every command, so a later
 |----------|---------|---------|
 | `CHAP_IMAGE_TAG` | `latest` | Tag for both the `chap-core` and `chap-worker` images. Set a release tag (for example `v1.2.3`) to pin a version. The tag must exist in [GHCR](https://github.com/orgs/dhis2-chap/packages); release tags are published by the image build workflow. |
 | `POSTGRES_USER` | `chap` | Database user. |
+| `EWARS_IMAGE_TAG` | a `sha-<commit>` build | Tag of the EWARS model service image in `compose.ewars.yml`. Model overlays pin a specific build so the stack stays reproducible; the model's publish workflow tags every build as `sha-<short commit>` and releases as semver. Set this to move the pin. |
 | `POSTGRES_PASSWORD` | `chap` | Database password. Postgres is never published to the host, but override this for anything beyond a local trial. It is interpolated into a database URI, so it must be URL-safe -- no `@`, `:`, `/`, `?`, `#` or `%`. |
 | `POSTGRES_DB` | `chap_core` | Database name. |
 | `CHAP_DATABASE_URL` | composed from the three above | Full, percent-encoded database URL. Takes precedence, and is how you use a password containing reserved characters. |
