@@ -59,17 +59,25 @@ def load_tabular_dataset(csv_path: str | Path, target: str = "target") -> Tabula
     )
 
 
-def _check_assumptions(frame: pd.DataFrame, target: str) -> None:
-    if target not in frame.columns:
-        raise DatasetAssumptionError(f"Target column {target!r} not found. Available columns: {list(frame.columns)}")
+def validate_feature_frame(frame: pd.DataFrame) -> None:
+    """Check the shared feature assumptions: no missing values, all numeric.
 
+    Raises :class:`DatasetAssumptionError` naming the offending columns.
+    """
     missing = [col for col in frame.columns if frame[col].isna().any()]
     if missing:
         raise DatasetAssumptionError(f"Columns contain missing values: {missing}")
 
     non_numeric = [col for col in frame.columns if not is_numeric_dtype(frame[col])]
     if non_numeric:
-        raise DatasetAssumptionError(f"Non-numeric unencoded columns: {non_numeric}. Encode them before evaluating.")
+        raise DatasetAssumptionError(f"Non-numeric unencoded columns: {non_numeric}. Encode them first.")
+
+
+def _check_assumptions(frame: pd.DataFrame, target: str) -> None:
+    if target not in frame.columns:
+        raise DatasetAssumptionError(f"Target column {target!r} not found. Available columns: {list(frame.columns)}")
+
+    validate_feature_frame(frame)
 
     duplicate_count = int(frame.duplicated().sum())
     if duplicate_count:

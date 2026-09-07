@@ -108,9 +108,68 @@ def evaluate(
         logger.info(f"{headline} (test): {result.test['metrics'][headline]:.4f}")
 
 
+def predict(
+    model_path: Annotated[Path, Parameter(help="Path to a saved model (.joblib or .onnx).")],
+    dataset_csv: Annotated[Path, Parameter(help="Path to the prediction dataset CSV.")],
+    *,
+    output_folder: Annotated[
+        Path,
+        Parameter(help="Directory to write result files into (created if missing)."),
+    ] = Path("tabular_predictions"),
+    output: Annotated[
+        Path,
+        Parameter(help="Predictions CSV filename; a relative path is placed inside --output-folder."),
+    ] = Path("predictions.csv"),
+    target: Annotated[
+        str, Parameter(help="Target column name; if present in the dataset, a report is written.")
+    ] = "target",
+):
+    """Score a dataset with a saved phase-1 model.
+
+    Loads the model (format inferred from the extension: .joblib or .onnx),
+    predicts every row, and writes the input rows with a ``prediction`` column
+    appended - plus a ``probability`` column for a classifier that exposes one.
+
+    If the dataset contains the ``--target`` column, a ``<output>.performance.json``
+    and an HTML report (``<output>.report.html``) are also written, using the
+    same fixed metric sets as ``evaluate`` (classification: accuracy, balanced
+    accuracy, precision/recall/F1, ROC-AUC, PR-AUC; regression: MAE, RMSE, R2).
+    The report adds a confusion matrix and a ROC curve for classification, or a
+    predicted vs actual scatter for regression. These are external test numbers,
+    not cross-validation.
+
+    Feature columns must be numeric or encoded with no missing values.
+
+    Examples:
+        chap tabular predict model.joblib ./new_data.csv
+        chap tabular predict model.onnx ./new_data.csv --output-folder ./runs
+    """
+    from chap_core.tabular.predict import run_prediction
+    from chap_core.tabular.predict_report import write_prediction_report
+
+    result = run_prediction(model_path, dataset_csv, target=target)
+
+    output_folder.mkdir(parents=True, exist_ok=True)
+    predictions_path = output if output.is_absolute() else output_folder / output
+    result.frame.to_csv(predictions_path, index=False)
+    logger.info(f"Wrote {len(result.frame)} predictions to {predictions_path}")
+
+    if result.performance is not None:
+        performance_path = predictions_path.with_name(predictions_path.stem + ".performance.json")
+        performance_path.write_text(json.dumps(result.performance, indent=2), encoding="utf-8")
+        logger.info(f"Wrote performance report to {performance_path}")
+
+        report_path = predictions_path.with_name(predictions_path.stem + ".report.html")
+        write_prediction_report(result, report_path)
+        logger.info(f"Wrote HTML report to {report_path}")
+    else:
+        logger.info(f"No {target!r} column in the dataset; skipping the performance report")
+
+
 def register_commands(app):
     from cyclopts import App
 
     tabular_app = App(name="tabular", help="Phase-1 tabular model evaluation.")
     tabular_app.command(name="evaluate")(evaluate)
+    tabular_app.command(name="predict")(predict)
     app.command(tabular_app)
