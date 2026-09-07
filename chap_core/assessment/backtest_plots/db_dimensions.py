@@ -162,6 +162,6 @@ def load_filtered_flat_data(
     observations_df = convert_backtest_observations_to_flat_observations(list(observations))
 
     return FlatEvaluationData(
-        forecasts=FlatForecasts(forecasts_df),
-        observations=FlatObserved(observations_df),
+        forecasts=FlatForecasts.validate(forecasts_df),
+        observations=FlatObserved.validate(observations_df),
     )
