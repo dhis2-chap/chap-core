@@ -290,6 +290,7 @@ def _run_eval(
                 prediction_length=backtest_params.n_periods,
                 n_test_sets=backtest_params.n_splits,
                 stride=backtest_params.stride,
+                future_weather_provider=backtest_params.future_weather_provider,
             )
 
             for _ in backtest(

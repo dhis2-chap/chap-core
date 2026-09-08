@@ -1,3 +1,5 @@
+import pytest
+
 from chap_core.time_period import Month
 from chap_core.assessment.dataset_splitting import (
     split_test_train_on_period,
@@ -6,6 +8,11 @@ from chap_core.assessment.dataset_splitting import (
     train_test_generator,
 )
 from chap_core.time_period import PeriodRange
+from chap_core.assessment.weather_providers import (
+    DEFAULT_WEATHER_PROVIDER_ID,
+    get_future_weather,
+    resolve_weather_provider,
+)
 from .data_fixtures import full_data
 
 
@@ -39,3 +46,29 @@ def test_train_test_generator(full_data):
     assert len(test_pairs) == 2
     assert all(len(pair[1].period_range) == 3 for pair in test_pairs)
     assert all(test_pairs[-1][1].period_range == full_data.period_range[-3:])
+
+
+def test_train_test_generator_defaults_to_non_leaking_provider(full_data):
+    """The default must route through a provider that never sees the forecast window."""
+    assert resolve_weather_provider(DEFAULT_WEATHER_PROVIDER_ID).leaks_future_data is False
+
+    _, pairs = train_test_generator(full_data, prediction_length=3, n_test_sets=1)
+    historic, masked_future, _ = next(iter(pairs))
+    expected = get_future_weather(DEFAULT_WEATHER_PROVIDER_ID, historic, masked_future.period_range)
+    for location in full_data.keys():
+        assert list(masked_future[location].rainfall) == list(expected[location].rainfall)
+
+
+def test_train_test_generator_observed_provider_returns_true_weather(full_data):
+    _, pairs = train_test_generator(full_data, prediction_length=3, n_test_sets=1, future_weather_provider="observed")
+    _, masked_future, future_truth = next(iter(pairs))
+    for location in full_data.keys():
+        assert list(masked_future[location].rainfall) == list(future_truth[location].rainfall)
+
+
+def test_train_test_generator_rejects_unknown_provider(full_data):
+    with pytest.raises(ValueError, match="Unknown future weather provider"):
+        _, pairs = train_test_generator(
+            full_data, prediction_length=3, n_test_sets=1, future_weather_provider="no_such_provider"
+        )
+        next(iter(pairs))

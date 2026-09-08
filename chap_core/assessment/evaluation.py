@@ -19,6 +19,11 @@ import pandera.pandas as pa
 import xarray as xr
 from packaging.version import Version
 
+from chap_core.assessment.weather_providers import (
+    DEFAULT_WEATHER_PROVIDER_ID,
+    LEGACY_WEATHER_PROVIDER_ID,
+)
+
 if TYPE_CHECKING:
     from chap_core.api_types import BacktestParams
 
@@ -96,6 +101,7 @@ def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) 
         "split_periods": json.dumps(model_metadata.get("split_periods", [])),
         "org_units": json.dumps(model_metadata.get("org_units", [])),
         "historical_context_periods": model_metadata.get("historical_context_periods", 0),
+        "future_weather_provider": model_metadata.get("future_weather_provider", DEFAULT_WEATHER_PROVIDER_ID),
         "chap_version": CHAP_VERSION,
     }
 
@@ -243,6 +249,7 @@ class EvaluationBase(ABC):
         info: "BacktestCreate",
         historical_observations: list[Observation] | None = None,
         historical_context_periods: int = 0,
+        future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
     ) -> "EvaluationBase": ...
 
 
@@ -259,6 +266,7 @@ class Evaluation(EvaluationBase):
         backtest: "Backtest",
         historical_observations: list[Observation] | None = None,
         historical_context_periods: int = 0,
+        future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
     ):
         """
         Initialize Evaluation with a Backtest object.
@@ -268,11 +276,19 @@ class Evaluation(EvaluationBase):
             historical_observations: Optional list of Observation objects for historical
                 context (periods before split points, for plotting)
             historical_context_periods: Number of periods of historical context stored
+            future_weather_provider: Id of the provider that supplied the climate
+                covariates for each forecast window
         """
         self._backtest = backtest
         self._historical_observations = historical_observations or []
         self._historical_context_periods = historical_context_periods
+        self._future_weather_provider = future_weather_provider
         self._flat_data_cache: FlatEvaluationData | None = None
+
+    @property
+    def future_weather_provider(self) -> str:
+        """Id of the future-weather provider these results were produced with."""
+        return self._future_weather_provider
 
     @classmethod
     def from_backtest(cls, backtest: "Backtest") -> "Evaluation":
@@ -296,6 +312,7 @@ class Evaluation(EvaluationBase):
         info: BacktestCreate,
         historical_observations: list[Observation] | None = None,
         historical_context_periods: int = 0,
+        future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
     ) -> "Evaluation":
         info.created = datetime.datetime.now()
         backtest = Backtest(
@@ -370,6 +387,7 @@ class Evaluation(EvaluationBase):
             backtest,
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
+            future_weather_provider=future_weather_provider,
         )
 
     @classmethod
@@ -411,6 +429,7 @@ class Evaluation(EvaluationBase):
             prediction_length=backtest_params.n_periods,
             n_test_sets=backtest_params.n_splits,
             stride=backtest_params.stride,
+            future_weather_provider=backtest_params.future_weather_provider,
         )
 
         # Run backtest
@@ -433,6 +452,7 @@ class Evaluation(EvaluationBase):
             n_splits=backtest_params.n_splits,
             stride=backtest_params.stride,
             n_retrain=backtest_params.n_retrain,
+            future_weather_provider=backtest_params.future_weather_provider,
         )
 
         # Calculate number of periods based on dataset period type
@@ -456,6 +476,7 @@ class Evaluation(EvaluationBase):
             info=backtest_info,
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
+            future_weather_provider=backtest_params.future_weather_provider,
         )
 
     @classmethod
@@ -634,6 +655,7 @@ class Evaluation(EvaluationBase):
             "split_periods": self.get_split_periods(),
             "org_units": self.get_org_units(),
             "historical_context_periods": self._historical_context_periods,
+            "future_weather_provider": self._future_weather_provider,
         }
 
         if model_info is not None:
@@ -664,6 +686,7 @@ class Evaluation(EvaluationBase):
         split_periods = json.loads(ds.attrs.get("split_periods", "[]"))
         org_units = json.loads(ds.attrs.get("org_units", "[]"))
         historical_context_periods = int(ds.attrs.get("historical_context_periods", 0))
+        future_weather_provider = str(ds.attrs["future_weather_provider"])
 
         backtest = Backtest(
             name=f"Loaded from {Path(filepath).name}",
@@ -744,6 +767,7 @@ class Evaluation(EvaluationBase):
             backtest,
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
+            future_weather_provider=future_weather_provider,
         )
 
     @staticmethod
@@ -752,10 +776,19 @@ class Evaluation(EvaluationBase):
         Ensure backwards compatibility for datasets created with older CHAP versions.
 
         Update horizon_distance coordinate in older datasets where it was stored as 0-based instead of 1-based.
+
+        Fill in future_weather_provider for files written before the provider was
+        recorded. Those evaluations were run with the observed weather of each
+        forecast window, so they are labelled accordingly rather than inheriting
+        today's default.
         """
 
         if Version(ds.attrs.get("chap_version", "0.0.0")) <= Version("1.1.1"):
             ds = ds.assign_coords(horizon_distance=ds.horizon_distance + 1)
+        if "future_weather_provider" not in ds.attrs and Version(ds.attrs.get("chap_version", "0.0.0")) <= Version(
+            CHAP_VERSION
+        ):
+            ds.attrs["future_weather_provider"] = LEGACY_WEATHER_PROVIDER_ID
         return ds
 
 

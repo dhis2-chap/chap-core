@@ -3,6 +3,7 @@ import pytest
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.datatypes import (
     ClimateHealthData,
+    tsdataclass,
     ClimateData,
     HealthData,
     FullData,
@@ -79,5 +80,24 @@ def good_predictions():
     d = {
         "oslo": HealthData(time_period, [19] * T),
         "bergen": HealthData(time_period, [2] * T),
+    }
+    return DataSet(d)
+
+
+@tsdataclass
+class ClimateHealthDataWithParent(ClimateHealthData):
+    """Climate/health data carrying a static, non-numeric org unit attribute."""
+
+    parent: str
+
+
+@pytest.fixture()
+def full_data_with_parent() -> DataSet[ClimateHealthDataWithParent]:
+    """Like ``full_data`` but with a string column that carries no seasonal signal."""
+    time_period = PeriodRange.from_time_periods(Month(2012, 1), Month(2012, 12))
+    T = len(time_period)
+    d = {
+        "oslo": ClimateHealthDataWithParent(time_period, [1] * T, [1] * T, [20] * T, ["norway"] * T),
+        "bergen": ClimateHealthDataWithParent(time_period, [100] * T, [1] * T, [1] * T, ["norway"] * T),
     }
     return DataSet(d)

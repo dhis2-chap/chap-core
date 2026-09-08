@@ -1,7 +1,6 @@
 import pandas as pd
 
 from chap_core.assessment.prediction_evaluator import backtest
-from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData
 from chap_core.predictor.model_registry import registry
 from chap_core.rest_api.worker_functions import dataset_to_datalist, samples_to_evaluation_response
@@ -11,7 +10,7 @@ dataset = DataSet.from_csv("/home/knut/Data/ch_data/uganda_weekly_data_harmonize
 model_name = "auto_regressive_weekly"
 estimator = registry.get_model(model_name)
 predictions_list = backtest(
-    estimator, dataset, prediction_length=12, n_test_sets=20, stride=2, weather_provider=QuickForecastFetcher
+    estimator, dataset, prediction_length=12, n_test_sets=20, stride=2, weather_provider="climatology"
 )
 response = samples_to_evaluation_response(
     predictions_list, quantiles=[0.05, 0.25, 0.5, 0.75, 0.95], real_data=dataset_to_datalist(dataset, "dengue")

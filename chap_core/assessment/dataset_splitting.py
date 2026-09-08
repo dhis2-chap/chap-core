@@ -10,7 +10,7 @@ slides forward.
 from collections.abc import Iterable, Iterator
 from typing import Protocol
 
-from chap_core.climate_predictor import FutureWeatherFetcher
+from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID, get_future_weather
 from chap_core.datatypes import ClimateData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import TimePeriod
@@ -106,7 +106,7 @@ def train_test_generator(
     prediction_length: int,
     n_test_sets: int = 1,
     stride: int = 1,
-    future_weather_provider: FutureWeatherFetcher | None = None,
+    future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
 ) -> tuple[DataSet, Iterator[tuple[DataSet, DataSet, DataSet]]]:
     """Generate expanding-window train/test splits for backtesting.
 
@@ -144,8 +144,9 @@ def train_test_generator(
     stride
         Number of periods to advance between successive splits.
     future_weather_provider
-        Optional callable that provides future weather data (with
-        disease_cases masked) for each test split.
+        Id of the registered future-weather provider supplying the climate
+        covariates for each test window. Providers that do not declare
+        ``leaks_future_data`` never see the window's own observations.
 
     Returns
     -------
@@ -168,13 +169,10 @@ def train_test_generator(
         )
         for i in range(n_test_sets)
     ]
-    if future_weather_provider is not None:
-        masked_future_data = [
-            future_weather_provider(hd).get_future_weather(fd.period_range)  # type: ignore[operator]
-            for (hd, fd) in zip(historic_data, future_data, strict=False)
-        ]
-    else:
-        masked_future_data = [dataset.remove_field("disease_cases") for dataset in future_data]
+    masked_future_data = [
+        get_future_weather(future_weather_provider, hd, fd.period_range, future_data=fd)
+        for (hd, fd) in zip(historic_data, future_data, strict=False)
+    ]
     train_set.metadata = dataset.metadata.model_copy()
     train_set.metadata.name += "_train_set"
     return train_set, zip(historic_data, masked_future_data, future_data, strict=False)

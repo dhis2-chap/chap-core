@@ -24,6 +24,9 @@ def get_climate_predictor(train_data: DataSet[ClimateData]):
 class MonthlyClimatePredictor:
     def __init__(self):
         self._models: defaultdict[str, dict[str, Any]] = defaultdict(dict)
+        # Non-numeric columns (org unit parents, codes, ...) carry no seasonal
+        # signal to regress on, so the last observed value is carried forward.
+        self._constants: defaultdict[str, dict[str, Any]] = defaultdict(dict)
         self._cls: type | None = None
 
     def _feature_matrix(self, time_period: PeriodRange):
@@ -40,8 +43,9 @@ class MonthlyClimatePredictor:
                 if field.name in ("time_period"):
                     continue
                 y = getattr(data, field.name)
-                # assert float type
-                assert y.dtype.kind in ("f", "i"), (field.name, y.dtype)
+                if y.dtype.kind not in ("f", "i"):
+                    self._constants[location][field.name] = y[-1:]
+                    continue
                 assert not np.isnan(y).any(), (field.name, y)
                 model = linear_model.LinearRegression()
                 model.fit(x, y[:, None])
@@ -51,11 +55,13 @@ class MonthlyClimatePredictor:
         x = self._feature_matrix(time_period)
         prediction_dict = {}
         assert self._cls is not None, "Model not trained - call train() first"
-        for location, models in self._models.items():
-            prediction_dict[location] = self._cls(
-                time_period,
-                **{field: model.predict(x).ravel() for field, model in models.items()},
-            )
+        for location in self._models.keys() | self._constants.keys():
+            fields = {field: model.predict(x).ravel() for field, model in self._models[location].items()}
+            # Repeat the final observation by index so the column keeps its original
+            # container type (bionumpy encodes string columns as ragged arrays).
+            repeat = np.zeros(len(time_period), dtype=int)
+            fields |= {field: value[repeat] for field, value in self._constants[location].items()}
+            prediction_dict[location] = self._cls(time_period, **fields)
         return DataSet(prediction_dict)
 
 

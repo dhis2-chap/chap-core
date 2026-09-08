@@ -22,6 +22,7 @@ from chap_core import get_temp_dir
 from chap_core.assessment.dataset_splitting import (
     train_test_generator,
 )
+from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID
 from chap_core.data.gluonts_adaptor.dataset import ForecastAdaptor
 from chap_core.datatypes import Samples, SamplesWithTruth, TimeSeriesData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -116,7 +117,7 @@ def evaluate_model(
     prediction_length=3,
     n_test_sets=4,
     report_filename=None,
-    weather_provider=None,
+    weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
 ):
     """
     Evaluate a model on a dataset on a held out test set, making multiple predictions on the test set

@@ -11,7 +11,7 @@ from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
 from chap_core.assessment.prediction_evaluator import backtest as _backtest
-from chap_core.climate_predictor import QuickForecastFetcher
+from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
@@ -82,6 +82,7 @@ def run_backtest(
     stride: int = _DEFAULT_PARAMS.stride,
     n_retrain: int = _DEFAULT_PARAMS.n_retrain,
     session: SessionWrapper | None = None,
+    future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
 ):
     from chap_core.assessment.dataset_splitting import train_test_generator
 
@@ -126,7 +127,7 @@ def run_backtest(
         prediction_length=n_periods,
         n_test_sets=n_splits,
         stride=stride,
-        future_weather_provider=QuickForecastFetcher,  # type: ignore[arg-type]
+        future_weather_provider=future_weather_provider,
     )
 
     status_logger.info(f"Running {n_splits} evaluation splits with prediction length {n_periods}")
@@ -171,6 +172,7 @@ def run_prediction(
     session: SessionWrapper,
     prediction_setup_id: int | None = None,
     configured_model_id: int | None = None,
+    future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     status_logger.info(f"Starting prediction for model '{model_id}' on dataset ID {dataset_id}")
@@ -187,7 +189,7 @@ def run_prediction(
     )
     assert configured_model.id is not None, "configured_model.id is required"
     estimator = session.get_configured_model_with_code(configured_model.id, prediction_length=n_periods)
-    predictions = forecast_ahead(estimator, dataset, n_periods)
+    predictions = forecast_ahead(estimator, dataset, n_periods, weather_provider=future_weather_provider)
     db_id = session.add_predictions(
         predictions,
         dataset_id,
@@ -276,6 +278,7 @@ def predict_pipeline_from_composite_dataset(
         session,
         prediction_setup_id=prediction_setup_id,
         configured_model_id=configured_model_id,
+        future_weather_provider=prediction_params.future_weather_provider,
     )
     return result
 
@@ -306,5 +309,6 @@ def run_backtest_from_dataset(
         stride=backtest_params.stride,
         n_retrain=backtest_params.n_retrain,
         session=session,
+        future_weather_provider=backtest_params.future_weather_provider,
     )
     return result
