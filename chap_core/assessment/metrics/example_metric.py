@@ -7,6 +7,7 @@ from chap_core.assessment.metrics.base import (
     AggregationOp,
     DeterministicMetric,
     MetricSpec,
+    OptimizationDirection,
 )
 
 
@@ -29,6 +30,7 @@ class ExampleMetric(DeterministicMetric):
         metric_name="Example Absolute Error",
         aggregation_op=AggregationOp.SUM,
         description="Sum of absolute error - demonstration metric",
+        optimization_direction=OptimizationDirection.MINIMIZE,
     )
 
     def compute_point_metric(self, forecast: float, observed: float) -> float:
