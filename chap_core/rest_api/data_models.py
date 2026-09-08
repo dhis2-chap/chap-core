@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 from pydantic.alias_generators import to_camel
 
 from chap_core.api_types import BacktestParams, FeatureCollectionModel
@@ -187,6 +187,28 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     uses_chapkit: bool = Field(
         default=False, description="When True, the template is served by a chapkit REST endpoint."
     )
+
+    # The horizon fields were renamed to match chapkit. Both spellings are served so a
+    # client can move to `*PredictionPeriods` on its own schedule; drop these once none read them.
+    # `deprecated=` is deliberately not used: it warns on every serialization, so each
+    # response would log two warnings. The schema flag marks it for clients instead.
+    @computed_field(  # type: ignore[prop-decorator]
+        alias="minPredictionLength",
+        description="Deprecated alias for `minPredictionPeriods`.",
+        json_schema_extra={"deprecated": True},
+    )
+    @property
+    def min_prediction_length(self) -> int | None:
+        return self.min_prediction_periods
+
+    @computed_field(  # type: ignore[prop-decorator]
+        alias="maxPredictionLength",
+        description="Deprecated alias for `maxPredictionPeriods`.",
+        json_schema_extra={"deprecated": True},
+    )
+    @property
+    def max_prediction_length(self) -> int | None:
+        return self.max_prediction_periods
 
 
 class ConfiguredModelInfoRead(DBModel):

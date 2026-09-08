@@ -7,6 +7,7 @@ from chap_core.assessment.metrics.base import (
     AggregationOp,
     DeterministicMetric,
     MetricSpec,
+    OptimizationDirection,
 )
 
 
@@ -30,6 +31,7 @@ class RMSEMetric(DeterministicMetric):
         metric_name="RMSE",
         aggregation_op=AggregationOp.ROOT_MEAN_SQUARE,
         description="Root Mean Squared Error - measures average prediction error magnitude",
+        optimization_direction=OptimizationDirection.MINIMIZE,
     )
 
     def compute_point_metric(self, forecast: float, observed: float) -> float:

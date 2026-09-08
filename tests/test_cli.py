@@ -43,12 +43,12 @@ def test_eval_cmd(tmp_path):
     assert output_file.exists()
 
 
-def _make_fake_estimator(min_prediction_length, max_prediction_length):
+def _make_fake_estimator(min_prediction_periods, max_prediction_periods):
     from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation
 
     info = ModelTemplateInformation(
-        min_prediction_length=min_prediction_length,
-        max_prediction_length=max_prediction_length,
+        min_prediction_periods=min_prediction_periods,
+        max_prediction_periods=max_prediction_periods,
     )
     estimator = MagicMock(name="FakeEstimator")
     estimator.model_information = info
@@ -109,11 +109,11 @@ def _patched_eval_chain(fake_estimator, patch_filter=True):
     return stack, eval_mock
 
 
-def test_eval_cmd_raises_when_n_periods_below_min_prediction_length(tmp_path):
+def test_eval_cmd_raises_when_n_periods_below_min_prediction_periods(tmp_path):
     """Dispatch in evaluate.py guards against horizons shorter than the model's declared min."""
     from chap_core.api_types import BacktestParams, RunConfig
 
-    fake_estimator = _make_fake_estimator(min_prediction_length=5, max_prediction_length=10)
+    fake_estimator = _make_fake_estimator(min_prediction_periods=5, max_prediction_periods=10)
     stack, _ = _patched_eval_chain(fake_estimator)
     with stack:
         with pytest.raises(ValueError, match="minimum prediction length"):
@@ -132,7 +132,7 @@ def test_eval_cmd_wraps_in_extended_predictor_when_n_periods_above_max(tmp_path)
     from chap_core.api_types import BacktestParams, RunConfig
     from chap_core.external.ExtendedPredictor import ExtendedPredictor
 
-    fake_estimator = _make_fake_estimator(min_prediction_length=1, max_prediction_length=2)
+    fake_estimator = _make_fake_estimator(min_prediction_periods=1, max_prediction_periods=2)
     stack, eval_mock = _patched_eval_chain(fake_estimator)
     with stack:
         eval_cmd(
@@ -149,13 +149,13 @@ def test_eval_cmd_wraps_in_extended_predictor_when_n_periods_above_max(tmp_path)
 
 
 def test_eval_cmd_wraps_when_only_max_set_and_below_n_periods(tmp_path):
-    """Real models often declare max_prediction_length but leave min unset
+    """Real models often declare max_prediction_periods but leave min unset
     (e.g. chap-models/Vietnam-dengue-superensemble declares max=1, no min).
     The dispatch must still honour the declared max even when min is None."""
     from chap_core.api_types import BacktestParams, RunConfig
     from chap_core.external.ExtendedPredictor import ExtendedPredictor
 
-    fake_estimator = _make_fake_estimator(min_prediction_length=None, max_prediction_length=2)
+    fake_estimator = _make_fake_estimator(min_prediction_periods=None, max_prediction_periods=2)
     stack, eval_mock = _patched_eval_chain(fake_estimator)
     with stack:
         eval_cmd(
@@ -175,7 +175,7 @@ def test_eval_cmd_raises_when_only_min_set_and_above_n_periods(tmp_path):
     """The min-bound check must also fire when only min is declared and max is None."""
     from chap_core.api_types import BacktestParams, RunConfig
 
-    fake_estimator = _make_fake_estimator(min_prediction_length=5, max_prediction_length=None)
+    fake_estimator = _make_fake_estimator(min_prediction_periods=5, max_prediction_periods=None)
     stack, _ = _patched_eval_chain(fake_estimator)
     with stack:
         with pytest.raises(ValueError, match="minimum prediction length"):
@@ -193,7 +193,7 @@ def test_eval_cmd_does_not_wrap_when_bounds_unspecified(tmp_path):
     the original estimator unchanged."""
     from chap_core.api_types import BacktestParams, RunConfig
 
-    fake_estimator = _make_fake_estimator(min_prediction_length=None, max_prediction_length=None)
+    fake_estimator = _make_fake_estimator(min_prediction_periods=None, max_prediction_periods=None)
     stack, eval_mock = _patched_eval_chain(fake_estimator)
     with stack:
         eval_cmd(
@@ -230,7 +230,7 @@ def test_eval_cmd_drops_regions_with_no_disease_cases(tmp_path):
 
     dataset = _valid_and_nan_region_dataset()
 
-    fake_estimator = _make_fake_estimator(min_prediction_length=None, max_prediction_length=None)
+    fake_estimator = _make_fake_estimator(min_prediction_periods=None, max_prediction_periods=None)
     stack, eval_mock = _patched_eval_chain(fake_estimator, patch_filter=False)
     stack.enter_context(patch("chap_core.cli_endpoints.evaluate.load_dataset_from_csv", return_value=dataset))
     with stack:
@@ -285,7 +285,7 @@ def test_eval_cmd_track_logs_params_metrics_and_artifacts(tmp_path, monkeypatch)
     def _write_nc(filepath, **_kwargs):
         Path(filepath).write_bytes(b"netcdf-placeholder")
 
-    fake_estimator = _make_fake_estimator(min_prediction_length=None, max_prediction_length=None)
+    fake_estimator = _make_fake_estimator(min_prediction_periods=None, max_prediction_periods=None)
     stack, eval_mock = _patched_eval_chain(fake_estimator)
     eval_instance = MagicMock(name="EvaluationInstance")
     eval_instance.to_file.side_effect = _write_nc
@@ -339,7 +339,7 @@ def test_eval_cmd_track_without_tracking_uri_raises(tmp_path, monkeypatch):
 
     monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
 
-    fake_estimator = _make_fake_estimator(min_prediction_length=None, max_prediction_length=None)
+    fake_estimator = _make_fake_estimator(min_prediction_periods=None, max_prediction_periods=None)
     stack, _ = _patched_eval_chain(fake_estimator)
 
     with stack, pytest.raises(TrackingConfigError, match="MLFLOW_TRACKING_URI"):

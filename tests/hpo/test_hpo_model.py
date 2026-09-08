@@ -1,59 +1,53 @@
+import pytest
+
+from chap_core.assessment.metrics.base import OptimizationDirection
 from chap_core.hpo.hpoModel import HpoModel
+from chap_core.hpo.searcher import GridSearcher, RandomSearcher, TPESearcher
 
 
-def test_hpo_model_train_selects_best_and_returns_trained(monkeypatch):
-    class FakeSearcher:
-        def reset(self, space):
-            # two trials then stop
-            self._seq = [{"x": 2}, {"x": 1}]
-            self._i = 0
+class FakeObjective:
+    """Minimal stand-in for Objective that scores a candidate from a lookup table."""
 
-        def ask(self):
-            if self._i >= len(self._seq):
-                return None
-            params = self._seq[self._i]
-            self._i += 1
-            return params
+    def __init__(self, scores: dict[int, float]):
+        self.direction = OptimizationDirection.MINIMIZE
+        self._scores = scores
 
-        def tell(self, params, result):
-            pass
+    def __call__(self, params: dict, dataset) -> float:
+        return self._scores[params["x"]]
 
-    class FakeEstimator:
-        def __init__(self, config):
-            self.config = config
 
-        def train(self, dataset):
-            return "trained-model"
+@pytest.mark.parametrize(
+    "searcher",
+    [
+        RandomSearcher(),
+        TPESearcher("minimize"),
+    ],
+)
+def test_hpo_model_requires_max_trials_for_non_exhaustive_searcher(searcher):
+    with pytest.raises(
+        ValueError,
+        match="max_trials must be specified for non-exhaustive searchers",
+    ):
+        HpoModel(
+            objective=None,  # type: ignore[arg-type]
+            searcher=searcher,
+            configuration=None,
+            search_space={},
+            max_trials=None,
+            seed=None,
+        )
 
-    class FakeTemplate:
-        def get_model(self, config):
-            return FakeEstimator(config)
 
-    class FakeObjective:
-        def __init__(self):
-            self.model_template = FakeTemplate()
-
-        def __call__(self, config, dataset):
-            return 1
-
-    # Patch model_validate to return identity
-    # import chap_core.hpo.hpoModel as hm_module
-    # monkeypatch.setattr(hm_module.ModelConfiguration, "model_validate", lambda x: x, raising=True)
-
-    base_cfg = {"user_option_values": {"x": [1, 2]}}
+def test_hpo_model_allows_unlimited_grid_search():
     model = HpoModel(
-        searcher=FakeSearcher(),  # type: ignore[reportArgumentType]
-        objective=FakeObjective(),  # type: ignore[reportArgumentType]
-        direction="minimize",
-        model_configuration=base_cfg,  # type: ignore[reportArgumentType]
+        objective=FakeObjective({1: 3.0, 2: 1.0}),  # type: ignore[arg-type]
+        searcher=GridSearcher(),
+        configuration=None,
+        search_space={"x": [1, 2]},
+        max_trials=None,
+        seed=None,
     )
-    out = model.train(dataset="dummy-dataset")
-    assert out == "trained-model"
-    best = model.get_best_config
-    assert best["user_option_values"]["x"] == 2
 
+    leaderboard = model.get_leaderboard("dataset")
 
-if __name__ == "__main__":
-    import sys, pytest
-
-    sys.exit(pytest.main([__file__]))
+    assert [entry["config"] for entry in leaderboard] == [{"x": 2}, {"x": 1}]
