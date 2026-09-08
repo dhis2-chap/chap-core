@@ -37,6 +37,9 @@ from chap_core.datatypes import SamplesWithTruth
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.time_period import Month, TimePeriod
+from chap_core.external.ExtendedPredictor import ExtendedPredictor
+from chap_core.hpo.meta_learner import MetaLearner
+from chap_core.models.external_model import ExternalModel
 
 try:
     from chap_core import __version__ as CHAP_VERSION
@@ -376,7 +379,7 @@ class Evaluation(EvaluationBase):
     def create(
         cls,
         configured_model: ConfiguredModelDB,
-        estimator,
+        estimator: ExternalModel | MetaLearner | ExtendedPredictor,
         dataset: _DataSet,
         backtest_params: "BacktestParams",
         backtest_name: str = "evaluation",

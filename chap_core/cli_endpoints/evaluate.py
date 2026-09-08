@@ -29,7 +29,7 @@ from chap_core.cli_endpoints._common import (
 
 if TYPE_CHECKING:
     from chap_core.external.ExtendedPredictor import ExtendedPredictor
-    from chap_core.hpo.hpoModel import HpoModel
+    from chap_core.hpo.meta_learner import MetaLearner
     from chap_core.models.external_model import ExternalModel
 
 logger = logging.getLogger(__name__)
@@ -130,7 +130,7 @@ def _run_eval(
             "Use --estimator-options.mode=normal for a normal evaluation run. "
             "Use --estimator-options.mode=hpo for hyperparameter optimization. "
             "Use --estimator-options.mode=ensemble for ensemble learning. "
-            "Optionally --estimator-options.search_space_yaml=<path> for hpo. "
+            "Optionally --estimator-options.search-space=<path> for hpo. "
             "Optionally --estimator-options.metric=<metric> for hpo. "
             "Optionally --estimator-options.searcher=<searcher> for hpo. "
             "Optionally --estimator-options.max-trials=<max_trials> for hpo. "
@@ -169,7 +169,7 @@ def _run_eval(
         # Evaluate with hyperparameter optimization
         chap eval --model-name https://github.com/chap-models/minimal_template_example \\
             --dataset-csv ./example_data/vietnam_monthly.csv --output-file ./chap_core/hpo/eval.nc \\
-            --estimator-options.mode hpo --estimator-options.search-space-yaml ./chap_core/hpo/config3.yaml \\
+            --estimator-options.mode hpo --estimator-options.search-space ./chap_core/hpo/config3.yaml \\
             --estimator-options.metric rmse --estimator-options.searcher tpe
     """
     from chap_core.assessment.evaluation import Evaluation
@@ -227,7 +227,7 @@ def _run_eval(
 
     with template:
         configuration = get_configuration(model_configuration_yaml)
-        estimator: ExternalModel | HpoModel | ExtendedPredictor
+        estimator: ExternalModel | MetaLearner | ExtendedPredictor
         if estimator_options.mode == EstimatorMode.NORMAL:
             estimator = get_estimator(template=template, configuration=configuration)
         elif estimator_options.mode == EstimatorMode.HPO:
