@@ -69,6 +69,8 @@ make test-all
 
 To see what is actually being run, you can see what is specified under `test-all` in the Makefile.
 
+On pull requests, CI classifies the changed files before running the test jobs. PRs that only touch `docs/` or `mkdocs.yml` run the fast documentation tests and `make test-docs-slow` instead of the full `test-all` suite. PRs that only touch `README.md`, `CLAUDE.md`, `LICENSE`, `charts/` or `.github` metadata skip every test step, so the test jobs finish in seconds. Any other file, including `.env.example` and the workflows themselves, triggers the full run. The filter lives in the `changes` job of the workflows under `.github/workflows/`; before adding a path to it, check that no test reads that file (`tests/test_ci_workflows.py` enforces this).
+
 
 ## Some more details about integration tests
 

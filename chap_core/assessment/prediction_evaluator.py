@@ -8,7 +8,7 @@ points are ``backtest`` (yields per-split prediction results) and
 
 import logging
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from typing import Protocol, TypeVar
 
 import numpy as np
@@ -57,12 +57,15 @@ def _retrain_split_indices(n_test_sets: int, n_retrain: int) -> set[int]:
 
 
 def backtest(
-    estimator: Estimator, data: DataSet, prediction_length, n_test_sets, stride=1, weather_provider=None, n_retrain=1
+    estimator: Estimator,
+    train_set: DataSet,
+    test_generator: Iterator[tuple[DataSet, DataSet, DataSet]],
+    n_test_sets,
+    n_retrain=1,
 ) -> Iterable[DataSet]:
     """Train a model and generate predictions for each test split.
 
-    Uses ``train_test_generator`` to create an expanding window split of the
-    data. The estimator is (re)trained at ``n_retrain`` evenly spaced split
+    The estimator is (re)trained at ``n_retrain`` evenly spaced split
     points and the most recent predictor generates forecasts for each
     successive test window. With ``n_retrain=1`` (the default) the model is
     trained once on the initial training set, identical to the previous
@@ -76,16 +79,12 @@ def backtest(
     ----------
     estimator
         Model estimator with a ``train`` method.
-    data
-        Full dataset to split and evaluate on.
-    prediction_length
-        Number of periods to predict per test window.
+    train_set
+        The training set.
+    test_generator
+        Iterator of (historic_data, masked_future_data, future_data) tuples.
     n_test_sets
         Number of expanding window test splits.
-    stride
-        Periods to advance between successive splits.
-    weather_provider
-        Optional future weather data provider.
     n_retrain
         Number of times the model is retrained, evenly spaced across the
         splits. 1 means train once at the beginning.
@@ -96,9 +95,6 @@ def backtest(
         For each test split, a dataset mapping locations to
         ``SamplesWithTruth`` (predicted samples merged with observed values).
     """
-    train_set, test_generator = train_test_generator(
-        data, prediction_length, n_test_sets, stride=stride, future_weather_provider=weather_provider
-    )
     retrain_at = _retrain_split_indices(n_test_sets, n_retrain)
     predictor: Predictor | None = None
     for i, (historic_data, future_data, future_truth) in enumerate(test_generator):

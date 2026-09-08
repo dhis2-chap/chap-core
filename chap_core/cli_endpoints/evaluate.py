@@ -282,10 +282,21 @@ def _run_eval(
         logger.debug(f"Including {historical_context_years} years of historical context for plotting")
 
         if dry_run:
+            from chap_core.assessment.dataset_splitting import train_test_generator
             from chap_core.assessment.prediction_evaluator import backtest
 
+            train_set, test_generator = train_test_generator(
+                dataset=dataset,
+                prediction_length=backtest_params.n_periods,
+                n_test_sets=backtest_params.n_splits,
+                stride=backtest_params.stride,
+            )
+
             for _ in backtest(
-                estimator, dataset, backtest_params.n_periods, backtest_params.n_splits, backtest_params.stride
+                estimator=estimator,
+                train_set=train_set,
+                test_generator=test_generator,
+                n_test_sets=backtest_params.n_splits,
             ):
                 pass
             return

@@ -383,7 +383,8 @@ class Evaluation(EvaluationBase):
         historical_context_years: int = 6,
     ) -> "Evaluation":
         """
-        Create an Evaluation by running a backtest.
+        Uses ``train_test_generator`` to create an expanding window split of the
+        data. Create an Evaluation by running a backtest.
 
         Factory method that handles the complete backtest workflow:
         1. Run backtest with provided estimator
@@ -405,21 +406,24 @@ class Evaluation(EvaluationBase):
         from chap_core.assessment.dataset_splitting import train_test_generator
         from chap_core.assessment.prediction_evaluator import backtest
 
-        # Run backtest
-        evaluation_results = backtest(
-            estimator=estimator,
-            data=dataset,
+        train_set, test_generator = train_test_generator(
+            dataset=dataset,
             prediction_length=backtest_params.n_periods,
             n_test_sets=backtest_params.n_splits,
             stride=backtest_params.stride,
+        )
+
+        # Run backtest
+        evaluation_results = backtest(
+            estimator=estimator,
+            train_set=train_set,
+            test_generator=test_generator,
+            n_test_sets=backtest_params.n_splits,
             n_retrain=backtest_params.n_retrain,
         )
 
         # Prepare metadata
-        train, _ = train_test_generator(
-            dataset, backtest_params.n_periods, backtest_params.n_splits, stride=backtest_params.stride
-        )
-        last_train_period = train.period_range[-1]
+        last_train_period = train_set.period_range[-1]
 
         backtest_info = BacktestCreate(
             name=backtest_name,

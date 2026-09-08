@@ -83,6 +83,8 @@ def run_backtest(
     n_retrain: int = _DEFAULT_PARAMS.n_retrain,
     session: SessionWrapper | None = None,
 ):
+    from chap_core.assessment.dataset_splitting import train_test_generator
+
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     assert session is not None, "session is required"
     status_logger.info(f"Starting backtest for model '{info.model_id}' on dataset ID {info.dataset_id}")
@@ -119,17 +121,22 @@ def run_backtest(
         n_splits=n_splits,
         stride=stride,
     )
+    train_set, test_generator = train_test_generator(
+        dataset,
+        prediction_length=n_periods,
+        n_test_sets=n_splits,
+        stride=stride,
+        future_weather_provider=QuickForecastFetcher,  # type: ignore[arg-type]
+    )
 
     status_logger.info(f"Running {n_splits} evaluation splits with prediction length {n_periods}")
     assert configured_model.id is not None, "configured_model.id is required"
     estimator = session.get_configured_model_with_code(configured_model.id, prediction_length=n_periods)
     predictions_list = _backtest(
-        estimator,
-        dataset,
-        prediction_length=n_periods,
+        estimator=estimator,
+        train_set=train_set,
+        test_generator=test_generator,
         n_test_sets=n_splits,
-        stride=stride,
-        weather_provider=QuickForecastFetcher,
         n_retrain=n_retrain,
     )
     last_train_period = dataset.period_range[-1]

@@ -60,10 +60,12 @@ flowchart TB
     subgraph Worker["queue worker: run_backtest()"]
         direction TB
         L["load dataset and configured model"]
+        S["train_test_generator() &rarr; (train_set, test_generator)"]
         B["_backtest() &rarr; Iterable of DataSet(SamplesWithTruth)"]
-        P["session.add_evaluation_results() &rarr; persist to Backtest table"]
+        E["Evaluation.from_samples_with_truth() &rarr; Evaluation"]
+        P["evaluation.to_backtest() + session.add_backtest() &rarr; persist to Backtest table"]
         R["return backtest.id"]
-        L --> B --> P --> R
+        L --> S --> B --> E --> P --> R
     end
 
     Post --> L
@@ -191,7 +193,7 @@ class SamplesWithTruth(Samples):
     # samples: np.ndarray  # forecast samples
 ```
 
-This is the in-memory format returned by `_backtest()` and then persisted to database via `add_evaluation_results()`.
+This is the in-memory format returned by `_backtest()`, then converted to an `Evaluation` with `Evaluation.from_samples_with_truth()`, converted to a `Backtest`, and persisted via `session.add_backtest()`.
 
 ### Current Data Flow
 
@@ -199,19 +201,19 @@ This is the in-memory format returned by `_backtest()` and then persisted to dat
 flowchart TB
     subgraph REST["REST API path"]
         direction TB
-        A1["_backtest()"]
-        A2["Iterable of DataSet(SamplesWithTruth)"]
-        A3["session.add_evaluation_results()"]
-        A4["Backtest (DB) - stored in database"]
-        A5["BacktestForecast records"]
-        A6["DataSet relationship"]
-        A7["convert_backtest_to_flat_*()"]
-        A8["FlatForecasts + FlatObserved DataFrames"]
-        A9["Metrics / Visualization"]
-        A1 --> A2 --> A3 --> A4
-        A4 --> A5
-        A4 --> A6
-        A4 --> A7 --> A8 --> A9
+        A1["train_test_generator()"]
+        A2["train_set + test_generator"]
+        A3["_backtest()"]
+        A4["Iterable of DataSet(SamplesWithTruth)"]
+        A5["Evaluation.from_samples_with_truth()"]
+        A6["Evaluation.to_backtest()"]
+        A7["session.add_backtest()"]
+        A8["Backtest (DB) - stored in database"]
+        A9["convert_backtest_to_flat_*()"]
+        A10["FlatForecasts + FlatObserved DataFrames"]
+        A11["Metrics / Visualization"]
+        A1 --> A2 --> A3 --> A4 --> A5 --> A6 --> A7 --> A8
+        A8 --> A9 --> A10 --> A11
     end
 
     subgraph CLI["CLI path"]
@@ -567,7 +569,19 @@ def evaluate(data, model_name, ...):
 # Proposed approach with InMemoryEvaluation
 def evaluate(data, model_name, ...):
     estimator = load_model(model_name)
-    results = _backtest(estimator, data)
+    train_set, test_generator = train_test_generator(
+        data,
+        prediction_length=n_periods,
+        n_test_sets=n_splits,
+        stride=stride,
+    )
+    results = _backtest(
+        estimator=estimator,
+        train_set=train_set,
+        test_generator=test_generator,
+        n_test_sets=n_splits,
+        n_retrain=n_retrain,
+    )
 
     # Create in-memory evaluation (no database)
     evaluation = InMemoryEvaluation.from_samples_with_truth(

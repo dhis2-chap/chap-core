@@ -2,9 +2,13 @@ name: build_docs
 
 on:
   push:
-    branches: [ master, dev, docs/sphinx-to-mkdocs ]
+    branches: [ master, docs/sphinx-to-mkdocs ]
   pull_request:
-    branches: [ master, dev ]
+    branches: [ master ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   docs:
