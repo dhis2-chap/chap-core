@@ -1,4 +1,5 @@
 from enum import StrEnum
+from pathlib import Path
 from typing import Any, Literal
 
 import numpy as np
@@ -209,11 +210,24 @@ class EstimatorOptions(BaseModel):
         default=EstimatorMode.NORMAL,
         description="Estimator mode: 'normal' = normal run, 'hpo' = hyperparameter optimization, 'ensemble' = ensemble learning.",
     )
+    search_space: Path | None = Field(
+        default=None,
+        description="YAML defining the HPO search space. If omitted, hpo_search_space from model's MLProject is used.",
+    )
     metric: str | None = Field(
         default=None,
         description="Metric used for HPO or ensemble. Default will be used if none provided. Ignored in normal mode.",
     )
     searcher: SearcherType | None = Field(
         default=None,
-        description="Searcher used for HPO. If not provided, a default RandomSearcher will be used. Ignored in normal and ensemble modes.",
+        description="Searcher used for HPO. If not provided, a default TPESearcher will be used. Ignored in normal and ensemble modes.",
+    )
+    max_trials: int | None = Field(
+        default=None,
+        gt=0,
+        description="Maximum HPO trials. If omitted, grid search is exhaustive while random/TPE use the default HPO trial count.",
+    )
+    seed: int | None = Field(
+        default=None,
+        description="Random seed used by stochastic search strategies.",
     )
