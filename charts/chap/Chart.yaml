@@ -2,7 +2,7 @@ apiVersion: v2
 name: chap
 description: CHAP (Climate Health Analysis Platform)
 type: application
-version: 1.1.0
+version: 1.1.1
 appVersion: "v2.1.0"
 
 dependencies:

@@ -33,6 +33,22 @@ spec:
             - /bin/sh
             - -c
             - |
+              # DHIS 2 is usually still starting when this job first runs, and the POST below is one
+              # shot per pod, so without waiting the job spends its backoffLimit racing the boot and
+              # can exhaust it on a slow start. Wait for the API to answer before registering.
+              DEADLINE=$(( $(date +%s) + {{ .Values.dhis2.registerJob.waitForDhis2TimeoutSeconds }} ))
+              until curl -sf -o /dev/null \
+                  --connect-timeout 5 --max-time 15 \
+                  -u "${username}:${password}" \
+                  "https://${hostname}/api/{{ .Values.dhis2.apiVersion }}/system/info"; do
+                if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+                  echo "DHIS 2 at ${hostname} did not answer within {{ .Values.dhis2.registerJob.waitForDhis2TimeoutSeconds }}s, giving up"
+                  exit 1
+                fi
+                echo "DHIS 2 is not ready yet, retrying in 10s"
+                sleep 10
+              done
+
               PAYLOAD=$(printf '%s' '{
                 "name": "Chap Modeling App",
                 "code": "chap",

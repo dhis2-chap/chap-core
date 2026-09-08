@@ -236,7 +236,9 @@ def _run_eval(
                 searcher_inp=estimator_options.searcher,
             )
         elif estimator_options.mode == EstimatorMode.ENSEMBLE:
-            raise NotImplementedError("Ensemble mode is not yet implemented")
+            raise NotImplementedError(
+                "Ensemble mode is not implemented for `chap evaluate`; use the `chap evaluate-ensemble` command"
+            )
 
         warn_unused_covariates(dataset, template.model_template_config, configuration)
 

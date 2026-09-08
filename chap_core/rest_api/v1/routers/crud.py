@@ -119,17 +119,20 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> set[str]
         session_wrapper = SessionWrapper(session=session)
         for service in service_list.services:
             try:
-                # Fetch the config schema so user_options (n_lags, precision, etc.)
-                # are populated on the template row — both on first discovery and
-                # on every subsequent sync so schema changes propagate without a
-                # DB wipe.
-                user_options: dict = {}
+                # A template version is write-once, so do not persist incomplete
+                # metadata if its config schema is temporarily unavailable. A later
+                # sync can then create the template with its full user options.
                 try:
                     client = CHAPKitRestAPIWrapper(service.url, timeout=5)
                     schema = client.get_config_schema()
                     user_options = _parse_user_options_from_config_schema(schema)
                 except Exception:
-                    logger.debug("Could not fetch config schema from %s", service.url)
+                    logger.warning(
+                        "Could not fetch config schema from %s, will retry next sync",
+                        service.url,
+                        exc_info=True,
+                    )
+                    continue
 
                 config = ml_service_info_to_model_template_config(service.info, service.url, user_options)
                 template_id = session_wrapper.add_model_template_from_yaml_config(config)
@@ -752,7 +755,7 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], se
     summary="Browse available model templates",
 )
 async def list_model_templates(session: Session = Depends(get_session)):
-    """List every model template that can be configured into a runnable model — including archived ones, so historical references stay resolvable.
+    """List every live model template that can be configured into a runnable model — one per template name; superseded versions keep their rows but are not listed.
 
     Acts as the discovery endpoint: it is also where the CHAPKit v2 service registry
     gets pulled in, so a template's ``health_status = "live"`` reflects whether the
@@ -760,7 +763,7 @@ async def list_model_templates(session: Session = Depends(get_session)):
     services have disappeared are auto-archived as a side effect.
     """
     live_ids = _sync_live_chapkit_services(session)
-    model_templates = session.exec(select(ModelTemplateDB)).all()
+    model_templates = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.is_live == True)).all()
 
     results = []
     for t in model_templates:
@@ -1112,6 +1115,7 @@ async def run_prediction_setup(
         dataset_create_info=dataset_info,
         prediction_params=prediction_params,
         prediction_setup_id=prediction_setup_id,
+        configured_model_id=setup.configured_model_id,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},

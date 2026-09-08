@@ -1,9 +1,12 @@
 import logging
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from chap_core.model_spec import PeriodType
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.local_configuration import parse_local_model_config_from_directory
 
+from ..external.github import resolve_commit_sha
 from ..file_io.file_paths import get_config_path
 from ..models.model_template import ExternalModelTemplate
 from .database import SessionWrapper
@@ -14,18 +17,29 @@ logger = logging.getLogger(__name__)
 
 
 def add_model_template(model_template: ModelTemplateDB, session_wrapper: SessionWrapper) -> int:
-    template_id = session_wrapper.add_or_update_model_template(model_template, update=False)
+    template_id = session_wrapper.add_or_update_model_template(model_template)
     return template_id
 
 
 def add_model_template_from_url(
     url: str, session_wrapper: SessionWrapper, version: str, name_override: str | None = None
 ) -> int:
-    model_template_config = ExternalModelTemplate.fetch_config_from_github_url(url)
+    existing = session_wrapper.find_existing_git_model_template(version, name=name_override, github_url=url)
+    if existing is not None:
+        return session_wrapper.add_or_update_model_template(existing)
+    # A git template must point to one revision, so an unknown ref is an error.
+    source_digest = resolve_commit_sha(url)
+    if source_digest is None:
+        raise ValueError(f"Could not resolve an immutable source digest for model template URL {url!r}")
+    # Read the same revision that CHAP records, because a branch can move.
+    source_url = f"{url.partition('@')[0]}@{source_digest}"
+    model_template_config = ExternalModelTemplate.fetch_config_from_github_url(source_url)
     model_template_config.version = version
     if name_override is not None:
         model_template_config.name = name_override
-    template_id = session_wrapper.add_model_template_from_yaml_config(model_template_config)
+    template_id = session_wrapper.add_model_template_from_yaml_config(
+        model_template_config, source_digest=source_digest
+    )
     return template_id
 
 
@@ -61,6 +75,7 @@ def add_configured_model(
 def get_naive_model_template():
     model_template = ModelTemplateDB(
         name="naive_model",
+        version="1",
         display_name="Naive model used for testing",
         required_covariates=["rainfall", "mean_temperature"],
         description="A simple naive model only to be used for testing purposes.",
@@ -103,32 +118,53 @@ def seed_configured_models_from_config_dir(
                     add_configured_model(
                         template_id, configured_model_configuration, config_name, wrapper, uses_chapkit=True
                     )
-            except TimeoutError:
+            except Exception as e:
+                # A failed flush leaves the session unusable until it is rolled back.
+                session.rollback()
+                if isinstance(e, SQLAlchemyError):
+                    raise
                 logger.error(
-                    f"Chapkit model at {config.url} did not respond as healthy. Skipping this model when seeding the database."
+                    f"Could not seed chapkit model at {config.url}: {e}. Skipping this model when seeding the database."
                 )
                 continue
         else:
-            # for every version, add one for each configured model configuration
-            # find latest version in yaml, add that as a model template before for loop
-            version, version_commit_or_branch = list(config.versions.items())[-1]
-            version_commit_or_branch = version_commit_or_branch.strip("@")
-            config.url = config.url.removesuffix("/")
+            try:
+                # for every version, add one for each configured model configuration
+                # find latest version in yaml, add that as a model template before for loop
+                version, version_commit_or_branch = list(config.versions.items())[-1]
+                version_commit_or_branch = version_commit_or_branch.strip("@")
+                config.url = config.url.removesuffix("/")
 
-            version_url = f"{config.url}@{version_commit_or_branch}"
-            template_id = add_model_template_from_url(version_url, wrapper, version, name_override=config.name)
+                version_url = f"{config.url}@{version_commit_or_branch}"
+                template_id = add_model_template_from_url(version_url, wrapper, version, name_override=config.name)
 
-            for config_name, configured_model_configuration in config.configurations.items():
-                add_configured_model(template_id, configured_model_configuration, config_name, wrapper)
+                for config_name, configured_model_configuration in config.configurations.items():
+                    add_configured_model(template_id, configured_model_configuration, config_name, wrapper)
+            except Exception as e:
+                # A failed flush leaves the session unusable until it is rolled back.
+                session.rollback()
+                if isinstance(e, SQLAlchemyError):
+                    raise
+                logger.error(
+                    f"Could not seed git model at {config.url}: {e}. Skipping this model when seeding the database."
+                )
+                continue
 
     # add naive model template
-    naive_template = get_naive_model_template()
-    naive_template_id = add_model_template(naive_template, wrapper)
-    # and naive configured model
-    add_configured_model(
-        naive_template_id,
-        ModelConfiguration(additional_continuous_covariates=[], user_option_values={}),
-        "default",
-        wrapper,
-    )
-    session.commit()
+    try:
+        naive_template = get_naive_model_template()
+        naive_template_id = add_model_template(naive_template, wrapper)
+        # and naive configured model
+        add_configured_model(
+            naive_template_id,
+            ModelConfiguration(additional_continuous_covariates=[], user_option_values={}),
+            "default",
+            wrapper,
+        )
+        session.commit()
+    except Exception as e:
+        # Startup must continue without the naive model rather than abort the API.
+        session.rollback()
+        if isinstance(e, SQLAlchemyError):
+            raise
+        logger.error(f"Could not seed the naive model: {e}")

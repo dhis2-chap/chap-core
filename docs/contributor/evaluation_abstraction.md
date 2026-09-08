@@ -53,13 +53,20 @@ Location: `chap_core/rest_api/v1/routers/analytics.py` and `chap_core/rest_api/d
 
 **Evaluation Creation Process:**
 
-```
-1. POST /create-backtest
-   └─> Queue worker: run_backtest()
-       └─> Load dataset and configured model
-       └─> Call _backtest() -> returns Iterable[DataSet[SamplesWithTruth]]
-       └─> session.add_evaluation_results() -> persists to Backtest table
-       └─> Returns backtest.id
+```mermaid
+flowchart TB
+    Post["POST /create-backtest"]
+
+    subgraph Worker["queue worker: run_backtest()"]
+        direction TB
+        L["load dataset and configured model"]
+        B["_backtest() &rarr; Iterable of DataSet(SamplesWithTruth)"]
+        P["session.add_evaluation_results() &rarr; persist to Backtest table"]
+        R["return backtest.id"]
+        L --> B --> P --> R
+    end
+
+    Post --> L
 ```
 
 **Data Consumption:**
@@ -100,16 +107,25 @@ Location: `chap_core/cli.py:189-309` and `chap_core/assessment/prediction_evalua
 
 **Evaluation Process:**
 
-```
-1. cli.py evaluate command
-   └─> Load model template and get configured model
-   └─> Call evaluate_model(estimator, data, ...)
-       └─> Uses train_test_generator() for data splits
-       └─> estimator.train() and predictor.predict()
-       └─> Uses GluonTS Evaluator directly
-       └─> Returns (aggregate_metrics, item_metrics) tuple
-   └─> Save results to CSV files
-   └─> No database persistence
+```mermaid
+flowchart TB
+    Cmd["cli.py evaluate command"]
+    Load["load model template and get configured model"]
+
+    subgraph Eval["evaluate_model(estimator, data, ...)"]
+        direction TB
+        S["train_test_generator() for data splits"]
+        T["estimator.train() and predictor.predict()"]
+        G["use GluonTS Evaluator directly"]
+        Ret["return (aggregate_metrics, item_metrics) tuple"]
+        S --> T --> G --> Ret
+    end
+
+    Save["save results to CSV files"]
+    NoDB["no database persistence"]
+
+    Cmd --> Load --> S
+    Ret --> Save --> NoDB
 ```
 
 **Key Differences from REST API:**
@@ -179,42 +195,34 @@ This is the in-memory format returned by `_backtest()` and then persisted to dat
 
 ### Current Data Flow
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                         REST API Path                         │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  _backtest()                                                  │
-│      ↓                                                        │
-│  Iterable[DataSet[SamplesWithTruth]]                         │
-│      ↓                                                        │
-│  session.add_evaluation_results()                            │
-│      ↓                                                        │
-│  Backtest (DB) ← ── ── stored in database                    │
-│      ├─> BacktestForecast records                            │
-│      └─> DataSet relationship                                │
-│      ↓                                                        │
-│  convert_backtest_to_flat_*()                                │
-│      ↓                                                        │
-│  FlatForecasts + FlatObserved DataFrames                     │
-│      ↓                                                        │
-│  Metrics / Visualization                                     │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph REST["REST API path"]
+        direction TB
+        A1["_backtest()"]
+        A2["Iterable of DataSet(SamplesWithTruth)"]
+        A3["session.add_evaluation_results()"]
+        A4["Backtest (DB) - stored in database"]
+        A5["BacktestForecast records"]
+        A6["DataSet relationship"]
+        A7["convert_backtest_to_flat_*()"]
+        A8["FlatForecasts + FlatObserved DataFrames"]
+        A9["Metrics / Visualization"]
+        A1 --> A2 --> A3 --> A4
+        A4 --> A5
+        A4 --> A6
+        A4 --> A7 --> A8 --> A9
+    end
 
-┌─────────────────────────────────────────────────────────────┐
-│                          CLI Path                             │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  evaluate_model()                                             │
-│      ↓                                                        │
-│  GluonTS Evaluator                                            │
-│      ↓                                                        │
-│  (aggregate_metrics, item_metrics) tuples                    │
-│      ↓                                                        │
-│  Save to CSV                                                  │
-│      ↓                                                        │
-│  No database persistence                                     │
-└─────────────────────────────────────────────────────────────┘
+    subgraph CLI["CLI path"]
+        direction TB
+        B1["evaluate_model()"]
+        B2["GluonTS Evaluator"]
+        B3["(aggregate_metrics, item_metrics) tuples"]
+        B4["save to CSV"]
+        B5["no database persistence"]
+        B1 --> B2 --> B3 --> B4 --> B5
+    end
 ```
 
 ## Proposed Design

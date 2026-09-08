@@ -19,24 +19,20 @@ Because disease surveillance data is a time series, we cannot use random train/t
 
 The evaluation flow from entry point to results:
 
-```
-Evaluation.create()                          # evaluation.py
-    |
-    +--> backtest()                          # prediction_evaluator.py
-    |       |
-    |       +--> train_test_generator()      # dataset_splitting.py
-    |       |       Returns (train_set, splits_iterator)
-    |       |
-    |       +--> estimator.train(train_set)
-    |       |       Returns predictor
-    |       |
-    |       +--> for each split:
-    |               predictor.predict(historic, future)
-    |               Merge predictions with ground truth
-    |               Yield DataSet[SamplesWithTruth]
-    |
-    +--> Evaluation.from_samples_with_truth()
-            Wraps results in an Evaluation object
+```mermaid
+flowchart TB
+    Create["Evaluation.create()<br/>evaluation.py"]
+    Backtest["backtest()<br/>prediction_evaluator.py"]
+    Split["train_test_generator()<br/>dataset_splitting.py<br/>returns (train_set, splits_iterator)"]
+    Train["estimator.train(train_set)<br/>returns predictor"]
+    Loop["for each split:<br/>predictor.predict(historic, future)<br/>merge predictions with ground truth<br/>yield DataSet(SamplesWithTruth)"]
+    Wrap["Evaluation.from_samples_with_truth()<br/>wraps results in an Evaluation object"]
+
+    Create --> Backtest
+    Backtest --> Split
+    Backtest --> Train
+    Backtest --> Loop
+    Create --> Wrap
 ```
 
 ## Expanding Window Cross-Validation

@@ -6,20 +6,27 @@ to the codebase.
 
 ## High-level overview
 
-```
-                     +-----------+
-                     |  FastAPI   |
-                     |   app.py   |
-                     +-----+-----+
-                           |
-          +----------------+----------------+
-          |                |                |
-    common_routes     /v1 router       /v2 router
-    (health, info)         |                |
-                     +-----+-----+     services.py
-                     |           |     (chapkit registry)
-                  crud.py   analytics.py
-                  jobs.py   visualization.py
+```mermaid
+flowchart TB
+    App["FastAPI app<br/>rest_api/app.py"]
+    Common["common_routes<br/>health, system info"]
+    V1["/v1 router"]
+    V2["/v2 router"]
+
+    Crud["crud.py<br/>/v1/crud"]
+    Analytics["analytics.py<br/>/v1/analytics"]
+    Jobs["jobs.py<br/>/v1/jobs"]
+    Viz["visualization.py<br/>/v1/visualization"]
+    Services["services.py<br/>chapkit registry<br/>/v2/services"]
+
+    App --> Common
+    App --> V1
+    App --> V2
+    V1 --> Crud
+    V1 --> Analytics
+    V1 --> Jobs
+    V1 --> Viz
+    V2 --> Services
 ```
 
 The application is a **FastAPI** server defined in `rest_api/app.py`.
@@ -165,16 +172,17 @@ The tables are spread across several files:
 
 ### Key relationships
 
-```
-ModelTemplateDB  1--*  ConfiguredModelDB
-DataSet          1--*  Observation
-DataSet          1--*  Backtest
-DataSet          1--*  Prediction
-Backtest         1--*  BacktestForecast
-Backtest         1--*  BacktestMetric
-Prediction       1--*  PredictionSamplesEntry
-ConfiguredModelDB 1--* Backtest
-ConfiguredModelDB 1--* Prediction
+```mermaid
+erDiagram
+    ModelTemplateDB ||--o{ ConfiguredModelDB : configurations
+    DataSet ||--o{ Observation : observations
+    DataSet ||--o{ Backtest : backtests
+    DataSet ||--o{ Prediction : predictions
+    ConfiguredModelDB ||--o{ Backtest : runs
+    ConfiguredModelDB ||--o{ Prediction : runs
+    Backtest ||--o{ BacktestForecast : forecasts
+    Backtest ||--o{ BacktestMetric : metrics
+    Prediction ||--o{ PredictionSamplesEntry : samples
 ```
 
 ### Read models and response types

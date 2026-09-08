@@ -11,6 +11,7 @@ import psycopg2
 import sqlalchemy
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel.sql.expression import SelectOfScalar
 
 from chap_core.log_config import is_debug_mode
 from chap_core.predictor.naive_estimator import NaiveEstimator
@@ -20,12 +21,24 @@ from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
 from ..models.external_chapkit_model import ExternalChapkitModelTemplate
 from .model_spec_tables import ModelSpecRead
-from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
+from .model_templates_and_config_tables import (
+    ConfiguredModelDB,
+    ModelConfiguration,
+    ModelTemplateDB,
+    compute_configuration_digest,
+    drifted_template_content_fields,
+)
 from .tables import Backtest, Prediction, PredictionSamplesEntry
 
 logger = logging.getLogger(__name__)
 engine = None
 database_url = os.getenv("CHAP_DATABASE_URL", default=None)
+
+# The generic migration plus create_all() already provide the schema through
+# this revision for databases that predate Alembic. The following revision must
+# still run because it contains data backfills and constraint replacements.
+_GENERIC_SCHEMA_ALEMBIC_REVISION = "a7b8c9d0e1f2"
+
 # Log database URL with credentials masked for security
 if database_url:
     masked_url = database_url.split("@")[-1] if "@" in database_url else database_url
@@ -84,53 +97,103 @@ class SessionWrapper:
     def list_all(self, model):
         return self.session.exec(select(model)).all()
 
-    def _if_exists(self, model_name: str) -> ModelTemplateDB | None:
-        # check if model template already exists
-        existing_template = self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == model_name)).first()
+    def _if_exists(self, model_name: str, version: str) -> ModelTemplateDB | None:
+        # check if this version of the model template already exists
+        existing_template = self.session.exec(
+            select(ModelTemplateDB).where(ModelTemplateDB.name == model_name, ModelTemplateDB.version == version)
+        ).first()
         return existing_template
+
+    def find_existing_git_model_template(
+        self, version: str, *, name: str | None = None, github_url: str | None = None
+    ) -> ModelTemplateDB | None:
+        if name:
+            return self._if_exists(name, version)
+        if github_url is None:
+            return None
+        repo_url = github_url.partition("@")[0]
+        templates = self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.version == version)).all()
+        matches = [
+            template
+            for template in templates
+            if template.source_url is not None and template.source_url.partition("@")[0] == repo_url
+        ]
+        return matches[0] if len(matches) == 1 else None
 
     def _return_model_template_id(self, model_name: str, existing_template: ModelTemplateDB) -> int:
         logger.info(f"Model template with name {model_name} already exists. Returning existing id")
         return cast("int", existing_template.id)
 
-    def _update_model_template(self, existing_template: ModelTemplateDB, new_model_template: ModelTemplateDB) -> int:
-        logger.info(f"Model template with name {new_model_template.name} already exists. Updating it")
-        # Update the existing template with new data except id and fields newly added when casted to ModelTemplateDB
-        data = new_model_template.model_dump(exclude={"id"}, exclude_unset=True)
-        for key, value in data.items():
-            if hasattr(existing_template, key):
-                setattr(existing_template, key, value)
-        # Unarchive if it was previously archived
-        existing_template.archived = False
-        self.session.commit()
-        return cast("int", existing_template.id)
-
     def _add_model_template(self, model_template: ModelTemplateDB) -> int:
         # add db entry
         logger.info(f"Adding model template: {model_template}")
+        model_template.is_live = False
         self.session.add(model_template)
         self.session.commit()
         # return id
         return cast("int", model_template.id)
 
-    def add_or_update_model_template(self, model_template: ModelTemplateDB, update: bool) -> int:
-        model_name = model_template.name
-        existing_template = self._if_exists(model_name)
-        if existing_template:
-            if update:
-                return self._update_model_template(existing_template, new_model_template=model_template)
-            else:
-                return self._return_model_template_id(model_name, existing_template)
-        else:
-            return self._add_model_template(model_template)
+    def _make_live_template_version(self, model_name: str, model_template_id: int) -> None:
+        # Only one version is live. The other versions keep their rows and their ids.
+        # Stay on the previous live version until this one has a configured model,
+        # except when no version is live yet — then this one is live immediately
+        # so the template stays discoverable and configurable.
+        templates = self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == model_name)).all()
+        has_configured_model = self.session.exec(
+            select(ConfiguredModelDB.id).where(ConfiguredModelDB.model_template_id == model_template_id)
+        ).first()
+        if has_configured_model is None and any(template.is_live for template in templates):
+            return
+        for template in templates:
+            template.is_live = template.id == model_template_id
+        self.session.commit()
 
-    def add_model_template_from_yaml_config(self, model_template_config: ModelTemplateConfigV2) -> int:
-        # convert yaml config to model template db object and add to db
+    def add_or_update_model_template(self, model_template: ModelTemplateDB) -> int:
+        model_name = model_template.name
+        existing_template = self._if_exists(model_name, model_template.version)
+        if existing_template:
+            if (
+                model_template.source_digest is not None
+                and existing_template.source_digest is not None
+                and model_template.source_digest != existing_template.source_digest
+            ):
+                logger.warning(
+                    f"Model template {model_name!r} version {model_template.version!r} came from "
+                    f"{existing_template.source_digest!r}, but its ref now points to "
+                    f"{model_template.source_digest!r}. CHAP keeps the first revision. Use a new "
+                    "version label to get the new source."
+                )
+            drifted = drifted_template_content_fields(existing_template, model_template)
+            if drifted:
+                logger.warning(
+                    f"Model template {model_name!r} version {model_template.version!r} is already stored with "
+                    f"different {', '.join(drifted)}. A version is write-once, so CHAP ignores the new "
+                    "values. Use a new version label."
+                )
+            # A version is write-once, so keep the stored row.
+            template_id = self._return_model_template_id(model_name, existing_template)
+            # Show the template again, but do not change its contents.
+            if existing_template.archived:
+                existing_template.archived = False
+                self.session.commit()
+        else:
+            # add_model_template_from_url gives git templates a digest. Other sources give None.
+            template_id = self._add_model_template(model_template)
+        self._make_live_template_version(model_name, template_id)
+        return template_id
+
+    def add_model_template_from_yaml_config(
+        self, model_template_config: ModelTemplateConfigV2, source_digest: str | None = None
+    ) -> int:
         d = model_template_config.model_dump()
         info = d.pop("meta_data")
         d = d | info
+        # The version is part of the identity, so it cannot be empty.
+        if not d["version"]:
+            raise ValueError(f"Model template {d['name']!r} must declare a version")
         model_template = ModelTemplateDB(**d)
-        return self.add_or_update_model_template(model_template, update=True)
+        model_template.source_digest = source_digest
+        return self.add_or_update_model_template(model_template)
 
     def add_configured_model(
         self,
@@ -155,17 +218,31 @@ class SessionWrapper:
             # combine model template with configuration name to make the name unique
             name = f"{template_name}:{configuration_name}"
 
-        # check if configured model already exists
-        existing_configured = self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == name)).first()
-        if existing_configured:
-            logger.info(f"Configured model with name {name} already exists. Returning existing id")
-            return cast("int", existing_configured.id)
+        # check if this exact configuration already exists
+        digest = compute_configuration_digest(configuration)
+        identical_configured_model = self.session.exec(
+            select(ConfiguredModelDB).where(
+                ConfiguredModelDB.model_template_id == model_template_id,
+                ConfiguredModelDB.name == name,
+                ConfiguredModelDB.configuration_digest == digest,
+            )
+        ).first()
+        if identical_configured_model:
+            logger.info(
+                f"Configured model {name} with an identical configuration already exists. Returning existing id"
+            )
+            reactivated_model_id = cast("int", identical_configured_model.id)
+            # Still flip is_live so that re-adding a previous configuration makes it live again.
+            self._make_live_configured_model(model_template_id, name, reactivated_model_id)
+            self._make_live_template_version(template_name, model_template_id)
+            return reactivated_model_id
 
         # create and add db entry
         configured_model = ConfiguredModelDB(
             name=name,
             model_template_id=model_template_id,
             **configuration.model_dump(),
+            configuration_digest=digest,
             model_template=model_template,
             uses_chapkit=uses_chapkit,
         )
@@ -179,18 +256,38 @@ class SessionWrapper:
         logger.info(f"Adding configured model: {configured_model}")
         self.session.add(configured_model)
         self.session.commit()
+        configured_model_id = cast("int", configured_model.id)
 
-        # return id
-        return cast("int", configured_model.id)
+        self._make_live_configured_model(model_template_id, name, configured_model_id)
+        self._make_live_template_version(template_name, model_template_id)
+        return configured_model_id
+
+    def _make_live_configured_model(self, model_template_id: int, name: str, configured_model_id: int) -> None:
+        # Only one configuration per name is live. The others keep their rows and their ids.
+        configured_models = self.session.exec(
+            select(ConfiguredModelDB).where(
+                ConfiguredModelDB.model_template_id == model_template_id, ConfiguredModelDB.name == name
+            )
+        ).all()
+        for configured_model in configured_models:
+            configured_model.is_live = configured_model.id == configured_model_id
+        self.session.commit()
+
+    def _select_live_configured_models(self) -> SelectOfScalar[ConfiguredModelDB]:
+        # Names are not unique, so a name can only find the live rows.
+        return (
+            select(ConfiguredModelDB)
+            .join(ModelTemplateDB)
+            .where(ConfiguredModelDB.is_live == True, ModelTemplateDB.is_live == True)
+        )
 
     def get_configured_models(self) -> list[ModelSpecRead]:
         # TODO: using ModelSpecRead for backwards compatibility, should in future return ConfiguredModelDB?
 
         # get configured models from db, excluding those with archived templates
         configured_models = self.session.exec(
-            select(ConfiguredModelDB)
+            self._select_live_configured_models()
             .options(selectinload(ConfiguredModelDB.model_template))  # type: ignore[arg-type]
-            .join(ModelTemplateDB)
             .where(ModelTemplateDB.archived == False)
         ).all()
 
@@ -274,15 +371,14 @@ class SessionWrapper:
         return configured_models_read
 
     def get_configured_model_by_name(self, configured_model_name: str) -> ConfiguredModelDB:
-        try:
-            configured_model = self.session.exec(
-                select(ConfiguredModelDB).where(ConfiguredModelDB.name == configured_model_name)
-            ).one()
-        except sqlalchemy.exc.NoResultFound:
-            all_names = self.session.exec(select(ConfiguredModelDB.name)).all()
+        configured_model = self.session.exec(
+            self._select_live_configured_models().where(ConfiguredModelDB.name == configured_model_name)
+        ).one_or_none()
+        if configured_model is None:
+            available_names = [model.name for model in self.session.exec(self._select_live_configured_models()).all()]
             raise ValueError(
-                f"Configured model with name {configured_model_name} not found. Available names: {all_names}"
-            ) from None
+                f"Configured model with name {configured_model_name} not found. Available names: {available_names}"
+            )
 
         return configured_model
 
@@ -415,6 +511,7 @@ class SessionWrapper:
         dataset_id,
         model_id,
         name,
+        configured_model_id: int,
         metadata: dict | None = None,
         prediction_setup_id: int | None = None,
     ):
@@ -427,7 +524,6 @@ class SessionWrapper:
             for period, value in zip(data.time_period, data.samples, strict=False)
         ]
         org_units = list(predictions.keys())
-        model_db_id = self.session.exec(select(ConfiguredModelDB.id).where(ConfiguredModelDB.name == model_id)).first()
 
         prediction = Prediction(
             dataset_id=dataset_id,
@@ -438,7 +534,7 @@ class SessionWrapper:
             meta_data=metadata,
             forecasts=samples_,
             org_units=org_units,
-            model_db_id=model_db_id,
+            model_db_id=configured_model_id,
             prediction_setup_id=prediction_setup_id,
         )
         self.session.add(prediction)
@@ -452,6 +548,7 @@ def _run_alembic_migrations(engine):
     This is called after the custom migration system to apply any Alembic-managed schema changes.
     """
     from alembic.config import Config
+    from alembic.migration import MigrationContext
 
     from alembic import command
 
@@ -472,6 +569,14 @@ def _run_alembic_migrations(engine):
         # Pass the engine connection to Alembic for programmatic usage
         with engine.connect() as connection:
             alembic_cfg.attributes["connection"] = connection
+
+            migration_context = MigrationContext.configure(connection)
+            if migration_context.get_current_revision() is None:
+                existing_tables = set(sqlalchemy.inspect(connection).get_table_names())
+                if "modeltemplatedb" in existing_tables:
+                    command.stamp(alembic_cfg, _GENERIC_SCHEMA_ALEMBIC_REVISION)
+                    connection.commit()
+
             command.upgrade(alembic_cfg, "head")
 
         logger.info("Completed Alembic migrations successfully")

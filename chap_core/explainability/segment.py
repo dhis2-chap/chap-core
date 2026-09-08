@@ -20,7 +20,7 @@ TS-Mule paper; `NNSegmentation` comes from LimeSegment;
 """
 
 from collections.abc import Iterable
-from typing import Protocol
+from typing import Protocol, cast
 
 import numpy as np
 import pandas as pd
@@ -94,7 +94,7 @@ class UniformSegmentation(SegmentationModel):
             start = current_idx
             end = current_idx + len(subset)
             indices[lag] = (start, end)
-            segments[lag] = subset.to_numpy().tolist()
+            segments[lag] = cast("Segment", subset.to_numpy().tolist())
             current_idx = end
 
         return segments, indices
@@ -133,7 +133,7 @@ class ExponentialSegmentation:
             start = current_idx
             end = current_idx + len(subset)
             indices[lag] = (start, end)
-            segments[lag] = subset.to_numpy().tolist()
+            segments[lag] = cast("Segment", subset.to_numpy().tolist())
 
             current_idx = end
             if current_idx >= data_len:
@@ -177,7 +177,7 @@ class ReverseExponentialSegmentation:
                 subset = data.iloc[start:end]
 
             indices[lag] = (start, end)
-            segments[lag] = subset.to_numpy().tolist()
+            segments[lag] = cast("Segment", subset.to_numpy().tolist())
 
             current_end = start
             if current_end <= 0:

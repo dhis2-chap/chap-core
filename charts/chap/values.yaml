@@ -222,6 +222,10 @@ dhis2:
   labels: {}
   registerJob:
     backoffLimit: 10
+    # -- How long the job waits for the DHIS 2 API to answer before giving up. The route POST is one
+    # shot per pod, so the job waits for DHIS 2 rather than burning backoffLimit attempts on a boot
+    # that has not finished. Covers a cold start with a large database.
+    waitForDhis2TimeoutSeconds: 900
     # -- How long the finished job is kept. It is the record of whether registration succeeded, so it
     # outlives the run by a day rather than the hour a job is usually worth keeping.
     ttlSecondsAfterFinished: 86400

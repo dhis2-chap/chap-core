@@ -70,6 +70,8 @@ RUN mkdir /app/logs
 RUN chown -R chap:chap /app/logs
 # RUN chown -R chap:chap /app/*
 RUN chown -R chap:chap /pyenv
+HEALTHCHECK CMD /app/.venv/bin/celery -A chap_core.rest_api.celery_tasks inspect ping || exit 1
+
 USER chap
 
 # Ensure local venv tools are prioritized

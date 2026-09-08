@@ -14,6 +14,11 @@ boundary first.
 The path below ``run/`` is forwarded verbatim from the raw request path so reserved
 characters in artifact ids and filenames survive, and upstream redirects are followed so a
 relative ``Location`` resolves against the service rather than CHAP Core's own origin.
+
+The route is excluded from the OpenAPI schema. A pass-through proxy has no response schema
+(it returns whatever the service returns) and no declarable query parameters, so a generated
+client can only be an untyped URL builder that decodes binary bodies as text and cannot
+forward a query string. Callers build proxy URLs directly instead.
 """
 
 import logging
@@ -86,10 +91,15 @@ def _raw_subpath(request: Request, service_id: str) -> str:
     return text[index + len(marker) :]
 
 
+# include_in_schema=False keeps this out of the generated client (see module docstring). It
+# also sidesteps FastAPI deriving one operation id per route rather than per method: exposing
+# a multi-method route emits the same operationId for every verb, and since methods is a set,
+# a non-deterministic one. Register one route per method if this is ever put in the schema.
 @router.api_route(
     "/{service_id}/run/{path:path}",
     methods=PROXY_METHODS,
     summary="Proxy a read-only request to a registered chapkit service",
+    include_in_schema=False,
 )
 async def proxy_to_service(
     service_id: str,

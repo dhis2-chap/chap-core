@@ -15,36 +15,30 @@ The system works by:
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     preference_learn CLI                         │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  1. Load dataset and search space                               │
-│                                                                  │
-│  2. Initialize PreferenceLearner                                │
-│     └── PreferenceLearner.init(model_name, search_space)        │
-│                                                                  │
-│  3. Main loop:                                                  │
-│     ┌─────────────────────────────────────────────────────┐     │
-│     │ candidates = learner.get_next_candidates()          │     │
-│     │                                                      │     │
-│     │ for each candidate:                                  │     │
-│     │   └── Run backtest → Evaluation                     │     │
-│     │                                                      │     │
-│     │ metrics = compute_metrics(evaluations)              │     │
-│     │                                                      │     │
-│     │ preferred_idx = decision_maker.decide(evaluations)  │     │
-│     │                                                      │     │
-│     │ learner.report_preference(candidates,               │     │
-│     │                           preferred_idx, metrics)   │     │
-│     │                                                      │     │
-│     │ learner.save(state_file)                            │     │
-│     └─────────────────────────────────────────────────────┘     │
-│                                                                  │
-│  4. best = learner.get_best_candidate()                         │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+The `preference-learn` CLI command drives this loop:
+
+```mermaid
+flowchart TB
+    Start["1 - Load dataset and search space"]
+    Init["2 - Initialize PreferenceLearner<br/>init(model_name, search_space)"]
+
+    subgraph Loop["3 - Main loop"]
+        direction TB
+        Cand["candidates = learner.get_next_candidates()"]
+        Back["for each candidate:<br/>run backtest &rarr; evaluation"]
+        Metrics["metrics = compute_metrics(evaluations)"]
+        Decide["preferred_idx = decision_maker.decide(evaluations)"]
+        Report["learner.report_preference(candidates,<br/>preferred_idx, metrics)"]
+        Save["learner.save(state_file)"]
+        More{"more iterations?"}
+        Cand --> Back --> Metrics --> Decide --> Report --> Save --> More
+        More -->|yes| Cand
+    end
+
+    Best["4 - best = learner.get_best_candidate()"]
+
+    Start --> Init --> Cand
+    More -->|no| Best
 ```
 
 ## Key Components

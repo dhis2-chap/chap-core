@@ -31,6 +31,7 @@ import pandas as pd
 from chap_core.database.database import SessionWrapper
 from chap_core.database.tables import Backtest
 from chap_core.datatypes import SamplesWithTruth
+from chap_core.assessment.metrics.crps import crps_matrix
 
 
 # --- Parametrized tests for all metrics and all 3 methods ---
@@ -780,3 +781,26 @@ def test_peak_period_lag_metric_monthly(flat_observations_monthly, flat_forecast
     expected_sorted = expected.sort_values(["location", "horizon_distance"]).reset_index(drop=True)
 
     pd.testing.assert_frame_equal(result_sorted, expected_sorted)
+
+
+def test_crps_matrix_matches_rowwise_metric(crps_example_data):
+    """The batch helper must agree with the per-row CRPS the metric reports."""
+    observations, forecasts = crps_example_data
+    metric = CRPSMetric()
+    expected = np.mean([metric.compute_sample_metric(forecasts[i], observations[i]) for i in range(len(observations))])
+    np.testing.assert_allclose(crps_matrix(observations, forecasts), expected)
+
+
+def test_crps_matrix_matches_pairwise_definition(crps_example_data):
+    """And with the pairwise definition the rest of this module locks in."""
+    observations, forecasts = crps_example_data
+    expected = np.mean([_reference_crps_pairwise(forecasts[i], observations[i]) for i in range(len(observations))])
+    np.testing.assert_allclose(crps_matrix(observations, forecasts), expected)
+
+
+def test_crps_matrix_rejects_shape_mismatch(crps_example_data):
+    observations, forecasts = crps_example_data
+    with pytest.raises(ValueError, match="does not match forecast rows"):
+        crps_matrix(observations[:-1], forecasts)
+    with pytest.raises(ValueError, match="must be 2D"):
+        crps_matrix(observations, forecasts[0])
