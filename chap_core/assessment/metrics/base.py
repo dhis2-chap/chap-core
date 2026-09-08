@@ -71,8 +71,8 @@ class Metric(ABC):
 
     def get_global_metric(
         self,
-        observations: FlatObserved,
-        forecasts: FlatForecasts,
+        observations: pa.typing.DataFrame[FlatObserved],
+        forecasts: pa.typing.DataFrame[FlatForecasts],
     ) -> pd.DataFrame:
         """
         Compute the metric as a single aggregated scalar value.
@@ -88,8 +88,8 @@ class Metric(ABC):
 
     def get_detailed_metric(
         self,
-        observations: FlatObserved,
-        forecasts: FlatForecasts,
+        observations: pa.typing.DataFrame[FlatObserved],
+        forecasts: pa.typing.DataFrame[FlatForecasts],
     ) -> pd.DataFrame:
         """
         Compute the metric at the finest resolution (from spec.output_dimensions).
@@ -105,8 +105,8 @@ class Metric(ABC):
 
     def get_metric(
         self,
-        observations: FlatObserved,
-        forecasts: FlatForecasts,
+        observations: pa.typing.DataFrame[FlatObserved],
+        forecasts: pa.typing.DataFrame[FlatForecasts],
         dimensions: tuple[DataDimension, ...] = (),
     ) -> pd.DataFrame:
         """
@@ -213,7 +213,7 @@ class Metric(ABC):
         cols["metric"] = pa.Column(float, nullable=True)
         return pa.DataFrameSchema(cols, strict=True, coerce=True)
 
-    def is_applicable(self, observations: FlatObserved) -> bool:
+    def is_applicable(self, observations: pa.typing.DataFrame[FlatObserved]) -> bool:
         """Check whether this metric can be computed for the given data.
 
         Subclasses may override to indicate they require specific data
