@@ -9,13 +9,18 @@ import numpy as np
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, Relationship
 
+from chap_core.api_types import BacktestParams
 from chap_core.database.base_tables import DBModel, PeriodID
 from chap_core.database.dataset_tables import DataSet, DataSetInfo, DataSource, PydanticListType
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
 
 
-class BacktestBase(DBModel):
-    """Shared fields for every backtest shape (DB row, create request, read view)."""
+class BacktestBase(BacktestParams):
+    """Shared fields for every backtest shape (DB row, create request, read view).
+
+    The inherited `BacktestParams` fields hold the values the backtest actually ran
+    with, written by `run_backtest` after every override has been applied.
+    """
 
     dataset_id: int = Field(
         foreign_key="dataset.id", description="Foreign key to the `DataSet` the backtest evaluates against."

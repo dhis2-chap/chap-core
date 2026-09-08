@@ -91,11 +91,9 @@ class BacktestCreate(BacktestBase):
     """Request body for creating a backtest row directly (DB-level — typically the long path goes via `MakeBacktestRequest`)."""
 
     # Accept either the configured-model integer primary key or its string
-    # name. The underlying DB column (`BacktestBase.model_id`) is a string,
-    # but the `POST /v1/crud/backtests/` handler resolves an `int` to the
-    # corresponding name before persisting so the column stays consistent.
-    # See `chap_core.rest_api.v1.routers.crud.create_backtest` for the
-    # resolution path.
+    # name. The underlying DB column (`BacktestBase.model_id`) is a string;
+    # `run_backtest` resolves an `int` to the corresponding name before
+    # persisting so the column stays consistent.
     model_id: int | str = Field(  # type: ignore[assignment]
         description="Configured model to backtest: either the integer primary key or the canonical string name.",
     )
@@ -139,7 +137,9 @@ class MakeBacktestRequest(BacktestParams):
     """Request to backtest an already-imported dataset against a configured model."""
 
     name: str = Field(description="Human-friendly name for the resulting backtest row.")
-    model_id: str = Field(description="Canonical name of the configured model to backtest.")
+    model_id: int | str = Field(
+        description="Configured model to backtest: either the integer primary key or the canonical string name.",
+    )
     dataset_id: int = Field(description="Foreign key to the dataset the backtest evaluates against.")
 
 

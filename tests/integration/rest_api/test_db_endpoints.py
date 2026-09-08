@@ -12,6 +12,7 @@ from sqlmodel import Session, select
 from chap_core.api_types import DataList, EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo, DataSetWithObservations, ObservationBase
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.tables import (
@@ -22,6 +23,7 @@ from chap_core.database.tables import (
     PredictionRead,
 )
 from chap_core.rest_api.data_models import (
+    BacktestCreate,
     BacktestFull,
     ConfiguredModelInfoRead,
     DatasetCreate,
@@ -32,6 +34,7 @@ from chap_core.rest_api.data_models import (
     ModelTemplateRead,
 )
 from chap_core.rest_api.app import app
+from chap_core.rest_api.db_worker_functions import run_backtest
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -99,7 +102,9 @@ def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides
         dataset_id = DataSetManager(session.session).save_dataset(
             DataSetCreateInfo(name="full_data", type="evaluation"), weekly_full_data, "polygons"
         )
-    response = client.post("/v1/crud/backtests", json={"datasetId": dataset_id, "modelId": "naive_model"})
+    response = client.post(
+        "/v1/analytics/create-backtest", json={"datasetId": dataset_id, "modelId": "naive_model", "name": "x"}
+    )
     assert response.status_code == 200, response.json()
     job_id = response.json()["id"]
     db_id = await_result_id(job_id)
@@ -301,7 +306,10 @@ def test_backtest_flow_from_request(
     celery_session_worker, clean_engine, dependency_overrides, anonymous_make_dataset_request
 ):
     db_id = _make_dataset(anonymous_make_dataset_request)
-    response = client.post("/v1/crud/backtests", json={"datasetId": db_id, "name": "testing", "modelId": "naive_model"})
+    response = client.post(
+        "/v1/analytics/create-backtest",
+        json={"datasetId": db_id, "name": "testing", "modelId": "naive_model", "nSplits": 2, "nRetrain": 2},
+    )
     assert response.status_code == 200, response.json()
     job_id = response.json()["id"]
     db_id = await_result_id(job_id, timeout=120)
@@ -318,6 +326,8 @@ def test_backtest_flow_from_request(
     data = response.json()
     assert data["name"] == "testing"
     assert data["created"] is not None
+    # The row records the resolved evaluation parameters.
+    assert (data["nPeriods"], data["nSplits"], data["stride"], data["nRetrain"]) == (3, 2, 1, 2)
 
 
 def test_compatible_backtests(clean_engine, dependency_overrides):
@@ -395,6 +405,7 @@ def test_get_backtest_bare_route_unknown_id_returns_404(clean_engine, dependency
         ("nSplits", -2),
         ("stride", 0),
         ("stride", -1),
+        ("nRetrain", 0),
     ],
 )
 def test_create_backtest_rejects_non_positive_params(field, value, clean_engine, dependency_overrides):
@@ -414,12 +425,8 @@ def test_create_backtest_rejects_non_positive_params(field, value, clean_engine,
 
 
 def test_create_backtest_unknown_dataset_returns_404(clean_engine, dependency_overrides):
-    """Both /v1/crud/backtests and /v1/analytics/create-backtest should reject
-    bogus dataset ids synchronously rather than queueing a job that fails later."""
-    crud_payload = {"name": "bogus", "datasetId": 999999, "modelId": "naive_model"}
-    response = client.post("/v1/crud/backtests", json=crud_payload)
-    assert response.status_code == 404, response.text
-
+    """/v1/analytics/create-backtest should reject bogus dataset ids synchronously
+    rather than queueing a job that fails later."""
     analytics_payload = {
         "name": "bogus",
         "datasetId": 999999,
@@ -430,6 +437,87 @@ def test_create_backtest_unknown_dataset_returns_404(clean_engine, dependency_ov
     }
     response = client.post("/v1/analytics/create-backtest", json=analytics_payload)
     assert response.status_code == 404, response.text
+
+
+def test_create_backtest_forwards_params_and_accepts_int_model_id(override_session, seeded_session, monkeypatch):
+    """The endpoint must hand every BacktestParams field, including n_retrain, to the worker
+    and accept the configured model's integer id as well as its name."""
+    from chap_core.rest_api.v1.routers import analytics
+
+    captured: dict = {}
+
+    class _FakeJob:
+        id = "captured-job"
+
+    class _CapturingWorker:
+        def queue_db(self, func, info, **kwargs):
+            captured["info"] = info
+            captured.update(kwargs)
+            return _FakeJob()
+
+    monkeypatch.setattr(analytics, "worker", _CapturingWorker())
+    model = seeded_session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == "naive_model")).first()
+    dataset_id = seeded_session.exec(select(DataSet.id)).first()
+
+    payload = {"name": "x", "datasetId": dataset_id, "modelId": model.id, "nSplits": 4, "nRetrain": 2}
+    response = client.post("/v1/analytics/create-backtest", json=payload)
+    assert response.status_code == 200, response.text
+    assert captured["info"].model_id == model.id
+    assert (captured["n_periods"], captured["n_splits"], captured["stride"], captured["n_retrain"]) == (3, 4, 1, 2)
+
+
+def test_run_backtest_persists_resolved_params(override_session, p_seeded_engine):
+    """The stored row records the parameters that actually ran: n_periods=None is
+    resolved from the (monthly) dataset, and an integer model id is resolved to its name."""
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        model = session.get_configured_model_by_id_or_name("naive_model")
+        backtest_id = run_backtest(
+            BacktestCreate(name="params", dataset_id=dataset_id, model_id=model.id),
+            n_periods=None,
+            n_splits=2,
+            stride=1,
+            n_retrain=2,
+            session=session,
+        )
+        row = session.session.get(Backtest, backtest_id)
+        assert (row.n_periods, row.n_splits, row.stride, row.n_retrain) == (3, 2, 1, 2)
+        assert row.model_id == "naive_model"
+
+    response = client.get(f"/v1/crud/backtests/{backtest_id}")
+    assert response.status_code == 200, response.text
+    read = BacktestRead.model_validate(response.json())
+    assert (read.n_periods, read.n_splits, read.stride, read.n_retrain) == (3, 2, 1, 2)
+
+
+def test_run_backtest_retrains_n_retrain_times(p_seeded_engine, monkeypatch):
+    """n_retrain must reach the evaluator, not just the row."""
+    from chap_core.predictor.naive_estimator import NaiveEstimator
+
+    class _CountingEstimator:
+        def __init__(self):
+            self.inner = NaiveEstimator()
+            self.train_calls = 0
+
+        def train(self, data):
+            self.train_calls += 1
+            return self.inner.train(data)
+
+    estimator = _CountingEstimator()
+    monkeypatch.setattr(SessionWrapper, "get_configured_model_with_code", lambda self, *args, **kwargs: estimator)
+
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        backtest_id = run_backtest(
+            BacktestCreate(name="retrain", dataset_id=dataset_id, model_id="naive_model"),
+            n_periods=3,
+            n_splits=4,
+            stride=1,
+            n_retrain=2,
+            session=session,
+        )
+        assert estimator.train_calls == 2
+        assert session.session.get(Backtest, backtest_id).n_retrain == 2
 
 
 def test_backtest_overlap_error_message_includes_id(clean_engine, dependency_overrides):

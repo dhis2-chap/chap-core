@@ -164,7 +164,7 @@ class IntegrationTest:
     def evaluate_model(self, model, dataset_id):
         logger.info(f"Making evaluation for {model}")
         job_id = self._post(
-            self._chap_url + "/v1/crud/backtests/",
+            self._chap_url + "/v1/analytics/create-backtest",
             json={"modelId": model, "datasetId": dataset_id, "name": f"integration_test: {model}"},
         )["id"]
         db_id = self.wait_for_db_id(job_id)

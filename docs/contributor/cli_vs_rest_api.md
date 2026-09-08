@@ -50,7 +50,7 @@ capability today.
 
 | Capability | CLI | REST API | Shared module |
 |---|---|---|---|
-| Evaluate / backtest | `eval` | `POST /v1/analytics/create-backtest*`, `POST /v1/crud/backtests` | `chap_core.assessment.evaluation`, `rest_api/db_worker_functions.py` |
+| Evaluate / backtest | `eval` | `POST /v1/analytics/create-backtest*` | `chap_core.assessment.evaluation`, `rest_api/db_worker_functions.py` |
 | Forecast / predict | `forecast`, `multi-forecast` | `POST /v1/analytics/make-prediction`, `.../prediction-setups/{id}/run` | `chap_core.assessment.forecast` |
 | Dataset validate | `validate` | validated on `POST /v1/analytics/make-dataset` | `chap_core.services.dataset_validation` |
 | Dataset ingest / persist | — | `POST /v1/crud/datasets*`, `make-dataset` | `chap_core.database` (`DataSetManager`) |

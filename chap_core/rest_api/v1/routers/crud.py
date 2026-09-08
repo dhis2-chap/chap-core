@@ -62,7 +62,6 @@ from chap_core.services import prediction_setup_service
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import (
-    BacktestCreate,
     BacktestRead,
     BacktestUpdate,
     ConfiguredModelInfoRead,
@@ -375,43 +374,6 @@ async def get_metrics_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename=backtest_{backtest_id}_metrics.csv"},
     )
-
-
-@router.post(
-    "/backtests",
-    response_model=JobResponse,
-    tags=["Backtests"],
-    summary="Run a backtest against a stored dataset (legacy)",
-)
-async def create_backtest(
-    backtest: BacktestCreate,
-    database_url: str = Depends(get_database_url),
-    session: Session = Depends(get_session),
-):
-    """Legacy entrypoint for queueing a backtest against an already-imported dataset; prefer ``POST /v1/analytics/create-backtest`` for new integrations.
-
-    Accepts the model reference either as the configured-model name or its integer id —
-    the worker resolves both. Backtest runs in the background; the response gives a job
-    id, poll ``/v1/jobs/{id}`` (or ``/v1/jobs/{id}/evaluation_result``) for the
-    finished result. 404 if the dataset does not exist.
-    """
-    # `BacktestCreate.model_id` accepts either the configured-model name
-    # (what the DB column actually stores) or the integer primary key (what
-    # most API clients reach for because that's what GET /v1/crud/configured-models
-    # returns). The worker's run_backtest() normalises int -> name through
-    # `SessionWrapper.get_configured_model_by_id_or_name` before touching
-    # anything else, so the endpoint itself stays dumb and there's exactly
-    # one resolution point.
-    if session.get(DataSet, backtest.dataset_id) is None:
-        raise HTTPException(status_code=404, detail=f"Dataset {backtest.dataset_id} not found")
-    job = worker.queue_db(
-        wf.run_backtest,
-        backtest,
-        database_url=database_url,
-        **{JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: backtest.name},
-    )
-
-    return JobResponse(id=job.id)
 
 
 @router.delete(
