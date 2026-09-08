@@ -249,7 +249,6 @@ class EvaluationBase(ABC):
         info: "BacktestCreate",
         historical_observations: list[Observation] | None = None,
         historical_context_periods: int = 0,
-        future_weather_provider: str | None = None,
     ) -> "EvaluationBase": ...
 
 
@@ -266,7 +265,6 @@ class Evaluation(EvaluationBase):
         backtest: "Backtest",
         historical_observations: list[Observation] | None = None,
         historical_context_periods: int = 0,
-        future_weather_provider: str | None = None,
     ):
         """
         Initialize Evaluation with a Backtest object.
@@ -276,24 +274,20 @@ class Evaluation(EvaluationBase):
             historical_observations: Optional list of Observation objects for historical
                 context (periods before split points, for plotting)
             historical_context_periods: Number of periods of historical context stored
-            future_weather_provider: Id of the provider that supplied the climate
-                covariates. Written onto the backtest row, which is the single
-                source of truth; `None` keeps whatever the row already carries.
         """
         self._backtest = backtest
         self._historical_observations = historical_observations or []
         self._historical_context_periods = historical_context_periods
         self._flat_data_cache: FlatEvaluationData | None = None
-        # Store the override on the row rather than beside it. Holding it in a
-        # second field let the two disagree, so a round trip through
-        # to_backtest()/from_backtest() silently reverted the provider.
-        if future_weather_provider is not None:
-            backtest.future_weather_provider = future_weather_provider
 
     @property
     def future_weather_provider(self) -> str:
-        """Id of the future-weather provider these results were produced with."""
-        return getattr(self._backtest, "future_weather_provider", None) or DEFAULT_WEATHER_PROVIDER_ID
+        """Id of the future-weather provider these results were produced with.
+
+        The backtest row is the single source of truth, so database persistence
+        and NetCDF exports cannot disagree.
+        """
+        return self._backtest.future_weather_provider
 
     @classmethod
     def from_backtest(cls, backtest: "Backtest") -> "Evaluation":
@@ -306,7 +300,6 @@ class Evaluation(EvaluationBase):
         Returns:
             Evaluation instance wrapping the Backtest
         """
-        # The row is the source of truth for the provider, so no override here.
         return cls(backtest)
 
     @classmethod
@@ -318,13 +311,7 @@ class Evaluation(EvaluationBase):
         info: BacktestCreate,
         historical_observations: list[Observation] | None = None,
         historical_context_periods: int = 0,
-        future_weather_provider: str | None = None,
     ) -> "Evaluation":
-        # The Backtest row is built from `info`, so `info` is the source of truth
-        # for the provider; an explicit argument only overrides it.
-        future_weather_provider = (
-            future_weather_provider or getattr(info, "future_weather_provider", None) or DEFAULT_WEATHER_PROVIDER_ID
-        )
         info.created = datetime.datetime.now()
         backtest = Backtest(
             **info.model_dump()
@@ -398,7 +385,6 @@ class Evaluation(EvaluationBase):
             backtest,
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
-            future_weather_provider=future_weather_provider,
         )
 
     @classmethod
@@ -487,7 +473,6 @@ class Evaluation(EvaluationBase):
             info=backtest_info,
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
-            future_weather_provider=backtest_params.future_weather_provider,
         )
 
     @classmethod
@@ -697,7 +682,6 @@ class Evaluation(EvaluationBase):
         split_periods = json.loads(ds.attrs.get("split_periods", "[]"))
         org_units = json.loads(ds.attrs.get("org_units", "[]"))
         historical_context_periods = int(ds.attrs.get("historical_context_periods", 0))
-        future_weather_provider = str(ds.attrs["future_weather_provider"])
 
         backtest = Backtest(
             name=f"Loaded from {Path(filepath).name}",
@@ -705,7 +689,7 @@ class Evaluation(EvaluationBase):
             split_periods=split_periods,
             forecasts=[],
             dataset_id=0,
-            future_weather_provider=future_weather_provider,
+            future_weather_provider=str(ds.attrs["future_weather_provider"]),
         )
 
         forecasts_df = pd.DataFrame(cast("pd.DataFrame", flat_data.forecasts))
@@ -779,7 +763,6 @@ class Evaluation(EvaluationBase):
             backtest,
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
-            future_weather_provider=future_weather_provider,
         )
 
     @staticmethod
@@ -797,9 +780,10 @@ class Evaluation(EvaluationBase):
 
         if Version(ds.attrs.get("chap_version", "0.0.0")) <= Version("1.1.1"):
             ds = ds.assign_coords(horizon_distance=ds.horizon_distance + 1)
-        if "future_weather_provider" not in ds.attrs and Version(ds.attrs.get("chap_version", "0.0.0")) <= Version(
-            CHAP_VERSION
-        ):
+        # A file without the attribute is legacy by definition; gating on the
+        # writer's version would break on dev checkouts whose CHAP_VERSION is
+        # "unknown" and on files written by a newer release than the reader.
+        if "future_weather_provider" not in ds.attrs:
             ds.attrs["future_weather_provider"] = LEGACY_WEATHER_PROVIDER_ID
         return ds
 

@@ -105,6 +105,17 @@ def full_data_with_parent() -> DataSet[ClimateHealthDataWithParent]:
 
 
 @pytest.fixture()
+def full_data_with_gap(full_data) -> DataSet[ClimateHealthData]:
+    """Like ``full_data`` but with one missing rainfall value per location."""
+    d = {}
+    for location, data in full_data.items():
+        rainfall = np.asarray(data.rainfall, dtype=float)
+        rainfall[3] = np.nan
+        d[location] = ClimateHealthData(data.time_period, rainfall, data.mean_temperature, data.disease_cases)
+    return DataSet(d)
+
+
+@pytest.fixture()
 def multi_year_climate_health_data() -> DataSet[ClimateHealthData]:
     """Four years of monthly data with a clear annual cycle plus a linear trend.
 

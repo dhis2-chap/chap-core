@@ -78,7 +78,11 @@ class PredictionParams(DBModel):
     @field_validator("future_weather_provider")
     @classmethod
     def _check_weather_provider(cls, value: str) -> str:
-        resolve_weather_provider(value)
+        if resolve_weather_provider(value).leaks_future_data:
+            raise ValueError(
+                f"The '{value}' future-weather provider reads the forecast window's own observations "
+                "and so cannot forecast ahead. Use a forecasting provider such as 'climatology'."
+            )
         return value
 
 

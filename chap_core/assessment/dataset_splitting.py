@@ -169,10 +169,12 @@ def train_test_generator(
         )
         for i in range(n_test_sets)
     ]
-    masked_future_data = [
+    # Lazy: callers that only need the train set (or never iterate) should not
+    # pay for a provider fit per split.
+    masked_future_data = (
         get_future_weather(future_weather_provider, hd, fd.period_range, future_data=fd)
         for (hd, fd) in zip(historic_data, future_data, strict=False)
-    ]
+    )
     train_set.metadata = dataset.metadata.model_copy()
     train_set.metadata.name += "_train_set"
     return train_set, zip(historic_data, masked_future_data, future_data, strict=False)

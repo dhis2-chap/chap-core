@@ -60,7 +60,6 @@ class DampedPersistenceWeatherProvider(FutureWeatherProviderBase):
         n_periods = len(period_range)
         steps = np.arange(1, n_periods + 1)
 
-        historical_data = historical_data.remove_field("disease_cases")
         predictor = get_climate_predictor(historical_data)
         # The same seasonal fit evaluated over the future window and over the
         # history, so the anomaly is measured against the curve it decays back to.
@@ -74,12 +73,7 @@ class DampedPersistenceWeatherProvider(FutureWeatherProviderBase):
                 if field.name == "time_period":
                     continue
                 future_seasonal = getattr(climatology_future[location], field.name)
-                observed = getattr(data, field.name)
-                if observed.dtype.kind not in ("f", "i"):
-                    # No anomaly to persist; take climatology's carried-forward value.
-                    fields[field.name] = future_seasonal
-                    continue
-                anomaly = np.asarray(observed, dtype=float) - np.asarray(
+                anomaly = np.asarray(getattr(data, field.name), dtype=float) - np.asarray(
                     getattr(climatology_history[location], field.name), dtype=float
                 )
                 phi = _lag1_autocorrelation(anomaly) if damping is None else float(damping)

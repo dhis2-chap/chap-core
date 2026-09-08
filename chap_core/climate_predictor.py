@@ -12,11 +12,16 @@ from .datatypes import ClimateData, SimpleClimateData
 
 
 def get_climate_predictor(train_data: DataSet[ClimateData]):
-    if isinstance(train_data.period_range[0], Month):
+    first = train_data.period_range[0]
+    if isinstance(first, Month):
         estimator = MonthlyClimatePredictor()
-    else:
-        assert isinstance(train_data.period_range[0], Week)
+    elif isinstance(first, Week):
         estimator = WeeklyClimatePredictor()
+    else:
+        raise ValueError(
+            f"The climatology fit needs monthly or weekly data, got {type(first).__name__}. "
+            "Use the 'observed' future-weather provider for other resolutions."
+        )
     estimator.train(train_data)
     return estimator
 
@@ -24,9 +29,6 @@ def get_climate_predictor(train_data: DataSet[ClimateData]):
 class MonthlyClimatePredictor:
     def __init__(self):
         self._models: defaultdict[str, dict[str, Any]] = defaultdict(dict)
-        # Non-numeric columns (org unit parents, codes, ...) carry no seasonal
-        # signal to regress on, so the last observed value is carried forward.
-        self._constants: defaultdict[str, dict[str, Any]] = defaultdict(dict)
         self._cls: type | None = None
 
     def _feature_matrix(self, time_period: PeriodRange):
@@ -42,25 +44,24 @@ class MonthlyClimatePredictor:
             for field in dataclasses.fields(data):  # type: ignore[arg-type]
                 if field.name in ("time_period"):
                     continue
-                y = getattr(data, field.name)
-                if y.dtype.kind not in ("f", "i"):
-                    self._constants[location][field.name] = y[-1:]
-                    continue
-                assert not np.isnan(y).any(), (field.name, y)
+                y = np.asarray(getattr(data, field.name), dtype=float)
+                # Fit on the observed rows only; a gap in a covariate should not
+                # take the whole evaluation down.
+                observed = ~np.isnan(y)
+                if not observed.any():
+                    raise ValueError(
+                        f"Cannot fit a climatology for '{field.name}' in {location}: every value is missing."
+                    )
                 model = linear_model.LinearRegression()
-                model.fit(x, y[:, None])
+                model.fit(x[observed], y[observed, None])
                 self._models[location][field.name] = model
 
     def predict(self, time_period: PeriodRange):
         x = self._feature_matrix(time_period)
         prediction_dict = {}
         assert self._cls is not None, "Model not trained - call train() first"
-        for location in self._models.keys() | self._constants.keys():
-            fields = {field: model.predict(x).ravel() for field, model in self._models[location].items()}
-            # Repeat the final observation by index so the column keeps its original
-            # container type (bionumpy encodes string columns as ragged arrays).
-            repeat = np.zeros(len(time_period), dtype=int)
-            fields |= {field: value[repeat] for field, value in self._constants[location].items()}
+        for location, models in self._models.items():
+            fields = {field: model.predict(x).ravel() for field, model in models.items()}
             prediction_dict[location] = self._cls(time_period, **fields)
         return DataSet(prediction_dict)
 

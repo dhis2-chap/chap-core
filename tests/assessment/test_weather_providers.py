@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from chap_core.assessment.weather_providers import (
@@ -11,7 +12,7 @@ from chap_core.assessment.weather_providers.base import FutureWeatherProviderBas
 from chap_core.api_types import BacktestParams
 from chap_core.rest_api.data_models import PredictionParams
 
-from ..data_fixtures import full_data, full_data_with_parent  # noqa: F401
+from ..data_fixtures import full_data, full_data_with_gap, full_data_with_parent, train_data_pop  # noqa: F401
 
 
 def test_builtin_providers_are_registered():
@@ -113,6 +114,13 @@ def test_params_reject_unregistered_provider(build_params):
         build_params("no_such_provider")
 
 
+def test_prediction_params_reject_look_ahead_provider():
+    """A provider that reads the forecast window cannot predict ahead, so the
+    request must fail at validation rather than inside the worker."""
+    with pytest.raises(ValueError, match="cannot forecast ahead"):
+        PredictionParams(model_id="m", future_weather_provider="observed")
+
+
 def test_climatology_carries_non_numeric_fields_forward(full_data_with_parent):  # noqa: F811
     """Static string columns (org unit parents, codes) have no seasonal signal to fit."""
     periods = full_data_with_parent.period_range[-3:]
@@ -121,3 +129,25 @@ def test_climatology_carries_non_numeric_fields_forward(full_data_with_parent): 
 
     for location in full_data_with_parent.keys():
         assert [str(value) for value in result[location].parent] == ["norway"] * len(periods)
+
+
+@pytest.mark.parametrize("provider_id", ["climatology", "damped_persistence"])
+def test_forecasting_providers_carry_population_forward(train_data_pop, provider_id):  # noqa: F401, F811
+    """Population is not seasonal; regressing it on month-of-year would hand the
+    model a climatological population instead of the current one."""
+    periods = train_data_pop.period_range[-3:]
+
+    result = get_future_weather(provider_id, train_data_pop, periods)
+
+    for location, data in train_data_pop.items():
+        assert list(result[location].population) == [data.population[-1]] * len(periods)
+        assert "disease_cases" not in result.field_names()
+
+
+def test_missing_covariate_values_do_not_break_the_fit(full_data_with_gap):  # noqa: F811
+    periods = full_data_with_gap.period_range[-3:]
+
+    result = get_future_weather("climatology", full_data_with_gap, periods)
+
+    for data in result.values():
+        assert np.isfinite(np.asarray(data.rainfall, dtype=float)).all()

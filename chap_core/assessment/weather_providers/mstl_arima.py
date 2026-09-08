@@ -91,12 +91,16 @@ def _is_well_conditioned(fitted) -> bool:
     return True
 
 
-def _select_order(y: np.ndarray) -> tuple[int, int, int]:
-    """Pick (p, d, q) by AICc over a bounded grid, as auto.arima does."""
+def _select_model(y: np.ndarray):
+    """Fit (p, d, q) by AICc over a bounded grid, as auto.arima does.
+
+    Returns the winning fitted model rather than its order, so the caller
+    forecasts from it directly instead of refitting the same series.
+    """
     from statsmodels.tsa.arima.model import ARIMA
 
     d = _n_differences(y)
-    best_order = None
+    best = None
     best_score = np.inf
     for p in range(MAX_P + 1):
         for q in range(MAX_Q + 1):
@@ -108,8 +112,8 @@ def _select_order(y: np.ndarray) -> tuple[int, int, int]:
                 continue
             score = fitted.aicc
             if np.isfinite(score) and score < best_score:
-                best_score, best_order = score, (p, d, q)
-    return best_order or FALLBACK_ARIMA_ORDER
+                best_score, best = score, fitted
+    return best if best is not None else ARIMA(y, order=FALLBACK_ARIMA_ORDER).fit()
 
 
 def _forecast_series(
@@ -142,8 +146,8 @@ def _forecast_series(
         if seasonal.ndim > 1:
             seasonal = seasonal.sum(axis=1)
         deseasonalised = y - seasonal
-        chosen = order if order is not None else _select_order(deseasonalised)
-        trend_forecast = np.asarray(ARIMA(deseasonalised, order=chosen).fit().forecast(n_periods), dtype=float)
+        model = ARIMA(deseasonalised, order=order).fit() if order is not None else _select_model(deseasonalised)
+        trend_forecast = np.asarray(model.forecast(n_periods), dtype=float)
 
     # Continue the seasonal component by averaging every complete cycle rather
     # than replaying the most recent one. MSTL's seasonal component varies over
@@ -178,18 +182,13 @@ class MstlArimaWeatherProvider(FutureWeatherProviderBase):
         seasonal_period = params.get("seasonal_period") or _seasonal_period(historical_data.period_range)
         n_periods = len(period_range)
 
-        historical_data = historical_data.remove_field("disease_cases")
         prediction_dict = {}
         for location, data in historical_data.items():
             fields = {}
             for field in dataclasses.fields(data):
                 if field.name == "time_period":
                     continue
-                y = getattr(data, field.name)
-                if y.dtype.kind not in ("f", "i"):
-                    # No seasonal signal to decompose; carry the last value forward.
-                    fields[field.name] = y[-1:][np.zeros(n_periods, dtype=int)]
-                    continue
-                fields[field.name] = _forecast_series(np.asarray(y, dtype=float), n_periods, seasonal_period, order)
+                y = np.asarray(getattr(data, field.name), dtype=float)
+                fields[field.name] = _forecast_series(y, n_periods, seasonal_period, order)
             prediction_dict[location] = data.__class__(period_range, **fields)
         return DataSet(prediction_dict)

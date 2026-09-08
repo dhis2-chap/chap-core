@@ -20,12 +20,10 @@ def test_non_default_provider_round_trips(backtest, tmp_path):
     filepath = tmp_path / "eval.nc"
     evaluation.to_file(filepath=filepath, model_name="TestModel", model_version="1.0.0")
 
-    loaded = Evaluation.from_file(filepath)
+    observed_backtest = Evaluation.from_file(filepath).to_backtest()
+    observed_backtest.future_weather_provider = "observed"
     observed_filepath = tmp_path / "eval_observed.nc"
-    Evaluation(
-        loaded.to_backtest(),
-        future_weather_provider="observed",
-    ).to_file(filepath=observed_filepath, model_name="TestModel", model_version="1.0.0")
+    Evaluation(observed_backtest).to_file(filepath=observed_filepath, model_name="TestModel", model_version="1.0.0")
 
     assert Evaluation.from_file(observed_filepath).future_weather_provider == "observed"
 
@@ -62,17 +60,10 @@ def test_from_file_sets_the_provider_on_the_backtest(backtest, tmp_path):
     assert loaded.to_backtest().future_weather_provider == "observed"
 
 
-def test_constructor_override_lands_on_the_backtest_row(backtest):
-    """The row is the single source of truth; an override must be written to it,
-    not held beside it, or a to_backtest()/from_backtest() round trip reverts it."""
-    evaluation = Evaluation(backtest, future_weather_provider="observed")
-
-    assert evaluation.to_backtest().future_weather_provider == "observed"
-    assert Evaluation.from_backtest(evaluation.to_backtest()).future_weather_provider == "observed"
-
-
-def test_no_override_keeps_the_row_value(backtest):
+def test_the_row_is_the_single_source_of_truth(backtest):
+    """A to_backtest()/from_backtest() round trip must not revert the provider."""
     backtest.future_weather_provider = "observed"
+    evaluation = Evaluation(backtest)
 
-    assert Evaluation(backtest).future_weather_provider == "observed"
-    assert Evaluation(backtest).to_backtest().future_weather_provider == "observed"
+    assert evaluation.future_weather_provider == "observed"
+    assert Evaluation.from_backtest(evaluation.to_backtest()).future_weather_provider == "observed"

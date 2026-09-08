@@ -29,7 +29,7 @@ import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import compute_all_detailed_metrics
-from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID, resolve_weather_provider
+from chap_core.assessment.weather_providers import resolve_weather_provider
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
@@ -1071,7 +1071,7 @@ async def run_prediction_setup(
     dataset_info = DataSetCreateInfo(name=request.name, type=dataset_type).model_dump()
     # Inherit the provider the setup's backtest was evaluated with, so a promoted
     # backtest predicts against the same future-weather source it was scored on.
-    provider = getattr(setup.backtest, "future_weather_provider", None) or DEFAULT_WEATHER_PROVIDER_ID
+    provider = setup.backtest.future_weather_provider
     if resolve_weather_provider(provider).leaks_future_data:
         raise HTTPException(
             status_code=400,
