@@ -5,9 +5,9 @@ name: Test-all (docker, external models, etc)
 
 on:
   push:
-    branches: ["master", "dev"]
+    branches: ["master"]
   pull_request:
-    branches: ["master", "dev"]
+    branches: ["master"]
 
 permissions:
   contents: read
@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   # Classifies the PR so the expensive job below can be skipped or reduced.
-  # On push events every output is true so master and dev always get the full run.
+  # On push events every output is true so master always gets the full run.
   # The job names below are required checks in the master ruleset, so gating
   # happens with a job-level `if` (reported as skipped, which satisfies the
   # ruleset) rather than a workflow-level paths filter (left pending, blocks merge).
