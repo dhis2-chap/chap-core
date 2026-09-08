@@ -13,8 +13,46 @@ permissions:
   contents: read
   packages: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # Classifies the PR so the expensive job below can be skipped or reduced.
+  # On push events every output is true so master and dev always get the full run.
+  # The job names below are required checks in the master ruleset, so gating
+  # happens with a job-level `if` (reported as skipped, which satisfies the
+  # ruleset) rather than a workflow-level paths filter (left pending, blocks merge).
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ github.event_name != 'pull_request' || steps.filter.outputs.code == 'true' }}
+      docs: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true' }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          predicate-quantifier: every
+          filters: |
+            docs:
+              - 'docs/**'
+              - 'mkdocs.yml'
+            code:
+              - '**'
+              - '!docs/**'
+              - '!mkdocs.yml'
+              - '!charts/**'
+              - '!README.md'
+              - '!CLAUDE.md'
+              - '!LICENSE'
+              - '!.github/CODEOWNERS'
+              - '!.github/dependabot.yml'
+              - '!.github/**/*.md'
+
   test-all:
+    needs: changes
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.docs == 'true'
     env:
       REDIS_HOST: localhost
 
@@ -81,7 +119,11 @@ jobs:
         with:
           default: "3.13"
           command: ""
-      - name: Run
+      - name: Run full suite
+        if: needs.changes.outputs.code == 'true'
         run: |
           cp .env.example .env
           make test-all
+      - name: Run slow documentation tests
+        if: needs.changes.outputs.code != 'true'
+        run: make test-docs-slow

@@ -9,8 +9,43 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # Keep this block identical to the one in ci-test-external-models.yml;
+  # tests/test_ci_workflows.py checks that they do not drift apart.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ github.event_name != 'pull_request' || steps.filter.outputs.code == 'true' }}
+      docs: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true' }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          predicate-quantifier: every
+          filters: |
+            docs:
+              - 'docs/**'
+              - 'mkdocs.yml'
+            code:
+              - '**'
+              - '!docs/**'
+              - '!mkdocs.yml'
+              - '!charts/**'
+              - '!README.md'
+              - '!CLAUDE.md'
+              - '!LICENSE'
+              - '!.github/CODEOWNERS'
+              - '!.github/dependabot.yml'
+              - '!.github/**/*.md'
+
   test:
+    needs: changes
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
