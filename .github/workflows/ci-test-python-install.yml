@@ -21,6 +21,7 @@ jobs:
     outputs:
       code: ${{ github.event_name != 'pull_request' || steps.filter.outputs.code == 'true' }}
       docs: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true' }}
+      tests: ${{ github.event_name != 'pull_request' || steps.filter.outputs.code == 'true' || steps.filter.outputs.docs == 'true' }}
     steps:
       - uses: actions/checkout@v7
       - id: filter
@@ -44,9 +45,11 @@ jobs:
               - '!.github/dependabot.yml'
               - '!.github/**/*.md'
 
+  # Steps rather than the job are gated: the expanded matrix names are required
+  # checks in the master ruleset, and a job skipped by a job-level `if` never
+  # expands its matrix, so those checks would stay pending and block the merge.
   test:
     needs: changes
-    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -55,14 +58,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Set up environment variables
+        if: needs.changes.outputs.tests == 'true'
         run: |
           echo "Service Account Private Key is set"
       - name: Install uv
+        if: needs.changes.outputs.tests == 'true'
         uses: astral-sh/setup-uv@v10.0.1
       - name: Set up Python ${{ matrix.python-version }}
+        if: needs.changes.outputs.tests == 'true'
         run: uv python install ${{ matrix.python-version }}
       - name: Install the project
+        if: needs.changes.outputs.tests == 'true'
         run: uv sync --dev
       - name: Run pytest
+        if: needs.changes.outputs.tests == 'true'
         run: |
           uv run pytest -n auto --dist loadfile

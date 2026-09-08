@@ -123,3 +123,15 @@ def test_changes_job_uses_every_quantifier(workflow):
 )
 def test_pr_classification(workflow, changed_files, expected):
     assert _classify(workflow, changed_files) == expected
+
+
+@pytest.mark.parametrize("workflow", GATED_WORKFLOWS)
+def test_required_jobs_are_gated_on_steps_not_on_the_job(workflow):
+    """A job-level `if` on a matrix job never expands the matrix, so the expanded job names
+    required by the master ruleset would stay pending. Only steps may be conditional."""
+    jobs = yaml.safe_load((REPO_ROOT / workflow).read_text())["jobs"]
+    for name, job in jobs.items():
+        if name == "changes":
+            continue
+        assert "if" not in job, f"{workflow} job {name!r} must gate its steps, not the job"
+        assert any("if" in step for step in job["steps"]), f"{workflow} job {name!r} has no gated step"
