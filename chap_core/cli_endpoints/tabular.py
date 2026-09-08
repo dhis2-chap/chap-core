@@ -169,7 +169,7 @@ def predict(
 def register_commands(app):
     from cyclopts import App
 
-    tabular_app = App(name="tabular", help="Tabular model evaluation.")
-    tabular_app.command(name="evaluate")(evaluate)
-    tabular_app.command(name="predict")(predict)
+    tabular_app = App(name=["tabular", "tab"], help="Tabular model evaluation.")
+    tabular_app.command(name=["evaluate", "eval"])(evaluate)
+    tabular_app.command(name=["predict", "pred"])(predict)
     app.command(tabular_app)

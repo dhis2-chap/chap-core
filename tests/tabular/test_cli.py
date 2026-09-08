@@ -134,3 +134,23 @@ def test_predict_without_target_skips_performance_report(regressor_joblib, regre
     assert (folder / "predictions.csv").exists()
     assert not (folder / "predictions.performance.json").exists()
     assert not (folder / "predictions.report.html").exists()
+
+
+def test_tabular_command_aliases_are_registered():
+    from cyclopts import App
+
+    from chap_core.cli_endpoints.tabular import register_commands
+
+    app = App(name="chap")
+    register_commands(app)
+
+    for path in (
+        ["tabular", "evaluate"],
+        ["tab", "eval"],
+        ["tab", "evaluate"],
+        ["tabular", "eval"],
+        ["tabular", "predict"],
+        ["tab", "pred"],
+    ):
+        command, _, _ = app.parse_args(path + ["--help"], exit_on_error=False, print_error=False)
+        assert command is not None
