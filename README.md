@@ -72,3 +72,4 @@ docker compose -f compose.yml -f compose.ewars.yml up -d
 ## Deploy on Kubernetes
 
 CHAP can be deployed on Kubernetes using our helm chart which can be found [here](./charts/chap).
+
