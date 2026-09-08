@@ -413,6 +413,7 @@ class Evaluation(EvaluationBase):
             n_test_sets=backtest_params.n_splits,
             stride=backtest_params.stride,
             n_retrain=backtest_params.n_retrain,
+            model_name=configured_model.name,
         )
 
         # Prepare metadata

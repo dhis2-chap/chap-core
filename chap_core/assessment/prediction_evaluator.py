@@ -39,11 +39,68 @@ class Predictor(Protocol):
         self,
         historic_data: DataSet[FeatureType],
         future_data: DataSet[TimeSeriesData],
-    ) -> Samples: ...
+    ) -> DataSet[Samples]: ...
 
 
 class Estimator(Protocol):
     def train(self, data: DataSet) -> Predictor: ...
+
+
+class IncompleteBacktestError(ValueError):
+    """Raised when a model does not forecast every org unit in every backtest split."""
+
+
+_MAX_LISTED_LOCATIONS = 20
+
+
+def _format_locations(locations: Iterable[str]) -> str:
+    listed = sorted(locations)
+    text = ", ".join(listed[:_MAX_LISTED_LOCATIONS])
+    if len(listed) > _MAX_LISTED_LOCATIONS:
+        text += f", ... and {len(listed) - _MAX_LISTED_LOCATIONS} more"
+    return text
+
+
+def _has_usable_samples(forecast: Samples) -> bool:
+    samples = np.asarray(forecast.samples, dtype=float)
+    return samples.size > 0 and bool(np.isfinite(samples).all())
+
+
+def validate_split_forecasts(
+    forecasts: DataSet[Samples] | None,
+    expected_locations: Iterable[str],
+    split_index: int,
+    n_test_sets: int,
+    model_name: str,
+) -> None:
+    """Raise ``IncompleteBacktestError`` unless ``forecasts`` covers every expected location.
+
+    A backtest is only valid if, for every split, the model returns a forecast
+    for every org unit it was given, with non-empty and finite sample values.
+    Silently accepting less lets a model that drops its hard-to-predict
+    locations score better than one that covers all of them.
+    """
+    expected = set(expected_locations)
+    split = f"split {split_index + 1} of {n_test_sets}"
+    if forecasts is None:
+        raise IncompleteBacktestError(
+            f"Model '{model_name}' returned no forecasts for {split} ({len(expected)} org units expected)"
+        )
+    missing = expected - set(forecasts.locations())
+    unusable = {location for location in expected - missing if not _has_usable_samples(forecasts[location])}
+    if not missing and not unusable:
+        return
+    problems = []
+    if missing:
+        problems.append(f"missing {len(missing)} of {len(expected)} org units: {_format_locations(missing)}")
+    if unusable:
+        problems.append(
+            f"empty or non-finite samples for {len(unusable)} of {len(expected)} org units: "
+            f"{_format_locations(unusable)}"
+        )
+    raise IncompleteBacktestError(
+        f"Model '{model_name}' produced an incomplete forecast for {split}; " + "; ".join(problems)
+    )
 
 
 def _retrain_split_indices(n_test_sets: int, n_retrain: int) -> set[int]:
@@ -57,7 +114,14 @@ def _retrain_split_indices(n_test_sets: int, n_retrain: int) -> set[int]:
 
 
 def backtest(
-    estimator: Estimator, data: DataSet, prediction_length, n_test_sets, stride=1, weather_provider=None, n_retrain=1
+    estimator: Estimator,
+    data: DataSet,
+    prediction_length,
+    n_test_sets,
+    stride=1,
+    weather_provider=None,
+    n_retrain=1,
+    model_name: str | None = None,
 ) -> Iterable[DataSet]:
     """Train a model and generate predictions for each test split.
 
@@ -89,6 +153,14 @@ def backtest(
     n_retrain
         Number of times the model is retrained, evenly spaced across the
         splits. 1 means train once at the beginning.
+    model_name
+        Name used in error messages. Defaults to the estimator's class name.
+
+    Raises
+    ------
+    IncompleteBacktestError
+        If the model skips a split, or in any split omits an org unit or
+        returns empty or non-finite samples for one.
 
     Yields
     ------
@@ -100,7 +172,10 @@ def backtest(
         data, prediction_length, n_test_sets, stride=stride, future_weather_provider=weather_provider
     )
     retrain_at = _retrain_split_indices(n_test_sets, n_retrain)
+    if model_name is None:
+        model_name = type(estimator).__name__
     predictor: Predictor | None = None
+    n_yielded = 0
     for i, (historic_data, future_data, future_truth) in enumerate(test_generator):
         if i in retrain_at:
             # Split 0 trains on the dedicated train_set (preserving the single-train
@@ -108,10 +183,14 @@ def backtest(
             predictor = estimator.train(train_set if i == 0 else historic_data)
         assert predictor is not None, "First split must trigger training"
         r = predictor.predict(historic_data, future_data)
-        if r is None:
-            continue
+        # Checked before the merge, which would otherwise fail on a missing
+        # location with an assertion that does not say which model or split.
+        validate_split_forecasts(r, future_truth.locations(), i, n_test_sets, model_name)
         samples_with_truth = future_truth.merge(r, result_dataclass=SamplesWithTruth)  # type: ignore[arg-type]
         yield samples_with_truth
+        n_yielded += 1
+    if n_yielded != n_test_sets:
+        raise IncompleteBacktestError(f"Model '{model_name}' produced {n_yielded} of {n_test_sets} expected splits")
 
 
 def evaluate_model(
