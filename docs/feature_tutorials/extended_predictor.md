@@ -8,7 +8,7 @@ The `ExtendedPredictor` class enables models to predict beyond their maximum pre
 
 The `ExtendedPredictor` wraps a `ConfiguredModel` and extends its prediction capability through the following approach:
 
-1. **Iterative Prediction**: When the desired prediction scope exceeds the model's `max_prediction_length`, the predictor makes multiple prediction calls in sequence.
+1. **Iterative Prediction**: When the desired prediction scope exceeds the model's `max_prediction_periods`, the predictor makes multiple prediction calls in sequence.
 
 2. **Rolling History Update**: After each prediction step, the predicted values are appended to the historic data. Sample columns are averaged to produce a single `disease_cases` value for use in subsequent predictions.
 
@@ -42,4 +42,4 @@ chap eval --model-name external_models/naive_python_model_uv \
 rm -f ./extended_predictor_test.nc
 ```
 
-When the requested `n-periods` exceeds the model's `max_prediction_length`, Chap automatically uses `ExtendedPredictor` to make iterative predictions.
+When the requested `n-periods` exceeds the model's `max_prediction_periods`, Chap automatically uses `ExtendedPredictor` to make iterative predictions.

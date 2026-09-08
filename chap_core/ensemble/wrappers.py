@@ -19,7 +19,7 @@ class TemplateWithConfig:
     """Binds a model template to its configuration, and optionally to a longer horizon.
 
     ``extend_to_prediction_length`` mirrors what ``chap evaluate`` does for a single
-    model: a base model whose ``max_prediction_length`` is shorter than the backtest
+    model: a base model whose ``max_prediction_periods`` is shorter than the backtest
     horizon is wrapped in an :class:`ExtendedPredictor` so it is asked for the number
     of steps it supports and iterated, rather than silently asked for too many.
     """
