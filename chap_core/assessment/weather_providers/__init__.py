@@ -106,6 +106,7 @@ def get_future_weather(
 def _discover_providers():
     from chap_core.assessment.weather_providers import (
         climatology,
+        damped_persistence,
         mstl_arima,
         observed,
     )
