@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -99,5 +100,24 @@ def full_data_with_parent() -> DataSet[ClimateHealthDataWithParent]:
     d = {
         "oslo": ClimateHealthDataWithParent(time_period, [1] * T, [1] * T, [20] * T, ["norway"] * T),
         "bergen": ClimateHealthDataWithParent(time_period, [100] * T, [1] * T, [1] * T, ["norway"] * T),
+    }
+    return DataSet(d)
+
+
+@pytest.fixture()
+def multi_year_climate_health_data() -> DataSet[ClimateHealthData]:
+    """Four years of monthly data with a clear annual cycle plus a linear trend.
+
+    Long enough for decomposition-based providers, which need at least two full
+    seasonal cycles before a seasonal component is meaningful.
+    """
+    time_period = PeriodRange.from_time_periods(Month(2012, 1), Month(2015, 12))
+    T = len(time_period)
+    months = np.arange(T) % 12
+    seasonal = 10 * np.sin(2 * np.pi * months / 12)
+    trend = 0.1 * np.arange(T)
+    d = {
+        "oslo": ClimateHealthData(time_period, 20 + seasonal + trend, [1.0] * T, [20.0] * T),
+        "bergen": ClimateHealthData(time_period, 100 + 2 * seasonal + trend, [1.0] * T, [1.0] * T),
     }
     return DataSet(d)
