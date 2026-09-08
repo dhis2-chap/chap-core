@@ -71,7 +71,6 @@ def validate_split_forecasts(
     expected_locations: Iterable[str],
     split_index: int,
     n_test_sets: int,
-    model_name: str,
 ) -> None:
     """Raise ``IncompleteBacktestError`` unless ``forecasts`` covers every expected location.
 
@@ -83,9 +82,7 @@ def validate_split_forecasts(
     expected = set(expected_locations)
     split = f"split {split_index + 1} of {n_test_sets}"
     if forecasts is None:
-        raise IncompleteBacktestError(
-            f"Model '{model_name}' returned no forecasts for {split} ({len(expected)} org units expected)"
-        )
+        raise IncompleteBacktestError(f"Model returned no forecasts for {split} ({len(expected)} org units expected)")
     missing = expected - set(forecasts.locations())
     unusable = {location for location in expected - missing if not _has_usable_samples(forecasts[location])}
     if not missing and not unusable:
@@ -98,9 +95,7 @@ def validate_split_forecasts(
             f"empty or non-finite samples for {len(unusable)} of {len(expected)} org units: "
             f"{_format_locations(unusable)}"
         )
-    raise IncompleteBacktestError(
-        f"Model '{model_name}' produced an incomplete forecast for {split}; " + "; ".join(problems)
-    )
+    raise IncompleteBacktestError(f"Model produced an incomplete forecast for {split}; " + "; ".join(problems))
 
 
 def _retrain_split_indices(n_test_sets: int, n_retrain: int) -> set[int]:
@@ -121,7 +116,6 @@ def backtest(
     stride=1,
     weather_provider=None,
     n_retrain=1,
-    model_name: str | None = None,
 ) -> Iterable[DataSet]:
     """Train a model and generate predictions for each test split.
 
@@ -153,9 +147,6 @@ def backtest(
     n_retrain
         Number of times the model is retrained, evenly spaced across the
         splits. 1 means train once at the beginning.
-    model_name
-        Name used in error messages. Defaults to the estimator's class name.
-
     Raises
     ------
     IncompleteBacktestError
@@ -172,8 +163,6 @@ def backtest(
         data, prediction_length, n_test_sets, stride=stride, future_weather_provider=weather_provider
     )
     retrain_at = _retrain_split_indices(n_test_sets, n_retrain)
-    if model_name is None:
-        model_name = type(estimator).__name__
     predictor: Predictor | None = None
     n_yielded = 0
     for i, (historic_data, future_data, future_truth) in enumerate(test_generator):
@@ -185,12 +174,12 @@ def backtest(
         r = predictor.predict(historic_data, future_data)
         # Checked before the merge, which would otherwise fail on a missing
         # location with an assertion that does not say which model or split.
-        validate_split_forecasts(r, future_truth.locations(), i, n_test_sets, model_name)
+        validate_split_forecasts(r, future_truth.locations(), i, n_test_sets)
         samples_with_truth = future_truth.merge(r, result_dataclass=SamplesWithTruth)  # type: ignore[arg-type]
         yield samples_with_truth
         n_yielded += 1
     if n_yielded != n_test_sets:
-        raise IncompleteBacktestError(f"Model '{model_name}' produced {n_yielded} of {n_test_sets} expected splits")
+        raise IncompleteBacktestError(f"Model produced {n_yielded} of {n_test_sets} expected splits")
 
 
 def evaluate_model(

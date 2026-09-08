@@ -555,7 +555,6 @@ def test_run_backtest_rejects_model_that_skips_an_org_unit(p_seeded_engine, monk
                 stride=1,
                 session=session,
             )
-        assert "naive_model" in str(excinfo.value)
         assert dropped in str(excinfo.value)
         assert len(session.session.exec(select(Backtest)).all()) == n_backtests_before
 

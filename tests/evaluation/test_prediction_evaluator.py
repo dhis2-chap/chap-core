@@ -54,7 +54,6 @@ def test_backtest_retrains_at_evenly_spaced_splits():
 
 
 N_SPLITS = 3
-MODEL_NAME = "tampered_model"
 
 
 def _drop_location(forecasts, location):
@@ -103,7 +102,7 @@ class _TamperingEstimator:
 
 
 def _run_backtest(estimator, dataset):
-    return list(backtest(estimator, dataset, prediction_length=2, n_test_sets=N_SPLITS, model_name=MODEL_NAME))
+    return list(backtest(estimator, dataset, prediction_length=2, n_test_sets=N_SPLITS))
 
 
 def test_backtest_passes_when_every_org_unit_is_forecast_in_every_split(health_population_data):
@@ -123,7 +122,6 @@ def test_backtest_raises_when_org_unit_is_dropped_in_a_single_split(health_popul
         _run_backtest(estimator, health_population_data)
 
     message = str(excinfo.value)
-    assert MODEL_NAME in message
     assert locations[0] in message
     assert f"split 2 of {N_SPLITS}" in message
     assert f"missing 1 of {len(locations)} org units" in message

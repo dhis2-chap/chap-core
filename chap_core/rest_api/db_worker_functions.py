@@ -131,7 +131,6 @@ def run_backtest(
         stride=stride,
         weather_provider=QuickForecastFetcher,
         n_retrain=n_retrain,
-        model_name=configured_model.name,
     )
     last_train_period = dataset.period_range[-1]
     evaluation = Evaluation.from_samples_with_truth(predictions_list, last_train_period, configured_model, info=info)
