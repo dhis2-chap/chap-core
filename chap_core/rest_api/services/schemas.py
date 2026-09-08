@@ -100,6 +100,10 @@ class MLServiceInfo(ServiceInfo):
     requires_geo: bool = Field(
         default=False, description="When True, the model needs a GeoJSON polygon set for spatial features."
     )
+    # Build provenance reported by chapkit 2.0 services. Optional so 1.x services still validate.
+    git_revision: str | None = Field(default=None, description="Commit the service image was built from.")
+    chapkit_version: str | None = Field(default=None, description="chapkit version installed in the service.")
+    servicekit_version: str | None = Field(default=None, description="servicekit version installed in the service.")
 
 
 class RegistrationRequest(BaseModel):

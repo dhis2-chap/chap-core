@@ -140,6 +140,78 @@ acli jira workitem comment create --key "PROJECT-123" --body "Progress update: [
 acli jira workitem search --jql "project = PROJECT_KEY ORDER BY created DESC" --limit 20
 ```
 
+## Sprints
+
+The Sprint field is `customfield_10020` on this site. It can only be set **at
+create time** via `--from-json`; `acli jira workitem edit` strict-rejects every
+custom field (`json: unknown field`), so an existing work item cannot be moved
+into a sprint with acli — do that in the board UI.
+
+```json
+{
+  "projectKey": "CLIM",
+  "type": "Task",
+  "summary": "Your summary",
+  "additionalAttributes": {
+    "components": [{"name": "Chap Modeling Platform"}],
+    "customfield_10020": 2354
+  }
+}
+```
+
+Epics can be in sprints on the C&H scrum board (board 686) — several are.
+
+Find the current sprint and its id:
+
+```bash
+acli jira board search --project CLIM              # 686 = C&H scrum, the only scrum board
+acli jira board list-sprints --id 686 --state active,future --csv
+acli jira sprint list-workitems --board 686 --sprint 2354 --jql 'component = "Chap Modeling Platform"' --csv
+```
+
+`acli jira sprint update` is a full replace: `--name` and `--state` are required
+even when you only mean to change the dates.
+
+## Team members
+
+**Assign by email, never by account ID.** `--assignee` claims to accept an
+account ID, but when given one `acli` reports `SUCCESS` and **silently
+unassigns the work item instead** — including wiping an existing assignee.
+Both ID formats fail this way. Always verify after assigning.
+
+| Name | Email |
+|------|-------|
+| Ivar Grytten | `ivar@dhis2.org` |
+| Knut Dagestad Rand | `knut.rand@dhis2.org` |
+| Morten Hansen | `morten@dhis2.org` |
+| Edvin Aamot Stava | `edvin@dhis2.org` |
+| Boris Simovski | `boris@dhis2.org` |
+| Eirik Haugstulen | `eirik@dhis2.org` |
+| Abyot Asalefew Gizaw | `abyot@dhis2.org` |
+
+The pattern is `firstname@dhis2.org`; Knut is the exception. All verified.
+
+```bash
+acli jira workitem assign --key "CLIM-1,CLIM-2" --assignee edvin@dhis2.org --yes
+acli jira workitem search --jql 'key in (CLIM-1,CLIM-2)' --json \
+  | python3 -c "import sys,json;[print(x['key'],(x['fields'].get('assignee') or {}).get('displayName')) for x in json.load(sys.stdin)]"
+```
+
+Account IDs are still needed for the `reporter` field in `--from-json` (where
+they do work, as `{"id": "..."}`) and for JQL. Look one up from an issue the
+person is assigned to:
+
+```bash
+acli jira workitem search --jql 'project=CLIM AND assignee is not EMPTY' --limit 200 --paginate --json \
+  | python3 -c "import sys,json;[print(a['displayName'],a['accountId']) for a in {x['fields']['assignee']['accountId']:x['fields']['assignee'] for x in json.load(sys.stdin) if x['fields'].get('assignee')}.values()]"
+```
+
+Note two account-ID formats coexist: `712020:`-prefixed UUIDs (Ivar, Knut,
+Edvin, Boris) and bare hex (Morten, Eirik, Abyot). Both are valid.
+
+The CSV output renders assignee as an email, which is hidden for everyone but
+yourself, so it shows blank. Use `--json` and read `assignee.displayName`.
+
 ## Getting Help
 
 - General help: `acli --help`
