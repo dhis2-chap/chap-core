@@ -15,6 +15,10 @@ chap tabular evaluate <MODEL> <DATASET_CSV> [OPTIONS]
 chap tabular predict  <MODEL_PATH> <DATASET_CSV> [OPTIONS]
 ```
 
+`tabular` can be shortened to `tab`, `evaluate` to `eval`, and `predict` to
+`pred`, so `chap tab eval` and `chap tab pred` are the same commands as
+`chap tabular evaluate` and `chap tabular predict`.
+
 ## `chap tabular evaluate`
 
 Runs seeded 5-fold cross-validation (stratified for classification) and writes
