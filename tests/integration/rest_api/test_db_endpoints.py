@@ -490,6 +490,26 @@ def test_run_backtest_persists_resolved_params(override_session, p_seeded_engine
     assert (read.n_periods, read.n_splits, read.stride, read.n_retrain) == (3, 2, 1, 2)
 
 
+def test_run_backtest_persists_the_future_weather_provider(override_session, p_seeded_engine):
+    """A non-default provider must reach the row, or a look-ahead run is filed as climatology."""
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        model = session.get_configured_model_by_id_or_name("naive_model")
+        backtest_id = run_backtest(
+            BacktestCreate(name="provider", dataset_id=dataset_id, model_id=model.id),
+            n_periods=3,
+            n_splits=2,
+            stride=1,
+            session=session,
+            future_weather_provider="observed",
+        )
+        assert session.session.get(Backtest, backtest_id).future_weather_provider == "observed"
+
+    response = client.get(f"/v1/crud/backtests/{backtest_id}")
+    assert response.status_code == 200, response.text
+    assert BacktestRead.model_validate(response.json()).future_weather_provider == "observed"
+
+
 def test_run_backtest_retrains_n_retrain_times(p_seeded_engine, monkeypatch):
     """n_retrain must reach the evaluator, not just the row."""
     from chap_core.predictor.naive_estimator import NaiveEstimator

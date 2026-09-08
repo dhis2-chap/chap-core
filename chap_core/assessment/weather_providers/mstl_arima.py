@@ -39,7 +39,9 @@ FALLBACK_ARIMA_ORDER = (0, 0, 0)
 #: of series. auto.arima applies the same guard.
 MIN_ROOT_MODULUS = 1.001
 
-#: MSTL needs a couple of full cycles before a seasonal component is meaningful.
+#: History must be longer than this many full cycles. MSTL discards any period
+#: that is not shorter than half the series, so exactly two cycles yields no
+#: seasonal component at all.
 MIN_SEASONAL_CYCLES = 2
 
 
@@ -119,10 +121,14 @@ def _forecast_series(
     from statsmodels.tsa.arima.model import ARIMA
     from statsmodels.tsa.seasonal import MSTL
 
-    if len(y) < MIN_SEASONAL_CYCLES * seasonal_period:
+    if len(y) <= MIN_SEASONAL_CYCLES * seasonal_period:
+        # MSTL discards any period that is not shorter than half the series, so at
+        # exactly two cycles it produces no seasonal component at all and raises an
+        # UnboundLocalError from inside statsmodels. Reject that boundary here with
+        # a message the caller can act on.
         raise ValueError(
-            f"mstl_arima needs at least {MIN_SEASONAL_CYCLES} full seasonal cycles "
-            f"({MIN_SEASONAL_CYCLES * seasonal_period} periods) of history, got {len(y)}. "
+            f"mstl_arima needs more than {MIN_SEASONAL_CYCLES} full seasonal cycles "
+            f"(more than {MIN_SEASONAL_CYCLES * seasonal_period} periods) of history, got {len(y)}. "
             "Use the 'climatology' provider for shorter series."
         )
 
@@ -157,8 +163,8 @@ def _forecast_series(
     "mstl_arima",
     "MSTL + ARIMA",
     "Seasonal-trend decomposition (LOESS) with an automatically ordered ARIMA on the "
-    "deseasonalised series and the seasonal component continued forward. Needs at least "
-    "two full seasonal cycles.",
+    "deseasonalised series and the seasonal component continued forward. Needs more than "
+    "two full seasonal cycles of history.",
 )
 class MstlArimaWeatherProvider(FutureWeatherProviderBase):
     def get_future_weather(self, historical_data, period_range, future_data=None, params=None):

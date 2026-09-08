@@ -43,8 +43,31 @@ def test_forecast_tracks_the_seasonal_signal(multi_year_climate_health_data):  #
 
 
 def test_short_history_is_rejected_with_a_usable_message(full_data):  # noqa: F811
-    with pytest.raises(ValueError, match="at least 2 full seasonal cycles"):
+    with pytest.raises(ValueError, match="more than 2 full seasonal cycles"):
         get_future_weather("mstl_arima", full_data, full_data.period_range[-3:])
+
+
+def test_exactly_two_cycles_is_rejected_not_crashed(multi_year_climate_health_data):  # noqa: F811
+    """MSTL drops periods >= half the series, so 24 monthly points yield no seasonal
+    component and statsmodels raises UnboundLocalError from inside. The boundary must
+    be refused with an actionable message instead."""
+    history = multi_year_climate_health_data
+    exactly_two_cycles = history.restrict_time_period(slice(None, history.period_range[23]))
+    assert len(exactly_two_cycles.period_range) == 24
+
+    with pytest.raises(ValueError, match="more than 2 full seasonal cycles"):
+        get_future_weather("mstl_arima", exactly_two_cycles, history.period_range[24:27])
+
+
+def test_just_over_two_cycles_is_accepted(multi_year_climate_health_data):  # noqa: F811
+    history = multi_year_climate_health_data
+    just_over = history.restrict_time_period(slice(None, history.period_range[24]))
+    assert len(just_over.period_range) == 25
+
+    result = get_future_weather("mstl_arima", just_over, history.period_range[25:28])
+
+    for data in result.values():
+        assert np.isfinite(np.asarray(data.rainfall, dtype=float)).all()
 
 
 def test_forecast_stays_within_a_plausible_range(multi_year_climate_health_data):  # noqa: F811

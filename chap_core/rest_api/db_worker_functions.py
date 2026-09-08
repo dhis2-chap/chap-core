@@ -113,6 +113,7 @@ def run_backtest(
     info.n_splits = n_splits
     info.stride = stride
     info.n_retrain = n_retrain
+    info.future_weather_provider = future_weather_provider
 
     status_logger.info(f"Validating dataset with {len(list(dataset.locations()))} locations")
     dataset = validate_and_filter_dataset_for_evaluation(

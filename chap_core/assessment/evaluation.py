@@ -249,7 +249,7 @@ class EvaluationBase(ABC):
         info: "BacktestCreate",
         historical_observations: list[Observation] | None = None,
         historical_context_periods: int = 0,
-        future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
+        future_weather_provider: str | None = None,
     ) -> "EvaluationBase": ...
 
 
@@ -301,7 +301,10 @@ class Evaluation(EvaluationBase):
         Returns:
             Evaluation instance wrapping the Backtest
         """
-        return cls(backtest)
+        # Read the provider off the row rather than inheriting the constructor
+        # default, or an `observed` backtest would export as `climatology`.
+        provider = getattr(backtest, "future_weather_provider", None) or DEFAULT_WEATHER_PROVIDER_ID
+        return cls(backtest, future_weather_provider=provider)
 
     @classmethod
     def from_samples_with_truth(
@@ -312,8 +315,13 @@ class Evaluation(EvaluationBase):
         info: BacktestCreate,
         historical_observations: list[Observation] | None = None,
         historical_context_periods: int = 0,
-        future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
+        future_weather_provider: str | None = None,
     ) -> "Evaluation":
+        # The Backtest row is built from `info`, so `info` is the source of truth
+        # for the provider; an explicit argument only overrides it.
+        future_weather_provider = (
+            future_weather_provider or getattr(info, "future_weather_provider", None) or DEFAULT_WEATHER_PROVIDER_ID
+        )
         info.created = datetime.datetime.now()
         backtest = Backtest(
             **info.model_dump()
@@ -694,6 +702,7 @@ class Evaluation(EvaluationBase):
             split_periods=split_periods,
             forecasts=[],
             dataset_id=0,
+            future_weather_provider=future_weather_provider,
         )
 
         forecasts_df = pd.DataFrame(cast("pd.DataFrame", flat_data.forecasts))
