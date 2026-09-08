@@ -10,9 +10,9 @@ import httpx
 import numpy as np
 import pandas as pd
 from chapkit.api import HealthStatus
-from chapkit.api.service_builder import MLServiceInfo
 from pydantic import BaseModel, Field
 
+from chap_core.rest_api.services.schemas import MLServiceInfo
 from chap_core.time_period.date_util_wrapper import pandas_period_to_string
 
 logger = logging.getLogger(__name__)

@@ -33,6 +33,8 @@ class MonthlyClimatePredictor:
         train_data = train_data.remove_field("disease_cases")
         for location, data in train_data.items():
             self._cls = data.__class__
+            # Retain the forecast grid even when there are no covariates to fit.
+            self._models[location] = {}
             x = self._feature_matrix(data.time_period)
             for field in dataclasses.fields(data):  # type: ignore[arg-type]
                 if field.name in ("time_period"):

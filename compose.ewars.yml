@@ -1,15 +1,37 @@
 services:
   ewars:
     restart: unless-stopped
-    image: ghcr.io/chap-models/chapkit_ewars_model:latest
+    # Pinned to a specific build rather than latest so a deployment stays reproducible
+    # (CLIM-979). The model's publish workflow tags every main build as sha-<short commit>;
+    # set EWARS_IMAGE_TAG in .env to move the pin.
+    image: ghcr.io/chap-models/chapkit_ewars_model:${EWARS_IMAGE_TAG:-sha-fa880a1}
     platform: linux/amd64
-    pull_policy: always
+    init: true
     ports:
       - "5002:8000"
     environment:
       SERVICEKIT_ORCHESTRATOR_URL: http://chap:8000/v2/services/$$register
       # Uncomment if chap has SERVICEKIT_REGISTRATION_KEY set:
       # SERVICEKIT_REGISTRATION_KEY: ${SERVICEKIT_REGISTRATION_KEY:-}
+    # Same posture as chap and worker: unprivileged user, read-only root filesystem,
+    # writable only at /app/data (SQLite) and /tmp (ML workspaces).
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: chapkit:chapkit
+    volumes:
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 2000000000 # 2GB for model workspaces (INLA writes here)
+      - type: volume
+        source: ewars_data
+        target: /app/data
     depends_on:
       chap:
         condition: service_healthy
+
+volumes:
+  ewars_data:
