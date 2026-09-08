@@ -10,6 +10,7 @@ class HpoModelInterface(ConfiguredModel):
     def get_leaderboard(self, dataset: DataSet) -> list[dict[str, Any]]:
         pass
 
+    @property
     @abc.abstractmethod
-    def get_best_config(self) -> dict:
+    def best_configuration(self) -> dict:
         pass

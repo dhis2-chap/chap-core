@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
+import pandera.pandas as pa
 import xarray as xr
 from packaging.version import Version
 
@@ -148,11 +149,11 @@ def _xarray_to_flat_data(ds: xr.Dataset) -> "FlatEvaluationData":
             historical_df = historical_df.rename(columns={"historical_time_period": "time_period"})
         historical_df = historical_df.dropna(subset=["disease_cases"])
         if not historical_df.empty:
-            historical_observations = FlatObserved(historical_df)
+            historical_observations = FlatObserved.validate(historical_df)
 
     return FlatEvaluationData(
-        forecasts=FlatForecasts(forecasts_df),
-        observations=FlatObserved(observations_df),
+        forecasts=FlatForecasts.validate(forecasts_df),
+        observations=FlatObserved.validate(observations_df),
         historical_observations=historical_observations,
     )
 
@@ -172,9 +173,9 @@ class FlatEvaluationData:
             before split periods (for plotting context). Optional for backwards compatibility.
     """
 
-    forecasts: FlatForecasts
-    observations: FlatObserved
-    historical_observations: FlatObserved | None = None
+    forecasts: pa.typing.DataFrame[FlatForecasts]
+    observations: pa.typing.DataFrame[FlatObserved]
+    historical_observations: pa.typing.DataFrame[FlatObserved] | None = None
 
 
 class EvaluationBase(ABC):
@@ -382,7 +383,8 @@ class Evaluation(EvaluationBase):
         historical_context_years: int = 6,
     ) -> "Evaluation":
         """
-        Create an Evaluation by running a backtest.
+        Uses ``train_test_generator`` to create an expanding window split of the
+        data. Create an Evaluation by running a backtest.
 
         Factory method that handles the complete backtest workflow:
         1. Run backtest with provided estimator
@@ -404,26 +406,33 @@ class Evaluation(EvaluationBase):
         from chap_core.assessment.dataset_splitting import train_test_generator
         from chap_core.assessment.prediction_evaluator import backtest
 
-        # Run backtest
-        evaluation_results = backtest(
-            estimator=estimator,
-            data=dataset,
+        train_set, test_generator = train_test_generator(
+            dataset=dataset,
             prediction_length=backtest_params.n_periods,
             n_test_sets=backtest_params.n_splits,
             stride=backtest_params.stride,
+        )
+
+        # Run backtest
+        evaluation_results = backtest(
+            estimator=estimator,
+            train_set=train_set,
+            test_generator=test_generator,
+            n_test_sets=backtest_params.n_splits,
             n_retrain=backtest_params.n_retrain,
         )
 
         # Prepare metadata
-        train, _ = train_test_generator(
-            dataset, backtest_params.n_periods, backtest_params.n_splits, stride=backtest_params.stride
-        )
-        last_train_period = train.period_range[-1]
+        last_train_period = train_set.period_range[-1]
 
         backtest_info = BacktestCreate(
             name=backtest_name,
             dataset_id=0,
             model_id=configured_model.id,
+            n_periods=backtest_params.n_periods,
+            n_splits=backtest_params.n_splits,
+            stride=backtest_params.stride,
+            n_retrain=backtest_params.n_retrain,
         )
 
         # Calculate number of periods based on dataset period type
@@ -571,11 +580,11 @@ class Evaluation(EvaluationBase):
                     cast("list[ObservationBase]", self._historical_observations)
                 )
                 if not historical_df.empty:
-                    historical_observations = FlatObserved(historical_df)
+                    historical_observations = FlatObserved.validate(historical_df)
 
             self._flat_data_cache = FlatEvaluationData(
-                forecasts=FlatForecasts(forecasts_df),
-                observations=FlatObserved(observations_df),
+                forecasts=FlatForecasts.validate(forecasts_df),
+                observations=FlatObserved.validate(observations_df),
                 historical_observations=historical_observations,
             )
         return self._flat_data_cache

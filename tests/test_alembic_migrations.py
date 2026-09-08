@@ -46,6 +46,10 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("configuredmodeldb", "is_live"),
     ("prediction", "prediction_setup_id"),
     ("backtest", "max_horizon_distance"),
+    ("backtest", "n_periods"),
+    ("backtest", "n_splits"),
+    ("backtest", "stride"),
+    ("backtest", "n_retrain"),
 ]
 
 # Tables added by alembic migrations (not in the baseline schema).
@@ -64,6 +68,14 @@ _CONSTRAINTS_REPLACED_BY_MIGRATIONS = [
 # Columns that a migration made NOT NULL. This makes the test run the backfill.
 _COLUMNS_MADE_NOT_NULL_BY_MIGRATIONS = [
     ("modeltemplatedb", "version"),
+]
+
+# Columns a migration renamed, as (table, baseline name, current name). create_all
+# makes the current name, so the baseline has to be put back to the old one for the
+# rename to be exercised.
+_COLUMNS_RENAMED_BY_MIGRATIONS = [
+    ("modeltemplatedb", "min_prediction_length", "min_prediction_periods"),
+    ("modeltemplatedb", "max_prediction_length", "max_prediction_periods"),
 ]
 
 
@@ -134,7 +146,60 @@ def _create_baseline_schema(engine):
             )
         for table, column in _COLUMNS_MADE_NOT_NULL_BY_MIGRATIONS:
             conn.execute(sa.text(f"ALTER TABLE {table} ALTER COLUMN {column} DROP NOT NULL"))
+        for table, baseline_name, current_name in _COLUMNS_RENAMED_BY_MIGRATIONS:
+            conn.execute(sa.text(f"ALTER TABLE {table} RENAME COLUMN {current_name} TO {baseline_name}"))
         conn.commit()
+
+
+def _insert_legacy_backtest(conn):
+    """Two backtests as a pre-parameter release stored them: one with forecasts on two
+    splits two months apart, three periods each, and one without forecasts."""
+    conn.execute(
+        sa.text(
+            "INSERT INTO configuredmodeldb (name, model_template_id, archived, uses_chapkit) "
+            "SELECT 'legacy_configured', id, false, false FROM modeltemplatedb WHERE name = 'legacy_model'"
+        )
+    )
+    conn.execute(sa.text("INSERT INTO dataset (name) VALUES ('legacy_dataset')"))
+    for name in ("legacy_backtest", "empty_backtest"):
+        conn.execute(
+            sa.text(
+                "INSERT INTO backtest (name, dataset_id, model_id, model_db_id) "
+                f"SELECT '{name}', d.id, 'legacy_configured', c.id FROM dataset d, configuredmodeldb c "
+                "WHERE d.name = 'legacy_dataset' AND c.name = 'legacy_configured'"
+            )
+        )
+    for last_seen, periods in (("202201", ("202202", "202203", "202204")), ("202203", ("202204", "202205", "202206"))):
+        for period in periods:
+            conn.execute(
+                sa.text(
+                    "INSERT INTO backtestforecast (backtest_id, period, org_unit, values, last_train_period, last_seen_period) "
+                    f"SELECT id, '{period}', 'ou', '[1.0]', '202201', '{last_seen}' FROM backtest WHERE name = 'legacy_backtest'"
+                )
+            )
+
+
+def _migration_module(revision: str):
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    return ScriptDirectory.from_config(Config(str(ALEMBIC_INI))).get_revision(revision).module
+
+
+@pytest.mark.parametrize(
+    "split_ids,expected",
+    [
+        (["202301", "202212"], 1),  # month across a year boundary
+        (["202401", "202403", "202405"], 2),
+        (["2020W53", "2021W01"], 1),  # 53-week ISO year
+        (["2022W01", "2022W05", "2022W13"], 4),  # a skipped split leaves a wider gap
+        (["2022W01"], 4),  # single weekly split falls back to the weekly default
+        (["202201"], 1),
+    ],
+)
+def test_backtest_params_migration_derives_stride(split_ids, expected):
+    module = _migration_module("d0e1f2a3b4c5")
+    assert module.derive_stride(split_ids) == expected
 
 
 @pytest.mark.slow
@@ -239,9 +304,23 @@ class TestAlembicMigrations:
                 "UPDATE configuredmodeldb SET is_live = true",
             ]:
                 conn.execute(sa.text(statement))
+            _insert_legacy_backtest(conn)
+            for column in ("n_periods", "n_splits", "stride", "n_retrain"):
+                conn.execute(sa.text(f"ALTER TABLE backtest ADD COLUMN {column} INTEGER"))
+                conn.execute(sa.text(f"UPDATE backtest SET {column} = 0"))
             conn.commit()
 
         command.upgrade(alembic_cfg, "head")
+
+        with engine.connect() as conn:
+            row = conn.execute(
+                sa.text("SELECT n_periods, n_splits, stride, n_retrain FROM backtest WHERE name = 'legacy_backtest'")
+            ).one()
+            assert tuple(row) == (3, 2, 2, 1)
+            row = conn.execute(
+                sa.text("SELECT n_periods, n_splits, stride, n_retrain FROM backtest WHERE name = 'empty_backtest'")
+            ).one()
+            assert tuple(row) == (3, 7, 1, 1)
 
         with engine.connect() as conn:
             row = conn.execute(
@@ -254,6 +333,59 @@ class TestAlembicMigrations:
         constraints = {c["name"] for c in sa.inspect(engine).get_unique_constraints("modeltemplatedb")}
         assert "uq_modeltemplatedb_name_version" in constraints
         assert "modeltemplatedb_name_key" not in constraints
+
+    @pytest.mark.parametrize("generic_migration_ran_first", [False, True])
+    def test_prediction_horizon_values_survive_rename(self, engine, generic_migration_ran_first):
+        """The horizons a template declares must still be there under the new names.
+
+        Startup adds missing columns from model metadata before Alembic runs, so the
+        renamed column can already exist, empty, beside the populated old one. A plain
+        rename would fail there, and dropping the old column would lose the horizons,
+        which decide whether a model can serve a requested backtest length.
+        """
+        from alembic import command
+
+        alembic_cfg = _make_alembic_cfg(engine)
+
+        with engine.connect() as conn:
+            conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+            conn.execute(sa.text("CREATE SCHEMA public"))
+            conn.commit()
+        _create_baseline_schema(engine)
+        command.stamp(alembic_cfg, "fe59a33965ed")
+        command.upgrade(alembic_cfg, "b8c9d0e1f2a3")
+
+        with engine.connect() as conn:
+            conn.execute(
+                sa.text(
+                    "INSERT INTO modeltemplatedb "
+                    "(name, version, display_name, description, author_note, author_assessed_status, author, "
+                    "supported_period_type, target, allow_free_additional_continuous_covariates, requires_geo, "
+                    "uses_chapkit, is_live, archived, min_prediction_length, max_prediction_length) "
+                    "VALUES ('bounded_model', 'v1', 'Bounded', 'desc', 'note', 'gray', 'author', "
+                    "'any', 'disease_cases', false, false, false, true, false, 2, 6)"
+                )
+            )
+            if generic_migration_ran_first:
+                for column in ("min_prediction_periods", "max_prediction_periods"):
+                    conn.execute(sa.text(f"ALTER TABLE modeltemplatedb ADD COLUMN {column} INTEGER"))
+            conn.commit()
+
+        command.upgrade(alembic_cfg, "head")
+
+        columns = {col["name"] for col in sa.inspect(engine).get_columns("modeltemplatedb")}
+        assert "min_prediction_length" not in columns
+        assert "max_prediction_length" not in columns
+
+        with engine.connect() as conn:
+            row = conn.execute(
+                sa.text(
+                    "SELECT min_prediction_periods, max_prediction_periods "
+                    "FROM modeltemplatedb WHERE name = 'bounded_model'"
+                )
+            ).one()
+        assert row.min_prediction_periods == 2
+        assert row.max_prediction_periods == 6
 
     def test_unversioned_create_all_schema_is_bootstrapped_to_head(self, engine):
         """A legacy create_all database must still run the versioning migration."""

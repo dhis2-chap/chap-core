@@ -68,7 +68,7 @@ Standard CRUD endpoints for the core domain objects:
 - **Configured models** -- list, create, soft-delete configured models.
 - **Debug** -- create and get debug entries.
 
-Creating a backtest (`POST /v1/crud/backtests`) queues a Celery job and returns a
+Creating a backtest (`POST /v1/analytics/create-backtest`) queues a Celery job and returns a
 `JobResponse` with the task ID. The actual work happens in `db_worker_functions.py`,
 executed by the Celery worker.
 

@@ -18,7 +18,7 @@ class ExtendedPredictor(ConfiguredModel):
         if inner is None:
             return None
         adapted = copy.copy(inner)
-        adapted.max_prediction_length = self._desired_scope
+        adapted.max_prediction_periods = self._desired_scope
         return adapted
 
     def train(self, train_data: DataSet, extra_args=None):
@@ -40,8 +40,8 @@ class ExtendedPredictor(ConfiguredModel):
 
         assert model_information is not None
 
-        min_pred_length = model_information.min_prediction_length
-        max_pred_length = model_information.max_prediction_length
+        min_pred_length = model_information.min_prediction_periods
+        max_pred_length = model_information.max_prediction_periods
 
         assert min_pred_length is not None
         assert max_pred_length is not None

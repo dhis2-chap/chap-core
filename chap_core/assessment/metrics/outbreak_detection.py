@@ -7,6 +7,7 @@ when >50% of forecast samples exceed this threshold.
 """
 
 import pandas as pd
+import pandera.pandas as pa
 
 from chap_core.assessment.flat_representations import FlatObserved
 from chap_core.assessment.metrics import metric
@@ -14,6 +15,7 @@ from chap_core.assessment.metrics.base import (
     AggregationOp,
     Metric,
     MetricSpec,
+    OptimizationDirection,
 )
 
 # The outbreak metrics score forecasts against seasonal thresholds, computed by the
@@ -28,7 +30,7 @@ def _get_thresholds(metric_instance: Metric) -> pd.DataFrame:
     return compute_seasonal_thresholds(metric_instance.historical_observations)
 
 
-def _has_monthly_time_periods(observations: pd.DataFrame | FlatObserved) -> bool:
+def _has_monthly_time_periods(observations: pd.DataFrame) -> bool:
     """Check if time periods are monthly (not weekly like 2022W01)."""
     if observations.empty:
         return False
@@ -53,9 +55,10 @@ class SensitivityMetric(Metric):
         metric_name="Sensitivity",
         aggregation_op=AggregationOp.MEAN,
         description="True positive rate for outbreak detection alerts",
+        optimization_direction=OptimizationDirection.MAXIMIZE,
     )
 
-    def is_applicable(self, observations: FlatObserved) -> bool:
+    def is_applicable(self, observations: pa.typing.DataFrame[FlatObserved]) -> bool:
         return self.historical_observations is not None and _has_monthly_time_periods(observations)
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
@@ -105,9 +108,10 @@ class SpecificityMetric(Metric):
         metric_name="Specificity",
         aggregation_op=AggregationOp.MEAN,
         description="True negative rate for outbreak detection alerts",
+        optimization_direction=OptimizationDirection.MAXIMIZE,
     )
 
-    def is_applicable(self, observations: FlatObserved) -> bool:
+    def is_applicable(self, observations: pa.typing.DataFrame[FlatObserved]) -> bool:
         return self.historical_observations is not None and _has_monthly_time_periods(observations)
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
@@ -157,9 +161,10 @@ class OutbreakAccuracyMetric(Metric):
         metric_name="Outbreak Accuracy",
         aggregation_op=AggregationOp.MEAN,
         description="Proportion of correctly classified outbreak/non-outbreak periods",
+        optimization_direction=OptimizationDirection.MAXIMIZE,
     )
 
-    def is_applicable(self, observations: FlatObserved) -> bool:
+    def is_applicable(self, observations: pa.typing.DataFrame[FlatObserved]) -> bool:
         return self.historical_observations is not None and _has_monthly_time_periods(observations)
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:

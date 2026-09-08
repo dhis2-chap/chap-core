@@ -22,17 +22,15 @@ The evaluation flow from entry point to results:
 ```mermaid
 flowchart TB
     Create["Evaluation.create()<br/>evaluation.py"]
+    Split["train_test_generator()<br/>dataset_splitting.py<br/>returns (train_set, test_generator)"]
     Backtest["backtest()<br/>prediction_evaluator.py"]
-    Split["train_test_generator()<br/>dataset_splitting.py<br/>returns (train_set, splits_iterator)"]
-    Train["estimator.train(train_set)<br/>returns predictor"]
-    Loop["for each split:<br/>predictor.predict(historic, future)<br/>merge predictions with ground truth<br/>yield DataSet(SamplesWithTruth)"]
+    Loop["for each split:<br/>retrain estimator if scheduled<br/>predictor.predict(historic, future)<br/>merge predictions with ground truth<br/>yield DataSet(SamplesWithTruth)"]
     Wrap["Evaluation.from_samples_with_truth()<br/>wraps results in an Evaluation object"]
 
-    Create --> Backtest
-    Backtest --> Split
-    Backtest --> Train
+    Create --> Split
+    Split --> Backtest
     Backtest --> Loop
-    Create --> Wrap
+    Loop --> Wrap
 ```
 
 ## Expanding Window Cross-Validation
@@ -48,7 +46,8 @@ Standard k-fold cross-validation randomly assigns data points to folds. This is 
 
 Chap uses an **expanding window** approach where:
 
-- The model is trained once on an initial training set
+- The model is trained at `n_retrain` evenly spaced split points, with `n_retrain=1` training once at the beginning
+- Split 0 trains on the dedicated initial training set; later retrains use the expanding historic window available at that split
 - Multiple test windows are created by sliding forward through the data
 - For each test window, the model receives all historical data up to that point
 
@@ -57,6 +56,7 @@ The key parameters are:
 - **prediction_length**: how many periods each test window covers
 - **n_test_sets**: how many test windows to create
 - **stride**: how many periods to advance between windows
+- **n_retrain**: how many times to retrain the model, evenly spaced across the test splits
 
 ### How Split Indices Are Calculated
 
@@ -79,7 +79,7 @@ Split 0: historic = [0..14],  future = [15, 16, 17]
 Split 1: historic = [0..15],  future = [16, 17, 18]
 Split 2: historic = [0..16],  future = [17, 18, 19]
 
-Train set = [0..14]  (same as split 0 historic data)
+Train set = [0..14]  (same periods as split 0 historic data, but kept as the dedicated training set)
 ```
 
 Visually, with `T` = train, `H` = extra historic context, `F` = future/test:
@@ -93,7 +93,7 @@ Split 1:  T  T  T  T  T  T  T  T  T  T  T  T  T  T  T  H  F  F  F
 Split 2:  T  T  T  T  T  T  T  T  T  T  T  T  T  T  T  H  H  F  F  F
 ```
 
-Note how the historic data expands with each split while the future window slides forward.
+Note how the historic data expands with each split while the future window slides forward. At split 0, `backtest()` trains on the dedicated `train_set`; any later retrains use the expanding historic data for that split.
 
 ### What the Model Sees
 
@@ -118,7 +118,7 @@ Handles splitting datasets into train/test portions:
 
 Runs the model and collects predictions:
 
-- `backtest()` -- trains model once, yields predictions for each split
+- `backtest()` -- trains or retrains the model at `n_retrain` evenly spaced split points and yields predictions for each split
 - `evaluate_model()` -- full evaluation with GluonTS metrics and PDF report
 
 ### `chap_core/assessment/evaluation.py`
@@ -133,13 +133,13 @@ High-level evaluation abstraction:
 
 Step-by-step walkthrough of what happens when `Evaluation.create()` is called (e.g. from the CLI `chap eval` command):
 
-1. **`backtest()`** is called with the estimator and dataset
-2. Inside `backtest()`, **`train_test_generator()`** computes the split index and creates:
-     - A training set (data up to the first split point)
+1. **`train_test_generator()`** computes the split index and creates:
+     - A dedicated training set (data up to the first split point)
      - An iterator of (historic, masked_future, future_truth) tuples
-3. The estimator is **trained once** on the training set, producing a predictor
-4. For each test split, the predictor generates samples and they are **merged with ground truth** into `SamplesWithTruth` objects
-5. Back in `create()`, **`train_test_generator()`** is called again to determine the last training period
+2. **`backtest()`** is called with the estimator, training set, test generator, number of test sets, and `n_retrain`
+3. At split 0, the estimator is **trained on the dedicated training set**. At later retrain points, it is trained on that split's expanding historic window
+4. For each test split, the most recently trained predictor generates samples and they are **merged with ground truth** into `SamplesWithTruth` objects
+5. The last training period used as evaluation metadata is taken from the initial training set
 6. **`from_samples_with_truth()`** assembles an `Evaluation` object containing:
      - `Backtest` with all forecasts and observations
      - Historical observations for plotting context
