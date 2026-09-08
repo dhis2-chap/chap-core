@@ -72,6 +72,13 @@ def chapkit_service(tmp_path_factory):
         "CHAPKIT_DATABASE_URL": f"sqlite+aiosqlite:///{data_dir}/chapkit.db",
     }
 
+    # Log to files rather than pipes: chapkit logs every request, and an
+    # unread pipe fills up, blocking the server so it can never shut down.
+    stdout_path = data_dir / "stdout.log"
+    stderr_path = data_dir / "stderr.log"
+    stdout_file = stdout_path.open("wb")
+    stderr_file = stderr_path.open("wb")
+
     proc = subprocess.Popen(
         [
             "uv",
@@ -86,19 +93,25 @@ def chapkit_service(tmp_path_factory):
             str(port),
         ],
         env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=stdout_file,
+        stderr=stderr_file,
     )
 
     try:
         if not _wait_for_health(url):
-            stdout = proc.stdout.read().decode() if proc.stdout else ""
-            stderr = proc.stderr.read().decode() if proc.stderr else ""
+            stdout = stdout_path.read_text()
+            stderr = stderr_path.read_text()
             pytest.fail(f"Chapkit service failed to start:\nstdout: {stdout}\nstderr: {stderr}")
         yield url
     finally:
         proc.send_signal(signal.SIGTERM)
-        proc.wait(timeout=10)
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+        stdout_file.close()
+        stderr_file.close()
 
 
 @pytest.mark.slow
