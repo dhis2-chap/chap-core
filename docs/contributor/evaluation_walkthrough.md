@@ -177,13 +177,22 @@ predicted `samples` array, enabling metric computation.
 
 ## 6. Running a Full Backtest
 
-The `backtest` function ties sections 2-5 together: it splits the data, trains
-the model once, predicts for each split, and merges with ground truth.
+The `backtest` function ties sections 2-5 together once the splits have been
+created. It trains or retrains the model at `n_retrain` evenly spaced split
+points, predicts for each split, and merges with ground truth. With the default
+`n_retrain=1`, the model is trained once at the beginning.
 
 ```python
 from chap_core.assessment.prediction_evaluator import backtest
 
-results = list(backtest(estimator, dataset, prediction_length=3, n_test_sets=4, stride=1))
+results = list(
+    backtest(
+        estimator=estimator,
+        train_set=train_set,
+        test_generator=iter(splits),
+        n_test_sets=4,
+    )
+)
 print(f"{len(results)} splits")
 
 for i, result in enumerate(results):
@@ -215,7 +224,7 @@ Run the evaluation:
 from chap_core.api_types import BacktestParams
 from chap_core.assessment.evaluation import Evaluation
 
-backtest_params = BacktestParams(n_periods=3, n_splits=4, stride=1)
+backtest_params = BacktestParams(n_periods=3, n_splits=4, stride=1, n_retrain=1)
 evaluation = Evaluation.create(estimator.configured_model_db, estimator, dataset, backtest_params)
 ```
 
