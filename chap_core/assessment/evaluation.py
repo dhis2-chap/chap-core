@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
+import pandera.pandas as pa
 import xarray as xr
 from packaging.version import Version
 
@@ -148,11 +149,11 @@ def _xarray_to_flat_data(ds: xr.Dataset) -> "FlatEvaluationData":
             historical_df = historical_df.rename(columns={"historical_time_period": "time_period"})
         historical_df = historical_df.dropna(subset=["disease_cases"])
         if not historical_df.empty:
-            historical_observations = FlatObserved(historical_df)
+            historical_observations = FlatObserved.validate(historical_df)
 
     return FlatEvaluationData(
-        forecasts=FlatForecasts(forecasts_df),
-        observations=FlatObserved(observations_df),
+        forecasts=FlatForecasts.validate(forecasts_df),
+        observations=FlatObserved.validate(observations_df),
         historical_observations=historical_observations,
     )
 
@@ -172,9 +173,9 @@ class FlatEvaluationData:
             before split periods (for plotting context). Optional for backwards compatibility.
     """
 
-    forecasts: FlatForecasts
-    observations: FlatObserved
-    historical_observations: FlatObserved | None = None
+    forecasts: pa.typing.DataFrame[FlatForecasts]
+    observations: pa.typing.DataFrame[FlatObserved]
+    historical_observations: pa.typing.DataFrame[FlatObserved] | None = None
 
 
 class EvaluationBase(ABC):
@@ -571,11 +572,11 @@ class Evaluation(EvaluationBase):
                     cast("list[ObservationBase]", self._historical_observations)
                 )
                 if not historical_df.empty:
-                    historical_observations = FlatObserved(historical_df)
+                    historical_observations = FlatObserved.validate(historical_df)
 
             self._flat_data_cache = FlatEvaluationData(
-                forecasts=FlatForecasts(forecasts_df),
-                observations=FlatObserved(observations_df),
+                forecasts=FlatForecasts.validate(forecasts_df),
+                observations=FlatObserved.validate(observations_df),
                 historical_observations=historical_observations,
             )
         return self._flat_data_cache
