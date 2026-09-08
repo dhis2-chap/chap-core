@@ -19,14 +19,14 @@ from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
 from chap_core.rest_api.data_models import BacktestCreate, FetchRequest, PredictionParams
-
-# from chap_core.rest_api.v1.routers.crud import BacktestCreate
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month
 
 logger = logging.getLogger(__name__)
 status_logger = get_status_logger()
+# Single source of the backtest defaults; run_backtest must not define competing ones.
+_DEFAULT_PARAMS = BacktestParams()
 
 
 def convert_dicts_to_models(func):
@@ -78,8 +78,9 @@ def validate_and_filter_dataset_for_evaluation(
 def run_backtest(
     info: BacktestCreate,
     n_periods: int | None = None,
-    n_splits: int = 10,
-    stride: int = 1,
+    n_splits: int = _DEFAULT_PARAMS.n_splits,
+    stride: int = _DEFAULT_PARAMS.stride,
+    n_retrain: int = _DEFAULT_PARAMS.n_retrain,
     session: SessionWrapper | None = None,
 ):
     from chap_core.assessment.dataset_splitting import train_test_generator
@@ -105,6 +106,13 @@ def run_backtest(
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
 
+    # Persist the resolved values, not the requested ones, so the row records
+    # what actually ran. This is the only place these fields are written.
+    info.n_periods = n_periods
+    info.n_splits = n_splits
+    info.stride = stride
+    info.n_retrain = n_retrain
+
     status_logger.info(f"Validating dataset with {len(list(dataset.locations()))} locations")
     dataset = validate_and_filter_dataset_for_evaluation(
         dataset,
@@ -129,6 +137,7 @@ def run_backtest(
         train_set=train_set,
         test_generator=test_generator,
         n_test_sets=n_splits,
+        n_retrain=n_retrain,
     )
     last_train_period = dataset.period_range[-1]
     evaluation = Evaluation.from_samples_with_truth(predictions_list, last_train_period, configured_model, info=info)
@@ -295,6 +304,7 @@ def run_backtest_from_dataset(
         n_periods=backtest_params.n_periods,
         n_splits=backtest_params.n_splits,
         stride=backtest_params.stride,
+        n_retrain=backtest_params.n_retrain,
         session=session,
     )
     return result

@@ -88,7 +88,13 @@ class BacktestSimulator:
         periods = dataset_dims.time_periods[-(self._params.prediction_length + self._params.n_splits - 1) :]
         split_periods = periods[: self._params.n_splits]
         backtest = Backtest(
-            dataset=dataset, model_id="Naive Forecast", org_units=dataset_dims.locations, split_periods=split_periods
+            dataset=dataset,
+            model_id="Naive Forecast",
+            org_units=dataset_dims.locations,
+            split_periods=split_periods,
+            n_periods=self._params.prediction_length,
+            n_splits=self._params.n_splits,
+            stride=1,
         )
         forecasts = []
         for i in range(self._params.n_splits):
