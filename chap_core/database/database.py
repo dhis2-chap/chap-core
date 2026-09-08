@@ -385,7 +385,7 @@ class SessionWrapper:
     def get_configured_model_by_id_or_name(self, configured_model_id_or_name: int | str) -> ConfiguredModelDB:
         """Resolve a configured model from either its integer primary key or its name.
 
-        Exists so the public API can accept either shape on `POST /v1/crud/backtests/`
+        Exists so the public API can accept either shape on `POST /v1/analytics/create-backtest`
         without forcing callers to know that the DB column stores the name string.
         Integer ids raise ValueError if not found to stay consistent with the
         name-based lookup above.

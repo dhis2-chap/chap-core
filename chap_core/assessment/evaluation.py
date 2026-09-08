@@ -425,6 +425,10 @@ class Evaluation(EvaluationBase):
             name=backtest_name,
             dataset_id=0,
             model_id=configured_model.id,
+            n_periods=backtest_params.n_periods,
+            n_splits=backtest_params.n_splits,
+            stride=backtest_params.stride,
+            n_retrain=backtest_params.n_retrain,
         )
 
         # Calculate number of periods based on dataset period type

@@ -392,9 +392,10 @@ async def create_backtest(
     job = worker.queue_db(
         wf.run_backtest,
         BacktestCreate(name=request.name, dataset_id=request.dataset_id, model_id=request.model_id),
-        request.n_periods,
-        request.n_splits,
-        request.stride,
+        n_periods=request.n_periods,
+        n_splits=request.n_splits,
+        stride=request.stride,
+        n_retrain=request.n_retrain,
         database_url=database_url,
         **{JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: request.name},
     )
