@@ -46,6 +46,10 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("configuredmodeldb", "is_live"),
     ("prediction", "prediction_setup_id"),
     ("backtest", "max_horizon_distance"),
+    ("backtest", "n_periods"),
+    ("backtest", "n_splits"),
+    ("backtest", "stride"),
+    ("backtest", "n_retrain"),
 ]
 
 # Tables added by alembic migrations (not in the baseline schema).
@@ -145,6 +149,57 @@ def _create_baseline_schema(engine):
         for table, baseline_name, current_name in _COLUMNS_RENAMED_BY_MIGRATIONS:
             conn.execute(sa.text(f"ALTER TABLE {table} RENAME COLUMN {current_name} TO {baseline_name}"))
         conn.commit()
+
+
+def _insert_legacy_backtest(conn):
+    """Two backtests as a pre-parameter release stored them: one with forecasts on two
+    splits two months apart, three periods each, and one without forecasts."""
+    conn.execute(
+        sa.text(
+            "INSERT INTO configuredmodeldb (name, model_template_id, archived, uses_chapkit) "
+            "SELECT 'legacy_configured', id, false, false FROM modeltemplatedb WHERE name = 'legacy_model'"
+        )
+    )
+    conn.execute(sa.text("INSERT INTO dataset (name) VALUES ('legacy_dataset')"))
+    for name in ("legacy_backtest", "empty_backtest"):
+        conn.execute(
+            sa.text(
+                "INSERT INTO backtest (name, dataset_id, model_id, model_db_id) "
+                f"SELECT '{name}', d.id, 'legacy_configured', c.id FROM dataset d, configuredmodeldb c "
+                "WHERE d.name = 'legacy_dataset' AND c.name = 'legacy_configured'"
+            )
+        )
+    for last_seen, periods in (("202201", ("202202", "202203", "202204")), ("202203", ("202204", "202205", "202206"))):
+        for period in periods:
+            conn.execute(
+                sa.text(
+                    "INSERT INTO backtestforecast (backtest_id, period, org_unit, values, last_train_period, last_seen_period) "
+                    f"SELECT id, '{period}', 'ou', '[1.0]', '202201', '{last_seen}' FROM backtest WHERE name = 'legacy_backtest'"
+                )
+            )
+
+
+def _migration_module(revision: str):
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    return ScriptDirectory.from_config(Config(str(ALEMBIC_INI))).get_revision(revision).module
+
+
+@pytest.mark.parametrize(
+    "split_ids,expected",
+    [
+        (["202301", "202212"], 1),  # month across a year boundary
+        (["202401", "202403", "202405"], 2),
+        (["2020W53", "2021W01"], 1),  # 53-week ISO year
+        (["2022W01", "2022W05", "2022W13"], 4),  # a skipped split leaves a wider gap
+        (["2022W01"], 4),  # single weekly split falls back to the weekly default
+        (["202201"], 1),
+    ],
+)
+def test_backtest_params_migration_derives_stride(split_ids, expected):
+    module = _migration_module("d0e1f2a3b4c5")
+    assert module.derive_stride(split_ids) == expected
 
 
 @pytest.mark.slow
@@ -249,9 +304,23 @@ class TestAlembicMigrations:
                 "UPDATE configuredmodeldb SET is_live = true",
             ]:
                 conn.execute(sa.text(statement))
+            _insert_legacy_backtest(conn)
+            for column in ("n_periods", "n_splits", "stride", "n_retrain"):
+                conn.execute(sa.text(f"ALTER TABLE backtest ADD COLUMN {column} INTEGER"))
+                conn.execute(sa.text(f"UPDATE backtest SET {column} = 0"))
             conn.commit()
 
         command.upgrade(alembic_cfg, "head")
+
+        with engine.connect() as conn:
+            row = conn.execute(
+                sa.text("SELECT n_periods, n_splits, stride, n_retrain FROM backtest WHERE name = 'legacy_backtest'")
+            ).one()
+            assert tuple(row) == (3, 2, 2, 1)
+            row = conn.execute(
+                sa.text("SELECT n_periods, n_splits, stride, n_retrain FROM backtest WHERE name = 'empty_backtest'")
+            ).one()
+            assert tuple(row) == (3, 7, 1, 1)
 
         with engine.connect() as conn:
             row = conn.execute(
