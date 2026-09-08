@@ -266,7 +266,7 @@ class Evaluation(EvaluationBase):
         backtest: "Backtest",
         historical_observations: list[Observation] | None = None,
         historical_context_periods: int = 0,
-        future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
+        future_weather_provider: str | None = None,
     ):
         """
         Initialize Evaluation with a Backtest object.
@@ -277,18 +277,23 @@ class Evaluation(EvaluationBase):
                 context (periods before split points, for plotting)
             historical_context_periods: Number of periods of historical context stored
             future_weather_provider: Id of the provider that supplied the climate
-                covariates for each forecast window
+                covariates. Written onto the backtest row, which is the single
+                source of truth; `None` keeps whatever the row already carries.
         """
         self._backtest = backtest
         self._historical_observations = historical_observations or []
         self._historical_context_periods = historical_context_periods
-        self._future_weather_provider = future_weather_provider
         self._flat_data_cache: FlatEvaluationData | None = None
+        # Store the override on the row rather than beside it. Holding it in a
+        # second field let the two disagree, so a round trip through
+        # to_backtest()/from_backtest() silently reverted the provider.
+        if future_weather_provider is not None:
+            backtest.future_weather_provider = future_weather_provider
 
     @property
     def future_weather_provider(self) -> str:
         """Id of the future-weather provider these results were produced with."""
-        return self._future_weather_provider
+        return getattr(self._backtest, "future_weather_provider", None) or DEFAULT_WEATHER_PROVIDER_ID
 
     @classmethod
     def from_backtest(cls, backtest: "Backtest") -> "Evaluation":
@@ -301,10 +306,8 @@ class Evaluation(EvaluationBase):
         Returns:
             Evaluation instance wrapping the Backtest
         """
-        # Read the provider off the row rather than inheriting the constructor
-        # default, or an `observed` backtest would export as `climatology`.
-        provider = getattr(backtest, "future_weather_provider", None) or DEFAULT_WEATHER_PROVIDER_ID
-        return cls(backtest, future_weather_provider=provider)
+        # The row is the source of truth for the provider, so no override here.
+        return cls(backtest)
 
     @classmethod
     def from_samples_with_truth(
@@ -663,7 +666,7 @@ class Evaluation(EvaluationBase):
             "split_periods": self.get_split_periods(),
             "org_units": self.get_org_units(),
             "historical_context_periods": self._historical_context_periods,
-            "future_weather_provider": self._future_weather_provider,
+            "future_weather_provider": self.future_weather_provider,
         }
 
         if model_info is not None:

@@ -60,3 +60,19 @@ def test_from_file_sets_the_provider_on_the_backtest(backtest, tmp_path):
     loaded = Evaluation.from_file(filepath)
 
     assert loaded.to_backtest().future_weather_provider == "observed"
+
+
+def test_constructor_override_lands_on_the_backtest_row(backtest):
+    """The row is the single source of truth; an override must be written to it,
+    not held beside it, or a to_backtest()/from_backtest() round trip reverts it."""
+    evaluation = Evaluation(backtest, future_weather_provider="observed")
+
+    assert evaluation.to_backtest().future_weather_provider == "observed"
+    assert Evaluation.from_backtest(evaluation.to_backtest()).future_weather_provider == "observed"
+
+
+def test_no_override_keeps_the_row_value(backtest):
+    backtest.future_weather_provider = "observed"
+
+    assert Evaluation(backtest).future_weather_provider == "observed"
+    assert Evaluation(backtest).to_backtest().future_weather_provider == "observed"

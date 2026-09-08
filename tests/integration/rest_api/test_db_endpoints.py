@@ -917,6 +917,65 @@ def test_run_prediction_setup_rejects_legacy_fields(override_session, seeded_ses
     assert response.status_code == 422
 
 
+def test_run_prediction_setup_inherits_the_backtest_provider(
+    override_session, seeded_session, example_polygons, monkeypatch
+):
+    """A promoted backtest must predict with the provider it was evaluated on, or the
+    prediction silently uses a different future-weather source than the scores imply."""
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    backtest.future_weather_provider = "damped_persistence"
+    seeded_session.add(backtest)
+    seeded_session.commit()
+    setup_id = _create_prediction_setup(backtest.id, "Inherit provider").json()["id"]
+
+    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    payload = request.model_dump(mode="json")
+    payload.pop("data_to_be_fetched", None)
+    payload.pop("data_sources", None)
+    payload["nPeriods"] = 3
+
+    from chap_core.rest_api.v1.routers import crud as crud_router
+
+    captured: dict = {}
+
+    class _FakeJob:
+        id = "captured-job"
+
+    class _CapturingWorker:
+        def queue_db(self, func, *args, **kwargs):
+            captured.update(kwargs)
+            return _FakeJob()
+
+    monkeypatch.setattr(crud_router, "worker", _CapturingWorker())
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+
+    assert response.status_code == 200, response.json()
+    assert captured["prediction_params"].future_weather_provider == "damped_persistence"
+
+
+def test_run_prediction_setup_rejects_a_look_ahead_provider(override_session, seeded_session, example_polygons):
+    """`observed` reads the forecast window's own weather, so it cannot forecast ahead.
+    Fail at the endpoint rather than deep inside the worker."""
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    backtest.future_weather_provider = "observed"
+    seeded_session.add(backtest)
+    seeded_session.commit()
+    setup_id = _create_prediction_setup(backtest.id, "Look-ahead setup").json()["id"]
+
+    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    payload = request.model_dump(mode="json")
+    payload.pop("data_to_be_fetched", None)
+    payload.pop("data_sources", None)
+    payload["nPeriods"] = 3
+
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+
+    assert response.status_code == 400, response.json()
+    assert "cannot forecast ahead" in response.json()["detail"]
+
+
 @pytest.mark.parametrize("n_periods", [0, -1])
 def test_run_prediction_setup_non_positive_n_periods_returns_422(
     override_session, seeded_session, example_polygons, n_periods
