@@ -28,9 +28,10 @@ jobs:
         with:
           predicate-quantifier: every
           filters: |
+            # predicate-quantifier applies to every filter, so a filter that should
+            # match any of several paths must be written as one union pattern.
             docs:
-              - 'docs/**'
-              - 'mkdocs.yml'
+              - '{docs/**,mkdocs.yml}'
             code:
               - '**'
               - '!docs/**'
