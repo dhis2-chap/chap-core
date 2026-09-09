@@ -152,7 +152,7 @@ class CovariateNameSuggestion(DBModel):
     )
     required_by: list[str] = Field(
         default_factory=list,
-        description="Names of live model templates that list this covariate in `required_covariates`.",
+        description="Names of the live model templates and configured models that need this covariate.",
     )
 
 

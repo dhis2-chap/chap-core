@@ -242,6 +242,17 @@ def test_get_covariate_names(dependency_overrides):
     assert "location" not in by_name
     assert all(entry["standard"] or entry["requiredBy"] for entry in data)
 
+    configured_models = client.get("/v1/crud/configured-models").json()
+    extras = {
+        (model["name"], covariate)
+        for model in configured_models
+        for covariate in model["additionalContinuousCovariates"]
+    }
+    assert extras, "seeded config should include a model with extra covariates"
+    for model_name, covariate in extras:
+        assert covariate in by_name, (covariate, sorted(by_name))
+        assert model_name in by_name[covariate]["requiredBy"], by_name[covariate]
+
 
 @pytest.fixture
 def make_prediction_request(make_dataset_request):

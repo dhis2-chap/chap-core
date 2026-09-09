@@ -658,11 +658,13 @@ STRUCTURAL_FIELDS = RESERVED_FIELDS - {"disease_cases"}
 async def get_covariate_names(session: Session = Depends(get_session)) -> list[CovariateNameSuggestion]:
     """List covariate names to offer when naming the columns of a dataset that is not tied to a model.
 
-    Models only run on a dataset whose covariate names match their ``required_covariates``
+    Models only run on a dataset whose covariate names match the names they ask for
     verbatim, so picking a suggested name is what makes a dataset reusable across models.
-    The list is the union of CHAP's standard names and, for every live model template, its
-    required covariates plus the name of its target column (usually ``disease_cases``, but
-    a template may call it something else). ``requiredBy`` tells which templates need each
+    The list is the union of three sources: CHAP's standard names; for every live model
+    template, its required covariates plus the name of its target column (usually
+    ``disease_cases``, but a template may call it something else); and for every live
+    configured model, the extra continuous covariates its configuration adds on top of the
+    template. ``requiredBy`` names the templates and configured models that need each
     name. Free-text names are still allowed when creating a dataset.
     """
     required_by: dict[str, set[str]] = {name: set() for name in STANDARD_COVARIATE_NAMES}
@@ -672,6 +674,14 @@ async def get_covariate_names(session: Session = Depends(get_session)) -> list[C
             if name in STRUCTURAL_FIELDS:
                 continue
             required_by.setdefault(name, set()).add(template.name)
+    configured_models = session.exec(
+        select(ConfiguredModelDB).where(ConfiguredModelDB.is_live == True, ConfiguredModelDB.archived == False)
+    ).all()
+    for configured_model in configured_models:
+        for name in configured_model.additional_continuous_covariates:
+            if name in STRUCTURAL_FIELDS:
+                continue
+            required_by.setdefault(name, set()).add(configured_model.name)
     return [
         CovariateNameSuggestion(name=name, standard=name in STANDARD_COVARIATE_NAMES, required_by=sorted(models))
         for name, models in required_by.items()
