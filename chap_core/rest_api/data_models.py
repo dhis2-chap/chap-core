@@ -143,6 +143,19 @@ class ChapDataSource(DBModel):
     dataset: str = Field(description="Canonical name of the upstream dataset this source pulls from.")
 
 
+class CovariateNameSuggestion(DBModel):
+    """One suggested covariate name for a model-independent dataset, with where the suggestion comes from."""
+
+    name: str = Field(description="Covariate name as it should appear in the dataset.")
+    standard: bool = Field(
+        description="True when the name comes from CHAP's built-in list of standard covariate names."
+    )
+    required_by: list[str] = Field(
+        default_factory=list,
+        description="Names of the live model templates and configured models that need this covariate.",
+    )
+
+
 class MakePredictionRequest(DatasetMakeRequest, PredictionParams):
     """Long-path request for kicking off a prediction: combines dataset construction + model parameters."""
 
