@@ -520,6 +520,45 @@ def test_run_backtest_retrains_n_retrain_times(p_seeded_engine, monkeypatch):
         assert session.session.get(Backtest, backtest_id).n_retrain == 2
 
 
+def test_run_backtest_rejects_model_that_skips_an_org_unit(p_seeded_engine, monkeypatch, org_units):
+    """A model that forecasts fewer org units than it was given must fail, not be stored."""
+    from chap_core.assessment.prediction_evaluator import IncompleteBacktestError
+    from chap_core.predictor.naive_estimator import NaiveEstimator
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet as SpatioTemporalDataSet
+
+    dropped = org_units[0]
+
+    class _DroppingPredictor:
+        def __init__(self, inner):
+            self.inner = inner
+
+        def predict(self, historic_data, future_data):
+            forecasts = self.inner.predict(historic_data, future_data)
+            return SpatioTemporalDataSet({loc: s for loc, s in forecasts.items() if loc != dropped})
+
+    class _DroppingEstimator:
+        def train(self, data):
+            return _DroppingPredictor(NaiveEstimator().train(data))
+
+    monkeypatch.setattr(
+        SessionWrapper, "get_configured_model_with_code", lambda self, *args, **kwargs: _DroppingEstimator()
+    )
+
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        n_backtests_before = len(session.session.exec(select(Backtest)).all())
+        with pytest.raises(IncompleteBacktestError) as excinfo:
+            run_backtest(
+                BacktestCreate(name="incomplete", dataset_id=dataset_id, model_id="naive_model"),
+                n_periods=3,
+                n_splits=2,
+                stride=1,
+                session=session,
+            )
+        assert dropped in str(excinfo.value)
+        assert len(session.session.exec(select(Backtest)).all()) == n_backtests_before
+
+
 def test_backtest_overlap_error_message_includes_id(clean_engine, dependency_overrides):
     """The error detail must surface the actual id, not its path position."""
     missing_id1 = 888888
