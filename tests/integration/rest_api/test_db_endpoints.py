@@ -253,6 +253,32 @@ def test_get_data_sources():
     assert next(ds for ds in data if "rainfall" in ds["supportedFeatures"])["dataset"] == "era5"
 
 
+def test_get_covariate_names(dependency_overrides):
+    response = client.get("/v1/analytics/covariate-names")
+    data = response.json()
+    assert response.status_code == 200, data
+    by_name = {entry["name"]: entry for entry in data}
+    assert len(by_name) == len(data), "names should be unique"
+    assert by_name["rainfall"]["standard"] is True
+    assert "naive_model" in by_name["rainfall"]["requiredBy"]
+    assert by_name["disease_cases"]["standard"] is True
+    assert "naive_model" in by_name["disease_cases"]["requiredBy"], "target column should be suggested too"
+    assert "time_period" not in by_name
+    assert "location" not in by_name
+    assert all(entry["standard"] or entry["requiredBy"] for entry in data)
+
+    configured_models = client.get("/v1/crud/configured-models").json()
+    extras = {
+        (model["name"], covariate)
+        for model in configured_models
+        for covariate in model["additionalContinuousCovariates"]
+    }
+    assert extras, "seeded config should include a model with extra covariates"
+    for model_name, covariate in extras:
+        assert covariate in by_name, (covariate, sorted(by_name))
+        assert model_name in by_name[covariate]["requiredBy"], by_name[covariate]
+
+
 @pytest.fixture
 def make_prediction_request(make_dataset_request):
     return MakePredictionRequest(
