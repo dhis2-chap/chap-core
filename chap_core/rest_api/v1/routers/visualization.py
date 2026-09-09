@@ -75,6 +75,11 @@ def get_available_metrics(backtest_id: int):
     Use this to populate a metric picker in a UI before requesting a specific plot. The
     result is the same regardless of ``backtest_id`` — the path takes it for symmetry
     with the render endpoint.
+
+    Only metrics that have a per-cell value are listed. Every metric plot breaks a score
+    down by horizon, location or period, so a metric defined only over a whole set of
+    cells (F1, Matthews correlation, skill scores) has nothing to plot and would render
+    an error rather than a chart. Read those from the backtest's aggregate metrics instead.
     """
     logger.info(f"Getting available metrics for backtest {backtest_id}")
     logger.info(f"Available metrics: {available_metrics.keys()}")
@@ -85,6 +90,7 @@ def get_available_metrics(backtest_id: int):
             description=metric_factory().get_description(),
         )
         for metric_id, metric_factory in available_metrics.items()
+        if metric_factory.spec.output_dimensions
     ]
 
 

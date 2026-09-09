@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 #: Fraction of forecast samples that must exceed the threshold for an alert to be raised.
 ALERT_SAMPLE_FRACTION = 0.5
 
-_OUTBREAK_COLUMNS = ["location", "time_period", "horizon_distance", "outbreak", "alert"]
+_OUTBREAK_COLUMNS = ["location", "time_period", "horizon_distance", "outbreak", "alert", "probability"]
 _METRIC_DIMENSIONS = ["location", "time_period", "horizon_distance"]
 
 
@@ -75,9 +75,10 @@ def outbreak_and_alert(
     Returns:
         One row per ``(location, time_period, horizon_distance)`` that has both a
         computable threshold and a forecast, with columns
-        ``[location, time_period, horizon_distance, outbreak, alert]``. ``outbreak``
-        is 1.0 where observed cases exceed the channel; ``alert`` is 1.0 where more
-        than :data:`ALERT_SAMPLE_FRACTION` of the samples exceed it. Cells whose
+        ``[location, time_period, horizon_distance, outbreak, alert, probability]``.
+        ``outbreak`` is 1.0 where observed cases exceed the channel; ``probability``
+        is the share of samples above it and ``alert`` is 1.0 where that share
+        exceeds :data:`ALERT_SAMPLE_FRACTION`. Cells whose
         threshold cannot be computed (a single historical value gives an undefined
         standard deviation) are dropped.
     """
@@ -108,7 +109,7 @@ def outbreak_and_alert(
     labelled["outbreak"] = (labelled["disease_cases"] > labelled["threshold"]).astype(float)
 
     merged = labelled[["location", "time_period", "outbreak"]].merge(
-        probabilities[[*_METRIC_DIMENSIONS, "alert"]],
+        probabilities[[*_METRIC_DIMENSIONS, "alert", "probability"]],
         on=["location", "time_period"],
         how="inner",
     )
@@ -122,18 +123,25 @@ def _as_metric(rows: pd.DataFrame, values: pd.Series) -> pd.DataFrame:
     return result
 
 
-class _OutbreakMetric(Metric):
-    """Shared applicability rule for metrics scored against a seasonal threshold."""
+class OutbreakScoredMixin:
+    """Applicability rule and frame access shared by every metric scored against the channel.
+
+    Mixed in ahead of :class:`Metric` or :class:`GlobalOnlyMetric` depending on
+    whether the metric has a per-cell value.
+    """
+
+    historical_observations: pd.DataFrame | None
 
     def is_applicable(self, observations: pa.typing.DataFrame[FlatObserved]) -> bool:
         return self.historical_observations is not None and has_season_buckets(observations)
 
-    def _frame(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
+    def outbreak_frame(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
+        """Labelled and scored cells: see :func:`outbreak_and_alert`."""
         return outbreak_and_alert(self.historical_observations, observations, forecasts)
 
 
 @metric()
-class SensitivityMetric(_OutbreakMetric):
+class SensitivityMetric(OutbreakScoredMixin, Metric):
     """Sensitivity (true positive rate) for outbreak detection.
 
     Measures the proportion of actual outbreaks that were correctly
@@ -151,13 +159,13 @@ class SensitivityMetric(_OutbreakMetric):
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
-        frame = self._frame(observations, forecasts)
+        frame = self.outbreak_frame(observations, forecasts)
         outbreaks = frame[frame["outbreak"] == 1.0]
         return _as_metric(outbreaks, outbreaks["alert"])
 
 
 @metric()
-class SpecificityMetric(_OutbreakMetric):
+class SpecificityMetric(OutbreakScoredMixin, Metric):
     """Specificity (true negative rate) for outbreak detection.
 
     Measures the proportion of non-outbreak periods that were correctly
@@ -175,13 +183,13 @@ class SpecificityMetric(_OutbreakMetric):
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
-        frame = self._frame(observations, forecasts)
+        frame = self.outbreak_frame(observations, forecasts)
         quiet = frame[frame["outbreak"] == 0.0]
         return _as_metric(quiet, 1.0 - quiet["alert"])
 
 
 @metric()
-class OutbreakAccuracyMetric(_OutbreakMetric):
+class OutbreakAccuracyMetric(OutbreakScoredMixin, Metric):
     """Accuracy for outbreak detection.
 
     Measures the proportion of all periods where the alert status
@@ -200,5 +208,5 @@ class OutbreakAccuracyMetric(_OutbreakMetric):
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
-        frame = self._frame(observations, forecasts)
+        frame = self.outbreak_frame(observations, forecasts)
         return _as_metric(frame, (frame["alert"] == frame["outbreak"]).astype(float))
