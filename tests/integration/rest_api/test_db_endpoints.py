@@ -228,6 +228,18 @@ def test_get_data_sources():
     assert next(ds for ds in data if "rainfall" in ds["supportedFeatures"])["dataset"] == "era5"
 
 
+def test_get_covariate_names(dependency_overrides):
+    response = client.get("/v1/analytics/covariate-names")
+    data = response.json()
+    assert response.status_code == 200, data
+    by_name = {entry["name"]: entry for entry in data}
+    assert len(by_name) == len(data), "names should be unique"
+    assert by_name["rainfall"]["standard"] is True
+    assert "naive_model" in by_name["rainfall"]["requiredBy"]
+    assert "disease_cases" not in by_name
+    assert all(entry["standard"] or entry["requiredBy"] for entry in data)
+
+
 @pytest.fixture
 def make_prediction_request(make_dataset_request):
     return MakePredictionRequest(

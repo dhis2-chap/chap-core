@@ -22,9 +22,10 @@ from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet as DataSetTable
 from chap_core.database.dataset_tables import DataSetCreateInfo
-from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 from chap_core.database.tables import Backtest, BacktestForecast, Prediction
 from chap_core.datatypes import create_tsdataclass
+from chap_core.services.dataset_validation import RESERVED_FIELDS
 from chap_core.spatio_temporal_data.converters import observations_to_dataframe, observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -34,6 +35,7 @@ from ...data_models import (
     BacktestDomain,
     BacktestRead,
     ChapDataSource,
+    CovariateNameSuggestion,
     DatasetMakeRequest,
     ImportSummaryResponse,
     JobResponse,
@@ -632,6 +634,45 @@ async def get_data_sources() -> list[ChapDataSource]:
     identifier.
     """
     return data_sources
+
+
+STANDARD_COVARIATE_NAMES = [
+    "rainfall",
+    "mean_temperature",
+    "population",
+    "surface_pressure",
+    "mean_sea_level_pressure",
+    "u_component_of_wind_10m",
+    "v_component_of_wind_10m",
+]
+
+
+@router.get(
+    "/covariate-names",
+    response_model=list[CovariateNameSuggestion],
+    tags=["Datasets"],
+    summary="Suggest covariate names for a model-independent dataset",
+)
+async def get_covariate_names(session: Session = Depends(get_session)) -> list[CovariateNameSuggestion]:
+    """List covariate names to offer when naming the columns of a dataset that is not tied to a model.
+
+    Models only run on a dataset whose covariate names match their ``required_covariates``
+    verbatim, so picking a suggested name is what makes a dataset reusable across models.
+    The list is the union of CHAP's standard names and the required covariates of every
+    live model template; ``requiredBy`` tells which templates need each name. Free-text
+    names are still allowed when creating a dataset.
+    """
+    required_by: dict[str, list[str]] = {name: [] for name in STANDARD_COVARIATE_NAMES}
+    templates = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.is_live == True)).all()
+    for template in templates:
+        for covariate in template.required_covariates:
+            if covariate in RESERVED_FIELDS:
+                continue
+            required_by.setdefault(covariate, []).append(template.name)
+    return [
+        CovariateNameSuggestion(name=name, standard=name in STANDARD_COVARIATE_NAMES, required_by=sorted(models))
+        for name, models in required_by.items()
+    ]
 
 
 @router.post(
