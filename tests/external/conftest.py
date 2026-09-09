@@ -57,7 +57,7 @@ if mode == "die":
     sys.stdout.flush()
     sys.exit(3)
 
-status = "healthy" if mode == "flood" else "starting"
+status = "healthy" if mode in ("flood", "invalid_bytes") else "starting"
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -84,8 +84,17 @@ def flood():
     sys.stderr.flush()
 
 
+def invalid_bytes():
+    sys.stdout.buffer.write(b"\\xff\\n")
+    sys.stdout.buffer.flush()
+    sys.stdout.write("AFTER_INVALID_BYTES\\n")
+    sys.stdout.flush()
+
+
 if mode == "flood":
     threading.Thread(target=flood, daemon=True).start()
+if mode == "invalid_bytes":
+    threading.Thread(target=invalid_bytes, daemon=True).start()
 
 http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
 """
@@ -96,6 +105,7 @@ def fake_chapkit_service(tmp_path):
     """Return a factory that patches Popen in the service manager to launch the fake service.
 
     ``mode`` is one of ``"flood"`` (healthy, then floods stdout and stderr),
+    ``"invalid_bytes"`` (healthy, writes a byte that is not valid UTF-8, then keeps logging),
     ``"die"`` (prints a line and exits 3), or ``"starting"`` (never becomes healthy).
     """
     script = tmp_path / "fake_chapkit_service.py"

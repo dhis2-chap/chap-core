@@ -136,6 +136,15 @@ class TestChapkitServiceManager:
                 stop_started = time.time()
             assert time.time() - stop_started < 5
 
+    def test_reader_survives_invalid_output_bytes(self, tmp_path, fake_chapkit_service):
+        with fake_chapkit_service("invalid_bytes"):
+            with ChapkitServiceManager(str(tmp_path), startup_timeout=15) as manager:
+                deadline = time.time() + 15
+                while "AFTER_INVALID_BYTES" not in manager.recent_output() and time.time() < deadline:
+                    time.sleep(0.1)
+                assert "AFTER_INVALID_BYTES" in manager.recent_output()
+                assert httpx.get(manager.url + "/health", timeout=2).status_code == 200
+
     def test_death_during_startup_reports_output(self, tmp_path, fake_chapkit_service):
         with fake_chapkit_service("die"):
             with pytest.raises(ChapkitServiceStartupError, match="died during startup") as exc_info:

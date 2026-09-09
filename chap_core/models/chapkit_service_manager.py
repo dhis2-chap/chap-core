@@ -125,6 +125,8 @@ class ChapkitServiceManager:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             bufsize=1,
             preexec_fn=os.setsid if os.name != "nt" else None,
         )
