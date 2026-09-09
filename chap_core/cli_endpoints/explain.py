@@ -89,7 +89,7 @@ def explain_lime(
             "--lime-params.sampler-name for perturbation strategy, "
             "--lime-params.num-perturbations for sample count, "
             "--lime-params.adaptive to enable adaptive mode, "
-            "--lime-params.last_n to enable truncation of the dataset"
+            "--lime-params.last-n to enable truncation of the dataset, drops locations that dont fit into last_n"
         ),
     ] = LimeParams(),
     run_config: RunConfigArg = RunConfig(),

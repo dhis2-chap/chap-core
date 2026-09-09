@@ -1102,7 +1102,7 @@ def explain(
         horizon (int): The number of time steps into the future on which to explain
         granularity (int): Number of segments to divide the time series data into for importance weighting (default: 10)
         num_perturbations (int): Number of generated perturbed variations of input vector (default 300)
-        surrogate_name (str): The model used as explainable surrogate - one of ["ridge", "bayesian"] (default ridge)
+        surrogate_name (str): The model used as explainable surrogate - one of ["ridge", "bayesian", "blr", "bayesian_linear"] (default ridge)
         segmenter_name (str): The model used for segmentation - one of ["uniform", "exponential", "matrix_slope",
                               "matrix_diff", "matrix_bins", "sax", "nn"] (default uniform)
         sampler_name (str): The sampling strategy used to replace features "turned off" - one of ["background"] (default background)
@@ -1389,7 +1389,7 @@ def explain_adaptive(
         horizon (int): The number of time steps into the future on which to explain
         granularity (int): Number of segments to divide the time series data into for importance weighting (default: 10)
         num_perturbations (int): Number of generated perturbed variations of input vector (default 300)
-        surrogate_name (str): The model used as explainable surrogate - one of ["ridge"] (default ridge)
+        surrogate_name (str): The model used as explainable surrogate - one of ["ridge", "bayesian", "blr", "bayesian_linear"] (default ridge)
         segmenter_name (str): The model used for segmentation - one of ["uniform", "exponential", "matrix_slope",
                               "matrix_diff", "matrix_bins", "sax", "nn"] (default uniform)
         sampler_name (str): The sampling strategy used to replace features "turned off" - one of ["background"] (default background)
