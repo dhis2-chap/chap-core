@@ -5,16 +5,55 @@ name: Test-all (docker, external models, etc)
 
 on:
   push:
-    branches: ["master", "dev"]
+    branches: ["master"]
   pull_request:
-    branches: ["master", "dev"]
+    branches: ["master"]
 
 permissions:
   contents: read
   packages: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # Classifies the PR so the expensive job below can be skipped or reduced.
+  # On push events every output is true so master always gets the full run.
+  # The job names below are required checks in the master ruleset, so gating
+  # happens on the steps: a workflow-level paths filter, or a job-level `if` on
+  # a matrix job, leaves the required check pending and blocks the merge.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ github.event_name != 'pull_request' || steps.filter.outputs.code == 'true' }}
+      docs: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true' }}
+      tests: ${{ github.event_name != 'pull_request' || steps.filter.outputs.code == 'true' || steps.filter.outputs.docs == 'true' }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          predicate-quantifier: every
+          filters: |
+            # predicate-quantifier applies to every filter, so a filter that should
+            # match any of several paths must be written as one union pattern.
+            docs:
+              - '{docs/**,mkdocs.yml}'
+            code:
+              - '**'
+              - '!docs/**'
+              - '!mkdocs.yml'
+              - '!charts/**'
+              - '!README.md'
+              - '!CLAUDE.md'
+              - '!LICENSE'
+              - '!.github/CODEOWNERS'
+              - '!.github/dependabot.yml'
+              - '!.github/**/*.md'
+
   test-all:
+    needs: changes
     env:
       REDIS_HOST: localhost
 
@@ -68,20 +107,28 @@ jobs:
       #     large-packages: false
       #     swap-storage: true
       - name: Install uv
+        if: needs.changes.outputs.tests == 'true'
         uses: astral-sh/setup-uv@v10.0.1
       - name: Set up Python ${{ matrix.python-version }}
+        if: needs.changes.outputs.tests == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y libbz2-dev liblzma-dev
           uv python install ${{ matrix.python-version }}
       - name: Install the project
+        if: needs.changes.outputs.tests == 'true'
         run: uv sync --dev
       - name: Install pyenv
+        if: needs.changes.outputs.tests == 'true'
         uses: gabrielfalcao/pyenv-action@v18
         with:
           default: "3.13"
           command: ""
-      - name: Run
+      - name: Run full suite
+        if: needs.changes.outputs.code == 'true'
         run: |
           cp .env.example .env
           make test-all
+      - name: Run slow documentation tests
+        if: needs.changes.outputs.tests == 'true' && needs.changes.outputs.code != 'true'
+        run: make test-docs-slow

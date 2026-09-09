@@ -3,22 +3,35 @@ from unittest.mock import patch, MagicMock
 import numpy as np
 import pytest
 
+from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.assessment.prediction_evaluator import IncompleteBacktestError, backtest
 from chap_core.datatypes import Samples
 from chap_core.predictor.naive_estimator import NaiveEstimator
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
-def test_backtest_passes_stride_to_train_test_generator():
+def test_backtest_uses_n_test_sets_for_retraining():
     mock_estimator = MagicMock()
-    mock_data = MagicMock()
+    mock_estimator.train.return_value = MagicMock()
+    train_set = MagicMock()
+    # Real splits, not an empty generator: backtest now requires the number of
+    # splits produced to match n_test_sets.
+    test_generator = iter(_splits(4))
 
-    with patch("chap_core.assessment.prediction_evaluator.train_test_generator") as mock_ttg:
-        mock_ttg.return_value = (MagicMock(), iter(_splits(4)))
+    with patch("chap_core.assessment.prediction_evaluator._retrain_split_indices") as mock_retrain_indices:
+        mock_retrain_indices.return_value = {0}
 
-        list(backtest(mock_estimator, mock_data, prediction_length=3, n_test_sets=4, stride=2))
+        list(
+            backtest(
+                estimator=mock_estimator,
+                train_set=train_set,
+                test_generator=test_generator,
+                n_test_sets=4,
+                n_retrain=2,
+            )
+        )
 
-        mock_ttg.assert_called_once_with(mock_data, 3, 4, stride=2, future_weather_provider=None)
+        mock_retrain_indices.assert_called_once_with(4, 2)
 
 
 def _splits(n):
@@ -28,11 +41,17 @@ def _splits(n):
 
 def test_backtest_trains_once_by_default():
     mock_estimator = MagicMock()
+    train_set = "train_set"
+    test_generator = iter(_splits(4))
 
-    with patch("chap_core.assessment.prediction_evaluator.train_test_generator") as mock_ttg:
-        mock_ttg.return_value = ("train_set", iter(_splits(4)))
-
-        list(backtest(mock_estimator, MagicMock(), prediction_length=3, n_test_sets=4, stride=1))
+    list(
+        backtest(
+            estimator=mock_estimator,
+            train_set=train_set,
+            test_generator=test_generator,
+            n_test_sets=4,
+        )
+    )
 
     assert mock_estimator.train.call_count == 1
     # Split 0 trains on the dedicated train_set, preserving the single-train behaviour.
@@ -41,11 +60,18 @@ def test_backtest_trains_once_by_default():
 
 def test_backtest_retrains_at_evenly_spaced_splits():
     mock_estimator = MagicMock()
+    train_set = "train_set"
+    test_generator = iter(_splits(4))
 
-    with patch("chap_core.assessment.prediction_evaluator.train_test_generator") as mock_ttg:
-        mock_ttg.return_value = ("train_set", iter(_splits(4)))
-
-        list(backtest(mock_estimator, MagicMock(), prediction_length=3, n_test_sets=4, stride=1, n_retrain=2))
+    list(
+        backtest(
+            estimator=mock_estimator,
+            train_set=train_set,
+            test_generator=test_generator,
+            n_test_sets=4,
+            n_retrain=2,
+        )
+    )
 
     assert mock_estimator.train.call_count == 2
     trained_on = [call.args[0] for call in mock_estimator.train.call_args_list]
@@ -102,7 +128,19 @@ class _TamperingEstimator:
 
 
 def _run_backtest(estimator, dataset):
-    return list(backtest(estimator, dataset, prediction_length=2, n_test_sets=N_SPLITS))
+    train_set, test_generator = train_test_generator(
+        dataset=dataset,
+        prediction_length=2,
+        n_test_sets=N_SPLITS,
+    )
+    return list(
+        backtest(
+            estimator=estimator,
+            train_set=train_set,
+            test_generator=test_generator,
+            n_test_sets=N_SPLITS,
+        )
+    )
 
 
 def test_backtest_passes_when_every_org_unit_is_forecast_in_every_split(health_population_data):
