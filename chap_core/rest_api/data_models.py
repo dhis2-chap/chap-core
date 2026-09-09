@@ -1,7 +1,8 @@
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 from pydantic.alias_generators import to_camel
 
 from chap_core.api_types import BacktestParams, FeatureCollectionModel
+from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID, resolve_weather_provider
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSetCreateInfo, ObservationBase
 from chap_core.database.model_templates_and_config_tables import (
@@ -66,6 +67,23 @@ class PredictionParams(DBModel):
 
     model_id: str = Field(description="Canonical name of the configured model to run.")
     n_periods: int = Field(default=3, gt=0, description="Number of future periods to forecast.")
+    future_weather_provider: str = Field(
+        default=DEFAULT_WEATHER_PROVIDER_ID,
+        description="Id of the registered future-weather provider supplying climate covariates for the "
+        "forecast window. Should match the provider the model was backtested with. Providers that read "
+        "the forecast window's own observations cannot be used here. "
+        "See GET /v1/analytics/weather-providers.",
+    )
+
+    @field_validator("future_weather_provider")
+    @classmethod
+    def _check_weather_provider(cls, value: str) -> str:
+        if resolve_weather_provider(value).leaks_future_data:
+            raise ValueError(
+                f"The '{value}' future-weather provider reads the forecast window's own observations "
+                "and so cannot forecast ahead. Use a forecasting provider such as 'climatology'."
+            )
+        return value
 
 
 class ValidationError(DBModel):

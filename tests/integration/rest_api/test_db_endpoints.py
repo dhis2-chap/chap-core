@@ -490,6 +490,26 @@ def test_run_backtest_persists_resolved_params(override_session, p_seeded_engine
     assert (read.n_periods, read.n_splits, read.stride, read.n_retrain) == (3, 2, 1, 2)
 
 
+def test_run_backtest_persists_the_future_weather_provider(override_session, p_seeded_engine):
+    """A non-default provider must reach the row, or a look-ahead run is filed as climatology."""
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        model = session.get_configured_model_by_id_or_name("naive_model")
+        backtest_id = run_backtest(
+            BacktestCreate(name="provider", dataset_id=dataset_id, model_id=model.id),
+            n_periods=3,
+            n_splits=2,
+            stride=1,
+            session=session,
+            future_weather_provider="observed",
+        )
+        assert session.session.get(Backtest, backtest_id).future_weather_provider == "observed"
+
+    response = client.get(f"/v1/crud/backtests/{backtest_id}")
+    assert response.status_code == 200, response.text
+    assert BacktestRead.model_validate(response.json()).future_weather_provider == "observed"
+
+
 def test_run_backtest_retrains_n_retrain_times(p_seeded_engine, monkeypatch):
     """n_retrain must reach the evaluator, not just the row."""
     from chap_core.predictor.naive_estimator import NaiveEstimator
@@ -934,6 +954,65 @@ def test_run_prediction_setup_rejects_legacy_fields(override_session, seeded_ses
     payload["nPeriods"] = 3
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
     assert response.status_code == 422
+
+
+def test_run_prediction_setup_inherits_the_backtest_provider(
+    override_session, seeded_session, example_polygons, monkeypatch
+):
+    """A promoted backtest must predict with the provider it was evaluated on, or the
+    prediction silently uses a different future-weather source than the scores imply."""
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    backtest.future_weather_provider = "damped_persistence"
+    seeded_session.add(backtest)
+    seeded_session.commit()
+    setup_id = _create_prediction_setup(backtest.id, "Inherit provider").json()["id"]
+
+    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    payload = request.model_dump(mode="json")
+    payload.pop("data_to_be_fetched", None)
+    payload.pop("data_sources", None)
+    payload["nPeriods"] = 3
+
+    from chap_core.rest_api.v1.routers import crud as crud_router
+
+    captured: dict = {}
+
+    class _FakeJob:
+        id = "captured-job"
+
+    class _CapturingWorker:
+        def queue_db(self, func, *args, **kwargs):
+            captured.update(kwargs)
+            return _FakeJob()
+
+    monkeypatch.setattr(crud_router, "worker", _CapturingWorker())
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+
+    assert response.status_code == 200, response.json()
+    assert captured["prediction_params"].future_weather_provider == "damped_persistence"
+
+
+def test_run_prediction_setup_rejects_a_look_ahead_provider(override_session, seeded_session, example_polygons):
+    """`observed` reads the forecast window's own weather, so it cannot forecast ahead.
+    Fail at the endpoint rather than deep inside the worker."""
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    backtest.future_weather_provider = "observed"
+    seeded_session.add(backtest)
+    seeded_session.commit()
+    setup_id = _create_prediction_setup(backtest.id, "Look-ahead setup").json()["id"]
+
+    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    payload = request.model_dump(mode="json")
+    payload.pop("data_to_be_fetched", None)
+    payload.pop("data_sources", None)
+    payload["nPeriods"] = 3
+
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+
+    assert response.status_code == 400, response.json()
+    assert "cannot forecast ahead" in response.json()["detail"]
 
 
 @pytest.mark.parametrize("n_periods", [0, -1])

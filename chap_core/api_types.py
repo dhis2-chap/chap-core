@@ -17,8 +17,9 @@ from geojson_pydantic import (
     Point,
     Polygon,
 )
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
+from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID, resolve_weather_provider
 from chap_core.database.base_tables import DBModel
 
 
@@ -125,6 +126,18 @@ class BacktestParams(DBModel):
         gt=0,
         description="Number of times the model is retrained, evenly spaced across the splits. 1 means train once.",
     )
+    future_weather_provider: str = Field(
+        default=DEFAULT_WEATHER_PROVIDER_ID,
+        description="Id of the registered future-weather provider supplying climate covariates for each "
+        "forecast window. Use the same provider here and on the prediction so backtest scores reflect "
+        "what the model will see in production. See GET /v1/analytics/weather-providers.",
+    )
+
+    @field_validator("future_weather_provider")
+    @classmethod
+    def _check_weather_provider(cls, value: str) -> str:
+        resolve_weather_provider(value)
+        return value
 
     @model_validator(mode="after")
     def _check_n_retrain(self) -> "BacktestParams":
