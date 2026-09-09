@@ -3,6 +3,10 @@
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
+import json
+import socket
+import threading
+
 import chapkit
 import httpx
 import pytest
@@ -14,7 +18,13 @@ from ulid import ULID
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chapkit.api import HealthStatus
 
-from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper, RunInfo
+from chap_core.exceptions import ModelFailedException
+from chap_core.models.chapkit_rest_api_wrapper import (
+    DEFAULT_REQUEST_TIMEOUT,
+    MAX_CONSECUTIVE_POLL_ERRORS,
+    CHAPKitRestAPIWrapper,
+    RunInfo,
+)
 from chap_core.models.external_chapkit_model import (
     ExternalChapkitModel,
     ExternalChapkitModelTemplate,
@@ -515,3 +525,177 @@ class TestIsChapkitUrl:
     def test_unreachable_service(self):
         with patch("chap_core.models.utils.httpx.get", side_effect=httpx.ConnectError("Connection refused")):
             assert _is_chapkit_url("http://localhost:9999") is False
+
+
+def _mock_wrapper(handler, **kwargs) -> CHAPKitRestAPIWrapper:
+    """A wrapper whose HTTP layer is an httpx.MockTransport driven by ``handler``."""
+    return CHAPKitRestAPIWrapper("http://chapkit.test", transport=httpx.MockTransport(handler), **kwargs)
+
+
+def _config_out_json(config_id=VALID_ULID_1):
+    return {
+        "id": config_id,
+        "name": "test",
+        "data": {"prediction_periods": 3},
+        "created_at": "2024-01-01T00:00:00",
+        "updated_at": "2024-01-01T00:00:00",
+    }
+
+
+class TestRequestErrorHandling:
+    def test_request_preserves_status_and_problem_detail(self):
+        def handler(request):
+            return httpx.Response(
+                409,
+                json={
+                    "type": "urn:servicekit:error:conflict",
+                    "title": "Conflict",
+                    "status": 409,
+                    "detail": "config x exists",
+                },
+                headers={"content-type": "application/problem+json"},
+            )
+
+        wrapper = _mock_wrapper(handler)
+        with pytest.raises(httpx.HTTPStatusError) as exc_info:
+            wrapper.get_config_schema()
+
+        assert exc_info.value.response.status_code == 409
+        assert "config x exists" in str(exc_info.value)
+        assert "Conflict" in str(exc_info.value)
+
+    def test_default_timeout_is_bounded(self):
+        assert CHAPKitRestAPIWrapper("http://chapkit.test").client.timeout == DEFAULT_REQUEST_TIMEOUT
+
+    def test_read_timeout_is_enforced_against_silent_server(self):
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.bind(("127.0.0.1", 0))
+        server.listen(1)
+        port = server.getsockname()[1]
+        accepted = []
+
+        def accept_and_hold():
+            conn, _ = server.accept()
+            accepted.append(conn)
+
+        threading.Thread(target=accept_and_hold, daemon=True).start()
+        try:
+            wrapper = CHAPKitRestAPIWrapper(f"http://127.0.0.1:{port}", timeout=httpx.Timeout(0.5))
+            with pytest.raises(httpx.ReadTimeout):
+                wrapper.health()
+        finally:
+            for conn in accepted:
+                conn.close()
+            server.close()
+
+
+class TestWaitForJob:
+    def test_wait_for_job_tolerates_transient_poll_errors(self):
+        calls = []
+
+        def handler(request):
+            calls.append(request.url.path)
+            if len(calls) <= 2:
+                return httpx.Response(502, json={"title": "Bad Gateway", "status": 502})
+            return httpx.Response(200, json={"id": VALID_ULID_1, "status": "completed"})
+
+        job = _mock_wrapper(handler).wait_for_job(VALID_ULID_1, poll_interval=0)
+
+        assert job.status == "completed"
+        assert len(calls) == 3
+
+    def test_wait_for_job_gives_up_after_consecutive_errors(self):
+        calls = []
+
+        def handler(request):
+            calls.append(request.url.path)
+            return httpx.Response(502, json={"title": "Bad Gateway", "status": 502})
+
+        with pytest.raises(httpx.HTTPStatusError):
+            _mock_wrapper(handler).wait_for_job(VALID_ULID_1, poll_interval=0)
+
+        assert len(calls) == MAX_CONSECUTIVE_POLL_ERRORS
+
+
+class TestCancelledJobs:
+    @staticmethod
+    def _handler(train_status, predict_status, artifact_calls):
+        predict_job = str(ULID())
+
+        def handler(request):
+            path = request.url.path
+            if path == "/api/v1/ml/$train":
+                return httpx.Response(200, json={"job_id": VALID_ULID_1, "artifact_id": VALID_ULID_2, "message": "ok"})
+            if path == "/api/v1/ml/$predict":
+                return httpx.Response(200, json={"job_id": predict_job, "artifact_id": VALID_ULID_2, "message": "ok"})
+            if path == f"/api/v1/jobs/{VALID_ULID_1}":
+                return httpx.Response(200, json={"id": VALID_ULID_1, "status": train_status})
+            if path == f"/api/v1/jobs/{predict_job}":
+                return httpx.Response(
+                    200, json={"id": predict_job, "status": predict_status, "error": "stopped by operator"}
+                )
+            if path.startswith("/api/v1/artifacts/"):
+                artifact_calls.append(path)
+                return httpx.Response(404, json={"title": "Not Found", "status": 404})
+            raise AssertionError(f"unexpected request {request.method} {path}")
+
+        return handler
+
+    def test_train_raises_on_cancelled_job(self, train_data):
+        model = ExternalChapkitModel(
+            "m",
+            "http://chapkit.test",
+            configuration_id=VALID_ULID_1,
+            client=_mock_wrapper(self._handler("canceled", "completed", [])),
+        )
+
+        with pytest.raises(ModelFailedException, match="canceled"):
+            model.train(train_data)
+
+    def test_predict_raises_on_cancelled_job_without_fetching_artifact(self, train_data):
+        artifact_calls: list[str] = []
+        model = ExternalChapkitModel(
+            "m",
+            "http://chapkit.test",
+            configuration_id=VALID_ULID_1,
+            client=_mock_wrapper(self._handler("completed", "canceled", artifact_calls)),
+        )
+        model.train(train_data)
+
+        with pytest.raises(ModelFailedException, match="canceled"):
+            model.predict(train_data, train_data)
+
+        assert artifact_calls == []
+
+
+class TestTemplateClientLifecycle:
+    @staticmethod
+    def _handler(request):
+        path = request.url.path
+        if path == "/api/v1/info":
+            return httpx.Response(200, json=MOCK_INFO_DICT)
+        if path == "/api/v1/configs/$schema":
+            return httpx.Response(200, json=MOCK_CONFIG_SCHEMA)
+        if path == "/api/v1/configs" and request.method == "POST":
+            return httpx.Response(200, json=_config_out_json(json.loads(request.content).get("name") and VALID_ULID_1))
+        if path == "/api/v1/configs":
+            return httpx.Response(200, json=[_config_out_json()])
+        raise AssertionError(f"unexpected request {request.method} {path}")
+
+    def test_get_model_reuses_template_client(self):
+        template = ExternalChapkitModelTemplate("http://chapkit.test")
+        template.client = _mock_wrapper(self._handler)
+
+        model = template.get_model({})
+
+        assert model.client is template.client
+
+    def test_template_exit_closes_client_in_url_mode(self):
+        template = ExternalChapkitModelTemplate("http://chapkit.test")
+        template.client = _mock_wrapper(self._handler)
+
+        with template:
+            assert not template.client.client.is_closed
+
+        assert template.client is not None
+        assert template.client.client.is_closed
