@@ -1,7 +1,8 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 from pydantic.alias_generators import to_camel
 
 from chap_core.api_types import BacktestParams, FeatureCollectionModel
+from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID, resolve_weather_provider
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSetCreateInfo, ObservationBase
 from chap_core.database.model_templates_and_config_tables import (
@@ -66,6 +67,23 @@ class PredictionParams(DBModel):
 
     model_id: str = Field(description="Canonical name of the configured model to run.")
     n_periods: int = Field(default=3, gt=0, description="Number of future periods to forecast.")
+    future_weather_provider: str = Field(
+        default=DEFAULT_WEATHER_PROVIDER_ID,
+        description="Id of the registered future-weather provider supplying climate covariates for the "
+        "forecast window. Should match the provider the model was backtested with. Providers that read "
+        "the forecast window's own observations cannot be used here. "
+        "See GET /v1/analytics/weather-providers.",
+    )
+
+    @field_validator("future_weather_provider")
+    @classmethod
+    def _check_weather_provider(cls, value: str) -> str:
+        if resolve_weather_provider(value).leaks_future_data:
+            raise ValueError(
+                f"The '{value}' future-weather provider reads the forecast window's own observations "
+                "and so cannot forecast ahead. Use a forecasting provider such as 'climatology'."
+            )
+        return value
 
 
 class ValidationError(DBModel):
@@ -91,11 +109,9 @@ class BacktestCreate(BacktestBase):
     """Request body for creating a backtest row directly (DB-level — typically the long path goes via `MakeBacktestRequest`)."""
 
     # Accept either the configured-model integer primary key or its string
-    # name. The underlying DB column (`BacktestBase.model_id`) is a string,
-    # but the `POST /v1/crud/backtests/` handler resolves an `int` to the
-    # corresponding name before persisting so the column stays consistent.
-    # See `chap_core.rest_api.v1.routers.crud.create_backtest` for the
-    # resolution path.
+    # name. The underlying DB column (`BacktestBase.model_id`) is a string;
+    # `run_backtest` resolves an `int` to the corresponding name before
+    # persisting so the column stays consistent.
     model_id: int | str = Field(  # type: ignore[assignment]
         description="Configured model to backtest: either the integer primary key or the canonical string name.",
     )
@@ -139,7 +155,9 @@ class MakeBacktestRequest(BacktestParams):
     """Request to backtest an already-imported dataset against a configured model."""
 
     name: str = Field(description="Human-friendly name for the resulting backtest row.")
-    model_id: str = Field(description="Canonical name of the configured model to backtest.")
+    model_id: int | str = Field(
+        description="Configured model to backtest: either the integer primary key or the canonical string name.",
+    )
     dataset_id: int = Field(description="Foreign key to the dataset the backtest evaluates against.")
 
 
@@ -187,6 +205,28 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     uses_chapkit: bool = Field(
         default=False, description="When True, the template is served by a chapkit REST endpoint."
     )
+
+    # The horizon fields were renamed to match chapkit. Both spellings are served so a
+    # client can move to `*PredictionPeriods` on its own schedule; drop these once none read them.
+    # `deprecated=` is deliberately not used: it warns on every serialization, so each
+    # response would log two warnings. The schema flag marks it for clients instead.
+    @computed_field(  # type: ignore[prop-decorator]
+        alias="minPredictionLength",
+        description="Deprecated alias for `minPredictionPeriods`.",
+        json_schema_extra={"deprecated": True},
+    )
+    @property
+    def min_prediction_length(self) -> int | None:
+        return self.min_prediction_periods
+
+    @computed_field(  # type: ignore[prop-decorator]
+        alias="maxPredictionLength",
+        description="Deprecated alias for `maxPredictionPeriods`.",
+        json_schema_extra={"deprecated": True},
+    )
+    @property
+    def max_prediction_length(self) -> int | None:
+        return self.max_prediction_periods
 
 
 class ConfiguredModelInfoRead(DBModel):

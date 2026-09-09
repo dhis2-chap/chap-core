@@ -143,6 +143,16 @@ def test_threshold_params_schema_is_discriminated_union():
     assert schema["components"]["schemas"]["ThresholdResponse"]["properties"]["lines"]["type"] == "array"
 
 
+def test_weather_provider_discovery(override_session):
+    providers = client.get_json("/v1/analytics/weather-providers")
+    by_id = {p["id"]: p for p in providers}
+    assert {"climatology", "observed"} <= set(by_id)
+    assert by_id["climatology"]["displayName"]
+    assert by_id["climatology"]["description"]
+    assert by_id["climatology"]["leaksFutureData"] is False
+    assert by_id["observed"]["leaksFutureData"] is True
+
+
 def test_compute_thresholds(override_session):
     body = {"dataset_id": 1, "period_ids": ["2023-01", "2023-02"], "params": {"type": "seasonal"}}
     response = client.post("/v1/analytics/thresholds", json=body)

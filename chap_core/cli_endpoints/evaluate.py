@@ -130,8 +130,11 @@ def _run_eval(
             "Use --estimator-options.mode=normal for a normal evaluation run. "
             "Use --estimator-options.mode=hpo for hyperparameter optimization. "
             "Use --estimator-options.mode=ensemble for ensemble learning. "
+            "Optionally --estimator-options.search_space_yaml=<path> for hpo. "
             "Optionally --estimator-options.metric=<metric> for hpo. "
-            "Optionally --estimator-options.searcher=<searcher> for hpo."
+            "Optionally --estimator-options.searcher=<searcher> for hpo. "
+            "Optionally --estimator-options.max-trials=<max_trials> for hpo. "
+            "Optionally --estimator-options.seed=<seed> for hpo."
         ),
     ] = None,
 ):
@@ -147,7 +150,7 @@ def _run_eval(
 
     HPO can be activated through estimator_options.mode, which will run a hyperparameter
     optimization over the search space defined in the model template or in the provided
-    model_configuration_yaml file. The best configuration is selected based on the specified
+    hpo_search_space_yaml file. The best configuration is selected based on the specified
     estimator_options.metric.
 
     Examples:
@@ -164,10 +167,10 @@ def _run_eval(
             --output-file ./eval.nc --data-source-mapping ./column_mapping.json
 
         # Evaluate with hyperparameter optimization
-        chap eval --model-name https://github.com/dhis2-chap/minimalist_example \\
+        chap eval --model-name https://github.com/chap-models/minimal_template_example \\
             --dataset-csv ./example_data/vietnam_monthly.csv --output-file ./chap_core/hpo/eval.nc \\
-            --model-configuration-yaml ./chap_core/hpo/config3.yaml --estimator-options.mode hpo \\
-            --estimator_options.metric sensitivity
+            --estimator-options.mode hpo --estimator-options.search-space-yaml ./chap_core/hpo/config3.yaml \\
+            --estimator-options.metric rmse --estimator-options.searcher tpe
     """
     from chap_core.assessment.evaluation import Evaluation
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
@@ -226,14 +229,13 @@ def _run_eval(
         configuration = get_configuration(model_configuration_yaml)
         estimator: ExternalModel | HpoModel | ExtendedPredictor
         if estimator_options.mode == EstimatorMode.NORMAL:
-            estimator = get_estimator(template, configuration)
+            estimator = get_estimator(template=template, configuration=configuration)
         elif estimator_options.mode == EstimatorMode.HPO:
             estimator = get_hpo_estimator(
                 template=template,
-                model_configuration_yaml=model_configuration_yaml,
+                configuration=configuration,
                 backtest_params=backtest_params,
-                metric=estimator_options.metric,
-                searcher_inp=estimator_options.searcher,
+                options=estimator_options,
             )
         elif estimator_options.mode == EstimatorMode.ENSEMBLE:
             raise NotImplementedError(
@@ -243,21 +245,21 @@ def _run_eval(
         warn_unused_covariates(dataset, template.model_template_config, configuration)
 
         model_info = estimator.model_information
-        if model_info.min_prediction_length is None and model_info.max_prediction_length is None:
+        if model_info.min_prediction_periods is None and model_info.max_prediction_periods is None:
             logger.warning("Model has not specified minimum and maximum predicted length")
         if (
-            model_info.min_prediction_length is not None
-            and model_info.min_prediction_length > backtest_params.n_periods
+            model_info.min_prediction_periods is not None
+            and model_info.min_prediction_periods > backtest_params.n_periods
         ):
             raise ValueError(
-                f"The desired prediction length of {backtest_params.n_periods} is less than the model's minimum prediction length of {model_info.min_prediction_length}"
+                f"The desired prediction length of {backtest_params.n_periods} is less than the model's minimum prediction length of {model_info.min_prediction_periods}"
             )
         if (
-            model_info.max_prediction_length is not None
-            and model_info.max_prediction_length < backtest_params.n_periods
+            model_info.max_prediction_periods is not None
+            and model_info.max_prediction_periods < backtest_params.n_periods
         ):
             logger.warning(
-                f"Wrapping model to extend prediction length from {model_info.max_prediction_length} to {backtest_params.n_periods}. This is done iteratively, and may worsen model performance"
+                f"Wrapping model to extend prediction length from {model_info.max_prediction_periods} to {backtest_params.n_periods}. This is done iteratively, and may worsen model performance"
             )
             estimator = ExtendedPredictor(estimator, backtest_params.n_periods)
 
@@ -271,7 +273,7 @@ def _run_eval(
             id="cli_eval",
             model_template_id=model_template_db.id,
             model_template=model_template_db,
-            configuration=configuration.model_dump() if configuration else {},
+            **configuration.model_dump() if configuration else {},
         )
 
         logger.info(
@@ -280,10 +282,22 @@ def _run_eval(
         logger.debug(f"Including {historical_context_years} years of historical context for plotting")
 
         if dry_run:
+            from chap_core.assessment.dataset_splitting import train_test_generator
             from chap_core.assessment.prediction_evaluator import backtest
 
+            train_set, test_generator = train_test_generator(
+                dataset=dataset,
+                prediction_length=backtest_params.n_periods,
+                n_test_sets=backtest_params.n_splits,
+                stride=backtest_params.stride,
+                future_weather_provider=backtest_params.future_weather_provider,
+            )
+
             for _ in backtest(
-                estimator, dataset, backtest_params.n_periods, backtest_params.n_splits, backtest_params.stride
+                estimator=estimator,
+                train_set=train_set,
+                test_generator=test_generator,
+                n_test_sets=backtest_params.n_splits,
             ):
                 pass
             return

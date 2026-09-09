@@ -20,6 +20,7 @@ from chap_core.assessment.metrics.base import (
     AggregationOp,
     DeterministicMetric,
     MetricSpec,
+    OptimizationDirection,
 )
 from chap_core.assessment.metrics import metric
 
@@ -33,6 +34,7 @@ class MyAbsoluteErrorMetric(DeterministicMetric):
         metric_name="My Absolute Error",
         aggregation_op=AggregationOp.MEAN,
         description="Absolute difference between forecast and observation",
+        optimization_direction=OptimizationDirection.MINIMIZE,
     )
 
     def compute_point_metric(self, forecast: float, observed: float) -> float:
@@ -60,6 +62,7 @@ class MySpreadMetric(ProbabilisticMetric):
         metric_name="My Spread",
         aggregation_op=AggregationOp.MEAN,
         description="Standard deviation of forecast samples",
+        optimization_direction=None,
     )
 
     def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:
@@ -126,6 +129,7 @@ spec = MetricSpec(
     metric_name="Display Name",          # Human-readable name
     aggregation_op=AggregationOp.MEAN,   # MEAN, SUM, or ROOT_MEAN_SQUARE
     description="What this metric measures",
+    optimization_direction=None,        # MINIMIZE, MAXIMIZE or None
 )
 ```
 
@@ -138,6 +142,7 @@ from chap_core.assessment.metrics.base import (
     AggregationOp,
     DeterministicMetric,
     MetricSpec,
+    OptimizationDirection,
 )
 from chap_core.assessment.metrics import metric
 
@@ -155,6 +160,7 @@ class SquaredErrorMetric(DeterministicMetric):
         metric_name="Squared Error",
         aggregation_op=AggregationOp.ROOT_MEAN_SQUARE,
         description="Squared error with RMSE aggregation",
+        optimization_direction=OptimizationDirection.MINIMIZE,
     )
 
     def compute_point_metric(self, forecast: float, observed: float) -> float:
@@ -187,6 +193,7 @@ class ForecastBiasMetric(ProbabilisticMetric):
         metric_name="Forecast Bias",
         aggregation_op=AggregationOp.MEAN,
         description="Proportion of samples above observed (0.5 = unbiased)",
+        optimization_direction=None,
     )
 
     def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:
@@ -225,6 +232,7 @@ class Coverage80Metric(IntervalCoverageMetric):
         metric_name="80% Coverage",
         aggregation_op=AggregationOp.MEAN,
         description="Proportion within 10th-90th percentile",
+        optimization_direction=None,
     )
     low_pct = 10
     high_pct = 90
@@ -330,7 +338,7 @@ The decorator registers your metric class when the module is imported:
 
 ```python
 from chap_core.assessment.metrics import metric
-from chap_core.assessment.metrics.base import DeterministicMetric, MetricSpec, AggregationOp
+from chap_core.assessment.metrics.base import DeterministicMetric, MetricSpec, AggregationOp, OptimizationDirection
 
 
 @metric()  # This registers the class in the global registry
@@ -340,6 +348,7 @@ class RegisteredMetric(DeterministicMetric):
         metric_name="Registered Example",
         aggregation_op=AggregationOp.MEAN,
         description="Example of a registered metric",
+        optimization_direction=OptimizationDirection.MINIMIZE,
     )
 
     def compute_point_metric(self, forecast: float, observed: float) -> float:
@@ -414,6 +423,7 @@ from chap_core.assessment.metrics.base import (
     ProbabilisticMetric, # For sample-based metrics
     MetricSpec,          # Configuration dataclass
     AggregationOp,       # MEAN, SUM, ROOT_MEAN_SQUARE
+    OptimizationDirection,  # For hpo objective
 )
 from chap_core.assessment.flat_representations import DataDimension
 ```

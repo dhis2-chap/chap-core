@@ -20,6 +20,7 @@ from chap_core.api_types import (
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.assessment.thresholds import get_threshold_strategy, list_threshold_strategies
 from chap_core.assessment.thresholds.params import ThresholdParams
+from chap_core.assessment.weather_providers import list_weather_providers
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet as DataSetTable
@@ -395,9 +396,11 @@ async def create_backtest(
     job = worker.queue_db(
         wf.run_backtest,
         BacktestCreate(name=request.name, dataset_id=request.dataset_id, model_id=request.model_id),
-        request.n_periods,
-        request.n_splits,
-        request.stride,
+        n_periods=request.n_periods,
+        n_splits=request.n_splits,
+        stride=request.stride,
+        n_retrain=request.n_retrain,
+        future_weather_provider=request.future_weather_provider,
         database_url=database_url,
         **{JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: request.name},
     )
@@ -768,6 +771,41 @@ class ThresholdStrategyInfo(DBModel):
     id: str = Field(description="Canonical strategy identifier used in request bodies.")
     display_name: str = Field(description="Human-friendly strategy name shown in pickers.")
     description: str = Field(default="", description="Short paragraph explaining what the strategy computes.")
+
+
+class WeatherProviderInfo(DBModel):
+    """One registered future-weather provider, for populating a picker."""
+
+    id: str = Field(description="Registry id to pass as `future_weather_provider`.")
+    display_name: str = Field(description="Human-friendly provider name shown in pickers.")
+    description: str = Field(default="", description="Short paragraph explaining where the covariates come from.")
+    leaks_future_data: bool = Field(
+        description="True if the provider reads the forecast window's own observations. Such providers give "
+        "look-ahead results that are not comparable to production performance, and cannot be used to predict ahead."
+    )
+
+
+@router.get(
+    "/weather-providers",
+    response_model=list[WeatherProviderInfo],
+    tags=["Backtests"],
+    summary="Discover which future-weather providers are available",
+)
+def list_future_weather_providers():
+    """List the registered future-weather providers, with a name, description and look-ahead flag for each.
+
+    Use this to populate a picker before setting `future_weather_provider` on a backtest or
+    prediction request.
+    """
+    return [
+        WeatherProviderInfo(
+            id=p["id"],
+            display_name=p["name"],
+            description=p["description"],
+            leaks_future_data=p["leaks_future_data"],
+        )
+        for p in list_weather_providers()
+    ]
 
 
 @router.get(

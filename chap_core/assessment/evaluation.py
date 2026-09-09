@@ -19,6 +19,11 @@ import pandera.pandas as pa
 import xarray as xr
 from packaging.version import Version
 
+from chap_core.assessment.weather_providers import (
+    DEFAULT_WEATHER_PROVIDER_ID,
+    LEGACY_WEATHER_PROVIDER_ID,
+)
+
 if TYPE_CHECKING:
     from chap_core.api_types import BacktestParams
 
@@ -96,6 +101,7 @@ def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) 
         "split_periods": json.dumps(model_metadata.get("split_periods", [])),
         "org_units": json.dumps(model_metadata.get("org_units", [])),
         "historical_context_periods": model_metadata.get("historical_context_periods", 0),
+        "future_weather_provider": model_metadata.get("future_weather_provider", DEFAULT_WEATHER_PROVIDER_ID),
         "chap_version": CHAP_VERSION,
     }
 
@@ -274,6 +280,15 @@ class Evaluation(EvaluationBase):
         self._historical_context_periods = historical_context_periods
         self._flat_data_cache: FlatEvaluationData | None = None
 
+    @property
+    def future_weather_provider(self) -> str:
+        """Id of the future-weather provider these results were produced with.
+
+        The backtest row is the single source of truth, so database persistence
+        and NetCDF exports cannot disagree.
+        """
+        return self._backtest.future_weather_provider
+
     @classmethod
     def from_backtest(cls, backtest: "Backtest") -> "Evaluation":
         """
@@ -383,7 +398,8 @@ class Evaluation(EvaluationBase):
         historical_context_years: int = 6,
     ) -> "Evaluation":
         """
-        Create an Evaluation by running a backtest.
+        Uses ``train_test_generator`` to create an expanding window split of the
+        data. Create an Evaluation by running a backtest.
 
         Factory method that handles the complete backtest workflow:
         1. Run backtest with provided estimator
@@ -405,26 +421,35 @@ class Evaluation(EvaluationBase):
         from chap_core.assessment.dataset_splitting import train_test_generator
         from chap_core.assessment.prediction_evaluator import backtest
 
-        # Run backtest
-        evaluation_results = backtest(
-            estimator=estimator,
-            data=dataset,
+        train_set, test_generator = train_test_generator(
+            dataset=dataset,
             prediction_length=backtest_params.n_periods,
             n_test_sets=backtest_params.n_splits,
             stride=backtest_params.stride,
+            future_weather_provider=backtest_params.future_weather_provider,
+        )
+
+        # Run backtest
+        evaluation_results = backtest(
+            estimator=estimator,
+            train_set=train_set,
+            test_generator=test_generator,
+            n_test_sets=backtest_params.n_splits,
             n_retrain=backtest_params.n_retrain,
         )
 
         # Prepare metadata
-        train, _ = train_test_generator(
-            dataset, backtest_params.n_periods, backtest_params.n_splits, stride=backtest_params.stride
-        )
-        last_train_period = train.period_range[-1]
+        last_train_period = train_set.period_range[-1]
 
         backtest_info = BacktestCreate(
             name=backtest_name,
             dataset_id=0,
             model_id=configured_model.id,
+            n_periods=backtest_params.n_periods,
+            n_splits=backtest_params.n_splits,
+            stride=backtest_params.stride,
+            n_retrain=backtest_params.n_retrain,
+            future_weather_provider=backtest_params.future_weather_provider,
         )
 
         # Calculate number of periods based on dataset period type
@@ -626,6 +651,7 @@ class Evaluation(EvaluationBase):
             "split_periods": self.get_split_periods(),
             "org_units": self.get_org_units(),
             "historical_context_periods": self._historical_context_periods,
+            "future_weather_provider": self.future_weather_provider,
         }
 
         if model_info is not None:
@@ -663,6 +689,7 @@ class Evaluation(EvaluationBase):
             split_periods=split_periods,
             forecasts=[],
             dataset_id=0,
+            future_weather_provider=str(ds.attrs["future_weather_provider"]),
         )
 
         forecasts_df = pd.DataFrame(cast("pd.DataFrame", flat_data.forecasts))
@@ -744,10 +771,20 @@ class Evaluation(EvaluationBase):
         Ensure backwards compatibility for datasets created with older CHAP versions.
 
         Update horizon_distance coordinate in older datasets where it was stored as 0-based instead of 1-based.
+
+        Fill in future_weather_provider for files written before the provider was
+        recorded. Those evaluations were run with the observed weather of each
+        forecast window, so they are labelled accordingly rather than inheriting
+        today's default.
         """
 
         if Version(ds.attrs.get("chap_version", "0.0.0")) <= Version("1.1.1"):
             ds = ds.assign_coords(horizon_distance=ds.horizon_distance + 1)
+        # A file without the attribute is legacy by definition; gating on the
+        # writer's version would break on dev checkouts whose CHAP_VERSION is
+        # "unknown" and on files written by a newer release than the reader.
+        if "future_weather_provider" not in ds.attrs:
+            ds.attrs["future_weather_provider"] = LEGACY_WEATHER_PROVIDER_ID
         return ds
 
 

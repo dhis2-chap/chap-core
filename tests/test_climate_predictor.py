@@ -42,6 +42,17 @@ def test_climate_predictor(climate_data):
     prediction = predictor.predict(time_period)
 
 
+def test_predict_preserves_training_location_order(climate_data):
+    """External models write history and future to CSV in dict order; the two must agree."""
+    predictor = MonthlyClimatePredictor()
+    predictor.train(climate_data)
+    time_period = PeriodRange.from_time_periods(Month.parse("2021-01"), Month.parse("2021-03"))
+
+    prediction = predictor.predict(time_period)
+
+    assert list(prediction.keys()) == list(climate_data.keys())
+
+
 def test_weekly_climate_predictor(weekly_climate_data):
     predictor = WeeklyClimatePredictor()
     predictor.train(weekly_climate_data)

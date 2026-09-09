@@ -29,6 +29,7 @@ import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import compute_all_detailed_metrics
+from chap_core.assessment.weather_providers import resolve_weather_provider
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
@@ -62,7 +63,6 @@ from chap_core.services import prediction_setup_service
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import (
-    BacktestCreate,
     BacktestRead,
     BacktestUpdate,
     ConfiguredModelInfoRead,
@@ -375,43 +375,6 @@ async def get_metrics_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename=backtest_{backtest_id}_metrics.csv"},
     )
-
-
-@router.post(
-    "/backtests",
-    response_model=JobResponse,
-    tags=["Backtests"],
-    summary="Run a backtest against a stored dataset (legacy)",
-)
-async def create_backtest(
-    backtest: BacktestCreate,
-    database_url: str = Depends(get_database_url),
-    session: Session = Depends(get_session),
-):
-    """Legacy entrypoint for queueing a backtest against an already-imported dataset; prefer ``POST /v1/analytics/create-backtest`` for new integrations.
-
-    Accepts the model reference either as the configured-model name or its integer id —
-    the worker resolves both. Backtest runs in the background; the response gives a job
-    id, poll ``/v1/jobs/{id}`` (or ``/v1/jobs/{id}/evaluation_result``) for the
-    finished result. 404 if the dataset does not exist.
-    """
-    # `BacktestCreate.model_id` accepts either the configured-model name
-    # (what the DB column actually stores) or the integer primary key (what
-    # most API clients reach for because that's what GET /v1/crud/configured-models
-    # returns). The worker's run_backtest() normalises int -> name through
-    # `SessionWrapper.get_configured_model_by_id_or_name` before touching
-    # anything else, so the endpoint itself stays dumb and there's exactly
-    # one resolution point.
-    if session.get(DataSet, backtest.dataset_id) is None:
-        raise HTTPException(status_code=404, detail=f"Dataset {backtest.dataset_id} not found")
-    job = worker.queue_db(
-        wf.run_backtest,
-        backtest,
-        database_url=database_url,
-        **{JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: backtest.name},
-    )
-
-    return JobResponse(id=job.id)
 
 
 @router.delete(
@@ -1106,7 +1069,21 @@ async def run_prediction_setup(
     # up in prediction-filtered UI/queries. Use a local instead of mutating the request.
     dataset_type = "prediction"
     dataset_info = DataSetCreateInfo(name=request.name, type=dataset_type).model_dump()
-    prediction_params = PredictionParams(model_id=model_id, n_periods=request.n_periods)
+    # Inherit the provider the setup's backtest was evaluated with, so a promoted
+    # backtest predicts against the same future-weather source it was scored on.
+    provider = setup.backtest.future_weather_provider
+    if resolve_weather_provider(provider).leaks_future_data:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Prediction setup {prediction_setup_id} was evaluated with the '{provider}' future-weather "
+                "provider, which reads the forecast window's own observations and so cannot forecast ahead. "
+                "Re-run the backtest with a forecasting provider before running predictions from it."
+            ),
+        )
+    prediction_params = PredictionParams(
+        model_id=model_id, n_periods=request.n_periods, future_weather_provider=provider
+    )
     job = worker.queue_db(
         wf.predict_pipeline_from_composite_dataset,
         feature_names,

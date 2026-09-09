@@ -1,4 +1,5 @@
 from enum import StrEnum
+from pathlib import Path
 from typing import Any, Literal
 
 import numpy as np
@@ -16,8 +17,9 @@ from geojson_pydantic import (
     Point,
     Polygon,
 )
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
+from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID, resolve_weather_provider
 from chap_core.database.base_tables import DBModel
 
 
@@ -124,6 +126,18 @@ class BacktestParams(DBModel):
         gt=0,
         description="Number of times the model is retrained, evenly spaced across the splits. 1 means train once.",
     )
+    future_weather_provider: str = Field(
+        default=DEFAULT_WEATHER_PROVIDER_ID,
+        description="Id of the registered future-weather provider supplying climate covariates for each "
+        "forecast window. Use the same provider here and on the prediction so backtest scores reflect "
+        "what the model will see in production. See GET /v1/analytics/weather-providers.",
+    )
+
+    @field_validator("future_weather_provider")
+    @classmethod
+    def _check_weather_provider(cls, value: str) -> str:
+        resolve_weather_provider(value)
+        return value
 
     @model_validator(mode="after")
     def _check_n_retrain(self) -> "BacktestParams":
@@ -209,11 +223,24 @@ class EstimatorOptions(BaseModel):
         default=EstimatorMode.NORMAL,
         description="Estimator mode: 'normal' = normal run, 'hpo' = hyperparameter optimization, 'ensemble' = ensemble learning.",
     )
+    search_space: Path | None = Field(
+        default=None,
+        description="YAML defining the HPO search space. If omitted, hpo_search_space from model's MLProject is used.",
+    )
     metric: str | None = Field(
         default=None,
         description="Metric used for HPO or ensemble. Default will be used if none provided. Ignored in normal mode.",
     )
     searcher: SearcherType | None = Field(
         default=None,
-        description="Searcher used for HPO. If not provided, a default RandomSearcher will be used. Ignored in normal and ensemble modes.",
+        description="Searcher used for HPO. If not provided, a default TPESearcher will be used. Ignored in normal and ensemble modes.",
+    )
+    max_trials: int | None = Field(
+        default=None,
+        gt=0,
+        description="Maximum HPO trials. If omitted, grid search is exhaustive while random/TPE use the default HPO trial count.",
+    )
+    seed: int | None = Field(
+        default=None,
+        description="Random seed used by stochastic search strategies.",
     )
