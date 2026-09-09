@@ -15,7 +15,7 @@ from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
-from chap_core.database.dataset_tables import DataSetCreateInfo
+from chap_core.database.dataset_tables import DataSetCreateInfo, DataSource
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
 from chap_core.rest_api.data_models import BacktestCreate, FetchRequest, PredictionParams
@@ -225,6 +225,7 @@ def harmonize_and_add_dataset(
     ds_type: str,
     session: SessionWrapper,
     worker_config: WorkerConfig = WorkerConfig(),
+    data_sources: list[DataSource] | None = None,
 ) -> int:
     status_logger.info(f"Processing and adding dataset '{name}' of type '{ds_type}'")
     provided_dataclass = create_tsdataclass(provided_field_names)
@@ -235,7 +236,7 @@ def harmonize_and_add_dataset(
         )
     else:
         full_dataset = dataset_obj
-    info = DataSetCreateInfo(name=name, type=ds_type)
+    info = DataSetCreateInfo(name=name, type=ds_type, data_sources=data_sources or [])
     db_id: int = DataSetManager(session.session).save_dataset(
         info, full_dataset, polygons=dataset_obj.polygons.model_dump_json()
     )

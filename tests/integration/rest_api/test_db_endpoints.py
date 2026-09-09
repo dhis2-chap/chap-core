@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 
 from chap_core.api_types import DataList, EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
+from chap_core.datatypes import create_tsdataclass
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo, DataSetWithObservations, ObservationBase
@@ -34,7 +35,8 @@ from chap_core.rest_api.data_models import (
     ModelTemplateRead,
 )
 from chap_core.rest_api.app import app
-from chap_core.rest_api.db_worker_functions import run_backtest
+from chap_core.spatio_temporal_data.converters import observations_to_dataset
+from chap_core.rest_api.db_worker_functions import harmonize_and_add_dataset, run_backtest
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -218,6 +220,29 @@ def test_list_model_templates(celery_session_worker, dependency_overrides):
     assert "chap_ewars_monthly" in (m.name for m in models)
     ewars_model = next(m for m in models if m.name == "chap_ewars_monthly")
     assert "population" in [f for f in ewars_model.required_covariates], ewars_model.required_covariates
+
+
+def test_make_dataset_import_persists_data_sources(clean_engine, dataset_make_request):
+    """The covariate to data-element mapping sent to make-dataset must survive the import."""
+    request = dataset_make_request
+    assert request.data_sources, "fixture should provide a mapping to persist"
+    feature_names = list({obs.feature_name for obs in request.provided_data})
+    provided_data = observations_to_dataset(create_tsdataclass(feature_names), request.provided_data, fill_missing=True)
+    provided_data.set_polygons(request.geojson)
+
+    with SessionWrapper(clean_engine) as session:
+        dataset_id = harmonize_and_add_dataset(
+            feature_names,
+            request.data_to_be_fetched,
+            provided_data.model_dump(),
+            request.name,
+            request.type,
+            session=session,
+            data_sources=request.data_sources,
+        )
+        stored = session.session.get(DataSet, dataset_id)
+        assert stored is not None
+        assert stored.data_sources == request.data_sources
 
 
 def test_get_data_sources():
