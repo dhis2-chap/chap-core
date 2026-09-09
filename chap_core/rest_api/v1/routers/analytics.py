@@ -641,10 +641,6 @@ STANDARD_COVARIATE_NAMES = [
     "rainfall",
     "mean_temperature",
     "population",
-    "surface_pressure",
-    "mean_sea_level_pressure",
-    "u_component_of_wind_10m",
-    "v_component_of_wind_10m",
 ]
 
 
