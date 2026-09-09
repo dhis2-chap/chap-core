@@ -2,11 +2,13 @@
 Manages lifecycle of chapkit model services started from local directories.
 """
 
+import collections
 import logging
 import os
 import signal
 import socket
 import subprocess
+import threading
 import time
 from pathlib import Path
 
@@ -15,6 +17,9 @@ import httpx
 from chap_core.exceptions import ChapkitServiceStartupError
 
 logger = logging.getLogger(__name__)
+
+# Number of most recent service output lines kept for error messages.
+OUTPUT_TAIL_LINES = 200
 
 
 def find_available_port(start_port: int = 8000, max_attempts: int = 100) -> int:
@@ -37,6 +42,12 @@ def is_url(path_or_url: str | Path) -> bool:
 class ChapkitServiceManager:
     """
     Manages the lifecycle of a chapkit model service subprocess.
+
+    The service's stdout and stderr are merged into one pipe that is drained
+    continuously on a background thread. Without that, a service that logs more
+    than the pipe buffer holds (about 64 KiB) blocks on its next write and stops
+    answering requests. Each line is forwarded to this module's logger at DEBUG
+    level, and the most recent lines are kept for error messages.
 
     Usage:
         with ChapkitServiceManager("/path/to/model") as manager:
@@ -66,6 +77,8 @@ class ChapkitServiceManager:
         self.startup_timeout = startup_timeout
         self._process: subprocess.Popen | None = None
         self._url: str | None = None
+        self._output: collections.deque[str] = collections.deque(maxlen=OUTPUT_TAIL_LINES)
+        self._reader: threading.Thread | None = None
 
     @property
     def url(self) -> str:
@@ -73,6 +86,10 @@ class ChapkitServiceManager:
         if self._url is None:
             raise RuntimeError("Service not started. Use as context manager.")
         return self._url
+
+    def recent_output(self) -> str:
+        """Return the most recent lines the service wrote to stdout or stderr."""
+        return "\n".join(self._output)
 
     def _validate_directory(self) -> None:
         """Validate that the model directory exists and is valid."""
@@ -101,13 +118,41 @@ class ChapkitServiceManager:
 
         logger.info(f"Starting chapkit service at {self._url} from {self.model_directory}")
 
+        self._output.clear()
         self._process = subprocess.Popen(
             command,
             cwd=self.model_directory,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
             preexec_fn=os.setsid if os.name != "nt" else None,
         )
+        self._reader = threading.Thread(
+            target=self._pump_output,
+            args=(self._process.stdout,),
+            name=f"chapkit-service-output-{self.port}",
+            daemon=True,
+        )
+        self._reader.start()
+
+    def _pump_output(self, stream) -> None:
+        """Drain the service's merged output until EOF, keeping a bounded tail."""
+        try:
+            for line in stream:
+                line = line.rstrip("\n")
+                self._output.append(line)
+                logger.debug("[chapkit service] %s", line)
+        finally:
+            stream.close()
+
+    def _join_reader(self, timeout: float) -> None:
+        """Wait briefly for the output thread to finish after the process exited."""
+        if self._reader is not None:
+            self._reader.join(timeout)
+            self._reader = None
 
     def _wait_for_healthy(self) -> None:
         """Wait for the service to become healthy."""
@@ -117,9 +162,10 @@ class ChapkitServiceManager:
         while time.time() - start_time < self.startup_timeout:
             assert self._process is not None
             if self._process.poll() is not None:
-                stdout, stderr = self._process.communicate()
+                self._join_reader(timeout=2)
                 raise ChapkitServiceStartupError(
-                    f"Service process died during startup.\nstdout: {stdout.decode()}\nstderr: {stderr.decode()}"
+                    f"Service process died during startup with exit code {self._process.returncode}.\n"
+                    f"Recent output:\n{self.recent_output()}"
                 )
 
             try:
@@ -135,9 +181,11 @@ class ChapkitServiceManager:
             logger.debug(f"Waiting for service at {health_url}...")
             time.sleep(1)
 
+        url = self._url
         self._stop_service()
         raise ChapkitServiceStartupError(
-            f"Service at {self._url} did not become healthy within {self.startup_timeout} seconds"
+            f"Service at {url} did not become healthy within {self.startup_timeout} seconds.\n"
+            f"Recent output:\n{self.recent_output()}"
         )
 
     def _stop_service(self) -> None:
@@ -165,6 +213,7 @@ class ChapkitServiceManager:
         except ProcessLookupError:
             pass
         finally:
+            self._join_reader(timeout=5)
             self._process = None
             self._url = None
 
