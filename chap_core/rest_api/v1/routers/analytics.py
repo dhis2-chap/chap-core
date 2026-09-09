@@ -637,6 +637,7 @@ async def get_data_sources() -> list[ChapDataSource]:
 
 
 STANDARD_COVARIATE_NAMES = [
+    "disease_cases",
     "rainfall",
     "mean_temperature",
     "population",
@@ -645,6 +646,11 @@ STANDARD_COVARIATE_NAMES = [
     "u_component_of_wind_10m",
     "v_component_of_wind_10m",
 ]
+
+
+# Reserved columns that come from an observation's period / org-unit fields rather than
+# being a named data column the user fills in. Unlike those, `disease_cases` is suggestable.
+STRUCTURAL_FIELDS = RESERVED_FIELDS - {"disease_cases"}
 
 
 @router.get(
@@ -658,17 +664,18 @@ async def get_covariate_names(session: Session = Depends(get_session)) -> list[C
 
     Models only run on a dataset whose covariate names match their ``required_covariates``
     verbatim, so picking a suggested name is what makes a dataset reusable across models.
-    The list is the union of CHAP's standard names and the required covariates of every
-    live model template; ``requiredBy`` tells which templates need each name. Free-text
-    names are still allowed when creating a dataset.
+    The list is the union of CHAP's standard names and, for every live model template, its
+    required covariates plus the name of its target column (usually ``disease_cases``, but
+    a template may call it something else). ``requiredBy`` tells which templates need each
+    name. Free-text names are still allowed when creating a dataset.
     """
-    required_by: dict[str, list[str]] = {name: [] for name in STANDARD_COVARIATE_NAMES}
+    required_by: dict[str, set[str]] = {name: set() for name in STANDARD_COVARIATE_NAMES}
     templates = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.is_live == True)).all()
     for template in templates:
-        for covariate in template.required_covariates:
-            if covariate in RESERVED_FIELDS:
+        for name in [*template.required_covariates, template.target]:
+            if name in STRUCTURAL_FIELDS:
                 continue
-            required_by.setdefault(covariate, []).append(template.name)
+            required_by.setdefault(name, set()).add(template.name)
     return [
         CovariateNameSuggestion(name=name, standard=name in STANDARD_COVARIATE_NAMES, required_by=sorted(models))
         for name, models in required_by.items()

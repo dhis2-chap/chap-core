@@ -236,7 +236,10 @@ def test_get_covariate_names(dependency_overrides):
     assert len(by_name) == len(data), "names should be unique"
     assert by_name["rainfall"]["standard"] is True
     assert "naive_model" in by_name["rainfall"]["requiredBy"]
-    assert "disease_cases" not in by_name
+    assert by_name["disease_cases"]["standard"] is True
+    assert "naive_model" in by_name["disease_cases"]["requiredBy"], "target column should be suggested too"
+    assert "time_period" not in by_name
+    assert "location" not in by_name
     assert all(entry["standard"] or entry["requiredBy"] for entry in data)
 
 
