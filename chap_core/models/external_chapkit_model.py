@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 from chap_core.datatypes import Samples
+from chap_core.exceptions import ModelFailedException
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.model_spec import PeriodType
 from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper, RunInfo
@@ -173,7 +174,9 @@ class ExternalChapkitModelTemplate:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Stop service if in directory mode."""
+        """Close the client, and stop the service if in directory mode."""
+        if self.client is not None:
+            self.client.close()
         if self._service_manager is not None and not self._is_url_mode:
             self._service_manager.__exit__(exc_type, exc_val, exc_tb)
             self.rest_api_url = None
@@ -273,6 +276,7 @@ class ExternalChapkitModelTemplate:
             self.rest_api_url,
             configuration_id=configuration_id,
             model_information=self.model_template_config,
+            client=self.client,
         )
 
     @property
@@ -311,13 +315,16 @@ class ExternalChapkitModel(ExternalModelBase):
         rest_api_url: str,
         configuration_id: str,
         model_information: ModelTemplateConfigV2 | None = None,
+        client: CHAPKitRestAPIWrapper | None = None,
     ):
         self.model_name = model_name
         self.rest_api_url = rest_api_url
         self.configuration_id = configuration_id
         self._location_mapping = None
         self._adapters = None
-        self.client = CHAPKitRestAPIWrapper(rest_api_url)
+        # Share the template's client when given so one connection pool serves
+        # both, instead of opening a second one that nothing closes.
+        self.client = client if client is not None else CHAPKitRestAPIWrapper(rest_api_url)
         self._train_id: str | None = None
         self._model_information = model_information
 
@@ -334,9 +341,10 @@ class ExternalChapkitModel(ExternalModelBase):
             run_info = RunInfo(prediction_length=1)
         job, artifact_id = self.client.train_and_wait(self.configuration_id, new_df, run_info, geo)
 
-        if job.status == "failed":
-            raise RuntimeError(
-                f"Training failed: {job.error or 'Unknown error'}. Stacktrace: {job.error_traceback or ''}"
+        if job.status != "completed":
+            raise ModelFailedException(
+                f"Training job {job.id} ended with status '{job.status}': {job.error or 'Unknown error'}. "
+                f"Stacktrace: {job.error_traceback or ''}"
             )
 
         assert artifact_id is not None, f"No artifact_id returned: {job}"
@@ -359,8 +367,11 @@ class ExternalChapkitModel(ExternalModelBase):
             geo_features=geo,
         )
 
-        if job.status == "failed":
-            raise RuntimeError(f"Prediction failed: {job.error or 'Unknown error'}")
+        if job.status != "completed":
+            raise ModelFailedException(
+                f"Prediction job {job.id} ended with status '{job.status}': {job.error or 'Unknown error'}. "
+                f"Stacktrace: {job.error_traceback or ''}"
+            )
 
         assert artifact_id is not None, f"No prediction artifact: {job.error or ''}"
 

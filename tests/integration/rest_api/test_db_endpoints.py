@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 
 from chap_core.api_types import DataList, EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
+from chap_core.datatypes import create_tsdataclass
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo, DataSetWithObservations, ObservationBase
@@ -34,7 +35,8 @@ from chap_core.rest_api.data_models import (
     ModelTemplateRead,
 )
 from chap_core.rest_api.app import app
-from chap_core.rest_api.db_worker_functions import run_backtest
+from chap_core.spatio_temporal_data.converters import observations_to_dataset
+from chap_core.rest_api.db_worker_functions import harmonize_and_add_dataset, run_backtest
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -220,12 +222,61 @@ def test_list_model_templates(celery_session_worker, dependency_overrides):
     assert "population" in [f for f in ewars_model.required_covariates], ewars_model.required_covariates
 
 
+def test_make_dataset_import_persists_data_sources(clean_engine, dataset_make_request):
+    """The covariate to data-element mapping sent to make-dataset must survive the import."""
+    request = dataset_make_request
+    assert request.data_sources, "fixture should provide a mapping to persist"
+    feature_names = list({obs.feature_name for obs in request.provided_data})
+    provided_data = observations_to_dataset(create_tsdataclass(feature_names), request.provided_data, fill_missing=True)
+    provided_data.set_polygons(request.geojson)
+
+    with SessionWrapper(clean_engine) as session:
+        dataset_id = harmonize_and_add_dataset(
+            feature_names,
+            request.data_to_be_fetched,
+            provided_data.model_dump(),
+            request.name,
+            request.type,
+            session=session,
+            data_sources=request.data_sources,
+        )
+        stored = session.session.get(DataSet, dataset_id)
+        assert stored is not None
+        assert stored.data_sources == request.data_sources
+
+
 def test_get_data_sources():
     response = client.get("/v1/analytics/data-sources")
     data = response.json()
     assert response.status_code == 200, data
     assert len(data) == 9, data
     assert next(ds for ds in data if "rainfall" in ds["supportedFeatures"])["dataset"] == "era5"
+
+
+def test_get_covariate_names(dependency_overrides):
+    response = client.get("/v1/analytics/covariate-names")
+    data = response.json()
+    assert response.status_code == 200, data
+    by_name = {entry["name"]: entry for entry in data}
+    assert len(by_name) == len(data), "names should be unique"
+    assert by_name["rainfall"]["standard"] is True
+    assert "naive_model" in by_name["rainfall"]["requiredBy"]
+    assert by_name["disease_cases"]["standard"] is True
+    assert "naive_model" in by_name["disease_cases"]["requiredBy"], "target column should be suggested too"
+    assert "time_period" not in by_name
+    assert "location" not in by_name
+    assert all(entry["standard"] or entry["requiredBy"] for entry in data)
+
+    configured_models = client.get("/v1/crud/configured-models").json()
+    extras = {
+        (model["name"], covariate)
+        for model in configured_models
+        for covariate in model["additionalContinuousCovariates"]
+    }
+    assert extras, "seeded config should include a model with extra covariates"
+    for model_name, covariate in extras:
+        assert covariate in by_name, (covariate, sorted(by_name))
+        assert model_name in by_name[covariate]["requiredBy"], by_name[covariate]
 
 
 @pytest.fixture
