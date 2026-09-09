@@ -119,6 +119,8 @@ response = httpx.put(
 
 The ping resets the TTL timer. If a service fails to ping within the TTL window (default 30 seconds), it is automatically removed from the registry.
 
+A ping only refreshes the expiry. It never changes the registered URL or service info, so a service that moves must call `$register` again. A ping for a service that has expired or been deregistered returns 404 and does not recreate the registration; the service must re-register.
+
 ## Integration with Servicekit
 
 [Servicekit](https://github.com/winterop-com/servicekit) handles registration automatically. Configure your service with the registration URL and key:
