@@ -86,6 +86,7 @@ Higher-level endpoints used by the Modeling App:
 - `GET /compatible-backtests/{id}` -- find backtests compatible for comparison.
 - `GET /backtest-overlap/{id1}/{id2}` -- find overlapping org units and periods.
 - `GET /data-sources` -- return the list of available climate data sources.
+- `GET /covariate-names` -- suggest covariate names (standard names plus what live model templates require).
 
 ### jobs.py (`/v1/jobs/...`)
 

@@ -37,6 +37,7 @@ dependencies = [
     "urllib3>=2.7.0",              # explicit floor; transitive via requests/docker
     "rq>=2.9.0",
     "scikit-learn>=1.9.0",
+    "statsmodels>=0.14.6",
     "topojson>=1.10",
     "unidecode>=1.4.0",
     "uvicorn>=0.48.0",
@@ -216,6 +217,10 @@ disable_error_code = [
 # Ignore missing stubs for third-party libraries without type hints
 [[tool.mypy.overrides]]
 module = "sklearn.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "statsmodels.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

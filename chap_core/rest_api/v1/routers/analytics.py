@@ -17,13 +17,15 @@ from chap_core.api_types import (
 )
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.assessment.thresholds import get_threshold_strategy, list_threshold_strategies
+from chap_core.assessment.weather_providers import list_weather_providers
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet as DataSetTable
 from chap_core.database.dataset_tables import DataSetCreateInfo
-from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 from chap_core.database.tables import Backtest, BacktestForecast, Prediction
 from chap_core.datatypes import create_tsdataclass
+from chap_core.services.dataset_validation import RESERVED_FIELDS
 from chap_core.spatio_temporal_data.converters import observations_to_dataframe, observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -33,6 +35,7 @@ from ...data_models import (
     BacktestDomain,
     BacktestRead,
     ChapDataSource,
+    CovariateNameSuggestion,
     DatasetMakeRequest,
     ImportSummaryResponse,
     JobResponse,
@@ -87,6 +90,7 @@ def make_dataset(
         provided_data.model_dump(),
         request.name,
         request.type,
+        data_sources=request.data_sources,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_TYPE_KW: JobType.DATASET, JOB_NAME_KW: request.name},
@@ -396,6 +400,7 @@ async def create_backtest(
         n_splits=request.n_splits,
         stride=request.stride,
         n_retrain=request.n_retrain,
+        future_weather_provider=request.future_weather_provider,
         database_url=database_url,
         **{JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: request.name},
     )
@@ -632,6 +637,58 @@ async def get_data_sources() -> list[ChapDataSource]:
     return data_sources
 
 
+STANDARD_COVARIATE_NAMES = [
+    "disease_cases",
+    "rainfall",
+    "mean_temperature",
+    "population",
+]
+
+
+# Reserved columns that come from an observation's period / org-unit fields rather than
+# being a named data column the user fills in. Unlike those, `disease_cases` is suggestable.
+STRUCTURAL_FIELDS = RESERVED_FIELDS - {"disease_cases"}
+
+
+@router.get(
+    "/covariate-names",
+    response_model=list[CovariateNameSuggestion],
+    tags=["Datasets"],
+    summary="Suggest covariate names for a model-independent dataset",
+)
+async def get_covariate_names(session: Session = Depends(get_session)) -> list[CovariateNameSuggestion]:
+    """List covariate names to offer when naming the columns of a dataset that is not tied to a model.
+
+    Models only run on a dataset whose covariate names match the names they ask for
+    verbatim, so picking a suggested name is what makes a dataset reusable across models.
+    The list is the union of three sources: CHAP's standard names; for every live model
+    template, its required covariates plus the name of its target column (usually
+    ``disease_cases``, but a template may call it something else); and for every live
+    configured model, the extra continuous covariates its configuration adds on top of the
+    template. ``requiredBy`` names the templates and configured models that need each
+    name. Free-text names are still allowed when creating a dataset.
+    """
+    required_by: dict[str, set[str]] = {name: set() for name in STANDARD_COVARIATE_NAMES}
+    templates = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.is_live == True)).all()
+    for template in templates:
+        for name in [*template.required_covariates, template.target]:
+            if name in STRUCTURAL_FIELDS:
+                continue
+            required_by.setdefault(name, set()).add(template.name)
+    configured_models = session.exec(
+        select(ConfiguredModelDB).where(ConfiguredModelDB.is_live == True, ConfiguredModelDB.archived == False)
+    ).all()
+    for configured_model in configured_models:
+        for name in configured_model.additional_continuous_covariates:
+            if name in STRUCTURAL_FIELDS:
+                continue
+            required_by.setdefault(name, set()).add(configured_model.name)
+    return [
+        CovariateNameSuggestion(name=name, standard=name in STANDARD_COVARIATE_NAMES, required_by=sorted(models))
+        for name, models in required_by.items()
+    ]
+
+
 @router.post(
     "/create-backtest-with-data/",
     response_model=ImportSummaryResponse,
@@ -745,6 +802,41 @@ class ThresholdStrategyInfo(DBModel):
     id: str = Field(description="Canonical strategy identifier used in request bodies.")
     display_name: str = Field(description="Human-friendly strategy name shown in pickers.")
     description: str = Field(default="", description="Short paragraph explaining what the strategy computes.")
+
+
+class WeatherProviderInfo(DBModel):
+    """One registered future-weather provider, for populating a picker."""
+
+    id: str = Field(description="Registry id to pass as `future_weather_provider`.")
+    display_name: str = Field(description="Human-friendly provider name shown in pickers.")
+    description: str = Field(default="", description="Short paragraph explaining where the covariates come from.")
+    leaks_future_data: bool = Field(
+        description="True if the provider reads the forecast window's own observations. Such providers give "
+        "look-ahead results that are not comparable to production performance, and cannot be used to predict ahead."
+    )
+
+
+@router.get(
+    "/weather-providers",
+    response_model=list[WeatherProviderInfo],
+    tags=["Backtests"],
+    summary="Discover which future-weather providers are available",
+)
+def list_future_weather_providers():
+    """List the registered future-weather providers, with a name, description and look-ahead flag for each.
+
+    Use this to populate a picker before setting `future_weather_provider` on a backtest or
+    prediction request.
+    """
+    return [
+        WeatherProviderInfo(
+            id=p["id"],
+            display_name=p["name"],
+            description=p["description"],
+            leaks_future_data=p["leaks_future_data"],
+        )
+        for p in list_weather_providers()
+    ]
 
 
 @router.get(
