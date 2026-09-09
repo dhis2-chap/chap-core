@@ -8,7 +8,14 @@ from sqlmodel import select, Session
 
 from chap_core.api_types import FeatureCollectionModel, FeatureModel
 from chap_core.database.dataset_tables import DataSet, Observation, DataSource
-from chap_core.database.tables import Prediction, Backtest, BacktestForecast, BacktestMetric, PredictionSamplesEntry
+from chap_core.database.tables import (
+    Prediction,
+    Backtest,
+    BacktestForecast,
+    BacktestMetric,
+    BacktestSpecification,
+    PredictionSamplesEntry,
+)
 from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.routers.analytics import BacktestParams
 from chap_core.rest_api.v1.routers.dependencies import get_session
@@ -242,11 +249,17 @@ def _generate_forecasts(
 
 
 @pytest.fixture
-def backtest(dataset, forecasts):
+def backtest_specification(dataset, org_units, backtest_params):
+    return BacktestSpecification(dataset=dataset, org_units=org_units, **backtest_params.model_dump())
+
+
+@pytest.fixture
+def backtest(dataset, forecasts, backtest_specification):
     return Backtest(
         name="test backtest",
         dataset_id=1,
         dataset=dataset,
+        specification=backtest_specification,
         forecasts=forecasts,
         model_id="naive_model",
         aggregate_metrics={"MAE": 1.5},
@@ -255,11 +268,15 @@ def backtest(dataset, forecasts):
 
 
 @pytest.fixture
-def backtest_with_nans(dataset_with_nans, forecasts_2):
+def backtest_with_nans(dataset_with_nans, forecasts_2, org_units, backtest_params):
     return Backtest(
         name="test_backtest_with_nans",
         dataset_id=1,
         dataset=dataset_with_nans,
+        # A distinct dataset, so a distinct specification even though the parameters match.
+        specification=BacktestSpecification(
+            dataset=dataset_with_nans, org_units=org_units, **backtest_params.model_dump()
+        ),
         forecasts=forecasts_2,
         model_id="naive_model",
         aggregate_metrics={"MAE": 1.5},

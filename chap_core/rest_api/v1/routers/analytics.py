@@ -223,6 +223,7 @@ def get_compatible_backtests(
         select(Backtest)
         .where(Backtest.id.in_(ids))  # type: ignore[union-attr, attr-defined]
         .options(
+            selectinload(Backtest.specification),  # type: ignore[arg-type]
             selectinload(Backtest.dataset).defer(DataSetTable.geojson),  # type: ignore[arg-type]
             selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
         )
