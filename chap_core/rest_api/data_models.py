@@ -1,7 +1,8 @@
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 from pydantic.alias_generators import to_camel
 
 from chap_core.api_types import BacktestParams, FeatureCollectionModel
+from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID, resolve_weather_provider
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSetCreateInfo, ObservationBase
 from chap_core.database.model_templates_and_config_tables import (
@@ -66,6 +67,23 @@ class PredictionParams(DBModel):
 
     model_id: str = Field(description="Canonical name of the configured model to run.")
     n_periods: int = Field(default=3, gt=0, description="Number of future periods to forecast.")
+    future_weather_provider: str = Field(
+        default=DEFAULT_WEATHER_PROVIDER_ID,
+        description="Id of the registered future-weather provider supplying climate covariates for the "
+        "forecast window. Should match the provider the model was backtested with. Providers that read "
+        "the forecast window's own observations cannot be used here. "
+        "See GET /v1/analytics/weather-providers.",
+    )
+
+    @field_validator("future_weather_provider")
+    @classmethod
+    def _check_weather_provider(cls, value: str) -> str:
+        if resolve_weather_provider(value).leaks_future_data:
+            raise ValueError(
+                f"The '{value}' future-weather provider reads the forecast window's own observations "
+                "and so cannot forecast ahead. Use a forecasting provider such as 'climatology'."
+            )
+        return value
 
 
 class ValidationError(DBModel):
@@ -123,6 +141,19 @@ class ChapDataSource(DBModel):
     supported_features: list[str] = Field(description="Canonical feature names this source can deliver.")
     description: str = Field(description="Short paragraph describing what this source provides.")
     dataset: str = Field(description="Canonical name of the upstream dataset this source pulls from.")
+
+
+class CovariateNameSuggestion(DBModel):
+    """One suggested covariate name for a model-independent dataset, with where the suggestion comes from."""
+
+    name: str = Field(description="Covariate name as it should appear in the dataset.")
+    standard: bool = Field(
+        description="True when the name comes from CHAP's built-in list of standard covariate names."
+    )
+    required_by: list[str] = Field(
+        default_factory=list,
+        description="Names of the live model templates and configured models that need this covariate.",
+    )
 
 
 class MakePredictionRequest(DatasetMakeRequest, PredictionParams):

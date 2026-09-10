@@ -29,6 +29,7 @@ import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import compute_all_detailed_metrics
+from chap_core.assessment.weather_providers import resolve_weather_provider
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
@@ -123,7 +124,10 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> set[str]
                 # sync can then create the template with its full user options.
                 try:
                     client = CHAPKitRestAPIWrapper(service.url, timeout=5)
-                    schema = client.get_config_schema()
+                    try:
+                        schema = client.get_config_schema()
+                    finally:
+                        client.close()
                     user_options = _parse_user_options_from_config_schema(schema)
                 except Exception:
                     logger.warning(
@@ -224,38 +228,41 @@ def _sync_chapkit_configured_models(
 
     client = wrapper_cls(service_url, timeout=5)
     try:
-        configs = client.list_configs()
-    except Exception:
-        logger.debug("Could not fetch configs from %s, will retry next sync", service_url)
-        return
+        try:
+            configs = client.list_configs()
+        except Exception:
+            logger.debug("Could not fetch configs from %s, will retry next sync", service_url)
+            return
 
-    default_additional = _resolve_chapkit_default_additional_covariates(client)
+        default_additional = _resolve_chapkit_default_additional_covariates(client)
 
-    if not configs:
-        session_wrapper.add_configured_model(
-            template_id,
-            ModelConfiguration(user_option_values={}, additional_continuous_covariates=default_additional),
-            "default",
-            uses_chapkit=True,
-        )
-        return
+        if not configs:
+            session_wrapper.add_configured_model(
+                template_id,
+                ModelConfiguration(user_option_values={}, additional_continuous_covariates=default_additional),
+                "default",
+                uses_chapkit=True,
+            )
+            return
 
-    for cfg in configs:
-        # Chapkit manages its own config data; chap-core stores the
-        # configured model as a reference only, with empty user options.
-        # Carry over `additional_continuous_covariates` from the config's
-        # own data when present; otherwise fall back to the service-level
-        # default probed above.
-        cfg_data = getattr(cfg, "data", None) or {}
-        if hasattr(cfg_data, "model_dump"):
-            cfg_data = cfg_data.model_dump()
-        cfg_additional = list(cfg_data.get("additional_continuous_covariates", []) or []) or default_additional
-        session_wrapper.add_configured_model(
-            template_id,
-            ModelConfiguration(user_option_values={}, additional_continuous_covariates=cfg_additional),
-            cfg.name,
-            uses_chapkit=True,
-        )
+        for cfg in configs:
+            # Chapkit manages its own config data; chap-core stores the
+            # configured model as a reference only, with empty user options.
+            # Carry over `additional_continuous_covariates` from the config's
+            # own data when present; otherwise fall back to the service-level
+            # default probed above.
+            cfg_data = getattr(cfg, "data", None) or {}
+            if hasattr(cfg_data, "model_dump"):
+                cfg_data = cfg_data.model_dump()
+            cfg_additional = list(cfg_data.get("additional_continuous_covariates", []) or []) or default_additional
+            session_wrapper.add_configured_model(
+                template_id,
+                ModelConfiguration(user_option_values={}, additional_continuous_covariates=cfg_additional),
+                cfg.name,
+                uses_chapkit=True,
+            )
+    finally:
+        client.close()
 
 
 router = APIRouter(prefix="/crud")
@@ -1068,7 +1075,21 @@ async def run_prediction_setup(
     # up in prediction-filtered UI/queries. Use a local instead of mutating the request.
     dataset_type = "prediction"
     dataset_info = DataSetCreateInfo(name=request.name, type=dataset_type).model_dump()
-    prediction_params = PredictionParams(model_id=model_id, n_periods=request.n_periods)
+    # Inherit the provider the setup's backtest was evaluated with, so a promoted
+    # backtest predicts against the same future-weather source it was scored on.
+    provider = setup.backtest.future_weather_provider
+    if resolve_weather_provider(provider).leaks_future_data:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Prediction setup {prediction_setup_id} was evaluated with the '{provider}' future-weather "
+                "provider, which reads the forecast window's own observations and so cannot forecast ahead. "
+                "Re-run the backtest with a forecasting provider before running predictions from it."
+            ),
+        )
+    prediction_params = PredictionParams(
+        model_id=model_id, n_periods=request.n_periods, future_weather_provider=provider
+    )
     job = worker.queue_db(
         wf.predict_pipeline_from_composite_dataset,
         feature_names,

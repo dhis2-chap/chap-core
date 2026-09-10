@@ -50,6 +50,7 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("backtest", "n_splits"),
     ("backtest", "stride"),
     ("backtest", "n_retrain"),
+    ("backtest", "future_weather_provider"),
 ]
 
 # Tables added by alembic migrations (not in the baseline schema).
@@ -308,6 +309,8 @@ class TestAlembicMigrations:
             for column in ("n_periods", "n_splits", "stride", "n_retrain"):
                 conn.execute(sa.text(f"ALTER TABLE backtest ADD COLUMN {column} INTEGER"))
                 conn.execute(sa.text(f"UPDATE backtest SET {column} = 0"))
+            conn.execute(sa.text("ALTER TABLE backtest ADD COLUMN future_weather_provider VARCHAR"))
+            conn.execute(sa.text("UPDATE backtest SET future_weather_provider = ''"))
             conn.commit()
 
         command.upgrade(alembic_cfg, "head")
@@ -321,6 +324,10 @@ class TestAlembicMigrations:
                 sa.text("SELECT n_periods, n_splits, stride, n_retrain FROM backtest WHERE name = 'empty_backtest'")
             ).one()
             assert tuple(row) == (3, 7, 1, 1)
+            # Every legacy backtest was run by the REST path, which always used
+            # QuickForecastFetcher - what the climatology provider now does.
+            providers = conn.execute(sa.text("SELECT future_weather_provider FROM backtest")).scalars().all()
+            assert set(providers) == {"climatology"}
 
         with engine.connect() as conn:
             row = conn.execute(
