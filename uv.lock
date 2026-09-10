@@ -375,7 +375,7 @@ wheels = [
 
 [[package]]
 name = "chap-core"
-version = "2.2.0"
+version = "2.3.0.dev0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
