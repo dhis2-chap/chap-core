@@ -325,7 +325,6 @@ def _build_results_summary(backtest: Backtest) -> str:
             f"MAE (aggregate): {metrics.get('mae')}\n",
             f"Coverage within 10-90%: {metrics.get('coverage_10_90')}\n",
             f"Coverage within 25-75%: {metrics.get('coverage_25_75')}\n",
-            f"Sample count: {metrics.get('sample_count')}\n",
         ]
     )
 

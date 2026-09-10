@@ -157,9 +157,9 @@ rm -f ./comparison_doctest.csv
 The CSV contains one row per evaluation with metadata and metric columns:
 
 ```csv
-filename,model_name,model_version,rmse_aggregate,mae_aggregate,crps,ratio_within_10th_90th,ratio_within_25th_75th,test_sample_count
-model_a_eval.nc,minimalist_example_r,1.0.0,45.2,32.1,0.045,0.85,0.65,168
-model_b_eval.nc,chap_auto_ewars_weekly,2.0.0,38.7,28.4,0.038,0.88,0.70,168
+filename,model_name,model_version,rmse_aggregate,mae_aggregate,crps,ratio_within_10th_90th,ratio_within_25th_75th
+model_a_eval.nc,minimalist_example_r,1.0.0,45.2,32.1,0.045,0.85,0.65
+model_b_eval.nc,chap_auto_ewars_weekly,2.0.0,38.7,28.4,0.038,0.88,0.70
 ```
 
 ### Available Metrics
@@ -171,7 +171,6 @@ model_b_eval.nc,chap_auto_ewars_weekly,2.0.0,38.7,28.4,0.038,0.88,0.70,168
 | `crps` | Continuous Ranked Probability Score |
 | `ratio_within_10th_90th` | Coverage ratio for 10th-90th percentile interval |
 | `ratio_within_25th_75th` | Coverage ratio for 25th-75th percentile interval |
-| `test_sample_count` | Number of test samples |
 
 ### Selecting Specific Metrics
 
