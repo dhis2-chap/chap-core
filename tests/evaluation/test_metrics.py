@@ -324,6 +324,13 @@ def test_read_example_weekly_predictions(data_path):
     print(type(samples.time_period))
 
 
+def test_mape_description_is_about_percentage_error():
+    """MAPE must not be described as plain Mean Absolute Error."""
+    description = MAPEMetric.spec.description
+    assert "percentage" in description.lower()
+    assert description != MAEMetric.spec.description
+
+
 def test_mape_uses_median_of_samples(flat_forecasts_multiple_samples, flat_observations):
     """Test that MAPEMetric computes errors from median of samples."""
     mape = MAPEMetric()
