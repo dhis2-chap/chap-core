@@ -1,4 +1,5 @@
 import logging
+import os
 import subprocess
 from pathlib import Path
 
@@ -31,17 +32,42 @@ def run_command(command: str, working_directory=Path("."), env: dict | None = No
         The directory to run the command in
     env : dict, optional
         Environment variables to use. If None, uses the current environment.
+
+    Notes
+    -----
+    The command's output is logged line by line at debug level as it arrives, so
+    a long-running model reports progress instead of going silent until it
+    exits. It is still returned in full, and still included in the exception
+    raised on failure.
     """
     logging.debug(f"Running command: {command}")
+    env = dict(os.environ if env is None else env)
+    # Python block-buffers stdout when it is not a terminal, which would hold a
+    # model's output until it exits and defeat the line-by-line logging below.
+    env.setdefault("PYTHONUNBUFFERED", "1")
     process = subprocess.Popen(
-        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=working_directory, shell=True, env=env
+        command,
+        stdout=subprocess.PIPE,
+        # Merged so the two streams stay in the order the model produced them;
+        # they were concatenated into one string here anyway.
+        stderr=subprocess.STDOUT,
+        cwd=working_directory,
+        shell=True,
+        env=env,
+        text=True,
+        # Model output is not guaranteed to be valid UTF-8 (locale-dependent R
+        # warnings, for instance); a failed model must still produce a readable
+        # error message rather than a UnicodeDecodeError.
+        errors="replace",
+        bufsize=1,
     )
-    stdout, stderr = process.communicate()
-    # Model output is not guaranteed to be valid UTF-8 (locale-dependent R
-    # warnings, for instance); a failed model must still produce a readable
-    # error message rather than a UnicodeDecodeError.
-    output = stdout.decode(errors="replace") + "\n" + stderr.decode(errors="replace")
-    return_code = process.returncode
+    assert process.stdout is not None  # guaranteed by stdout=PIPE, but not to mypy
+    lines = []
+    for line in process.stdout:
+        logger.debug("[model] %s", line.rstrip())
+        lines.append(line)
+    output = "".join(lines)
+    return_code = process.wait()
 
     if return_code != 0:
         message = (
