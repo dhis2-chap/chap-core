@@ -32,7 +32,7 @@ class MAPEMetric(DeterministicMetric):
         metric_id="mape",
         metric_name="MAPE",
         aggregation_op=AggregationOp.MEAN,
-        description="Mean Absolute Percentage Error - average absolute prediction error as a percentage of the observed value",
+        description="Mean Absolute Percentage Error - average absolute error as percent of observed",
         optimization_direction=OptimizationDirection.MINIMIZE,
     )
 
