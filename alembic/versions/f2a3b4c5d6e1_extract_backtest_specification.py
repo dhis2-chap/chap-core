@@ -144,7 +144,7 @@ def upgrade() -> None:
             sa.Column("dataset_id", sa.Integer(), nullable=False),
             *(sa.Column(column, type_, nullable=False) for column, type_ in PARAM_TYPES.items()),
             sa.Column("org_units", sa.JSON(), nullable=True),
-            sa.ForeignKeyConstraint(["dataset_id"], ["dataset.id"]),
+            sa.ForeignKeyConstraint(["dataset_id"], ["dataset.id"], ondelete="CASCADE"),
             sa.PrimaryKeyConstraint("id"),
             sa.UniqueConstraint(*(("dataset_id",) + PARAM_COLUMNS), name="uq_backtestspecification_params"),
         )

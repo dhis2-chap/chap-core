@@ -311,8 +311,9 @@ class Evaluation(EvaluationBase):
         specification: BacktestSpecification | None = None,
     ) -> "Evaluation":
         info.created = datetime.datetime.now()
-        # The parameters live on the specification now, so they must not be passed to
-        # Backtest, where they are read-only properties reading through the link.
+        # The parameters live on the specification now and are computed fields on
+        # Backtest, reading through the link. Excluding them here keeps that explicit;
+        # passing them would be silently ignored rather than rejected.
         backtest = Backtest(
             **info.model_dump(exclude=set(BacktestParams.model_fields))
             | {"model_db_id": configured_model.id, "model_template_version": configured_model.model_template.version}

@@ -26,8 +26,13 @@ class BacktestSpecification(BacktestParams, table=True):
     """
 
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")  # type: ignore[assignment]
+    # A specification outlives the backtests pointing at it, and a run that fails after
+    # resolving one leaves it with no backtest at all, so it cascades from the dataset:
+    # without that, those leftover rows would keep an otherwise-empty dataset undeletable.
     dataset_id: int = Field(
-        foreign_key="dataset.id", description="Foreign key to the `DataSet` the specification evaluates against."
+        foreign_key="dataset.id",
+        ondelete="CASCADE",
+        description="Foreign key to the `DataSet` the specification evaluates against.",
     )
     dataset: DataSet = Relationship()
     org_units: list[str] = Field(

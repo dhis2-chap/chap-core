@@ -107,8 +107,9 @@ def run_backtest(
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
 
-    # Persist the resolved values, not the requested ones, so the row records
-    # what actually ran. This is the only place these fields are written.
+    # Carry the resolved values, not the requested ones, so everything downstream of
+    # here sees what actually ran. The persisted copy is the specification resolved
+    # below; these keep `info` consistent for job metadata and logging.
     info.n_periods = n_periods
     info.n_splits = n_splits
     info.stride = stride
