@@ -124,7 +124,10 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> set[str]
                 # sync can then create the template with its full user options.
                 try:
                     client = CHAPKitRestAPIWrapper(service.url, timeout=5)
-                    schema = client.get_config_schema()
+                    try:
+                        schema = client.get_config_schema()
+                    finally:
+                        client.close()
                     user_options = _parse_user_options_from_config_schema(schema)
                 except Exception:
                     logger.warning(
@@ -225,38 +228,41 @@ def _sync_chapkit_configured_models(
 
     client = wrapper_cls(service_url, timeout=5)
     try:
-        configs = client.list_configs()
-    except Exception:
-        logger.debug("Could not fetch configs from %s, will retry next sync", service_url)
-        return
+        try:
+            configs = client.list_configs()
+        except Exception:
+            logger.debug("Could not fetch configs from %s, will retry next sync", service_url)
+            return
 
-    default_additional = _resolve_chapkit_default_additional_covariates(client)
+        default_additional = _resolve_chapkit_default_additional_covariates(client)
 
-    if not configs:
-        session_wrapper.add_configured_model(
-            template_id,
-            ModelConfiguration(user_option_values={}, additional_continuous_covariates=default_additional),
-            "default",
-            uses_chapkit=True,
-        )
-        return
+        if not configs:
+            session_wrapper.add_configured_model(
+                template_id,
+                ModelConfiguration(user_option_values={}, additional_continuous_covariates=default_additional),
+                "default",
+                uses_chapkit=True,
+            )
+            return
 
-    for cfg in configs:
-        # Chapkit manages its own config data; chap-core stores the
-        # configured model as a reference only, with empty user options.
-        # Carry over `additional_continuous_covariates` from the config's
-        # own data when present; otherwise fall back to the service-level
-        # default probed above.
-        cfg_data = getattr(cfg, "data", None) or {}
-        if hasattr(cfg_data, "model_dump"):
-            cfg_data = cfg_data.model_dump()
-        cfg_additional = list(cfg_data.get("additional_continuous_covariates", []) or []) or default_additional
-        session_wrapper.add_configured_model(
-            template_id,
-            ModelConfiguration(user_option_values={}, additional_continuous_covariates=cfg_additional),
-            cfg.name,
-            uses_chapkit=True,
-        )
+        for cfg in configs:
+            # Chapkit manages its own config data; chap-core stores the
+            # configured model as a reference only, with empty user options.
+            # Carry over `additional_continuous_covariates` from the config's
+            # own data when present; otherwise fall back to the service-level
+            # default probed above.
+            cfg_data = getattr(cfg, "data", None) or {}
+            if hasattr(cfg_data, "model_dump"):
+                cfg_data = cfg_data.model_dump()
+            cfg_additional = list(cfg_data.get("additional_continuous_covariates", []) or []) or default_additional
+            session_wrapper.add_configured_model(
+                template_id,
+                ModelConfiguration(user_option_values={}, additional_continuous_covariates=cfg_additional),
+                cfg.name,
+                uses_chapkit=True,
+            )
+    finally:
+        client.close()
 
 
 router = APIRouter(prefix="/crud")
