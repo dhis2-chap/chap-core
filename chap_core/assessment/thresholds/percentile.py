@@ -92,7 +92,7 @@ def compute_percentile_thresholds(historical_observations: pd.DataFrame, quantil
 
 @threshold(
     "percentile",
-    "Seasonal percentile (WHO endemic channel)",
+    "Seasonal percentile (WHO)",
     PercentileParams,
     "Outbreak threshold as a percentile of historical same-month (or same-week) values, over a "
     "baseline window of the most recent complete years in the dataset. Defaults to the 75th "
