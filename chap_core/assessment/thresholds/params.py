@@ -51,6 +51,21 @@ class SeasonalParams(ThresholdParamsBase):
         return line_values(self.std_multiplier)
 
 
+class GeometricParams(ThresholdParamsBase):
+    """Parameters for the seasonal geometric mean + k*geometric SD strategy."""
+
+    type: Literal["geometric"]
+    std_multiplier: float | Annotated[list[float], Field(min_length=1)] = Field(
+        2.0,
+        description="Number of geometric standard deviations above the seasonal geometric mean, "
+        "applied on a log1p scale. A list produces one threshold line per entry.",
+    )
+
+    @property
+    def lines(self) -> list[float]:
+        return line_values(self.std_multiplier)
+
+
 class PercentileParams(ThresholdParamsBase):
     """Parameters for the seasonal percentile (WHO endemic channel) strategy."""
 
@@ -72,7 +87,7 @@ class PercentileParams(ThresholdParamsBase):
         return line_values(self.quantile)
 
 
-ThresholdParams = Annotated[SeasonalParams | PercentileParams, Field(discriminator="type")]
+ThresholdParams = Annotated[SeasonalParams | GeometricParams | PercentileParams, Field(discriminator="type")]
 
 
 def line_values(scalar_or_list: float | list[float]) -> list[float]:

@@ -89,6 +89,17 @@ def endemic_channel_observations() -> pd.DataFrame:
 
 
 @pytest.fixture
+def endemic_channel_observations_with_epidemic(endemic_channel_observations) -> pd.DataFrame:
+    """The endemic channel data with one epidemic January, for separating robust from mean-based channels."""
+    epidemic = endemic_channel_observations["time_period"] == "2021-01"
+    return endemic_channel_observations.assign(
+        disease_cases=endemic_channel_observations["disease_cases"].where(
+            ~epidemic, endemic_channel_observations["disease_cases"] * 20
+        )
+    )
+
+
+@pytest.fixture
 def endemic_channel_observations_partial_year(endemic_channel_observations) -> pd.DataFrame:
     """The endemic channel data plus an in-progress final year with only January and February."""
     partial = endemic_channel_observations[endemic_channel_observations["time_period"].isin(["2022-01", "2022-02"])]

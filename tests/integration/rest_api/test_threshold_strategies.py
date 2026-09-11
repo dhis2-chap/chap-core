@@ -1,7 +1,8 @@
-"""Tests for the threshold strategy registry and the seasonal and percentile strategies."""
+"""Tests for the threshold strategy registry and the built-in endemic channel strategies."""
 
 from typing import get_args
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -12,7 +13,13 @@ from chap_core.assessment.thresholds import (
     threshold,
 )
 from chap_core.assessment.thresholds.base import ThresholdStrategyBase
-from chap_core.assessment.thresholds.params import PercentileParams, SeasonalParams, ThresholdParams
+from chap_core.assessment.thresholds.geometric import compute_geometric_thresholds
+from chap_core.assessment.thresholds.params import (
+    GeometricParams,
+    PercentileParams,
+    SeasonalParams,
+    ThresholdParams,
+)
 from chap_core.assessment.thresholds.seasonal import compute_seasonal_thresholds
 from chap_core.spatio_temporal_data.converters import observations_to_dataframe
 
@@ -31,7 +38,7 @@ def _strategy(strategy_id):
 
 def test_strategies_are_registered():
     ids = {s["id"] for s in list_threshold_strategies()}
-    assert {"seasonal", "percentile"}.issubset(ids)
+    assert {"seasonal", "percentile", "geometric"}.issubset(ids)
 
 
 def test_unknown_strategy_returns_none():
@@ -247,3 +254,93 @@ def test_percentile_params_validation():
         PercentileParams(type="percentile", quantile=[])
     with pytest.raises(ValueError):
         PercentileParams(type="percentile", baseline_years=0)
+
+
+def test_geometric_strategy_shape(dataset_observations, org_units):
+    df = _disease_cases_df(dataset_observations)
+    period_ids = ["2023-01", "2023-02"]
+    result = _strategy("geometric").compute(df, period_ids, GeometricParams(type="geometric"))
+    assert set(result.columns) == {"period_id", "location", "line", "threshold"}
+    assert len(result) == len(period_ids) * len(org_units)
+    assert set(result["period_id"]) == set(period_ids)
+    assert set(result["location"]) == set(org_units)
+    assert set(result["line"]) == {0}
+
+
+def test_geometric_strategy_weekly(dataset_observations_weekly, org_units):
+    df = _disease_cases_df(dataset_observations_weekly)
+    period_ids = ["2023W01", "2023W02"]
+    result = _strategy("geometric").compute(df, period_ids, GeometricParams(type="geometric"))
+    assert len(result) == len(period_ids) * len(org_units)
+    assert result["threshold"].notna().all()
+
+
+def test_geometric_strategy_frequency_mismatch_raises(dataset_observations_weekly):
+    df = _disease_cases_df(dataset_observations_weekly)
+    with pytest.raises(ValueError, match="frequency"):
+        _strategy("geometric").compute(df, ["2023-01"], GeometricParams(type="geometric"))
+
+
+def test_geometric_strategy_values(endemic_channel_observations):
+    result = _strategy("geometric").compute(
+        endemic_channel_observations, ["2023-01"], GeometricParams(type="geometric")
+    )
+    january = endemic_channel_observations[endemic_channel_observations["time_period"].str.endswith("-01")]
+    for row in result.itertuples():
+        logged = np.log1p(january[january["location"] == row.location]["disease_cases"])
+        expected = np.expm1(logged.mean() + 2.0 * logged.std(ddof=1))
+        assert row.threshold == pytest.approx(expected)
+
+
+def test_geometric_strategy_parity_with_compute_geometric_thresholds(endemic_channel_observations):
+    result = _strategy("geometric").compute(
+        endemic_channel_observations, ["2023-01"], GeometricParams(type="geometric")
+    )
+    per_month = compute_geometric_thresholds(endemic_channel_observations)
+    january = per_month[per_month["month"] == 1]
+    for row in result.itertuples():
+        assert row.threshold == january[january["location"] == row.location]["threshold"].iloc[0]
+
+
+def test_geometric_strategy_handles_zero_counts(endemic_channel_observations):
+    """log1p keeps zero counts, so an all-zero season gives a finite threshold of zero."""
+    zeroed = endemic_channel_observations.assign(disease_cases=0.0)
+    result = _strategy("geometric").compute(zeroed, ["2023-01"], GeometricParams(type="geometric"))
+    assert np.isfinite(result["threshold"]).all()
+    assert result["threshold"].eq(0.0).all()
+
+
+def test_geometric_centre_is_below_arithmetic_after_epidemic_year(endemic_channel_observations_with_epidemic):
+    """With no spread term the channel is the geometric mean, which AM-GM keeps below the arithmetic mean.
+
+    Only the centre is guaranteed to be lower. The k=2 band is not: the log-scale standard
+    deviation is a relative spread, so on this five-year baseline one epidemic January makes
+    the back-transformed band wider than mean + 2*std rather than tighter.
+    """
+    geometric = _strategy("geometric").compute(
+        endemic_channel_observations_with_epidemic, ["2023-01"], GeometricParams(type="geometric", std_multiplier=0.0)
+    )
+    arithmetic = _strategy("seasonal").compute(
+        endemic_channel_observations_with_epidemic, ["2023-01"], SeasonalParams(type="seasonal", std_multiplier=0.0)
+    )
+    assert (geometric.set_index("location")["threshold"] < arithmetic.set_index("location")["threshold"]).all()
+
+
+def test_geometric_strategy_multi_line(endemic_channel_observations):
+    result = _strategy("geometric").compute(
+        endemic_channel_observations, ["2023-01"], GeometricParams(type="geometric", std_multiplier=[1.0, 3.0])
+    )
+    assert set(result["line"]) == {0, 1}
+    for location in ("loc_1", "loc_2"):
+        rows = result[result["location"] == location].set_index("line")["threshold"]
+        assert rows[0] < rows[1]
+
+
+def test_geometric_params_lines_follow_request_order():
+    assert GeometricParams(type="geometric").lines == [2.0]
+    assert GeometricParams(type="geometric", std_multiplier=[3.0, 1.0]).lines == [3.0, 1.0]
+
+
+def test_geometric_params_reject_empty_line_list():
+    with pytest.raises(ValueError):
+        GeometricParams(type="geometric", std_multiplier=[])
