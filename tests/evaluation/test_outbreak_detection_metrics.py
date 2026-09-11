@@ -6,6 +6,7 @@ from chap_core.assessment.metrics.outbreak_detection import (
     OutbreakAccuracyMetric,
     SensitivityMetric,
     SpecificityMetric,
+    outbreak_and_alert,
 )
 from chap_core.assessment.thresholds.seasonal import compute_seasonal_thresholds
 
@@ -224,3 +225,85 @@ def test_outbreak_accuracy_mixed(historical_observations, threshold_value):
     metric = OutbreakAccuracyMetric(historical_observations=historical_observations)
     result = metric.get_global_metric(observations, forecasts)
     assert result.iloc[0]["metric"] == pytest.approx(0.5)
+
+
+@pytest.fixture()
+def weekly_historical_observations():
+    """Weekly counterpart of historical_observations: epi-week 26 shares the same threshold."""
+    values = [90.0, 95.0, 100.0, 105.0, 110.0]
+    return pd.DataFrame(
+        [
+            {"location": "A", "time_period": f"{year}W26", "disease_cases": val}
+            for year, val in zip(range(2018, 2023), values)
+        ]
+    )
+
+
+def test_weekly_periods_are_applicable(weekly_historical_observations, threshold_value):
+    """Weekly data is scored, not skipped -- the metrics are no longer monthly-only."""
+    observations = pd.DataFrame([{"location": "A", "time_period": "2023W26", "disease_cases": threshold_value + 10}])
+    metric = SensitivityMetric(historical_observations=weekly_historical_observations)
+    assert metric.is_applicable(observations)
+
+
+def test_sensitivity_weekly_true_positive(weekly_historical_observations, threshold_value):
+    """An outbreak in epi-week 26 that was alerted scores 1.0, exactly as the monthly case does."""
+    observations = pd.DataFrame([{"location": "A", "time_period": "2023W26", "disease_cases": threshold_value + 10}])
+    forecasts = _make_forecasts("A", "2023W26", 1, [threshold_value + 5] * 10)
+    metric = SensitivityMetric(historical_observations=weekly_historical_observations)
+    result = metric.get_detailed_metric(observations, forecasts)
+    assert len(result) == 1
+    assert result.iloc[0]["metric"] == 1.0
+
+
+def test_specificity_weekly_true_negative(weekly_historical_observations, threshold_value):
+    """A quiet epi-week with no alert scores 1.0."""
+    observations = pd.DataFrame([{"location": "A", "time_period": "2023W26", "disease_cases": threshold_value - 10}])
+    forecasts = _make_forecasts("A", "2023W26", 1, [threshold_value - 5] * 10)
+    metric = SpecificityMetric(historical_observations=weekly_historical_observations)
+    result = metric.get_detailed_metric(observations, forecasts)
+    assert len(result) == 1
+    assert result.iloc[0]["metric"] == 1.0
+
+
+def test_unparseable_periods_are_not_applicable(historical_observations):
+    """Periods that bucket into neither months nor weeks are skipped rather than raising."""
+    observations = pd.DataFrame([{"location": "A", "time_period": "not-a-period", "disease_cases": 200.0}])
+    metric = SensitivityMetric(historical_observations=historical_observations)
+    assert not metric.is_applicable(observations)
+
+
+def test_outbreak_and_alert_labels_outbreak_and_alert(historical_observations, threshold_value):
+    """The shared frame carries both labels for one scored cell."""
+    observations = pd.DataFrame([{"location": "A", "time_period": "2023-06-15", "disease_cases": threshold_value + 10}])
+    forecasts = _make_forecasts("A", "2023-06-15", 1, [threshold_value + 5] * 10)
+    frame = outbreak_and_alert(historical_observations, observations, forecasts)
+    assert len(frame) == 1
+    assert frame.iloc[0]["outbreak"] == 1.0
+    assert frame.iloc[0]["alert"] == 1.0
+
+
+def test_outbreak_and_alert_uses_the_sample_fraction(historical_observations, threshold_value):
+    """An alert needs strictly more than ALERT_SAMPLE_FRACTION of the samples above the threshold."""
+    observations = pd.DataFrame([{"location": "A", "time_period": "2023-06-15", "disease_cases": threshold_value - 10}])
+    half_above = [threshold_value + 5] * 5 + [threshold_value - 5] * 5
+    frame = outbreak_and_alert(historical_observations, observations, _make_forecasts("A", "2023-06-15", 1, half_above))
+    assert frame.iloc[0]["alert"] == 0.0
+
+    most_above = [threshold_value + 5] * 6 + [threshold_value - 5] * 4
+    frame = outbreak_and_alert(historical_observations, observations, _make_forecasts("A", "2023-06-15", 1, most_above))
+    assert frame.iloc[0]["alert"] == 1.0
+
+
+def test_outbreak_and_alert_drops_uncomputable_thresholds(threshold_value):
+    """A (location, season) with a single historical value has no threshold, so it is not scored."""
+    historical = pd.DataFrame([{"location": "A", "time_period": "2020-06", "disease_cases": 100.0}])
+    observations = pd.DataFrame([{"location": "A", "time_period": "2023-06", "disease_cases": 500.0}])
+    forecasts = _make_forecasts("A", "2023-06", 1, [500.0] * 10)
+    assert outbreak_and_alert(historical, observations, forecasts).empty
+
+
+def test_outbreak_metrics_are_not_optimization_objectives():
+    """None of the three is valid alone: two are maximised by degenerate models, accuracy by silence."""
+    for metric_cls in (SensitivityMetric, SpecificityMetric, OutbreakAccuracyMetric):
+        assert metric_cls.spec.optimization_direction is None
