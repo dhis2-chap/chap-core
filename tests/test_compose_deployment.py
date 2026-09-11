@@ -168,3 +168,38 @@ def test_env_example_leaves_redis_password_unset():
         f".env.example sets {active}, so copying it to .env makes the redis client send AUTH "
         f"to a valkey service that has no password configured"
     )
+
+
+BASE_COMPOSE_FILES = ["compose.yml", "compose.ghcr.yml"]
+
+# The broker and database live here. Model services attach only to the implicit default
+# network, which reaches chap and worker but not this one.
+BACKEND_NETWORK = "backend"
+
+
+@pytest.mark.parametrize("compose_file", BASE_COMPOSE_FILES)
+def test_base_compose_keeps_broker_and_database_off_default_network(compose_file):
+    content = yaml.safe_load((REPO_ROOT / compose_file).read_text())
+    assert BACKEND_NETWORK in (content.get("networks") or {}), (
+        f"{compose_file} does not declare the '{BACKEND_NETWORK}' network"
+    )
+    services = content["services"]
+    for name in ("redis", "postgres"):
+        assert services[name].get("networks") == [BACKEND_NETWORK], (
+            f"{compose_file}: '{name}' must sit on '{BACKEND_NETWORK}' only, or any model service on the "
+            f"default network can reach it"
+        )
+    for name in ("chap", "worker"):
+        assert services[name].get("networks") == ["default", BACKEND_NETWORK], (
+            f"{compose_file}: '{name}' must join both networks to serve model services and reach the broker"
+        )
+
+
+@pytest.mark.parametrize("compose_file", MODEL_OVERLAY_FILES + ["compose.override.yml.example"])
+def test_model_services_stay_on_default_network(compose_file):
+    """A model service that declares no networks is isolated automatically; opting into backend defeats that."""
+    for service_name, service in _services(compose_file).items():
+        assert BACKEND_NETWORK not in (service.get("networks") or []), (
+            f"{compose_file}: service '{service_name}' joins '{BACKEND_NETWORK}', so it shares a network "
+            f"with the Celery broker and can enqueue tasks the worker executes"
+        )

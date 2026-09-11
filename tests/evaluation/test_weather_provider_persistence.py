@@ -21,7 +21,7 @@ def test_non_default_provider_round_trips(backtest, tmp_path):
     evaluation.to_file(filepath=filepath, model_name="TestModel", model_version="1.0.0")
 
     observed_backtest = Evaluation.from_file(filepath).to_backtest()
-    observed_backtest.future_weather_provider = "observed"
+    observed_backtest.specification.future_weather_provider = "observed"
     observed_filepath = tmp_path / "eval_observed.nc"
     Evaluation(observed_backtest).to_file(filepath=observed_filepath, model_name="TestModel", model_version="1.0.0")
 
@@ -33,15 +33,15 @@ def test_legacy_file_is_attributed_to_observed_weather(old_backtest_file):
     assert Evaluation.from_file(old_backtest_file).future_weather_provider == LEGACY_WEATHER_PROVIDER_ID
 
 
-def test_from_backtest_reads_the_provider_off_the_row(backtest):
+def test_from_backtest_reads_the_provider_off_the_specification(backtest):
     """An `observed` backtest must not convert into a `climatology` evaluation."""
-    backtest.future_weather_provider = "observed"
+    backtest.specification.future_weather_provider = "observed"
 
     assert Evaluation.from_backtest(backtest).future_weather_provider == "observed"
 
 
-def test_from_backtest_exports_the_row_provider(backtest, tmp_path):
-    backtest.future_weather_provider = "observed"
+def test_from_backtest_exports_the_specification_provider(backtest, tmp_path):
+    backtest.specification.future_weather_provider = "observed"
     filepath = tmp_path / "eval.nc"
 
     Evaluation.from_backtest(backtest).to_file(filepath=filepath, model_name="TestModel", model_version="1.0.0")
@@ -51,7 +51,7 @@ def test_from_backtest_exports_the_row_provider(backtest, tmp_path):
 
 def test_from_file_sets_the_provider_on_the_backtest(backtest, tmp_path):
     """to_backtest() on a loaded evaluation must carry the provider it was read with."""
-    backtest.future_weather_provider = "observed"
+    backtest.specification.future_weather_provider = "observed"
     filepath = tmp_path / "eval.nc"
     Evaluation.from_backtest(backtest).to_file(filepath=filepath, model_name="TestModel", model_version="1.0.0")
 
@@ -60,9 +60,9 @@ def test_from_file_sets_the_provider_on_the_backtest(backtest, tmp_path):
     assert loaded.to_backtest().future_weather_provider == "observed"
 
 
-def test_the_row_is_the_single_source_of_truth(backtest):
+def test_the_specification_is_the_single_source_of_truth(backtest):
     """A to_backtest()/from_backtest() round trip must not revert the provider."""
-    backtest.future_weather_provider = "observed"
+    backtest.specification.future_weather_provider = "observed"
     evaluation = Evaluation(backtest)
 
     assert evaluation.future_weather_provider == "observed"
