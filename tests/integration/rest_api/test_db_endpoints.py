@@ -38,6 +38,7 @@ from chap_core.rest_api.data_models import (
 from chap_core.rest_api.app import app
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.rest_api.db_worker_functions import harmonize_and_add_dataset, run_backtest
+from chap_core.time_period import TimePeriod
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -573,6 +574,20 @@ def _run(session, name, dataset_id, **params):
     return run_backtest(
         BacktestCreate(name=name, dataset_id=dataset_id, model_id="naive_model"), session=session, **params
     )
+
+
+def test_run_backtest_records_the_train_cutoff_not_the_dataset_end(p_seeded_engine):
+    """`last_train_period` is the end of the training window, so it must precede every
+    period forecast from it. Using the end of the full dataset instead puts the cutoff
+    after the held-out window and makes horizon distances come out wrong."""
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        backtest_id = _run(session, "cutoff", dataset_id, n_periods=3, n_splits=2, stride=1)
+        forecasts = session.session.get(Backtest, backtest_id).forecasts
+        assert forecasts
+        assert all(TimePeriod.parse(f.last_train_period) < TimePeriod.parse(f.period) for f in forecasts), (
+            "last_train_period must be before the forecast period"
+        )
 
 
 def test_backtests_with_the_same_parameters_share_one_specification(p_seeded_engine):
