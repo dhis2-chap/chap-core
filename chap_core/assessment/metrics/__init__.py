@@ -83,13 +83,11 @@ def _discover_metrics():
         above_truth,
         crps,
         crps_norm,
-        example_metric,
         mae,
         mape,
         outbreak_detection,
         percentile_coverage,
         rmse,
-        test_metrics,
         winkler_score,
     )
 
@@ -101,7 +99,6 @@ _discover_metrics()
 from chap_core.assessment.metrics.above_truth import RatioAboveTruthMetric
 from chap_core.assessment.metrics.crps import CRPSLog1pMetric, CRPSMetric
 from chap_core.assessment.metrics.crps_norm import CRPSNormMetric
-from chap_core.assessment.metrics.example_metric import ExampleMetric
 from chap_core.assessment.metrics.mae import MAEMetric
 from chap_core.assessment.metrics.mape import MAPEMetric
 from chap_core.assessment.metrics.outbreak_detection import (
@@ -116,7 +113,6 @@ from chap_core.assessment.metrics.percentile_coverage import (
     PercentileCoverageMetric,
 )
 from chap_core.assessment.metrics.rmse import RMSEMetric
-from chap_core.assessment.metrics.test_metrics import SampleCountMetric
 from chap_core.assessment.metrics.winkler_score import (
     WinklerScore10_90Log1pMetric,
     WinklerScore10_90Metric,
@@ -139,7 +135,6 @@ __all__ = [
     "Coverage25_75Metric",
     "DataDimension",
     "DeterministicMetric",
-    "ExampleMetric",
     "MAEMetric",
     "MAPEMetric",
     "Metric",
@@ -151,7 +146,6 @@ __all__ = [
     "ProbabilisticMetric",
     "RMSEMetric",
     "RatioAboveTruthMetric",
-    "SampleCountMetric",
     "SensitivityMetric",
     "SpecificityMetric",
     "WinklerScore10_90Log1pMetric",
