@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -130,6 +131,29 @@ def test_validate_warns_on_non_numeric_field(tmp_path):
     issues = validate_dataset(dataset)
     warnings = [i for i in issues if i.level == "warning"]
     assert any("notes" in w.message and "non-numeric" in w.message for w in warnings)
+
+
+def test_validate_errors_on_non_numeric_required_covariate(tmp_path):
+    raw_df = pd.read_csv(LAOS_SUBSET)
+    raw_df["region_class"] = "urban"
+    csv_path = tmp_path / "with_string_covariate.csv"
+    raw_df.to_csv(csv_path, index=False)
+    dataset = DataSet.from_csv(csv_path)
+    config = ModelTemplateConfigV2(name="test_model", required_covariates=["rainfall", "region_class"])
+    issues = validate_dataset(dataset, model_template_config=config)
+    errors = [i for i in issues if i.level == "error"]
+    assert any("region_class" in e.message and "non-numeric" in e.message for e in errors)
+
+
+def test_validate_errors_on_infinite_covariate(tmp_path):
+    raw_df = pd.read_csv(LAOS_SUBSET)
+    raw_df.loc[0, "rainfall"] = np.inf
+    csv_path = tmp_path / "with_inf.csv"
+    raw_df.to_csv(csv_path, index=False)
+    dataset = DataSet.from_csv(csv_path, FullData)
+    issues = validate_dataset(dataset)
+    errors = [i for i in issues if i.level == "error"]
+    assert any("rainfall" in e.message and e.location is not None for e in errors)
 
 
 def test_validate_accepts_integer_columns(tmp_path):
