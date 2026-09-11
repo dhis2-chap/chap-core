@@ -8,7 +8,7 @@ import pytest
 from chap_core.assessment.causal_plot import plot_counterfactual
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.database.dataset_tables import DataSet, Observation
-from chap_core.database.tables import Backtest, BacktestForecast
+from chap_core.database.tables import Backtest, BacktestForecast, BacktestSpecification
 
 _EXAMPLE_DATA = Path(__file__).parent.parent.parent / "example_data"
 
@@ -50,6 +50,7 @@ def _make_vietnam_evaluation(df: pd.DataFrame, periods: list[str], geojson: str,
         dataset=dataset,
         model_id="test",
         model_db_id=1,
+        specification=BacktestSpecification(dataset_id=1),
         name="vietnam_test",
         created=None,
         aggregate_metrics={},

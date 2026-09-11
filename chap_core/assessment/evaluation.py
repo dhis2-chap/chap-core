@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -19,14 +19,7 @@ import pandera.pandas as pa
 import xarray as xr
 from packaging.version import Version
 
-from chap_core.assessment.weather_providers import (
-    DEFAULT_WEATHER_PROVIDER_ID,
-    LEGACY_WEATHER_PROVIDER_ID,
-)
-
-if TYPE_CHECKING:
-    from chap_core.api_types import BacktestParams
-
+from chap_core.api_types import BacktestParams
 from chap_core.assessment.flat_representations import (
     FlatForecasts,
     FlatObserved,
@@ -34,10 +27,14 @@ from chap_core.assessment.flat_representations import (
     convert_backtest_to_flat_forecasts,
     max_horizon_distance,
 )
+from chap_core.assessment.weather_providers import (
+    DEFAULT_WEATHER_PROVIDER_ID,
+    LEGACY_WEATHER_PROVIDER_ID,
+)
 from chap_core.data import DataSet as _DataSet
 from chap_core.database.dataset_tables import DataSet, Observation, ObservationBase
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
-from chap_core.database.tables import Backtest, BacktestForecast
+from chap_core.database.tables import Backtest, BacktestForecast, BacktestSpecification
 from chap_core.datatypes import SamplesWithTruth
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.rest_api.data_models import BacktestCreate
@@ -284,8 +281,8 @@ class Evaluation(EvaluationBase):
     def future_weather_provider(self) -> str:
         """Id of the future-weather provider these results were produced with.
 
-        The backtest row is the single source of truth, so database persistence
-        and NetCDF exports cannot disagree.
+        The backtest's specification is the single source of truth, so database
+        persistence and NetCDF exports cannot disagree.
         """
         return self._backtest.future_weather_provider
 
@@ -311,11 +308,21 @@ class Evaluation(EvaluationBase):
         info: BacktestCreate,
         historical_observations: list[Observation] | None = None,
         historical_context_periods: int = 0,
+        specification: BacktestSpecification | None = None,
     ) -> "Evaluation":
         info.created = datetime.datetime.now()
+        # The parameters live on the specification now and are computed fields on
+        # Backtest, reading through the link. Excluding them here keeps that explicit;
+        # passing them would be silently ignored rather than rejected.
         backtest = Backtest(
-            **info.model_dump()
+            **info.model_dump(exclude=set(BacktestParams.model_fields))
             | {"model_db_id": configured_model.id, "model_template_version": configured_model.model_template.version}
+        )
+        # Callers persisting the backtest pass the deduplicated row resolved against the
+        # database. The CLI paths build an in-memory evaluation only, so a detached
+        # specification carrying the same parameters is enough for them.
+        backtest.specification = specification or BacktestSpecification(
+            dataset_id=info.dataset_id, **info.model_dump(include=set(BacktestParams.model_fields))
         )
         org_units = set()
         split_points = set()
@@ -393,7 +400,7 @@ class Evaluation(EvaluationBase):
         configured_model: ConfiguredModelDB,
         estimator,
         dataset: _DataSet,
-        backtest_params: "BacktestParams",
+        backtest_params: BacktestParams,
         backtest_name: str = "evaluation",
         historical_context_years: int = 6,
     ) -> "Evaluation":
@@ -689,7 +696,13 @@ class Evaluation(EvaluationBase):
             split_periods=split_periods,
             forecasts=[],
             dataset_id=0,
-            future_weather_provider=str(ds.attrs["future_weather_provider"]),
+            # The stored file carries no parameters beyond the provider, so this is a
+            # detached placeholder that keeps the parameter properties readable.
+            specification=BacktestSpecification(
+                dataset_id=0,
+                org_units=org_units,
+                future_weather_provider=str(ds.attrs["future_weather_provider"]),
+            ),
         )
 
         forecasts_df = pd.DataFrame(cast("pd.DataFrame", flat_data.forecasts))

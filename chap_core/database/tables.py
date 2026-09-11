@@ -6,7 +6,8 @@ import datetime
 from typing import Optional
 
 import numpy as np
-from sqlalchemy import JSON, Column
+from pydantic import computed_field
+from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlmodel import Field, Relationship
 
 from chap_core.api_types import BacktestParams
@@ -15,11 +16,47 @@ from chap_core.database.dataset_tables import DataSet, DataSetInfo, DataSource, 
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
 
 
-class BacktestBase(BacktestParams):
+class BacktestSpecification(BacktestParams, table=True):
+    """The evaluation setup a backtest ran under: a dataset plus the parameters that decide what is scored.
+
+    Rows are deduplicated on the dataset plus every `BacktestParams` field, and are
+    immutable, so two backtests pointing at the same row are comparable by construction.
+    Resolve one with `SessionWrapper.get_or_create_backtest_specification` rather than
+    constructing it directly, or identical setups end up on separate rows.
+    """
+
+    id: int | None = Field(primary_key=True, default=None, description="Primary key.")  # type: ignore[assignment]
+    # A specification outlives the backtests pointing at it, and a run that fails after
+    # resolving one leaves it with no backtest at all, so it cascades from the dataset:
+    # without that, those leftover rows would keep an otherwise-empty dataset undeletable.
+    dataset_id: int = Field(
+        foreign_key="dataset.id",
+        ondelete="CASCADE",
+        description="Foreign key to the `DataSet` the specification evaluates against.",
+    )
+    dataset: DataSet = Relationship()
+    org_units: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(JSON),
+        description=(
+            "Org units the evaluation actually runs over: the dataset's units minus those the evaluation filter "
+            "drops for having no target data left in the training window. Derived from the parameters above, so "
+            "it is a resolved snapshot rather than part of the uniqueness key."
+        ),
+    )
+    # Every field of BacktestParams is part of what makes two backtests comparable, so
+    # the key is derived rather than listed: a parameter added there joins the key
+    # instead of silently letting two different setups share a row. Adding one still
+    # needs a migration to widen the constraint in the database.
+    __table_args__ = (
+        UniqueConstraint("dataset_id", *BacktestParams.model_fields, name="uq_backtestspecification_params"),
+    )
+
+
+class BacktestBase(DBModel):
     """Shared fields for every backtest shape (DB row, create request, read view).
 
-    The inherited `BacktestParams` fields hold the values the backtest actually ran
-    with, written by `run_backtest` after every override has been applied.
+    The evaluation parameters live on the linked `BacktestSpecification`, not here.
     """
 
     dataset_id: int = Field(
@@ -68,6 +105,11 @@ class Backtest(_BacktestRead, table=True):
     """Persisted backtest row. Owns its forecasts, metrics, and (optionally) a `PredictionSetup`."""
 
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")  # type: ignore[assignment]
+    specification_id: int = Field(
+        foreign_key="backtestspecification.id",
+        description="Foreign key to the `BacktestSpecification` this backtest ran under.",
+    )
+    specification: BacktestSpecification = Relationship()
     dataset: DataSet = Relationship()
     forecasts: list["BacktestForecast"] = Relationship(back_populates="backtest", cascade_delete=True)
     metrics: list["BacktestMetric"] = Relationship(back_populates="backtest", cascade_delete=True)
@@ -86,6 +128,31 @@ class Backtest(_BacktestRead, table=True):
         sa_relationship_kwargs={"uselist": False},
         cascade_delete=True,
     )
+
+    @computed_field(description=BacktestParams.model_fields["n_periods"].description)  # type: ignore[prop-decorator]
+    @property
+    def n_periods(self) -> int:
+        return self.specification.n_periods
+
+    @computed_field(description=BacktestParams.model_fields["n_splits"].description)  # type: ignore[prop-decorator]
+    @property
+    def n_splits(self) -> int:
+        return self.specification.n_splits
+
+    @computed_field(description=BacktestParams.model_fields["stride"].description)  # type: ignore[prop-decorator]
+    @property
+    def stride(self) -> int:
+        return self.specification.stride
+
+    @computed_field(description=BacktestParams.model_fields["n_retrain"].description)  # type: ignore[prop-decorator]
+    @property
+    def n_retrain(self) -> int:
+        return self.specification.n_retrain
+
+    @computed_field(description=BacktestParams.model_fields["future_weather_provider"].description)  # type: ignore[prop-decorator]
+    @property
+    def future_weather_provider(self) -> str:
+        return self.specification.future_weather_provider
 
     @property
     def prediction_setup_id(self) -> int | None:
@@ -196,8 +263,13 @@ class PredictionSetupRead(DBModel):
 OldBacktestRead = _BacktestRead
 
 
-class BacktestRead(_BacktestRead):
-    """API read shape for a `Backtest`. Same fields as the DB row plus the joined dataset / model / setup links."""
+class BacktestRead(BacktestParams, _BacktestRead):
+    """API read shape for a `Backtest`. Same fields as the DB row plus the joined dataset / model / setup links.
+
+    The `BacktestParams` fields are read off the linked `BacktestSpecification` through
+    `Backtest`'s properties of the same name, so the wire shape is unchanged by the
+    specification extraction. Callers must eager-load `Backtest.specification`.
+    """
 
     dataset: DataSetMeta = Field(description="Slim dataset summary the backtest evaluated against.")
     aggregate_metrics: dict[str, float] = Field(

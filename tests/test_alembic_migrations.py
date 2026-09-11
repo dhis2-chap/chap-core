@@ -9,6 +9,7 @@ Requires Docker to be available. Skips automatically if Docker is not running.
 New migrations are automatically tested since upgrade always targets "head".
 """
 
+import json
 from pathlib import Path
 
 import pytest
@@ -27,6 +28,7 @@ from chap_core.database.tables import (  # noqa: F401
     Backtest,
     BacktestForecast,
     BacktestMetric,
+    BacktestSpecification,
     Prediction,
     PredictionSamplesEntry,
     PredictionSetup,
@@ -46,17 +48,14 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("configuredmodeldb", "is_live"),
     ("prediction", "prediction_setup_id"),
     ("backtest", "max_horizon_distance"),
-    ("backtest", "n_periods"),
-    ("backtest", "n_splits"),
-    ("backtest", "stride"),
-    ("backtest", "n_retrain"),
-    ("backtest", "future_weather_provider"),
+    ("backtest", "specification_id"),
 ]
 
 # Tables added by alembic migrations (not in the baseline schema).
 # These are dropped after create_all so the migration can re-create them.
 _TABLES_ADDED_BY_MIGRATIONS = [
     "predictionsetup",
+    "backtestspecification",
 ]
 
 # Unique constraints from migrations, with the baseline constraint that each one replaced.
@@ -152,9 +151,16 @@ def _create_baseline_schema(engine):
         conn.commit()
 
 
+# Backtests as a pre-parameter release stored them, with the org units each scored.
+# legacy_backtest and twin_backtest forecast the same splits, so they derive the same
+# parameters and must end up sharing one specification; empty_backtest has no forecasts
+# and falls back to the defaults, so it gets its own.
+_LEGACY_BACKTESTS = {"legacy_backtest": ["ou1"], "twin_backtest": ["ou2"], "empty_backtest": ["ou3"]}
+_LEGACY_SPLITS = (("202201", ("202202", "202203", "202204")), ("202203", ("202204", "202205", "202206")))
+
+
 def _insert_legacy_backtest(conn):
-    """Two backtests as a pre-parameter release stored them: one with forecasts on two
-    splits two months apart, three periods each, and one without forecasts."""
+    """Seed the legacy backtests, two of them with forecasts on two splits two months apart."""
     conn.execute(
         sa.text(
             "INSERT INTO configuredmodeldb (name, model_template_id, archived, uses_chapkit) "
@@ -162,22 +168,24 @@ def _insert_legacy_backtest(conn):
         )
     )
     conn.execute(sa.text("INSERT INTO dataset (name) VALUES ('legacy_dataset')"))
-    for name in ("legacy_backtest", "empty_backtest"):
+    for name, org_units in _LEGACY_BACKTESTS.items():
         conn.execute(
             sa.text(
-                "INSERT INTO backtest (name, dataset_id, model_id, model_db_id) "
-                f"SELECT '{name}', d.id, 'legacy_configured', c.id FROM dataset d, configuredmodeldb c "
+                "INSERT INTO backtest (name, dataset_id, model_id, model_db_id, org_units) "
+                f"SELECT '{name}', d.id, 'legacy_configured', c.id, '{json.dumps(org_units)}' "
+                "FROM dataset d, configuredmodeldb c "
                 "WHERE d.name = 'legacy_dataset' AND c.name = 'legacy_configured'"
             )
         )
-    for last_seen, periods in (("202201", ("202202", "202203", "202204")), ("202203", ("202204", "202205", "202206"))):
-        for period in periods:
-            conn.execute(
-                sa.text(
-                    "INSERT INTO backtestforecast (backtest_id, period, org_unit, values, last_train_period, last_seen_period) "
-                    f"SELECT id, '{period}', 'ou', '[1.0]', '202201', '{last_seen}' FROM backtest WHERE name = 'legacy_backtest'"
+    for name in ("legacy_backtest", "twin_backtest"):
+        for last_seen, periods in _LEGACY_SPLITS:
+            for period in periods:
+                conn.execute(
+                    sa.text(
+                        "INSERT INTO backtestforecast (backtest_id, period, org_unit, values, last_train_period, last_seen_period) "
+                        f"SELECT id, '{period}', 'ou', '[1.0]', '202201', '{last_seen}' FROM backtest WHERE name = '{name}'"
+                    )
                 )
-            )
 
 
 def _migration_module(revision: str):
@@ -233,6 +241,11 @@ class TestAlembicMigrations:
             result = conn.execute(sa.text("SELECT version_num FROM alembic_version"))
             current = result.scalar_one()
             assert current == head_rev, f"Expected head {head_rev}, got {current}"
+
+        # Every evaluation parameter belongs to the specification now, so none of them
+        # may be left behind on backtest by an earlier revision that added them there.
+        columns = {col["name"] for col in sa.inspect(engine).get_columns("backtest")}
+        assert not columns & {"n_periods", "n_splits", "stride", "n_retrain", "future_weather_provider"}
 
     def test_downgrade_to_base_and_upgrade_again(self, engine):
         """
@@ -306,7 +319,7 @@ class TestAlembicMigrations:
             ]:
                 conn.execute(sa.text(statement))
             _insert_legacy_backtest(conn)
-            for column in ("n_periods", "n_splits", "stride", "n_retrain"):
+            for column in ("n_periods", "n_splits", "stride", "n_retrain", "specification_id"):
                 conn.execute(sa.text(f"ALTER TABLE backtest ADD COLUMN {column} INTEGER"))
                 conn.execute(sa.text(f"UPDATE backtest SET {column} = 0"))
             conn.execute(sa.text("ALTER TABLE backtest ADD COLUMN future_weather_provider VARCHAR"))
@@ -316,18 +329,43 @@ class TestAlembicMigrations:
         command.upgrade(alembic_cfg, "head")
 
         with engine.connect() as conn:
-            row = conn.execute(
-                sa.text("SELECT n_periods, n_splits, stride, n_retrain FROM backtest WHERE name = 'legacy_backtest'")
-            ).one()
-            assert tuple(row) == (3, 2, 2, 1)
-            row = conn.execute(
-                sa.text("SELECT n_periods, n_splits, stride, n_retrain FROM backtest WHERE name = 'empty_backtest'")
-            ).one()
-            assert tuple(row) == (3, 7, 1, 1)
+            # The parameters moved onto the specification, so they are only reachable
+            # through the link now.
+            params = {
+                row.name: (row.n_periods, row.n_splits, row.stride, row.n_retrain)
+                for row in conn.execute(
+                    sa.text(
+                        "SELECT b.name, s.n_periods, s.n_splits, s.stride, s.n_retrain FROM backtest b "
+                        "JOIN backtestspecification s ON b.specification_id = s.id"
+                    )
+                ).fetchall()
+            }
+            assert params == {
+                "legacy_backtest": (3, 2, 2, 1),
+                "twin_backtest": (3, 2, 2, 1),
+                "empty_backtest": (3, 7, 1, 1),
+            }
+            # Identical parameters deduplicate onto one specification, which is what
+            # makes the two backtests comparable; the third one differs and gets its own.
+            specifications = {
+                (row.n_periods, row.n_splits, row.stride, row.n_retrain): row.org_units
+                for row in conn.execute(
+                    sa.text("SELECT n_periods, n_splits, stride, n_retrain, org_units FROM backtestspecification")
+                ).fetchall()
+            }
+            # org_units is the union across the backtests that share the specification.
+            assert specifications == {(3, 2, 2, 1): ["ou1", "ou2"], (3, 7, 1, 1): ["ou3"]}
             # Every legacy backtest was run by the REST path, which always used
             # QuickForecastFetcher - what the climatology provider now does.
-            providers = conn.execute(sa.text("SELECT future_weather_provider FROM backtest")).scalars().all()
-            assert set(providers) == {"climatology"}
+            providers = conn.execute(sa.text("SELECT future_weather_provider FROM backtestspecification")).scalars()
+            assert set(providers.all()) == {"climatology"}
+
+        columns = {col["name"] for col in sa.inspect(engine).get_columns("backtest")}
+        assert not columns & {"n_periods", "n_splits", "stride", "n_retrain", "future_weather_provider"}
+        specification_id = next(
+            col for col in sa.inspect(engine).get_columns("backtest") if col["name"] == "specification_id"
+        )
+        assert specification_id["nullable"] is False
 
         with engine.connect() as conn:
             row = conn.execute(
