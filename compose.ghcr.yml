@@ -43,6 +43,9 @@ services:
         target: /data/logs
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - backend
     ports:
       - "8000:8000"
     healthcheck:
@@ -80,6 +83,9 @@ services:
       CHAP_LOGS_DIR: /data/logs
       CHAP_RUNS_DIR: /data/runs
       PYTENSOR_FLAGS: "base_compiledir=/data/pytensor"
+    networks:
+      - default
+      - backend
     command: "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks worker --loglevel=info"
     working_dir: /app
     # Declared here, not inherited: a pinned tag may predate the image's HEALTHCHECK.
@@ -120,6 +126,8 @@ services:
   redis:
     restart: unless-stopped
     image: valkey/valkey:8
+    networks:
+      - backend
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 10s
@@ -142,6 +150,8 @@ services:
       start_period: 40s
     volumes:
       - chap-db:/var/lib/postgresql/data
+    networks:
+      - backend
     expose:
       - "5432"
 
@@ -152,3 +162,8 @@ volumes:
   uv: {}
   pytensor: {}
   runs: {}
+
+networks:
+  # redis and postgres live here, off the default network, so model services
+  # (which attach only to default) cannot reach the Celery broker or the database.
+  backend: {}
