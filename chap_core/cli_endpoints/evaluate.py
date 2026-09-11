@@ -298,6 +298,7 @@ def _run_eval(
                 train_set=train_set,
                 test_generator=test_generator,
                 n_test_sets=backtest_params.n_splits,
+                n_retrain=backtest_params.n_retrain,
             ):
                 pass
             return

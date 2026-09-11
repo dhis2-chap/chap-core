@@ -155,7 +155,9 @@ def run_backtest(
         n_test_sets=n_splits,
         n_retrain=n_retrain,
     )
-    last_train_period = dataset.period_range[-1]
+    # The last period the model was trained on, not the last period in the dataset:
+    # the tail of `dataset` is the held-out test window the splits forecast.
+    last_train_period = train_set.period_range[-1]
     evaluation = Evaluation.from_samples_with_truth(
         predictions_list, last_train_period, configured_model, info=info, specification=specification
     )
