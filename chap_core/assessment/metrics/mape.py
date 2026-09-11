@@ -18,8 +18,8 @@ class MAPEMetric(DeterministicMetric):
     """
     Mean Absolute Percentage Error metric.
 
-    Computes the average of the absolute error for each entry. When aggregated using
-    MEAN, this produces the MAPE (mean of absolute percentage error).
+    Computes the absolute percentage error at the detailed level. When aggregated
+    using MEAN, this produces the MAPE (mean of absolute percentage errors).
 
     Usage:
         mape = MAPEMetric()
@@ -32,12 +32,12 @@ class MAPEMetric(DeterministicMetric):
         metric_id="mape",
         metric_name="MAPE",
         aggregation_op=AggregationOp.MEAN,
-        description="Mean Absolute Percentage Error - measures average absolute prediction error",
+        description="Mean Absolute Percentage Error - average absolute error as percent of observed",
         optimization_direction=OptimizationDirection.MINIMIZE,
     )
 
     def compute_point_metric(self, forecast: float, observed: float) -> float:
-        """Compute absolute error for a single forecast/observation pair."""
+        """Compute absolute percentage error for a single forecast/observation pair."""
         if observed == 0.0:
             return np.nan
         return abs(observed - forecast) / abs(observed) * 100.0
