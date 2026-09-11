@@ -23,27 +23,20 @@ from chap_core.assessment.metrics.base import (
     Metric,
     MetricSpec,
 )
-
-# The outbreak metrics score forecasts against seasonal thresholds, computed by the
-# threshold strategy module.
-from chap_core.assessment.thresholds.seasonal import compute_seasonal_thresholds
+from chap_core.assessment.outbreak.threshold_model import ThresholdOutbreakModel
 from chap_core.time_period.vectorized import season_column
 
 if TYPE_CHECKING:
     import pandera.pandas as pa
 
     from chap_core.assessment.flat_representations import FlatObserved
+    from chap_core.assessment.outbreak.base import OutbreakModelBase
 
 #: Fraction of forecast samples that must exceed the threshold for an alert to be raised.
 ALERT_SAMPLE_FRACTION = 0.5
 
 _OUTBREAK_COLUMNS = ["location", "time_period", "horizon_distance", "outbreak", "alert"]
 _METRIC_DIMENSIONS = ["location", "time_period", "horizon_distance"]
-
-
-def _season_of(thresholds: pd.DataFrame) -> str:
-    """The season bucket a threshold frame is keyed on."""
-    return "week" if "week" in thresholds.columns else "month"
 
 
 def has_season_buckets(observations: pd.DataFrame) -> bool:
@@ -61,22 +54,29 @@ def outbreak_and_alert(
     historical_observations: pd.DataFrame | None,
     observations: pd.DataFrame,
     forecasts: pd.DataFrame,
+    model: OutbreakModelBase | None = None,
 ) -> pd.DataFrame:
-    """Label every scored cell as outbreak and alert against the seasonal threshold.
+    """Label every scored cell as outbreak and alert against the epidemic channel.
+
+    The channel does both jobs: it labels an observation an outbreak, and the
+    outbreak model scores forecasts against the same line. Alerting and labelling
+    therefore cannot drift apart, which is what keeps Brier and log score proper.
 
     Args:
-        historical_observations: Observations the threshold is computed from, with
+        historical_observations: Observations the channel is computed from, with
             columns ``[location, time_period, disease_cases]``. ``None`` yields an
-            empty frame — the metrics are not applicable without it.
+            empty frame -- the metrics are not applicable without it.
         observations: Observed cases to label, same columns.
         forecasts: Forecast samples, with columns
             ``[location, time_period, horizon_distance, sample, forecast]``.
+        model: Outbreak model producing the alert probabilities. Defaults to
+            :class:`ThresholdOutbreakModel` on the seasonal mean + 2*std channel.
 
     Returns:
         One row per ``(location, time_period, horizon_distance)`` that has both a
         computable threshold and a forecast, with columns
         ``[location, time_period, horizon_distance, outbreak, alert]``. ``outbreak``
-        is 1.0 where observed cases exceed the threshold; ``alert`` is 1.0 where more
+        is 1.0 where observed cases exceed the channel; ``alert`` is 1.0 where more
         than :data:`ALERT_SAMPLE_FRACTION` of the samples exceed it. Cells whose
         threshold cannot be computed (a single historical value gives an undefined
         standard deviation) are dropped.
@@ -87,31 +87,28 @@ def outbreak_and_alert(
     if observations.empty or forecasts.empty:
         return empty
 
-    thresholds = compute_seasonal_thresholds(historical_observations)
-    if thresholds.empty:
-        return empty
-    season = _season_of(thresholds)
-
-    obs = observations[["location", "time_period", "disease_cases"]].copy()
-    obs_season, obs_buckets = season_column(obs["time_period"])
-    if obs_season != season:
+    model = model or ThresholdOutbreakModel()
+    target_periods = sorted(set(forecasts["time_period"].astype(str)))
+    try:
+        probabilities = model.alert_probabilities(historical_observations, target_periods, forecasts=forecasts)
+    except ValueError:
         # Historical and scored periods are at different frequencies; nothing to join on.
         return empty
-    obs[season] = obs_buckets
-    obs = obs.merge(thresholds, on=["location", season], how="left").dropna(subset=["threshold"])
-    if obs.empty:
+    if probabilities.empty:
         return empty
-    obs["outbreak"] = (obs["disease_cases"] > obs["threshold"]).astype(float)
 
-    fc = forecasts.copy()
-    fc[season] = season_column(fc["time_period"])[1]
-    fc = fc.merge(thresholds, on=["location", season], how="left")
-    fc["exceeds"] = (fc["forecast"] > fc["threshold"]).astype(float)
-    alert = fc.groupby(_METRIC_DIMENSIONS, as_index=False)["exceeds"].mean()
-    alert["alert"] = (alert["exceeds"] > ALERT_SAMPLE_FRACTION).astype(float)
+    probabilities["alert"] = (probabilities["probability"] > ALERT_SAMPLE_FRACTION).astype(float)
+    channels = probabilities[["location", "time_period", "threshold"]].drop_duplicates()
 
-    merged = obs[["location", "time_period", "outbreak"]].merge(
-        alert[[*_METRIC_DIMENSIONS, "alert"]],
+    labelled = observations[["location", "time_period", "disease_cases"]].merge(
+        channels, on=["location", "time_period"], how="inner"
+    )
+    if labelled.empty:
+        return empty
+    labelled["outbreak"] = (labelled["disease_cases"] > labelled["threshold"]).astype(float)
+
+    merged = labelled[["location", "time_period", "outbreak"]].merge(
+        probabilities[[*_METRIC_DIMENSIONS, "alert"]],
         on=["location", "time_period"],
         how="inner",
     )
