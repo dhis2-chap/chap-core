@@ -73,6 +73,7 @@ def list_threshold_strategies() -> list[dict]:
 
 def _discover_strategies():
     from chap_core.assessment.thresholds import (
+        geometric,
         percentile,
         seasonal,
     )
