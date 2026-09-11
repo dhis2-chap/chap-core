@@ -121,10 +121,26 @@ def test_backtest_plot(override_session, tmp_path):
 def test_threshold_strategies_discovery(override_session):
     strategies = client.get_json("/v1/analytics/thresholds/strategies")
     ids = {s["id"] for s in strategies}
-    assert "seasonal" in ids
+    assert {"seasonal", "percentile"}.issubset(ids)
     seasonal = next(s for s in strategies if s["id"] == "seasonal")
     assert seasonal["displayName"]
     assert seasonal["description"]
+
+
+def test_threshold_params_schema_is_discriminated_union():
+    """Lock in the tagged union in OpenAPI: sqlmodel.Field on the params field silently drops it."""
+    schema = client.get_json("/openapi.json")
+    for model in ("ThresholdRequest", "ThresholdResponse"):
+        params = schema["components"]["schemas"][model]["properties"]["params"]
+        assert "oneOf" in params, params
+        assert params["discriminator"]["propertyName"] == "type"
+        mapping = params["discriminator"]["mapping"]
+        assert set(mapping) == {"seasonal", "percentile"}
+        # the discriminator must be required, or generated clients get `type?: string` and cannot narrow the union
+        for ref in mapping.values():
+            member = schema["components"]["schemas"][ref.rsplit("/", 1)[-1]]
+            assert "type" in member.get("required", []), member
+    assert schema["components"]["schemas"]["ThresholdResponse"]["properties"]["lines"]["type"] == "array"
 
 
 def test_weather_provider_discovery(override_session):
@@ -138,33 +154,102 @@ def test_weather_provider_discovery(override_session):
 
 
 def test_compute_thresholds(override_session):
-    body = {"dataset_id": 1, "period_ids": ["2023-01", "2023-02"], "strategy": "seasonal"}
+    body = {"dataset_id": 1, "period_ids": ["2023-01", "2023-02"], "params": {"type": "seasonal"}}
     response = client.post("/v1/analytics/thresholds", json=body)
     assert response.status_code == 200, response.json()
-    entries = response.json()
+    result = response.json()
+    # the resolved params echo back the applied defaults
+    assert result["params"] == {"type": "seasonal", "stdMultiplier": 2.0}
+    assert result["lines"] == [2.0]
+    entries = result["entries"]
     # 2 requested periods x 3 locations in the seeded dataset
     assert len(entries) == 6
     assert {e["period"] for e in entries} == {"2023-01", "2023-02"}
     assert {e["location"] for e in entries} == {"loc_1", "loc_2", "loc_3"}
-    assert all(e["value"] is not None for e in entries)
+    assert all(len(e["values"]) == 1 and e["values"][0] is not None for e in entries)
+
+
+def test_compute_thresholds_multi_line(override_session):
+    body = {
+        "dataset_id": 1,
+        "period_ids": ["2023-01"],
+        "params": {"type": "percentile", "quantile": [0.25, 0.75], "baselineYears": None},
+    }
+    response = client.post("/v1/analytics/thresholds", json=body)
+    assert response.status_code == 200, response.json()
+    result = response.json()
+    assert result["params"] == {"type": "percentile", "quantile": [0.25, 0.75], "baselineYears": None}
+    assert result["lines"] == [0.25, 0.75]
+    for entry in result["entries"]:
+        assert len(entry["values"]) == 2
+        # values are positional in request order: 25th percentile <= 75th percentile
+        assert entry["values"][0] <= entry["values"][1]
 
 
 def test_compute_thresholds_filters_by_locations(override_session):
-    body = {"dataset_id": 1, "period_ids": ["2023-01"], "strategy": "seasonal", "locations": ["loc_1"]}
+    body = {"dataset_id": 1, "period_ids": ["2023-01"], "params": {"type": "seasonal"}, "locations": ["loc_1"]}
     response = client.post("/v1/analytics/thresholds", json=body)
     assert response.status_code == 200, response.json()
-    entries = response.json()
-    assert {e["location"] for e in entries} == {"loc_1"}
+    assert {e["location"] for e in response.json()["entries"]} == {"loc_1"}
 
 
-def test_compute_thresholds_unknown_strategy(override_session):
-    body = {"dataset_id": 1, "period_ids": ["2023-01"], "strategy": "does_not_exist"}
+def test_compute_thresholds_fills_missing_combinations_with_null(override_session):
+    """Every requested (period, location) gets an entry, even without data to compute it from."""
+    body = {
+        "dataset_id": 1,
+        "period_ids": ["2023-01", "2023-02"],
+        "params": {"type": "seasonal", "stdMultiplier": [1.0, 2.0]},
+        "locations": ["loc_1", "loc_missing"],
+    }
     response = client.post("/v1/analytics/thresholds", json=body)
-    assert response.status_code == 404, response.text
+    assert response.status_code == 200, response.json()
+    entries = response.json()["entries"]
+    assert {(e["period"], e["location"]) for e in entries} == {
+        (period, location) for period in ("2023-01", "2023-02") for location in ("loc_1", "loc_missing")
+    }
+    for entry in entries:
+        assert len(entry["values"]) == 2
+        if entry["location"] == "loc_missing":
+            assert entry["values"] == [None, None]
+        else:
+            assert None not in entry["values"]
+
+
+def test_compute_thresholds_unknown_strategy_type(override_session):
+    body = {"dataset_id": 1, "period_ids": ["2023-01"], "params": {"type": "does_not_exist"}}
+    response = client.post("/v1/analytics/thresholds", json=body)
+    assert response.status_code == 422, response.text
+
+
+def test_compute_thresholds_invalid_params(override_session):
+    body = {"dataset_id": 1, "period_ids": ["2023-01"], "params": {"type": "percentile", "quantile": 1.5}}
+    response = client.post("/v1/analytics/thresholds", json=body)
+    assert response.status_code == 422, response.text
+
+
+def test_compute_thresholds_future_period_matches_static_channel(override_session):
+    """A period beyond the data gets the same line as an in-range period of the same season."""
+    params = {"type": "percentile", "baselineYears": None}
+    in_range = client.post(
+        "/v1/analytics/thresholds", json={"dataset_id": 1, "period_ids": ["2023-01"], "params": params}
+    )
+    future = client.post(
+        "/v1/analytics/thresholds", json={"dataset_id": 1, "period_ids": ["2050-01"], "params": params}
+    )
+    assert in_range.status_code == 200, in_range.text
+    assert future.status_code == 200, future.text
+    by_location = {e["location"]: e["values"] for e in in_range.json()["entries"]}
+    assert {e["location"]: e["values"] for e in future.json()["entries"]} == by_location
+
+
+def test_compute_thresholds_frequency_mismatch_returns_400(override_session):
+    body = {"dataset_id": 1, "period_ids": ["2023W01"], "params": {"type": "percentile"}}
+    response = client.post("/v1/analytics/thresholds", json=body)
+    assert response.status_code == 400, response.text
 
 
 def test_compute_thresholds_unknown_dataset(override_session):
-    body = {"dataset_id": 9999, "period_ids": ["2023-01"], "strategy": "seasonal"}
+    body = {"dataset_id": 9999, "period_ids": ["2023-01"], "params": {"type": "seasonal"}}
     response = client.post("/v1/analytics/thresholds", json=body)
     assert response.status_code == 404, response.text
 
