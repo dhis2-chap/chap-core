@@ -46,6 +46,15 @@ def test_refuses_template(marketplace_model, marketplace_http):
         resolve_model(marketplace_model["id"])
 
 
+def test_custom_registry_url_is_used(marketplace_model, marketplace_http, monkeypatch):
+    monkeypatch.setenv("CHAP_MARKETPLACE_URL", "https://models.example.org/registry/")
+    resolve_model(marketplace_model["id"])
+    assert marketplace_http == [
+        "https://models.example.org/registry/registry.yaml",
+        f"https://models.example.org/registry/models/{marketplace_model['id']}.yaml",
+    ]
+
+
 def test_unknown_model_never_fetches_arbitrary_path(marketplace_http):
     with pytest.raises(ValueError, match="not listed"):
         resolve_model("../../custom")

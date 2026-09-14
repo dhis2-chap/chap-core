@@ -1,5 +1,6 @@
 """Resolve reviewed chapkit image pins from the CHAP model marketplace."""
 
+import os
 from dataclasses import dataclass
 from typing import Literal
 
@@ -7,7 +8,12 @@ import httpx
 import yaml
 from pydantic import BaseModel, Field
 
-REGISTRY_URL = "https://raw.githubusercontent.com/dhis2-chap/model-marketplace/main"
+DEFAULT_REGISTRY_URL = "https://raw.githubusercontent.com/dhis2-chap/model-marketplace/main"
+
+
+def registry_url() -> str:
+    """Base URL of the marketplace registry, overridable with CHAP_MARKETPLACE_URL."""
+    return os.getenv("CHAP_MARKETPLACE_URL", DEFAULT_REGISTRY_URL).rstrip("/")
 
 
 class Registry(BaseModel):
@@ -44,14 +50,15 @@ class ModelPin:
 
 def resolve_model(model: str) -> ModelPin:
     """Return only the registry's verified stable pin, never the latest channel."""
+    base_url = registry_url()
     with httpx.Client(timeout=30, follow_redirects=True) as client:
-        response = client.get(f"{REGISTRY_URL}/registry.yaml")
+        response = client.get(f"{base_url}/registry.yaml")
         response.raise_for_status()
         registry = Registry.model_validate(yaml.safe_load(response.text))
         model_file = f"models/{model}.yaml"
         if model_file not in registry.models:
             raise ValueError(f"Model '{model}' is not listed in the marketplace.")
-        response = client.get(f"{REGISTRY_URL}/{model_file}")
+        response = client.get(f"{base_url}/{model_file}")
         response.raise_for_status()
         entry = MarketplaceModel.model_validate(yaml.safe_load(response.text))
 
