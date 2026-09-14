@@ -71,6 +71,18 @@ and Compose settings; failed updates attempt to restart the previous image.
 Use `--platform linux/amd64` for models that only publish AMD64 images, such as
 R-INLA models on Apple Silicon. The platform is retained for subsequent updates.
 
+### A different model registry
+
+Set `CHAP_MARKETPLACE_URL` in your shell to resolve models from another registry,
+such as one hosting your organisation's own models. The `chap` command reads it
+from the environment, not from a deployment's `.env` file. Its models are not
+marketplace-reviewed, so both installation and updates require `--accept-risk`:
+
+```bash
+export CHAP_MARKETPLACE_URL=https://models.example.org/registry
+chap install my_org_model --accept-risk
+```
+
 ### Custom chapkit models
 
 Custom images must implement the chapkit service API on port 8000 and, for a CHAP

@@ -33,7 +33,7 @@ def test_refuses_missing_stable(marketplace_model, marketplace_http):
         resolve_model(marketplace_model["id"])
 
 
-@pytest.mark.parametrize("tag", ["latest", "sha-0000000"])
+@pytest.mark.parametrize("tag", ["latest", "sha-0000000", "sha-"])
 def test_refuses_invalid_pin(marketplace_model, marketplace_http, tag):
     marketplace_model["versions"][0]["image_tag"] = tag
     with pytest.raises(ValueError, match="invalid stable image pin"):
@@ -53,6 +53,22 @@ def test_custom_registry_url_is_used(marketplace_model, marketplace_http, monkey
         "https://models.example.org/registry/registry.yaml",
         f"https://models.example.org/registry/models/{marketplace_model['id']}.yaml",
     ]
+
+
+def test_custom_registry_requires_risk_acceptance(marketplace_model, marketplace_http, model_deployment, monkeypatch):
+    monkeypatch.setenv("CHAP_MARKETPLACE_URL", "https://models.example.org/registry")
+    with pytest.raises(SystemExit):
+        install(marketplace_model["id"])
+    model_deployment.runner.assert_not_called()
+    install(marketplace_model["id"], accept_risk=True)
+    config = yaml.safe_load(model_deployment.overlay.read_text())
+    assert config["services"][f"marketplace-{marketplace_model['service_id']}"]["x-chap-custom"] is False
+
+
+def test_accepts_full_length_sha_tag(marketplace_model, marketplace_http):
+    commit = marketplace_model["versions"][0]["commit"]
+    marketplace_model["versions"][0]["image_tag"] = f"sha-{commit}"
+    assert resolve_model(marketplace_model["id"]).image.endswith(f":sha-{commit}")
 
 
 def test_unknown_model_never_fetches_arbitrary_path(marketplace_http):

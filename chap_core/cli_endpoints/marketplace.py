@@ -74,7 +74,7 @@ def _deploy(
     import yaml
 
     from chap_core.log_config import initialize_logging
-    from chap_core.services.model_marketplace import resolve_model
+    from chap_core.services.model_marketplace import DEFAULT_REGISTRY_URL, registry_url, resolve_model
 
     initialize_logging()
     try:
@@ -99,15 +99,18 @@ def _deploy(
         if not updating and previous is not None:
             raise ValueError(f"Model '{model}' is already installed. Run 'chap update {model}' instead.")
 
+        registry = registry_url()
         custom = image is not None or (previous is not None and previous.get("x-chap-custom", False))
-        if custom:
+        if custom or registry != DEFAULT_REGISTRY_URL:
+            source = "Custom models" if custom else f"Models from '{registry}'"
             warning = (
-                "Custom models are not reviewed by the CHAP marketplace. You accept responsibility "
+                f"{source} are not reviewed by the CHAP marketplace. You accept responsibility "
                 "for running their code, sharing data with them, and using their forecasts."
             )
             if not accept_risk:
                 raise ValueError(f"{warning} Pass --accept-risk to continue.")
             logger.warning(warning)
+        if custom:
             image = image if image is not None else previous["image"]
             if not image or any(character.isspace() for character in image) or "$" in image:
                 raise ValueError("Provide a valid custom container image reference.")

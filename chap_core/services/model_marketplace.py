@@ -70,8 +70,9 @@ def resolve_model(model: str) -> ModelPin:
     version = next((version for version in entry.versions if version.version == stable), None)
     if version is None or version.status != "verified":
         raise ValueError(f"Model '{model}' has no verified stable version.")
-    if version.image_tag == "latest" or (
-        version.image_tag.startswith("sha-") and version.image_tag != f"sha-{version.commit[:7]}"
-    ):
+    tag = version.image_tag
+    # A sha- tag must name this version's commit; any prefix length is accepted.
+    required_prefix = tag[4:] if tag.startswith("sha-") else version.commit
+    if tag == "latest" or not required_prefix or not version.commit.startswith(required_prefix):
         raise ValueError(f"Model '{model}' has an invalid stable image pin.")
     return ModelPin(image=f"{entry.source.image}:{version.image_tag}", version=version.version)
