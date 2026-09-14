@@ -5,7 +5,7 @@ import pytest
 import yaml
 
 from chap_core.cli import app
-from chap_core.cli_endpoints.marketplace import install, update
+from chap_core.cli_endpoints.marketplace import install, uninstall, update
 from chap_core.services.model_marketplace import resolve_model
 
 
@@ -214,3 +214,56 @@ def test_invalid_registry_never_deploys(marketplace_model, marketplace_http, mod
     with pytest.raises(SystemExit):
         install(marketplace_model["id"])
     model_deployment.runner.assert_not_called()
+
+
+def test_uninstall_removes_one_model_and_keeps_the_others(marketplace_model, marketplace_http, model_deployment):
+    model = marketplace_model["id"]
+    install("custom", image="example/model:v1", accept_risk=True)
+    app(["install", model], result_action="return_value")
+    app(["uninstall", model], result_action="return_value")
+    config = yaml.safe_load(model_deployment.overlay.read_text())
+    assert list(config["services"]) == ["marketplace-custom"]
+    assert list(config["volumes"]) == ["marketplace-custom-data"]
+    commands = [call.args[0] for call in model_deployment.runner.call_args_list]
+    assert commands[-1][-4:] == ["rm", "--stop", "--force", f"marketplace-{marketplace_model['service_id']}"]
+    assert not any("volume" in command for command in commands)
+
+
+def test_uninstall_last_model_removes_the_overlay(model_deployment):
+    install("custom", image="example/model:v1", accept_risk=True)
+    uninstall("custom")
+    assert not model_deployment.overlay.exists()
+    assert sorted(path.name for path in model_deployment.overlay.parent.glob("*.yml")) == ["compose.yml"]
+
+
+def test_uninstall_local_removes_the_local_overlay(model_deployment):
+    install("custom", image="example/model:v1", accept_risk=True, local=True)
+    uninstall("custom", local=True)
+    assert not model_deployment.local_overlay.exists()
+    assert "--project-name" in model_deployment.runner.call_args.args[0]
+
+
+def test_uninstall_deletes_the_data_volume_when_asked(model_deployment):
+    install("custom", image="example/model:v1", accept_risk=True)
+    uninstall("custom", delete_data=True)
+    assert model_deployment.runner.call_args.args[0] == [
+        "docker",
+        "volume",
+        "rm",
+        "chap-test_marketplace-custom-data",
+    ]
+
+
+def test_uninstall_missing_model_fails(model_deployment):
+    with pytest.raises(SystemExit):
+        uninstall("custom")
+    model_deployment.runner.assert_not_called()
+
+
+def test_failed_removal_keeps_the_model_installed(model_deployment):
+    install("custom", image="example/model:v1", accept_risk=True)
+    previous = model_deployment.overlay.read_text()
+    model_deployment.runner.side_effect = subprocess.CalledProcessError(1, "docker")
+    with pytest.raises(SystemExit):
+        uninstall("custom")
+    assert model_deployment.overlay.read_text() == previous

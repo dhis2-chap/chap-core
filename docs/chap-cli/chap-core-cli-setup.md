@@ -71,6 +71,19 @@ and Compose settings; failed updates attempt to restart the previous image.
 Use `--platform linux/amd64` for models that only publish AMD64 images, such as
 R-INLA models on Apple Silicon. The platform is retained for subsequent updates.
 
+### Removing a model
+
+```bash
+chap uninstall chapkit_simple_multistep_model
+chap uninstall chapkit_simple_multistep_model --local
+```
+
+The service is stopped and removed, and CHAP drops it from its registry on its own
+once the container stops. The model's data volume is kept so a later install
+resumes from it; pass `--delete-data` to remove it permanently. When the last
+model is uninstalled, the Compose file it was listed in is deleted, so stop
+passing `-f compose.marketplace.yml`.
+
 ### A different model registry
 
 Set `CHAP_MARKETPLACE_URL` in your shell to resolve models from another registry,

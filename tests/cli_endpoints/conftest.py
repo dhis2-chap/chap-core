@@ -39,9 +39,11 @@ def model_deployment(tmp_path, monkeypatch, mocker):
     deployments = []
 
     def run(command, **kwargs):
-        overlay = [Path(command[index + 1]) for index, value in enumerate(command) if value == "-f"][-1]
-        deployments.append(yaml.safe_load(overlay.read_text()))
-        return SimpleNamespace(stdout="127.0.0.1:54321\n")
+        overlays = [Path(command[index + 1]) for index, value in enumerate(command) if value == "-f"]
+        if overlays:
+            deployments.append(yaml.safe_load(overlays[-1].read_text()))
+        stdout = '{"name": "chap-test"}' if "config" in command else "127.0.0.1:54321\n"
+        return SimpleNamespace(stdout=stdout)
 
     runner = mocker.patch("chap_core.cli_endpoints.marketplace.subprocess.run", side_effect=run)
     return SimpleNamespace(

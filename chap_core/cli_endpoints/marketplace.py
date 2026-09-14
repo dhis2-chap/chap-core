@@ -1,11 +1,12 @@
 """Install and update chapkit model services in a CHAP Compose deployment."""
 
+import json
 import logging
 import re
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from cyclopts import Parameter
 
@@ -25,6 +26,7 @@ LocalArg = Annotated[
     bool, Parameter(help="Run a standalone local service for CLI evaluations (no CHAP server needed).")
 ]
 PlatformArg = Annotated[str | None, Parameter(help="Container platform, e.g. linux/amd64 for R-INLA on Apple Silicon.")]
+DeleteDataArg = Annotated[bool, Parameter(help="Also delete the model's data volume. This cannot be undone.")]
 
 
 def install(
@@ -61,6 +63,92 @@ def update(
     _deploy(model, compose_file, image, accept_risk, local, platform, updating=True)
 
 
+def uninstall(
+    model: ModelArg,
+    *,
+    compose_file: ComposeArg = (Path("compose.yml"),),
+    local: LocalArg = False,
+    delete_data: DeleteDataArg = False,
+) -> None:
+    """Remove an installed model service from CHAP.
+
+    The model's data volume is kept so a later install resumes from it; pass
+    --delete-data to remove it permanently. CHAP drops the service from its
+    registry on its own once the container stops.
+    """
+    import yaml
+
+    from chap_core.log_config import initialize_logging
+
+    initialize_logging()
+    try:
+        overlay, config, service_name = _prepare(model, compose_file, local)
+        if config["services"].pop(service_name, None) is None:
+            raise ValueError(f"Model '{model}' is not installed.")
+        volume = f"{service_name}-data"
+        config["volumes"].pop(volume, None)
+        command = [*_compose_command(compose_file, local), "-f", str(overlay)]
+        # Remove the container while the overlay still declares it, then publish the pruned file.
+        subprocess.run([*command, "rm", "--stop", "--force", service_name], check=True)
+        if delete_data:
+            project = subprocess.run(
+                [*command, "config", "--format", "json"], check=True, capture_output=True, text=True
+            )
+            subprocess.run(["docker", "volume", "rm", f"{json.loads(project.stdout)['name']}_{volume}"], check=True)
+        if config["services"]:
+            pending = _write_pending(config, overlay)
+            try:
+                pending.replace(overlay)
+            finally:
+                pending.unlink(missing_ok=True)
+        else:
+            overlay.unlink()
+            logger.info("No models remain; removed %s.", overlay)
+        logger.info("Uninstalled %s.%s", model, "" if delete_data else f" Its data volume '{volume}' was kept.")
+    except (ValueError, OSError, yaml.YAMLError, subprocess.CalledProcessError) as error:
+        logger.error("%s", error)
+        raise SystemExit(1) from error
+
+
+def _prepare(model: str, compose_files: tuple[Path, ...], local: bool) -> tuple[Path, dict[str, Any], str]:
+    """Validate the arguments and return the overlay path, its config and the service name."""
+    import yaml
+
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_]*", model):
+        raise ValueError("Model names must contain only lowercase letters, digits and underscores.")
+    if not local and (not compose_files or any(not path.is_file() for path in compose_files)):
+        raise ValueError("Run from a CHAP deployment directory or pass its base files with --compose-file.")
+    if local:
+        overlay = Path.home() / ".chap" / "compose.models.yml"
+        overlay.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        overlay = compose_files[0].resolve().parent / "compose.marketplace.yml"
+    config = yaml.safe_load(overlay.read_text()) if overlay.exists() else {"services": {}, "volumes": {}}
+    if not isinstance(config, dict) or not isinstance(config.get("services"), dict):
+        raise ValueError(f"Invalid model Compose file: {overlay}")
+    config.setdefault("volumes", {})
+    return overlay, config, f"marketplace-{model.replace('_', '-')}"
+
+
+def _compose_command(compose_files: tuple[Path, ...], local: bool) -> list[str]:
+    command = ["docker", "compose"]
+    if local:
+        command.extend(["--project-name", "chap-local-models"])
+    else:
+        for path in compose_files:
+            command.extend(["-f", str(path.resolve())])
+    return command
+
+
+def _write_pending(config: dict[str, Any], overlay: Path) -> Path:
+    """Write the new model Compose file beside the overlay it will replace."""
+    import yaml
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", dir=overlay.parent, delete=False) as temporary:
+        yaml.safe_dump(config, temporary, sort_keys=False)
+        return Path(temporary.name)
+
+
 def _deploy(
     model: str,
     compose_files: tuple[Path, ...],
@@ -78,20 +166,7 @@ def _deploy(
 
     initialize_logging()
     try:
-        if not re.fullmatch(r"[a-z0-9][a-z0-9_]*", model):
-            raise ValueError("Model names must contain only lowercase letters, digits and underscores.")
-        if not local and (not compose_files or any(not path.is_file() for path in compose_files)):
-            raise ValueError("Run from a CHAP deployment directory or pass its base files with --compose-file.")
-        if local:
-            overlay = Path.home() / ".chap" / "compose.models.yml"
-            overlay.parent.mkdir(parents=True, exist_ok=True)
-        else:
-            overlay = compose_files[0].resolve().parent / "compose.marketplace.yml"
-        config = yaml.safe_load(overlay.read_text()) if overlay.exists() else {"services": {}, "volumes": {}}
-        if not isinstance(config, dict) or not isinstance(config.get("services"), dict):
-            raise ValueError(f"Invalid model Compose file: {overlay}")
-        config.setdefault("volumes", {})
-        service_name = f"marketplace-{model.replace('_', '-')}"
+        overlay, config, service_name = _prepare(model, compose_files, local)
         services = config["services"]
         previous = services.get(service_name)
         if updating and previous is None:
@@ -147,16 +222,9 @@ def _deploy(
             service["platform"] = platform
         services[service_name] = service
 
-        command = ["docker", "compose"]
-        if local:
-            command.extend(["--project-name", "chap-local-models"])
-        else:
-            for path in compose_files:
-                command.extend(["-f", str(path.resolve())])
+        command = _compose_command(compose_files, local)
         # Publish the new pin only after Docker has pulled and started it successfully.
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", dir=overlay.parent, delete=False) as temporary:
-            pending = Path(temporary.name)
-            yaml.safe_dump(config, temporary, sort_keys=False)
+        pending = _write_pending(config, overlay)
         try:
             pending_command = [*command, "-f", str(pending)]
             subprocess.run([*pending_command, "pull", service_name], check=True)
@@ -194,3 +262,4 @@ def _deploy(
 def register_commands(app):
     app.command()(install)
     app.command()(update)
+    app.command()(uninstall)
