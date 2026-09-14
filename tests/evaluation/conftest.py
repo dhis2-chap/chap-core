@@ -8,7 +8,14 @@ import numpy as np
 from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.database.dataset_tables import DataSetWithObservations, Observation, DataSet
-from chap_core.database.tables import BacktestRead, OldBacktestRead, BacktestForecast, Backtest, BacktestMetric
+from chap_core.database.tables import (
+    BacktestRead,
+    OldBacktestRead,
+    BacktestForecast,
+    Backtest,
+    BacktestMetric,
+    BacktestSpecification,
+)
 from chap_core.simulation.naive_simulator import DatasetDimensions, AdditiveSimulator, BacktestSimulator
 
 
@@ -190,6 +197,7 @@ def backtest(dataset, forecasts):
         dataset=dataset,
         model_id="Test Model",
         model_db_id=1,
+        specification=BacktestSpecification(dataset_id=1),
         name="Test Backtest",
         created=None,
         aggregate_metrics={},
@@ -206,6 +214,7 @@ def backtest_weeks(dataset_weeks, forecasts_weeks):
         dataset=dataset_weeks,
         model_id="Test Model",
         model_db_id=1,
+        specification=BacktestSpecification(dataset_id=1),
         name="Test Backtest",
         created=None,
         aggregate_metrics={},
@@ -223,6 +232,7 @@ def backtest_weeks_large(dataset_weeks_large, forecasts_weeks_large):
         dataset=dataset_weeks_large,
         model_id="Test Model Large",
         model_db_id=1,
+        specification=BacktestSpecification(dataset_id=1),
         name="Large Test Backtest",
         created=None,
         aggregate_metrics={},
@@ -240,6 +250,7 @@ def backtest_empty(dataset):
         dataset=dataset,
         model_id="Test Model",
         model_db_id=1,
+        specification=BacktestSpecification(dataset_id=1),
         name="Empty Test Backtest",
         created=None,
         aggregate_metrics={},

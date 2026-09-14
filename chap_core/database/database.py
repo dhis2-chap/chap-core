@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.sql.expression import SelectOfScalar
 
+from chap_core.api_types import BacktestParams
 from chap_core.log_config import is_debug_mode
 from chap_core.predictor.naive_estimator import NaiveEstimator
 
@@ -28,7 +29,7 @@ from .model_templates_and_config_tables import (
     compute_configuration_digest,
     drifted_template_content_fields,
 )
-from .tables import Backtest, Prediction, PredictionSamplesEntry
+from .tables import Backtest, BacktestSpecification, Prediction, PredictionSamplesEntry
 
 logger = logging.getLogger(__name__)
 engine = None
@@ -504,6 +505,41 @@ class SessionWrapper:
     def add_backtest(self, backtest: Backtest) -> None:
         self.session.add(backtest)
         self.session.commit()
+
+    def get_or_create_backtest_specification(
+        self, dataset_id: int, params: BacktestParams, org_units: list[str]
+    ) -> BacktestSpecification:
+        """Resolve the single specification row for these parameters, creating it if it is new.
+
+        Specifications are deduplicated so that backtests sharing one are comparable.
+        Concurrent backtest jobs can reach this at the same time, so losing the race on
+        the unique constraint is expected and re-reads the winner's row rather than
+        failing the backtest.
+        """
+        params_by_name = params.model_dump()
+
+        def existing() -> BacktestSpecification | None:
+            query = select(BacktestSpecification).where(BacktestSpecification.dataset_id == dataset_id)
+            for name, value in params_by_name.items():
+                query = query.where(getattr(BacktestSpecification, name) == value)
+            return self.session.exec(query).first()
+
+        found = existing()
+        if found is not None:
+            return found
+
+        specification = BacktestSpecification(dataset_id=dataset_id, org_units=org_units, **params_by_name)
+        self.session.add(specification)
+        try:
+            self.session.commit()
+        except sqlalchemy.exc.IntegrityError:
+            self.session.rollback()
+            found = existing()
+            if found is None:
+                raise
+            return found
+        self.session.refresh(specification)
+        return specification
 
     def add_predictions(
         self,

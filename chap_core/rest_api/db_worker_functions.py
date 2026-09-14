@@ -107,8 +107,9 @@ def run_backtest(
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
 
-    # Persist the resolved values, not the requested ones, so the row records
-    # what actually ran. This is the only place these fields are written.
+    # Carry the resolved values, not the requested ones, so everything downstream of
+    # here sees what actually ran. The persisted copy is the specification resolved
+    # below; these keep `info` consistent for job metadata and logging.
     info.n_periods = n_periods
     info.n_splits = n_splits
     info.stride = stride
@@ -122,6 +123,19 @@ def run_backtest(
         n_periods=n_periods,
         n_splits=n_splits,
         stride=stride,
+    )
+    # Resolved once the dataset is filtered: which org units survive is part of what
+    # makes two backtests comparable, and the filter above reads the parameters.
+    specification = session.get_or_create_backtest_specification(
+        dataset_id=info.dataset_id,
+        params=BacktestParams(
+            n_periods=n_periods,
+            n_splits=n_splits,
+            stride=stride,
+            n_retrain=n_retrain,
+            future_weather_provider=future_weather_provider,
+        ),
+        org_units=list(dataset.locations()),
     )
     train_set, test_generator = train_test_generator(
         dataset,
@@ -142,7 +156,9 @@ def run_backtest(
         n_retrain=n_retrain,
     )
     last_train_period = dataset.period_range[-1]
-    evaluation = Evaluation.from_samples_with_truth(predictions_list, last_train_period, configured_model, info=info)
+    evaluation = Evaluation.from_samples_with_truth(
+        predictions_list, last_train_period, configured_model, info=info, specification=specification
+    )
     backtest = evaluation.to_backtest()
     backtest.model_db_id = configured_model.id
     session.add_backtest(backtest)

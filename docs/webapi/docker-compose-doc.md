@@ -21,7 +21,7 @@ This is a short example for how to setup Chap-core locally as a service using do
 
 ## Compose file reference
 
-The repository ships several compose files. `compose.yml` and `compose.ghcr.yml` are **base** files and are alternatives to each other — never stack them, because Compose appends list fields on overlay and you get duplicate `security_opt` / `cap_drop` entries that fail validation. Everything else is an overlay layered on top of a base with additional `-f` flags.
+The repository ships several compose files. `compose.yml` and `compose.ghcr.yml` are **base** files and are alternatives to each other — never stack them, because Compose appends list fields on overlay and you get duplicate `security_opt` / `cap_drop` entries that fail validation. Everything else is an overlay layered on top of a base with additional `-f` flags. Both base files keep `redis` and `postgres` on a separate `backend` network; `chap` and `worker` join it alongside the default network, so model services on the default network cannot reach the broker or the database.
 
 | File | Kind | Purpose |
 |------|------|---------|

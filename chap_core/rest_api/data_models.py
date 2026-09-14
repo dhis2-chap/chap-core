@@ -105,8 +105,12 @@ class ImportSummaryResponse(DBModel):
     rejected: list[ValidationError] = Field(description="One row per rejected observation, with the reason.")
 
 
-class BacktestCreate(BacktestBase):
-    """Request body for creating a backtest row directly (DB-level — typically the long path goes via `MakeBacktestRequest`)."""
+class BacktestCreate(BacktestParams, BacktestBase):
+    """Request body for creating a backtest row directly (DB-level — typically the long path goes via `MakeBacktestRequest`).
+
+    Carries the evaluation parameters flat; `run_backtest` resolves them into the
+    deduplicated `BacktestSpecification` the persisted row points at.
+    """
 
     # Accept either the configured-model integer primary key or its string
     # name. The underlying DB column (`BacktestBase.model_id`) is a string;
