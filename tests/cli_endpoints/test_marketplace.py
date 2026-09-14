@@ -86,6 +86,9 @@ def test_install_and_update_preserve_settings_and_data(marketplace_model, market
     assert service["image"].endswith(":sha-57eeb78")
     assert service["environment"]["SERVICEKIT_ORCHESTRATOR_URL"].endswith("/$$register")
     assert service["environment"]["SERVICEKIT_HOST"] == service_name
+    # The database must live on the mounted volume, not the read-only root filesystem.
+    assert service["environment"]["DATABASE_URL"] == "sqlite+aiosqlite:////app/data/chapkit.db"
+    assert service["volumes"][0] == f"{service_name}-data:/app/data"
     assert "ports" not in service
     service["cpus"] = 2
     model_deployment.overlay.write_text(yaml.safe_dump(installed))
@@ -110,7 +113,7 @@ def test_install_local_and_update_print_url(marketplace_model, marketplace_http,
     config = yaml.safe_load(model_deployment.local_overlay.read_text())
     service = next(iter(config["services"].values()))
     assert service["ports"] == [{"target": 8000, "host_ip": "127.0.0.1"}]
-    assert "environment" not in service
+    assert service["environment"] == {"DATABASE_URL": "sqlite+aiosqlite:////app/data/chapkit.db"}
     assert "depends_on" not in service
     assert "http://127.0.0.1:54321" in caplog.text
     assert not model_deployment.overlay.exists()

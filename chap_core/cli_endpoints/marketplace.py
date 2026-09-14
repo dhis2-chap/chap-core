@@ -12,6 +12,12 @@ from cyclopts import Parameter
 
 logger = logging.getLogger(__name__)
 
+DATA_MOUNT = "/app/data"
+# chapkit images default DATABASE_URL to the relative path "data/chapkit.db", which resolves
+# against each image's WORKDIR. Pin it to the mounted volume so a model whose WORKDIR is not
+# /app does not try to create its database on the read-only root filesystem and fail to start.
+DATABASE_URL = f"sqlite+aiosqlite:///{DATA_MOUNT}/chapkit.db"
+
 ModelArg = Annotated[str, Parameter(help="Marketplace model ID, or a name for a custom chapkit model.")]
 ComposeArg = Annotated[
     tuple[Path, ...],
@@ -205,16 +211,17 @@ def _deploy(
                 "security_opt": ["no-new-privileges:true"],
                 "cap_drop": ["ALL"],
                 "environment": {
+                    "DATABASE_URL": DATABASE_URL,
                     "SERVICEKIT_ORCHESTRATOR_URL": "http://chap:8000/v2/services/$$register",
                     "SERVICEKIT_REGISTRATION_KEY": "${SERVICEKIT_REGISTRATION_KEY:-}",
                     "SERVICEKIT_HOST": service_name,
                 },
-                "volumes": [f"{service_name}-data:/app/data", {"type": "tmpfs", "target": "/tmp"}],
+                "volumes": [f"{service_name}-data:{DATA_MOUNT}", {"type": "tmpfs", "target": "/tmp"}],
                 "depends_on": {"chap": {"condition": "service_healthy"}},
             }
             config["volumes"][f"{service_name}-data"] = {}
             if local:
-                del service["environment"]
+                service["environment"] = {"DATABASE_URL": DATABASE_URL}
                 del service["depends_on"]
                 service["ports"] = [{"target": 8000, "host_ip": "127.0.0.1"}]
         service.update({"image": image, "x-chap-custom": bool(custom), "x-chap-version": version})
