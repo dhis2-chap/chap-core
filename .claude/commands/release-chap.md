@@ -64,3 +64,33 @@ gh run list --workflow="Upload to PyPI" --limit=1
 ```
 
 Provide the GitHub Actions URL so they can monitor progress.
+
+## 8. Announce on the Community of Practice
+
+Ask the user whether to post a release announcement on the DHIS2 Community of
+Practice (https://community.dhis2.org, Chap category). If they decline, stop here.
+
+If they accept, check that the `discourse` plugin is installed:
+
+```bash
+claude plugin list | grep discourse@dhis2-chap
+```
+
+If it is not installed, ask the user to run these inside Claude Code, then
+restart Claude Code so the skill loads:
+
+```
+/plugin marketplace add dhis2-chap/claude-plugins
+/plugin install discourse@dhis2-chap
+/discourse-setup
+```
+
+The marketplace lives at https://github.com/dhis2-chap/claude-plugins.
+`/discourse-setup` registers the Discourse MCP server and generates an API key
+for community.dhis2.org.
+
+Once the plugin is available, invoke the `discourse` skill and draft the
+announcement from the release notes in step 3, following the skill's writing
+conventions. Save it as a draft in the Chap category and give the user the link
+to their drafts page so they can review and publish it.
+
