@@ -108,7 +108,7 @@ jobs:
       #     swap-storage: true
       - name: Install uv
         if: needs.changes.outputs.tests == 'true'
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.1.0
       - name: Set up Python ${{ matrix.python-version }}
         if: needs.changes.outputs.tests == 'true'
         run: |
