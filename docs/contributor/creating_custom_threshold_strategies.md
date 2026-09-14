@@ -40,6 +40,24 @@ Each strategy:
 | `line` | int | Zero-based index into the requested line parameter list |
 | `threshold` | float | Computed threshold value |
 
+## Built-in strategies
+
+| Id | Line parameter | Threshold |
+|----|----------------|-----------|
+| `seasonal` | `std_multiplier` (2.0) | `mean + k*std` of historical same-season values |
+| `geometric` | `std_multiplier` (2.0) | `expm1(mean(log1p(x)) + k*std(log1p(x)))` — the geometric mean times the geometric standard deviation to the power k, on a `x + 1` scale so zero counts are kept |
+| `percentile` | `quantile` (0.75) | percentile of historical same-season values over a baseline window of complete years |
+
+All three bucket the history by season — month-of-year for monthly data, week-of-year for
+weekly data — and all accept their line parameter as a list to return several lines at once.
+
+Picking between them comes down to how the baseline should treat a past epidemic year.
+`seasonal` lets it pull the line up through both the mean and the standard deviation.
+`percentile` is an order statistic over the data as they are, so the epidemic shifts the line
+only as far as its rank. `geometric` is centred on the geometric mean, which AM-GM keeps at or
+below the arithmetic mean, though its band is multiplicative and on a short baseline can come
+out wider than `seasonal`'s.
+
 ## Writing a strategy
 
 Declare a params model with a `type` literal matching the strategy id, subclass
@@ -107,6 +125,7 @@ imported. For Chap to discover the strategy at startup, import your module in
 ```python
 def _discover_strategies():
     from chap_core.assessment.thresholds import (  # noqa: F401
+        geometric,
         historical_percentile,
         percentile,
         seasonal,

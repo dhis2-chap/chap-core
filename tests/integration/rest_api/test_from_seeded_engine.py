@@ -121,7 +121,7 @@ def test_backtest_plot(override_session, tmp_path):
 def test_threshold_strategies_discovery(override_session):
     strategies = client.get_json("/v1/analytics/thresholds/strategies")
     ids = {s["id"] for s in strategies}
-    assert {"seasonal", "percentile"}.issubset(ids)
+    assert {"seasonal", "percentile", "geometric"}.issubset(ids)
     seasonal = next(s for s in strategies if s["id"] == "seasonal")
     assert seasonal["displayName"]
     assert seasonal["description"]
@@ -135,7 +135,7 @@ def test_threshold_params_schema_is_discriminated_union():
         assert "oneOf" in params, params
         assert params["discriminator"]["propertyName"] == "type"
         mapping = params["discriminator"]["mapping"]
-        assert set(mapping) == {"seasonal", "percentile"}
+        assert set(mapping) == {"seasonal", "percentile", "geometric"}
         # the discriminator must be required, or generated clients get `type?: string` and cannot narrow the union
         for ref in mapping.values():
             member = schema["components"]["schemas"][ref.rsplit("/", 1)[-1]]
@@ -167,6 +167,26 @@ def test_compute_thresholds(override_session):
     assert {e["period"] for e in entries} == {"2023-01", "2023-02"}
     assert {e["location"] for e in entries} == {"loc_1", "loc_2", "loc_3"}
     assert all(len(e["values"]) == 1 and e["values"][0] is not None for e in entries)
+
+
+@pytest.mark.parametrize(
+    "params, expected_lines",
+    [
+        ({"type": "geometric"}, [2.0]),
+        ({"type": "geometric", "stdMultiplier": [1.0, 2.0]}, [1.0, 2.0]),
+    ],
+)
+def test_compute_thresholds_geometric(override_session, params, expected_lines):
+    body = {"dataset_id": 1, "period_ids": ["2023-01"], "params": params}
+    response = client.post("/v1/analytics/thresholds", json=body)
+    assert response.status_code == 200, response.json()
+    result = response.json()
+    assert result["lines"] == expected_lines
+    entries = result["entries"]
+    assert {e["location"] for e in entries} == {"loc_1", "loc_2", "loc_3"}
+    for entry in entries:
+        assert len(entry["values"]) == len(expected_lines)
+        assert all(v is not None for v in entry["values"])
 
 
 def test_compute_thresholds_multi_line(override_session):
