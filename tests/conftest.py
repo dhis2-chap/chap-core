@@ -429,3 +429,17 @@ def make_test_df():
         return pd.DataFrame(rows)
 
     return _make
+
+
+@pytest.fixture
+def make_row_df():
+    """Factory for DataFrames with explicit per-row values.
+
+    Returns a callable _make(rows, columns=(...)) that builds a DataFrame from a list of row
+    tuples, one tuple per row, in the given column order.
+    """
+
+    def _make(rows, columns=("location", "time_period", "rainfall")):
+        return pd.DataFrame(rows, columns=list(columns))
+
+    return _make
