@@ -1,5 +1,6 @@
 """The service info parser must accept fields added by newer chapkit services."""
 
+from chap_core.model_spec import PeriodType
 from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config
 from chap_core.rest_api.services.schemas import MLServiceInfo
 
@@ -46,3 +47,10 @@ def test_provenance_fields_do_not_break_template_conversion():
 
     assert config.name == "chapkit-ewars-model"
     assert config.required_covariates == ["population"]
+
+
+def test_service_info_period_type_any_maps_to_chap_any():
+    info = MLServiceInfo.model_validate({**CHAPKIT_2_INFO, "period_type": "any"})
+    config = ml_service_info_to_model_template_config(info, "http://ewars:8000")
+
+    assert config.supported_period_type == PeriodType.any
