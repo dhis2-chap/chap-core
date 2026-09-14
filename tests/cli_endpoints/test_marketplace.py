@@ -161,6 +161,26 @@ def test_failed_pull_keeps_previous_install(model_deployment, failure):
     ]
 
 
+def test_failed_pull_suggests_the_platform_flag(model_deployment, caplog):
+    runner = model_deployment.runner.side_effect
+
+    def fail_pull(command, **kwargs):
+        if "pull" in command:
+            raise subprocess.CalledProcessError(1, command)
+        return runner(command, **kwargs)
+
+    model_deployment.runner.side_effect = fail_pull
+    with pytest.raises(SystemExit):
+        install("custom", image="example/model:v1", accept_risk=True)
+    assert "--platform linux/amd64" in caplog.text
+    # Docker already printed the real reason, so the hint must be the last thing the user sees.
+    assert caplog.records[-1].message.endswith("--platform linux/amd64")
+    caplog.clear()
+    with pytest.raises(SystemExit):
+        install("custom", image="example/model:v1", accept_risk=True, platform="linux/amd64")
+    assert "--platform" not in caplog.text
+
+
 def test_network_failure_does_not_deploy(model_deployment, mocker):
     import httpx
 

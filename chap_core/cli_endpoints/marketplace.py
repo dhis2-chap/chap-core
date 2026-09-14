@@ -234,7 +234,18 @@ def _deploy(
         pending = _write_pending(config, overlay)
         try:
             pending_command = [*command, "-f", str(pending)]
-            subprocess.run([*pending_command, "pull", service_name], check=True)
+            try:
+                subprocess.run([*pending_command, "pull", service_name], check=True)
+            except subprocess.CalledProcessError as error:
+                # Docker has already printed why the pull failed, so add a hint instead of repeating it.
+                hint = ""
+                if platform is None:
+                    hint = (
+                        " If this model publishes no image for your machine's architecture, retry with:"
+                        f" chap {'update' if updating else 'install'} {model} --platform linux/amd64"
+                    )
+                logger.error("Could not pull %s.%s", image, hint)
+                raise SystemExit(1) from error
             up = ["up", "-d", "--no-deps", "--wait", "--wait-timeout", "120", service_name]
             try:
                 subprocess.run([*pending_command, *up], check=True)
