@@ -167,6 +167,23 @@ def _archive_stale_chapkit_templates(session: Session, service_list) -> None:
     session.commit()
 
 
+def _archive_unregistered_chapkit_templates(session: Session) -> None:
+    """Archive chapkit templates whose service is no longer registered.
+
+    Cheaper than a full sync: it reads the registry only, never the services
+    themselves, so model pickers can drop an uninstalled model without paying
+    for a config-schema fetch per live service.
+    """
+    try:
+        from chap_core.rest_api.v2.dependencies import get_orchestrator
+
+        service_list = get_orchestrator().get_all()
+    except Exception:
+        logger.debug("Could not reach service registry, skipping chapkit archival")
+        return
+    _archive_stale_chapkit_templates(session, service_list)
+
+
 def _resolve_chapkit_default_additional_covariates(client) -> list[str]:
     """Probe a chapkit service for its BaseConfig `additional_continuous_covariates` default.
 
@@ -760,6 +777,9 @@ def list_configured_models(session: Session = Depends(get_session)):
     entry carries the configuration values along with template metadata so you can
     surface "Model X (CRPS-tuned, 12 lags, ERA5)" or similar in a UI.
     """
+    # Models whose chapkit service is gone must leave the picker even when nothing
+    # has listed model templates since the service was uninstalled.
+    _archive_unregistered_chapkit_templates(session)
     configured_models_read = SessionWrapper(session=session).get_configured_models()
 
     # return

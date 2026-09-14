@@ -222,6 +222,17 @@ def test_deregistered_service_becomes_archived(client, register_service, fake_or
     assert matching[0]["archived"] is True
 
 
+def test_deregistered_service_leaves_configured_models(client, register_service, fake_orchestrator):
+    register_service()
+    client.get("/v1/crud/model-templates")
+    assert [m["name"] for m in client.get("/v1/crud/configured-models").json()] == ["test-model"]
+
+    fake_orchestrator.deregister("test-model")
+
+    # The picker drops it without a model-templates call to trigger the full sync.
+    assert client.get("/v1/crud/configured-models").json() == []
+
+
 def test_re_registered_service_becomes_unarchived(client, register_service, fake_orchestrator):
     register_service()
     client.get("/v1/crud/model-templates")
