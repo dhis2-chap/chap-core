@@ -27,6 +27,11 @@ in this order:
 4. **Flows** - dynamic views for the three journeys that matter operationally:
    ingest a dataset, run an evaluation (backtest), and run a prediction whose
    forecasts end up back in DHIS2.
+5. **Deployment** - how the containers land in an environment:
+   - `Deploy_Compose` - the Docker Compose layout from `compose.yml`. Redis/Valkey
+     and PostgreSQL sit on a separate `backend` network that only the REST API
+     and worker join, so model services on `default` cannot reach the broker or
+     the database.
 
 ## The actors (conceptual)
 
