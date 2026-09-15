@@ -44,6 +44,7 @@ jobs:
               - '!.github/CODEOWNERS'
               - '!.github/dependabot.yml'
               - '!.github/**/*.md'
+              - '!.claude/**'
 
   # Steps rather than the job are gated: the expanded matrix names are required
   # checks in the master ruleset, and a job skipped by a job-level `if` never
