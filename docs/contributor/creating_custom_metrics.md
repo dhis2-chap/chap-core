@@ -130,8 +130,15 @@ spec = MetricSpec(
     aggregation_op=AggregationOp.MEAN,   # MEAN, SUM, or ROOT_MEAN_SQUARE
     description="What this metric measures",
     optimization_direction=None,        # MINIMIZE, MAXIMIZE or None
+    unit=None,                          # Display suffix for the raw score, e.g. "%"
+    target=None,                        # Ideal raw value when neither direction is better, e.g. 0.8
 )
 ```
+
+The metric catalogue API returns `unit` and `target` alongside the optimization
+direction. A metric with `optimization_direction=None` should set a `target`, so
+clients can show that a score closer to it is better. Units do not rescale scores:
+MAPE is already a percentage, while coverage targets use fractions such as `0.8`.
 
 ## Complete Examples
 
