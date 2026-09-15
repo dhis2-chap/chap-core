@@ -128,16 +128,16 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
         # separate "backend" network that only chap and worker join alongside
         # "default", so model services cannot reach either of them.
         compose = deploymentEnvironment "Docker Compose" {
-            backendNetwork = deploymentNode "backend network" "Compose network holding the broker and the database. Not reachable from model services." "Docker network" {
+            backendNetwork = deploymentNode "backend network" "Broker and database. Model services cannot reach it." "Docker network" {
                 containerInstance chapCore.redis
                 containerInstance chapCore.db
             }
-            defaultNetwork = deploymentNode "default network" "Compose default network. Every service joins it; only CHAP Core services also join backend." "Docker network" {
-                coreServices = deploymentNode "CHAP Core services" "chap and worker containers. Also attached to the backend network." "Docker containers" {
+            defaultNetwork = deploymentNode "default network" "Every service joins it." "Docker network" {
+                coreServices = deploymentNode "CHAP Core services" "Also on backend." "Docker containers" {
                     containerInstance chapCore.api
                     containerInstance chapCore.worker
                 }
-                modelServices = deploymentNode "Model services [0..*]" "chapkit services (compose overlays). Attached to default only, so no route to the broker or the database." "Docker containers" {
+                modelServices = deploymentNode "Model services [0..*]" "Default only. No route to broker or database." "Docker containers" {
                     containerInstance chapkit.serviceApi
                 }
             }
