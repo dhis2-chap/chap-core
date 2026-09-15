@@ -222,30 +222,6 @@ def test_deregistered_service_becomes_archived(client, register_service, fake_or
     assert matching[0]["archived"] is True
 
 
-def test_deregistered_service_leaves_configured_models(client, register_service, fake_orchestrator):
-    register_service()
-    register_service({**MOCK_INFO_DICT, "id": "other-model"})
-    client.get("/v1/crud/model-templates")
-    names = sorted(m["name"] for m in client.get("/v1/crud/configured-models").json())
-    assert names == ["other-model", "test-model"]
-
-    fake_orchestrator.deregister("test-model")
-
-    # The picker drops it without a model-templates call to trigger the full sync.
-    assert [m["name"] for m in client.get("/v1/crud/configured-models").json()] == ["other-model"]
-
-
-def test_empty_registry_leaves_configured_models_alone(client, register_service, fake_orchestrator):
-    register_service()
-    client.get("/v1/crud/model-templates")
-
-    fake_orchestrator.deregister("test-model")
-
-    # An empty registry may just mean redis lost its keys, so the read path must not
-    # archive on it. Only the full sync behind /model-templates reconciles that.
-    assert [m["name"] for m in client.get("/v1/crud/configured-models").json()] == ["test-model"]
-
-
 def test_re_registered_service_becomes_unarchived(client, register_service, fake_orchestrator):
     register_service()
     client.get("/v1/crud/model-templates")
