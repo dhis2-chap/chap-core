@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from unittest.mock import patch, MagicMock, ANY
 
@@ -44,6 +45,21 @@ def test_run_command():
     command = "echo 'test2' >&2"
     output = CommandLineRunner("./").run_command(command)
     assert "test2" in output, "Output from command not as expected, output is: " + output
+
+
+def test_run_command_streams_output_to_debug_log(caplog):
+    """Output is logged as it arrives, not only returned at the end."""
+    with caplog.at_level(logging.DEBUG, logger="chap_core.runners.command_line_runner"):
+        CommandLineRunner("./").run_command("echo 'first'; echo 'second' >&2; echo 'third'")
+
+    streamed = [r.getMessage() for r in caplog.records if r.getMessage().startswith("[model] ")]
+    assert streamed == ["[model] first", "[model] second", "[model] third"]
+
+
+def test_run_command_unbuffers_subprocess_python():
+    """PYTHONUNBUFFERED reaches the subprocess, so its output is not held back."""
+    output = CommandLineRunner("./").run_command('echo "$PYTHONUNBUFFERED"')
+    assert output.strip() == "1"
 
 
 def test_run_command_failure_reports_output_as_text():
