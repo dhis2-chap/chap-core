@@ -51,6 +51,7 @@ jobs:
               - '!.github/CODEOWNERS'
               - '!.github/dependabot.yml'
               - '!.github/**/*.md'
+              - '!.claude/**'
 
   test-all:
     needs: changes
