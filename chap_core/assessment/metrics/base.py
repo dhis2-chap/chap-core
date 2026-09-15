@@ -54,6 +54,10 @@ class MetricSpec:
     description: str = "No description provided"
     # None means the metic is not directly usable as a scalar optimization objective.
     optimization_direction: OptimizationDirection | None = None
+    # Display suffix for the raw score; None when no fixed unit applies.
+    unit: str | None = None
+    # Ideal value in raw score units for metrics where neither direction is better.
+    target: float | None = None
 
 
 class Metric(ABC):

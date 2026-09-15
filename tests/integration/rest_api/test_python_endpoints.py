@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from sqlmodel import select, Session
 
+from chap_core.assessment.metrics import list_metrics
 from chap_core.database.tables import Backtest
 from chap_core.rest_api.data_models import BacktestFull
 from chap_core.rest_api.v1.routers.visualization import (
@@ -27,6 +28,23 @@ def test_available_metrics_expose_optimization_direction():
     assert metrics["crps"].optimization_direction == "minimize"
     assert metrics["sensitivity"].optimization_direction == "maximize"
     assert metrics["coverage_10_90"].optimization_direction is None
+
+
+def test_available_metrics_expose_unit_and_target():
+    metrics = {metric.id: metric for metric in get_available_metrics(backtest_id=1)}
+    assert metrics["mape"].unit == "%"
+    assert metrics["mape"].target is None
+    assert metrics["coverage_10_90"].target == 0.8
+    assert metrics["coverage_25_75"].target == 0.5
+    assert metrics["ratio_above_truth"].target == 0.5
+    assert metrics["mae"].unit is None
+    assert metrics["mae"].target is None
+    for entry in list_metrics():
+        assert metrics[entry["id"]].unit == entry["unit"]
+        assert metrics[entry["id"]].target == entry["target"]
+    for metric in metrics.values():
+        if metric.optimization_direction is None:
+            assert metric.target is not None, metric.id
 
 
 def all_metric_ids():
