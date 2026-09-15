@@ -28,10 +28,11 @@ class AssessedStatus(StrEnum):
 
 
 class PeriodType(StrEnum):
-    """Supported time period types for model predictions."""
+    """Supported time period types for model predictions (`any` accepts both weekly and monthly)."""
 
     weekly = "weekly"
     monthly = "monthly"
+    any = "any"
 
 
 class ModelMetadata(BaseModel):
@@ -82,7 +83,7 @@ class MLServiceInfo(ServiceInfo):
     model_metadata: ModelMetadata = Field(
         description="Author / documentation metadata for the model the service hosts."
     )
-    period_type: PeriodType = Field(description="Period granularity the model accepts (`weekly` or `monthly`).")
+    period_type: PeriodType = Field(description="Period granularity the model accepts (`weekly`, `monthly`, or `any`).")
     min_prediction_periods: int = Field(
         default=0, description="Minimum forecast horizon (in periods) the model supports."
     )

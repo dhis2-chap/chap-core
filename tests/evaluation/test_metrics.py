@@ -12,8 +12,6 @@ from chap_core.assessment.metrics import (
     RatioAboveTruthMetric,
     Coverage10_90Metric,
     Coverage25_75Metric,
-    SampleCountMetric,
-    ExampleMetric,
     WinklerScore10_90Log1pMetric,
     WinklerScore10_90Metric,
     WinklerScore25_75Log1pMetric,
@@ -46,8 +44,6 @@ ALL_METRIC_FACTORIES = [
     RatioAboveTruthMetric,
     Coverage10_90Metric,
     Coverage25_75Metric,
-    SampleCountMetric,
-    ExampleMetric,
     WinklerScore10_90Metric,
     WinklerScore10_90Log1pMetric,
     WinklerScore25_75Metric,
@@ -204,8 +200,8 @@ def test_mape_aggregate(flat_forecasts, flat_observations):
 def test_get_all_aggregated_metrics_from_backtest(backtest_weeks):
     """Test compute_all_aggregated_metrics_from_backtest returns expected metrics."""
     metrics = compute_all_aggregated_metrics_from_backtest(backtest_weeks)
-    assert "sample_count" in metrics
-    assert metrics["sample_count"] == 24.0
+    assert "crps" in metrics
+    assert not {"sample_count", "example_metric"} & set(metrics)
 
 
 def test_compute_all_detailed_metrics(backtest_weeks):
@@ -214,7 +210,8 @@ def test_compute_all_detailed_metrics(backtest_weeks):
     df = compute_all_detailed_metrics(evaluation)
     assert list(df.columns) == ["metric_id", "location", "time_period", "horizon_distance", "metric"]
     assert len(df) > 0
-    assert "sample_count" in set(df["metric_id"])
+    assert "crps" in set(df["metric_id"])
+    assert not {"sample_count", "example_metric"} & set(df["metric_id"])
 
 
 @pytest.fixture
