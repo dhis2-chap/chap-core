@@ -348,6 +348,9 @@ class PredictionInfo(PredictionBase):
     """Summary read view for a prediction — fields + joined dataset/model, no per-period forecasts."""
 
     id: int = Field(description="Primary key of the prediction.")
+    prediction_setup_id: int | None = Field(
+        default=None, description="Id of the `PredictionSetup` that triggered the run, if any."
+    )
     configured_model: ConfiguredModelDB | None = Field(
         description="Configured model used for the prediction, joined for convenience."
     )

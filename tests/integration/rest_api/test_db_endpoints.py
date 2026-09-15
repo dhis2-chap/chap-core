@@ -902,6 +902,31 @@ def test_get_prediction_setup_includes_linked_predictions(override_session, seed
     assert body["predictions"][0]["id"] == prediction.id
 
 
+@pytest.mark.parametrize("linked_setup", [False, True])
+@pytest.mark.parametrize("list_predictions", [False, True])
+def test_prediction_response_exposes_setup_id(override_session, seeded_session, linked_setup, list_predictions):
+    prediction = seeded_session.exec(select(Prediction)).first()
+    assert prediction is not None
+    setup_id = None
+    if linked_setup:
+        backtest = seeded_session.exec(select(Backtest)).first()
+        assert backtest is not None
+        created = _create_prediction_setup(backtest.id)
+        assert created.status_code == 200, created.json()
+        setup_id = created.json()["id"]
+        prediction.prediction_setup_id = setup_id
+        seeded_session.add(prediction)
+        seeded_session.commit()
+
+    endpoint = "/v1/crud/predictions" if list_predictions else f"/v1/crud/predictions/{prediction.id}"
+    response = client.get(endpoint)
+    assert response.status_code == 200, response.json()
+    body = response.json()
+    if list_predictions:
+        body = next(item for item in body if item["id"] == prediction.id)
+    assert body["predictionSetupId"] == setup_id
+
+
 def test_get_prediction_setup_not_found_returns_404(clean_engine, dependency_overrides):
     response = client.get("/v1/crud/prediction-setups/99999")
     assert response.status_code == 404
