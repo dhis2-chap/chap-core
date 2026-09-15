@@ -91,6 +91,8 @@ def test_install_and_update_preserve_settings_and_data(marketplace_model, market
     assert service["volumes"][0] == f"{service_name}-data:/app/data"
     assert "ports" not in service
     service["cpus"] = 2
+    # Models installed before the DATABASE_URL pin existed must receive it on update.
+    del service["environment"]["DATABASE_URL"]
     model_deployment.overlay.write_text(yaml.safe_dump(installed))
 
     marketplace_model["versions"][0].update(version="0.2.0", commit="a" * 40, image_tag="sha-aaaaaaa")
@@ -99,6 +101,9 @@ def test_install_and_update_preserve_settings_and_data(marketplace_model, market
     updated = yaml.safe_load(model_deployment.overlay.read_text())
     assert updated["services"][service_name]["image"].endswith(":sha-aaaaaaa")
     assert updated["services"][service_name]["cpus"] == 2
+    assert (
+        updated["services"][service_name]["environment"]["DATABASE_URL"] == "sqlite+aiosqlite:////app/data/chapkit.db"
+    )
     assert updated["services"][service_name]["volumes"] == service["volumes"]
     assert updated["volumes"] == installed["volumes"]
     assert model_deployment.runner.call_count == 4
@@ -290,6 +295,7 @@ def test_failed_removal_keeps_the_model_installed(model_deployment):
     with pytest.raises(SystemExit):
         uninstall("custom")
     assert model_deployment.overlay.read_text() == previous
+
 
 def test_failed_volume_removal_still_uninstalls_the_model(model_deployment):
     install("custom", image="example/model:v1", accept_risk=True)

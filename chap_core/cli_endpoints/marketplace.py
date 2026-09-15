@@ -215,7 +215,6 @@ def _deploy(
                 "security_opt": ["no-new-privileges:true"],
                 "cap_drop": ["ALL"],
                 "environment": {
-                    "DATABASE_URL": DATABASE_URL,
                     "SERVICEKIT_ORCHESTRATOR_URL": "http://chap:8000/v2/services/$$register",
                     "SERVICEKIT_REGISTRATION_KEY": "${SERVICEKIT_REGISTRATION_KEY:-}",
                     "SERVICEKIT_HOST": service_name,
@@ -225,9 +224,13 @@ def _deploy(
             }
             config["volumes"][f"{service_name}-data"] = {}
             if local:
-                service["environment"] = {"DATABASE_URL": DATABASE_URL}
+                del service["environment"]
                 del service["depends_on"]
                 service["ports"] = [{"target": 8000, "host_ip": "127.0.0.1"}]
+        # Applied on update too, so models installed before the pin existed receive it.
+        environment = dict(service.get("environment") or {})
+        environment.setdefault("DATABASE_URL", DATABASE_URL)
+        service["environment"] = environment
         service.update({"image": image, "x-chap-custom": bool(custom), "x-chap-version": version})
         if platform is not None:
             service["platform"] = platform
