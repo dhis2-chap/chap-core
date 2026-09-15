@@ -112,6 +112,7 @@ def test_changes_job_uses_every_quantifier(workflow):
         (["README.md"], {"code": False, "docs": False}),
         (["LICENSE", ".github/CODEOWNERS", ".github/pull_request_template.md"], {"code": False, "docs": False}),
         (["charts/chap/values.yaml"], {"code": False, "docs": False}),
+        ([".claude/commands/release.md", ".claude/settings.local.json"], {"code": False, "docs": False}),
         (["docs/chap-cli/evaluation-workflow.md"], {"code": False, "docs": True}),
         (["mkdocs.yml"], {"code": False, "docs": True}),
         (["docs/index.md", "README.md"], {"code": False, "docs": True}),
