@@ -206,12 +206,12 @@ The make targets are thin wrappers around the Structurizr Docker image:
 # make architecture
 docker run -it --rm -p 6080:8080 --user "$(id -u):$(id -g)" \
   -v "$(pwd)/architecture:/usr/local/structurizr" \
-  structurizr/structurizr:2026.05.22 local
+  structurizr/structurizr:2026.06.28 local
 
 # make architecture-validate
 docker run --rm --user "$(id -u):$(id -g)" \
   -v "$(pwd)/architecture:/work" -w /work \
-  structurizr/structurizr:2026.05.22 validate -workspace workspace.dsl
+  structurizr/structurizr:2026.06.28 validate -workspace workspace.dsl
 ```
 
 The `--user` flag matters on Linux: the image runs as its own non-root uid, so
