@@ -181,6 +181,12 @@ def _archive_unregistered_chapkit_templates(session: Session) -> None:
     except Exception:
         logger.debug("Could not reach service registry, skipping chapkit archival")
         return
+    if service_list.count == 0:
+        # An empty registry is ambiguous: either every service really is gone, or
+        # redis restarted and lost its keys. Archiving on that would empty the
+        # picker on a blip, so leave it to the full sync behind GET /model-templates.
+        logger.debug("Service registry is empty, skipping chapkit archival")
+        return
     _archive_stale_chapkit_templates(session, service_list)
 
 
