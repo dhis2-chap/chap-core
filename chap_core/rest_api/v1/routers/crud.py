@@ -138,7 +138,9 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> set[str]
                     continue
 
                 config = ml_service_info_to_model_template_config(service.info, service.url, user_options)
-                template_id = session_wrapper.add_model_template_from_yaml_config(config)
+                template_id = session_wrapper.add_model_template_from_yaml_config(
+                    config, source_digest=service.info.git_revision
+                )
                 # Mark template as chapkit-originated for archival tracking
                 template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == template_id)).one()
                 template.uses_chapkit = True

@@ -307,6 +307,12 @@ class ExternalChapkitModelTemplate:
 
         return ml_service_info_to_model_template_config(model_info, self.rest_api_url, user_options)
 
+    def get_source_digest(self) -> str | None:
+        """The commit the service image was built from, or None when the service does not report one."""
+        self._ensure_initialized()
+        assert self.client is not None
+        return self.client.info().git_revision
+
 
 class ExternalChapkitModel(ExternalModelBase):
     def __init__(

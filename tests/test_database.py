@@ -375,6 +375,18 @@ def test_reseeding_a_moved_ref_keeps_the_originally_seeded_source(model_template
         assert session.get_model_template(template_id).source_digest == "a" * 40
 
 
+def test_resync_fills_a_missing_source_digest(model_template_yaml_config, engine):
+    """Chapkit templates stored before the digest was recorded get it on the next sync."""
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        assert session.get_model_template(template_id).source_digest is None
+
+        assert session.add_model_template_from_yaml_config(model_template_yaml_config, source_digest="a" * 40) == (
+            template_id
+        )
+        assert session.get_model_template(template_id).source_digest == "a" * 40
+
+
 def test_changed_configuration_is_added_as_new_configured_model(model_template_yaml_config, engine):
     with SessionWrapper(engine) as session:
         # The shared fixture has no user options, and the schema is closed.
@@ -613,6 +625,9 @@ def test_seed_skips_chapkit_model_when_version_is_missing(engine, tmp_path, mode
             config.name = "ok_chapkit"
             return config
 
+        def get_source_digest(self):
+            return None
+
     monkeypatch.setattr(
         "chap_core.database.model_template_seed.ExternalChapkitModelTemplate",
         FakeChapkitTemplate,
@@ -624,6 +639,36 @@ def test_seed_skips_chapkit_model_when_version_is_missing(engine, tmp_path, mode
     assert "broken_chapkit" not in names
     assert "ok_chapkit" in names
     assert "naive_model" in names
+
+
+def test_seed_stores_chapkit_git_revision_as_source_digest(engine, tmp_path, model_template_yaml_config, monkeypatch):
+    class FakeChapkitTemplate:
+        def __init__(self, url):
+            self.url = url
+
+        def wait_for_healthy(self, timeout=30):
+            return None
+
+        def get_model_template_config(self):
+            config = model_template_yaml_config.model_copy(deep=True)
+            config.name = "broken_chapkit" if "broken" in self.url else "ok_chapkit"
+            return config
+
+        def get_source_digest(self):
+            # A bare docker build without the GIT_REVISION build-arg reports None.
+            return None if "broken" in self.url else "a" * 40
+
+    monkeypatch.setattr(
+        "chap_core.database.model_template_seed.ExternalChapkitModelTemplate",
+        FakeChapkitTemplate,
+    )
+    with Session(engine) as session:
+        seed_configured_models_from_config_dir(session, directory=_two_chapkit_model_config_dir(tmp_path))
+
+    with SessionWrapper(engine) as session:
+        digests = {t.name: t.source_digest for t in session.session.exec(select(ModelTemplateDB)).all()}
+    assert digests["ok_chapkit"] == "a" * 40
+    assert digests["broken_chapkit"] is None
 
 
 def test_seed_raises_database_error_instead_of_hiding_model(engine, tmp_path, model_template_yaml_config, monkeypatch):
