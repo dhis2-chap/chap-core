@@ -108,7 +108,9 @@ def seed_configured_models_from_config_dir(
                 template.wait_for_healthy(timeout=30)
                 model_template_config = template.get_model_template_config()
                 logger.info(f"Model template config from chapkit model at {config.url}: {model_template_config}")
-                template_id = wrapper.add_model_template_from_yaml_config(model_template_config)
+                template_id = wrapper.add_model_template_from_yaml_config(
+                    model_template_config, source_digest=template.get_source_digest()
+                )
 
                 logger.info(f"Model has {len(config.configurations)} configured models")
                 assert len(config.configurations) > 0, "No configured models found for chapkit model"
