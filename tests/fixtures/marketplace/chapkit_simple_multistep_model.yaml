@@ -1,0 +1,99 @@
+schema_version: 2
+
+id: chapkit_simple_multistep_model
+service_id: chapkit-simple-multistep-model
+display_name: Simple Multistep
+kind: model
+
+# The author's own chapkit AssessedStatus, copied from the service — not a
+# marketplace verdict. orange = shows promise on limited data, needs careful
+# evaluation. See models/README.md for the full scale.
+assessed_status: orange
+
+summary: >-
+  Recursive multi-step forecaster: a RandomForest wrapped in skpro's
+  ResidualDouble, fed per-location lag features and rolled forward one period
+  at a time. Takes climate covariates but declares none required, so it also
+  runs on lagged case history alone.
+
+source:
+  repository: https://github.com/chap-models/chapkit_simple_multistep_model
+  image: ghcr.io/chap-models/chapkit_simple_multistep_model
+  # Pure Python (scikit-learn + skpro) on the chapkit Python base. Multi-arch.
+  runtime_image: ghcr.io/dhis2-chap/chapkit-py
+
+attribution:
+  author: CHAP team
+  organization: HISP Centre, University of Oslo
+  contact: morten@dhis2.org
+
+# GitHub handles responsible for this listing — backfilled from the source
+# repository's contributors; corrections welcome by PR.
+maintainers:
+  - mortenoh
+  - knutdrand
+  - edvinstava
+
+compatibility:
+  period_types: [monthly]
+  min_prediction_periods: 1
+  max_prediction_periods: 100
+  requires_geo: false
+
+covariates:
+  required: []
+  defaults:
+    - rainfall
+    - mean_temperature
+    - mean_relative_humidity
+  allow_free_additional: true
+
+channels:
+  stable: 0.1.0
+  latest: 0.1.0
+
+versions:
+  - version: 0.1.0
+    commit: 57eeb78791083ee6939a7cc65455cce054ba6bf9
+    image_tag: sha-57eeb78
+    chapkit: ">=2.0.0,<3"
+    status: verified
+    # Verified by the merge gate. Part of the chapkit 2.0.0 seed import.
+    verified_by: []
+    changelog: >-
+      First listed pin: the recursive multistep forecaster as a chapkit 2.0.0
+      service, with GIT_REVISION passed through to the published image.
+    notes: >-
+      Supersedes the MLproject-based knutdrand/mstl_multistep_model listing.
+      This is a different model — a RandomForest + skpro recursive
+      forecaster, not MSTL + ARIMA with a forest correction.
+
+configurations:
+  monthly_climate:
+    description: >-
+      Climate-driven configuration: the service's own default covariates and
+      hyperparameters, at the marketplace's reference three-period horizon
+      (the service itself defaults to twelve). Six target lags give the
+      one-step regressor half a year of history per location.
+    config:
+      prediction_periods: 3
+      n_target_lags: 6
+      n_samples: 100
+      rf_max_depth: 10
+      rf_min_samples_leaf: 5
+      additional_continuous_covariates:
+        - rainfall
+        - mean_temperature
+        - mean_relative_humidity
+  monthly_selfhistory:
+    description: >-
+      Covariate-free variant: lagged case history only. Deliberately a
+      weaker, differently-informed model — useful as a baseline and as an
+      ensemble member on datasets with no usable climate data.
+    config:
+      prediction_periods: 3
+      n_target_lags: 6
+      n_samples: 100
+      rf_max_depth: 10
+      rf_min_samples_leaf: 5
+      additional_continuous_covariates: []
