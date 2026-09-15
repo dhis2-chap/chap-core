@@ -94,13 +94,14 @@ def uninstall(
         volume = f"{service_name}-data"
         config["volumes"].pop(volume, None)
         command = [*_compose_command(compose_file, local), "-f", str(overlay)]
-        # Remove the container while the overlay still declares it, then publish the pruned file.
-        subprocess.run([*command, "rm", "--stop", "--force", service_name], check=True)
+        project = None
         if delete_data:
-            project = subprocess.run(
+            listing = subprocess.run(
                 [*command, "config", "--format", "json"], check=True, capture_output=True, text=True
             )
-            subprocess.run(["docker", "volume", "rm", f"{json.loads(project.stdout)['name']}_{volume}"], check=True)
+            project = json.loads(listing.stdout)["name"]
+        # Remove the container while the overlay still declares it, then publish the pruned file.
+        subprocess.run([*command, "rm", "--stop", "--force", service_name], check=True)
         if config["services"]:
             pending = _write_pending(config, overlay)
             try:
@@ -110,6 +111,9 @@ def uninstall(
         else:
             overlay.unlink()
             logger.info("No models remain; removed %s.", overlay)
+        # Delete the volume last so a failure here cannot leave the service declared without a container.
+        if project is not None:
+            subprocess.run(["docker", "volume", "rm", f"{project}_{volume}"], check=True)
         logger.info("Uninstalled %s.%s", model, "" if delete_data else f" Its data volume '{volume}' was kept.")
     except (ValueError, OSError, yaml.YAMLError, subprocess.CalledProcessError) as error:
         logger.error("%s", error)

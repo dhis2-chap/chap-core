@@ -290,3 +290,17 @@ def test_failed_removal_keeps_the_model_installed(model_deployment):
     with pytest.raises(SystemExit):
         uninstall("custom")
     assert model_deployment.overlay.read_text() == previous
+
+def test_failed_volume_removal_still_uninstalls_the_model(model_deployment):
+    install("custom", image="example/model:v1", accept_risk=True)
+    run = model_deployment.runner.side_effect
+
+    def fail_volume_removal(command, **kwargs):
+        if command[:3] == ["docker", "volume", "rm"]:
+            raise subprocess.CalledProcessError(1, command)
+        return run(command, **kwargs)
+
+    model_deployment.runner.side_effect = fail_volume_removal
+    with pytest.raises(SystemExit):
+        uninstall("custom", delete_data=True)
+    assert not model_deployment.overlay.exists()
