@@ -14,6 +14,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 
 from alembic import op
+from chap_core.database.migration_helpers import has_column
 
 revision: str = "c9d0e1f2a3b4"
 down_revision: str | Sequence[str] | None = "b8c9d0e1f2a3"
@@ -27,10 +28,6 @@ _RENAMES = (
 )
 
 
-def _has_column(column: str) -> bool:
-    return any(col["name"] == column for col in sa.inspect(op.get_bind()).get_columns(TABLE))
-
-
 def _move(source: str, target: str) -> None:
     """Move a horizon column's values from `source` to `target`.
 
@@ -40,9 +37,9 @@ def _move(source: str, target: str) -> None:
     Renaming would fail there and dropping would lose the values, so that case is
     handled by copying across before the old column goes away.
     """
-    if not _has_column(source):
+    if not has_column(TABLE, source):
         return
-    if not _has_column(target):
+    if not has_column(TABLE, target):
         op.alter_column(TABLE, source, new_column_name=target, existing_type=sa.Integer(), existing_nullable=True)
         return
     op.execute(sa.text(f"UPDATE {TABLE} SET {target} = {source} WHERE {target} IS NULL"))

@@ -19,6 +19,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 
 from alembic import op
+from chap_core.database.migration_helpers import has_column, has_unique_constraint
 
 # Only for rows that CHAP made before the version became part of the identity.
 LEGACY_UNVERSIONED_VERSION = "legacy-unversioned"
@@ -54,15 +55,6 @@ def _backfill_configuration_digests() -> None:
         )
 
 
-def _has_column(table: str, column: str) -> bool:
-    inspector = sa.inspect(op.get_bind())
-    return any(col["name"] == column for col in inspector.get_columns(table))
-
-
-def _has_unique_constraint(table: str, name: str) -> bool:
-    return any(item["name"] == name for item in sa.inspect(op.get_bind()).get_unique_constraints(table))
-
-
 def upgrade() -> None:
     """Make (name, version) the template identity and add configuration digests.
 
@@ -71,14 +63,14 @@ def upgrade() -> None:
     therefore added only if missing, and the backfills and constraint swaps below
     give both paths the same outcome.
     """
-    if not _has_column("modeltemplatedb", "source_digest"):
+    if not has_column("modeltemplatedb", "source_digest"):
         # Nullable only for old rows. A new template must have a source digest.
         op.add_column("modeltemplatedb", sa.Column("source_digest", sa.String(), nullable=True))
     else:
         # The generic migration backfills text columns with ''. An unknown revision is NULL.
         op.execute(sa.text("UPDATE modeltemplatedb SET source_digest = NULL WHERE source_digest = ''"))
 
-    if not _has_column("modeltemplatedb", "is_live"):
+    if not has_column("modeltemplatedb", "is_live"):
         op.add_column(
             "modeltemplatedb", sa.Column("is_live", sa.Boolean(), nullable=False, server_default=sa.true())
         )
@@ -96,15 +88,15 @@ def upgrade() -> None:
     )
     op.alter_column("modeltemplatedb", "version", existing_type=sa.String(), nullable=False)
     op.execute("ALTER TABLE modeltemplatedb DROP CONSTRAINT IF EXISTS modeltemplatedb_name_key")
-    if not _has_unique_constraint("modeltemplatedb", "uq_modeltemplatedb_name_version"):
+    if not has_unique_constraint("modeltemplatedb", "uq_modeltemplatedb_name_version"):
         op.create_unique_constraint("uq_modeltemplatedb_name_version", "modeltemplatedb", ["name", "version"])
 
-    if not _has_column("configuredmodeldb", "configuration_digest"):
+    if not has_column("configuredmodeldb", "configuration_digest"):
         op.add_column(
             "configuredmodeldb", sa.Column("configuration_digest", sa.String(), nullable=False, server_default="")
         )
 
-    if not _has_column("configuredmodeldb", "is_live"):
+    if not has_column("configuredmodeldb", "is_live"):
         op.add_column(
             "configuredmodeldb", sa.Column("is_live", sa.Boolean(), nullable=False, server_default=sa.true())
         )
@@ -118,7 +110,7 @@ def upgrade() -> None:
         "configuredmodeldb", "configuration_digest", existing_type=sa.String(), nullable=False, server_default=None
     )
     op.execute("ALTER TABLE configuredmodeldb DROP CONSTRAINT IF EXISTS configuredmodeldb_name_key")
-    if not _has_unique_constraint("configuredmodeldb", "uq_configuredmodeldb_template_name_digest"):
+    if not has_unique_constraint("configuredmodeldb", "uq_configuredmodeldb_template_name_digest"):
         op.create_unique_constraint(
             "uq_configuredmodeldb_template_name_digest",
             "configuredmodeldb",
