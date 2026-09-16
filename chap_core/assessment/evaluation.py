@@ -42,8 +42,8 @@ from chap_core.external.ExtendedPredictor import ExtendedPredictor
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.hpo.hyperparameter_optimizer import HyperparameterOptimizer
 from chap_core.hpo.meta_learner import MetaLearner
-from chap_core.models.configured_model import ConfiguredModel
 from chap_core.hpo.types import FlatHyperparameterOptimization
+from chap_core.models.configured_model import ConfiguredModel
 from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.time_period import Month, TimePeriod
 
@@ -477,7 +477,9 @@ class Evaluation(EvaluationBase):
             tuned_estimator = estimator
 
         # also used by hpo objective call
-        if isinstance(tuned_estimator, ConfiguredModel) and tuned_estimator.model_information is not None:  # ensembleModel returns None, NaiveModel has no model_information
+        if (
+            isinstance(tuned_estimator, ConfiguredModel) and tuned_estimator.model_information is not None
+        ):  # ensembleModel returns None, NaiveModel has no model_information
             max_periods = tuned_estimator.model_information.max_prediction_periods
             if max_periods is not None and max_periods < backtest_params.n_periods:
                 logger.warning(
