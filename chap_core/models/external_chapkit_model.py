@@ -297,6 +297,11 @@ class ExternalChapkitModelTemplate:
         This method is meant to make things backwards compatible with old system. An object of type
         ModelTemplateConfigV2 is needed to store info about a ModelTemplate in the database.
         """
+        return self.get_model_template_config_with_digest()[0]
+
+    def get_model_template_config_with_digest(self) -> tuple[ModelTemplateConfigV2, str | None]:
+        """Fetch the service info once and return the template config together with the commit
+        the service reports it was built from, or None when it does not report one."""
         self._ensure_initialized()
         assert self.client is not None
         assert self.rest_api_url is not None
@@ -305,13 +310,8 @@ class ExternalChapkitModelTemplate:
         config_schema = self.client.get_config_schema()
         user_options = _parse_user_options_from_config_schema(config_schema)
 
-        return ml_service_info_to_model_template_config(model_info, self.rest_api_url, user_options)
-
-    def get_source_digest(self) -> str | None:
-        """The commit the service image was built from, or None when the service does not report one."""
-        self._ensure_initialized()
-        assert self.client is not None
-        return self.client.info().git_revision
+        config = ml_service_info_to_model_template_config(model_info, self.rest_api_url, user_options)
+        return config, model_info.git_revision or None
 
 
 class ExternalChapkitModel(ExternalModelBase):

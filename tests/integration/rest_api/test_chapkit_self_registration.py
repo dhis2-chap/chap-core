@@ -114,6 +114,15 @@ def test_registered_service_without_git_revision_stores_null_source_digest(clien
     assert matching[0]["sourceDigest"] is None
 
 
+def test_registered_service_with_empty_git_revision_stores_null_source_digest(client, register_service):
+    register_service({**MOCK_INFO_DICT, "git_revision": ""})
+
+    templates = client.get("/v1/crud/model-templates").json()
+    matching = [t for t in templates if t["name"] == "test-model"]
+    assert len(matching) == 1
+    assert matching[0]["sourceDigest"] is None
+
+
 def test_republished_service_under_the_same_version_keeps_the_first_revision(client, register_service, caplog):
     register_service({**MOCK_INFO_DICT, "git_revision": "a" * 40})
     client.get("/v1/crud/model-templates")

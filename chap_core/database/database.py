@@ -160,9 +160,9 @@ class SessionWrapper:
             ):
                 logger.warning(
                     f"Model template {model_name!r} version {model_template.version!r} came from "
-                    f"{existing_template.source_digest!r}, but its ref now points to "
+                    f"{existing_template.source_digest!r}, but its source now reports revision "
                     f"{model_template.source_digest!r}. CHAP keeps the first revision. Use a new "
-                    "version label to get the new source."
+                    "version label for the new source."
                 )
             drifted = drifted_template_content_fields(existing_template, model_template)
             if drifted:
@@ -178,7 +178,8 @@ class SessionWrapper:
                 existing_template.archived = False
                 self.session.commit()
         else:
-            # add_model_template_from_url gives git templates a digest. Other sources give None.
+            # Git templates and chapkit services give a digest. The naive model and ad hoc
+            # templates give None.
             template_id = self._add_model_template(model_template)
         self._make_live_template_version(model_name, template_id)
         return template_id

@@ -580,45 +580,39 @@ def test_seed_skips_git_model_when_github_fetch_fails(engine, tmp_path, model_te
     assert "naive_model" in names
 
 
-def _two_chapkit_model_config_dir(tmp_path):
+def _two_chapkit_model_config_dir(tmp_path, hosts=("broken-chapkit", "ok-chapkit")):
     config_dir = tmp_path / "configured_models"
     config_dir.mkdir()
     (config_dir / "default.yaml").write_text(
-        "- url: http://broken-chapkit:8000\n"
-        "  uses_chapkit: true\n"
-        "  versions:\n"
-        '    v1: "/v1"\n'
-        "- url: http://ok-chapkit:8000\n"
-        "  uses_chapkit: true\n"
-        "  versions:\n"
-        '    v1: "/v1"\n'
+        "".join(f'- url: http://{host}:8000\n  uses_chapkit: true\n  versions:\n    v1: "/v1"\n' for host in hosts)
     )
     return config_dir
 
 
-def test_seed_skips_chapkit_model_when_version_is_missing(engine, tmp_path, model_template_yaml_config, monkeypatch):
+def _fake_chapkit_template(model_template_yaml_config, versions=None, digests=None):
+    """A stand-in for ExternalChapkitModelTemplate whose template name is the URL host with
+    dashes replaced, and whose version and digest are looked up by that name."""
+
     class FakeChapkitTemplate:
         def __init__(self, url):
-            self.url = url
+            self.name = url.split("//")[1].split(":")[0].replace("-", "_")
 
         def wait_for_healthy(self, timeout=30):
             return None
 
-        def get_model_template_config(self):
+        def get_model_template_config_with_digest(self):
             config = model_template_yaml_config.model_copy(deep=True)
-            if "broken" in self.url:
-                config.name = "broken_chapkit"
-                config.version = None
-                return config
-            config.name = "ok_chapkit"
-            return config
+            config.name = self.name
+            config.version = (versions or {}).get(self.name, config.version)
+            return config, (digests or {}).get(self.name)
 
-        def get_source_digest(self):
-            return None
+    return FakeChapkitTemplate
 
+
+def test_seed_skips_chapkit_model_when_version_is_missing(engine, tmp_path, model_template_yaml_config, monkeypatch):
     monkeypatch.setattr(
         "chap_core.database.model_template_seed.ExternalChapkitModelTemplate",
-        FakeChapkitTemplate,
+        _fake_chapkit_template(model_template_yaml_config, versions={"broken_chapkit": None}),
     )
     with Session(engine) as session:
         seed_configured_models_from_config_dir(session, directory=_two_chapkit_model_config_dir(tmp_path))
@@ -630,33 +624,19 @@ def test_seed_skips_chapkit_model_when_version_is_missing(engine, tmp_path, mode
 
 
 def test_seed_stores_chapkit_git_revision_as_source_digest(engine, tmp_path, model_template_yaml_config, monkeypatch):
-    class FakeChapkitTemplate:
-        def __init__(self, url):
-            self.url = url
-
-        def wait_for_healthy(self, timeout=30):
-            return None
-
-        def get_model_template_config(self):
-            config = model_template_yaml_config.model_copy(deep=True)
-            config.name = "broken_chapkit" if "broken" in self.url else "ok_chapkit"
-            return config
-
-        def get_source_digest(self):
-            # A bare docker build without the GIT_REVISION build-arg reports None.
-            return None if "broken" in self.url else "a" * 40
-
+    # A bare docker build without the GIT_REVISION build-arg reports no revision, which is still valid.
     monkeypatch.setattr(
         "chap_core.database.model_template_seed.ExternalChapkitModelTemplate",
-        FakeChapkitTemplate,
+        _fake_chapkit_template(model_template_yaml_config, digests={"pinned_chapkit": "a" * 40}),
     )
+    config_dir = _two_chapkit_model_config_dir(tmp_path, hosts=("unpinned-chapkit", "pinned-chapkit"))
     with Session(engine) as session:
-        seed_configured_models_from_config_dir(session, directory=_two_chapkit_model_config_dir(tmp_path))
+        seed_configured_models_from_config_dir(session, directory=config_dir)
 
     with SessionWrapper(engine) as session:
         digests = {t.name: t.source_digest for t in session.session.exec(select(ModelTemplateDB)).all()}
-    assert digests["ok_chapkit"] == "a" * 40
-    assert digests["broken_chapkit"] is None
+    assert digests["pinned_chapkit"] == "a" * 40
+    assert digests["unpinned_chapkit"] is None
 
 
 def test_seed_raises_database_error_instead_of_hiding_model(engine, tmp_path, model_template_yaml_config, monkeypatch):

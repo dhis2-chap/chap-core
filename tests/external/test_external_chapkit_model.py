@@ -189,6 +189,18 @@ class TestGetModelTemplateConfig:
         template.client = mock_client
         return template
 
+    @pytest.mark.parametrize("reported, expected", [("a" * 40, "a" * 40), (None, None), ("", None)])
+    def test_returns_the_git_revision_the_service_reports(self, reported, expected):
+        template = self._make_template_with_schema({"properties": {}})
+        info = template.client.info.return_value
+        template.client.info.return_value = info.model_copy(update={"git_revision": reported})
+
+        config, digest = template.get_model_template_config_with_digest()
+
+        assert config.name == "test-model"
+        assert digest == expected
+        assert template.client.info.call_count == 1
+
     def test_extracts_user_options_from_top_level_properties(self):
         """Chapkit services expose config schema at the top level."""
         schema = {
