@@ -20,6 +20,7 @@ from datetime import datetime
 import sqlalchemy as sa
 
 from alembic import op
+from chap_core.database.migration_helpers import has_column
 
 revision: str = "d0e1f2a3b4c5"
 down_revision: str | Sequence[str] | None = "c9d0e1f2a3b4"
@@ -94,11 +95,6 @@ def _backfill_backtest_params() -> None:
         )
 
 
-def _has_column(table: str, column: str) -> bool:
-    inspector = sa.inspect(op.get_bind())
-    return any(col["name"] == column for col in inspector.get_columns(table))
-
-
 def upgrade() -> None:
     """Add the parameter columns, reconstruct them for existing rows, then make them NOT NULL.
 
@@ -106,7 +102,7 @@ def upgrade() -> None:
     already exist with 0 in every row. Both shapes are backfilled the same way.
     """
     for column in PARAM_COLUMNS:
-        if not _has_column("backtest", column):
+        if not has_column("backtest", column):
             op.add_column("backtest", sa.Column(column, sa.Integer(), nullable=True))
     _backfill_backtest_params()
     for column in PARAM_COLUMNS:

@@ -15,6 +15,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 
 from alembic import op
+from chap_core.database.migration_helpers import has_column
 
 revision: str = "a3b4c5d6e7f2"
 down_revision: str | Sequence[str] | None = "f2a3b4c5d6e1"
@@ -24,17 +25,12 @@ depends_on: str | Sequence[str] | None = None
 COLUMN = "chap_version"
 
 
-def _has_column(table: str, column: str) -> bool:
-    inspector = sa.inspect(op.get_bind())
-    return any(col["name"] == column for col in inspector.get_columns(table))
-
-
 def upgrade() -> None:
     """Add the nullable version column, without backfill.
 
     Startup runs create_all before Alembic, so the column may already exist.
     """
-    if not _has_column("backtest", COLUMN):
+    if not has_column("backtest", COLUMN):
         op.add_column("backtest", sa.Column(COLUMN, sa.String(), nullable=True))
 
 
