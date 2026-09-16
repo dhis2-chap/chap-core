@@ -41,6 +41,7 @@ from chap_core.external.ExtendedPredictor import ExtendedPredictor
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.hpo.hyperparameter_optimizer import HyperparameterOptimizer
 from chap_core.hpo.meta_learner import MetaLearner
+from chap_core.assessment.prediction_evaluator import Estimator
 from chap_core.hpo.types import FlatHyperparameterOptimization
 from chap_core.models.configured_model import ConfiguredModel
 from chap_core.rest_api.data_models import BacktestCreate
@@ -427,8 +428,7 @@ class Evaluation(EvaluationBase):
     def create(
         cls,
         configured_model: ConfiguredModelDB,
-        # ConfiguredModel instead of ExternalModel bc ensemble inherits ConfiguredModel, should prob inherit MetaLearner
-        estimator: ConfiguredModel | MetaLearner,
+        estimator: Estimator | MetaLearner,
         dataset: _DataSet,
         backtest_params: BacktestParams,
         backtest_name: str = "evaluation",
@@ -466,8 +466,7 @@ class Evaluation(EvaluationBase):
             future_weather_provider=backtest_params.future_weather_provider,
         )
 
-        # ensemble problem same as above
-        tuned_estimator: ConfiguredModel | ExtendedPredictor
+        tuned_estimator: Estimator
 
         hpo_data = None
         if isinstance(estimator, HyperparameterOptimizer):
