@@ -46,6 +46,15 @@ except ImportError:
     CHAP_VERSION = "unknown"
 
 
+def _recorded_version(version: str | None) -> str | None:
+    """The version to persist: a real release version, or None for the "unknown" a dev checkout reports."""
+    return None if version in (None, "unknown") else version
+
+
+# Version stored on every backtest this process produces.
+RECORDED_CHAP_VERSION = _recorded_version(CHAP_VERSION)
+
+
 def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) -> xr.Dataset:
     """
     Convert FlatEvaluationData to xarray.Dataset.
@@ -316,7 +325,11 @@ class Evaluation(EvaluationBase):
         # passing them would be silently ignored rather than rejected.
         backtest = Backtest(
             **info.model_dump(exclude=set(BacktestParams.model_fields))
-            | {"model_db_id": configured_model.id, "model_template_version": configured_model.model_template.version}
+            | {
+                "model_db_id": configured_model.id,
+                "model_template_version": configured_model.model_template.version,
+                "chap_version": RECORDED_CHAP_VERSION,
+            }
         )
         # Callers persisting the backtest pass the deduplicated row resolved against the
         # database. The CLI paths build an in-memory evaluation only, so a detached
@@ -696,6 +709,8 @@ class Evaluation(EvaluationBase):
             split_periods=split_periods,
             forecasts=[],
             dataset_id=0,
+            # The version of the writer, not of the process importing the file.
+            chap_version=_recorded_version(ds.attrs.get("chap_version")),
             # The stored file carries no parameters beyond the provider, so this is a
             # detached placeholder that keeps the parameter properties readable.
             specification=BacktestSpecification(
