@@ -178,6 +178,26 @@ class CHAPKitRestAPIWrapper:
         data = chapkit.artifact.schemas.MLPredictionArtifactData.model_validate(response.data)
         return chapkit.data.DataFrame(**data.content)
 
+    def get_run_output(self, artifact_id: str) -> str:
+        """Return the stdout and stderr chapkit recorded for a model run, or "" when unavailable.
+
+        A failed train or predict run stores the complete script output on a diagnostic
+        artifact, while the job error only carries a truncated stderr tail. Best-effort:
+        an unreachable or unparseable artifact yields an empty string rather than raising,
+        so this never masks the failure it is describing.
+        """
+        try:
+            artifact = self.get_artifact(artifact_id)
+        except (httpx.HTTPError, ValueError) as e:
+            logger.warning("Could not read run output from artifact %s: %s", artifact_id, e)
+            return ""
+        data = artifact.data if isinstance(artifact.data, dict) else {}
+        metadata = data.get("metadata")
+        if not isinstance(metadata, dict):
+            return ""
+        sections = [f"--- {stream} ---\n{metadata[stream]}" for stream in ("stdout", "stderr") if metadata.get(stream)]
+        return "\n".join(sections)
+
     # CHAP operation endpoints
 
     def train(

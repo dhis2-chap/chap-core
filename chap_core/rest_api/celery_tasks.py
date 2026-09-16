@@ -107,7 +107,7 @@ class TrackedTask(Task):
         debug_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
         debug_file_handler.setFormatter(debug_formatter)
 
-        # Create status log file handler (user-facing progress, exposed via API)
+        # Create status log file handler (high-level, user-facing progress)
         status_file_handler = logging.FileHandler(CHAP_LOGS_DIR / f"task_{task_id}.status.txt")
         status_formatter = logging.Formatter("%(asctime)s: %(message)s")
         status_file_handler.setFormatter(status_formatter)
@@ -131,7 +131,9 @@ class TrackedTask(Task):
         # Configure status logger for this task
         status_logger = get_status_logger()
         old_status_handlers = status_logger.handlers[:]
-        status_logger.handlers = [status_file_handler]
+        # The debug handler is added too so progress messages are interleaved with the
+        # rest of the log in the debug file, which is what the logs endpoint serves.
+        status_logger.handlers = [status_file_handler, debug_file_handler]
         status_logger.setLevel(logging.INFO)
 
         try:
@@ -336,23 +338,23 @@ class CeleryJob[ReturnType]:
         return str(self._result.traceback or "")
 
     def get_logs(self) -> str:
-        """Get user-facing status logs for this job.
+        """Get the complete logs for this job.
 
-        Returns the status logs which contain safe, user-facing progress messages.
-        Debug logs with potentially sensitive information are not exposed via API.
+        Returns the debug log, which holds everything the worker and the libraries it
+        calls logged, with the user-facing progress messages interleaved. Falls back to
+        the status log, and then to the traceback, when the debug log is not there.
         """
-        log_file = CHAP_LOGS_DIR / f"task_{self._job.id}.status.txt"
-        logger.info(f"Looking for log file at {log_file}")
-        logger.info(f"Job id is: {self._job.id}")
-        if log_file.exists():
-            logs = log_file.read_text()
-            job_meta = get_job_meta(self.id)
-            if job_meta and job_meta.get("status") == "FAILURE":
-                logs += "\n" + str(job_meta.get("traceback", ""))
-            return logs
-        else:
-            # Fallback to traceback if log file not found
+        debug_file = CHAP_LOGS_DIR / f"task_{self._job.id}.debug.txt"
+        status_file = CHAP_LOGS_DIR / f"task_{self._job.id}.status.txt"
+        log_file = debug_file if debug_file.exists() else status_file
+        if not log_file.exists():
+            # Fallback to traceback if no log file was written
             return self.exception_info
+        logs = log_file.read_text()
+        job_meta = get_job_meta(self.id)
+        if job_meta and job_meta.get("status") == "FAILURE":
+            logs += "\n" + str(job_meta.get("traceback", ""))
+        return logs
 
 
 class CeleryPool[ReturnType]:

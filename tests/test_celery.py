@@ -1,5 +1,6 @@
 import logging
 import time
+from types import SimpleNamespace
 
 import pytest
 
@@ -121,6 +122,32 @@ def test_apply_async_stores_prediction_setup_id_in_job_metadata(monkeypatch, tmp
     )
 
     assert fake_redis.hsets[-1][1]["prediction_setup_id"] == "12"
+
+
+class _NoMetaRedis:
+    def exists(self, _key):
+        return 0
+
+
+def test_get_logs_returns_full_debug_log(monkeypatch, tmp_path):
+    monkeypatch.setattr(celery_tasks, "CHAP_LOGS_DIR", tmp_path)
+    monkeypatch.setattr(celery_tasks, "r", _NoMetaRedis())
+    (tmp_path / "task_job-1.status.txt").write_text("progress line\n")
+    (tmp_path / "task_job-1.debug.txt").write_text("progress line\nlibrary detail\n")
+
+    job = celery_tasks.CeleryJob(SimpleNamespace(id="job-1"), app=celery_tasks.app)
+
+    assert "library detail" in job.get_logs()
+
+
+def test_get_logs_falls_back_to_status_log(monkeypatch, tmp_path):
+    monkeypatch.setattr(celery_tasks, "CHAP_LOGS_DIR", tmp_path)
+    monkeypatch.setattr(celery_tasks, "r", _NoMetaRedis())
+    (tmp_path / "task_job-1.status.txt").write_text("progress line\n")
+
+    job = celery_tasks.CeleryJob(SimpleNamespace(id="job-1"), app=celery_tasks.app)
+
+    assert "progress line" in job.get_logs()
 
 
 def test_list_jobs_includes_prediction_setup_id(monkeypatch):

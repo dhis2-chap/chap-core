@@ -308,6 +308,25 @@ class ExternalChapkitModelTemplate:
         return ml_service_info_to_model_template_config(model_info, self.rest_api_url, user_options)
 
 
+def _failure_message(kind: str, job, artifact_id: str | None, client: CHAPKitRestAPIWrapper) -> str:
+    """Describe a failed chapkit job, including the model's full stdout and stderr.
+
+    chapkit inlines only a truncated stderr tail in ``job.error``; the complete script
+    output is kept on the run's diagnostic artifact, which is fetched here so it reaches
+    the job logs instead of being lost on the model service.
+    """
+    message = (
+        f"{kind} job {job.id} ended with status '{job.status}': {job.error or 'Unknown error'}. "
+        f"Stacktrace: {job.error_traceback or ''}"
+    )
+    candidates = [str(candidate) for candidate in (getattr(job, "artifact_id", None), artifact_id) if candidate]
+    for candidate in dict.fromkeys(candidates):
+        output = client.get_run_output(candidate)
+        if output:
+            return f"{message}\nModel output:\n{output}"
+    return message
+
+
 class ExternalChapkitModel(ExternalModelBase):
     def __init__(
         self,
@@ -342,10 +361,7 @@ class ExternalChapkitModel(ExternalModelBase):
         job, artifact_id = self.client.train_and_wait(self.configuration_id, new_df, run_info, geo)
 
         if job.status != "completed":
-            raise ModelFailedException(
-                f"Training job {job.id} ended with status '{job.status}': {job.error or 'Unknown error'}. "
-                f"Stacktrace: {job.error_traceback or ''}"
-            )
+            raise ModelFailedException(_failure_message("Training", job, artifact_id, self.client))
 
         assert artifact_id is not None, f"No artifact_id returned: {job}"
         self._train_id = artifact_id
@@ -368,10 +384,7 @@ class ExternalChapkitModel(ExternalModelBase):
         )
 
         if job.status != "completed":
-            raise ModelFailedException(
-                f"Prediction job {job.id} ended with status '{job.status}': {job.error or 'Unknown error'}. "
-                f"Stacktrace: {job.error_traceback or ''}"
-            )
+            raise ModelFailedException(_failure_message("Prediction", job, artifact_id, self.client))
 
         assert artifact_id is not None, f"No prediction artifact: {job.error or ''}"
 
