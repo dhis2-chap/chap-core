@@ -43,7 +43,6 @@ from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.hpo.hyperparameter_optimizer import HyperparameterOptimizer
 from chap_core.hpo.meta_learner import MetaLearner
 from chap_core.hpo.types import FlatHyperparameterOptimization
-from chap_core.models.configured_model import ConfiguredModel
 from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.time_period import Month, TimePeriod
 
