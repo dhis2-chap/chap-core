@@ -41,7 +41,7 @@ The full pipeline is segmenter → sampler → predict → weighter → surrogat
 | `--lime-params.granularity` | Number of segments per feature | 10 |
 | `--lime-params.num-perturbations` | Perturbations per run; higher = more stable but slower | 300 |
 | `--lime-params.seed` | RNG seed for deterministic output | None |
-| `--lime-params.last-n` | If set, only use the last N time steps of historical data | None |
+| `--lime-params.last-n` | If set, only use the last N time steps of historical data for all locations, based on the selected location's last_n. Locations that don't fit into the last_n period will be dropped.  | None |
 | `--lime-params.timed` | Print per-stage timing | false |
 | `--lime-params.adaptive` | Use `explain_adaptive` (Bayesian acquisition) instead of plain LIME | false |
 | `--lime-params.with-metrics` | Also compute the `eLoss` faithfulness metric and log it | false |

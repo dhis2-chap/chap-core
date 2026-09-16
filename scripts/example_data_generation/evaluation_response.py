@@ -1,5 +1,4 @@
 from chap_core.assessment.prediction_evaluator import backtest
-from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData
 from chap_core.predictor.model_registry import registry
 from chap_core.rest_api.worker_functions import dataset_to_datalist, samples_to_evaluation_response
@@ -10,7 +9,7 @@ estimator = registry.get_model("auto_regressive_weekly")
 
 
 predictions_list = backtest(
-    estimator, dataset, prediction_length=12, n_test_sets=20, stride=2, weather_provider=QuickForecastFetcher
+    estimator, dataset, prediction_length=12, n_test_sets=20, stride=2, weather_provider="climatology"
 )
 
 # predictions = forecast_ahead(estimator, dataset, 12)

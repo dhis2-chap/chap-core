@@ -9,8 +9,10 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
+import chap_core
 from chap_core.api_types import DataList, EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
+from chap_core.datatypes import create_tsdataclass
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo, DataSetWithObservations, ObservationBase
@@ -18,6 +20,7 @@ from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.tables import (
     Backtest,
     BacktestRead,
+    BacktestSpecification,
     Prediction,
     PredictionInfo,
     PredictionRead,
@@ -34,7 +37,8 @@ from chap_core.rest_api.data_models import (
     ModelTemplateRead,
 )
 from chap_core.rest_api.app import app
-from chap_core.rest_api.db_worker_functions import run_backtest
+from chap_core.spatio_temporal_data.converters import observations_to_dataset
+from chap_core.rest_api.db_worker_functions import harmonize_and_add_dataset, run_backtest
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -220,12 +224,61 @@ def test_list_model_templates(celery_session_worker, dependency_overrides):
     assert "population" in [f for f in ewars_model.required_covariates], ewars_model.required_covariates
 
 
+def test_make_dataset_import_persists_data_sources(clean_engine, dataset_make_request):
+    """The covariate to data-element mapping sent to make-dataset must survive the import."""
+    request = dataset_make_request
+    assert request.data_sources, "fixture should provide a mapping to persist"
+    feature_names = list({obs.feature_name for obs in request.provided_data})
+    provided_data = observations_to_dataset(create_tsdataclass(feature_names), request.provided_data, fill_missing=True)
+    provided_data.set_polygons(request.geojson)
+
+    with SessionWrapper(clean_engine) as session:
+        dataset_id = harmonize_and_add_dataset(
+            feature_names,
+            request.data_to_be_fetched,
+            provided_data.model_dump(),
+            request.name,
+            request.type,
+            session=session,
+            data_sources=request.data_sources,
+        )
+        stored = session.session.get(DataSet, dataset_id)
+        assert stored is not None
+        assert stored.data_sources == request.data_sources
+
+
 def test_get_data_sources():
     response = client.get("/v1/analytics/data-sources")
     data = response.json()
     assert response.status_code == 200, data
     assert len(data) == 9, data
     assert next(ds for ds in data if "rainfall" in ds["supportedFeatures"])["dataset"] == "era5"
+
+
+def test_get_covariate_names(dependency_overrides):
+    response = client.get("/v1/analytics/covariate-names")
+    data = response.json()
+    assert response.status_code == 200, data
+    by_name = {entry["name"]: entry for entry in data}
+    assert len(by_name) == len(data), "names should be unique"
+    assert by_name["rainfall"]["standard"] is True
+    assert "naive_model" in by_name["rainfall"]["requiredBy"]
+    assert by_name["disease_cases"]["standard"] is True
+    assert "naive_model" in by_name["disease_cases"]["requiredBy"], "target column should be suggested too"
+    assert "time_period" not in by_name
+    assert "location" not in by_name
+    assert all(entry["standard"] or entry["requiredBy"] for entry in data)
+
+    configured_models = client.get("/v1/crud/configured-models").json()
+    extras = {
+        (model["name"], covariate)
+        for model in configured_models
+        for covariate in model["additionalContinuousCovariates"]
+    }
+    assert extras, "seeded config should include a model with extra covariates"
+    for model_name, covariate in extras:
+        assert covariate in by_name, (covariate, sorted(by_name))
+        assert model_name in by_name[covariate]["requiredBy"], by_name[covariate]
 
 
 @pytest.fixture
@@ -337,7 +390,12 @@ def test_compatible_backtests(clean_engine, dependency_overrides):
         session.commit()
 
         ds_id = dataset.id
+        # One specification for all three: same dataset, same (default) parameters.
+        specification = BacktestSpecification(dataset_id=ds_id)
+        session.add(specification)
+        session.commit()
         backtest = Backtest(
+            specification=specification,
             dataset_id=ds_id,
             name="testing",
             model_id="naive_model",
@@ -346,6 +404,7 @@ def test_compatible_backtests(clean_engine, dependency_overrides):
             split_periods=["202201", "202202"],
         )
         matching = Backtest(
+            specification=specification,
             dataset_id=ds_id,
             name="testing2",
             model_id="chap_auto_ewars",
@@ -354,6 +413,7 @@ def test_compatible_backtests(clean_engine, dependency_overrides):
             split_periods=["202202", "202203"],
         )
         non_matching = Backtest(
+            specification=specification,
             dataset_id=ds_id,
             name="testing3",
             model_id="auto_regressive_monthly",
@@ -490,6 +550,167 @@ def test_run_backtest_persists_resolved_params(override_session, p_seeded_engine
     assert (read.n_periods, read.n_splits, read.stride, read.n_retrain) == (3, 2, 1, 2)
 
 
+def test_run_backtest_persists_the_future_weather_provider(override_session, p_seeded_engine):
+    """A non-default provider must reach the specification, or a look-ahead run is filed as climatology."""
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        model = session.get_configured_model_by_id_or_name("naive_model")
+        backtest_id = run_backtest(
+            BacktestCreate(name="provider", dataset_id=dataset_id, model_id=model.id),
+            n_periods=3,
+            n_splits=2,
+            stride=1,
+            session=session,
+            future_weather_provider="observed",
+        )
+        assert session.session.get(Backtest, backtest_id).future_weather_provider == "observed"
+
+    response = client.get(f"/v1/crud/backtests/{backtest_id}")
+    assert response.status_code == 200, response.text
+    assert BacktestRead.model_validate(response.json()).future_weather_provider == "observed"
+
+
+def _run(session, name, dataset_id, **params):
+    return run_backtest(
+        BacktestCreate(name=name, dataset_id=dataset_id, model_id="naive_model"), session=session, **params
+    )
+
+
+def test_backtests_with_the_same_parameters_share_one_specification(p_seeded_engine):
+    """Deduplication is what makes "these two results are comparable" structural."""
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        params = {"n_periods": 3, "n_splits": 2, "stride": 1, "n_retrain": 1}
+        first = session.session.get(Backtest, _run(session, "first", dataset_id, **params))
+        second = session.session.get(Backtest, _run(session, "second", dataset_id, **params))
+
+        assert first.specification_id == second.specification_id
+        assert (first.n_periods, first.n_splits, first.stride, first.n_retrain) == (3, 2, 1, 1)
+
+
+def test_backtest_records_the_chap_version_that_produced_it(p_seeded_engine):
+    """Without this a metric shift over time cannot be attributed to the model or the platform."""
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        backtest = session.session.get(Backtest, _run(session, "versioned", dataset_id, n_periods=3, n_splits=2))
+
+        # A dev checkout without package metadata reports "unknown", which is not a version.
+        expected = None if chap_core.__version__ == "unknown" else chap_core.__version__
+        assert backtest.chap_version == expected
+
+
+def test_every_backtest_parameter_is_part_of_the_uniqueness_key():
+    """A parameter that is not in the key would let two incomparable setups share a row.
+
+    Adding a field to BacktestParams therefore widens this constraint on its own, but
+    the database still needs a migration to widen it there too.
+    """
+    from chap_core.api_types import BacktestParams
+    from chap_core.database.tables import BacktestSpecification
+
+    constraint = next(
+        c
+        for c in BacktestSpecification.__table__.constraints
+        if getattr(c, "name", None) == "uq_backtestspecification_params"
+    )
+    assert {column.name for column in constraint.columns} == {"dataset_id", *BacktestParams.model_fields}
+
+
+def test_differing_parameters_produce_different_specifications(p_seeded_engine):
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        two_splits = session.session.get(Backtest, _run(session, "two", dataset_id, n_periods=3, n_splits=2))
+        three_splits = session.session.get(Backtest, _run(session, "three", dataset_id, n_periods=3, n_splits=3))
+
+        assert two_splits.specification_id != three_splits.specification_id
+        assert (two_splits.n_splits, three_splits.n_splits) == (2, 3)
+
+
+def test_differing_weather_providers_produce_different_specifications(p_seeded_engine):
+    """Results scored against different climate covariates are not comparable, so the
+    provider is part of the key just like the split parameters are."""
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        params = {"n_periods": 3, "n_splits": 2, "stride": 1, "n_retrain": 1}
+        climatology = session.session.get(
+            Backtest, _run(session, "climatology", dataset_id, future_weather_provider="climatology", **params)
+        )
+        observed = session.session.get(
+            Backtest, _run(session, "observed", dataset_id, future_weather_provider="observed", **params)
+        )
+
+        assert climatology.specification_id != observed.specification_id
+        assert observed.specification.future_weather_provider == "observed"
+
+
+def test_differing_datasets_produce_different_specifications(p_seeded_engine):
+    """The dataset is part of the key: identical parameters over different data are not comparable."""
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_ids = session.session.exec(select(DataSet.id).order_by(DataSet.id)).all()
+        params = {"n_periods": 3, "n_splits": 2, "stride": 1, "n_retrain": 1}
+        specification_ids = {
+            session.session.get(Backtest, _run(session, f"ds{dataset_id}", dataset_id, **params)).specification_id
+            for dataset_id in dataset_ids[:2]
+        }
+
+        assert len(specification_ids) == 2
+
+
+def test_specification_org_units_are_the_ones_left_after_filtering(p_seeded_engine):
+    """org_units belongs on the specification because the filter that produces it reads
+    the parameters: a longer evaluation window shortens the training window and can drop
+    an org unit whose only target values sit in the part that is now evaluated."""
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id).where(DataSet.name == "dataset_with_nans")).first()
+        dataset = DataSetManager(session.session).to_dataset(dataset_id)
+        backtest = session.session.get(Backtest, _run(session, "filtered", dataset_id, n_periods=2, n_splits=2))
+
+        assert set(backtest.specification.org_units) < set(dataset.locations())
+        assert set(backtest.specification.org_units) == set(backtest.org_units)
+
+
+def test_backtest_read_still_exposes_the_parameters_flat(override_session, p_seeded_engine):
+    """The parameters moved behind a relationship; the wire shape must not have moved with them."""
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        backtest_id = _run(session, "read", dataset_id, n_periods=3, n_splits=2, stride=1, n_retrain=2)
+
+    response = client.get(f"/v1/crud/backtests/{backtest_id}")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert (body["nPeriods"], body["nSplits"], body["stride"], body["nRetrain"]) == (3, 2, 1, 2)
+    # Lock the generated contract down: a later refactor must not quietly add or drop a
+    # field the frontend reads.
+    assert set(BacktestRead.model_json_schema(mode="serialization")["properties"]) == {
+        "nPeriods",
+        "nSplits",
+        "stride",
+        "nRetrain",
+        "futureWeatherProvider",
+        "datasetId",
+        "modelId",
+        "name",
+        "created",
+        "modelTemplateVersion",
+        "id",
+        "orgUnits",
+        "splitPeriods",
+        "maxHorizonDistance",
+        "chapVersion",
+        "dataset",
+        "aggregateMetrics",
+        "configuredModel",
+        "predictionSetupId",
+    }
+    assert set(body) == set(BacktestRead.model_json_schema(mode="serialization")["properties"])
+
+    # /full serialises the table class itself, so its parameters resolve through a lazy
+    # load that has to happen while the request session is still open.
+    full = client.get(f"/v1/crud/backtests/{backtest_id}/full")
+    assert full.status_code == 200, full.text
+    assert (full.json()["nPeriods"], full.json()["nSplits"]) == (3, 2)
+
+
 def test_run_backtest_retrains_n_retrain_times(p_seeded_engine, monkeypatch):
     """n_retrain must reach the evaluator, not just the row."""
     from chap_core.predictor.naive_estimator import NaiveEstimator
@@ -518,6 +739,45 @@ def test_run_backtest_retrains_n_retrain_times(p_seeded_engine, monkeypatch):
         )
         assert estimator.train_calls == 2
         assert session.session.get(Backtest, backtest_id).n_retrain == 2
+
+
+def test_run_backtest_rejects_model_that_skips_an_org_unit(p_seeded_engine, monkeypatch, org_units):
+    """A model that forecasts fewer org units than it was given must fail, not be stored."""
+    from chap_core.assessment.prediction_evaluator import IncompleteBacktestError
+    from chap_core.predictor.naive_estimator import NaiveEstimator
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet as SpatioTemporalDataSet
+
+    dropped = org_units[0]
+
+    class _DroppingPredictor:
+        def __init__(self, inner):
+            self.inner = inner
+
+        def predict(self, historic_data, future_data):
+            forecasts = self.inner.predict(historic_data, future_data)
+            return SpatioTemporalDataSet({loc: s for loc, s in forecasts.items() if loc != dropped})
+
+    class _DroppingEstimator:
+        def train(self, data):
+            return _DroppingPredictor(NaiveEstimator().train(data))
+
+    monkeypatch.setattr(
+        SessionWrapper, "get_configured_model_with_code", lambda self, *args, **kwargs: _DroppingEstimator()
+    )
+
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        n_backtests_before = len(session.session.exec(select(Backtest)).all())
+        with pytest.raises(IncompleteBacktestError) as excinfo:
+            run_backtest(
+                BacktestCreate(name="incomplete", dataset_id=dataset_id, model_id="naive_model"),
+                n_periods=3,
+                n_splits=2,
+                stride=1,
+                session=session,
+            )
+        assert dropped in str(excinfo.value)
+        assert len(session.session.exec(select(Backtest)).all()) == n_backtests_before
 
 
 def test_backtest_overlap_error_message_includes_id(clean_engine, dependency_overrides):
@@ -895,6 +1155,76 @@ def test_run_prediction_setup_rejects_legacy_fields(override_session, seeded_ses
     payload["nPeriods"] = 3
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
     assert response.status_code == 422
+
+
+def _point_at_provider(session, backtest, provider):
+    """Move a backtest onto a specification differing only in the weather provider.
+
+    Specifications are immutable and shared between backtests, so changing the provider
+    means pointing at a different one rather than editing the one already there.
+    """
+    specification = BacktestSpecification(
+        **backtest.specification.model_dump(exclude={"id"}) | {"future_weather_provider": provider}
+    )
+    session.add(specification)
+    backtest.specification = specification
+    session.add(backtest)
+    session.commit()
+
+
+def test_run_prediction_setup_inherits_the_backtest_provider(
+    override_session, seeded_session, example_polygons, monkeypatch
+):
+    """A promoted backtest must predict with the provider it was evaluated on, or the
+    prediction silently uses a different future-weather source than the scores imply."""
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    _point_at_provider(seeded_session, backtest, "damped_persistence")
+    setup_id = _create_prediction_setup(backtest.id, "Inherit provider").json()["id"]
+
+    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    payload = request.model_dump(mode="json")
+    payload.pop("data_to_be_fetched", None)
+    payload.pop("data_sources", None)
+    payload["nPeriods"] = 3
+
+    from chap_core.rest_api.v1.routers import crud as crud_router
+
+    captured: dict = {}
+
+    class _FakeJob:
+        id = "captured-job"
+
+    class _CapturingWorker:
+        def queue_db(self, func, *args, **kwargs):
+            captured.update(kwargs)
+            return _FakeJob()
+
+    monkeypatch.setattr(crud_router, "worker", _CapturingWorker())
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+
+    assert response.status_code == 200, response.json()
+    assert captured["prediction_params"].future_weather_provider == "damped_persistence"
+
+
+def test_run_prediction_setup_rejects_a_look_ahead_provider(override_session, seeded_session, example_polygons):
+    """`observed` reads the forecast window's own weather, so it cannot forecast ahead.
+    Fail at the endpoint rather than deep inside the worker."""
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    _point_at_provider(seeded_session, backtest, "observed")
+    setup_id = _create_prediction_setup(backtest.id, "Look-ahead setup").json()["id"]
+
+    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    payload = request.model_dump(mode="json")
+    payload.pop("data_to_be_fetched", None)
+    payload.pop("data_sources", None)
+    payload["nPeriods"] = 3
+
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+
+    assert response.status_code == 400, response.json()
+    assert "cannot forecast ahead" in response.json()["detail"]
 
 
 @pytest.mark.parametrize("n_periods", [0, -1])

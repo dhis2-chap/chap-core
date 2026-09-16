@@ -1,3 +1,4 @@
+import time
 from unittest.mock import patch
 
 import httpx
@@ -123,6 +124,43 @@ class TestChapkitServiceManager:
         with pytest.raises(RuntimeError, match="Service not started"):
             _ = manager.url
 
+    def test_service_stays_responsive_when_output_exceeds_pipe_buffer(self, tmp_path, fake_chapkit_service):
+        with fake_chapkit_service("flood"):
+            with ChapkitServiceManager(str(tmp_path), startup_timeout=15) as manager:
+                deadline = time.time() + 15
+                while "STDERR_FLOOD_DONE" not in manager.recent_output() and time.time() < deadline:
+                    time.sleep(0.1)
+                assert "STDOUT_FLOOD_DONE" in manager.recent_output()
+                assert "STDERR_FLOOD_DONE" in manager.recent_output()
+                assert httpx.get(manager.url + "/health", timeout=2).status_code == 200
+                stop_started = time.time()
+            assert time.time() - stop_started < 5
+
+    def test_reader_survives_invalid_output_bytes(self, tmp_path, fake_chapkit_service):
+        with fake_chapkit_service("invalid_bytes"):
+            with ChapkitServiceManager(str(tmp_path), startup_timeout=15) as manager:
+                deadline = time.time() + 15
+                while "AFTER_INVALID_BYTES" not in manager.recent_output() and time.time() < deadline:
+                    time.sleep(0.1)
+                assert "AFTER_INVALID_BYTES" in manager.recent_output()
+                assert httpx.get(manager.url + "/health", timeout=2).status_code == 200
+
+    def test_death_during_startup_reports_output(self, tmp_path, fake_chapkit_service):
+        with fake_chapkit_service("die"):
+            with pytest.raises(ChapkitServiceStartupError, match="died during startup") as exc_info:
+                with ChapkitServiceManager(str(tmp_path), startup_timeout=15):
+                    pass
+        assert "fake service refused to start" in str(exc_info.value)
+
+    def test_startup_timeout_reports_url(self, tmp_path, fake_chapkit_service):
+        with fake_chapkit_service("starting"):
+            with pytest.raises(ChapkitServiceStartupError, match="did not become healthy") as exc_info:
+                with ChapkitServiceManager(str(tmp_path), startup_timeout=2):
+                    pass
+        message = str(exc_info.value)
+        assert "http://127.0.0.1:" in message
+        assert "None" not in message
+
 
 class TestGetModelTemplateConfig:
     """Test that get_model_template_config extracts user_options from the chapkit config schema."""
@@ -150,6 +188,22 @@ class TestGetModelTemplateConfig:
         mock_client.get_config_schema.return_value = schema_response
         template.client = mock_client
         return template
+
+    @pytest.mark.parametrize("reported, expected", [("a" * 40, "a" * 40), (None, None), ("", None)])
+    def test_returns_the_git_revision_the_service_reports(self, reported, expected):
+        from chap_core.rest_api.services.schemas import MLServiceInfo
+
+        template = self._make_template_with_schema({"properties": {}})
+        info = template.client.info.return_value
+        template.client.info.return_value = MLServiceInfo.model_validate(
+            {**info.model_dump(), "git_revision": reported}
+        )
+
+        config, digest = template.get_model_template_config_with_digest()
+
+        assert config.name == "test-model"
+        assert digest == expected
+        assert template.client.info.call_count == 1
 
     def test_extracts_user_options_from_top_level_properties(self):
         """Chapkit services expose config schema at the top level."""

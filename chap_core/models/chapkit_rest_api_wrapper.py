@@ -17,6 +17,16 @@ from chap_core.time_period.date_util_wrapper import pandas_period_to_string
 
 logger = logging.getLogger(__name__)
 
+# Per-request bounds. Long-running work (train, predict) is asynchronous on the
+# chapkit side and polled through wait_for_job, so these only need to cover a
+# single request such as a data upload or an artifact download. Same shape as
+# the v2 proxy client.
+DEFAULT_REQUEST_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=300.0, pool=10.0)
+
+# Consecutive failed status polls tolerated before wait_for_job gives up, so a
+# service that is restarting or a single transport blip does not abort a job wait.
+MAX_CONSECUTIVE_POLL_ERRORS = 5
+
 
 class RunInfo(BaseModel):
     """Runtime information passed from CHAP to models."""
@@ -50,14 +60,37 @@ def _serialize_geo(geo_features: dict[str, Any] | None) -> dict[str, Any] | None
     return geo_features if isinstance(geo_features, dict) else geo_features.model_dump()
 
 
+def _describe_error_response(response: httpx.Response) -> str:
+    """Summarize an error body: RFC 9457 problem details, the 422 validation shape, or raw text."""
+    try:
+        body = response.json()
+    except ValueError:
+        return response.text[:500]
+    if isinstance(body, dict):
+        parts = [str(body[key]) for key in ("title", "detail", "errors") if body.get(key)]
+        if body.get("trace_id"):
+            parts.append(f"trace_id={body['trace_id']}")
+        if parts:
+            return "; ".join(parts)
+    return str(body)[:500]
+
+
 class CHAPKitRestAPIWrapper:
     """Synchronous client for interacting with the CHAPKit REST API."""
 
-    def __init__(self, base_url: str = "http://localhost:8001", timeout: int = 7200):
+    def __init__(
+        self,
+        base_url: str = "http://localhost:8001",
+        timeout: float | httpx.Timeout = DEFAULT_REQUEST_TIMEOUT,
+        transport: httpx.BaseTransport | None = None,
+    ):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.client = httpx.Client(
-            base_url=self.base_url, timeout=self.timeout, headers={"Content-Type": "application/json"}
+            base_url=self.base_url,
+            timeout=self.timeout,
+            headers={"Content-Type": "application/json"},
+            transport=transport,
         )
 
     def __enter__(self):
@@ -67,13 +100,23 @@ class CHAPKitRestAPIWrapper:
         self.close()
 
     def _request(self, method: str, endpoint: str, **kwargs) -> httpx.Response:
-        """Make synchronous HTTP request with error handling."""
+        """Make a synchronous HTTP request.
+
+        A non-2xx response is re-raised as ``httpx.HTTPStatusError`` with the
+        service's error detail in the message and the response still attached.
+        Transport errors (timeouts, connection failures) propagate unchanged.
+        """
         try:
             response = self.client.request(method, endpoint, **kwargs)
             response.raise_for_status()
             return response
-        except httpx.HTTPError as e:
-            raise httpx.HTTPError(f"API request failed: {e}") from e
+        except httpx.HTTPStatusError as e:
+            raise httpx.HTTPStatusError(
+                f"API request failed: {method} {endpoint} returned {e.response.status_code}: "
+                f"{_describe_error_response(e.response)}",
+                request=e.request,
+                response=e.response,
+            ) from e
 
     def close(self):
         """Close the client connection."""
@@ -185,16 +228,36 @@ class CHAPKitRestAPIWrapper:
 
     # Helper methods
 
-    def wait_for_job(self, job_id: str, poll_interval: int = 2, timeout: int | None = None) -> chapkit.ChapkitJobRecord:
-        """Wait for a job to complete."""
+    def wait_for_job(
+        self, job_id: str, poll_interval: float = 2, timeout: float | None = None
+    ) -> chapkit.ChapkitJobRecord:
+        """Wait for a job to reach a terminal status (completed, failed or canceled).
+
+        Up to MAX_CONSECUTIVE_POLL_ERRORS consecutive failed status requests are
+        tolerated before the last error is raised.
+        """
         start_time = time.time()
+        consecutive_errors = 0
 
         while True:
-            job = self.get_job(job_id)
-            logger.info(f"Job {job_id} status: {job.status}")
-
-            if job.status in ["completed", "failed", "canceled"]:
-                return job
+            try:
+                job = self.get_job(job_id)
+            except httpx.HTTPError as e:
+                consecutive_errors += 1
+                if consecutive_errors >= MAX_CONSECUTIVE_POLL_ERRORS:
+                    raise
+                logger.warning(
+                    "Polling job %s failed (%d/%d), retrying: %s",
+                    job_id,
+                    consecutive_errors,
+                    MAX_CONSECUTIVE_POLL_ERRORS,
+                    e,
+                )
+            else:
+                consecutive_errors = 0
+                logger.info(f"Job {job_id} status: {job.status}")
+                if job.status in ["completed", "failed", "canceled"]:
+                    return job
 
             if timeout and (time.time() - start_time) > timeout:
                 raise TimeoutError(f"Job {job_id} did not complete within {timeout} seconds")
@@ -207,7 +270,7 @@ class CHAPKitRestAPIWrapper:
         data: pd.DataFrame,
         run_info: RunInfo,
         geo_features: dict[str, Any] | None = None,
-        timeout: int | None = 300,
+        timeout: float | None = 7200,
     ) -> tuple[chapkit.ChapkitJobRecord, str]:
         """Train a model and wait for completion.
 
@@ -225,7 +288,7 @@ class CHAPKitRestAPIWrapper:
         run_info: RunInfo,
         historic_data: pd.DataFrame | None = None,
         geo_features: dict[str, Any] | None = None,
-        timeout: int | None = 7200,
+        timeout: float | None = 7200,
     ) -> tuple[chapkit.ChapkitJobRecord, str]:
         """Make predictions and wait for completion.
 

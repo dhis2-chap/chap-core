@@ -185,6 +185,8 @@ When providing a directory path with `--run-config.is-chapkit-model`, Chap autom
 3. Runs the evaluation
 4. Stops the service when complete
 
+The service's own output is forwarded to Chap's debug log (`--run-config.debug`), and the last lines are included in the error message if the service fails to start.
+
 ## Input Data Format
 
 ### CSV File Requirements

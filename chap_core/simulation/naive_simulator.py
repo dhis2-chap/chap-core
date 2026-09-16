@@ -11,9 +11,10 @@ import numpy as np
 import pydantic
 from numpy.random import normal, poisson
 
+from chap_core.assessment.evaluation import RECORDED_CHAP_VERSION
 from chap_core.assessment.flat_representations import max_horizon_distance
 from chap_core.database.dataset_tables import DataSet, Observation
-from chap_core.database.tables import Backtest, BacktestForecast
+from chap_core.database.tables import Backtest, BacktestForecast, BacktestSpecification
 
 
 class SimulationParams(pydantic.BaseModel):
@@ -92,9 +93,14 @@ class BacktestSimulator:
             model_id="Naive Forecast",
             org_units=dataset_dims.locations,
             split_periods=split_periods,
-            n_periods=self._params.prediction_length,
-            n_splits=self._params.n_splits,
-            stride=1,
+            chap_version=RECORDED_CHAP_VERSION,
+            specification=BacktestSpecification(
+                dataset_id=dataset.id,
+                org_units=dataset_dims.locations,
+                n_periods=self._params.prediction_length,
+                n_splits=self._params.n_splits,
+                stride=1,
+            ),
         )
         forecasts = []
         for i in range(self._params.n_splits):

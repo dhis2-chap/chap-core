@@ -14,7 +14,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
-from chap_core.database.tables import Backtest, Prediction, PredictionSetup, QuantileTarget
+from chap_core.database.tables import Backtest, BacktestSpecification, Prediction, PredictionSetup, QuantileTarget
 from chap_core.services.prediction_setup_service import (
     BacktestNotFoundError,
     DuplicateSetupError,
@@ -56,7 +56,12 @@ def _make_parents(session: Session) -> tuple[int, int, int]:
     assert model.id is not None
     assert dataset.id is not None
 
-    backtest = Backtest(dataset_id=dataset.id, model_id="cfg", name="bt", model_db_id=model.id)
+    specification = BacktestSpecification(dataset_id=dataset.id)
+    session.add(specification)
+    session.commit()
+    backtest = Backtest(
+        dataset_id=dataset.id, model_id="cfg", name="bt", model_db_id=model.id, specification=specification
+    )
     session.add(backtest)
     session.commit()
     assert backtest.id is not None

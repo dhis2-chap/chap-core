@@ -80,21 +80,21 @@ def _check_nan_covariates(dataset: DataSet) -> list[ValidationIssue]:
                     issues.append(
                         ValidationIssue(
                             level="warning",
-                            message=f"Column '{field_name}' is non-numeric and will be ignored by models",
+                            message=f"Column '{field_name}' is non-numeric and is passed to the model as-is",
                         )
                     )
                 continue
             if not np.issubdtype(values.dtype, np.floating):
                 continue
-            isnan = np.isnan(values)
-            if np.any(isnan):
-                nan_periods = [data.time_period[i].to_string() for i in np.flatnonzero(isnan)]
+            invalid = ~np.isfinite(values)
+            if np.any(invalid):
+                invalid_periods = [data.time_period[i].to_string() for i in np.flatnonzero(invalid)]
                 issues.append(
                     ValidationIssue(
                         level="error",
-                        message=f"Missing values in '{field_name}'",
+                        message=f"Missing or non-finite values in '{field_name}'",
                         location=location,
-                        time_periods=nan_periods,
+                        time_periods=invalid_periods,
                     )
                 )
     return issues
@@ -133,6 +133,15 @@ def _check_required_covariates(dataset: DataSet, config: ModelTemplateConfigV2) 
         for covariate in config.required_covariates
         if not covariate.startswith(GEN_PREFIX) and covariate not in dataset_fields
     ]
+    sample = next(iter(dataset.values()))
+    issues.extend(
+        ValidationIssue(
+            level="error",
+            message=f"Required covariate '{covariate}' is non-numeric",
+        )
+        for covariate in config.required_covariates
+        if covariate in dataset_fields and not np.issubdtype(getattr(sample, covariate).dtype, np.number)
+    )
     issues.extend(_check_generated_features(config))
     return issues
 

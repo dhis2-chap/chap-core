@@ -2,9 +2,13 @@ name: build_docs
 
 on:
   push:
-    branches: [ master, dev, docs/sphinx-to-mkdocs ]
+    branches: [ master, docs/sphinx-to-mkdocs ]
   pull_request:
-    branches: [ master, dev ]
+    branches: [ master ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   docs:
@@ -16,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.1.0
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
       - name: Install the project

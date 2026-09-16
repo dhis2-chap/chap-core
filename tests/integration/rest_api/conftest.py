@@ -2,13 +2,21 @@ import datetime
 import typing
 
 import numpy as np
+import pandas as pd
 import pytest
 from geojson_pydantic import Point
 from sqlmodel import select, Session
 
 from chap_core.api_types import FeatureCollectionModel, FeatureModel
 from chap_core.database.dataset_tables import DataSet, Observation, DataSource
-from chap_core.database.tables import Prediction, Backtest, BacktestForecast, BacktestMetric, PredictionSamplesEntry
+from chap_core.database.tables import (
+    Prediction,
+    Backtest,
+    BacktestForecast,
+    BacktestMetric,
+    BacktestSpecification,
+    PredictionSamplesEntry,
+)
 from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.routers.analytics import BacktestParams
 from chap_core.rest_api.v1.routers.dependencies import get_session
@@ -53,6 +61,39 @@ def geojson(org_units) -> FeatureCollectionModel:
             for ou in org_units
         ],
     )
+
+
+@pytest.fixture
+def endemic_channel_observations() -> pd.DataFrame:
+    """Malaria-like monthly case counts over five complete years that vary from year to year.
+
+    ``dataset_observations`` derives its values from ``sin(t % 12)``, which repeats the same
+    value for a given month in every year, so its within-season variance is exactly zero and
+    it cannot exercise a percentile at all. These counts vary across years, which is what
+    both percentile and mean + k*std thresholds need to be distinguishable.
+    """
+    seasonal_profile = [2100, 1800, 1500, 1300, 1200, 1400, 1900, 2400, 2600, 2500, 2300, 2200]
+    year_factor = [1.0, 1.15, 1.08, 1.25, 1.04]
+    base = {"loc_1": 1.0, "loc_2": 0.25}
+    rows = [
+        {
+            "location": location,
+            "time_period": f"{year}-{month:02d}",
+            "disease_cases": float(round(seasonal_profile[month - 1] * factor * scale)),
+        }
+        for location, scale in base.items()
+        for year, factor in zip(range(2018, 2023), year_factor)
+        for month in range(1, 13)
+    ]
+    return pd.DataFrame(rows)
+
+
+@pytest.fixture
+def endemic_channel_observations_partial_year(endemic_channel_observations) -> pd.DataFrame:
+    """The endemic channel data plus an in-progress final year with only January and February."""
+    partial = endemic_channel_observations[endemic_channel_observations["time_period"].isin(["2022-01", "2022-02"])]
+    partial = partial.assign(time_period=partial["time_period"].str.replace("2022", "2023"))
+    return pd.concat([endemic_channel_observations, partial], ignore_index=True)
 
 
 @pytest.fixture
@@ -242,11 +283,17 @@ def _generate_forecasts(
 
 
 @pytest.fixture
-def backtest(dataset, forecasts):
+def backtest_specification(dataset, org_units, backtest_params):
+    return BacktestSpecification(dataset=dataset, org_units=org_units, **backtest_params.model_dump())
+
+
+@pytest.fixture
+def backtest(dataset, forecasts, backtest_specification):
     return Backtest(
         name="test backtest",
         dataset_id=1,
         dataset=dataset,
+        specification=backtest_specification,
         forecasts=forecasts,
         model_id="naive_model",
         aggregate_metrics={"MAE": 1.5},
@@ -255,11 +302,15 @@ def backtest(dataset, forecasts):
 
 
 @pytest.fixture
-def backtest_with_nans(dataset_with_nans, forecasts_2):
+def backtest_with_nans(dataset_with_nans, forecasts_2, org_units, backtest_params):
     return Backtest(
         name="test_backtest_with_nans",
         dataset_id=1,
         dataset=dataset_with_nans,
+        # A distinct dataset, so a distinct specification even though the parameters match.
+        specification=BacktestSpecification(
+            dataset=dataset_with_nans, org_units=org_units, **backtest_params.model_dump()
+        ),
         forecasts=forecasts_2,
         model_id="naive_model",
         aggregate_metrics={"MAE": 1.5},

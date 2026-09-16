@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from redis import Redis
+from redis.client import Pipeline
 
 from chap_core.rest_api.services.schemas import (
     PingResponse,
@@ -39,6 +40,10 @@ class Orchestrator:
     Services register with the orchestrator and must send periodic pings
     to maintain their registration. Services that fail to ping within
     the TTL window are automatically expired by Redis.
+
+    Registration and ping are optimistic Redis transactions (WATCH/MULTI/EXEC)
+    so that a ping racing a deregistration or a re-registration cannot
+    resurrect the old entry or write back a stale URL.
     """
 
     def __init__(self, redis_client: Redis, ttl_seconds: int = DEFAULT_TTL_SECONDS):
@@ -82,29 +87,39 @@ class Orchestrator:
         """
         service_id = payload.info.id
         key = self._make_key(service_id)
-        now = self._now_iso()
-        expires_at = self._compute_expires_at()
 
-        existing = self.redis.get(key)
-        if existing is not None:
-            existing_data: dict[str, Any] = json.loads(existing)  # type: ignore[arg-type]
-            registered_at = existing_data.get("registered_at", now)
-            message = "Service registration updated"
-        else:
-            registered_at = now
-            message = "Service registered successfully"
+        message = ""
 
-        service_data: dict[str, Any] = {
-            "id": service_id,
-            "url": payload.url,
-            "info": payload.info.model_dump(mode="json"),
-            "registered_at": registered_at,
-            "last_updated": now,
-            "last_ping_at": now,
-            "expires_at": expires_at,
-        }
+        def _register(pipe: Pipeline) -> None:
+            nonlocal message
+            now = self._now_iso()
+            expires_at = self._compute_expires_at()
 
-        self.redis.setex(key, self.ttl_seconds, json.dumps(service_data))
+            existing = pipe.get(key)
+            if existing is not None:
+                existing_data: dict[str, Any] = json.loads(existing)  # type: ignore[arg-type]
+                registered_at = existing_data.get("registered_at", now)
+                message = "Service registration updated"
+            else:
+                registered_at = now
+                message = "Service registered successfully"
+
+            service_data: dict[str, Any] = {
+                "id": service_id,
+                "url": payload.url,
+                "info": payload.info.model_dump(mode="json"),
+                "registered_at": registered_at,
+                "last_updated": now,
+                "last_ping_at": now,
+                "expires_at": expires_at,
+            }
+
+            pipe.multi()
+            pipe.setex(key, self.ttl_seconds, json.dumps(service_data))
+
+        # WATCH/MULTI/EXEC: a concurrent write to the key between the read and the
+        # write makes EXEC fail and redis-py retries against the new state.
+        self.redis.transaction(_register, key)
 
         return RegistrationResponse(
             id=service_id,
@@ -131,20 +146,32 @@ class Orchestrator:
             ServiceNotFoundError: If the service is not registered.
         """
         key = self._make_key(service_id)
-        data = self.redis.get(key)
 
-        if data is None:
-            raise ServiceNotFoundError(f"Service {service_id} not found")
+        now = ""
+        expires_at = ""
 
-        service_data: dict[str, Any] = json.loads(data)  # type: ignore[arg-type]
-        now = self._now_iso()
-        expires_at = self._compute_expires_at()
+        def _ping(pipe: Pipeline) -> None:
+            nonlocal now, expires_at
+            data = pipe.get(key)
+            if data is None:
+                raise ServiceNotFoundError(f"Service {service_id} not found")
 
-        service_data["last_ping_at"] = now
-        service_data["last_updated"] = now
-        service_data["expires_at"] = expires_at
+            service_data: dict[str, Any] = json.loads(data)  # type: ignore[arg-type]
+            now = self._now_iso()
+            expires_at = self._compute_expires_at()
 
-        self.redis.setex(key, self.ttl_seconds, json.dumps(service_data))
+            service_data["last_ping_at"] = now
+            service_data["last_updated"] = now
+            service_data["expires_at"] = expires_at
+
+            pipe.multi()
+            pipe.setex(key, self.ttl_seconds, json.dumps(service_data))
+
+        # The read and the write run as one WATCH/MULTI/EXEC transaction, so a ping
+        # can neither recreate a registration deleted in between nor overwrite a
+        # re-registration that changed the URL: EXEC fails and the ping is retried
+        # against the current state, or raises ServiceNotFoundError.
+        self.redis.transaction(_ping, key)
 
         return PingResponse(
             id=service_id,

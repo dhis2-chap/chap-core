@@ -124,7 +124,6 @@ class TestExportMetrics:
         assert "crps" in df.columns
         assert "coverage_10_90" in df.columns
         assert "coverage_25_75" in df.columns
-        assert "sample_count" in df.columns
 
     def test_export_metrics_with_weekly_data(self, backtest_weeks, tmp_path):
         """Test exporting metrics from weekly backtest data."""

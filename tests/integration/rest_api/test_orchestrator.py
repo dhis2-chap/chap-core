@@ -3,6 +3,7 @@ import pytest
 
 from chap_core.rest_api.services.orchestrator import (
     DEFAULT_TTL_SECONDS,
+    KEY_PREFIX,
     Orchestrator,
     ServiceNotFoundError,
 )
@@ -17,9 +18,35 @@ from chap_core.rest_api.services.schemas import (
 )
 
 
+class RacingFakeRedis(fakeredis.FakeRedis):
+    """FakeRedis whose transactions can be interleaved with a concurrent write.
+
+    Set ``before_write`` to a callable; it runs once, after the transaction has
+    read the key and right before it enters MULTI, which is the window a
+    concurrent deregister or re-register lands in.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.before_write = None
+
+    def pipeline(self, transaction=True, shard_hint=None):
+        pipe = super().pipeline(transaction, shard_hint)
+        original_multi = pipe.multi
+
+        def multi():
+            hook, self.before_write = self.before_write, None
+            if hook is not None:
+                hook()
+            return original_multi()
+
+        pipe.multi = multi  # type: ignore[method-assign]
+        return pipe
+
+
 @pytest.fixture
 def fake_redis():
-    return fakeredis.FakeRedis()
+    return RacingFakeRedis()
 
 
 @pytest.fixture
@@ -112,6 +139,26 @@ class TestPing:
     def test_ping_nonexistent_service_raises_error(self, orchestrator):
         with pytest.raises(ServiceNotFoundError):
             orchestrator.ping("nonexistent-id")
+
+    def test_ping_after_concurrent_deregister_does_not_resurrect(self, orchestrator, fake_redis, sample_payload):
+        reg = orchestrator.register(sample_payload)
+        fake_redis.before_write = lambda: orchestrator.deregister(reg.id)
+
+        with pytest.raises(ServiceNotFoundError):
+            orchestrator.ping(reg.id)
+
+        assert fake_redis.exists(f"{KEY_PREFIX}{reg.id}") == 0
+
+    def test_ping_after_concurrent_reregister_keeps_new_url(self, orchestrator, fake_redis, sample_payload):
+        reg = orchestrator.register(sample_payload)
+        new_payload = sample_payload.model_copy(update={"url": "http://new-host:9090"})
+        fake_redis.before_write = lambda: orchestrator.register(new_payload)
+
+        ping_response = orchestrator.ping(reg.id)
+
+        assert ping_response.status == "alive"
+        assert orchestrator.get(reg.id).url == "http://new-host:9090"
+        assert orchestrator.get(reg.id).last_ping_at == ping_response.last_ping_at
 
 
 class TestGet:
