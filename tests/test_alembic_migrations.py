@@ -49,6 +49,7 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("prediction", "prediction_setup_id"),
     ("backtest", "max_horizon_distance"),
     ("backtest", "specification_id"),
+    ("backtest", "chap_version"),
 ]
 
 # Tables added by alembic migrations (not in the baseline schema).
@@ -246,6 +247,7 @@ class TestAlembicMigrations:
         # may be left behind on backtest by an earlier revision that added them there.
         columns = {col["name"] for col in sa.inspect(engine).get_columns("backtest")}
         assert not columns & {"n_periods", "n_splits", "stride", "n_retrain", "future_weather_provider"}
+        assert "chap_version" in columns
 
     def test_downgrade_to_base_and_upgrade_again(self, engine):
         """
@@ -359,6 +361,9 @@ class TestAlembicMigrations:
             # QuickForecastFetcher - what the climatology provider now does.
             providers = conn.execute(sa.text("SELECT future_weather_provider FROM backtestspecification")).scalars()
             assert set(providers.all()) == {"climatology"}
+            # The producing chap-core version is only known for backtests run from now on.
+            versions = conn.execute(sa.text("SELECT chap_version FROM backtest")).scalars().all()
+            assert len(versions) == len(_LEGACY_BACKTESTS) and set(versions) == {None}
 
         columns = {col["name"] for col in sa.inspect(engine).get_columns("backtest")}
         assert not columns & {"n_periods", "n_splits", "stride", "n_retrain", "future_weather_provider"}
