@@ -173,10 +173,6 @@ class SessionWrapper:
                 )
             # A version is write-once, so keep the stored row.
             template_id = self._return_model_template_id(model_name, existing_template)
-            # A digest that was unknown when the row was stored can still be filled in.
-            if existing_template.source_digest is None and model_template.source_digest is not None:
-                existing_template.source_digest = model_template.source_digest
-                self.session.commit()
             # Show the template again, but do not change its contents.
             if existing_template.archived:
                 existing_template.archived = False

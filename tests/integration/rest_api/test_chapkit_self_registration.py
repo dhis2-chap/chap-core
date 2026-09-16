@@ -114,14 +114,9 @@ def test_registered_service_without_git_revision_stores_null_source_digest(clien
     assert matching[0]["sourceDigest"] is None
 
 
-def test_resync_fills_source_digest_and_keeps_the_first_revision(client, register_service, caplog):
-    register_service()
-    client.get("/v1/crud/model-templates")
-
-    # A template stored without a digest gets it once the service reports one.
+def test_republished_service_under_the_same_version_keeps_the_first_revision(client, register_service, caplog):
     register_service({**MOCK_INFO_DICT, "git_revision": "a" * 40})
-    templates = client.get("/v1/crud/model-templates").json()
-    assert [t["sourceDigest"] for t in templates if t["name"] == "test-model"] == ["a" * 40]
+    client.get("/v1/crud/model-templates")
 
     # Republishing the same version from another commit keeps the stored revision.
     register_service({**MOCK_INFO_DICT, "git_revision": "b" * 40})

@@ -375,18 +375,6 @@ def test_reseeding_a_moved_ref_keeps_the_originally_seeded_source(model_template
         assert session.get_model_template(template_id).source_digest == "a" * 40
 
 
-def test_resync_fills_a_missing_source_digest(model_template_yaml_config, engine):
-    """Chapkit templates stored before the digest was recorded get it on the next sync."""
-    with SessionWrapper(engine) as session:
-        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
-        assert session.get_model_template(template_id).source_digest is None
-
-        assert session.add_model_template_from_yaml_config(model_template_yaml_config, source_digest="a" * 40) == (
-            template_id
-        )
-        assert session.get_model_template(template_id).source_digest == "a" * 40
-
-
 def test_changed_configuration_is_added_as_new_configured_model(model_template_yaml_config, engine):
     with SessionWrapper(engine) as session:
         # The shared fixture has no user options, and the schema is closed.
