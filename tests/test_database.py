@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlparse
 
 import pytest
 from sqlalchemy import create_engine, text
@@ -590,12 +591,18 @@ def _two_chapkit_model_config_dir(tmp_path, hosts=("broken-chapkit", "ok-chapkit
 
 
 def _fake_chapkit_template(model_template_yaml_config, versions=None, digests=None):
-    """A stand-in for ExternalChapkitModelTemplate whose template name is the URL host with
-    dashes replaced, and whose version and digest are looked up by that name."""
+    """A stand-in for ExternalChapkitModelTemplate. The template name is the URL host, and
+    `versions` and `digests` map a host to what that service reports."""
 
     class FakeChapkitTemplate:
         def __init__(self, url):
-            self.name = url.split("//")[1].split(":")[0].replace("-", "_")
+            self.name = urlparse(url).hostname
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            return None
 
         def wait_for_healthy(self, timeout=30):
             return None
@@ -612,14 +619,14 @@ def _fake_chapkit_template(model_template_yaml_config, versions=None, digests=No
 def test_seed_skips_chapkit_model_when_version_is_missing(engine, tmp_path, model_template_yaml_config, monkeypatch):
     monkeypatch.setattr(
         "chap_core.database.model_template_seed.ExternalChapkitModelTemplate",
-        _fake_chapkit_template(model_template_yaml_config, versions={"broken_chapkit": None}),
+        _fake_chapkit_template(model_template_yaml_config, versions={"broken-chapkit": None}),
     )
     with Session(engine) as session:
         seed_configured_models_from_config_dir(session, directory=_two_chapkit_model_config_dir(tmp_path))
 
     names = _seeded_template_names(engine)
-    assert "broken_chapkit" not in names
-    assert "ok_chapkit" in names
+    assert "broken-chapkit" not in names
+    assert "ok-chapkit" in names
     assert "naive_model" in names
 
 
@@ -627,7 +634,7 @@ def test_seed_stores_chapkit_git_revision_as_source_digest(engine, tmp_path, mod
     # A bare docker build without the GIT_REVISION build-arg reports no revision, which is still valid.
     monkeypatch.setattr(
         "chap_core.database.model_template_seed.ExternalChapkitModelTemplate",
-        _fake_chapkit_template(model_template_yaml_config, digests={"pinned_chapkit": "a" * 40}),
+        _fake_chapkit_template(model_template_yaml_config, digests={"pinned-chapkit": "a" * 40}),
     )
     config_dir = _two_chapkit_model_config_dir(tmp_path, hosts=("unpinned-chapkit", "pinned-chapkit"))
     with Session(engine) as session:
@@ -635,8 +642,8 @@ def test_seed_stores_chapkit_git_revision_as_source_digest(engine, tmp_path, mod
 
     with SessionWrapper(engine) as session:
         digests = {t.name: t.source_digest for t in session.session.exec(select(ModelTemplateDB)).all()}
-    assert digests["pinned_chapkit"] == "a" * 40
-    assert digests["unpinned_chapkit"] is None
+    assert digests["pinned-chapkit"] == "a" * 40
+    assert digests["unpinned-chapkit"] is None
 
 
 def test_seed_raises_database_error_instead_of_hiding_model(engine, tmp_path, model_template_yaml_config, monkeypatch):

@@ -103,10 +103,10 @@ def seed_configured_models_from_config_dir(
             # local model via rest api (chapkit)
             # todo: ignoring versions for now, find out if we want to support or care about versions for chapkit models
             logger.info("Adding chapkit model template from url: {config.url}")
-            template = ExternalChapkitModelTemplate(config.url)
             try:
-                template.wait_for_healthy(timeout=30)
-                model_template_config, source_digest = template.get_model_template_config_with_digest()
+                with ExternalChapkitModelTemplate(config.url) as template:
+                    template.wait_for_healthy(timeout=30)
+                    model_template_config, source_digest = template.get_model_template_config_with_digest()
                 logger.info(f"Model template config from chapkit model at {config.url}: {model_template_config}")
                 template_id = wrapper.add_model_template_from_yaml_config(
                     model_template_config, source_digest=source_digest

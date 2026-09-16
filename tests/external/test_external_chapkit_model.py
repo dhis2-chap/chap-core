@@ -191,9 +191,13 @@ class TestGetModelTemplateConfig:
 
     @pytest.mark.parametrize("reported, expected", [("a" * 40, "a" * 40), (None, None), ("", None)])
     def test_returns_the_git_revision_the_service_reports(self, reported, expected):
+        from chap_core.rest_api.services.schemas import MLServiceInfo
+
         template = self._make_template_with_schema({"properties": {}})
         info = template.client.info.return_value
-        template.client.info.return_value = info.model_copy(update={"git_revision": reported})
+        template.client.info.return_value = MLServiceInfo.model_validate(
+            {**info.model_dump(), "git_revision": reported}
+        )
 
         config, digest = template.get_model_template_config_with_digest()
 

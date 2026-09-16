@@ -301,7 +301,7 @@ class ExternalChapkitModelTemplate:
 
     def get_model_template_config_with_digest(self) -> tuple[ModelTemplateConfigV2, str | None]:
         """Fetch the service info once and return the template config together with the commit
-        the service reports it was built from, or None when it does not report one."""
+        the service reports it was built from, or None when it does not report a usable one."""
         self._ensure_initialized()
         assert self.client is not None
         assert self.rest_api_url is not None
@@ -311,7 +311,7 @@ class ExternalChapkitModelTemplate:
         user_options = _parse_user_options_from_config_schema(config_schema)
 
         config = ml_service_info_to_model_template_config(model_info, self.rest_api_url, user_options)
-        return config, model_info.git_revision or None
+        return config, model_info.git_revision
 
 
 class ExternalChapkitModel(ExternalModelBase):

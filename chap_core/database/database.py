@@ -178,8 +178,8 @@ class SessionWrapper:
                 existing_template.archived = False
                 self.session.commit()
         else:
-            # Git templates and chapkit services give a digest. The naive model and ad hoc
-            # templates give None.
+            # Git templates always give a digest. Chapkit services give one only when they
+            # report git_revision. The naive model and ad hoc templates give None.
             template_id = self._add_model_template(model_template)
         self._make_live_template_version(model_name, template_id)
         return template_id
