@@ -84,4 +84,6 @@ def get_status_logger() -> logging.Logger:
     """
     status_logger = logging.getLogger(STATUS_LOGGER_NAME)
     status_logger.propagate = False
+    # A logging.config call elsewhere (alembic, a library) may have disabled it.
+    status_logger.disabled = False
     return status_logger
