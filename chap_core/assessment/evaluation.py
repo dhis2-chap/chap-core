@@ -466,17 +466,15 @@ class Evaluation(EvaluationBase):
             future_weather_provider=backtest_params.future_weather_provider,
         )
 
-        tuned_estimator: ConfiguredModel
-
         hpo_data = None
         if isinstance(estimator, HyperparameterOptimizer):
             hpo_data = estimator.meta_learn(train_set)
             model = hpo_data.objective.model_template.get_model(hpo_data.model_configuration)  # type: ignore[arg-type]
             tuned_estimator = model()  # type: ignore[assignment]
-        elif isinstance(estimator, ConfiguredModel):
-            tuned_estimator = estimator
-        else:
+        elif isinstance(estimator, MetaLearner):
             raise TypeError(f"Unsupported MetaLearner: {type(estimator).__name__}")
+        else:
+            tuned_estimator = estimator
 
         # also used by hpo objective call
         if tuned_estimator.model_information is not None:  # ensembleModel returns None
