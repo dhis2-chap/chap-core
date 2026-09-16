@@ -35,6 +35,7 @@ from chap_core.rest_api.services.schemas import MLServiceInfo as LocalMLServiceI
 
 VALID_ULID_1 = str(ULID())
 VALID_ULID_2 = str(ULID())
+VALID_ULID_3 = str(ULID())
 
 MOCK_INFO_DICT = {
     "id": "test-model",
@@ -652,8 +653,8 @@ class TestCancelledJobs:
         with pytest.raises(ModelFailedException, match="canceled"):
             model.train(train_data)
 
-    def test_predict_raises_on_cancelled_job_when_artifact_is_missing(self, train_data):
-        """A cancelled job leaves no artifact behind, so the diagnostic fetch must not mask the failure."""
+    def test_predict_raises_on_cancelled_job_without_fetching_artifact(self, train_data):
+        """A cancelled job leaves no artifact behind, so there is nothing to fetch."""
         artifact_calls: list[str] = []
         model = ExternalChapkitModel(
             "m",
@@ -663,10 +664,10 @@ class TestCancelledJobs:
         )
         model.train(train_data)
 
-        with pytest.raises(ModelFailedException, match="canceled") as exc_info:
+        with pytest.raises(ModelFailedException, match="canceled"):
             model.predict(train_data, train_data)
 
-        assert "Model output" not in str(exc_info.value)
+        assert artifact_calls == []
 
 
 def _workspace_artifact_json(metadata, artifact_id=VALID_ULID_2):
@@ -685,47 +686,58 @@ class TestFailedRunOutput:
     """CHAP must surface the model's full stdout/stderr, not chapkit's truncated stderr tail."""
 
     STDERR = "Error in inla.inlaprogram.has.crashed(): the inla-program exited with an error"
+    METADATA = {
+        "status": "failed",
+        "config_id": VALID_ULID_1,
+        "started_at": "2024-01-01T00:00:00",
+        "completed_at": "2024-01-01T00:00:01",
+        "duration_seconds": 1.0,
+    }
 
     @staticmethod
-    def _handler(artifact_response):
+    def _handler(artifact_response, train_status="failed", artifact_calls=None):
+        predict_job = str(ULID())
+
+        def failed_job(job_id):
+            return httpx.Response(
+                200,
+                json={
+                    "id": job_id,
+                    "status": "failed",
+                    "error": "train script failed with exit code 1; stderr tail: Error in inla",
+                },
+            )
+
         def handler(request):
             path = request.url.path
             if path == "/api/v1/ml/$train":
                 return httpx.Response(200, json={"job_id": VALID_ULID_1, "artifact_id": VALID_ULID_2, "message": "ok"})
+            if path == "/api/v1/ml/$predict":
+                return httpx.Response(200, json={"job_id": predict_job, "artifact_id": VALID_ULID_3, "message": "ok"})
             if path == f"/api/v1/jobs/{VALID_ULID_1}":
-                return httpx.Response(
-                    200,
-                    json={
-                        "id": VALID_ULID_1,
-                        "status": "failed",
-                        "error": "train script failed with exit code 1; stderr tail: Error in inla",
-                    },
-                )
-            if path == f"/api/v1/artifacts/{VALID_ULID_2}":
+                if train_status == "completed":
+                    return httpx.Response(200, json={"id": VALID_ULID_1, "status": "completed"})
+                return failed_job(VALID_ULID_1)
+            if path == f"/api/v1/jobs/{predict_job}":
+                return failed_job(predict_job)
+            if path.startswith("/api/v1/artifacts/"):
+                if artifact_calls is not None:
+                    artifact_calls.append(path)
                 return artifact_response
             raise AssertionError(f"unexpected request {request.method} {path}")
 
         return handler
 
+    def _model(self, handler):
+        return ExternalChapkitModel(
+            "m", "http://chapkit.test", configuration_id=VALID_ULID_1, client=_mock_wrapper(handler)
+        )
+
     def test_train_failure_includes_full_stdout_and_stderr(self, train_data):
         artifact = _workspace_artifact_json(
-            {
-                "status": "failed",
-                "config_id": VALID_ULID_1,
-                "started_at": "2024-01-01T00:00:00",
-                "completed_at": "2024-01-01T00:00:01",
-                "duration_seconds": 1.0,
-                "exit_code": 1,
-                "stdout": "loading covariates",
-                "stderr": self.STDERR,
-            }
+            {**self.METADATA, "exit_code": 1, "stdout": "loading covariates", "stderr": self.STDERR}
         )
-        model = ExternalChapkitModel(
-            "m",
-            "http://chapkit.test",
-            configuration_id=VALID_ULID_1,
-            client=_mock_wrapper(self._handler(httpx.Response(200, json=artifact))),
-        )
+        model = self._model(self._handler(httpx.Response(200, json=artifact)))
 
         with pytest.raises(ModelFailedException) as exc_info:
             model.train(train_data)
@@ -734,32 +746,50 @@ class TestFailedRunOutput:
         assert "loading covariates" in message
         assert self.STDERR in message
 
+    def test_predict_failure_fetches_the_prediction_artifact(self, train_data):
+        artifact_calls: list[str] = []
+        artifact = _workspace_artifact_json({**self.METADATA, "stderr": self.STDERR}, artifact_id=VALID_ULID_3)
+        model = self._model(self._handler(httpx.Response(200, json=artifact), "completed", artifact_calls))
+        model.train(train_data)
+
+        with pytest.raises(ModelFailedException) as exc_info:
+            model.predict(train_data, train_data)
+
+        assert self.STDERR in str(exc_info.value)
+        assert artifact_calls == [f"/api/v1/artifacts/{VALID_ULID_3}"]
+
     def test_train_failure_survives_unreadable_artifact(self, train_data):
-        model = ExternalChapkitModel(
-            "m",
-            "http://chapkit.test",
-            configuration_id=VALID_ULID_1,
-            client=_mock_wrapper(self._handler(httpx.Response(404, json={"title": "Not Found", "status": 404}))),
-        )
+        model = self._model(self._handler(httpx.Response(404, json={"title": "Not Found", "status": 404})))
 
         with pytest.raises(ModelFailedException, match="train script failed"):
             model.train(train_data)
 
     def test_run_output_is_empty_when_metadata_has_no_streams(self):
-        artifact = _workspace_artifact_json(
-            {
-                "status": "failed",
-                "config_id": VALID_ULID_1,
-                "started_at": "2024-01-01T00:00:00",
-                "completed_at": "2024-01-01T00:00:01",
-                "duration_seconds": 1.0,
-            }
-        )
+        artifact = _workspace_artifact_json(self.METADATA)
 
         def handler(request):
             return httpx.Response(200, json=artifact)
 
         assert _mock_wrapper(handler).get_run_output(VALID_ULID_2) == ""
+
+    def test_run_output_is_empty_when_artifact_data_does_not_validate(self):
+        artifact = _workspace_artifact_json({"unexpected": "shape"})
+
+        def handler(request):
+            return httpx.Response(200, json=artifact)
+
+        assert _mock_wrapper(handler).get_run_output(VALID_ULID_2) == ""
+
+    def test_run_output_keeps_only_the_tail_of_each_stream(self, monkeypatch):
+        monkeypatch.setattr("chap_core.models.chapkit_rest_api_wrapper.MAX_RUN_OUTPUT_CHARS", 10)
+        artifact = _workspace_artifact_json({**self.METADATA, "stdout": "a" * 20 + "b" * 10, "stderr": "short"})
+
+        def handler(request):
+            return httpx.Response(200, json=artifact)
+
+        output = _mock_wrapper(handler).get_run_output(VALID_ULID_2)
+
+        assert output == "--- stdout ---\n[... 20 characters truncated ...]\n" + "b" * 10 + "\n--- stderr ---\nshort"
 
 
 class TestTemplateClientLifecycle:

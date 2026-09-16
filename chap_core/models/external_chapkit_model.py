@@ -314,22 +314,22 @@ class ExternalChapkitModelTemplate:
         return config, model_info.git_revision
 
 
-def _failure_message(kind: str, job, artifact_id: str | None, client: CHAPKitRestAPIWrapper) -> str:
-    """Describe a failed chapkit job, including the model's full stdout and stderr.
+def _failure_message(kind: str, job, artifact_id: str, client: CHAPKitRestAPIWrapper) -> str:
+    """Describe a failed chapkit job, including the model's stdout and stderr.
 
     chapkit inlines only a truncated stderr tail in ``job.error``; the complete script
-    output is kept on the run's diagnostic artifact, which is fetched here so it reaches
-    the job logs instead of being lost on the model service.
+    output is kept on the run's diagnostic artifact, stored under the artifact id that
+    was pre-allocated when the run was submitted. A cancelled run leaves no artifact.
     """
     message = (
         f"{kind} job {job.id} ended with status '{job.status}': {job.error or 'Unknown error'}. "
         f"Stacktrace: {job.error_traceback or ''}"
     )
-    candidates = [str(candidate) for candidate in (getattr(job, "artifact_id", None), artifact_id) if candidate]
-    for candidate in dict.fromkeys(candidates):
-        output = client.get_run_output(candidate)
-        if output:
-            return f"{message}\nModel output:\n{output}"
+    if job.status == "canceled":
+        return message
+    output = client.get_run_output(artifact_id)
+    if output:
+        return f"{message}\nModel output:\n{output}"
     return message
 
 

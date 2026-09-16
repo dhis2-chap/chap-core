@@ -27,6 +27,15 @@ DEFAULT_REQUEST_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=300.0, p
 # service that is restarting or a single transport blip does not abort a job wait.
 MAX_CONSECUTIVE_POLL_ERRORS = 5
 
+# The diagnostic artifact fetch after a failed run is best-effort and sits on the
+# failure path, so it must not wait out the full read timeout on a wedged service.
+RUN_OUTPUT_TIMEOUT = httpx.Timeout(10.0)
+
+# Upper bound per stream (stdout, stderr) kept from a failed run. chapkit stores the
+# complete output; the exception message is persisted in the job metadata and re-sent
+# on every logs poll, so it has to stay bounded.
+MAX_RUN_OUTPUT_CHARS = 64_000
+
 
 class RunInfo(BaseModel):
     """Runtime information passed from CHAP to models."""
@@ -184,18 +193,30 @@ class CHAPKitRestAPIWrapper:
         A failed train or predict run stores the complete script output on a diagnostic
         artifact, while the job error only carries a truncated stderr tail. Best-effort:
         an unreachable or unparseable artifact yields an empty string rather than raising,
-        so this never masks the failure it is describing.
+        so this never masks the failure it is describing. Each stream is cut to its last
+        MAX_RUN_OUTPUT_CHARS characters.
         """
         try:
-            artifact = self.get_artifact(artifact_id)
+            response = self._request("GET", f"/api/v1/artifacts/{artifact_id}", timeout=RUN_OUTPUT_TIMEOUT)
+            artifact = chapkit.ArtifactOut.model_validate(response.json())
+            data = chapkit.artifact.schemas.validate_artifact_data(artifact.data)
         except (httpx.HTTPError, ValueError) as e:
             logger.warning("Could not read run output from artifact %s: %s", artifact_id, e)
             return ""
-        data = artifact.data if isinstance(artifact.data, dict) else {}
-        metadata = data.get("metadata")
-        if not isinstance(metadata, dict):
+        metadata = getattr(data, "metadata", None)
+        if not isinstance(metadata, chapkit.artifact.schemas.MLMetadata):
             return ""
-        sections = [f"--- {stream} ---\n{metadata[stream]}" for stream in ("stdout", "stderr") if metadata.get(stream)]
+        sections = []
+        for stream in ("stdout", "stderr"):
+            text = getattr(metadata, stream)
+            if not text:
+                continue
+            if len(text) > MAX_RUN_OUTPUT_CHARS:
+                text = (
+                    f"[... {len(text) - MAX_RUN_OUTPUT_CHARS} characters truncated ...]\n"
+                    + text[-MAX_RUN_OUTPUT_CHARS:]
+                )
+            sections.append(f"--- {stream} ---\n{text}")
         return "\n".join(sections)
 
     # CHAP operation endpoints

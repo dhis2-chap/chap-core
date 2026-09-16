@@ -75,9 +75,9 @@ def initialize_logging(debug: bool | None = None, log_file: str | None = None):
 def get_status_logger() -> logging.Logger:
     """Get the status logger for user-facing progress messages.
 
-    The status logger is separate from the root logger and should only be used
-    for safe, user-facing progress messages. It does not propagate to the root
-    logger to prevent leaking sensitive debug information.
+    The status logger is separate from the root logger and is meant for high-level
+    progress messages. It does not propagate to the root logger, so a worker task
+    attaches its per-task log handler to it explicitly.
 
     Returns:
         logging.Logger: The status logger instance.
