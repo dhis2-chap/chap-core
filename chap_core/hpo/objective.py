@@ -2,8 +2,6 @@ import logging
 from pathlib import Path
 
 from chap_core.api_types import BacktestParams
-from chap_core.assessment.evaluation import Evaluation
-from chap_core.assessment.metrics import calculate_metrics
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.models.model_template import ModelTemplate
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -36,6 +34,8 @@ class Objective:
         This method takes a concrete configuration produced by a Searcher,
         runs model validation, and returns a scalar score of the selected metric.
         """
+        from chap_core.assessment.evaluation import Evaluation
+        from chap_core.assessment.metrics import calculate_metrics
         from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 
         base_config = {"user_option_values": params}  # chap configuration file structure

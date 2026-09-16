@@ -1,5 +1,6 @@
 import logging
 from copy import deepcopy
+from typing import Any
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -7,7 +8,7 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from .meta_learner import MetaLearner
 from .objective import Objective
 from .searcher import RandomSearcher, Searcher, TPESearcher
-from .types import HpoRun, Trial
+from .types import HyperparameterOptimization, Trial
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -15,7 +16,9 @@ logger.setLevel(logging.INFO)
 
 class HyperparameterOptimizer(MetaLearner):
     """
-    A HyperparameterOptimizer is a specififc implementation of a MetaLearner that represents...
+    A HyperparameterOptimizer is a specififc implementation of a MetaLearner.
+    It similar to configured models also contains a model template which can be
+    accessed through its objective.
     """
 
     def __init__(
@@ -38,9 +41,9 @@ class HyperparameterOptimizer(MetaLearner):
             )
         self._max_trials = max_trials
         self._seed = seed
-    
-    def meta_learn(self, dataset: DataSet) -> HpoRun:
-        model_configuration = deepcopy(self._base_config) # check for necessity of deepcopies
+
+    def meta_learn(self, dataset: DataSet) -> HyperparameterOptimization:
+        # model_configuration = deepcopy(self._base_config) # check for necessity of deepcopies, also this is not used is it necassary later only use self._base_config
         leaderboard: list[Trial] = []
         self._searcher.reset(deepcopy(self._search_space), self._seed)
         trial_count = 0
@@ -65,32 +68,41 @@ class HyperparameterOptimizer(MetaLearner):
                 }
             )
             logger.info(f"Tried {params} -> score={score}")
-        
+
         if not leaderboard:
-            raise ValueError("Hyperparameter optimization completed without any successful trials") 
+            raise ValueError("Hyperparameter optimization completed without any successful trials")
 
         leaderboard.sort(key=lambda conf: conf["score"], reverse=self._objective.direction.value == "maximize")
-        best = leaderboard[0]
-        logger.info("Best params: %s | best score: %s", best["config"], best["score"])
-        best_model_config = {"user_option_values": best["config"]}
-        # updates the originial configuration for outer evaluation logging as long as user_option_values stays mutable
-        # this includes additional_continuous_covariates if given in OG configuration for the optimized model below
+        best_candidate = leaderboard[0]
+        logger.info("Best params: %s | best score: %s", best_candidate["config"], best_candidate["score"])
+        best_model_config = {"user_option_values": best_candidate["config"]}
+        # does not overwrite outer ModelTemplateDB.configuration since its dumped before hand
+        # this includes additional_continuous_covariates if given in input configuration.yaml for the optimized model below
         if self._base_config is not None:
-            self._base_config.user_option_values = best_model_config["user_option_values"] # base_config has been deepcopied, does not overwrite
+            self._base_config.user_option_values = best_model_config[
+                "user_option_values"
+            ]  # base_config has been deepcopied, does not overwrite
             logger.warning(
                 "The original configuration has been updated with the best hyperparameter values found during optimization. "
                 "The original additional_continuous_covariates will be preserved if they were present in the original configuration."
             )
+        # configuration.user_option_values = {
+        #     **(configuration.user_option_values or {}),
+        #     **deepcopy(best_candidate["config"]),
+        # }
+        configuration = ModelConfiguration.model_validate(self._base_config or best_model_config)
 
         # template = self._objective.model_template
         # estimator = template.get_model(self._configuration if self._configuration is not None else config)  # type: ignore[arg-type]
-        return HpoRun(
+        return HyperparameterOptimization(
             objective=self._objective,
             searcher=self._searcher,
-            direction=self._objective.direction,
-            model_configuration=self._base_config, # check needed
-            best_params=deepcopy(best["config"]),
-            best_score=best["score"],
+            search_space=deepcopy(self._search_space),
+            max_trials=self._max_trials,
+            seed=self._seed,
+            model_configuration=configuration,  # check needed
+            best_params=deepcopy(best_candidate["config"]),
+            best_score=best_candidate["score"],
             leaderboard=leaderboard,
         )
 
