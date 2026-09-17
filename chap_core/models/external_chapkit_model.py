@@ -217,9 +217,10 @@ class ExternalChapkitModelTemplate:
         Sends the model configuration for storing in the model (by sending to the model rest api).
         This returns a configuration id back that we can use to identify the model.
 
-        ``prediction_length`` is accepted for interface compatibility with
-        ``ModelTemplate.get_model``; chapkit models receive the horizon at
-        train/predict time via :class:`RunInfo` instead of via this method.
+        ``prediction_length`` is the forecast horizon the model will be asked for.
+        It is not part of the stored configuration; the model carries it and sends
+        it as ``run_info.prediction_periods`` at train time. The name matches
+        ``ModelTemplate.get_model`` so both template kinds share one interface.
         """
         self._ensure_initialized()
         assert self.client is not None
@@ -277,6 +278,7 @@ class ExternalChapkitModelTemplate:
             configuration_id=configuration_id,
             model_information=self.model_template_config,
             client=self.client,
+            prediction_periods=prediction_length,
         )
 
     @property
@@ -322,6 +324,7 @@ class ExternalChapkitModel(ExternalModelBase):
         configuration_id: str,
         model_information: ModelTemplateConfigV2 | None = None,
         client: CHAPKitRestAPIWrapper | None = None,
+        prediction_periods: int | None = None,
     ):
         self.model_name = model_name
         self.rest_api_url = rest_api_url
@@ -333,10 +336,44 @@ class ExternalChapkitModel(ExternalModelBase):
         self.client = client if client is not None else CHAPKitRestAPIWrapper(rest_api_url)
         self._train_id: str | None = None
         self._model_information = model_information
+        self._prediction_periods = prediction_periods
 
     @property
     def model_information(self):
         return self._model_information
+
+    def _train_horizon(self) -> int | None:
+        """The horizon to request at train time, clamped to the model's declared bounds.
+
+        ``None`` means no horizon was requested, which leaves the key out of the
+        request so the service keeps the horizon from its stored configuration.
+        A requested horizon above the model's maximum is clamped because CHAP wraps
+        such models in :class:`ExtendedPredictor` and asks them for at most their
+        maximum per prediction, so that is what they should be trained for. chapkit
+        rejects a horizon outside the declared bounds.
+        """
+        requested = self._prediction_periods
+        if requested is None:
+            return None
+        info = self.model_information
+        if info is None:
+            return requested
+        horizon = requested
+        if info.min_prediction_periods is not None:
+            horizon = max(horizon, info.min_prediction_periods)
+        if info.max_prediction_periods is not None:
+            horizon = min(horizon, info.max_prediction_periods)
+        if horizon != requested:
+            logger.warning(
+                "Requested prediction horizon %d is outside the bounds declared by %s "
+                "(min %s, max %s); training for %d periods instead",
+                requested,
+                self.model_name,
+                info.min_prediction_periods,
+                info.max_prediction_periods,
+                horizon,
+            )
+        return horizon
 
     def train(self, train_data: DataSet, extra_args=None, run_info: RunInfo | None = None):
         frequency = self._get_frequency(train_data)
@@ -344,7 +381,7 @@ class ExternalChapkitModel(ExternalModelBase):
         new_df = self._adapt_data(df, frequency=frequency)
         geo = train_data.polygons
         if run_info is None:
-            run_info = RunInfo(prediction_length=1)
+            run_info = RunInfo(prediction_periods=self._train_horizon())
         job, artifact_id = self.client.train_and_wait(self.configuration_id, new_df, run_info, geo)
 
         if job.status != "completed":
@@ -363,8 +400,7 @@ class ExternalChapkitModel(ExternalModelBase):
         historic_data_pd = self._adapt_data(historic_data.to_pandas())
         future_data_pd = self._adapt_data(future_data.to_pandas())
         if run_info is None:
-            prediction_length = len(future_data.period_range)
-            run_info = RunInfo(prediction_length=prediction_length)
+            run_info = RunInfo(prediction_periods=len(future_data.period_range))
         job, artifact_id = self.client.predict_and_wait(
             artifact_id=self._train_id,
             future_data=future_data_pd,

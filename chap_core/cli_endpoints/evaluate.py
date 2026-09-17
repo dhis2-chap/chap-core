@@ -229,7 +229,11 @@ def _run_eval(
         configuration = get_configuration(model_configuration_yaml)
         estimator: ExternalModel | HpoModel | ExtendedPredictor
         if estimator_options.mode == EstimatorMode.NORMAL:
-            estimator = get_estimator(template=template, configuration=configuration)
+            estimator = get_estimator(
+                template=template,
+                configuration=configuration,
+                prediction_length=backtest_params.n_periods,
+            )
         elif estimator_options.mode == EstimatorMode.HPO:
             estimator = get_hpo_estimator(
                 template=template,

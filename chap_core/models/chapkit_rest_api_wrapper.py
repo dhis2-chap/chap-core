@@ -10,7 +10,7 @@ import httpx
 import numpy as np
 import pandas as pd
 from chapkit.api import HealthStatus
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from chap_core.rest_api.services.schemas import MLServiceInfo
 from chap_core.time_period.date_util_wrapper import pandas_period_to_string
@@ -29,9 +29,22 @@ MAX_CONSECUTIVE_POLL_ERRORS = 5
 
 
 class RunInfo(BaseModel):
-    """Runtime information passed from CHAP to models."""
+    """Runtime information passed from CHAP to models.
 
-    prediction_length: int = Field(description="Number of periods to predict")
+    ``prediction_periods`` is the canonical name for the forecast horizon, and the
+    name it is sent under. ``prediction_length`` is accepted as a legacy input alias,
+    since that is what CHAP sent before chapkit 2.1.0. Leaving it as ``None`` keeps
+    the key out of the request body, so the service falls back to the horizon in its
+    stored configuration.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    prediction_periods: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("prediction_periods", "prediction_length"),
+        description="Number of periods to predict",
+    )
     additional_continuous_covariates: list[str] = Field(
         default_factory=list,
         description="User-specified additional covariates present in the data",
