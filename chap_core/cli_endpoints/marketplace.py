@@ -97,23 +97,20 @@ def uninstall(
         project = None
         if delete_data:
             listing = subprocess.run(
-                [*command, "config", "--format", "json"], check=True, capture_output=True, text=True
+                [*command, "config", "--format", "json"], check=True, stdout=subprocess.PIPE, text=True
             )
             project = json.loads(listing.stdout)["name"]
         # Remove the container while the overlay still declares it, then publish the pruned file.
         subprocess.run([*command, "rm", "--stop", "--force", service_name], check=True)
-        if config["services"]:
-            pending = _write_pending(config, overlay)
-            try:
-                pending.replace(overlay)
-            finally:
-                pending.unlink(missing_ok=True)
-        else:
-            overlay.unlink()
-            logger.info("No models remain; removed %s.", overlay)
-        # Delete the volume last so a failure here cannot leave the service declared without a container.
-        if project is not None:
-            subprocess.run(["docker", "volume", "rm", f"{project}_{volume}"], check=True)
+        pending = _write_pending(config, overlay)
+        try:
+            pending.replace(overlay)
+        finally:
+            pending.unlink(missing_ok=True)
+        # Delete the volume last so a failure here cannot leave the service declared without a
+        # container, and do not fail the uninstall over it: the model itself is already gone.
+        if project is not None and subprocess.run(["docker", "volume", "rm", f"{project}_{volume}"]).returncode:
+            logger.warning("Could not delete volume %s_%s; remove it with 'docker volume rm'.", project, volume)
         logger.info("Uninstalled %s.%s", model, "" if delete_data else f" Its data volume '{volume}' was kept.")
     except (ValueError, OSError, yaml.YAMLError, subprocess.CalledProcessError) as error:
         logger.error("%s", error)
@@ -134,9 +131,14 @@ def _prepare(model: str, compose_files: tuple[Path, ...], local: bool) -> tuple[
     else:
         overlay = compose_files[0].resolve().parent / "compose.marketplace.yml"
     config = yaml.safe_load(overlay.read_text()) if overlay.exists() else {"services": {}, "volumes": {}}
-    if not isinstance(config, dict) or not isinstance(config.get("services"), dict):
+    if (
+        not isinstance(config, dict)
+        or not isinstance(config.get("services"), dict)
+        or not all(isinstance(service, dict) for service in config["services"].values())
+        or not isinstance(config.get("volumes", {}) or {}, dict)
+    ):
         raise ValueError(f"Invalid model Compose file: {overlay}")
-    config.setdefault("volumes", {})
+    config["volumes"] = config.get("volumes") or {}
     return overlay, config, f"marketplace-{model.replace('_', '-')}"
 
 
@@ -156,7 +158,39 @@ def _write_pending(config: dict[str, Any], overlay: Path) -> Path:
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", dir=overlay.parent, delete=False) as temporary:
         yaml.safe_dump(config, temporary, sort_keys=False)
-        return Path(temporary.name)
+        pending = Path(temporary.name)
+    # NamedTemporaryFile creates mode 0600; the overlay must stay readable to other operators.
+    pending.chmod(0o644)
+    return pending
+
+
+def _image_id(image: str) -> str | None:
+    """Return the local image ID for a reference, so a rollback can restore a moved tag."""
+    result = subprocess.run(
+        ["docker", "image", "inspect", "--format", "{{.Id}}", image], stdout=subprocess.PIPE, text=True
+    )
+    return result.stdout.strip() if not result.returncode else None
+
+
+def _restore(
+    previous: dict[str, Any],
+    previous_image_id: str | None,
+    config: dict[str, Any],
+    service_name: str,
+    overlay: Path,
+    command: list[str],
+    up: list[str],
+) -> None:
+    """Start the previous service again, by image ID when the pull has moved its tag."""
+    if previous_image_id is None:
+        subprocess.run([*command, "-f", str(overlay), *up], check=True)
+        return
+    restored = {**config, "services": {**config["services"], service_name: {**previous, "image": previous_image_id}}}
+    rollback = _write_pending(restored, overlay)
+    try:
+        subprocess.run([*command, "-f", str(rollback), *up], check=True)
+    finally:
+        rollback.unlink(missing_ok=True)
 
 
 def _deploy(
@@ -184,7 +218,7 @@ def _deploy(
         if not updating and previous is not None:
             raise ValueError(f"Model '{model}' is already installed. Run 'chap update {model}' instead.")
 
-        registry = registry_url()
+        registry = (previous.get("x-chap-registry") if previous is not None else None) or registry_url()
         custom = image is not None or (previous is not None and previous.get("x-chap-custom", False))
         if custom or registry != DEFAULT_REGISTRY_URL:
             source = "Custom models" if custom else f"Models from '{registry}'"
@@ -201,7 +235,7 @@ def _deploy(
                 raise ValueError("Provide a valid custom container image reference.")
             version = "custom"
         else:
-            pin = resolve_model(model)
+            pin = resolve_model(model, registry)
             image, version = pin.image, pin.version
 
         # Retain operator settings and the data volume when updating a model.
@@ -228,15 +262,25 @@ def _deploy(
                 del service["depends_on"]
                 service["ports"] = [{"target": 8000, "host_ip": "127.0.0.1"}]
         # Applied on update too, so models installed before the pin existed receive it.
-        environment = dict(service.get("environment") or {})
-        environment.setdefault("DATABASE_URL", DATABASE_URL)
+        environment = service.get("environment") or {}
+        if isinstance(environment, list):
+            if not any(str(entry).split("=")[0] == "DATABASE_URL" for entry in environment):
+                environment = [*environment, f"DATABASE_URL={DATABASE_URL}"]
+        else:
+            environment = dict(environment)
+            environment.setdefault("DATABASE_URL", DATABASE_URL)
         service["environment"] = environment
         service.update({"image": image, "x-chap-custom": bool(custom), "x-chap-version": version})
+        if not custom:
+            service["x-chap-registry"] = registry
         if platform is not None:
+            if not re.fullmatch(r"[a-z0-9][a-z0-9/._-]*", platform):
+                raise ValueError("Provide a valid container platform, for example linux/amd64.")
             service["platform"] = platform
         services[service_name] = service
 
         command = _compose_command(compose_files, local)
+        previous_image_id = _image_id(previous["image"]) if previous is not None else None
         # Publish the new pin only after Docker has pulled and started it successfully.
         pending = _write_pending(config, overlay)
         try:
@@ -246,7 +290,7 @@ def _deploy(
             except subprocess.CalledProcessError as error:
                 # Docker has already printed why the pull failed, so add a hint instead of repeating it.
                 hint = ""
-                if platform is None:
+                if platform is None and not service.get("platform"):
                     hint = (
                         " If this model publishes no image for your machine's architecture, retry with:"
                         f" chap {'update' if updating else 'install'} {model} --platform linux/amd64"
@@ -256,10 +300,10 @@ def _deploy(
             up = ["up", "-d", "--no-deps", "--wait", "--wait-timeout", "120", service_name]
             try:
                 subprocess.run([*pending_command, *up], check=True)
-            except subprocess.CalledProcessError:
+            except (subprocess.CalledProcessError, KeyboardInterrupt):
                 if previous is not None:
                     logger.warning("Update failed; restoring the previous model service.")
-                    subprocess.run([*command, "-f", str(overlay), *up], check=True)
+                    _restore(previous, previous_image_id, config, service_name, overlay, command, up)
                 else:
                     subprocess.run([*pending_command, "rm", "--stop", "--force", service_name], check=True)
                 raise
@@ -271,7 +315,7 @@ def _deploy(
             result = subprocess.run(
                 [*command, "-f", str(overlay), "port", service_name, "8000"],
                 check=True,
-                capture_output=True,
+                stdout=subprocess.PIPE,
                 text=True,
             )
             logger.info(

@@ -22,7 +22,7 @@ class Registry(BaseModel):
 
 
 class ModelVersion(BaseModel):
-    version: str
+    version: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.+-]{0,63}$")
     commit: str = Field(pattern=r"^[0-9a-f]{40}$")
     image_tag: str = Field(pattern=r"^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$")
     status: str
@@ -48,9 +48,9 @@ class ModelPin:
     version: str
 
 
-def resolve_model(model: str) -> ModelPin:
+def resolve_model(model: str, base_url: str | None = None) -> ModelPin:
     """Return only the registry's verified stable pin, never the latest channel."""
-    base_url = registry_url()
+    base_url = (base_url or registry_url()).rstrip("/")
     with httpx.Client(timeout=30, follow_redirects=True) as client:
         response = client.get(f"{base_url}/registry.yaml")
         response.raise_for_status()
@@ -70,9 +70,9 @@ def resolve_model(model: str) -> ModelPin:
     version = next((version for version in entry.versions if version.version == stable), None)
     if version is None or version.status != "verified":
         raise ValueError(f"Model '{model}' has no verified stable version.")
-    tag = version.image_tag
-    # A sha- tag must name this version's commit; any prefix length is accepted.
-    required_prefix = tag[4:] if tag.startswith("sha-") else version.commit
-    if tag == "latest" or not required_prefix or not version.commit.startswith(required_prefix):
-        raise ValueError(f"Model '{model}' has an invalid stable image pin.")
+    # Only an immutable sha- tag naming this version's commit is accepted; tags such as
+    # latest, main or v1 can be moved to different code after the version was verified.
+    prefix = version.image_tag[4:] if version.image_tag.startswith("sha-") else ""
+    if len(prefix) < 7 or not version.commit.startswith(prefix):
+        raise ValueError(f"Model '{model}' has an invalid stable image pin; expected a sha-<commit> tag.")
     return ModelPin(image=f"{entry.source.image}:{version.image_tag}", version=version.version)

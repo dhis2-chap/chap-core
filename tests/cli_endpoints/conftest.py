@@ -15,6 +15,7 @@ def marketplace_model():
 
 @pytest.fixture
 def marketplace_http(monkeypatch, marketplace_model):
+    monkeypatch.delenv("CHAP_MARKETPLACE_URL", raising=False)
     requests = []
 
     def respond(request):
@@ -32,6 +33,7 @@ def marketplace_http(monkeypatch, marketplace_model):
 
 @pytest.fixture
 def model_deployment(tmp_path, monkeypatch, mocker):
+    monkeypatch.delenv("CHAP_MARKETPLACE_URL", raising=False)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     compose = tmp_path / "compose.yml"
@@ -42,8 +44,13 @@ def model_deployment(tmp_path, monkeypatch, mocker):
         overlays = [Path(command[index + 1]) for index, value in enumerate(command) if value == "-f"]
         if overlays:
             deployments.append(yaml.safe_load(overlays[-1].read_text()))
-        stdout = '{"name": "chap-test"}' if "config" in command else "127.0.0.1:54321\n"
-        return SimpleNamespace(stdout=stdout)
+        if "config" in command:
+            stdout = '{"name": "chap-test"}'
+        elif "inspect" in command:
+            stdout = "sha256:previous\n"
+        else:
+            stdout = "127.0.0.1:54321\n"
+        return SimpleNamespace(stdout=stdout, returncode=0)
 
     runner = mocker.patch("chap_core.cli_endpoints.marketplace.subprocess.run", side_effect=run)
     return SimpleNamespace(

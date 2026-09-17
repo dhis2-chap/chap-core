@@ -59,6 +59,10 @@ uses different base files, supply them in the same order as when starting CHAP:
 chap install chapkit_simple_multistep_model --compose-file compose.yml --compose-file compose.ghcr.yml
 ```
 
+Because the commands name the base files explicitly, Docker Compose does not load
+`compose.override.yml` on its own. List it with `--compose-file` as well if your
+deployment uses one.
+
 The commands create `compose.marketplace.yml` beside the first base file. Include
 it in subsequent Docker Compose commands, for example
 `docker compose -f compose.yml -f compose.marketplace.yml up -d`.
@@ -80,9 +84,9 @@ chap uninstall chapkit_simple_multistep_model --local
 
 The service is stopped and removed, and CHAP drops it from its registry on its own
 once the container stops. The model's data volume is kept so a later install
-resumes from it; pass `--delete-data` to remove it permanently. When the last
-model is uninstalled, the Compose file it was listed in is deleted, so stop
-passing `-f compose.marketplace.yml`.
+resumes from it; pass `--delete-data` to remove it permanently. Uninstalling the
+last model leaves `compose.marketplace.yml` in place with no services, so you can
+keep passing it to Docker Compose.
 
 ### A different model registry
 

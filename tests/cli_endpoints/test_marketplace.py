@@ -1,5 +1,6 @@
 import logging
 import subprocess
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -33,7 +34,7 @@ def test_refuses_missing_stable(marketplace_model, marketplace_http):
         resolve_model(marketplace_model["id"])
 
 
-@pytest.mark.parametrize("tag", ["latest", "sha-0000000", "sha-"])
+@pytest.mark.parametrize("tag", ["latest", "main", "v1", "sha-0000000", "sha-", "sha-57eeb"])
 def test_refuses_invalid_pin(marketplace_model, marketplace_http, tag):
     marketplace_model["versions"][0]["image_tag"] = tag
     with pytest.raises(ValueError, match="invalid stable image pin"):
@@ -106,7 +107,7 @@ def test_install_and_update_preserve_settings_and_data(marketplace_model, market
     )
     assert updated["services"][service_name]["volumes"] == service["volumes"]
     assert updated["volumes"] == installed["volumes"]
-    assert model_deployment.runner.call_count == 4
+    assert model_deployment.runner.call_count == 5
     assert "--no-deps" in model_deployment.runner.call_args.args[0]
 
 
@@ -200,16 +201,21 @@ def test_failed_start_restores_previous_image(model_deployment):
     previous = model_deployment.overlay.read_text()
     runner = model_deployment.runner.side_effect
 
+    attempts = []
+
     def fail_start(command, **kwargs):
-        if "up" in command and str(model_deployment.overlay) not in command:
-            raise subprocess.CalledProcessError(1, command)
+        if "up" in command:
+            attempts.append(command)
+            if len(attempts) == 1:
+                raise subprocess.CalledProcessError(1, command)
         return runner(command, **kwargs)
 
     model_deployment.runner.side_effect = fail_start
     with pytest.raises(SystemExit):
         update("custom", image="example/model:v2", accept_risk=True)
     assert model_deployment.overlay.read_text() == previous
-    assert model_deployment.deployments[-1]["services"]["marketplace-custom"]["image"] == "example/model:v1"
+    # The pull has moved the tag, so the rollback must name the image the previous service ran.
+    assert model_deployment.deployments[-1]["services"]["marketplace-custom"]["image"] == "sha256:previous"
     assert "up" in model_deployment.runner.call_args.args[0]
 
 
@@ -257,17 +263,21 @@ def test_uninstall_removes_one_model_and_keeps_the_others(marketplace_model, mar
     assert not any("volume" in command for command in commands)
 
 
-def test_uninstall_last_model_removes_the_overlay(model_deployment):
+def test_uninstall_last_model_keeps_an_empty_overlay(model_deployment):
     install("custom", image="example/model:v1", accept_risk=True)
     uninstall("custom")
-    assert not model_deployment.overlay.exists()
-    assert sorted(path.name for path in model_deployment.overlay.parent.glob("*.yml")) == ["compose.yml"]
+    # Operators were told to always pass -f compose.marketplace.yml, so it must not disappear.
+    assert yaml.safe_load(model_deployment.overlay.read_text()) == {"services": {}, "volumes": {}}
+    assert sorted(path.name for path in model_deployment.overlay.parent.glob("*.yml")) == [
+        "compose.marketplace.yml",
+        "compose.yml",
+    ]
 
 
-def test_uninstall_local_removes_the_local_overlay(model_deployment):
+def test_uninstall_local_empties_the_local_overlay(model_deployment):
     install("custom", image="example/model:v1", accept_risk=True, local=True)
     uninstall("custom", local=True)
-    assert not model_deployment.local_overlay.exists()
+    assert yaml.safe_load(model_deployment.local_overlay.read_text())["services"] == {}
     assert "--project-name" in model_deployment.runner.call_args.args[0]
 
 
@@ -297,16 +307,67 @@ def test_failed_removal_keeps_the_model_installed(model_deployment):
     assert model_deployment.overlay.read_text() == previous
 
 
-def test_failed_volume_removal_still_uninstalls_the_model(model_deployment):
+def test_failed_volume_removal_still_uninstalls_the_model(model_deployment, caplog):
     install("custom", image="example/model:v1", accept_risk=True)
     run = model_deployment.runner.side_effect
 
     def fail_volume_removal(command, **kwargs):
         if command[:3] == ["docker", "volume", "rm"]:
-            raise subprocess.CalledProcessError(1, command)
+            return SimpleNamespace(stdout="", returncode=1)
         return run(command, **kwargs)
 
     model_deployment.runner.side_effect = fail_volume_removal
+    # The model is already gone, so a stale volume must not leave --delete-data unretryable.
+    uninstall("custom", delete_data=True)
+    assert yaml.safe_load(model_deployment.overlay.read_text())["services"] == {}
+    assert "Could not delete volume chap-test_marketplace-custom-data" in caplog.text
+
+
+def test_update_resolves_against_the_registry_the_model_came_from(
+    marketplace_model, marketplace_http, model_deployment, monkeypatch
+):
+    model = marketplace_model["id"]
+    monkeypatch.setenv("CHAP_MARKETPLACE_URL", "https://models.example.org/registry")
+    install(model, accept_risk=True)
+    monkeypatch.delenv("CHAP_MARKETPLACE_URL")
+    marketplace_http.clear()
+    # The default marketplace must not silently take over a model installed from another registry.
     with pytest.raises(SystemExit):
-        uninstall("custom", delete_data=True)
-    assert not model_deployment.overlay.exists()
+        update(model)
+    update(model, accept_risk=True)
+    assert all(url.startswith("https://models.example.org/registry/") for url in marketplace_http)
+
+
+def test_rejects_a_platform_that_breaks_compose_interpolation(model_deployment):
+    with pytest.raises(SystemExit):
+        install("custom", image="example/model:v1", accept_risk=True, platform="$UNSET/amd64")
+    model_deployment.runner.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "overlay_text",
+    ["services:\n  marketplace-custom:\n", "services: {}\nvolumes:\n  - bad\n"],
+)
+def test_rejects_a_malformed_overlay(model_deployment, overlay_text):
+    model_deployment.overlay.write_text(overlay_text)
+    with pytest.raises(SystemExit):
+        install("custom", image="example/model:v1", accept_risk=True)
+    model_deployment.runner.assert_not_called()
+
+
+def test_update_pins_the_database_url_in_the_list_form_environment(model_deployment):
+    install("custom", image="example/model:v1", accept_risk=True)
+    config = yaml.safe_load(model_deployment.overlay.read_text())
+    config["services"]["marketplace-custom"]["environment"] = ["LOG_LEVEL=debug"]
+    model_deployment.overlay.write_text(yaml.safe_dump(config))
+    update("custom", accept_risk=True)
+    updated = yaml.safe_load(model_deployment.overlay.read_text())
+    assert updated["services"]["marketplace-custom"]["environment"] == [
+        "LOG_LEVEL=debug",
+        "DATABASE_URL=sqlite+aiosqlite:////app/data/chapkit.db",
+    ]
+
+
+def test_overlay_stays_readable_to_other_operators(model_deployment):
+    install("custom", image="example/model:v1", accept_risk=True)
+    assert model_deployment.overlay.stat().st_mode & 0o044 == 0o044
