@@ -859,3 +859,62 @@ class TestGetModelHorizon:
         model.train(train_data)
 
         assert "prediction_periods" not in train_bodies[0]["run_info"]
+
+
+class TestConfigPayload:
+    """What chap-core stores as config data on the service when building a model."""
+
+    @staticmethod
+    def _created_config(model_configuration) -> dict:
+        created: list[dict] = []
+
+        def handler(request):
+            path = request.url.path
+            if path == "/api/v1/info":
+                return httpx.Response(200, json=MOCK_INFO_DICT)
+            if path == "/api/v1/configs/$schema":
+                return httpx.Response(200, json=MOCK_CONFIG_SCHEMA)
+            if path == "/api/v1/configs" and request.method == "POST":
+                created.append(json.loads(request.content))
+                return httpx.Response(200, json=_config_out_json())
+            if path == "/api/v1/configs":
+                return httpx.Response(200, json=[_config_out_json()])
+            raise AssertionError(f"unexpected request {request.method} {path}")
+
+        template = ExternalChapkitModelTemplate("http://chapkit.test")
+        template.client = _mock_wrapper(handler)
+        template.get_model(model_configuration)
+        return created[0]
+
+    def test_configured_model_row_sends_only_configuration_fields(self):
+        row = ConfiguredModelDB(
+            name="test-model",
+            model_template_id=1,
+            user_option_values={"max_epochs": 2},
+            additional_continuous_covariates=["humidity"],
+            uses_chapkit=True,
+        )
+
+        created = self._created_config(row)
+
+        assert created["data"] == {
+            "user_option_values": {"max_epochs": 2},
+            "additional_continuous_covariates": ["humidity"],
+        }
+        assert created["name"].startswith("test-model_")
+
+    def test_empty_configuration_sends_no_data(self):
+        from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+
+        created = self._created_config(ModelConfiguration())
+
+        assert created["data"] == {}
+        assert created["name"].startswith("test-model_config_")
+
+    def test_raw_service_configuration_is_passed_through(self):
+        created = self._created_config({"max_epochs": 2, "model_template": "ignored"})
+
+        assert created["data"] == {"max_epochs": 2}
+
+    def test_no_configuration_sends_no_data(self):
+        assert self._created_config(None)["data"] == {}

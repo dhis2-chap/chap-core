@@ -88,6 +88,33 @@ def ml_service_info_to_model_template_config(
     return ModelTemplateConfigV2.model_validate(config_dict)
 
 
+def _chapkit_config_payload(model_configuration: dict) -> dict:
+    """The configuration data to store on the chapkit service.
+
+    A chap-core configuration (a ``ModelConfiguration`` or a ``ConfiguredModelDB``
+    row) carries bookkeeping fields the service has no schema for, so only the two
+    fields that describe the configuration itself are sent. Anything else is a raw
+    dict authored against the service's own config schema, and is passed through
+    minus the ``model_template`` key chap-core attaches.
+
+    An empty ``additional_continuous_covariates`` is dropped rather than sent: the
+    row defaults it to an empty list, which would override whatever default the
+    service's own schema declares (ewars, for instance, defaults to rainfall and
+    mean_temperature).
+    """
+    covariates = model_configuration.get("additional_continuous_covariates")
+    if "user_option_values" in model_configuration:
+        payload = {}
+        if model_configuration.get("user_option_values"):
+            payload["user_option_values"] = model_configuration["user_option_values"]
+    else:
+        payload = {key: value for key, value in model_configuration.items() if key != "model_template"}
+        payload.pop("additional_continuous_covariates", None)
+    if covariates:
+        payload["additional_continuous_covariates"] = covariates
+    return payload
+
+
 class ExternalChapkitModelTemplate:
     """Wrapper around External models that are based on chapkit.
 
@@ -227,40 +254,18 @@ class ExternalChapkitModelTemplate:
         assert self.rest_api_url is not None
         import time
 
-        if model_configuration is None:
-            model_configuration = {}
-        else:
-            model_configuration = dict(model_configuration)
-
-        # chap-core's ConfiguredModelDB row has an `additional_continuous_covariates`
-        # column with a `default_factory=list`, so dumping the row produces an
-        # explicit `[]` that would override whatever default the chapkit service's
-        # own BaseConfig schema declares. Drop the key when empty so the service's
-        # schema default applies (e.g. ewars defaults to ["rainfall","mean_temperature"]).
-        if not model_configuration.get("additional_continuous_covariates"):
-            model_configuration.pop("additional_continuous_covariates", None)
+        model_configuration = {} if model_configuration is None else dict(model_configuration)
 
         timestamp = int(time.time() * 1000000)
-        if "name" not in model_configuration:
-            name = f"{self.name}_config_{timestamp}"
-        else:
+        if model_configuration.get("name"):
             # always make sure config has unique name for now. Chapkit uses name as identifier,
             # but we don't necesserarily do that on the chap side
-            name = model_configuration["name"] + "_" + str(timestamp)
+            name = f"{model_configuration['name']}_{timestamp}"
+        else:
+            name = f"{self.name}_config_{timestamp}"
 
-        if "model_template" in model_configuration:
-            # remove model_template key
-            model_configuration.pop("model_template")
-
-        config_data = {"name": name, "data": model_configuration}
+        config_data = {"name": name, "data": _chapkit_config_payload(model_configuration)}
         logger.info(f"Creating model configuration with name {name} at {self.rest_api_url}. Data: {config_data}")
-
-        # Create config with proper structure for new API
-        # Use timestamp to make name unique
-        # config_data = {
-        #    "name": model_configuration.get("name", f"{self.name}_config_{timestamp}"),
-        #    "data": model_configuration
-        # }
 
         config_response = self.client.create_config(config_data)
         configuration_id = str(config_response.id)
