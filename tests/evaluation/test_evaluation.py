@@ -150,6 +150,85 @@ class TestEvaluation:
         for col in required_cols:
             assert col in flat_data.observations.columns
 
+    def test_create_wraps_in_extended_predictor_when_n_periods_above_max(self, mocker):
+        """When the requested horizon exceeds the model's declared max, Evaluation.create wraps
+        the estimator in ExtendedPredictor and forwards the wrapped estimator to backtest."""
+        from chap_core.api_types import BacktestParams
+        from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation
+        from chap_core.external.ExtendedPredictor import ExtendedPredictor
+        from chap_core.models.configured_model import ConfiguredModel
+
+        estimator = mocker.MagicMock(spec=ConfiguredModel)
+        estimator.model_information = ModelTemplateInformation(
+            min_prediction_periods=1,
+            max_prediction_periods=2,
+        )
+
+        train_set = mocker.MagicMock()
+        train_set.period_range = [mocker.MagicMock()]
+
+        mocker.patch(
+            "chap_core.assessment.dataset_splitting.train_test_generator",
+            return_value=(train_set, iter(())),
+        )
+        backtest_mock = mocker.patch(
+            "chap_core.assessment.prediction_evaluator.backtest",
+            return_value=[],
+        )
+        mocker.patch.object(Evaluation, "calculate_periods_from_years", return_value=0)
+        mocker.patch.object(Evaluation, "extract_historical_observations", return_value=[])
+        mocker.patch.object(Evaluation, "from_samples_with_truth")
+
+        Evaluation.create(
+            configured_model=mocker.MagicMock(id="test-model"),
+            estimator=estimator,
+            dataset=mocker.MagicMock(),
+            backtest_params=BacktestParams(n_periods=5, n_splits=2, stride=1),
+        )
+
+        forwarded = backtest_mock.call_args.kwargs["estimator"]
+        assert isinstance(forwarded, ExtendedPredictor)
+
+    def test_create_wraps_when_only_max_set_and_below_n_periods(self, mocker):
+        """Real models often declare max_prediction_periods but leave min unset
+        (e.g. chap-models/Vietnam-dengue-superensemble declares max=1, no min).
+        Evaluation.create must still honour the declared max even when min is None."""
+        from chap_core.api_types import BacktestParams
+        from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation
+        from chap_core.external.ExtendedPredictor import ExtendedPredictor
+        from chap_core.models.configured_model import ConfiguredModel
+
+        estimator = mocker.MagicMock(spec=ConfiguredModel)
+        estimator.model_information = ModelTemplateInformation(
+            min_prediction_periods=None,
+            max_prediction_periods=2,
+        )
+
+        train_set = mocker.MagicMock()
+        train_set.period_range = [mocker.MagicMock()]
+
+        mocker.patch(
+            "chap_core.assessment.dataset_splitting.train_test_generator",
+            return_value=(train_set, iter(())),
+        )
+        backtest_mock = mocker.patch(
+            "chap_core.assessment.prediction_evaluator.backtest",
+            return_value=[],
+        )
+        mocker.patch.object(Evaluation, "calculate_periods_from_years", return_value=0)
+        mocker.patch.object(Evaluation, "extract_historical_observations", return_value=[])
+        mocker.patch.object(Evaluation, "from_samples_with_truth")
+
+        Evaluation.create(
+            configured_model=mocker.MagicMock(id="test-model"),
+            estimator=estimator,
+            dataset=mocker.MagicMock(),
+            backtest_params=BacktestParams(n_periods=5, n_splits=2, stride=1),
+        )
+
+        forwarded = backtest_mock.call_args.kwargs["estimator"]
+        assert isinstance(forwarded, ExtendedPredictor)
+
     class TestModelCard:
         """Tests for ModelCard class"""
 
