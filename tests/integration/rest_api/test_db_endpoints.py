@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
+import chap_core
 from chap_core.api_types import DataList, EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import create_tsdataclass
@@ -587,6 +588,17 @@ def test_backtests_with_the_same_parameters_share_one_specification(p_seeded_eng
         assert (first.n_periods, first.n_splits, first.stride, first.n_retrain) == (3, 2, 1, 1)
 
 
+def test_backtest_records_the_chap_version_that_produced_it(p_seeded_engine):
+    """Without this a metric shift over time cannot be attributed to the model or the platform."""
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        backtest = session.session.get(Backtest, _run(session, "versioned", dataset_id, n_periods=3, n_splits=2))
+
+        # A dev checkout without package metadata reports "unknown", which is not a version.
+        expected = None if chap_core.__version__ == "unknown" else chap_core.__version__
+        assert backtest.chap_version == expected
+
+
 def test_every_backtest_parameter_is_part_of_the_uniqueness_key():
     """A parameter that is not in the key would let two incomparable setups share a row.
 
@@ -684,6 +696,7 @@ def test_backtest_read_still_exposes_the_parameters_flat(override_session, p_see
         "orgUnits",
         "splitPeriods",
         "maxHorizonDistance",
+        "chapVersion",
         "dataset",
         "aggregateMetrics",
         "configuredModel",
