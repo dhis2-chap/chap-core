@@ -175,10 +175,16 @@ def _xarray_to_flat_data(ds: xr.Dataset) -> "FlatEvaluationData":
         if not historical_df.empty:
             historical_observations = FlatObserved.validate(historical_df)
 
+    # Load HPO data if present (backwards compatible)
+    hpo = None
+    if "hpo" in ds.attrs:
+        hpo = FlatHyperparameterOptimization(**json.loads(ds.attrs["hpo"]))
+
     return FlatEvaluationData(
         forecasts=FlatForecasts.validate(forecasts_df),
         observations=FlatObserved.validate(observations_df),
         historical_observations=historical_observations,
+        hpo=hpo,
     )
 
 
@@ -831,6 +837,7 @@ class Evaluation(EvaluationBase):
             backtest,
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
+            hpo=flat_data.hpo,
         )
 
     @staticmethod
