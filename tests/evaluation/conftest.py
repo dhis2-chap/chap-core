@@ -449,3 +449,36 @@ def crps_example_data():
         dtype=float,
     )
     return observations, forecasts
+
+
+@pytest.fixture
+def two_season_history():
+    """Ten years of monthly June and November observations for one location.
+
+    June runs 90 to 108 and November 40 to 58, both with a narrow spread, so a
+    single extreme value added at an origin period still clears its channel by a
+    wide margin -- which keeps persistence-model tests off a knife edge.
+    """
+    rows = []
+    for i, year in enumerate(range(2013, 2023)):
+        rows.append({"location": "A", "time_period": f"{year}-06", "disease_cases": 90.0 + 2 * i})
+        rows.append({"location": "A", "time_period": f"{year}-11", "disease_cases": 40.0 + 2 * i})
+    return pd.DataFrame(rows)
+
+
+@pytest.fixture
+def make_flat_forecasts():
+    """Factory building a flat forecast frame from a list of sample values."""
+
+    def _make(location, time_period, horizon, samples):
+        return pd.DataFrame(
+            {
+                "location": location,
+                "time_period": time_period,
+                "horizon_distance": horizon,
+                "sample": list(range(len(samples))),
+                "forecast": samples,
+            }
+        )
+
+    return _make
