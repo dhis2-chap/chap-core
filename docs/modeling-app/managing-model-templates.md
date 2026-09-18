@@ -23,7 +23,7 @@ Do not edit `default.yaml` directly -- it is overwritten on updates. Instead, cr
 ```yaml
 - url: https://github.com/org/model-repo
   versions:
-    v1: "@<commit-sha-or-branch>"
+    v1: "@<commit-sha>"  # a full commit sha; branches and tags are rejected
   configurations:       # optional
     config_name:
       user_option_values:

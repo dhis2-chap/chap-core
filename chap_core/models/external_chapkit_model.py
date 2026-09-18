@@ -306,6 +306,12 @@ class ExternalChapkitModelTemplate:
         """
         return self.get_model_template_config_with_digest()[0]
 
+    def get_reported_source_digest(self) -> str | None:
+        """The commit the service reports it was built from, or None when it does not report one."""
+        self._ensure_initialized()
+        assert self.client is not None
+        return self.client.info().git_revision
+
     def get_model_template_config_with_digest(self) -> tuple[ModelTemplateConfigV2, str | None]:
         """Fetch the service info once and return the template config together with the commit
         the service reports it was built from, or None when it does not report a usable one."""

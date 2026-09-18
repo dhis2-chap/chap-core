@@ -47,9 +47,17 @@ def register_service(
     # endpoints — no need to wait for a lazy GET /v1/crud/model-templates.
     # Best-effort: a sync failure must not fail the registration itself.
     try:
-        from chap_core.rest_api.v1.routers.crud import _sync_live_chapkit_services
+        from chap_core.rest_api.v1.routers.crud import (
+            REVISION_MISMATCH,
+            _registered_chapkit_revision_conflict,
+            _sync_live_chapkit_services,
+        )
 
-        _sync_live_chapkit_services(session, orchestrator)
+        statuses = _sync_live_chapkit_services(session, orchestrator)
+        if statuses.get(payload.info.id) == REVISION_MISMATCH:
+            # The service is live, but the stored template is invalid. Tell the model
+            # developer in their own service logs.
+            response.message += f" {_registered_chapkit_revision_conflict(session, payload.info)}"
     except Exception:
         logger.warning("Eager chapkit DB sync after registration failed", exc_info=True)
 

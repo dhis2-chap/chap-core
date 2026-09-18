@@ -40,7 +40,12 @@ from chap_core.database.dataset_tables import (
     DataSetWithObservations,
 )
 from chap_core.database.model_spec_tables import ModelSpecRead
-from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
+from chap_core.database.model_templates_and_config_tables import (
+    ConfiguredModelDB,
+    ModelConfiguration,
+    ModelTemplateDB,
+    chapkit_revision_conflict,
+)
 from chap_core.database.tables import (
     Backtest,
     Prediction,
@@ -49,6 +54,7 @@ from chap_core.database.tables import (
     PredictionSetupReadWithPredictions,
 )
 from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
+from chap_core.exceptions import ModelTemplateRevisionConflict
 from chap_core.geometry import Polygons
 from chap_core.rest_api.celery_tasks import (
     JOB_NAME_KW,
@@ -82,7 +88,25 @@ from .dependencies import get_database_url, get_session, get_settings
 logger = logging.getLogger(__name__)
 
 
-def _sync_live_chapkit_services(session: Session, orchestrator=None) -> set[str]:
+LIVE = "live"
+REVISION_MISMATCH = "revision_mismatch"
+
+
+def _registered_chapkit_revision_conflict(session: Session, info) -> ModelTemplateRevisionConflict | None:
+    """The conflict between a registered service and the template stored under its version, if any.
+
+    Computed on every read instead of persisted, because the service can change after a
+    sync and a redeploy of the right image should clear the state without cleanup.
+    """
+    template = session.exec(
+        select(ModelTemplateDB).where(ModelTemplateDB.name == info.id, ModelTemplateDB.version == info.version)
+    ).first()
+    if template is None:
+        return None
+    return chapkit_revision_conflict(template, info.git_revision)
+
+
+def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str, str]:
     """Sync live chapkit services from the v2 registry into the DB.
 
     Queries the Redis-backed Orchestrator for registered services and
@@ -95,7 +119,9 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> set[str]
     second redis connection, which costs a full connect timeout whenever
     redis is unreachable.
 
-    Returns the set of live service IDs from the registry.
+    Returns a health status per registered template name: ``"live"``, or
+    ``"revision_mismatch"`` when the service reports another source revision
+    than the stored template version. A mismatched template is left untouched.
     """
     try:
         if orchestrator is None:
@@ -105,9 +131,9 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> set[str]
         service_list = orchestrator.get_all()
     except Exception:
         logger.debug("Could not reach service registry, skipping chapkit sync")
-        return set()
+        return {}
 
-    live_ids = {s.info.id for s in service_list.services}
+    statuses = {s.info.id: LIVE for s in service_list.services}
 
     if service_list.count > 0:
         from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
@@ -119,38 +145,48 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> set[str]
         session_wrapper = SessionWrapper(session=session)
         for service in service_list.services:
             try:
-                # A template version is write-once, so do not persist incomplete
-                # metadata if its config schema is temporarily unavailable. A later
-                # sync can then create the template with its full user options.
-                try:
-                    client = CHAPKitRestAPIWrapper(service.url, timeout=5)
+                # A stored template under this version is left untouched when the service
+                # now reports another revision. A new row is still checked afterwards, so a
+                # service that reports no revision is listed but cannot run.
+                conflict = _registered_chapkit_revision_conflict(session, service.info)
+                if conflict is None:
+                    # A template version is write-once, so do not persist incomplete
+                    # metadata if its config schema is temporarily unavailable. A later
+                    # sync can then create the template with its full user options.
                     try:
-                        schema = client.get_config_schema()
-                    finally:
-                        client.close()
-                    user_options = _parse_user_options_from_config_schema(schema)
-                except Exception:
-                    logger.warning(
-                        "Could not fetch config schema from %s, will retry next sync",
-                        service.url,
-                        exc_info=True,
-                    )
-                    continue
+                        client = CHAPKitRestAPIWrapper(service.url, timeout=5)
+                        try:
+                            schema = client.get_config_schema()
+                        finally:
+                            client.close()
+                        user_options = _parse_user_options_from_config_schema(schema)
+                    except Exception:
+                        logger.warning(
+                            "Could not fetch config schema from %s, will retry next sync",
+                            service.url,
+                            exc_info=True,
+                        )
+                        continue
 
-                config = ml_service_info_to_model_template_config(service.info, service.url, user_options)
-                template_id = session_wrapper.add_model_template_from_yaml_config(
-                    config, source_digest=service.info.git_revision
-                )
-                # Mark template as chapkit-originated for archival tracking
-                template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == template_id)).one()
-                template.uses_chapkit = True
-                session.commit()
+                    config = ml_service_info_to_model_template_config(service.info, service.url, user_options)
+                    template_id = session_wrapper.add_model_template_from_yaml_config(
+                        config, source_digest=service.info.git_revision
+                    )
+                    # Mark template as chapkit-originated for archival tracking
+                    template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == template_id)).one()
+                    template.uses_chapkit = True
+                    session.commit()
+                    conflict = chapkit_revision_conflict(template, service.info.git_revision)
+                if conflict is not None:
+                    logger.warning(str(conflict))
+                    statuses[service.info.id] = REVISION_MISMATCH
+                    continue
                 _sync_chapkit_configured_models(session_wrapper, template_id, service.url, CHAPKitRestAPIWrapper)
             except Exception:
                 logger.warning("Failed to sync chapkit service %s", service.id, exc_info=True)
 
     _archive_stale_chapkit_templates(session, service_list)
-    return live_ids
+    return statuses
 
 
 def _archive_stale_chapkit_templates(session: Session, service_list) -> None:
@@ -732,18 +768,18 @@ async def list_model_templates(session: Session = Depends(get_session)):
     """List every live model template that can be configured into a runnable model — one per template name; superseded versions keep their rows but are not listed.
 
     Acts as the discovery endpoint: it is also where the CHAPKit v2 service registry
-    gets pulled in, so a template's ``health_status = "live"`` reflects whether the
-    backing CHAPKit service is currently registered. Stale CHAPKit templates whose
+    gets pulled in, so a template's ``health_status`` reflects whether the backing
+    CHAPKit service is currently registered (``"live"``) and still runs the stored
+    source revision (``"revision_mismatch"`` otherwise). Stale CHAPKit templates whose
     services have disappeared are auto-archived as a side effect.
     """
-    live_ids = _sync_live_chapkit_services(session)
+    statuses = _sync_live_chapkit_services(session)
     model_templates = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.is_live == True)).all()
 
     results = []
     for t in model_templates:
         read = ModelTemplateRead.model_validate(t)
-        if t.name in live_ids:
-            read.health_status = "live"
+        read.health_status = statuses.get(t.name)
         results.append(read)
     return results
 

@@ -26,6 +26,7 @@ from .model_templates_and_config_tables import (
     ConfiguredModelDB,
     ModelConfiguration,
     ModelTemplateDB,
+    chapkit_revision_conflict,
     compute_configuration_digest,
     drifted_template_content_fields,
 )
@@ -153,17 +154,8 @@ class SessionWrapper:
         model_name = model_template.name
         existing_template = self._if_exists(model_name, model_template.version)
         if existing_template:
-            if (
-                model_template.source_digest is not None
-                and existing_template.source_digest is not None
-                and model_template.source_digest != existing_template.source_digest
-            ):
-                logger.warning(
-                    f"Model template {model_name!r} version {model_template.version!r} came from "
-                    f"{existing_template.source_digest!r}, but its source now reports revision "
-                    f"{model_template.source_digest!r}. CHAP keeps the first revision. Use a new "
-                    "version label for the new source."
-                )
+            # The digest is never written to an existing row. A changed revision under the
+            # same label is handled by each registration path before it gets here.
             drifted = drifted_template_content_fields(existing_template, model_template)
             if drifted:
                 logger.warning(
@@ -484,6 +476,11 @@ class SessionWrapper:
             logger.info(f"Assuming chapkit model at {source_url}")
             assert source_url is not None
             template = ExternalChapkitModelTemplate(source_url)
+            # The service can change its code while CHAP runs, so check the revision it
+            # reports now against the one this template was stored from.
+            conflict = chapkit_revision_conflict(configured_model.model_template, template.get_reported_source_digest())
+            if conflict is not None:
+                raise conflict
             logger.info(f"template: {template}")
             logger.info(f"configured_model: {configured_model}")
             return template.get_model(configured_model, prediction_length=prediction_length)  # type: ignore[arg-type, return-value]

@@ -2,6 +2,7 @@ import logging
 
 from sqlalchemy.exc import SQLAlchemyError
 
+from chap_core.exceptions import ModelTemplateRevisionConflict
 from chap_core.model_spec import PeriodType
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.local_configuration import parse_local_model_config_from_directory
@@ -24,23 +25,36 @@ def add_model_template(model_template: ModelTemplateDB, session_wrapper: Session
 def add_model_template_from_url(
     url: str, session_wrapper: SessionWrapper, version: str, name_override: str | None = None
 ) -> int:
-    existing = session_wrapper.find_existing_git_model_template(version, name=name_override, github_url=url)
-    if existing is not None:
-        return session_wrapper.add_or_update_model_template(existing)
-    # A git template must point to one revision, so an unknown ref is an error.
+    # A full sha resolves without a network call, which is what the config files hold.
     source_digest = resolve_commit_sha(url)
-    if source_digest is None:
-        raise ValueError(f"Could not resolve an immutable source digest for model template URL {url!r}")
-    # Read the same revision that CHAP records, because a branch can move.
-    source_url = f"{url.partition('@')[0]}@{source_digest}"
-    model_template_config = ExternalModelTemplate.fetch_config_from_github_url(source_url)
-    model_template_config.version = version
-    if name_override is not None:
-        model_template_config.name = name_override
-    template_id = session_wrapper.add_model_template_from_yaml_config(
-        model_template_config, source_digest=source_digest
-    )
-    return template_id
+    existing = session_wrapper.find_existing_git_model_template(version, name=name_override, github_url=url)
+    if existing is None:
+        # A git template must point to one revision, so an unknown ref is an error.
+        if source_digest is None:
+            raise ValueError(f"Could not resolve an immutable source digest for model template URL {url!r}")
+        # Read the same revision that CHAP records, because a branch can move.
+        source_url = f"{url.partition('@')[0]}@{source_digest}"
+        model_template_config = ExternalModelTemplate.fetch_config_from_github_url(source_url)
+        model_template_config.version = version
+        if name_override is not None:
+            model_template_config.name = name_override
+        # The name comes from the MLProject, so the version may be stored under it already.
+        existing = session_wrapper.find_existing_git_model_template(version, name=model_template_config.name)
+        if existing is None:
+            return session_wrapper.add_model_template_from_yaml_config(
+                model_template_config, source_digest=source_digest
+            )
+    # The label guards the stored revision. A row seeded before digests were recorded
+    # has nothing to compare against and keeps serving its stored source.
+    if existing.source_digest is not None and source_digest != existing.source_digest:
+        raise ModelTemplateRevisionConflict(
+            existing.name,
+            version,
+            existing.source_digest,
+            source_digest,
+            f"add a new version entry for {url.partition('@')[0]} in config/configured_models.",
+        )
+    return session_wrapper.add_or_update_model_template(existing)
 
 
 def add_configured_model(
@@ -145,7 +159,8 @@ def seed_configured_models_from_config_dir(
             except Exception as e:
                 # A failed flush leaves the session unusable until it is rolled back.
                 session.rollback()
-                if isinstance(e, SQLAlchemyError):
+                # A relabelled revision is a configuration error that must stop startup.
+                if isinstance(e, SQLAlchemyError | ModelTemplateRevisionConflict):
                     raise
                 logger.error(
                     f"Could not seed git model at {config.url}: {e}. Skipping this model when seeding the database."
