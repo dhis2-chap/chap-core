@@ -70,6 +70,7 @@ class PeakValueDiffMetric(Metric):
         aggregation_op=AggregationOp.MEAN,
         description="Truth peak value minus predicted peak value, per horizon",
         optimization_direction=None,
+        target=0.0,
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
@@ -130,6 +131,8 @@ class PeakPeriodLagMetric(Metric):
         aggregation_op=AggregationOp.MEAN,
         description="Lag in time periods between true and predicted peak (pred - truth), per horizon",
         optimization_direction=None,
+        unit="periods",
+        target=0.0,
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
