@@ -280,9 +280,15 @@ def get_configuration(
 def get_estimator(
     template: ModelTemplate,
     configuration: ModelConfiguration | None,
+    prediction_length: int | None = None,
 ) -> ExternalModel:
-    """Build a plain estimator from a model template and optional configuration."""
-    model = template.get_model(configuration)  # type: ignore[arg-type]
+    """Build a plain estimator from a model template and optional configuration.
+
+    ``prediction_length`` is the forecast horizon the estimator will be asked for.
+    Models that need it before predicting, such as chapkit services that resolve the
+    horizon when training, get it through the template.
+    """
+    model = template.get_model(configuration, prediction_length=prediction_length)  # type: ignore[arg-type]
     estimator: ExternalModel = model()  # type: ignore[assignment]
     return estimator
 

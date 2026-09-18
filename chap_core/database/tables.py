@@ -99,6 +99,10 @@ class _BacktestRead(BacktestBase):
         default=None,
         description="Largest 1-based horizon distance scored in this backtest; horizon coordinates run 1..max_horizon_distance.",
     )
+    chap_version: str | None = Field(
+        default=None,
+        description="Release version of chap-core that produced the backtest; null for dev checkouts and rows predating the column.",
+    )
 
 
 class Backtest(_BacktestRead, table=True):

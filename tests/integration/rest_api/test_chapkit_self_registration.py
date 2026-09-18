@@ -97,6 +97,28 @@ def test_registered_service_appears_in_model_templates(client, register_service)
     assert matching[0]["healthStatus"] == "live"
 
 
+@pytest.mark.parametrize("git_revision, expected", [("a" * 40, "a" * 40), (None, None), ("", None)])
+def test_registered_service_git_revision_is_stored_as_source_digest(client, register_service, git_revision, expected):
+    register_service({**MOCK_INFO_DICT, "git_revision": git_revision})
+
+    templates = client.get("/v1/crud/model-templates").json()
+    matching = [t for t in templates if t["name"] == "test-model"]
+    assert len(matching) == 1
+    assert matching[0]["sourceDigest"] == expected
+
+
+def test_republished_service_under_the_same_version_keeps_the_first_revision(client, register_service, caplog):
+    register_service({**MOCK_INFO_DICT, "git_revision": "a" * 40})
+    client.get("/v1/crud/model-templates")
+
+    # Republishing the same version from another commit keeps the stored revision.
+    register_service({**MOCK_INFO_DICT, "git_revision": "b" * 40})
+    with caplog.at_level(logging.WARNING, logger="chap_core.database.database"):
+        templates = client.get("/v1/crud/model-templates").json()
+    assert [t["sourceDigest"] for t in templates if t["name"] == "test-model"] == ["a" * 40]
+    assert any("CHAP keeps the first revision" in record.message for record in caplog.records)
+
+
 def test_schema_fetch_failure_does_not_freeze_empty_user_options(client, register_service, mock_wrapper_cls, caplog):
     schema = {
         "properties": {

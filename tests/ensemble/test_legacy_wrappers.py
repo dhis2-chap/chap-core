@@ -5,10 +5,12 @@ from chap_core.ensemble.wrappers import BaseModelSpec, TemplateWithConfig
 class _DummyTemplate:
     def __init__(self):
         self.last_config = None
+        self.last_prediction_length = None
         self.name = "dummy"
 
-    def get_model(self, config):
+    def get_model(self, config, prediction_length=None):
         self.last_config = config
+        self.last_prediction_length = prediction_length
         return "model"
 
 
@@ -20,6 +22,7 @@ def test_template_with_config_passes_config():
 
     assert model == "model"
     assert template.last_config == {"alpha": 1}
+    assert template.last_prediction_length is None
 
 
 def test_base_model_spec_stores_values():
@@ -38,3 +41,4 @@ def test_template_with_config_extends_short_horizon_model():
     model = wrapper.get_model()()
 
     assert isinstance(model, ExtendedPredictor)
+    assert template.last_prediction_length == 3

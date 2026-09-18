@@ -4,6 +4,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import json
+import logging
 import socket
 import threading
 
@@ -19,6 +20,7 @@ from chap_core.database.model_templates_and_config_tables import ConfiguredModel
 from chapkit.api import HealthStatus
 
 from chap_core.exceptions import ModelFailedException
+from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.chapkit_rest_api_wrapper import (
     DEFAULT_REQUEST_TIMEOUT,
     MAX_CONSECUTIVE_POLL_ERRORS,
@@ -246,7 +248,7 @@ class TestGeoSerialization:
         import pandas as pd
 
         data = pd.DataFrame({"time_period": ["2024-01"], "location": ["loc1"], "disease_cases": [10]})
-        run_info = RunInfo(prediction_length=1)
+        run_info = RunInfo(prediction_periods=1)
 
         with patch.object(wrapper, "_request", return_value=mock_response) as mock_req:
             wrapper.train("config-1", data, run_info, geo_features=geo)
@@ -262,7 +264,7 @@ class TestGeoSerialization:
         import pandas as pd
 
         data = pd.DataFrame({"time_period": ["2024-01"], "location": ["loc1"], "disease_cases": [10]})
-        run_info = RunInfo(prediction_length=1)
+        run_info = RunInfo(prediction_periods=1)
 
         with patch.object(wrapper, "_request", return_value=mock_response) as mock_req:
             wrapper.train("config-1", data, run_info, geo_features=geo)
@@ -277,7 +279,7 @@ class TestGeoSerialization:
         import pandas as pd
 
         future = pd.DataFrame({"time_period": ["2024-01"], "location": ["loc1"]})
-        run_info = RunInfo(prediction_length=1)
+        run_info = RunInfo(prediction_periods=1)
 
         with patch.object(wrapper, "_request", return_value=mock_response) as mock_req:
             wrapper.predict("artifact-1", future, run_info, geo_features=geo)
@@ -299,7 +301,7 @@ class TestTypedResponses:
             result = wrapper.train(
                 "config-1",
                 __import__("pandas").DataFrame({"x": [1]}),
-                RunInfo(prediction_length=1),
+                RunInfo(prediction_periods=1),
             )
             assert isinstance(result, chapkit.TrainResponse)
             assert result.job_id == VALID_ULID_1
@@ -312,7 +314,7 @@ class TestTypedResponses:
             result = wrapper.predict(
                 "artifact-1",
                 __import__("pandas").DataFrame({"x": [1]}),
-                RunInfo(prediction_length=1),
+                RunInfo(prediction_periods=1),
             )
             assert isinstance(result, chapkit.PredictResponse)
             assert result.job_id == VALID_ULID_1
@@ -699,3 +701,220 @@ class TestTemplateClientLifecycle:
 
         assert template.client is not None
         assert template.client.client.is_closed
+
+
+def _model_information(min_periods: int = 1, max_periods: int = 12) -> ModelTemplateConfigV2:
+    """Template config as built from a service info response with the given horizon bounds."""
+    info = MLServiceInfo.model_validate(
+        {**MOCK_INFO_DICT, "min_prediction_periods": min_periods, "max_prediction_periods": max_periods}
+    )
+    return ml_service_info_to_model_template_config(info, "http://chapkit.test")
+
+
+def _train_recording_wrapper(train_bodies: list[dict]) -> CHAPKitRestAPIWrapper:
+    """A wrapper whose $train endpoint records the request body and then reports success."""
+
+    def handler(request):
+        path = request.url.path
+        if path == "/api/v1/ml/$train":
+            train_bodies.append(json.loads(request.content))
+            return httpx.Response(200, json={"job_id": VALID_ULID_1, "artifact_id": VALID_ULID_2, "message": "ok"})
+        if path == f"/api/v1/jobs/{VALID_ULID_1}":
+            return httpx.Response(200, json={"id": VALID_ULID_1, "status": "completed"})
+        raise AssertionError(f"unexpected request {request.method} {path}")
+
+    return _mock_wrapper(handler)
+
+
+class TestRunInfoHorizonField:
+    @pytest.fixture()
+    def wrapper(self):
+        return CHAPKitRestAPIWrapper("http://localhost:8000")
+
+    @staticmethod
+    def _sent_run_info(wrapper, run_info):
+        import pandas as pd
+
+        data = pd.DataFrame({"time_period": ["2024-01"], "location": ["loc1"], "disease_cases": [10]})
+        with patch.object(wrapper, "_request", return_value=_mock_train_predict_response()) as mock_req:
+            wrapper.train("config-1", data, run_info)
+        return mock_req.call_args.kwargs["json"]["run_info"]
+
+    def test_train_sends_the_horizon_as_prediction_periods(self, wrapper):
+        sent = self._sent_run_info(wrapper, RunInfo(prediction_periods=4))
+        assert sent["prediction_periods"] == 4
+        assert "prediction_length" not in sent
+
+    def test_train_omits_the_horizon_when_it_is_not_set(self, wrapper):
+        assert "prediction_periods" not in self._sent_run_info(wrapper, RunInfo())
+
+    def test_predict_sends_the_horizon_as_prediction_periods(self, wrapper):
+        import pandas as pd
+
+        future = pd.DataFrame({"time_period": ["2024-01"], "location": ["loc1"]})
+        with patch.object(wrapper, "_request", return_value=_mock_train_predict_response()) as mock_req:
+            wrapper.predict("artifact-1", future, RunInfo(prediction_periods=3))
+        sent = mock_req.call_args.kwargs["json"]["run_info"]
+        assert sent["prediction_periods"] == 3
+        assert "prediction_length" not in sent
+
+    def test_legacy_prediction_length_is_still_accepted(self):
+        assert RunInfo.model_validate({"prediction_length": 4}).prediction_periods == 4
+        assert RunInfo.model_validate({"prediction_periods": 4}).prediction_periods == 4
+        assert RunInfo().prediction_periods is None
+
+
+class TestTrainHorizon:
+    @staticmethod
+    def _train(train_data, prediction_periods, min_periods=1, max_periods=12):
+        train_bodies: list[dict] = []
+        model = ExternalChapkitModel(
+            "m",
+            "http://chapkit.test",
+            configuration_id=VALID_ULID_1,
+            model_information=_model_information(min_periods, max_periods),
+            client=_train_recording_wrapper(train_bodies),
+            prediction_periods=prediction_periods,
+        )
+        model.train(train_data)
+        return train_bodies[0]["run_info"]
+
+    def test_requested_horizon_is_sent_at_train_time(self, train_data):
+        assert self._train(train_data, 12)["prediction_periods"] == 12
+
+    def test_horizon_above_the_maximum_is_clamped(self, train_data, caplog):
+        with caplog.at_level(logging.WARNING):
+            sent = self._train(train_data, 12, max_periods=6)
+        assert sent["prediction_periods"] == 6
+        assert "outside the bounds" in caplog.text
+
+    def test_horizon_below_the_minimum_is_raised(self, train_data):
+        assert self._train(train_data, 1, min_periods=3)["prediction_periods"] == 3
+
+    def test_no_requested_horizon_leaves_the_key_out(self, train_data):
+        assert "prediction_periods" not in self._train(train_data, None)
+
+    def test_predict_sends_the_length_of_the_future_window(self, train_data):
+        client = MagicMock()
+        client.train_and_wait.return_value = (MagicMock(status="completed"), VALID_ULID_2)
+        client.predict_and_wait.return_value = (MagicMock(status="completed"), VALID_ULID_2)
+        predicted = train_data.to_pandas()
+        client.get_prediction_artifact_dataframe.return_value = chapkit.data.DataFrame(
+            columns=["time_period", "location", "sample_0"],
+            data=[[str(row.time_period), row.location, 1.0] for row in predicted.itertuples()],
+        )
+        model = ExternalChapkitModel(
+            "m",
+            "http://chapkit.test",
+            configuration_id=VALID_ULID_1,
+            model_information=_model_information(),
+            client=client,
+            prediction_periods=12,
+        )
+        model.train(train_data)
+        model.predict(train_data, train_data)
+
+        sent = client.predict_and_wait.call_args.kwargs["run_info"]
+        assert sent.prediction_periods == len(train_data.period_range)
+
+
+class TestGetModelHorizon:
+    @staticmethod
+    def _handler(train_bodies: list[dict]):
+        def handler(request):
+            path = request.url.path
+            if path == "/api/v1/info":
+                return httpx.Response(200, json=MOCK_INFO_DICT)
+            if path == "/api/v1/configs/$schema":
+                return httpx.Response(200, json=MOCK_CONFIG_SCHEMA)
+            if path == "/api/v1/configs":
+                return httpx.Response(
+                    200, json=_config_out_json() if request.method == "POST" else [_config_out_json()]
+                )
+            if path == "/api/v1/ml/$train":
+                train_bodies.append(json.loads(request.content))
+                return httpx.Response(200, json={"job_id": VALID_ULID_1, "artifact_id": VALID_ULID_2, "message": "ok"})
+            if path == f"/api/v1/jobs/{VALID_ULID_1}":
+                return httpx.Response(200, json={"id": VALID_ULID_1, "status": "completed"})
+            raise AssertionError(f"unexpected request {request.method} {path}")
+
+        return handler
+
+    def test_prediction_length_reaches_the_train_request(self, train_data):
+        train_bodies: list[dict] = []
+        template = ExternalChapkitModelTemplate("http://chapkit.test")
+        template.client = _mock_wrapper(self._handler(train_bodies))
+
+        model = template.get_model({}, prediction_length=12)
+        model.train(train_data)
+
+        assert train_bodies[0]["run_info"]["prediction_periods"] == 12
+
+    def test_no_prediction_length_leaves_the_key_out(self, train_data):
+        train_bodies: list[dict] = []
+        template = ExternalChapkitModelTemplate("http://chapkit.test")
+        template.client = _mock_wrapper(self._handler(train_bodies))
+
+        model = template.get_model({})
+        model.train(train_data)
+
+        assert "prediction_periods" not in train_bodies[0]["run_info"]
+
+
+class TestConfigPayload:
+    """What chap-core stores as config data on the service when building a model."""
+
+    @staticmethod
+    def _created_config(model_configuration) -> dict:
+        created: list[dict] = []
+
+        def handler(request):
+            path = request.url.path
+            if path == "/api/v1/info":
+                return httpx.Response(200, json=MOCK_INFO_DICT)
+            if path == "/api/v1/configs/$schema":
+                return httpx.Response(200, json=MOCK_CONFIG_SCHEMA)
+            if path == "/api/v1/configs" and request.method == "POST":
+                created.append(json.loads(request.content))
+                return httpx.Response(200, json=_config_out_json())
+            if path == "/api/v1/configs":
+                return httpx.Response(200, json=[_config_out_json()])
+            raise AssertionError(f"unexpected request {request.method} {path}")
+
+        template = ExternalChapkitModelTemplate("http://chapkit.test")
+        template.client = _mock_wrapper(handler)
+        template.get_model(model_configuration)
+        return created[0]
+
+    def test_configured_model_row_sends_only_configuration_fields(self):
+        row = ConfiguredModelDB(
+            name="test-model",
+            model_template_id=1,
+            user_option_values={"max_epochs": 2},
+            additional_continuous_covariates=["humidity"],
+            uses_chapkit=True,
+        )
+
+        created = self._created_config(row)
+
+        assert created["data"] == {
+            "user_option_values": {"max_epochs": 2},
+            "additional_continuous_covariates": ["humidity"],
+        }
+        assert created["name"].startswith("test-model_")
+
+    def test_empty_configuration_sends_no_data(self):
+        from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+
+        created = self._created_config(ModelConfiguration())
+
+        assert created["data"] == {}
+        assert created["name"].startswith("test-model_config_")
+
+    def test_raw_service_configuration_is_passed_through(self):
+        created = self._created_config({"max_epochs": 2, "model_template": "ignored"})
+
+        assert created["data"] == {"max_epochs": 2}
+
+    def test_no_configuration_sends_no_data(self):
+        assert self._created_config(None)["data"] == {}
