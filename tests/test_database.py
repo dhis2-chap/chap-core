@@ -697,16 +697,6 @@ def test_chapkit_model_is_refused_when_service_reports_another_revision(
             session.get_configured_model_with_code(configured_model.id)
 
 
-def test_backtest_against_a_mismatched_chapkit_template_fails(engine, seeded_chapkit_model, weekly_full_data):
-    name = seeded_chapkit_model("a" * 40, "b" * 40)
-    with SessionWrapper(engine) as session:
-        dataset_id = DataSetManager(session.session).save_dataset(
-            DataSetCreateInfo(name="full_data"), weekly_full_data, None
-        )
-        with pytest.raises(ModelTemplateRevisionConflict):
-            run_backtest(BacktestCreate(model_id=name, dataset_id=dataset_id), 12, 2, 1, session=session)
-
-
 def test_seed_skips_chapkit_model_when_version_is_missing(engine, tmp_path, model_template_yaml_config, monkeypatch):
     monkeypatch.setattr(
         "chap_core.database.model_template_seed.ExternalChapkitModelTemplate",

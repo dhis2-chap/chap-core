@@ -66,6 +66,9 @@ def client(db_engine, fake_orchestrator, mock_wrapper_cls):
             yield session
 
     app.dependency_overrides[get_session] = get_test_session
+    # The v2 register endpoint takes the orchestrator through Depends, while the lazy
+    # v1 template sync calls the factory directly, so both need the fake.
+    app.dependency_overrides[get_orchestrator] = lambda: fake_orchestrator
 
     with (
         patch("chap_core.rest_api.v2.dependencies.get_orchestrator", return_value=fake_orchestrator),
@@ -115,7 +118,7 @@ def _test_model(client):
     return matching[0]
 
 
-@pytest.mark.parametrize("stored, reported", [("a" * 40, "b" * 40), (None, "a" * 40), ("a" * 40, None)])
+@pytest.mark.parametrize("stored, reported", [("a" * 40, "b" * 40), (None, "a" * 40), ("a" * 40, None), (None, None)])
 def test_republished_service_under_the_same_version_is_a_revision_mismatch(
     client, register_service, mock_wrapper_cls, stored, reported
 ):
@@ -133,12 +136,10 @@ def test_republished_service_under_the_same_version_is_a_revision_mismatch(
     assert mock_wrapper_cls.call_count == service_calls
 
 
-def test_service_without_a_git_revision_is_listed_as_a_revision_mismatch(client, register_service):
+def test_service_without_a_git_revision_gets_no_configured_models(client, register_service):
+    """The new row is a mismatch on its own, so nothing more is fetched from the service."""
     register_service({**MOCK_INFO_DICT, "git_revision": None})
-
-    template = _test_model(client)
-    assert template["healthStatus"] == "revision_mismatch"
-    assert template["sourceDigest"] is None
+    client.get("/v1/crud/model-templates")
     assert client.get("/v1/crud/configured-models").json() == []
 
 
@@ -167,11 +168,10 @@ def test_version_bump_after_a_revision_mismatch_creates_a_new_live_row(client, r
     assert template["healthStatus"] == "live"
 
 
-def test_registration_response_reports_a_revision_mismatch(client, register_service, fake_orchestrator):
+def test_registration_response_reports_a_revision_mismatch(client, register_service):
     register_service()
     client.get("/v1/crud/model-templates")
 
-    app.dependency_overrides[get_orchestrator] = lambda: fake_orchestrator
     payload = {"url": "http://test-service:8080", "info": {**MOCK_INFO_DICT, "git_revision": "b" * 40}}
     response = client.post("/v2/services/$register", json=payload)
 

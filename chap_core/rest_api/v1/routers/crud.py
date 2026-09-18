@@ -65,6 +65,7 @@ from chap_core.rest_api.celery_tasks import (
 )
 from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.experimental import api_experimental
+from chap_core.rest_api.services.schemas import MLServiceInfo
 from chap_core.services import prediction_setup_service
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
@@ -92,7 +93,9 @@ LIVE = "live"
 REVISION_MISMATCH = "revision_mismatch"
 
 
-def _registered_chapkit_revision_conflict(session: Session, info) -> ModelTemplateRevisionConflict | None:
+def _registered_chapkit_revision_conflict(
+    session: Session, info: MLServiceInfo
+) -> ModelTemplateRevisionConflict | None:
     """The conflict between a registered service and the template stored under its version, if any.
 
     Computed on every read instead of persisted, because the service can change after a
@@ -106,7 +109,7 @@ def _registered_chapkit_revision_conflict(session: Session, info) -> ModelTempla
     return chapkit_revision_conflict(template, info.git_revision)
 
 
-def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str, str]:
+def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str, ModelTemplateRevisionConflict | None]:
     """Sync live chapkit services from the v2 registry into the DB.
 
     Queries the Redis-backed Orchestrator for registered services and
@@ -119,9 +122,8 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str
     second redis connection, which costs a full connect timeout whenever
     redis is unreachable.
 
-    Returns a health status per registered template name: ``"live"``, or
-    ``"revision_mismatch"`` when the service reports another source revision
-    than the stored template version. A mismatched template is left untouched.
+    Returns the revision conflict per registered template name, or None when the
+    service runs the stored source revision. A mismatched template is left untouched.
     """
     try:
         if orchestrator is None:
@@ -133,7 +135,7 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str
         logger.debug("Could not reach service registry, skipping chapkit sync")
         return {}
 
-    statuses = {s.info.id: LIVE for s in service_list.services}
+    conflicts: dict[str, ModelTemplateRevisionConflict | None] = {s.info.id: None for s in service_list.services}
 
     if service_list.count > 0:
         from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
@@ -176,17 +178,19 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str
                     template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == template_id)).one()
                     template.uses_chapkit = True
                     session.commit()
+                    # The row was just stored from this revision, so this is only a
+                    # conflict when the service reports no revision at all.
                     conflict = chapkit_revision_conflict(template, service.info.git_revision)
                 if conflict is not None:
                     logger.warning(str(conflict))
-                    statuses[service.info.id] = REVISION_MISMATCH
+                    conflicts[service.info.id] = conflict
                     continue
                 _sync_chapkit_configured_models(session_wrapper, template_id, service.url, CHAPKitRestAPIWrapper)
             except Exception:
                 logger.warning("Failed to sync chapkit service %s", service.id, exc_info=True)
 
     _archive_stale_chapkit_templates(session, service_list)
-    return statuses
+    return conflicts
 
 
 def _archive_stale_chapkit_templates(session: Session, service_list) -> None:
@@ -773,13 +777,14 @@ async def list_model_templates(session: Session = Depends(get_session)):
     source revision (``"revision_mismatch"`` otherwise). Stale CHAPKit templates whose
     services have disappeared are auto-archived as a side effect.
     """
-    statuses = _sync_live_chapkit_services(session)
+    conflicts = _sync_live_chapkit_services(session)
     model_templates = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.is_live == True)).all()
 
     results = []
     for t in model_templates:
         read = ModelTemplateRead.model_validate(t)
-        read.health_status = statuses.get(t.name)
+        if t.name in conflicts:
+            read.health_status = LIVE if conflicts[t.name] is None else REVISION_MISMATCH
         results.append(read)
     return results
 

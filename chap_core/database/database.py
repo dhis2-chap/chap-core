@@ -154,8 +154,9 @@ class SessionWrapper:
         model_name = model_template.name
         existing_template = self._if_exists(model_name, model_template.version)
         if existing_template:
-            # The digest is never written to an existing row. A changed revision under the
-            # same label is handled by each registration path before it gets here.
+            # The digest is never written to an existing row. The git seed and the service
+            # registry check the revision before they get here; a chapkit template seeded
+            # from a config file is only checked when it is loaded to run.
             drifted = drifted_template_content_fields(existing_template, model_template)
             if drifted:
                 logger.warning(
