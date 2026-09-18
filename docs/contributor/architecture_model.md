@@ -306,3 +306,42 @@ graph LR
   end
 ```
 
+## Deployment - Docker Compose
+
+```mermaid
+graph LR
+
+  subgraph diagram ["Deployment View: Docker Compose"]
+
+    subgraph 96 ["backend network"]
+
+      97[("Redis / Valkey<br/>[Container: Valkey 8]<br/>Celery broker and result backend, job metadata (job_meta) and chapkit service registry.")]
+      98[("PostgreSQL<br/>[Container: PostgreSQL 17]<br/>Datasets, observations, model templates/configs, backtests, predictions.")]
+    end
+
+    subgraph 99 ["default network"]
+
+      subgraph 100 ["CHAP Core services"]
+
+        101["REST API<br/>[Container: FastAPI / Uvicorn (Python)]<br/>Serves the v1/v2 HTTP API, validates input, enqueues long-running jobs and serves results."]
+        104["Celery worker<br/>[Container: Celery (Python)]<br/>Consumes queued jobs and runs dataset harmonisation, backtests and predictions."]
+      end
+
+      subgraph 107 ["Model services [0..*]"]
+
+        108["Service API<br/>[Container: FastAPI (Python)]<br/>FastAPI app assembled by chapkit's MLServiceBuilder; implements the standard train/predict/config/artifact/job REST contract."]
+      end
+
+    end
+
+    101-. "Readiness / deep probe: broker ping and Celery round-trip" .->97
+    101-. "Readiness / deep probe: connectivity check" .->98
+    104-. "Job lifecycle: fetch job, write job_meta (via Celery task wrapper)" .->97
+    104-. "Reads datasets/models; writes forecasts & metrics" .->98
+    108-. "Registers & sends heartbeats<br/>[HTTP $register / $ping]" .->101
+    101-. "Read-only proxy to live service (artifacts/configs/jobs)<br/>[HTTP GET/HEAD]" .->108
+    104-. "Trains & predicts<br/>[HTTP $train / $predict]" .->108
+
+  end
+```
+
