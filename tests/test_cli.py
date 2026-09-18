@@ -209,6 +209,40 @@ def test_eval_cmd_does_not_wrap_when_bounds_unspecified(tmp_path):
     assert forwarded is fake_estimator
 
 
+def test_get_estimator_forwards_the_prediction_length_to_the_template():
+    """Models that need the horizon up front, such as chapkit services, get it here."""
+    from chap_core.cli_endpoints._common import get_estimator
+
+    template = MagicMock(name="ModelTemplate")
+    configuration = MagicMock(name="ModelConfiguration")
+
+    get_estimator(template=template, configuration=configuration, prediction_length=5)
+
+    template.get_model.assert_called_once_with(configuration, prediction_length=5)
+
+
+def test_eval_cmd_asks_the_template_for_the_backtest_horizon(tmp_path):
+    """eval_cmd builds the estimator for the horizon the backtest will use."""
+    from chap_core.api_types import BacktestParams, RunConfig
+
+    fake_estimator = _make_fake_estimator(min_prediction_periods=1, max_prediction_periods=12)
+    stack, _ = _patched_eval_chain(fake_estimator)
+    with stack:
+        with patch(
+            "chap_core.cli_endpoints.evaluate.get_estimator",
+            return_value=fake_estimator,
+        ) as get_estimator_mock:
+            eval_cmd(
+                model_name="dummy",
+                dataset_csv="dummy.csv",
+                output_file=tmp_path / "out.nc",
+                backtest_params=BacktestParams(n_periods=7, n_splits=2, stride=1),
+                run_config=RunConfig(),
+            )
+
+    assert get_estimator_mock.call_args.kwargs["prediction_length"] == 7
+
+
 def _valid_and_nan_region_dataset():
     """A dataset with one region that has usable disease_cases and one whose values are entirely NaN."""
     import numpy as np

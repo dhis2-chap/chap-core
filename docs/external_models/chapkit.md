@@ -98,15 +98,28 @@ Along with the data, Chap sends a `run_info` object containing runtime parameter
 
 ```json
 {
-  "prediction_length": 3,
+  "prediction_periods": 3,
   "additional_continuous_covariates": ["humidity"]
 }
 ```
 
 | Field | Description |
 |-------|-------------|
-| `prediction_length` | Number of future periods to predict |
+| `prediction_periods` | Number of future periods to predict |
 | `additional_continuous_covariates` | List of additional covariate columns in the data |
+
+`run_info` is sent on both `$train` and `$predict`. At train time
+`prediction_periods` is the horizon the model is going to be asked for, clamped to the
+`min_prediction_periods` and `max_prediction_periods` the service declares; at predict
+time it is the length of the future frame. Chap leaves the field out when it does not
+know the horizon, and the service then falls back to the value in its stored
+configuration.
+
+Chapkit resolves the horizon from `run_info` first, then the future frame, then the
+stored configuration, so your model reads it from `config.prediction_periods` as usual.
+This requires chapkit 2.1.0 or newer; older versions ignore `run_info` at train time.
+Chap sent the horizon as `prediction_length` before chapkit 2.1.0, and chapkit still
+accepts that spelling.
 
 
 ## How to run a chapkit model from the command line
