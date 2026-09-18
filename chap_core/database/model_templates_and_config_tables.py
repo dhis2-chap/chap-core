@@ -88,7 +88,7 @@ class ModelTemplateInformation(SQLModel):
     hpo_search_space: dict | None = Field(
         default=None,
         sa_column=Column(JSON),
-        description="Search space used by HPO when training this template in `hpo` mode.",
+        description="Search space used by HPO when tuning this template in `hpo` mode.",
     )
     required_covariates: list[str] = Field(
         default_factory=list,

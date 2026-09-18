@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from chap_core.api_types import BacktestParams, EstimatorOptions
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
     from chap_core.external.model_configuration import ModelTemplateConfigV2
-    from chap_core.hpo.hpoModel import HpoModel
+    from chap_core.hpo.hyperparameter_optimizer import HyperparameterOptimizer
     from chap_core.models.external_model import ExternalModel
     from chap_core.models.model_template import ModelTemplate
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -329,7 +329,7 @@ def get_hpo_estimator(
     configuration: ModelConfiguration | None,
     backtest_params: BacktestParams,
     options: EstimatorOptions,
-) -> HpoModel:
+) -> HyperparameterOptimizer:
     """
     Build an HPO-backend estimator from either:
     - an explicit YAML search space, or
@@ -339,7 +339,7 @@ def get_hpo_estimator(
 
     from chap_core.api_types import SearcherType
     from chap_core.hpo.base import load_search_space_from_config
-    from chap_core.hpo.hpoModel import HpoModel
+    from chap_core.hpo.hyperparameter_optimizer import HyperparameterOptimizer
     from chap_core.hpo.objective import Objective
     from chap_core.hpo.searcher import GridSearcher, RandomSearcher, Searcher, TPESearcher
     from chap_core.hpo.types import DEFAULT_HPO_TRIALS
@@ -378,7 +378,7 @@ def get_hpo_estimator(
     else:
         raise ValueError(f"Unknown searcher: {searcher_type!r}")
 
-    return HpoModel(
+    return HyperparameterOptimizer(
         objective=objective,
         searcher=searcher,
         configuration=configuration,
