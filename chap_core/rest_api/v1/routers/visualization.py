@@ -18,7 +18,7 @@ from chap_core.assessment.backtest_plots.db_dimensions import DBFacetDimension, 
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metric_plots import get_metric_plots_registry, list_metric_plots
 from chap_core.assessment.metrics import available_metrics
-from chap_core.assessment.metrics.base import OptimizationDirection
+from chap_core.assessment.metrics.base import OptimizationDirection, TargetBehavior
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.tables import Backtest
@@ -66,14 +66,23 @@ class MetricInfo(DBModel):
     unit: str | None = Field(default=None, description="Display suffix for the raw score, e.g. '%' for MAPE.")
     target: float | None = Field(
         default=None,
-        description="Ideal value in raw score units where neither higher nor lower is better, e.g. 0.8 for 80% coverage.",
+        description="Ideal value in raw score units, e.g. 0.8 for 80% coverage. Null when no fixed target applies.",
+    )
+    target_behavior: TargetBehavior = Field(
+        default=TargetBehavior.CLOSEST,
+        description=(
+            "How to judge a score against ``target``, only meaningful when ``target`` is set. "
+            "'closest' means deviating in either direction is worse. 'at_least' means higher is "
+            "better up to the target and flat above it, so only scores below the target should be "
+            "flagged as bad."
+        ),
     )
     optimization_direction: OptimizationDirection | None = Field(
         default=None,
         description=(
             "Whether a lower ('minimize') or higher ('maximize') score is better. "
             "Null for metrics where neither direction is better; those set ``target`` instead, "
-            "and a score closer to it is better."
+            "and ``target_behavior`` says how to judge a score against it."
         ),
     )
 
@@ -98,6 +107,7 @@ def get_available_metrics(backtest_id: int):
             display_name=metric_factory().get_name(),
             description=metric_factory().get_description(),
             optimization_direction=metric_factory.spec.optimization_direction,
+            target_behavior=metric_factory.spec.target_behavior,
             unit=metric_factory.spec.unit,
             target=metric_factory.spec.target,
         )

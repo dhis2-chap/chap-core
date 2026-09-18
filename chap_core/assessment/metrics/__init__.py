@@ -23,6 +23,7 @@ from chap_core.assessment.metrics.base import (
     MetricSpec,
     OptimizationDirection,
     ProbabilisticMetric,
+    TargetBehavior,
 )
 from chap_core.database.tables import Backtest
 
@@ -69,6 +70,7 @@ def list_metrics() -> list[dict]:
                 "description": spec.description,
                 "unit": spec.unit,
                 "target": spec.target,
+                "target_behavior": spec.target_behavior.value,
                 "aggregation_op": spec.aggregation_op.value,
                 "optimization_direction": (
                     spec.optimization_direction.value if spec.optimization_direction is not None else None

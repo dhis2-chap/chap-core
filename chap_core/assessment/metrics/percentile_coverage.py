@@ -9,6 +9,7 @@ from chap_core.assessment.metrics.base import (
     AggregationOp,
     MetricSpec,
     ProbabilisticMetric,
+    TargetBehavior,
 )
 
 
@@ -42,9 +43,10 @@ class Coverage10_90Metric(PercentileCoverageMetric):
         metric_id="coverage_10_90",
         metric_name="Coverage 10-90",
         aggregation_op=AggregationOp.MEAN,
-        description="Proportion of observations within 10th-90th percentile",
+        description="Proportion of observations within 10th-90th percentile (higher is better, up to the 0.8 target)",
         optimization_direction=None,
         target=0.8,
+        target_behavior=TargetBehavior.AT_LEAST,
     )
     low_percentile = 10
     high_percentile = 90
@@ -58,9 +60,10 @@ class Coverage25_75Metric(PercentileCoverageMetric):
         metric_id="coverage_25_75",
         metric_name="Coverage 25-75",
         aggregation_op=AggregationOp.MEAN,
-        description="Proportion of observations within 25th-75th percentile",
+        description="Proportion of observations within 25th-75th percentile (higher is better, up to the 0.5 target)",
         optimization_direction=None,
         target=0.5,
+        target_behavior=TargetBehavior.AT_LEAST,
     )
     low_percentile = 25
     high_percentile = 75

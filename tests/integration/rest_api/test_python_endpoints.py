@@ -47,6 +47,15 @@ def test_available_metrics_expose_unit_and_target():
             assert metric.target is not None, metric.id
 
 
+def test_available_metrics_expose_target_behavior():
+    metrics = {metric.id: metric for metric in get_available_metrics(backtest_id=1)}
+    assert metrics["coverage_10_90"].target_behavior == "at_least"
+    assert metrics["coverage_25_75"].target_behavior == "at_least"
+    assert metrics["ratio_above_truth"].target_behavior == "closest"
+    for entry in list_metrics():
+        assert metrics[entry["id"]].target_behavior == entry["target_behavior"]
+
+
 def all_metric_ids():
     metrics = get_available_metrics(backtest_id=1)
     return [metric.id for metric in metrics]

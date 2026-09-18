@@ -41,6 +41,15 @@ class OptimizationDirection(StrEnum):
     MAXIMIZE = "maximize"
 
 
+class TargetBehavior(StrEnum):
+    """How a score should be judged against the target."""
+
+    # Deviating from the target in either direction is worse.
+    CLOSEST = "closest"
+    # Scores below the target are worse, scores above it are no worse than the target.
+    AT_LEAST = "at_least"
+
+
 @dataclass(frozen=True)
 class MetricSpec:
     """
@@ -58,6 +67,8 @@ class MetricSpec:
     unit: str | None = None
     # Ideal value in raw score units for metrics where neither direction is better.
     target: float | None = None
+    # How to judge a score against the target. Only meaningful when target is set.
+    target_behavior: TargetBehavior = TargetBehavior.CLOSEST
 
 
 class Metric(ABC):

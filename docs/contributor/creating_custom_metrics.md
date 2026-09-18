@@ -122,7 +122,7 @@ from chap_core.assessment.metrics.base import ProbabilisticMetric
 ## MetricSpec Configuration
 
 ```python
-from chap_core.assessment.metrics.base import AggregationOp, MetricSpec
+from chap_core.assessment.metrics.base import AggregationOp, MetricSpec, TargetBehavior
 
 spec = MetricSpec(
     metric_id="unique_id",              # Used in APIs and registry
@@ -132,13 +132,18 @@ spec = MetricSpec(
     optimization_direction=None,        # MINIMIZE, MAXIMIZE or None
     unit=None,                          # Display suffix for the raw score, e.g. "%"
     target=None,                        # Ideal raw value when neither direction is better, e.g. 0.8
+    target_behavior=TargetBehavior.CLOSEST,  # CLOSEST or AT_LEAST, only used with a target
 )
 ```
 
-The metric catalogue API returns `unit` and `target` alongside the optimization
-direction. A metric with `optimization_direction=None` should set a `target`, so
-clients can show that a score closer to it is better. Units do not rescale scores:
-MAPE is already a percentage, while coverage targets use fractions such as `0.8`.
+The metric catalogue API returns `unit`, `target` and `target_behavior` alongside
+the optimization direction. A metric with `optimization_direction=None` should set
+a `target`, and `target_behavior` tells clients how to judge a score against it:
+`CLOSEST` means deviating in either direction is worse (ratio above truth, peak
+difference), while `AT_LEAST` means higher is better up to the target and flat
+above it, so only scores below the target should be flagged as bad (coverage
+metrics). Units do not rescale scores: MAPE is already a percentage, while
+coverage targets use fractions such as `0.8`.
 
 ## Complete Examples
 
