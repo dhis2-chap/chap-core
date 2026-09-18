@@ -200,10 +200,14 @@ class ExternalChapkitModelTemplate:
         self.client = CHAPKitRestAPIWrapper(self.rest_api_url)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Close the client, and stop the service if in directory mode."""
+    def close(self) -> None:
+        """Close the HTTP client without stopping a directory-mode service."""
         if self.client is not None:
             self.client.close()
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Close the client, and stop the service if in directory mode."""
+        self.close()
         if self._service_manager is not None and not self._is_url_mode:
             self._service_manager.__exit__(exc_type, exc_val, exc_tb)
             self.rest_api_url = None
@@ -305,6 +309,12 @@ class ExternalChapkitModelTemplate:
         ModelTemplateConfigV2 is needed to store info about a ModelTemplate in the database.
         """
         return self.get_model_template_config_with_digest()[0]
+
+    def get_reported_source_digest(self) -> str | None:
+        """The commit the service reports it was built from, or None when it does not report one."""
+        self._ensure_initialized()
+        assert self.client is not None
+        return self.client.info().git_revision
 
     def get_model_template_config_with_digest(self) -> tuple[ModelTemplateConfigV2, str | None]:
         """Fetch the service info once and return the template config together with the commit
