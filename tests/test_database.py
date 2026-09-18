@@ -7,6 +7,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, select
 
+import chap_core.database.database as database_module
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo
@@ -649,6 +650,10 @@ def _fake_chapkit_template(model_template_yaml_config, versions=None, digests=No
         def get_model(self, configured_model, prediction_length=None):
             return ("model", self.name, prediction_length)
 
+        def close(self):
+            FakeChapkitTemplate.closed.append(self.name)
+
+    FakeChapkitTemplate.closed = []
     return FakeChapkitTemplate
 
 
@@ -660,12 +665,17 @@ def seeded_chapkit_model(engine, tmp_path, model_template_yaml_config, monkeypat
     def _seed(stored_digest, reported_digest):
         monkeypatch.setattr(
             "chap_core.database.model_template_seed.ExternalChapkitModelTemplate",
-            _fake_chapkit_template(model_template_yaml_config, digests={"ok-chapkit": stored_digest}),
+            _fake_chapkit_template(model_template_yaml_config, digests={"ok-chapkit": stored_digest or "f" * 40}),
         )
         with Session(engine) as session:
             seed_configured_models_from_config_dir(
                 session, directory=_two_chapkit_model_config_dir(tmp_path, hosts=("ok-chapkit",))
             )
+            if stored_digest is None:
+                # A row stored before chapkit services reported a revision.
+                template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == "ok-chapkit")).one()
+                template.source_digest = None
+                session.commit()
         monkeypatch.setattr(
             "chap_core.database.database.ExternalChapkitModelTemplate",
             _fake_chapkit_template(model_template_yaml_config, digests={"ok-chapkit": reported_digest}),
@@ -695,12 +705,16 @@ def test_chapkit_model_is_refused_when_service_reports_another_revision(
         configured_model = session.get_configured_model_by_name(name)
         with pytest.raises(ModelTemplateRevisionConflict, match="info.version"):
             session.get_configured_model_with_code(configured_model.id)
+    # The refused template does not leak its HTTP client.
+    assert database_module.ExternalChapkitModelTemplate.closed == [name]
 
 
 def test_seed_skips_chapkit_model_when_version_is_missing(engine, tmp_path, model_template_yaml_config, monkeypatch):
     monkeypatch.setattr(
         "chap_core.database.model_template_seed.ExternalChapkitModelTemplate",
-        _fake_chapkit_template(model_template_yaml_config, versions={"broken-chapkit": None}),
+        _fake_chapkit_template(
+            model_template_yaml_config, versions={"broken-chapkit": None}, digests={"ok-chapkit": "a" * 40}
+        ),
     )
     with Session(engine) as session:
         seed_configured_models_from_config_dir(session, directory=_two_chapkit_model_config_dir(tmp_path))
@@ -711,8 +725,33 @@ def test_seed_skips_chapkit_model_when_version_is_missing(engine, tmp_path, mode
     assert "naive_model" in names
 
 
-def test_seed_stores_chapkit_git_revision_as_source_digest(engine, tmp_path, model_template_yaml_config, monkeypatch):
-    # A bare docker build without the GIT_REVISION build-arg reports no revision, which is still valid.
+def test_seed_warns_when_chapkit_service_reports_another_revision_under_a_stored_version(
+    engine, tmp_path, model_template_yaml_config, monkeypatch, caplog
+):
+    config_dir = _two_chapkit_model_config_dir(tmp_path, hosts=("ok-chapkit",))
+    for digest in ("a" * 40, "b" * 40):
+        monkeypatch.setattr(
+            "chap_core.database.model_template_seed.ExternalChapkitModelTemplate",
+            _fake_chapkit_template(model_template_yaml_config, digests={"ok-chapkit": digest}),
+        )
+        with (
+            Session(engine) as session,
+            caplog.at_level(logging.WARNING, logger="chap_core.database.model_template_seed"),
+        ):
+            seed_configured_models_from_config_dir(session, directory=config_dir)
+
+    # A seeded service is not in the registry, so the warning is the only early signal.
+    assert any("a" * 40 in r.message and "b" * 40 in r.message for r in caplog.records)
+    with SessionWrapper(engine) as session:
+        digests = {t.name: t.source_digest for t in session.session.exec(select(ModelTemplateDB)).all()}
+    assert digests["ok-chapkit"] == "a" * 40
+
+
+def test_seed_skips_chapkit_model_that_reports_no_git_revision(
+    engine, tmp_path, model_template_yaml_config, monkeypatch
+):
+    # A bare docker build without the GIT_REVISION build-arg reports no revision. Storing it
+    # would burn the version label, so the model is skipped until it reports one.
     monkeypatch.setattr(
         "chap_core.database.model_template_seed.ExternalChapkitModelTemplate",
         _fake_chapkit_template(model_template_yaml_config, digests={"pinned-chapkit": "a" * 40}),
@@ -724,7 +763,7 @@ def test_seed_stores_chapkit_git_revision_as_source_digest(engine, tmp_path, mod
     with SessionWrapper(engine) as session:
         digests = {t.name: t.source_digest for t in session.session.exec(select(ModelTemplateDB)).all()}
     assert digests["pinned-chapkit"] == "a" * 40
-    assert digests["unpinned-chapkit"] is None
+    assert "unpinned-chapkit" not in digests
 
 
 def test_seed_raises_database_error_instead_of_hiding_model(engine, tmp_path, model_template_yaml_config, monkeypatch):

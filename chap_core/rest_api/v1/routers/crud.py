@@ -17,7 +17,7 @@ alias_generator=to_camel and FastAPI's response_model_by_alias defaults to True.
 
 import json
 import logging
-from typing import Annotated, Any
+from typing import Annotated, Any, Final
 
 import numpy as np
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
@@ -89,8 +89,8 @@ from .dependencies import get_database_url, get_session, get_settings
 logger = logging.getLogger(__name__)
 
 
-LIVE = "live"
-REVISION_MISMATCH = "revision_mismatch"
+LIVE: Final = "live"
+REVISION_MISMATCH: Final = "revision_mismatch"
 
 
 def _registered_chapkit_revision_conflict(
@@ -104,9 +104,20 @@ def _registered_chapkit_revision_conflict(
     template = session.exec(
         select(ModelTemplateDB).where(ModelTemplateDB.name == info.id, ModelTemplateDB.version == info.version)
     ).first()
-    if template is None:
-        return None
-    return chapkit_revision_conflict(template, info.git_revision)
+    if template is not None:
+        return chapkit_revision_conflict(template, info.git_revision)
+    if info.git_revision is None:
+        # Not stored: a row with no digest could never run, and the label would be burnt
+        # for the build that does report a revision.
+        return ModelTemplateRevisionConflict(
+            info.id,
+            info.version,
+            None,
+            None,
+            "build the image with the GIT_REVISION build arg and register it again. The version "
+            "label is not stored yet, so it can be kept.",
+        )
+    return None
 
 
 def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str, ModelTemplateRevisionConflict | None]:
@@ -148,8 +159,8 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str
         for service in service_list.services:
             try:
                 # A stored template under this version is left untouched when the service
-                # now reports another revision. A new row is still checked afterwards, so a
-                # service that reports no revision is listed but cannot run.
+                # now reports another revision, and no row is created for a service that
+                # reports no revision at all.
                 conflict = _registered_chapkit_revision_conflict(session, service.info)
                 if conflict is None:
                     # A template version is write-once, so do not persist incomplete
@@ -178,9 +189,6 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str
                     template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == template_id)).one()
                     template.uses_chapkit = True
                     session.commit()
-                    # The row was just stored from this revision, so this is only a
-                    # conflict when the service reports no revision at all.
-                    conflict = chapkit_revision_conflict(template, service.info.git_revision)
                 if conflict is not None:
                     logger.warning(str(conflict))
                     conflicts[service.info.id] = conflict

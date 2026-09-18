@@ -11,7 +11,7 @@ from ..external.github import resolve_commit_sha
 from ..file_io.file_paths import get_config_path
 from ..models.model_template import ExternalModelTemplate
 from .database import SessionWrapper
-from .model_templates_and_config_tables import ModelConfiguration, ModelTemplateDB
+from .model_templates_and_config_tables import ModelConfiguration, ModelTemplateDB, chapkit_revision_conflict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -121,10 +121,21 @@ def seed_configured_models_from_config_dir(
                 with ExternalChapkitModelTemplate(config.url) as template:
                     template.wait_for_healthy(timeout=30)
                     model_template_config, source_digest = template.get_model_template_config_with_digest()
+                # A template without a digest could never run, and would burn the version label.
+                if source_digest is None:
+                    raise ValueError(
+                        f"chapkit service at {config.url} reports no git revision. "
+                        "Build the image with the GIT_REVISION build arg."
+                    )
                 logger.info(f"Model template config from chapkit model at {config.url}: {model_template_config}")
                 template_id = wrapper.add_model_template_from_yaml_config(
                     model_template_config, source_digest=source_digest
                 )
+                # A seeded service is not in the registry, so this is the only early warning
+                # before a run against a mismatched version is refused.
+                conflict = chapkit_revision_conflict(wrapper.get_model_template(template_id), source_digest)
+                if conflict is not None:
+                    logger.warning(str(conflict))
 
                 logger.info(f"Model has {len(config.configurations)} configured models")
                 assert len(config.configurations) > 0, "No configured models found for chapkit model"

@@ -200,10 +200,14 @@ class ExternalChapkitModelTemplate:
         self.client = CHAPKitRestAPIWrapper(self.rest_api_url)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Close the client, and stop the service if in directory mode."""
+    def close(self) -> None:
+        """Close the HTTP client without stopping a directory-mode service."""
         if self.client is not None:
             self.client.close()
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Close the client, and stop the service if in directory mode."""
+        self.close()
         if self._service_manager is not None and not self._is_url_mode:
             self._service_manager.__exit__(exc_type, exc_val, exc_tb)
             self.rest_api_url = None

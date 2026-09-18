@@ -481,6 +481,7 @@ class SessionWrapper:
             # reports now against the one this template was stored from.
             conflict = chapkit_revision_conflict(configured_model.model_template, template.get_reported_source_digest())
             if conflict is not None:
+                template.close()
                 raise conflict
             logger.info(f"template: {template}")
             logger.info(f"configured_model: {configured_model}")

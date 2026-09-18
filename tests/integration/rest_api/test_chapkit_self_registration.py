@@ -102,14 +102,13 @@ def test_registered_service_appears_in_model_templates(client, register_service)
     assert matching[0]["healthStatus"] == "live"
 
 
-@pytest.mark.parametrize("git_revision, expected", [("a" * 40, "a" * 40), (None, None), ("", None)])
-def test_registered_service_git_revision_is_stored_as_source_digest(client, register_service, git_revision, expected):
-    register_service({**MOCK_INFO_DICT, "git_revision": git_revision})
+def test_registered_service_git_revision_is_stored_as_source_digest(client, register_service):
+    register_service({**MOCK_INFO_DICT, "git_revision": "b" * 40})
 
     templates = client.get("/v1/crud/model-templates").json()
     matching = [t for t in templates if t["name"] == "test-model"]
     assert len(matching) == 1
-    assert matching[0]["sourceDigest"] == expected
+    assert matching[0]["sourceDigest"] == "b" * 40
 
 
 def _test_model(client):
@@ -118,7 +117,7 @@ def _test_model(client):
     return matching[0]
 
 
-@pytest.mark.parametrize("stored, reported", [("a" * 40, "b" * 40), (None, "a" * 40), ("a" * 40, None), (None, None)])
+@pytest.mark.parametrize("stored, reported", [("a" * 40, "b" * 40), ("a" * 40, None)])
 def test_republished_service_under_the_same_version_is_a_revision_mismatch(
     client, register_service, mock_wrapper_cls, stored, reported
 ):
@@ -136,11 +135,27 @@ def test_republished_service_under_the_same_version_is_a_revision_mismatch(
     assert mock_wrapper_cls.call_count == service_calls
 
 
-def test_service_without_a_git_revision_gets_no_configured_models(client, register_service):
-    """The new row is a mismatch on its own, so nothing more is fetched from the service."""
-    register_service({**MOCK_INFO_DICT, "git_revision": None})
-    client.get("/v1/crud/model-templates")
+@pytest.mark.parametrize("git_revision", [None, ""])
+def test_service_without_a_git_revision_is_not_stored_until_it_reports_one(client, register_service, git_revision):
+    """Storing a row without a digest would burn the version label, so the label stays free."""
+    register_service({**MOCK_INFO_DICT, "git_revision": git_revision})
+    assert [t for t in client.get("/v1/crud/model-templates").json() if t["name"] == "test-model"] == []
     assert client.get("/v1/crud/configured-models").json() == []
+
+    # The same version, rebuilt with the build arg, is stored and live.
+    register_service({**MOCK_INFO_DICT, "git_revision": "a" * 40})
+    template = _test_model(client)
+    assert template["version"] == "1.0.0"
+    assert template["sourceDigest"] == "a" * 40
+    assert template["healthStatus"] == "live"
+
+
+def test_registration_response_tells_a_service_without_a_git_revision_what_to_do(client):
+    payload = {"url": "http://test-service:8080", "info": {**MOCK_INFO_DICT, "git_revision": None}}
+    response = client.post("/v2/services/$register", json=payload)
+
+    assert response.status_code == 200
+    assert "GIT_REVISION build arg" in response.json()["message"]
 
 
 def test_redeploying_the_stored_revision_clears_the_mismatch(client, register_service):
