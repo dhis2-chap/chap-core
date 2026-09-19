@@ -1,44 +1,51 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypedDict
+import csv
+import json
+from dataclasses import asdict, dataclass
+from typing import TYPE_CHECKING, Any, Literal
 
-from .base import Float, Int, write_yaml
+from .search_space import serialize_search_space
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
+    from chap_core.api_types import BacktestParams
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-    from chap_core.hpo.objective import Objective
-    from chap_core.hpo.searcher import Searcher
-
-DEFAULT_HPO_TRIALS = (
-    3  # 20, 50, 100 more reasonable, with 50 as the primary practical budget, 100 for convergence experiment.
-)
 
 
-# Mainly for future adaptive parallel searching to keep track of trial id/token
+HpoStopReason = Literal["max_trials", "search_exhausted"]
+
+
+# Mainly for future adaptive parallel search to keep track of trial id/token
 @dataclass(frozen=True, slots=True)
 class SearchCandidate:
     params: dict[str, Any]
     token: int | None = None
 
 
-class Trial(TypedDict):
-    config: dict[str, Any]
-    score: float
+@dataclass(frozen=True, slots=True)
+class Trial:
+    trial_nr: int  # reconstruct convergence curves with leaderboard
+    params: dict[str, Any]
+    score: float | None
+    seconds: float
+    failure: str | None
 
 
 @dataclass(frozen=True)
-class HyperparameterOptimization:  # Renamed to hpo instead of hpoRun since optimizer is only called once now
+class HyperparameterOptimization:
     """
     Runtime inputs and results of one HPO run.
-    The objective and searcher are live references. The search space and parameter
-    dictionaries are independent copies.
+    The search space and parameter dictionaries are independent copies.
     """
 
-    objective: Objective
-    searcher: Searcher
-
-    # Inputs required to reproduce the optimization
+    # Inputs to HyperparameterOptimizer
+    searcher: str
+    model_template_name: str
+    model_template_version: str
+    backtest_params: BacktestParams
+    metric: str
     search_space: dict[str, Any]
     max_trials: int | None
     seed: int | None
@@ -49,79 +56,85 @@ class HyperparameterOptimization:  # Renamed to hpo instead of hpoRun since opti
     best_score: float
     leaderboard: list[Trial]
 
-    def write_best_config(self, output_yaml):
-        if self.model_configuration is not None:
-            config = self.model_configuration.model_dump(mode="json")
-            write_yaml(output_yaml, config)
+    # Execution metadata
+    seconds: float
+    stop_reason: HpoStopReason
 
     def to_flat(self) -> FlatHyperparameterOptimization:
+        from chap_core.assessment.metrics import get_optimization_direction
+
+        successful = sum(t.score is not None for t in self.leaderboard)
         return FlatHyperparameterOptimization(
-            searcher=type(self.searcher).__name__,
-            model_template_name=self.objective.model_template.model_template_config.name,
-            model_template_version=self.objective.model_template.model_template_config.version or "unknown",
-            direction=self.objective.direction.value,
-            metric=self.objective.metric,
-            backtest_params=self.objective.backtest_params.model_dump(),
+            searcher=self.searcher,
+            model_template_name=self.model_template_name,
+            model_template_version=self.model_template_version,
+            backtest_params=self.backtest_params.model_dump(),
+            metric=self.metric,
+            direction=get_optimization_direction(self.metric).value,
             search_space=serialize_search_space(self.search_space),
             max_trials=self.max_trials,
             seed=self.seed,
             model_configuration=self.model_configuration.model_dump(mode="json"),
             best_params=self.best_params,
             best_score=float(self.best_score),
-            leaderboard=[
-                {
-                    "config": trial["config"],
-                    "score": float(trial["score"]),
-                }
-                for trial in self.leaderboard
-            ],
+            n_trials=len(self.leaderboard),
+            n_successful_trials=successful,
+            n_failed_trials=len(self.leaderboard) - successful,
+            seconds=float(self.seconds),
+            stop_reason=self.stop_reason,
         )
 
+    def write_leaderboard(self, filepath: Path) -> None:
+        param_names = sorted({param_name for trial in self.leaderboard for param_name in trial.params})
+        fieldnames = [
+            "trial_nr",
+            *param_names,
+            "score",
+            "seconds",
+            "failure",
+        ]
+        with filepath.open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
 
-@dataclass(frozen=True)
-class FlatHyperparameterOptimization:  # or HpoRunMetadata
+            for trial in self.leaderboard:
+                writer.writerow(
+                    {
+                        "trial_nr": trial.trial_nr,
+                        **trial.params,
+                        "score": trial.score,
+                        "seconds": trial.seconds,
+                        "failure": trial.failure,
+                    }
+                )
+
+    def write_trials(self, filepath: Path) -> None:
+        with filepath.open("w", encoding="utf-8") as f:
+            for trial in sorted(self.leaderboard, key=lambda t: t.trial_nr):
+                json.dump(asdict(trial), f)
+                f.write("\n")
+
+
+@dataclass(frozen=True, slots=True)
+class FlatHyperparameterOptimization:
     """
-    For persisting a reproducible run with serializable component settings and seeds.
+    Serializable representation of an HPO run.
     """
 
     searcher: str
     model_template_name: str
     model_template_version: str
-    direction: str
-    metric: str
     backtest_params: dict[str, Any]
+    metric: str
+    direction: str
     search_space: dict[str, Any]
     max_trials: int | None
     seed: int | None
     model_configuration: dict[str, Any]
     best_params: dict[str, Any]
     best_score: float
-    leaderboard: list[dict[str, Any]]
-
-
-# maybe put to .base
-def serialize_search_space(search_space: dict[str, Any]) -> dict[str, Any]:
-    result = {}
-
-    for name, value in search_space.items():
-        if isinstance(value, Float):
-            result[name] = {
-                "type": "float",
-                "low": value.low,
-                "high": value.high,
-                "step": value.step,
-                "log": value.log,
-            }
-        elif isinstance(value, Int):
-            result[name] = {
-                "type": "int",
-                "low": value.low,
-                "high": value.high,
-                "step": value.step,
-                "log": value.log,
-            }
-        else:
-            # categorical list
-            result[name] = value
-
-    return result
+    n_trials: int
+    n_successful_trials: int
+    n_failed_trials: int
+    seconds: float
+    stop_reason: HpoStopReason

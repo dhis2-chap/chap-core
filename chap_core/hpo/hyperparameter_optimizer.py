@@ -1,17 +1,19 @@
 import logging
+import math
 from copy import deepcopy
+from time import perf_counter
 from typing import Any
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+from chap_core.models.model_template import ModelTemplate
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 from .meta_learner import MetaLearner
 from .objective import Objective
 from .searcher import RandomSearcher, Searcher, TPESearcher
-from .types import HyperparameterOptimization, Trial
+from .types import HpoStopReason, HyperparameterOptimization, Trial
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class HyperparameterOptimizer(MetaLearner):
@@ -26,15 +28,19 @@ class HyperparameterOptimizer(MetaLearner):
         *,
         objective: Objective,
         searcher: Searcher,
-        configuration: ModelConfiguration | None,
+        model_configuration: ModelConfiguration | None,
         search_space: dict[str, Any],
         max_trials: int | None,
         seed: int | None,
     ):
         self._objective = objective
         self._searcher = searcher
-        self._base_config = deepcopy(configuration)
-        self._search_space = search_space
+        self._base_config = (
+            model_configuration.model_copy(deep=True)  # ownership boundary
+            if model_configuration is not None
+            else None
+        )
+        self._search_space = deepcopy(search_space)  # ownership boundary
         if max_trials is None and isinstance(searcher, (RandomSearcher, TPESearcher)):
             raise ValueError(
                 f"max_trials must be specified for non-exhaustive searchers such as {type(searcher).__name__}"
@@ -43,68 +49,133 @@ class HyperparameterOptimizer(MetaLearner):
         self._seed = seed
 
     def meta_learn(self, dataset: DataSet) -> HyperparameterOptimization:
-        # model_configuration = deepcopy(self._base_config) # check for necessity of deepcopies, also this is not used is it necassary later only use self._base_config
+        hpo_start = perf_counter()  # benchmark performance counter
         leaderboard: list[Trial] = []
-        self._searcher.reset(deepcopy(self._search_space), self._seed)
+        self._searcher.reset(self._search_space, self._seed)
         trial_count = 0
 
         while True:
             if self._max_trials is not None and trial_count >= self._max_trials:
+                stop_reason: HpoStopReason = "max_trials"
                 break
 
             candidate = self._searcher.ask()
-            if candidate is None:  # search exhausted
+            if candidate is None:
+                stop_reason = "search_exhausted"
                 break
-            params = deepcopy(candidate.params)
+            params = dict(candidate.params)
 
+            # each objective evaluation should include additional_continuous_covariates if inputed
+            objective_config = self._make_configuration(params)
+
+            trial_nr = trial_count
             trial_count += 1
-            score = self._objective(deepcopy(params), dataset)
-            self._searcher.tell(candidate, score)
+
+            trial_start = perf_counter()
+            score: float | None = None
+            failure: str | None = None
+            try:  # does trial failure first get caught here, does everyone earlier only raise it
+                score = float(
+                    self._objective(objective_config, dataset)
+                )  # is constant floating needed, missing two places if needed
+                if not math.isfinite(score):
+                    raise ValueError(f"Objective returned non-finite score: {score}")
+            except Exception as exc:
+                score = None
+                failure = f"{type(exc).__name__}: {exc}"
+                self._searcher.tell(candidate, None)
+                logger.exception(
+                    "HPO trial %d failed for objective configuration %s",
+                    trial_nr,
+                    objective_config.model_dump(),
+                )
+            else:
+                self._searcher.tell(candidate, score)
+
+            trial_seconds = perf_counter() - trial_start
 
             leaderboard.append(
-                {
-                    "config": params,
-                    "score": score,
-                }
+                Trial(
+                    trial_nr=trial_nr,
+                    params=params,
+                    score=score,
+                    seconds=trial_seconds,
+                    failure=failure,
+                )
             )
-            logger.info(f"Tried {params} -> score={score}")
+            if failure is None:
+                logger.info(
+                    "Trial %d: %s -> score=%s (%.3fs)",
+                    trial_nr,
+                    params,
+                    score,
+                    trial_seconds,
+                )
 
-        if not leaderboard:
+        # loop end
+        successful_trials = [trial for trial in leaderboard if trial.score is not None]
+
+        if not successful_trials:
             raise ValueError("Hyperparameter optimization completed without any successful trials")
 
-        leaderboard.sort(key=lambda conf: conf["score"], reverse=self._objective.direction.value == "maximize")
-        best_candidate = leaderboard[0]
-        logger.info("Best params: %s | best score: %s", best_candidate["config"], best_candidate["score"])
-        best_model_config = {"user_option_values": best_candidate["config"]}
-        # does not overwrite outer ModelTemplateDB.configuration since its dumped before hand
-        # this includes additional_continuous_covariates if given in input configuration.yaml for the optimized model below
-        if self._base_config is not None:
-            self._base_config.user_option_values = best_model_config[
-                "user_option_values"
-            ]  # base_config has been deepcopied, does not overwrite
-            logger.warning(
-                "The original configuration has been updated with the best hyperparameter values found during optimization. "
-                "The original additional_continuous_covariates will be preserved if they were present in the original configuration."
-            )
-        # configuration.user_option_values = {
-        #     **(configuration.user_option_values or {}),
-        #     **deepcopy(best_candidate["config"]),
-        # }
-        configuration = ModelConfiguration.model_validate(self._base_config or best_model_config)
+        successful_trials.sort(
+            key=lambda trial: trial.score,  # type: ignore[arg-type, return-value]
+            reverse=self._objective.direction.value == "maximize",
+        )
+        failed_trials = [trial for trial in leaderboard if trial.score is None]
+        # successful trials ranked by score, failed trials afterwards.
+        leaderboard = successful_trials + failed_trials
 
-        # template = self._objective.model_template
-        # estimator = template.get_model(self._configuration if self._configuration is not None else config)  # type: ignore[arg-type]
+        best_candidate = leaderboard[0]
+        best_score = best_candidate.score
+        assert best_score is not None
+        logger.info("Best params: %s | best score: %s", best_candidate.params, best_score)
+        best_params = dict(best_candidate.params)
+        # includes additional_continuous_covariates if given in input configuration.yaml
+        best_configuration = self._make_configuration(best_params)
+        if self._base_config is not None:
+            logger.warning(
+                "The best hyperparameter values found during optimization has been merged with the original model configuration. "
+                "The original user_option_values will be preserved if they were not present in the search space. "
+                "The original additional_continuous_covariates will be preserved if they were present in the original model configuration."
+            )
+
         return HyperparameterOptimization(
-            objective=self._objective,
-            searcher=self._searcher,
+            searcher=type(self._searcher).__name__,
+            model_template_name=self._objective.model_template.model_template_config.name,
+            model_template_version=self._objective.model_template.model_template_config.version or "unknown",
+            backtest_params=self._objective.backtest_params,
+            metric=self._objective.metric,
             search_space=deepcopy(self._search_space),
             max_trials=self._max_trials,
             seed=self._seed,
-            model_configuration=configuration,  # check needed
-            best_params=deepcopy(best_candidate["config"]),
-            best_score=best_candidate["score"],
+            model_configuration=best_configuration,  # check needed
+            best_params=best_params,
+            best_score=best_score,
             leaderboard=leaderboard,
+            seconds=perf_counter() - hpo_start,
+            stop_reason=stop_reason,
         )
+
+    def _make_configuration(self, params: dict[str, Any]) -> ModelConfiguration:
+        if self._base_config is None:
+            return ModelConfiguration(
+                user_option_values=dict(params),
+            )
+
+        config = deepcopy(self._base_config)
+        # this replaces all existing user options in input yaml,
+        # config.user_option_values = dict(params)
+        # if preserve hyperparameters that were not part of search space use this
+        config.user_option_values = {
+            **(config.user_option_values or {}),
+            **params,
+        }
+        return config
+
+    @property
+    def model_template(self) -> ModelTemplate:
+        return self._objective.model_template
 
     @property
     def model_information(self):

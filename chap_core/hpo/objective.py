@@ -7,8 +7,7 @@ from chap_core.models.model_template import ModelTemplate
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.util import generate_short_id
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class Objective:
@@ -29,19 +28,16 @@ class Objective:
         self.historical_context_years = historical_context_years
         self.eval_output_dir = eval_output_dir
 
-    def __call__(self, params: dict, dataset: DataSet) -> float:
+    def __call__(self, model_configuration: ModelConfiguration, dataset: DataSet) -> float:
         """
-        This method takes a concrete configuration produced by a Searcher,
+        This method takes a concrete configuration produced by a Searcher (optionally combined with user config yaml),
         runs model validation, and returns a scalar score of the selected metric.
         """
         from chap_core.assessment.evaluation import Evaluation
         from chap_core.assessment.metrics import calculate_metrics
         from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 
-        base_config = {"user_option_values": params}  # chap configuration file structure
-        configuration = ModelConfiguration.model_validate(base_config)
-
-        model = self.model_template.get_model(configuration)  # type: ignore[arg-type]
+        model = self.model_template.get_model(model_configuration)  # type: ignore[arg-type]
         estimator = model()
 
         run_id = generate_short_id()
@@ -56,11 +52,11 @@ class Objective:
             id=f"hpo_{run_id}",
             model_template_id=model_template_db.id,
             model_template=model_template_db,
-            **configuration.model_dump() if configuration else {},
+            **model_configuration.model_dump() if model_configuration else {},
         )
 
         logger.info(
-            f"Running validation backtest with {self.backtest_params.n_splits} splits, {self.backtest_params.n_periods} periods, stride {self.backtest_params.stride}"
+            f"Running objective validation backtest with {self.backtest_params.n_splits} splits, {self.backtest_params.n_periods} periods, stride {self.backtest_params.stride}"
         )
         logger.debug(f"Including {self.historical_context_years} years of historical context for plotting")
 
@@ -74,7 +70,7 @@ class Objective:
                 historical_context_years=self.historical_context_years,
             )
         except Exception:
-            logger.exception(f"Validation failed for configuration {base_config}")
+            logger.exception(f"HPO validation failed for configuration {model_configuration}")
             raise
 
         if self.eval_output_dir is not None:
@@ -85,19 +81,18 @@ class Objective:
             evaluation.to_file(
                 filepath=eval_file,
                 model_name=f"hpo_config_{run_id}",
-                model_configuration=configuration.model_dump() if configuration else {},
+                model_configuration=model_configuration.model_dump() if model_configuration else {},
                 model_version=self.model_template.model_template_config.version or "unknown",
             )
-            logger.info(f"Validation complete. Results saved to {eval_file}")
+            logger.info(f"HPO validation complete. Results saved to {eval_file}")
 
-        logger.info("Calculating metrics for objective validation")
+        logger.info(f"Calculating {self.metric} score for objective validation")
         metrics = calculate_metrics(
             evaluation=evaluation,
             metric_ids=[self.metric],
         )
-        logger.info(f"Metrics calculation complete: {metrics}")
 
         score = metrics[self.metric]
         if score is None:
-            raise ValueError(f"Metric {self.metric} could not be calculated for this configuration.")
+            raise ValueError(f"Metric {self.metric} could not be calculated for configuration {model_configuration}.")
         return float(score)

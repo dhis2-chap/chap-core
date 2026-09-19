@@ -333,6 +333,14 @@ def _run_eval(
             chart.save(str(plot_path))
             logger.info(f"Plot saved to {plot_path}")
 
+        hpo_data = evaluation.get_hpo()
+        if hpo_data is not None:
+            # trials_file = output_file.with_suffix(".hpo-trials.jsonl")
+            # hpo_data.write_trials(trials_file)
+            leaderboard_file = output_file.with_suffix(".hpo-leaderboard.csv")
+            hpo_data.write_leaderboard(leaderboard_file)
+            logger.info(f"HPO trials results saved to {leaderboard_file}")
+
 
 def register_commands(app):
     """Register evaluate commands with the CLI app."""

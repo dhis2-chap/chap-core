@@ -15,7 +15,6 @@ from chap_core.assessment.metrics.base import (
     AggregationOp,
     Metric,
     MetricSpec,
-    OptimizationDirection,
 )
 
 # The outbreak metrics score forecasts against seasonal thresholds, computed by the
@@ -56,7 +55,7 @@ class SensitivityMetric(Metric):
         metric_name="Sensitivity",
         aggregation_op=AggregationOp.MEAN,
         description="True positive rate for outbreak detection alerts",
-        optimization_direction=OptimizationDirection.MAXIMIZE,
+        optimization_direction=None,  # maximize but is not standalone hpo objective,
     )
 
     def is_applicable(self, observations: pa.typing.DataFrame[FlatObserved]) -> bool:
@@ -109,7 +108,7 @@ class SpecificityMetric(Metric):
         metric_name="Specificity",
         aggregation_op=AggregationOp.MEAN,
         description="True negative rate for outbreak detection alerts",
-        optimization_direction=OptimizationDirection.MAXIMIZE,
+        optimization_direction=None,  # is not standalone hpo objective,
     )
 
     def is_applicable(self, observations: pa.typing.DataFrame[FlatObserved]) -> bool:
@@ -162,7 +161,7 @@ class OutbreakAccuracyMetric(Metric):
         metric_name="Outbreak Accuracy",
         aggregation_op=AggregationOp.MEAN,
         description="Proportion of correctly classified outbreak/non-outbreak periods",
-        optimization_direction=OptimizationDirection.MAXIMIZE,
+        optimization_direction=None,  # is not standalone hpo objective,
     )
 
     def is_applicable(self, observations: pa.typing.DataFrame[FlatObserved]) -> bool:
