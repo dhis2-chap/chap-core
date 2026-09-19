@@ -108,7 +108,7 @@ def _create_evaluation(
     if model_candidate.configuration:
         configuration = ModelConfiguration.model_validate(model_candidate.configuration)
 
-    model = template.get_model(configuration)  # type: ignore[arg-type]
+    model = template.get_model(configuration, prediction_length=backtest_params.n_periods)  # type: ignore[arg-type]
     estimator = model()
 
     model_template_db = ModelTemplateDB(
