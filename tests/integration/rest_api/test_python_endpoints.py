@@ -25,7 +25,7 @@ def test_get_available_metrics():
 def test_available_metrics_expose_optimization_direction():
     metrics = {metric.id: metric for metric in get_available_metrics(backtest_id=1)}
     assert metrics["crps"].optimization_direction == "minimize"
-    assert metrics["sensitivity"].optimization_direction == "maximize"
+    assert metrics["sensitivity"].optimization_direction is None
     assert metrics["coverage_10_90"].optimization_direction is None
 
 
