@@ -61,8 +61,11 @@ class MetricSpec:
     output_dimensions: tuple[DataDimension, ...] = DEFAULT_OUTPUT_DIMENSIONS
     aggregation_op: AggregationOp = AggregationOp.MEAN
     description: str = "No description provided"
-    # None means the metic is not directly usable as a scalar optimization objective.
+    # Which way is better when reading a score. None means neither direction is better.
     optimization_direction: OptimizationDirection | None = None
+    # Whether the score is sound to optimize on its own. False for metrics a model can
+    # game, so they keep a direction for presentation without becoming HPO objectives.
+    valid_hpo_objective: bool = True
     # Display suffix for the raw score; None when no fixed unit applies.
     unit: str | None = None
     # Ideal value in raw score units for metrics where neither direction is better.

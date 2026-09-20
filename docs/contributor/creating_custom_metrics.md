@@ -130,6 +130,7 @@ spec = MetricSpec(
     aggregation_op=AggregationOp.MEAN,   # MEAN, SUM, or ROOT_MEAN_SQUARE
     description="What this metric measures",
     optimization_direction=None,        # MINIMIZE, MAXIMIZE or None
+    valid_hpo_objective=True,           # False when the score is not sound to optimize alone
     unit=None,                          # Display suffix for the raw score, e.g. "%"
     target=None,                        # Ideal raw value when neither direction is better, e.g. 0.8
     target_behavior=TargetBehavior.CLOSEST,  # CLOSEST or AT_LEAST, only used with a target
@@ -144,6 +145,12 @@ difference), while `AT_LEAST` means higher is better up to the target and flat
 above it, so only scores below the target should be flagged as bad (coverage
 metrics). Units do not rescale scores: MAPE is already a percentage, while
 coverage targets use fractions such as `0.8`.
+
+`optimization_direction` says which way is better when reading a score, not that the
+metric is a sound thing to optimize. Set `valid_hpo_objective=False` when a model can
+game the score: the outbreak metrics keep `MAXIMIZE` so clients colour high scores as
+good, but HPO rejects them, since sensitivity is maximised by always alerting and
+specificity by never alerting.
 
 ## Complete Examples
 
