@@ -1,6 +1,6 @@
 import logging
 
-from chap_core.log_config import initialize_logging
+from chap_core.log_config import STATUS_LOGGER_NAME, get_status_logger, initialize_logging
 
 
 def test_initialize_logging_defaults_to_info_when_env_unset(monkeypatch):
@@ -19,3 +19,9 @@ def test_initialize_logging_respects_chap_debug_env(monkeypatch):
     initialize_logging()
 
     assert logging.getLogger().level == logging.DEBUG
+
+
+def test_get_status_logger_reenables_a_logger_disabled_by_logging_config():
+    logging.getLogger(STATUS_LOGGER_NAME).disabled = True
+
+    assert get_status_logger().disabled is False

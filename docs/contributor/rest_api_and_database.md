@@ -96,7 +96,7 @@ Monitor and manage async Celery jobs:
 - `GET /v1/jobs/{id}` -- get job status (PENDING, STARTED, SUCCESS, FAILURE, REVOKED).
 - `DELETE /v1/jobs/{id}` -- delete a completed job's metadata.
 - `POST /v1/jobs/{id}/cancel` -- cancel a running job.
-- `GET /v1/jobs/{id}/logs` -- get user-facing status logs for a job.
+- `GET /v1/jobs/{id}/logs` -- get the tail of a job's complete log.
 - `GET /v1/jobs/{id}/database_result` -- get the database ID produced by a completed job.
 - `GET /v1/jobs/{id}/prediction_result` -- get prediction results.
 - `GET /v1/jobs/{id}/evaluation_result` -- get evaluation results.
