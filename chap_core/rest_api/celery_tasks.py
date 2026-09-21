@@ -5,6 +5,7 @@ import os
 from collections.abc import Callable
 from datetime import datetime
 from enum import StrEnum
+from pathlib import Path
 from typing import TypeVar, cast
 
 import celery
@@ -88,6 +89,10 @@ app.conf.update(
 # Setup Redis connection (for job metadata)
 r = load_redis(db=2, decode_responses=True)
 
+# The per-task log grows for as long as the job runs and the frontend polls it
+# repeatedly, so the logs endpoint only ever returns this much of it.
+LOG_TAIL_BYTES = 256 * 1024
+
 
 # logger.warning("No database URL set")
 # This is hacky, but defaults to using the test database. Should be synched with what is setup in conftest
@@ -102,20 +107,18 @@ class TrackedTask(Task):
         # Ensure logs directory exists
         CHAP_LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
-        # Create debug log file handler (full debug logs, server access only)
+        # Create the per-task log file handler. It captures everything the worker and the
+        # libraries it calls log, and is what GET /v1/jobs/{id}/logs serves.
         debug_file_handler = logging.FileHandler(CHAP_LOGS_DIR / f"task_{task_id}.debug.txt")
         debug_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
         debug_file_handler.setFormatter(debug_formatter)
-
-        # Create status log file handler (user-facing progress, exposed via API)
-        status_file_handler = logging.FileHandler(CHAP_LOGS_DIR / f"task_{task_id}.status.txt")
-        status_formatter = logging.Formatter("%(asctime)s: %(message)s")
-        status_file_handler.setFormatter(status_formatter)
 
         # Remember old handlers so we can restore them later.
         # Note: We use handler replacement rather than a dedicated child logger because
         # log calls throughout the codebase use this module's logger directly. The
         # try/finally pattern ensures handlers are always restored even if the task fails.
+        # The loggers mutated here are process-global, so this relies on the prefork pool
+        # running one task per process; a thread or gevent pool would mix tasks' output.
         old_handlers = logger.handlers[:]
 
         # Also add debug handler to the root-logger, so that logging done by other packages is also logged
@@ -128,10 +131,11 @@ class TrackedTask(Task):
         # Also add stdout handler so logs appear in container logs (docker logs) for debugging
         logger.addHandler(logging.StreamHandler())
 
-        # Configure status logger for this task
+        # The status logger does not propagate to the root logger, so it needs the
+        # handler too for progress messages to be interleaved with the rest of the log.
         status_logger = get_status_logger()
         old_status_handlers = status_logger.handlers[:]
-        status_logger.handlers = [status_file_handler]
+        status_logger.handlers = [debug_file_handler]
         status_logger.setLevel(logging.INFO)
 
         try:
@@ -150,7 +154,6 @@ class TrackedTask(Task):
             # Close the file handlers and restore old handlers after the task is done.
             # This cleanup runs even if the task raises an exception.
             debug_file_handler.close()
-            status_file_handler.close()
             logger.handlers = old_handlers
             root_logger.handlers = old_root_handlers
             status_logger.handlers = old_status_handlers
@@ -336,23 +339,33 @@ class CeleryJob[ReturnType]:
         return str(self._result.traceback or "")
 
     def get_logs(self) -> str:
-        """Get user-facing status logs for this job.
+        """Get the tail of the complete log for this job.
 
-        Returns the status logs which contain safe, user-facing progress messages.
-        Debug logs with potentially sensitive information are not exposed via API.
+        Returns the last LOG_TAIL_BYTES of the per-task log file, which holds everything
+        the worker and the libraries it calls logged, with the user-facing progress
+        messages interleaved. Falls back to the traceback when the file is not there.
         """
-        log_file = CHAP_LOGS_DIR / f"task_{self._job.id}.status.txt"
-        logger.info(f"Looking for log file at {log_file}")
-        logger.info(f"Job id is: {self._job.id}")
-        if log_file.exists():
-            logs = log_file.read_text()
-            job_meta = get_job_meta(self.id)
-            if job_meta and job_meta.get("status") == "FAILURE":
-                logs += "\n" + str(job_meta.get("traceback", ""))
-            return logs
-        else:
-            # Fallback to traceback if log file not found
+        log_file = CHAP_LOGS_DIR / f"task_{self._job.id}.debug.txt"
+        if not log_file.exists():
+            logger.warning("Log file %s not found, falling back to traceback", log_file)
             return self.exception_info
+        logs = _read_tail(log_file, LOG_TAIL_BYTES)
+        job_meta = get_job_meta(self.id)
+        if job_meta and job_meta.get("status") == "FAILURE":
+            logs += "\n" + str(job_meta.get("traceback", ""))
+        return logs
+
+
+def _read_tail(path: Path, max_bytes: int) -> str:
+    """Return the last max_bytes of path, cut to a line boundary and marked when truncated."""
+    size = path.stat().st_size
+    if size <= max_bytes:
+        return path.read_text()
+    with path.open("rb") as f:
+        f.seek(size - max_bytes)
+        tail = f.read().decode("utf-8", errors="replace")
+    _, _, tail = tail.partition("\n")
+    return f"[... earlier log output truncated ...]\n{tail}"
 
 
 class CeleryPool[ReturnType]:
