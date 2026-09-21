@@ -3,6 +3,7 @@
 #
 # Optional, best set in an .env file beside this one so later commands keep them:
 #   CHAP_IMAGE_TAG     tag for both images                  (default: latest)
+#                      latest = newest release, master = master branch, vX.Y.Z = pinned
 #   POSTGRES_USER      database user                        (default: chap)
 #   POSTGRES_PASSWORD  database password, must be URL-safe  (default: chap)
 #   POSTGRES_DB        database name                        (default: chap_core)
