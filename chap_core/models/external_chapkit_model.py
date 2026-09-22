@@ -88,6 +88,33 @@ def ml_service_info_to_model_template_config(
     return ModelTemplateConfigV2.model_validate(config_dict)
 
 
+def _chapkit_config_payload(model_configuration: dict) -> dict:
+    """The configuration data to store on the chapkit service.
+
+    A chap-core configuration (a ``ModelConfiguration`` or a ``ConfiguredModelDB``
+    row) carries bookkeeping fields the service has no schema for, so only the two
+    fields that describe the configuration itself are sent. Anything else is a raw
+    dict authored against the service's own config schema, and is passed through
+    minus the ``model_template`` key chap-core attaches.
+
+    An empty ``additional_continuous_covariates`` is dropped rather than sent: the
+    row defaults it to an empty list, which would override whatever default the
+    service's own schema declares (ewars, for instance, defaults to rainfall and
+    mean_temperature).
+    """
+    covariates = model_configuration.get("additional_continuous_covariates")
+    if "user_option_values" in model_configuration:
+        payload = {}
+        if model_configuration.get("user_option_values"):
+            payload["user_option_values"] = model_configuration["user_option_values"]
+    else:
+        payload = {key: value for key, value in model_configuration.items() if key != "model_template"}
+        payload.pop("additional_continuous_covariates", None)
+    if covariates:
+        payload["additional_continuous_covariates"] = covariates
+    return payload
+
+
 class ExternalChapkitModelTemplate:
     """Wrapper around External models that are based on chapkit.
 
@@ -217,49 +244,28 @@ class ExternalChapkitModelTemplate:
         Sends the model configuration for storing in the model (by sending to the model rest api).
         This returns a configuration id back that we can use to identify the model.
 
-        ``prediction_length`` is accepted for interface compatibility with
-        ``ModelTemplate.get_model``; chapkit models receive the horizon at
-        train/predict time via :class:`RunInfo` instead of via this method.
+        ``prediction_length`` is the forecast horizon the model will be asked for.
+        It is not part of the stored configuration; the model carries it and sends
+        it as ``run_info.prediction_periods`` at train time. The name matches
+        ``ModelTemplate.get_model`` so both template kinds share one interface.
         """
         self._ensure_initialized()
         assert self.client is not None
         assert self.rest_api_url is not None
         import time
 
-        if model_configuration is None:
-            model_configuration = {}
-        else:
-            model_configuration = dict(model_configuration)
-
-        # chap-core's ConfiguredModelDB row has an `additional_continuous_covariates`
-        # column with a `default_factory=list`, so dumping the row produces an
-        # explicit `[]` that would override whatever default the chapkit service's
-        # own BaseConfig schema declares. Drop the key when empty so the service's
-        # schema default applies (e.g. ewars defaults to ["rainfall","mean_temperature"]).
-        if not model_configuration.get("additional_continuous_covariates"):
-            model_configuration.pop("additional_continuous_covariates", None)
+        model_configuration = {} if model_configuration is None else dict(model_configuration)
 
         timestamp = int(time.time() * 1000000)
-        if "name" not in model_configuration:
-            name = f"{self.name}_config_{timestamp}"
-        else:
+        if model_configuration.get("name"):
             # always make sure config has unique name for now. Chapkit uses name as identifier,
             # but we don't necesserarily do that on the chap side
-            name = model_configuration["name"] + "_" + str(timestamp)
+            name = f"{model_configuration['name']}_{timestamp}"
+        else:
+            name = f"{self.name}_config_{timestamp}"
 
-        if "model_template" in model_configuration:
-            # remove model_template key
-            model_configuration.pop("model_template")
-
-        config_data = {"name": name, "data": model_configuration}
+        config_data = {"name": name, "data": _chapkit_config_payload(model_configuration)}
         logger.info(f"Creating model configuration with name {name} at {self.rest_api_url}. Data: {config_data}")
-
-        # Create config with proper structure for new API
-        # Use timestamp to make name unique
-        # config_data = {
-        #    "name": model_configuration.get("name", f"{self.name}_config_{timestamp}"),
-        #    "data": model_configuration
-        # }
 
         config_response = self.client.create_config(config_data)
         configuration_id = str(config_response.id)
@@ -277,6 +283,7 @@ class ExternalChapkitModelTemplate:
             configuration_id=configuration_id,
             model_information=self.model_template_config,
             client=self.client,
+            prediction_periods=prediction_length,
         )
 
     @property
@@ -314,6 +321,25 @@ class ExternalChapkitModelTemplate:
         return config, model_info.git_revision
 
 
+def _failure_message(kind: str, job, artifact_id: str, client: CHAPKitRestAPIWrapper) -> str:
+    """Describe a failed chapkit job, including the model's stdout and stderr.
+
+    chapkit inlines only a truncated stderr tail in ``job.error``; the complete script
+    output is kept on the run's diagnostic artifact, stored under the artifact id that
+    was pre-allocated when the run was submitted. A cancelled run leaves no artifact.
+    """
+    message = (
+        f"{kind} job {job.id} ended with status '{job.status}': {job.error or 'Unknown error'}. "
+        f"Stacktrace: {job.error_traceback or ''}"
+    )
+    if job.status == "canceled":
+        return message
+    output = client.get_run_output(artifact_id)
+    if output:
+        return f"{message}\nModel output:\n{output}"
+    return message
+
+
 class ExternalChapkitModel(ExternalModelBase):
     def __init__(
         self,
@@ -322,6 +348,7 @@ class ExternalChapkitModel(ExternalModelBase):
         configuration_id: str,
         model_information: ModelTemplateConfigV2 | None = None,
         client: CHAPKitRestAPIWrapper | None = None,
+        prediction_periods: int | None = None,
     ):
         self.model_name = model_name
         self.rest_api_url = rest_api_url
@@ -333,10 +360,44 @@ class ExternalChapkitModel(ExternalModelBase):
         self.client = client if client is not None else CHAPKitRestAPIWrapper(rest_api_url)
         self._train_id: str | None = None
         self._model_information = model_information
+        self._prediction_periods = prediction_periods
 
     @property
     def model_information(self):
         return self._model_information
+
+    def _train_horizon(self) -> int | None:
+        """The horizon to request at train time, clamped to the model's declared bounds.
+
+        ``None`` means no horizon was requested, which leaves the key out of the
+        request so the service keeps the horizon from its stored configuration.
+        A requested horizon above the model's maximum is clamped because CHAP wraps
+        such models in :class:`ExtendedPredictor` and asks them for at most their
+        maximum per prediction, so that is what they should be trained for. chapkit
+        rejects a horizon outside the declared bounds.
+        """
+        requested = self._prediction_periods
+        if requested is None:
+            return None
+        info = self.model_information
+        if info is None:
+            return requested
+        horizon = requested
+        if info.min_prediction_periods is not None:
+            horizon = max(horizon, info.min_prediction_periods)
+        if info.max_prediction_periods is not None:
+            horizon = min(horizon, info.max_prediction_periods)
+        if horizon != requested:
+            logger.warning(
+                "Requested prediction horizon %d is outside the bounds declared by %s "
+                "(min %s, max %s); training for %d periods instead",
+                requested,
+                self.model_name,
+                info.min_prediction_periods,
+                info.max_prediction_periods,
+                horizon,
+            )
+        return horizon
 
     def train(self, train_data: DataSet, extra_args=None, run_info: RunInfo | None = None):
         frequency = self._get_frequency(train_data)
@@ -344,14 +405,11 @@ class ExternalChapkitModel(ExternalModelBase):
         new_df = self._adapt_data(df, frequency=frequency)
         geo = train_data.polygons
         if run_info is None:
-            run_info = RunInfo(prediction_length=1)
+            run_info = RunInfo(prediction_periods=self._train_horizon())
         job, artifact_id = self.client.train_and_wait(self.configuration_id, new_df, run_info, geo)
 
         if job.status != "completed":
-            raise ModelFailedException(
-                f"Training job {job.id} ended with status '{job.status}': {job.error or 'Unknown error'}. "
-                f"Stacktrace: {job.error_traceback or ''}"
-            )
+            raise ModelFailedException(_failure_message("Training", job, artifact_id, self.client))
 
         assert artifact_id is not None, f"No artifact_id returned: {job}"
         self._train_id = artifact_id
@@ -363,8 +421,7 @@ class ExternalChapkitModel(ExternalModelBase):
         historic_data_pd = self._adapt_data(historic_data.to_pandas())
         future_data_pd = self._adapt_data(future_data.to_pandas())
         if run_info is None:
-            prediction_length = len(future_data.period_range)
-            run_info = RunInfo(prediction_length=prediction_length)
+            run_info = RunInfo(prediction_periods=len(future_data.period_range))
         job, artifact_id = self.client.predict_and_wait(
             artifact_id=self._train_id,
             future_data=future_data_pd,
@@ -374,10 +431,7 @@ class ExternalChapkitModel(ExternalModelBase):
         )
 
         if job.status != "completed":
-            raise ModelFailedException(
-                f"Prediction job {job.id} ended with status '{job.status}': {job.error or 'Unknown error'}. "
-                f"Stacktrace: {job.error_traceback or ''}"
-            )
+            raise ModelFailedException(_failure_message("Prediction", job, artifact_id, self.client))
 
         assert artifact_id is not None, f"No prediction artifact: {job.error or ''}"
 

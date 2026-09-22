@@ -35,7 +35,7 @@ class TemplateWithConfig:
         self._extend_to = extend_to_prediction_length
 
     def get_model(self, _: Any = None) -> Any:
-        model = self._template.get_model(self._config)
+        model = self._template.get_model(self._config, prediction_length=self._extend_to)
         if self._extend_to is None:
             return model
         from chap_core.external.ExtendedPredictor import ExtendedPredictor
