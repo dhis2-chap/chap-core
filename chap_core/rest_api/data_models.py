@@ -1,6 +1,6 @@
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, create_model, field_validator
 from pydantic.alias_generators import to_camel
 
 from chap_core.api_types import BacktestParams, FeatureCollectionModel
@@ -11,7 +11,14 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateInformation,
     ModelTemplateMetaData,
 )
-from chap_core.database.tables import BacktestBase, BacktestForecast, BacktestMetric, BacktestRead, QuantileTarget
+from chap_core.database.tables import (
+    BacktestBase,
+    BacktestForecast,
+    BacktestMetric,
+    BacktestRead,
+    DataSetMeta,
+    QuantileTarget,
+)
 
 
 class PredictionBase(BaseModel):
@@ -128,6 +135,50 @@ class BacktestFull(BacktestRead):
 
     metrics: list[BacktestMetric] = Field(description="Per-(period, org-unit) metric values for this backtest.")
     forecasts: list[BacktestForecast] = Field(description="Per-(period, org-unit) forecast rows for this backtest.")
+
+
+class BacktestSpecificationSummary(BacktestParams):
+    """One row of the specification list: the setup plus how much has been run under it, without the backtests."""
+
+    id: int = Field(description="Primary key of the specification.")
+    dataset: DataSetMeta = Field(description="Slim summary of the dataset the specification evaluates against.")
+    org_unit_count: int = Field(description="Number of org units the evaluation runs over.")
+    backtest_count: int = Field(description="Number of backtests that ran under this specification.")
+
+
+class BacktestSpecificationRead(BacktestParams):
+    """A specification with every backtest under it: the benchmark leaderboard in one response."""
+
+    id: int = Field(description="Primary key of the specification.")
+    dataset: DataSetMeta = Field(description="Slim summary of the dataset the specification evaluates against.")
+    org_units: list[str] = Field(description="Org units the evaluation runs over, resolved from the dataset.")
+    backtests: list[BacktestRead] = Field(
+        description="Every backtest that ran under this specification, newest first. Comparable by construction."
+    )
+
+
+# Derived from BacktestParams so a parameter added there is filterable without touching this
+# module, the same way the specification's uniqueness key is derived. Every field is optional
+# and has no default: an omitted parameter means "any value", never the parameter's default.
+if TYPE_CHECKING:
+
+    class BacktestSpecificationFilter(DBModel):
+        """Query parameters of the specification list. Dataset id plus the fields of `BacktestParams`."""
+
+        dataset_id: int | None
+
+else:
+    _filter_fields: dict[str, Any] = {
+        "dataset_id": (int | None, Field(default=None, description="Only specifications evaluating this dataset."))
+    }
+    for _name, _field in BacktestParams.model_fields.items():
+        _filter_fields[_name] = (_field.annotation | None, Field(default=None, description=_field.description))
+    BacktestSpecificationFilter = create_model(
+        "BacktestSpecificationFilter",
+        __base__=DBModel,
+        __doc__="Query parameters of the specification list. Dataset id plus the fields of `BacktestParams`.",
+        **_filter_fields,
+    )
 
 
 class BacktestDomain(DBModel):

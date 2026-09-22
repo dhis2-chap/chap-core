@@ -383,61 +383,27 @@ def test_backtest_flow_from_request(
     assert (data["nPeriods"], data["nSplits"], data["stride"], data["nRetrain"]) == (3, 2, 1, 2)
 
 
-def test_compatible_backtests(clean_engine, dependency_overrides):
-    with Session(clean_engine) as session:
-        dataset = DataSet(name="ds", type="testing", created=datetime.now(), covariates=[])
-        session.add(dataset)
-        session.commit()
+def test_compatible_backtests(override_session, p_seeded_engine):
+    """Compatibility is specification identity: same dataset and parameters, not overlapping org units."""
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        params = {"n_periods": 3, "n_splits": 2, "stride": 1, "n_retrain": 1}
+        backtest_id = _run(session, "first", dataset_id, **params)
+        matching_id = _run(session, "second", dataset_id, **params)
+        # Same dataset, so the same org units and overlapping split periods, but a
+        # different specification: the overlap heuristic would have accepted this one.
+        non_matching_id = _run(session, "third", dataset_id, **{**params, "n_splits": 3})
 
-        ds_id = dataset.id
-        # One specification for all three: same dataset, same (default) parameters.
-        specification = BacktestSpecification(dataset_id=ds_id)
-        session.add(specification)
-        session.commit()
-        backtest = Backtest(
-            specification=specification,
-            dataset_id=ds_id,
-            name="testing",
-            model_id="naive_model",
-            model_db_id=1,
-            org_units=["Oslo", "Bergen"],
-            split_periods=["202201", "202202"],
-        )
-        matching = Backtest(
-            specification=specification,
-            dataset_id=ds_id,
-            name="testing2",
-            model_id="chap_auto_ewars",
-            model_db_id=1,
-            org_units=["Bergen", "Trondheim"],
-            split_periods=["202202", "202203"],
-        )
-        non_matching = Backtest(
-            specification=specification,
-            dataset_id=ds_id,
-            name="testing3",
-            model_id="auto_regressive_monthly",
-            model_db_id=1,
-            org_units=["Trondheim"],
-            split_periods=["202203"],
-        )
-
-        session.add(backtest)
-        session.add(matching)
-        session.add(non_matching)
-        session.commit()
-        backtest_id = backtest.id
-        matching_id = matching.id
-    url = f"/v1/analytics/compatible-backtests/{backtest_id}"
-    print(url)
-    response = client.get(url)
+    response = client.get(f"/v1/analytics/compatible-backtests/{backtest_id}")
     assert response.status_code == 200, response.json()
     ids = {b["id"] for b in response.json()}
     assert matching_id in ids, (matching_id, ids)
     assert backtest_id not in ids, (backtest_id, ids)
+    assert non_matching_id not in ids, (non_matching_id, ids)
     response = client.get(f"/v1/analytics/backtest-overlap/{backtest_id}/{matching_id}")
     assert response.status_code == 200, response.json()
-    assert response.json() == {"orgUnits": ["Bergen"], "splitPeriods": ["202202"]}, response.json()
+    overlap = response.json()
+    assert overlap["orgUnits"] and overlap["splitPeriods"], overlap
 
 
 def test_get_backtest_bare_route_returns_info(override_session, seeded_session):
@@ -669,6 +635,88 @@ def test_specification_org_units_are_the_ones_left_after_filtering(p_seeded_engi
         assert set(backtest.specification.org_units) == set(backtest.org_units)
 
 
+def test_specification_filter_covers_every_backtest_parameter():
+    """A parameter missing from the filter could not be part of the lookup tuple, so an
+    external system could not find its specification again. Every field must also be
+    optional with no default: an omitted parameter means any value, not the default."""
+    from chap_core.api_types import BacktestParams
+    from chap_core.rest_api.data_models import BacktestSpecificationFilter
+
+    assert set(BacktestSpecificationFilter.model_fields) == {"dataset_id", *BacktestParams.model_fields}
+    assert all(field.default is None for field in BacktestSpecificationFilter.model_fields.values())
+
+
+def test_list_backtest_specifications_filters_by_dataset_and_parameters(
+    override_session, p_seeded_engine, backtest_params, org_units
+):
+    """The seeded database holds two specifications with the same parameters on two datasets."""
+    response = client.get("/v1/crud/backtest-specifications")
+    assert response.status_code == 200, response.text
+    rows = response.json()
+    assert len(rows) == 2, rows
+    assert len({row["dataset"]["id"] for row in rows}) == 2, rows
+    assert all(row["backtestCount"] == 1 and row["orgUnitCount"] == len(org_units) for row in rows), rows
+    assert all("backtests" not in row for row in rows)
+
+    by_dataset = client.get("/v1/crud/backtest-specifications", params={"datasetId": rows[0]["dataset"]["id"]}).json()
+    assert [row["id"] for row in by_dataset] == [rows[0]["id"]]
+
+    full_tuple = {"datasetId": rows[0]["dataset"]["id"], **backtest_params.model_dump(by_alias=True)}
+    assert [row["id"] for row in client.get("/v1/crud/backtest-specifications", params=full_tuple).json()] == [
+        rows[0]["id"]
+    ]
+    assert client.get("/v1/crud/backtest-specifications", params={**full_tuple, "nSplits": 99}).json() == []
+
+
+def test_get_backtest_specification_returns_its_backtests_newest_first(override_session, p_seeded_engine):
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        params = {"n_periods": 3, "n_splits": 2, "stride": 1, "n_retrain": 1}
+        first_id = _run(session, "first", dataset_id, **params)
+        second_id = _run(session, "second", dataset_id, **params)
+        specification_id = session.session.get(Backtest, first_id).specification_id
+        # The seeded backtest has the same parameters, so it sits on the same
+        # specification; it predates `created`, which must not push it to the top.
+        seeded_id = session.session.exec(select(Backtest.id).where(Backtest.name == "test backtest")).one()
+
+    response = client.get(f"/v1/crud/backtest-specifications/{specification_id}")
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["id"] == specification_id
+    assert data["dataset"]["id"] == dataset_id
+    assert (data["nPeriods"], data["nSplits"]) == (3, 2)
+    assert data["orgUnits"]
+    assert [b["id"] for b in data["backtests"]] == [second_id, first_id, seeded_id]
+    for row in data["backtests"]:
+        BacktestRead.model_validate(row)
+        assert row["specificationId"] == specification_id
+        assert row["configuredModel"]["configurationDigest"]
+        assert row["configuredModel"]["modelTemplate"]["name"]
+        assert isinstance(row["aggregateMetrics"], dict)
+        assert "forecasts" not in row
+
+    assert client.get("/v1/crud/backtest-specifications/999999").status_code == 404
+
+
+def test_list_backtests_filters_by_specification_and_dataset(override_session, p_seeded_engine):
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        params = {"n_periods": 3, "n_splits": 2, "stride": 1, "n_retrain": 1}
+        first_id = _run(session, "first", dataset_id, **params)
+        second_id = _run(session, "second", dataset_id, **params)
+        other_id = _run(session, "other", dataset_id, **{**params, "n_splits": 3})
+        specification_id = session.session.get(Backtest, first_id).specification_id
+
+    by_specification = client.get("/v1/crud/backtests", params={"specificationId": specification_id}).json()
+    assert {first_id, second_id} <= {b["id"] for b in by_specification}
+    assert other_id not in {b["id"] for b in by_specification}
+    assert all(b["specificationId"] == specification_id for b in by_specification)
+
+    by_dataset = client.get("/v1/crud/backtests", params={"datasetId": dataset_id}).json()
+    assert {first_id, second_id, other_id} <= {b["id"] for b in by_dataset}
+    assert all(b["datasetId"] == dataset_id for b in by_dataset)
+
+
 def test_backtest_read_still_exposes_the_parameters_flat(override_session, p_seeded_engine):
     """The parameters moved behind a relationship; the wire shape must not have moved with them."""
     with SessionWrapper(p_seeded_engine) as session:
@@ -698,6 +746,7 @@ def test_backtest_read_still_exposes_the_parameters_flat(override_session, p_see
         "maxHorizonDistance",
         "chapVersion",
         "dataset",
+        "specificationId",
         "aggregateMetrics",
         "configuredModel",
         "predictionSetupId",

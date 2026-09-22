@@ -61,7 +61,8 @@ The v1 router (`rest_api/v1/rest_api.py`) includes four sub-routers:
 
 Standard CRUD endpoints for the core domain objects:
 
-- **Backtests** -- list, get, create, update, delete evaluations.
+- **Backtests** -- list (filterable by `specificationId` and `datasetId`), get, create, update, delete evaluations.
+- **Backtest specifications** -- list the evaluation setups backtests ran under, filterable by dataset and every `BacktestParams` field, and get one with every backtest under it (the benchmark leaderboard).
 - **Predictions** -- list, get, delete predictions.
 - **Datasets** -- list, get, create (JSON or CSV), export as CSV/DataFrame, delete.
 - **Model templates** -- list all templates (also triggers chapkit sync).
@@ -83,7 +84,7 @@ Higher-level endpoints used by the Modeling App:
 - `GET /evaluation-entry` -- return quantile-based forecast data for a backtest.
 - `GET /prediction-entry/{id}` -- return quantile-based forecast data for a prediction.
 - `GET /actualCases/{id}` -- return observed disease cases for a backtest's dataset.
-- `GET /compatible-backtests/{id}` -- find backtests compatible for comparison.
+- `GET /compatible-backtests/{id}` -- find the other backtests on the same specification, which are comparable by construction.
 - `GET /backtest-overlap/{id1}/{id2}` -- find overlapping org units and periods.
 - `GET /data-sources` -- return the list of available climate data sources.
 - `GET /covariate-names` -- suggest covariate names (standard names plus what live model templates require).
