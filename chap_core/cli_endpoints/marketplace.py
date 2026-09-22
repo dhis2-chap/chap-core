@@ -167,30 +167,12 @@ def _write_pending(config: dict[str, Any], overlay: Path) -> Path:
 def _image_id(image: str) -> str | None:
     """Return the local image ID for a reference, so a rollback can restore a moved tag."""
     result = subprocess.run(
-        ["docker", "image", "inspect", "--format", "{{.Id}}", image], stdout=subprocess.PIPE, text=True
+        ["docker", "image", "inspect", "--format", "{{.Id}}", image],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
     )
     return result.stdout.strip() if not result.returncode else None
-
-
-def _restore(
-    previous: dict[str, Any],
-    previous_image_id: str | None,
-    config: dict[str, Any],
-    service_name: str,
-    overlay: Path,
-    command: list[str],
-    up: list[str],
-) -> None:
-    """Start the previous service again, by image ID when the pull has moved its tag."""
-    if previous_image_id is None:
-        subprocess.run([*command, "-f", str(overlay), *up], check=True)
-        return
-    restored = {**config, "services": {**config["services"], service_name: {**previous, "image": previous_image_id}}}
-    rollback = _write_pending(restored, overlay)
-    try:
-        subprocess.run([*command, "-f", str(rollback), *up], check=True)
-    finally:
-        rollback.unlink(missing_ok=True)
 
 
 def _deploy(
@@ -280,7 +262,10 @@ def _deploy(
         services[service_name] = service
 
         command = _compose_command(compose_files, local)
-        previous_image_id = _image_id(previous["image"]) if previous is not None else None
+        previous_image_id = None
+        if previous is not None and "@" not in previous["image"]:
+            # A pull can move a tag but not a digest; keep the ID so a rollback can move the tag back.
+            previous_image_id = _image_id(previous["image"])
         # Publish the new pin only after Docker has pulled and started it successfully.
         pending = _write_pending(config, overlay)
         try:
@@ -303,7 +288,9 @@ def _deploy(
             except (subprocess.CalledProcessError, KeyboardInterrupt):
                 if previous is not None:
                     logger.warning("Update failed; restoring the previous model service.")
-                    _restore(previous, previous_image_id, config, service_name, overlay, command, up)
+                    if previous_image_id is not None:
+                        subprocess.run(["docker", "tag", previous_image_id, previous["image"]], check=True)
+                    subprocess.run([*command, "-f", str(overlay), *up], check=True)
                 else:
                     subprocess.run([*pending_command, "rm", "--stop", "--force", service_name], check=True)
                 raise

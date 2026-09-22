@@ -214,9 +214,10 @@ def test_failed_start_restores_previous_image(model_deployment):
     with pytest.raises(SystemExit):
         update("custom", image="example/model:v2", accept_risk=True)
     assert model_deployment.overlay.read_text() == previous
-    # The pull has moved the tag, so the rollback must name the image the previous service ran.
-    assert model_deployment.deployments[-1]["services"]["marketplace-custom"]["image"] == "sha256:previous"
-    assert "up" in model_deployment.runner.call_args.args[0]
+    commands = [call.args[0] for call in model_deployment.runner.call_args_list]
+    # The pull has moved the tag, so the rollback must move it back before starting the overlay again.
+    assert commands[-2] == ["docker", "tag", "sha256:previous", "example/model:v1"]
+    assert "up" in commands[-1] and str(model_deployment.overlay) in commands[-1]
 
 
 def test_multiple_compose_files_and_platform(model_deployment, tmp_path):
