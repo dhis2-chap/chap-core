@@ -1,0 +1,21 @@
+name: PR description check
+
+on:
+  pull_request:
+    types: [opened, edited, ready_for_review]
+
+jobs:
+  review-needed:
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a Review needed line
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if printf '%s\n' "$BODY" | grep -Eq '^Review needed: *(quick-merge|check: .+|full) *$'; then
+            echo "Review needed line found."
+          else
+            echo "::error::PR description must contain a line 'Review needed: quick-merge', 'Review needed: check: <what>' or 'Review needed: full'. See docs/contributor/pr_review.md."
+            exit 1
+          fi
