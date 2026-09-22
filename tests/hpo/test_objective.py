@@ -87,7 +87,7 @@ def test_objective_runs_configured_estimator_evaluation_and_selected_metric(
     score = objective(configuration, dataset)  # type: ignore[arg-type]
 
     assert score == pytest.approx(2.5)
-    template.get_model.assert_called_once_with(configuration)
+    template.get_model.assert_called_once_with(configuration, prediction_length=backtest_params.n_periods)
     model_factory.assert_called_once_with()
 
     create_kwargs = create_mock.call_args.kwargs

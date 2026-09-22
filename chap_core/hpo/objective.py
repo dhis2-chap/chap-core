@@ -37,7 +37,10 @@ class Objective:
         from chap_core.assessment.metrics import calculate_metrics
         from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 
-        model = self.model_template.get_model(model_configuration)  # type: ignore[arg-type]
+        model = self.model_template.get_model(
+            model_configuration,  # type: ignore[arg-type]
+            prediction_length=self.backtest_params.n_periods,
+        )
         estimator = model()
 
         run_id = generate_short_id()

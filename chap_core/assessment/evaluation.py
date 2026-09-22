@@ -482,7 +482,10 @@ class Evaluation(EvaluationBase):
         hpo_data = None
         if isinstance(estimator, HyperparameterOptimizer):
             hpo_data = estimator.meta_learn(train_set)
-            model = estimator.model_template.get_model(hpo_data.model_configuration)  # type: ignore[arg-type]
+            model = estimator.model_template.get_model(
+                hpo_data.model_configuration,  # type: ignore[arg-type]
+                prediction_length=backtest_params.n_periods,
+            )
             tuned_estimator = model()  # type: ignore[assignment]
         elif isinstance(estimator, MetaLearner):
             raise TypeError(f"Unsupported MetaLearner: {type(estimator).__name__}")

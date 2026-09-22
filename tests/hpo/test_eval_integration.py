@@ -263,7 +263,7 @@ def test_evaluation_create_uses_hpo_best_configuration_and_attaches_runtime_meta
 
     assert result is final_evaluation
     meta_learn_mock.assert_called_once_with(train_set)
-    template.get_model.assert_called_once_with(best_configuration)
+    template.get_model.assert_called_once_with(best_configuration, prediction_length=backtest_params.n_periods)
     model_factory.assert_called_once_with()
 
     backtest_kwargs = backtest_mock.call_args.kwargs
