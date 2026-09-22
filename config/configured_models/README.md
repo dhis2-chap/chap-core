@@ -14,7 +14,15 @@ On startup, the REST API calls `seed_configured_models_from_config_dir()` (in `c
 6. For each configuration listed under `configurations:`, inserts a `ConfiguredModelDB` row with the specified user option values and additional covariates.
 7. Finally, adds a built-in naive model template used for testing.
 
-Seeding is idempotent: a `(name, version)` pair that is already stored is reused.
+Seeding is idempotent: a `(name, version)` pair that is already stored is reused, as long as it still
+points at the same commit.
+
+## Versions are full commit shas
+
+Every value under `versions:` must be a full 40-character commit sha, with or without a leading `@`.
+Branches, tags and short shas are rejected when the file is parsed, so CHAP fails to start with a message
+naming the file, the label and the value. This holds for every label in the file, not only the last one.
+A label pins one revision, which is what makes evaluations against it reproducible and comparable.
 
 ## Versions are write-once
 
@@ -23,9 +31,10 @@ describing the code they ran.
 
 - **To publish new model code, add a new version entry.** The new row becomes the live one for that name,
   and the old row stays in the database so its backtests keep their true provenance.
+- **Reusing a label with a new sha fails startup.** The stored row keeps its commit and CHAP refuses to
+  start, with a message naming the label, the stored sha and the new sha. Add a new label instead.
 - **Editing a template under a version that is already seeded has no effect.** CHAP keeps the stored row and
-  logs a warning that names the fields it ignored. This also covers a branch ref such as `@main` that has
-  moved since the version was first seeded: the row keeps the commit it was seeded from.
+  logs a warning that names the fields it ignored.
 - **Editing `configurations:` does take effect.** A changed `user_option_values` or
   `additional_continuous_covariates` adds a new configured model that becomes the live one for that name.
   The old configured model stays in the database for the backtests that used it.
@@ -36,7 +45,7 @@ describing the code they ran.
 - url: https://github.com/org/model-repo
   versions:
     v1: "@<commit-sha>"           # historical documentation only
-    v2: "@<commit-sha-or-branch>" # last entry is the one that gets seeded
+    v2: "@<commit-sha>"           # last entry is the one that gets seeded
   configurations:                 # optional, defaults to a single "default" config
     config_name:
       user_option_values:
@@ -50,7 +59,7 @@ describing the code they ran.
 
 - **url**: The GitHub repository URL for the model.
 - **name** (optional): Overrides the template name declared by the model itself. Use it to avoid name clashes when seeding two variants of the same model.
-- **versions** (required): Named versions mapping to git refs. Prefix with `@` for commits/branches. Only the last entry is seeded, in every file -- earlier entries serve as historical documentation.
+- **versions** (required): Named versions mapping to full commit shas, optionally prefixed with `@`. Branches and tags are not allowed. Only the last entry is seeded, in every file -- earlier entries serve as historical documentation.
 - **configurations** (optional): Named configurations for the model template. Each configuration can set `user_option_values` (model-specific parameters) and `additional_continuous_covariates`. If omitted, a single "default" configuration with empty values is created.
 
 Chapkit model services do **not** belong in these files. They register themselves with Chap on startup via `SERVICEKIT_ORCHESTRATOR_URL`, which needs no entry here and no image rebuild -- see [Running Your Own Model](../../docs/modeling-app/running-your-own-model.md).
