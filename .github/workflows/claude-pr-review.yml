@@ -1,0 +1,84 @@
+name: Claude PR review
+
+# Automatic review on every non-draft PR from this repository, plus on-demand
+# re-review when someone comments "@claude review" on a PR. Pushes to an open
+# PR do not re-trigger the review, to keep token usage down.
+on:
+  pull_request:
+    types: [opened, ready_for_review, reopened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  review:
+    if: |
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.draft == false &&
+       github.event.pull_request.user.login != 'dependabot[bot]' &&
+       github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(github.event.comment.body, '@claude review'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'issue_comment' && format('refs/pull/{0}/head', github.event.issue.number) || '' }}
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          use_sticky_comment: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+
+            You are the first-pass reviewer for this PR. Most PRs here are
+            written with AI coding agents, so a human will only skim after you.
+            Your job is to catch what must not reach master, not to polish.
+
+            Look for, in priority order:
+            1. Bugs and incorrect logic, especially in edge cases the tests miss.
+            2. Security problems: injection, unsafe deserialisation, secrets,
+               unsafe file or subprocess handling.
+            3. Breaking changes to public interfaces: the REST API, the CLI,
+               the model template and plugin interface, database models and
+               migrations, and the DHIS2 integration.
+            4. Places where the code does something surprising or roundabout
+               that a human should judge, such as silently swallowed errors,
+               disabled or weakened tests, or scope well beyond the PR title.
+            5. Violations of the repo conventions in CLAUDE.md that CI does not
+               catch, for example tests reaching into private members, new
+               behaviour without a test, or a missing regenerated plot id file.
+            6. Redundant tests: new tests that duplicate an existing test, test
+               the same path several times with trivially different inputs, or
+               test framework behaviour rather than this repo's code. Point at
+               the existing test they overlap with and suggest removing them.
+
+            Do not comment on formatting, naming, docstrings, or style. Ruff
+            runs in CI. Do not praise. Do not restate what the PR does.
+
+            Use gh pr diff and gh pr view to read the change, and read the
+            surrounding code in the checkout when the diff alone is not enough
+            to judge correctness. Use gh pr checks to see CI status.
+
+            Report each concrete finding as one inline comment with
+            mcp__github_inline_comment__create_inline_comment (confirmed: true),
+            stating the failure scenario in one or two sentences. Then post one
+            summary comment with gh pr comment: either "No significant findings"
+            with at most one sentence, or a list of the findings with a
+            one-line risk verdict (safe to merge / needs a look / do not merge).
+            Keep the summary under ten lines. If you are unsure whether
+            something is a bug, say so briefly instead of dropping it.
+          claude_args: |
+            --model claude-fable-5-1
+            --max-turns 25
+            --disallowedTools "Agent,Task,Skill"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr checks:*)"
