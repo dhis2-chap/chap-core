@@ -69,6 +69,11 @@ jobs:
             surrounding code in the checkout when the diff alone is not enough
             to judge correctness. Use gh pr checks to see CI status.
 
+            You have a limited number of tool calls, so read the diff once,
+            then only the surrounding files you need. Post each finding as
+            soon as you have confirmed it, and post the summary before the
+            turn limit, so a run that is cut off still leaves something useful.
+
             Report each concrete finding as one inline comment with
             mcp__github_inline_comment__create_inline_comment (confirmed: true),
             stating the failure scenario in one or two sentences. Then post one
@@ -79,6 +84,6 @@ jobs:
             something is a bug, say so briefly instead of dropping it.
           claude_args: |
             --model claude-opus-5
-            --max-turns 25
+            --max-turns 50
             --disallowedTools "Agent,Task,Skill"
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr checks:*)"
