@@ -13,7 +13,7 @@ jobs:
         env:
           BODY: ${{ github.event.pull_request.body }}
         run: |
-          if printf '%s\n' "$BODY" | grep -Eq '^Review needed: *(quick-merge|check: .+|full) *$'; then
+          if printf '%s\n' "$BODY" | tr -d '\r' | grep -Eq '^Review needed: *(quick-merge|check: .+|full) *$'; then
             echo "Review needed line found."
           else
             echo "::error::PR description must contain a line 'Review needed: quick-merge', 'Review needed: check: <what>' or 'Review needed: full'. See docs/contributor/pr_review.md."

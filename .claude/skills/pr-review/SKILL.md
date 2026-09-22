@@ -5,6 +5,10 @@ description: Review a pull request in this repository. Use whenever asked to rev
 
 # PR review
 
+This skill is for interactive Claude Code sessions. If you are running as the
+`claude-pr-review` GitHub Actions workflow, ignore this file and follow the
+workflow prompt only.
+
 Follow `docs/contributor/pr_review.md`. Read it once before the first review in
 a session. The short version: keep unsafe code, critical bugs, unexamined
 agent decisions, and unmaintainable code out of master. Do not polish.
