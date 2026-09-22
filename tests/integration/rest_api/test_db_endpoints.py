@@ -492,6 +492,88 @@ def test_create_backtest_forwards_params_and_accepts_int_model_id(override_sessi
     assert (captured["n_periods"], captured["n_splits"], captured["stride"], captured["n_retrain"]) == (3, 4, 1, 2)
 
 
+class _JobIdWorker:
+    """Records every queued job and hands out distinct job ids, so a test can check what was submitted."""
+
+    def __init__(self):
+        self.queued: list[tuple] = []
+
+    def queue_db(self, func, info, **kwargs):
+        self.queued.append((func, info, kwargs))
+
+        class _Job:
+            id = f"job-{len(self.queued)}"
+
+        return _Job()
+
+
+def test_create_backtests_resolves_the_specification_and_queues_one_job_per_model(
+    override_session, seeded_session, p_seeded_engine, monkeypatch
+):
+    """The response must name the specification the jobs will file under before any job has run,
+    and the benchmarking server must get one job id per model without a second lookup."""
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    naive = seeded_session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == "naive_model")).one()
+    other = seeded_session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name != "naive_model")).first()
+    dataset_id = seeded_session.exec(select(DataSet.id)).first()
+
+    payload = {
+        "name": "bench",
+        "datasetId": dataset_id,
+        "modelIds": ["naive_model", other.id],
+        "nSplits": 4,
+        "nRetrain": 2,
+    }
+    response = client.post("/v1/analytics/create-backtests", json=payload)
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert [job["configuredModelId"] for job in data["jobs"]] == [naive.id, other.id]
+    assert [job["jobId"] for job in data["jobs"]] == ["job-1", "job-2"]
+
+    assert [info.name for _, info, _ in worker.queued] == [f"bench/{naive.name}", f"bench/{other.name}"]
+    assert [info.model_id for _, info, _ in worker.queued] == [naive.id, other.id]
+    for func, _, kwargs in worker.queued:
+        assert func is run_backtest
+        assert (kwargs["n_periods"], kwargs["n_splits"], kwargs["stride"], kwargs["n_retrain"]) == (3, 4, 1, 2)
+
+    specification = client.get(f"/v1/crud/backtest-specifications/{data['specificationId']}").json()
+    assert (specification["dataset"]["id"], specification["nSplits"], specification["nRetrain"]) == (dataset_id, 4, 2)
+    assert specification["backtests"] == []
+    # A worker running one of the queued jobs files its backtest under the returned id.
+    with SessionWrapper(p_seeded_engine) as session:
+        backtest_id = _run(session, f"bench/{naive.name}", dataset_id, n_periods=3, n_splits=4, stride=1, n_retrain=2)
+        assert session.session.get(Backtest, backtest_id).specification_id == data["specificationId"]
+
+
+def test_create_backtests_rejects_unknown_dataset_or_model_before_queueing(
+    override_session, seeded_session, monkeypatch
+):
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    dataset_id = seeded_session.exec(select(DataSet.id)).first()
+
+    response = client.post(
+        "/v1/analytics/create-backtests", json={"name": "x", "datasetId": 999999, "modelIds": ["naive_model"]}
+    )
+    assert response.status_code == 404, response.text
+    response = client.post(
+        "/v1/analytics/create-backtests",
+        json={"name": "x", "datasetId": dataset_id, "modelIds": ["naive_model", "no_such_model"]},
+    )
+    assert response.status_code == 404, response.text
+    assert "no_such_model" in response.json()["detail"]
+    response = client.post(
+        "/v1/analytics/create-backtests", json={"name": "x", "datasetId": dataset_id, "modelIds": []}
+    )
+    assert response.status_code == 422, response.text
+    assert worker.queued == []
+
+
 def test_run_backtest_persists_resolved_params(override_session, p_seeded_engine):
     """The stored row records the parameters that actually ran: n_periods=None is
     resolved from the (monthly) dataset, and an integer model id is resolved to its name."""

@@ -79,6 +79,7 @@ Higher-level endpoints used by the Modeling App:
 
 - `POST /make-dataset` -- validate, harmonize and import a dataset.
 - `POST /create-backtest` -- create a backtest from an existing dataset.
+- `POST /create-backtests` -- run several configured models on an existing dataset under one specification; returns the specification id and one job id per model.
 - `POST /create-backtest-with-data/` -- validate data, create dataset, then run backtest. This is the main endpoint used by the Modeling App. Supports a `dryRun` query param for validation only.
 - `POST /make-prediction` -- validate data and run a prediction.
 - `GET /evaluation-entry` -- return quantile-based forecast data for a backtest.

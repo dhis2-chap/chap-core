@@ -22,6 +22,7 @@ from chap_core.assessment.thresholds import get_threshold_strategy, list_thresho
 from chap_core.assessment.thresholds.params import ThresholdParams
 from chap_core.assessment.weather_providers import list_weather_providers
 from chap_core.database.base_tables import DBModel
+from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet as DataSetTable
 from chap_core.database.dataset_tables import DataSetCreateInfo
@@ -36,6 +37,7 @@ from ...celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
 from ...data_models import (
     BacktestCreate,
     BacktestDomain,
+    BacktestJob,
     BacktestRead,
     ChapDataSource,
     CovariateNameSuggestion,
@@ -43,6 +45,8 @@ from ...data_models import (
     ImportSummaryResponse,
     JobResponse,
     MakeBacktestRequest,
+    MakeBacktestsRequest,
+    MakeBacktestsResponse,
     MakeBacktestWithDataRequest,
     MakePredictionRequest,
     PredictionParams,
@@ -405,6 +409,51 @@ async def create_backtest(
     )
 
     return JobResponse(id=job.id)
+
+
+@router.post(
+    "/create-backtests",
+    response_model=MakeBacktestsResponse,
+    tags=["Backtests"],
+    summary="Run several configured models under one evaluation specification",
+)
+async def create_backtests(
+    request: MakeBacktestsRequest,
+    database_url: str = Depends(get_database_url),
+    session: Session = Depends(get_session),
+):
+    """Evaluate a set of configured models on one stored dataset with one set of parameters, so the resulting backtests are comparable by construction.
+
+    The specification is resolved up front and one job is queued per model; a model
+    failing does not affect the others. The response carries the specification id, under
+    which every backtest of the run files, so the results can be fetched from
+    ``GET /v1/crud/backtest-specifications/{id}`` without a second lookup, plus one job id
+    per model to poll via ``/v1/jobs/{id}``. 404 if the dataset or a model does not exist.
+    """
+    if session.get(DataSetTable, request.dataset_id) is None:
+        raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
+    wrapper = SessionWrapper(session=session)
+    try:
+        models = [wrapper.get_configured_model_by_id_or_name(model_id) for model_id in request.model_ids]
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    params = BacktestParams(**request.model_dump(include=set(BacktestParams.model_fields)))
+    dataset = DataSetManager(session).to_dataset(request.dataset_id)
+    _, specification = wf.resolve_backtest_specification(wrapper, dataset, request.dataset_id, params)
+    jobs = []
+    for model in models:
+        assert model.id is not None
+        name = f"{request.name}/{model.name}"
+        job = worker.queue_db(
+            wf.run_backtest,
+            BacktestCreate(name=name, dataset_id=request.dataset_id, model_id=model.id),
+            **params.model_dump(),
+            database_url=database_url,
+            **{JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: name},
+        )
+        jobs.append(BacktestJob(configured_model_id=model.id, job_id=job.id))
+    assert specification.id is not None
+    return MakeBacktestsResponse(specification_id=specification.id, jobs=jobs)
 
 
 @router.post(

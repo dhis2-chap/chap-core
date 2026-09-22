@@ -231,6 +231,34 @@ class MakeBacktestRequest(BacktestParams):
     dataset_id: int = Field(description="Foreign key to the dataset the backtest evaluates against.")
 
 
+class MakeBacktestsRequest(BacktestParams):
+    """Request to run several configured models on one dataset under one set of evaluation parameters."""
+
+    name: str = Field(description="Name of the run; each backtest is named `<name>/<configured model name>`.")
+    model_ids: list[int | str] = Field(
+        min_length=1,
+        description="Configured models to backtest, each either the integer primary key or the canonical name.",
+    )
+    dataset_id: int = Field(description="Foreign key to the dataset the backtests evaluate against.")
+
+
+class BacktestJob(DBModel):
+    """One queued backtest job of a multi-model run."""
+
+    configured_model_id: int = Field(description="Primary key of the configured model the job evaluates.")
+    job_id: str = Field(description="Identifier of the queued job; poll it via the jobs endpoints.")
+
+
+class MakeBacktestsResponse(DBModel):
+    """Response of a multi-model run: where the results will land and how to follow each job."""
+
+    specification_id: int = Field(
+        description="Id of the `BacktestSpecification` every backtest of the run files under; fetch the results "
+        "with `GET /v1/crud/backtest-specifications/{id}`."
+    )
+    jobs: list[BacktestJob] = Field(description="One queued job per requested model, in request order.")
+
+
 class MakeBacktestWithDataRequest(DatasetMakeRequest, BacktestParams):
     """Long-path request: build the dataset, then immediately backtest the configured model against it."""
 
