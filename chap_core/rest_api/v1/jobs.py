@@ -154,8 +154,9 @@ def cancel_job(job_id: str) -> dict:
 def get_logs(job_id: str) -> str:
     """Tail the log output the worker captured while running this job — useful for debugging a failure or watching progress.
 
-    The response is the captured log text, or an empty string if the worker has not
-    written anything yet (for example because the job has not started). Returns 404
+    The response is the tail of the complete per-task log, which includes everything
+    the worker and the libraries it calls logged, or an empty string if the worker has
+    not written anything yet (for example because the job has not started). Returns 404
     if the job id is unknown.
     """
     _ensure_job_exists(job_id)

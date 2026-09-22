@@ -1,9 +1,11 @@
 import logging
 import time
+from types import SimpleNamespace
 
 import pytest
 
 from chap_core.api_types import PredictionRequest
+from chap_core.log_config import get_status_logger
 from chap_core.rest_api import celery_tasks
 from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, add_numbers, celery_run
 from chap_core.rest_api.worker_functions import get_health_dataset
@@ -121,6 +123,51 @@ def test_apply_async_stores_prediction_setup_id_in_job_metadata(monkeypatch, tmp
     )
 
     assert fake_redis.hsets[-1][1]["prediction_setup_id"] == "12"
+
+
+class _NoMetaRedis:
+    def exists(self, _key):
+        return 0
+
+
+def test_get_logs_returns_debug_log(monkeypatch, tmp_path):
+    monkeypatch.setattr(celery_tasks, "CHAP_LOGS_DIR", tmp_path)
+    monkeypatch.setattr(celery_tasks, "r", _NoMetaRedis())
+    (tmp_path / "task_job-1.debug.txt").write_text("progress line\nlibrary detail\n")
+
+    job = celery_tasks.CeleryJob(SimpleNamespace(id="job-1"), app=celery_tasks.app)
+
+    assert job.get_logs() == "progress line\nlibrary detail\n"
+
+
+def test_get_logs_returns_bounded_tail_of_large_log(monkeypatch, tmp_path):
+    monkeypatch.setattr(celery_tasks, "CHAP_LOGS_DIR", tmp_path)
+    monkeypatch.setattr(celery_tasks, "r", _NoMetaRedis())
+    monkeypatch.setattr(celery_tasks, "LOG_TAIL_BYTES", 40)
+    (tmp_path / "task_job-1.debug.txt").write_text("first line is long enough to be cut\nsecond line\nlast line\n")
+
+    logs = celery_tasks.CeleryJob(SimpleNamespace(id="job-1"), app=celery_tasks.app).get_logs()
+
+    assert logs.startswith("[... earlier log output truncated ...]\n")
+    assert "first line" not in logs
+    assert logs.endswith("second line\nlast line\n")
+
+
+def function_with_status_logging():
+    get_status_logger().info("progress message")
+    logging.getLogger("some.library").warning("library detail")
+
+
+def test_tracked_task_writes_status_and_library_logs_to_task_log(monkeypatch, tmp_path):
+    monkeypatch.setattr(celery_tasks, "r", _FakeRedis())
+    monkeypatch.setattr(celery_tasks, "CHAP_LOGS_DIR", tmp_path)
+    monkeypatch.setitem(celery_tasks.app.conf, "task_always_eager", True)
+
+    result = celery_tasks.celery_run.apply_async(args=(function_with_status_logging,))
+
+    log = (tmp_path / f"task_{result.id}.debug.txt").read_text()
+    assert "progress message" in log
+    assert "library detail" in log
 
 
 def test_list_jobs_includes_prediction_setup_id(monkeypatch):
