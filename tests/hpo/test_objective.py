@@ -173,7 +173,8 @@ def test_objective_propagates_evaluation_failure(monkeypatch: pytest.MonkeyPatch
     calculate_metrics_mock.assert_not_called()
 
 
-def test_objective_rejects_metric_not_supported_as_direct_hpo_objective() -> None:
+@pytest.mark.parametrize("metric", ["coverage_10_90", "sensitivity"])
+def test_objective_rejects_metric_not_supported_as_direct_hpo_objective(metric: str) -> None:
     """Metrics that are valid for reporting but not direct HPO objectives fail before a backtest starts."""
     template, _, _ = make_template()
 
@@ -181,5 +182,5 @@ def test_objective_rejects_metric_not_supported_as_direct_hpo_objective() -> Non
         Objective(
             model_template=template,
             backtest_params=BacktestParams(n_periods=1, n_splits=1, stride=1),
-            metric="coverage_10_90",
+            metric=metric,
         )
