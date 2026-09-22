@@ -1,6 +1,8 @@
 import os
 from functools import lru_cache
+from typing import Any, cast
 
+from fastapi import Request
 from sqlmodel import Session
 
 from chap_core.database.database import engine
@@ -23,3 +25,8 @@ def get_settings():
 
 def get_database_url():
     return os.getenv("CHAP_DATABASE_URL")
+
+
+async def get_job_request(request: Request) -> dict[str, Any]:
+    """Capture the submitted JSON body without model defaults or worker credentials."""
+    return cast("dict[str, Any]", await request.json())

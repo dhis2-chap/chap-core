@@ -122,7 +122,7 @@ def test_apply_async_stores_prediction_setup_id_in_job_metadata(monkeypatch, tmp
         },
     )
 
-    assert fake_redis.hsets[-1][1]["prediction_setup_id"] == "12"
+    assert fake_redis.hsets[0][1]["prediction_setup_id"] == "12"
 
 
 class _NoMetaRedis:
@@ -196,3 +196,51 @@ def test_list_jobs(celery_session_worker, big_request_json, test_config):
     # assert jobs[0].id == job.id
     assert jobs[0].type == "time_consuming_function"
     assert jobs[0].name == "test_job_name"
+
+
+def fail_with_original_request(task_id):
+    import json
+
+    assert json.loads(celery_tasks.r.hget(f"job_meta:{task_id}", "request")) == {"name": "original"}
+    raise RuntimeError("deliberate failure")
+
+
+def test_original_request_survives_worker_failure(monkeypatch, tmp_path):
+    import json
+    import fakeredis
+
+    store = fakeredis.FakeRedis(decode_responses=True)
+    monkeypatch.setattr(celery_tasks, "r", store)
+    monkeypatch.setattr(celery_tasks, "CHAP_LOGS_DIR", tmp_path)
+    monkeypatch.setitem(celery_tasks.app.conf, "task_always_eager", True)
+    result = celery_tasks.celery_run.apply_async(
+        args=(fail_with_original_request, "failed-request"),
+        kwargs={celery_tasks.JOB_REQUEST_KW: {"name": "original"}},
+        task_id="failed-request",
+    )
+    assert result.state == "FAILURE"
+    assert str(result.result) == "deliberate failure"
+    metadata = store.hgetall("job_meta:failed-request")
+    assert metadata["status"] == "FAILURE"
+    assert json.loads(metadata["request"]) == {"name": "original"}
+
+
+def test_failed_dispatch_removes_request(monkeypatch):
+    import fakeredis
+    from celery import Task
+
+    store = fakeredis.FakeRedis(decode_responses=True)
+    monkeypatch.setattr(celery_tasks, "r", store)
+
+    def reject_dispatch(*args, **kwargs):
+        assert store.hexists("job_meta:not-queued", "request")
+        raise RuntimeError("broker unavailable")
+
+    monkeypatch.setattr(Task, "apply_async", reject_dispatch)
+    with pytest.raises(RuntimeError, match="broker unavailable"):
+        celery_tasks.celery_run.apply_async(
+            args=(add_numbers, 1, 2),
+            kwargs={celery_tasks.JOB_REQUEST_KW: {"name": "original"}},
+            task_id="not-queued",
+        )
+    assert not store.exists("job_meta:not-queued")

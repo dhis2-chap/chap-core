@@ -7,6 +7,7 @@ from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import TypeVar, cast
+from uuid import uuid4
 
 import celery
 from celery import Celery, Task, shared_task
@@ -159,13 +160,14 @@ class TrackedTask(Task):
             status_logger.handlers = old_status_handlers
 
     def apply_async(self, args=None, kwargs=None, **options):
-        # print('apply async', args, kwargs, options)
         kwargs = kwargs or {}
         job_name = kwargs.pop(JOB_NAME_KW, None) or "Unnamed"
         job_type = kwargs.pop(JOB_TYPE_KW, None) or "Unspecified"
         # Read (don't pop) — the worker function also needs prediction_setup_id when present.
         prediction_setup_id = kwargs.get(PREDICTION_SETUP_ID_JOB_META_KEY)
-        result = super().apply_async(args=args, kwargs=kwargs, **options)
+        original_request = kwargs.pop(JOB_REQUEST_KW, None)
+        task_id = options.get("task_id") or str(uuid4())
+        options["task_id"] = task_id
 
         job_meta: dict[str, str] = {
             "job_name": job_name,
@@ -176,12 +178,16 @@ class TrackedTask(Task):
         if prediction_setup_id is not None:
             job_meta[PREDICTION_SETUP_ID_JOB_META_KEY] = str(prediction_setup_id)
 
-        r.hset(
-            f"job_meta:{result.id}",
-            mapping=job_meta,
-        )
+        if original_request is not None:
+            job_meta["request"] = json.dumps(original_request)
 
-        return result
+        # Save before dispatch so even an immediately failing worker retains the request.
+        r.hset(f"job_meta:{task_id}", mapping=job_meta)
+        try:
+            return super().apply_async(args=args, kwargs=kwargs, **options)
+        except Exception:
+            r.delete(f"job_meta:{task_id}")
+            raise
 
     def on_success(self, retval, task_id, args, kwargs):
         logger.info("Task %s succeeded", task_id)
@@ -284,6 +290,7 @@ def celery_run_with_session(func, *args, **kwargs):
 
 JOB_TYPE_KW = "__job_type__"
 JOB_NAME_KW = "__job_name__"
+JOB_REQUEST_KW = "__job_request__"
 PREDICTION_SETUP_ID_JOB_META_KEY = "prediction_setup_id"
 
 

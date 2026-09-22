@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any, cast
 
@@ -93,6 +94,23 @@ def get_job_status(job_id: str) -> str:
     status: str = worker.get_job(job_id).status
     logger.info(f"status of job {job_id}: {status}")
     return status
+
+
+@router.get(
+    "/{job_id}/request",
+    summary="Download the original submitted job request",
+    responses={404: {"description": "Job or saved request not found"}},
+)
+def get_job_request(job_id: str) -> dict[str, Any]:
+    """Return the submitted JSON body, including after failure.
+
+    Requests share the job metadata's lifetime. Older jobs without a captured
+    request return 404, as do jobs removed from the tracker.
+    """
+    meta = get_job_meta(job_id)
+    if not meta or "request" not in meta:
+        raise HTTPException(status_code=404, detail=f"Request for job '{job_id}' not found")
+    return cast("dict[str, Any]", json.loads(meta["request"]))
 
 
 @router.delete(

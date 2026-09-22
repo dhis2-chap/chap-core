@@ -52,6 +52,7 @@ from chap_core.datatypes import FullData, HealthPopulationData, create_tsdatacla
 from chap_core.geometry import Polygons
 from chap_core.rest_api.celery_tasks import (
     JOB_NAME_KW,
+    JOB_REQUEST_KW,
     JOB_TYPE_KW,
     PREDICTION_SETUP_ID_JOB_META_KEY,
     CeleryPool,
@@ -77,7 +78,7 @@ from ...data_models import (
     RunPredictionSetupRequest,
 )
 from .analytics import validate_full_dataset
-from .dependencies import get_database_url, get_session, get_settings
+from .dependencies import get_database_url, get_job_request, get_session, get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -601,7 +602,10 @@ async def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], sessi
     summary="Import a health-only dataset",
 )
 async def create_dataset(
-    data: DatasetCreate, datababase_url=Depends(get_database_url), worker_settings=Depends(get_settings)
+    data: DatasetCreate,
+    original_request: dict = Depends(get_job_request),
+    datababase_url=Depends(get_database_url),
+    worker_settings=Depends(get_settings),
 ) -> JobResponse:
     """Import a dataset that carries just disease cases and population (no climate covariates inline), with polygons attached.
 
@@ -619,6 +623,7 @@ async def create_dataset(
         data.name,
         database_url=datababase_url,
         worker_config=worker_settings,
+        **{JOB_REQUEST_KW: original_request},
     )
     return JobResponse(id=job.id)
 
@@ -1029,6 +1034,7 @@ async def delete_prediction_setup(
 async def run_prediction_setup(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     request: RunPredictionSetupRequest,
+    original_request: dict = Depends(get_job_request),
     session: Session = Depends(get_session),
     database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
@@ -1106,6 +1112,6 @@ async def run_prediction_setup(
         configured_model_id=setup.configured_model_id,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
+        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
     )
     return JobResponse(id=job.id)

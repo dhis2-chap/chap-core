@@ -32,7 +32,7 @@ from chap_core.services.dataset_validation import RESERVED_FIELDS
 from chap_core.spatio_temporal_data.converters import observations_to_dataframe, observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
-from ...celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
+from ...celery_tasks import JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW, CeleryPool, JobType
 from ...data_models import (
     BacktestCreate,
     BacktestDomain,
@@ -48,7 +48,7 @@ from ...data_models import (
     PredictionParams,
     ValidationError,
 )
-from .dependencies import get_database_url, get_session, get_settings
+from .dependencies import get_database_url, get_job_request, get_session, get_settings
 
 router = APIRouter(prefix="/analytics")
 
@@ -63,7 +63,10 @@ worker: CeleryPool[Any] = CeleryPool()
     summary="Import observations as a reusable dataset",
 )
 def make_dataset(
-    request: DatasetMakeRequest, database_url: str = Depends(get_database_url), worker_settings=Depends(get_settings)
+    request: DatasetMakeRequest,
+    original_request: dict = Depends(get_job_request),
+    database_url: str = Depends(get_database_url),
+    worker_settings=Depends(get_settings),
 ):
     """Persist observations (with polygons) as a named dataset you can reuse across backtests and predictions.
 
@@ -96,7 +99,7 @@ def make_dataset(
         data_sources=request.data_sources,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_TYPE_KW: JobType.DATASET, JOB_NAME_KW: request.name},
+        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.DATASET, JOB_NAME_KW: request.name},
     )
 
     return ImportSummaryResponse(id=job.id, imported_count=imported_count, rejected=rejections)
@@ -386,6 +389,7 @@ async def get_evaluation_entries(
 )
 async def create_backtest(
     request: MakeBacktestRequest,
+    original_request: dict = Depends(get_job_request),
     database_url: str = Depends(get_database_url),
     session: Session = Depends(get_session),
 ):
@@ -406,7 +410,7 @@ async def create_backtest(
         n_retrain=request.n_retrain,
         future_weather_provider=request.future_weather_provider,
         database_url=database_url,
-        **{JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: request.name},
+        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: request.name},
     )
 
     return JobResponse(id=job.id)
@@ -419,7 +423,10 @@ async def create_backtest(
     summary="Run a one-off forecast from inline data",
 )
 async def make_prediction(
-    request: MakePredictionRequest, database_url=Depends(get_database_url), worker_settings=Depends(get_settings)
+    request: MakePredictionRequest,
+    original_request: dict = Depends(get_job_request),
+    database_url=Depends(get_database_url),
+    worker_settings=Depends(get_settings),
 ):
     """Run a forecast against observations supplied directly in the request body — no stored dataset needed.
 
@@ -451,7 +458,7 @@ async def make_prediction(
         prediction_params=prediction_params,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
+        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
     )
     return JobResponse(id=job.id)
 
@@ -701,6 +708,7 @@ async def get_covariate_names(session: Session = Depends(get_session)) -> list[C
 )
 async def create_backtest_with_data(
     request: MakeBacktestWithDataRequest,
+    original_request: dict = Depends(get_job_request),
     dry_run: bool = Query(
         False, description="If True, only run validation and do not create a backtest", alias="dryRun"
     ),
@@ -773,7 +781,7 @@ async def create_backtest_with_data(
         backtest_params=bt_params,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_TYPE_KW: JobType.EVALUATION, JOB_NAME_KW: request.name},
+        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.EVALUATION, JOB_NAME_KW: request.name},
     )
     job_id = job.id
     return ImportSummaryResponse(id=job_id, imported_count=imported_count, rejected=rejections)
