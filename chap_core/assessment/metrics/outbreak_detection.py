@@ -142,6 +142,9 @@ class SensitivityMetric(_OutbreakMetric):
 
     Measures the proportion of actual outbreaks that were correctly
     predicted (alerted) by the forecast.
+
+    Higher is better to read, but it is not a valid standalone optimization
+    objective: it is maximised by alerting every period.
     """
 
     spec = MetricSpec(
@@ -150,6 +153,7 @@ class SensitivityMetric(_OutbreakMetric):
         aggregation_op=AggregationOp.MEAN,
         description="True positive rate for outbreak detection alerts",
         optimization_direction=OptimizationDirection.MAXIMIZE,
+        valid_hpo_objective=False,
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
@@ -164,6 +168,9 @@ class SpecificityMetric(_OutbreakMetric):
 
     Measures the proportion of non-outbreak periods that were correctly
     not alerted by the forecast.
+
+    Higher is better to read, but it is not a valid standalone optimization
+    objective: it is maximised by never alerting.
     """
 
     spec = MetricSpec(
@@ -172,6 +179,7 @@ class SpecificityMetric(_OutbreakMetric):
         aggregation_op=AggregationOp.MEAN,
         description="True negative rate for outbreak detection alerts",
         optimization_direction=OptimizationDirection.MAXIMIZE,
+        valid_hpo_objective=False,
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
@@ -186,6 +194,9 @@ class OutbreakAccuracyMetric(_OutbreakMetric):
 
     Measures the proportion of all periods where the alert status
     correctly matches the outbreak status: (TP + TN) / (TP + TN + FP + FN).
+
+    Higher is better to read, but it is not a valid standalone optimization
+    objective: outbreaks are rare, so it is close to maximised by never alerting.
     """
 
     spec = MetricSpec(
@@ -194,6 +205,7 @@ class OutbreakAccuracyMetric(_OutbreakMetric):
         aggregation_op=AggregationOp.MEAN,
         description="Proportion of correctly classified outbreak/non-outbreak periods",
         optimization_direction=OptimizationDirection.MAXIMIZE,
+        valid_hpo_objective=False,
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
