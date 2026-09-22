@@ -12,12 +12,6 @@ from cyclopts import Parameter
 
 logger = logging.getLogger(__name__)
 
-DATA_MOUNT = "/app/data"
-# chapkit images default DATABASE_URL to the relative path "data/chapkit.db", which resolves
-# against each image's WORKDIR. Pin it to the mounted volume so a model whose WORKDIR is not
-# /app does not try to create its database on the read-only root filesystem and fail to start.
-DATABASE_URL = f"sqlite+aiosqlite:///{DATA_MOUNT}/chapkit.db"
-
 ModelArg = Annotated[str, Parameter(help="Marketplace model ID, or a name for a custom chapkit model.")]
 ComposeArg = Annotated[
     tuple[Path, ...],
@@ -164,10 +158,10 @@ def _write_pending(config: dict[str, Any], overlay: Path) -> Path:
     return pending
 
 
-def _image_id(image: str) -> str | None:
-    """Return the local image ID for a reference, so a rollback can restore a moved tag."""
+def _inspect_image(image: str, template: str) -> str | None:
+    """Return a field of the local image, or None when the reference is not present locally."""
     result = subprocess.run(
-        ["docker", "image", "inspect", "--format", "{{.Id}}", image],
+        ["docker", "image", "inspect", "--format", template, image],
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
         text=True,
@@ -235,7 +229,6 @@ def _deploy(
                     "SERVICEKIT_REGISTRATION_KEY": "${SERVICEKIT_REGISTRATION_KEY:-}",
                     "SERVICEKIT_HOST": service_name,
                 },
-                "volumes": [f"{service_name}-data:{DATA_MOUNT}", {"type": "tmpfs", "target": "/tmp"}],
                 "depends_on": {"chap": {"condition": "service_healthy"}},
             }
             config["volumes"][f"{service_name}-data"] = {}
@@ -243,15 +236,6 @@ def _deploy(
                 del service["environment"]
                 del service["depends_on"]
                 service["ports"] = [{"target": 8000, "host_ip": "127.0.0.1"}]
-        # Applied on update too, so models installed before the pin existed receive it.
-        environment = service.get("environment") or {}
-        if isinstance(environment, list):
-            if not any(str(entry).split("=")[0] == "DATABASE_URL" for entry in environment):
-                environment = [*environment, f"DATABASE_URL={DATABASE_URL}"]
-        else:
-            environment = dict(environment)
-            environment.setdefault("DATABASE_URL", DATABASE_URL)
-        service["environment"] = environment
         service.update({"image": image, "x-chap-custom": bool(custom), "x-chap-version": version})
         if not custom:
             service["x-chap-registry"] = registry
@@ -265,23 +249,29 @@ def _deploy(
         previous_image_id = None
         if previous is not None and "@" not in previous["image"]:
             # A pull can move a tag but not a digest; keep the ID so a rollback can move the tag back.
-            previous_image_id = _image_id(previous["image"])
-        # Publish the new pin only after Docker has pulled and started it successfully.
+            previous_image_id = _inspect_image(previous["image"], "{{.Id}}")
+        pull = ["docker", "pull", *(["--platform", service["platform"]] if "platform" in service else []), image]
+        try:
+            subprocess.run(pull, check=True)
+        except subprocess.CalledProcessError as error:
+            # Docker has already printed why the pull failed, so add a hint instead of repeating it.
+            hint = ""
+            if "platform" not in service:
+                hint = (
+                    " If this model publishes no image for your machine's architecture, retry with:"
+                    f" chap {'update' if updating else 'install'} {model} --platform linux/amd64"
+                )
+            logger.error("Could not pull %s.%s", image, hint)
+            raise SystemExit(1) from error
+        if previous is None:
+            # chapkit keeps its SQLite database under data/ in the image's working directory, which
+            # the image owns for its service user; mounting elsewhere leaves a root-owned volume.
+            workdir = (_inspect_image(image, "{{.Config.WorkingDir}}") or "/").rstrip("/")
+            service["volumes"] = [f"{service_name}-data:{workdir}/data", {"type": "tmpfs", "target": "/tmp"}]
+        # Publish the new pin only after Docker has started it successfully.
         pending = _write_pending(config, overlay)
         try:
             pending_command = [*command, "-f", str(pending)]
-            try:
-                subprocess.run([*pending_command, "pull", service_name], check=True)
-            except subprocess.CalledProcessError as error:
-                # Docker has already printed why the pull failed, so add a hint instead of repeating it.
-                hint = ""
-                if platform is None and not service.get("platform"):
-                    hint = (
-                        " If this model publishes no image for your machine's architecture, retry with:"
-                        f" chap {'update' if updating else 'install'} {model} --platform linux/amd64"
-                    )
-                logger.error("Could not pull %s.%s", image, hint)
-                raise SystemExit(1) from error
             up = ["up", "-d", "--no-deps", "--wait", "--wait-timeout", "120", service_name]
             try:
                 subprocess.run([*pending_command, *up], check=True)

@@ -87,13 +87,10 @@ def test_install_and_update_preserve_settings_and_data(marketplace_model, market
     assert service["image"].endswith(":sha-57eeb78")
     assert service["environment"]["SERVICEKIT_ORCHESTRATOR_URL"].endswith("/$$register")
     assert service["environment"]["SERVICEKIT_HOST"] == service_name
-    # The database must live on the mounted volume, not the read-only root filesystem.
-    assert service["environment"]["DATABASE_URL"] == "sqlite+aiosqlite:////app/data/chapkit.db"
+    # chapkit writes its database under data/ in the image's working directory.
     assert service["volumes"][0] == f"{service_name}-data:/app/data"
     assert "ports" not in service
     service["cpus"] = 2
-    # Models installed before the DATABASE_URL pin existed must receive it on update.
-    del service["environment"]["DATABASE_URL"]
     model_deployment.overlay.write_text(yaml.safe_dump(installed))
 
     marketplace_model["versions"][0].update(version="0.2.0", commit="a" * 40, image_tag="sha-aaaaaaa")
@@ -102,12 +99,9 @@ def test_install_and_update_preserve_settings_and_data(marketplace_model, market
     updated = yaml.safe_load(model_deployment.overlay.read_text())
     assert updated["services"][service_name]["image"].endswith(":sha-aaaaaaa")
     assert updated["services"][service_name]["cpus"] == 2
-    assert (
-        updated["services"][service_name]["environment"]["DATABASE_URL"] == "sqlite+aiosqlite:////app/data/chapkit.db"
-    )
     assert updated["services"][service_name]["volumes"] == service["volumes"]
     assert updated["volumes"] == installed["volumes"]
-    assert model_deployment.runner.call_count == 5
+    assert model_deployment.runner.call_count == 6
     assert "--no-deps" in model_deployment.runner.call_args.args[0]
 
 
@@ -119,7 +113,7 @@ def test_install_local_and_update_print_url(marketplace_model, marketplace_http,
     config = yaml.safe_load(model_deployment.local_overlay.read_text())
     service = next(iter(config["services"].values()))
     assert service["ports"] == [{"target": 8000, "host_ip": "127.0.0.1"}]
-    assert service["environment"] == {"DATABASE_URL": "sqlite+aiosqlite:////app/data/chapkit.db"}
+    assert "environment" not in service
     assert "depends_on" not in service
     assert "http://127.0.0.1:54321" in caplog.text
     assert not model_deployment.overlay.exists()
@@ -239,8 +233,9 @@ def test_multiple_compose_files_and_platform(model_deployment, tmp_path):
         ],
         result_action="return_value",
     )
-    command = model_deployment.runner.call_args.args[0]
-    assert command[:6] == ["docker", "compose", "-f", str(tmp_path / "compose.yml"), "-f", str(extra)]
+    commands = [call.args[0] for call in model_deployment.runner.call_args_list]
+    assert commands[0] == ["docker", "pull", "--platform", "linux/amd64", "example/model:v1"]
+    assert commands[-1][:6] == ["docker", "compose", "-f", str(tmp_path / "compose.yml"), "-f", str(extra)]
     assert model_deployment.deployments[-1]["services"]["marketplace-custom"]["platform"] == "linux/amd64"
 
 
@@ -356,17 +351,18 @@ def test_rejects_a_malformed_overlay(model_deployment, overlay_text):
     model_deployment.runner.assert_not_called()
 
 
-def test_update_pins_the_database_url_in_the_list_form_environment(model_deployment):
+def test_install_mounts_the_data_volume_in_the_image_working_directory(model_deployment):
+    run = model_deployment.runner.side_effect
+
+    def scaffolded_image(command, **kwargs):
+        if "{{.Config.WorkingDir}}" in command:
+            return SimpleNamespace(stdout="/work\n", returncode=0)
+        return run(command, **kwargs)
+
+    model_deployment.runner.side_effect = scaffolded_image
     install("custom", image="example/model:v1", accept_risk=True)
-    config = yaml.safe_load(model_deployment.overlay.read_text())
-    config["services"]["marketplace-custom"]["environment"] = ["LOG_LEVEL=debug"]
-    model_deployment.overlay.write_text(yaml.safe_dump(config))
-    update("custom", accept_risk=True)
-    updated = yaml.safe_load(model_deployment.overlay.read_text())
-    assert updated["services"]["marketplace-custom"]["environment"] == [
-        "LOG_LEVEL=debug",
-        "DATABASE_URL=sqlite+aiosqlite:////app/data/chapkit.db",
-    ]
+    service = yaml.safe_load(model_deployment.overlay.read_text())["services"]["marketplace-custom"]
+    assert service["volumes"][0] == "marketplace-custom-data:/work/data"
 
 
 def test_overlay_stays_readable_to_other_operators(model_deployment):

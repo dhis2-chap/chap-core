@@ -46,6 +46,8 @@ def model_deployment(tmp_path, monkeypatch, mocker):
             deployments.append(yaml.safe_load(overlays[-1].read_text()))
         if "config" in command:
             stdout = '{"name": "chap-test"}'
+        elif "{{.Config.WorkingDir}}" in command:
+            stdout = "/app\n"
         elif "inspect" in command:
             stdout = "sha256:previous\n"
         else:
