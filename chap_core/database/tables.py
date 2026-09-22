@@ -172,6 +172,10 @@ class ConfiguredModelRead(ModelConfiguration, DBModel):
 
     name: str = Field(description="Canonical name of the configured model.")
     id: int = Field(description="Primary key of the configured model.")
+    configuration_digest: str = Field(
+        description="Digest of the configuration contents; backtests with the same template and digest ran "
+        "the same configuration."
+    )
     model_template: ModelTemplateDB = Field(description="Parent template the configuration extends.")
 
 
@@ -276,6 +280,9 @@ class BacktestRead(BacktestParams, _BacktestRead):
     """
 
     dataset: DataSetMeta = Field(description="Slim dataset summary the backtest evaluated against.")
+    specification_id: int = Field(
+        description="Id of the `BacktestSpecification` this backtest ran under; backtests sharing it are comparable."
+    )
     aggregate_metrics: dict[str, float] = Field(
         description="Map of metric id to aggregated score across all splits / org units."
     )
