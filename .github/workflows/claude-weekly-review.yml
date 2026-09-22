@@ -24,21 +24,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Collect previous report and this week's changes
+      - name: Collect previous report and changes since it
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh issue list --label weekly-review --author "app/github-actions" \
-            --state all --limit 1 \
-            --json body --jq '.[0].body // "No previous report."' > previous-report.md
+            --search "sort:created-desc" --state all --limit 1 \
+            --json body,createdAt > previous.json
+          jq -r '.[0].body // "No previous report."' previous.json > previous-report.md
+          # Review changes since the previous report, so a failed or skipped
+          # week is not lost, but never more than 30 days back.
+          since=$(jq -r '.[0].createdAt // empty' previous.json)
+          if [ -z "$since" ] || [ "$(date -d "$since" +%s)" -lt "$(date -d '30 days ago' +%s)" ]; then
+            since=$(date -d '7 days ago' --iso-8601=seconds)
+          fi
+          echo "Reviewing changes since $since"
           {
-            echo "# Commits merged in the last 7 days"
+            echo "# Commits merged since $since"
             echo
-            git log --since='7 days ago' --no-merges --format='%h %s' -- . ':!docs'
+            git log --since="$since" --no-merges --format='%h %s' -- . ':!docs'
             echo
-            echo "# Files changed in the last 7 days"
+            echo "# Files changed since $since"
             echo
-            base=$(git rev-list -1 --before='7 days ago' HEAD)
+            base=$(git rev-list -1 --before="$since" HEAD)
             [ -n "$base" ] || base=$(git rev-list --max-parents=0 HEAD)
             git diff --stat "$base" HEAD
           } > week-changes.md
@@ -59,10 +67,10 @@ jobs:
             which lists deliberate design choices you must not report as
             findings. Then read previous-report.md (last week's report, or
             "No previous report.") and week-changes.md (commits and files
-            changed in the last 7 days).
+            changed since that report, or in the last 7 days).
 
             Review in this order and spend most of your effort on the first two:
-            1. Code changed in the last 7 days, read with its surrounding code:
+            1. Code changed since the previous report, read with its surrounding code:
                bugs, incorrect edge-case handling, silently swallowed errors,
                weakened or disabled tests, redundant tests, and changes to public
                interfaces (REST API, CLI, model template and plugin interface,
