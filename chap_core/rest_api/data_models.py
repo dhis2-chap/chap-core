@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 from pydantic.alias_generators import to_camel
 
@@ -216,8 +218,14 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     )
     is_live: bool = Field(default=True, description="True for the version that CHAP serves for this template name.")
     archived: bool = Field(default=False, description="When True, the template is hidden from default pickers.")
-    health_status: str | None = Field(
-        default=None, description="Reported health status of the template, used by chapkit-hosted models."
+    health_status: Literal["live", "revision_mismatch"] | None = Field(
+        default=None,
+        description=(
+            "Health of the chapkit service behind the template: 'live' when it is registered and runs the "
+            "stored source revision, 'revision_mismatch' when it reports another revision (or none) under "
+            "the same version, so the template cannot run until the service bumps its version. None for "
+            "templates that are not chapkit-hosted or whose service is not registered."
+        ),
     )
     uses_chapkit: bool = Field(
         default=False, description="When True, the template is served by a chapkit REST endpoint."

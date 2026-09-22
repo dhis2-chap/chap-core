@@ -1,9 +1,8 @@
 - url: https://github.com/knutdrand/weekly_ar_model
   versions:
-    v0: "@v0.0.1"
-    old_decent_version: "@36a537dac138af428a4167b2a89eac7dafd5d762"
-    v2: "@v0.0.2alpha"  # alpha version for testing
-    nightly_build: "@stable"
+    v0: "@36a537dac138af428a4167b2a89eac7dafd5d762"
+    v1: "@8ec1eb6ea854022350ad86c9e12a6d63638fbdbe"
+    v2: "@842a215551879b69bf401c86817c93380fef6fcf"  # every version is a full commit sha
   configurations:
     myconfig1:
       additional_continuous_covariates:
