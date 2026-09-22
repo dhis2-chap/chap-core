@@ -18,4 +18,4 @@
 16. `chap_core/__init__.py` exposes `data`, `fetch`, `ModelTemplateInterface`, and `is_debug_mode` lazily via PEP 562 `__getattr__` to keep CLI startup fast. When adding a new public re-export at the package root, register it in the lazy table (`_LAZY_SUBMODULES` or `_LAZY_FROM`) rather than as an eager top-level import, and make sure the symbol is also reachable under `if TYPE_CHECKING:` so static type checkers still see it.
 17. Unless told otherwise, always open pull requests in draft mode (`gh pr create --draft`). Mark a PR ready for review only when asked to.
 18. PR reviews follow `docs/contributor/pr_review.md`. When asked to review a PR, use the `pr-review` skill.
-19. PR descriptions follow `.github/PULL_REQUEST_TEMPLATE.md` and must include a `Review needed:` line with `quick-merge`, `check: <what>` or `full`. CI rejects PRs without it. Ask the user which one applies if it is not clear.
+19. PR descriptions follow `.github/PULL_REQUEST_TEMPLATE.md` and must include a `Review needed:` line with `quick-merge`, `check: <what>` or `full`. CI flags PRs without it. Ask the user which one applies if it is not clear.
