@@ -1,0 +1,134 @@
+name: Weekly codebase review
+
+# A deep review of the whole repository once a week, in the night before
+# Friday, posted as a GitHub issue labelled "weekly-review". Each run reads the
+# previous report so findings can be tracked as new, persisting or resolved.
+# Run it by hand from the Actions tab (workflow_dispatch) to test it.
+on:
+  schedule:
+    # 02:17 UTC is 04:17 Oslo time in summer and 03:17 in winter. Off the full
+    # hour because GitHub delays scheduled runs that start on the hour.
+    - cron: "17 2 * * 5"
+  workflow_dispatch:
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Collect previous report and changes since it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue list --label weekly-review --author "app/github-actions" \
+            --search "sort:created-desc" --state all --limit 1 \
+            --json body,createdAt > previous.json
+          jq -r '.[0].body // "No previous report."' previous.json > previous-report.md
+          # Review changes since the previous report, so a failed or skipped
+          # week is not lost, but never more than 30 days back.
+          since=$(jq -r '.[0].createdAt // empty' previous.json)
+          if [ -z "$since" ] || [ "$(date -d "$since" +%s)" -lt "$(date -d '30 days ago' +%s)" ]; then
+            since=$(date -d '7 days ago' --iso-8601=seconds)
+          fi
+          echo "Reviewing changes since $since"
+          {
+            echo "# Commits merged since $since"
+            echo
+            git log --since="$since" --no-merges --format='%h %s' -- . ':!docs'
+            echo
+            echo "# Files changed since $since"
+            echo
+            base=$(git rev-list -1 --before="$since" HEAD)
+            [ -n "$base" ] || base=$(git rev-list --max-parents=0 HEAD)
+            git diff --stat "$base" HEAD
+          } > week-changes.md
+          wc -l previous-report.md week-changes.md
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are doing the weekly deep review of the chap-core repository.
+            Pull requests here are mostly written by AI coding agents and get a
+            fast first-pass review, so your job is to catch what accumulates
+            between those reviews: bugs and structural problems that no single
+            PR review would see.
+
+            Start by reading CLAUDE.md, docs/contributor/code_overview.md and
+            the "Weekly codebase review" section of docs/contributor/pr_review.md,
+            which lists deliberate design choices you must not report as
+            findings. Then read previous-report.md (last week's report, or
+            "No previous report.") and week-changes.md (commits and files
+            changed since that report, or in the last 7 days).
+
+            Review in this order and spend most of your effort on the first two:
+            1. Code changed since the previous report, read with its surrounding code:
+               bugs, incorrect edge-case handling, silently swallowed errors,
+               weakened or disabled tests, redundant tests, and changes to public
+               interfaces (REST API, CLI, model template and plugin interface,
+               database models and migrations, DHIS2 integration) that look
+               unintended.
+            2. Every finding in last week's report: check whether it is still
+               present, fixed, or no longer relevant.
+            3. The rest of chap_core/ for accumulated problems: duplicated logic,
+               dead code, inconsistent or leaky interfaces, missing tests on
+               critical paths, fragile error handling, and drift from the
+               architecture described in the contributor docs.
+
+            Do not report formatting, naming, docstrings or style. Ruff runs in
+            CI. Do not report anything listed as a deliberate choice in the docs.
+            Do not praise.
+
+            Write the report to review-report.md in exactly this structure:
+
+            # Weekly codebase review
+            ## Summary
+            Three to five sentences on the state of the codebase and this week's
+            most important point.
+            ## New findings
+            ## Persisting findings
+            Findings from last week that are still present, one line each.
+            ## Resolved since last week
+            ## Suggested next actions
+            At most five, each concrete and small enough for one PR.
+
+            Order findings by impact. Each finding is a short paragraph that
+            names the file and line range, states the failure scenario or cost
+            in one or two sentences, and says how sure you are. Keep the whole
+            report under 1500 words. Write the report file and nothing else; do
+            not modify any other file and do not create branches or comments.
+          claude_args: |
+            --model claude-fable-5-1
+            --max-turns 80
+            --disallowedTools "Agent,Task,Skill"
+            --allowedTools "Write"
+
+      - name: Open issue with the report
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ ! -s review-report.md ]; then
+            echo "::error::Claude did not write review-report.md"
+            exit 1
+          fi
+          gh label create weekly-review --color d93f0b --force \
+            --description "Automatic weekly codebase review reports"
+          gh issue create \
+            --title "Weekly codebase review $(date +%F)" \
+            --body-file review-report.md \
+            --label weekly-review
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: weekly-review-${{ github.run_id }}
+          path: review-report.md
+          if-no-files-found: ignore
