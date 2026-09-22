@@ -422,7 +422,7 @@ async def create_backtest(
     tags=["Backtests"],
     summary="Run several configured models under one evaluation specification",
 )
-async def create_backtests(
+def create_backtests(
     request: MakeBacktestsRequest,
     database_url: str = Depends(get_database_url),
     session: Session = Depends(get_session),
@@ -433,7 +433,8 @@ async def create_backtests(
     failing does not affect the others. The response carries the specification id, under
     which every backtest of the run files, so the results can be fetched from
     ``GET /v1/crud/backtest-specifications/{id}`` without a second lookup, plus one job id
-    per model to poll via ``/v1/jobs/{id}``. 404 if the dataset or a model does not exist.
+    per model to poll via ``/v1/jobs/{id}``. 404 if the dataset or a model does not exist,
+    422 if no org unit has target data left to train on for these parameters.
     """
     if session.get(DataSetTable, request.dataset_id) is None:
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
@@ -444,7 +445,10 @@ async def create_backtests(
         raise HTTPException(status_code=404, detail=str(e)) from e
     params = BacktestParams(**request.model_dump(include=set(BacktestParams.model_fields)))
     dataset = DataSetManager(session).to_dataset(request.dataset_id)
-    _, specification = wf.resolve_backtest_specification(wrapper, dataset, request.dataset_id, params)
+    try:
+        _, specification = wf.resolve_backtest_specification(wrapper, dataset, request.dataset_id, params)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     jobs = []
     for model in models:
         assert model.id is not None

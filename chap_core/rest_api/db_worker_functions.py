@@ -193,6 +193,12 @@ def resolve_backtest_specification(
         n_splits=params.n_splits,
         stride=params.stride,
     )
+    if not list(dataset.locations()):
+        raise ValueError(
+            "No org unit has target data left to train on: the evaluation window "
+            f"(n_periods={params.n_periods}, n_splits={params.n_splits}, stride={params.stride}) "
+            "covers the whole dataset."
+        )
     specification = session.get_or_create_backtest_specification(
         dataset_id=dataset_id, params=params, org_units=list(dataset.locations())
     )

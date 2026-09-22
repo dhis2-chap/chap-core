@@ -609,6 +609,27 @@ def test_create_backtests_rejects_unknown_dataset_or_model_before_queueing(
     assert worker.queued == []
 
 
+def test_create_backtests_rejects_a_window_that_leaves_no_org_unit_to_train_on(
+    override_session, seeded_session, monkeypatch
+):
+    """The endpoint filters the dataset before queueing, so it can refuse up front instead of
+    creating an empty specification and one doomed job per model."""
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    dataset_id = seeded_session.exec(select(DataSet.id)).first()
+
+    payload = {"name": "x", "datasetId": dataset_id, "modelIds": ["naive_model"], "nSplits": 1000}
+    response = client.post("/v1/analytics/create-backtests", json=payload)
+    assert response.status_code == 422, response.text
+    assert "No org unit" in response.json()["detail"]
+    assert worker.queued == []
+    assert (
+        client.get("/v1/crud/backtest-specifications", params={"datasetId": dataset_id, "nSplits": 1000}).json() == []
+    )
+
+
 def test_run_backtest_persists_resolved_params(override_session, p_seeded_engine):
     """The stored row records the parameters that actually ran: n_periods=None is
     resolved from the (monthly) dataset, and an integer model id is resolved to its name."""
