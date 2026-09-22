@@ -49,6 +49,7 @@ from chap_core.assessment.metrics.base import (
     AggregationOp,
     ProbabilisticMetric,
     MetricSpec,
+    OptimizationDirection,
 )
 from chap_core.assessment.metrics import metric
 
@@ -62,7 +63,8 @@ class MySpreadMetric(ProbabilisticMetric):
         metric_name="My Spread",
         aggregation_op=AggregationOp.MEAN,
         description="Standard deviation of forecast samples",
-        optimization_direction=None,
+        optimization_direction=OptimizationDirection.MINIMIZE,
+        valid_hpo_objective=False,
     )
 
     def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:
@@ -213,6 +215,7 @@ class ForecastBiasMetric(ProbabilisticMetric):
         aggregation_op=AggregationOp.MEAN,
         description="Proportion of samples above observed (0.5 = unbiased)",
         optimization_direction=None,
+        target=0.5,
     )
 
     def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:
@@ -227,6 +230,7 @@ from chap_core.assessment.metrics.base import (
     AggregationOp,
     ProbabilisticMetric,
     MetricSpec,
+    TargetBehavior,
 )
 from chap_core.assessment.metrics import metric
 
@@ -252,6 +256,8 @@ class Coverage80Metric(IntervalCoverageMetric):
         aggregation_op=AggregationOp.MEAN,
         description="Proportion within 10th-90th percentile",
         optimization_direction=None,
+        target=0.8,
+        target_behavior=TargetBehavior.AT_LEAST,
     )
     low_pct = 10
     high_pct = 90
