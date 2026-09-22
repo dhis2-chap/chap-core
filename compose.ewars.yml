@@ -4,7 +4,7 @@ services:
     # Pinned to a specific build rather than latest so a deployment stays reproducible
     # (CLIM-979). The model's publish workflow tags every main build as sha-<short commit>;
     # set EWARS_IMAGE_TAG in .env to move the pin.
-    image: ghcr.io/chap-models/chapkit_ewars_model:${EWARS_IMAGE_TAG:-sha-57093e3}
+    image: ghcr.io/chap-models/chapkit_ewars_model:${EWARS_IMAGE_TAG:-sha-e367375}
     platform: linux/amd64
     init: true
     ports:
