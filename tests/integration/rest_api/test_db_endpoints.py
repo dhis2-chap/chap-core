@@ -39,6 +39,7 @@ from chap_core.rest_api.data_models import (
 from chap_core.rest_api.app import app
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.rest_api.db_worker_functions import harmonize_and_add_dataset, run_backtest
+from chap_core.time_period import TimePeriod
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -624,6 +625,20 @@ def _run(session, name, dataset_id, **params):
     )
 
 
+def test_run_backtest_records_the_train_cutoff_not_the_dataset_end(p_seeded_engine):
+    """`last_train_period` is the end of the training window, so it must precede every
+    period forecast from it. Using the end of the full dataset instead puts the cutoff
+    after the held-out window and makes horizon distances come out wrong."""
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        backtest_id = _run(session, "cutoff", dataset_id, n_periods=3, n_splits=2, stride=1)
+        forecasts = session.session.get(Backtest, backtest_id).forecasts
+        assert forecasts
+        assert all(TimePeriod.parse(f.last_train_period) < TimePeriod.parse(f.period) for f in forecasts), (
+            "last_train_period must be before the forecast period"
+        )
+
+
 def test_backtests_with_the_same_parameters_share_one_specification(p_seeded_engine):
     """Deduplication is what makes "these two results are comparable" structural."""
     with SessionWrapper(p_seeded_engine) as session:
@@ -1044,6 +1059,33 @@ def test_get_prediction_setup_includes_linked_predictions(override_session, seed
     body = response.json()
     assert len(body["predictions"]) == 1
     assert body["predictions"][0]["id"] == prediction.id
+    assert body["predictions"][0]["predictionSetupId"] == setup_id
+
+
+@pytest.mark.parametrize("list_predictions", [False, True])
+def test_prediction_response_exposes_setup_id(override_session, seeded_session, list_predictions):
+    prediction = seeded_session.exec(select(Prediction)).first()
+    assert prediction is not None
+    endpoint = "/v1/crud/predictions" if list_predictions else f"/v1/crud/predictions/{prediction.id}"
+
+    def read_prediction():
+        response = client.get(endpoint)
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        return next(item for item in body if item["id"] == prediction.id) if list_predictions else body
+
+    assert read_prediction()["predictionSetupId"] is None
+
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id)
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+    prediction.prediction_setup_id = setup_id
+    seeded_session.add(prediction)
+    seeded_session.commit()
+
+    assert read_prediction()["predictionSetupId"] == setup_id
 
 
 def test_get_prediction_setup_not_found_returns_404(clean_engine, dependency_overrides):
@@ -1569,6 +1611,7 @@ def test_run_prediction_setup_normalizes_dataset_type_to_prediction(
 
     dataset_info = captured["kwargs"]["dataset_create_info"]
     assert dataset_info["type"] == "prediction"
+    assert captured["kwargs"]["prediction_setup_id"] == setup_id
 
 
 @pytest.mark.skip(

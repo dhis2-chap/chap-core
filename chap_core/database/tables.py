@@ -319,6 +319,12 @@ class PredictionBase(DBModel):
     dataset_id: int = Field(
         foreign_key="dataset.id", description="Foreign key to the `DataSet` the prediction was run against."
     )
+    prediction_setup_id: int | None = Field(
+        default=None,
+        foreign_key="predictionsetup.id",
+        nullable=True,
+        description="Foreign key to the `PredictionSetup` that triggered the run, if any.",
+    )
     model_id: str = Field(description="Name of the configured model that produced the prediction.")
     n_periods: int = Field(description="Number of periods the model was asked to forecast.")
     name: str = Field(description="Human-friendly name for the prediction run.")
@@ -346,12 +352,6 @@ class Prediction(PredictionBase, table=True):
         description="Foreign key to the `ConfiguredModelDB` row used to run the prediction.",
     )
     configured_model: Optional["ConfiguredModelDB"] = Relationship()
-    prediction_setup_id: int | None = Field(
-        default=None,
-        foreign_key="predictionsetup.id",
-        nullable=True,
-        description="Foreign key to the `PredictionSetup` that triggered the run, if any.",
-    )
     prediction_setup: Optional["PredictionSetup"] = Relationship(back_populates="predictions")
 
 
