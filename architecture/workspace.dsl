@@ -122,6 +122,26 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
         chapkit.serviceApi.artifactRouter -> chapkit.serviceApi.store "Reads artifact tree"
         chapkit.serviceApi.jobsRouter -> chapkit.serviceApi.jobScheduler "Reads job status"
         chapkit.console -> chapkit.serviceApi "Browses configs/artifacts/jobs; triggers train/predict" "REST"
+
+        # --- Deployment: Docker Compose (compose.yml) --------------------
+        # Mirrors the compose network layout: the broker and database sit on a
+        # separate "backend" network that only chap and worker join alongside
+        # "default", so model services cannot reach either of them.
+        compose = deploymentEnvironment "Docker Compose" {
+            backendNetwork = deploymentNode "backend network" "Broker and database. Model services cannot reach it." "Docker network" {
+                containerInstance chapCore.redis
+                containerInstance chapCore.db
+            }
+            defaultNetwork = deploymentNode "default network" "Every service joins it." "Docker network" {
+                coreServices = deploymentNode "CHAP Core services" "Also on backend." "Docker containers" {
+                    containerInstance chapCore.api
+                    containerInstance chapCore.worker
+                }
+                modelServices = deploymentNode "Model services [0..*]" "Default only. No route to broker or database." "Docker containers" {
+                    containerInstance chapkit.serviceApi
+                }
+            }
+        }
     }
 
     views {
@@ -184,6 +204,11 @@ workspace "CHAP" "Architecture model for the CHAP climate-and-health platform: D
             chapCore.api -> chapCore.redis "Validate input, then queue harmonise-dataset job"
             chapCore.worker -> chapCore.redis "Fetch job"
             chapCore.worker -> chapCore.db "Harmonise & save DataSet + Observations"
+            autolayout lr
+        }
+
+        deployment * compose "Deploy_Compose" "Deployment - Docker Compose. The backend network boundary: REST API and worker reach Redis/Valkey and PostgreSQL; model services do not." {
+            include *
             autolayout lr
         }
 

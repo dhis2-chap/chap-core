@@ -32,6 +32,7 @@ VIEWS: list[tuple[str, str]] = [
     ("Flow_Backtest", "Flow - Run a backtest"),
     ("Flow_Prediction", "Flow - Run a prediction"),
     ("Flow_IngestDataset", "Flow - Import a reusable dataset (not the Modelling App path)"),
+    ("Deploy_Compose", "Deployment - Docker Compose"),
 ]
 
 

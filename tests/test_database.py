@@ -1,10 +1,13 @@
 import logging
+from urllib.parse import urlparse
 
+import fakeredis
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, select
 
+import chap_core.database.database as database_module
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo
@@ -24,6 +27,7 @@ from chap_core.database.model_templates_and_config_tables import (
 )
 from chap_core.database.tables import Backtest
 from chap_core.datatypes import HealthPopulationData
+from chap_core.exceptions import ModelTemplateRevisionConflict
 from chap_core.external.model_configuration import (
     CommandConfig,
     DockerEnvConfig,
@@ -455,35 +459,21 @@ def test_add_model_template_from_url_skips_github_when_version_exists(engine, mo
         "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
         fetch_config,
     )
-    monkeypatch.setattr("chap_core.database.model_template_seed.resolve_commit_sha", lambda url: "a" * 40)
+    url = "https://github.com/example/test_model@" + "a" * 40
     with SessionWrapper(engine) as session:
-        first_id = add_model_template_from_url(
-            "https://github.com/example/test_model@main",
-            session,
-            version="v1",
-            name_override="test_model",
-        )
-
-        def fail_resolve(url):
-            raise AssertionError("existing version must not resolve a commit")
+        first_id = add_model_template_from_url(url, session, version="v1", name_override="test_model")
 
         def fail_fetch(url):
             raise AssertionError("existing version must not fetch github")
 
-        monkeypatch.setattr("chap_core.database.model_template_seed.resolve_commit_sha", fail_resolve)
         monkeypatch.setattr(
             "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
             fail_fetch,
         )
-        second_id = add_model_template_from_url(
-            "https://github.com/example/test_model@main",
-            session,
-            version="v1",
-            name_override="test_model",
-        )
+        second_id = add_model_template_from_url(url, session, version="v1", name_override="test_model")
 
         assert second_id == first_id
-    assert fetched_urls == ["https://github.com/example/test_model@" + "a" * 40]
+    assert fetched_urls == [url]
 
 
 def test_add_model_template_from_url_skips_github_when_version_exists_without_name_override(
@@ -498,38 +488,60 @@ def test_add_model_template_from_url_skips_github_when_version_exists_without_na
         "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
         fetch_config,
     )
-    monkeypatch.setattr("chap_core.database.model_template_seed.resolve_commit_sha", lambda url: "a" * 40)
+    url = "https://github.com/example/test_model@" + "a" * 40
     with SessionWrapper(engine) as session:
-        first_id = add_model_template_from_url("https://github.com/example/test_model@main", session, version="v1")
-
-        def fail_resolve(url):
-            raise AssertionError("existing version must not resolve a commit")
+        first_id = add_model_template_from_url(url, session, version="v1")
 
         def fail_fetch(url):
             raise AssertionError("existing version must not fetch github")
 
-        monkeypatch.setattr("chap_core.database.model_template_seed.resolve_commit_sha", fail_resolve)
         monkeypatch.setattr(
             "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
             fail_fetch,
         )
-        second_id = add_model_template_from_url("https://github.com/example/test_model@main", session, version="v1")
+        second_id = add_model_template_from_url(url, session, version="v1")
 
         assert second_id == first_id
 
 
-def _two_git_model_config_dir(tmp_path):
+def test_reseeding_a_label_with_a_new_sha_is_a_revision_conflict(engine, model_template_yaml_config, monkeypatch):
+    monkeypatch.setattr(
+        "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
+        lambda url: model_template_yaml_config.model_copy(deep=True),
+    )
+    with SessionWrapper(engine) as session:
+        template_id = add_model_template_from_url("https://github.com/example/test_model@" + "a" * 40, session, "v1")
+        with pytest.raises(ModelTemplateRevisionConflict, match="version 'v1'.*'a{40}'.*'b{40}'.*new version"):
+            add_model_template_from_url("https://github.com/example/test_model@" + "b" * 40, session, "v1")
+        # The stored row is untouched.
+        assert session.get_model_template(template_id).source_digest == "a" * 40
+
+
+def test_reseeding_a_label_without_a_stored_digest_keeps_the_row(engine, model_template_yaml_config, monkeypatch):
+    """A row seeded before digests were recorded has nothing to compare against."""
+    monkeypatch.setattr(
+        "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
+        lambda url: model_template_yaml_config.model_copy(deep=True),
+    )
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config, source_digest=None)
+        url = f"https://github.com/example/test_model@{'a' * 40}"
+        assert add_model_template_from_url(url, session, model_template_yaml_config.version) == template_id
+        assert session.get_model_template(template_id).source_digest is None
+
+
+def _two_git_model_config_dir(tmp_path, ok_sha="a" * 40):
     config_dir = tmp_path / "configured_models"
-    config_dir.mkdir()
+    config_dir.mkdir(exist_ok=True)
     (config_dir / "default.yaml").write_text(
         "- url: https://github.com/example/broken_model\n"
         "  name: broken_model\n"
         "  versions:\n"
-        '    nightly_build: "@main"\n'
+        f'    v1: "@{"b" * 40}"\n'
         "- url: https://github.com/example/ok_model\n"
         "  name: ok_model\n"
         "  versions:\n"
-        '    v1: "@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\n'
+        f'    v1: "@{ok_sha}"\n'
     )
     return config_dir
 
@@ -559,6 +571,24 @@ def test_seed_skips_git_model_when_source_digest_cannot_be_resolved(
     assert "naive_model" in names
 
 
+def test_seed_fails_when_a_label_is_reseeded_with_a_new_sha(engine, tmp_path, model_template_yaml_config, monkeypatch):
+    monkeypatch.setattr(
+        "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url",
+        lambda url: model_template_yaml_config.model_copy(deep=True),
+    )
+    with Session(engine) as session:
+        seed_configured_models_from_config_dir(session, directory=_two_git_model_config_dir(tmp_path))
+        # Startup must stop instead of skipping the model, so the operator sees the conflict.
+        with pytest.raises(ModelTemplateRevisionConflict):
+            seed_configured_models_from_config_dir(session, directory=_two_git_model_config_dir(tmp_path, "c" * 40))
+        # Reseeding the same shas reuses the rows.
+        seed_configured_models_from_config_dir(session, directory=_two_git_model_config_dir(tmp_path))
+
+    with SessionWrapper(engine) as session:
+        digests = {t.name: t.source_digest for t in session.session.exec(select(ModelTemplateDB)).all()}
+    assert digests["ok_model"] == "a" * 40
+
+
 def test_seed_skips_git_model_when_github_fetch_fails(engine, tmp_path, model_template_yaml_config, monkeypatch):
     monkeypatch.setattr("chap_core.database.model_template_seed.resolve_commit_sha", lambda url: "a" * 40)
 
@@ -580,50 +610,160 @@ def test_seed_skips_git_model_when_github_fetch_fails(engine, tmp_path, model_te
     assert "naive_model" in names
 
 
-def _two_chapkit_model_config_dir(tmp_path):
+def _two_chapkit_model_config_dir(tmp_path, hosts=("broken-chapkit", "ok-chapkit")):
     config_dir = tmp_path / "configured_models"
     config_dir.mkdir()
     (config_dir / "default.yaml").write_text(
-        "- url: http://broken-chapkit:8000\n"
-        "  uses_chapkit: true\n"
-        "  versions:\n"
-        '    v1: "/v1"\n'
-        "- url: http://ok-chapkit:8000\n"
-        "  uses_chapkit: true\n"
-        "  versions:\n"
-        '    v1: "/v1"\n'
+        "".join(f'- url: http://{host}:8000\n  uses_chapkit: true\n  versions:\n    v1: "/v1"\n' for host in hosts)
     )
     return config_dir
 
 
-def test_seed_skips_chapkit_model_when_version_is_missing(engine, tmp_path, model_template_yaml_config, monkeypatch):
+def _fake_chapkit_template(model_template_yaml_config, versions=None, digests=None):
+    """A stand-in for ExternalChapkitModelTemplate. The template name is the URL host, and
+    `versions` and `digests` map a host to what that service reports."""
+
     class FakeChapkitTemplate:
         def __init__(self, url):
             self.url = url
+            self.name = urlparse(url).hostname
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            return None
 
         def wait_for_healthy(self, timeout=30):
             return None
 
-        def get_model_template_config(self):
+        def get_model_template_config_with_digest(self):
             config = model_template_yaml_config.model_copy(deep=True)
-            if "broken" in self.url:
-                config.name = "broken_chapkit"
-                config.version = None
-                return config
-            config.name = "ok_chapkit"
-            return config
+            config.name = self.name
+            config.source_url = self.url
+            config.version = (versions or {}).get(self.name, config.version)
+            return config, self.get_reported_source_digest()
 
+        def get_reported_source_digest(self):
+            return (digests or {}).get(self.name)
+
+        def get_model(self, configured_model, prediction_length=None):
+            return ("model", self.name, prediction_length)
+
+        def close(self):
+            FakeChapkitTemplate.closed.append(self.name)
+
+    FakeChapkitTemplate.closed = []
+    return FakeChapkitTemplate
+
+
+@pytest.fixture
+def seeded_chapkit_model(engine, tmp_path, model_template_yaml_config, monkeypatch):
+    """Seed one chapkit model whose service reported the given digest, and swap in the fake
+    template at run time reporting `reported_digest`. Returns the configured model name."""
+
+    def _seed(stored_digest, reported_digest):
+        monkeypatch.setattr(
+            "chap_core.database.model_template_seed.ExternalChapkitModelTemplate",
+            _fake_chapkit_template(model_template_yaml_config, digests={"ok-chapkit": stored_digest or "f" * 40}),
+        )
+        with Session(engine) as session:
+            seed_configured_models_from_config_dir(
+                session, directory=_two_chapkit_model_config_dir(tmp_path, hosts=("ok-chapkit",))
+            )
+            if stored_digest is None:
+                # A row stored before chapkit services reported a revision.
+                template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == "ok-chapkit")).one()
+                template.source_digest = None
+                session.commit()
+        monkeypatch.setattr(
+            "chap_core.database.database.ExternalChapkitModelTemplate",
+            _fake_chapkit_template(model_template_yaml_config, digests={"ok-chapkit": reported_digest}),
+        )
+        # No service registry in tests, so the stored source url is used.
+        monkeypatch.setattr("chap_core.rest_api.v2.dependencies.get_redis", lambda: fakeredis.FakeRedis())
+        return "ok-chapkit"
+
+    return _seed
+
+
+def test_chapkit_model_runs_when_service_reports_the_stored_revision(engine, seeded_chapkit_model):
+    name = seeded_chapkit_model("a" * 40, "a" * 40)
+    with SessionWrapper(engine) as session:
+        configured_model = session.get_configured_model_by_name(name)
+        assert session.get_configured_model_with_code(configured_model.id, prediction_length=3) == ("model", name, 3)
+
+
+@pytest.mark.parametrize(
+    "stored_digest, reported_digest", [("a" * 40, "b" * 40), (None, "a" * 40), ("a" * 40, None), (None, None)]
+)
+def test_chapkit_model_is_refused_when_service_reports_another_revision(
+    engine, seeded_chapkit_model, stored_digest, reported_digest
+):
+    name = seeded_chapkit_model(stored_digest, reported_digest)
+    with SessionWrapper(engine) as session:
+        configured_model = session.get_configured_model_by_name(name)
+        with pytest.raises(ModelTemplateRevisionConflict, match="info.version"):
+            session.get_configured_model_with_code(configured_model.id)
+    # The refused template does not leak its HTTP client.
+    assert database_module.ExternalChapkitModelTemplate.closed == [name]
+
+
+def test_seed_skips_chapkit_model_when_version_is_missing(engine, tmp_path, model_template_yaml_config, monkeypatch):
     monkeypatch.setattr(
         "chap_core.database.model_template_seed.ExternalChapkitModelTemplate",
-        FakeChapkitTemplate,
+        _fake_chapkit_template(
+            model_template_yaml_config, versions={"broken-chapkit": None}, digests={"ok-chapkit": "a" * 40}
+        ),
     )
     with Session(engine) as session:
         seed_configured_models_from_config_dir(session, directory=_two_chapkit_model_config_dir(tmp_path))
 
     names = _seeded_template_names(engine)
-    assert "broken_chapkit" not in names
-    assert "ok_chapkit" in names
+    assert "broken-chapkit" not in names
+    assert "ok-chapkit" in names
     assert "naive_model" in names
+
+
+def test_seed_warns_when_chapkit_service_reports_another_revision_under_a_stored_version(
+    engine, tmp_path, model_template_yaml_config, monkeypatch, caplog
+):
+    config_dir = _two_chapkit_model_config_dir(tmp_path, hosts=("ok-chapkit",))
+    for digest in ("a" * 40, "b" * 40):
+        monkeypatch.setattr(
+            "chap_core.database.model_template_seed.ExternalChapkitModelTemplate",
+            _fake_chapkit_template(model_template_yaml_config, digests={"ok-chapkit": digest}),
+        )
+        with (
+            Session(engine) as session,
+            caplog.at_level(logging.WARNING, logger="chap_core.database.model_template_seed"),
+        ):
+            seed_configured_models_from_config_dir(session, directory=config_dir)
+
+    # A seeded service is not in the registry, so the warning is the only early signal.
+    assert any("a" * 40 in r.message and "b" * 40 in r.message for r in caplog.records)
+    with SessionWrapper(engine) as session:
+        digests = {t.name: t.source_digest for t in session.session.exec(select(ModelTemplateDB)).all()}
+    assert digests["ok-chapkit"] == "a" * 40
+
+
+def test_seed_skips_chapkit_model_that_reports_no_git_revision(
+    engine, tmp_path, model_template_yaml_config, monkeypatch
+):
+    # A bare docker build without the GIT_REVISION build-arg reports no revision. Storing it
+    # would burn the version label, so the model is skipped until it reports one.
+    monkeypatch.setattr(
+        "chap_core.database.model_template_seed.ExternalChapkitModelTemplate",
+        _fake_chapkit_template(model_template_yaml_config, digests={"pinned-chapkit": "a" * 40}),
+    )
+    config_dir = _two_chapkit_model_config_dir(tmp_path, hosts=("unpinned-chapkit", "pinned-chapkit"))
+    with Session(engine) as session:
+        seed_configured_models_from_config_dir(session, directory=config_dir)
+
+    with SessionWrapper(engine) as session:
+        digests = {t.name: t.source_digest for t in session.session.exec(select(ModelTemplateDB)).all()}
+    assert digests["pinned-chapkit"] == "a" * 40
+    assert "unpinned-chapkit" not in digests
 
 
 def test_seed_raises_database_error_instead_of_hiding_model(engine, tmp_path, model_template_yaml_config, monkeypatch):
