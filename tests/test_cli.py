@@ -55,12 +55,13 @@ def _make_fake_estimator(min_prediction_periods, max_prediction_periods):
     return estimator
 
 
-def _patched_eval_chain(fake_estimator, patch_filter=True):
+def _patched_eval_chain(fake_estimator, patch_filter=True, dataset=None):
     """Stack mocks for the parts of eval_cmd that aren't under test, returning
     the Evaluation mock so the caller can inspect ``Evaluation.create`` calls.
 
     By default the pre-backtest region filter is patched to a passthrough so the
     MagicMock dataset survives; tests exercising the filter pass ``patch_filter=False``.
+    Tests that need the backtest to actually run pass a real ``dataset``.
     """
     template_cm = MagicMock(name="ModelTemplate")
     template_cm.__enter__.return_value = template_cm
@@ -79,7 +80,7 @@ def _patched_eval_chain(fake_estimator, patch_filter=True):
     stack.enter_context(
         patch(
             "chap_core.cli_endpoints.evaluate.load_dataset_from_csv",
-            return_value=MagicMock(name="DataSet"),
+            return_value=MagicMock(name="DataSet") if dataset is None else dataset,
         )
     )
     if patch_filter:
@@ -107,6 +108,38 @@ def _patched_eval_chain(fake_estimator, patch_filter=True):
     eval_mock = stack.enter_context(patch("chap_core.assessment.evaluation.Evaluation"))
     eval_mock.create.return_value = MagicMock(name="EvaluationInstance")
     return stack, eval_mock
+
+
+def test_eval_cmd_dry_run_retrains_n_retrain_times(tmp_path, weekly_full_data):
+    """A dry run has to follow the same retrain schedule as the real run. Training once
+    when n_retrain is 2 leaves the retrain-on-historic-data path unexercised, which is
+    exactly the failure a dry run is supposed to surface before the real run."""
+    from chap_core.api_types import BacktestParams, RunConfig
+    from chap_core.predictor.naive_estimator import NaiveEstimator
+
+    class _CountingEstimator:
+        def __init__(self):
+            self.inner = NaiveEstimator()
+            self.train_calls = 0
+            self.model_information = _make_fake_estimator(None, None).model_information
+
+        def train(self, data):
+            self.train_calls += 1
+            return self.inner.train(data)
+
+    estimator = _CountingEstimator()
+    stack, _ = _patched_eval_chain(estimator, dataset=weekly_full_data)
+    with stack:
+        eval_cmd(
+            model_name="dummy",
+            dataset_csv="dummy.csv",
+            output_file=tmp_path / "out.nc",
+            backtest_params=BacktestParams(n_periods=3, n_splits=4, stride=1, n_retrain=2),
+            run_config=RunConfig(),
+            dry_run=True,
+        )
+
+    assert estimator.train_calls == 2
 
 
 def test_eval_cmd_raises_when_n_periods_below_min_prediction_periods(tmp_path):
