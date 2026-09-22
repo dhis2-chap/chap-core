@@ -22,6 +22,7 @@ from chap_core.assessment.metrics.base import (
     AggregationOp,
     Metric,
     MetricSpec,
+    OptimizationDirection,
 )
 
 # The outbreak metrics score forecasts against seasonal thresholds, computed by the
@@ -141,9 +142,6 @@ class SensitivityMetric(_OutbreakMetric):
 
     Measures the proportion of actual outbreaks that were correctly
     predicted (alerted) by the forecast.
-
-    Not a valid standalone optimization objective: it is maximised by alerting
-    every period, so ``optimization_direction`` is deliberately unset.
     """
 
     spec = MetricSpec(
@@ -151,6 +149,7 @@ class SensitivityMetric(_OutbreakMetric):
         metric_name="Sensitivity",
         aggregation_op=AggregationOp.MEAN,
         description="True positive rate for outbreak detection alerts",
+        optimization_direction=OptimizationDirection.MAXIMIZE,
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
@@ -165,9 +164,6 @@ class SpecificityMetric(_OutbreakMetric):
 
     Measures the proportion of non-outbreak periods that were correctly
     not alerted by the forecast.
-
-    Not a valid standalone optimization objective: it is maximised by never
-    alerting, so ``optimization_direction`` is deliberately unset.
     """
 
     spec = MetricSpec(
@@ -175,6 +171,7 @@ class SpecificityMetric(_OutbreakMetric):
         metric_name="Specificity",
         aggregation_op=AggregationOp.MEAN,
         description="True negative rate for outbreak detection alerts",
+        optimization_direction=OptimizationDirection.MAXIMIZE,
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
@@ -189,10 +186,6 @@ class OutbreakAccuracyMetric(_OutbreakMetric):
 
     Measures the proportion of all periods where the alert status
     correctly matches the outbreak status: (TP + TN) / (TP + TN + FP + FN).
-
-    Not a valid standalone optimization objective: outbreaks are rare, so it is
-    close to maximised by never alerting. ``optimization_direction`` is
-    deliberately unset.
     """
 
     spec = MetricSpec(
@@ -200,6 +193,7 @@ class OutbreakAccuracyMetric(_OutbreakMetric):
         metric_name="Outbreak Accuracy",
         aggregation_op=AggregationOp.MEAN,
         description="Proportion of correctly classified outbreak/non-outbreak periods",
+        optimization_direction=OptimizationDirection.MAXIMIZE,
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:

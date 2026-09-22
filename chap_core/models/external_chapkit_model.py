@@ -200,10 +200,14 @@ class ExternalChapkitModelTemplate:
         self.client = CHAPKitRestAPIWrapper(self.rest_api_url)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Close the client, and stop the service if in directory mode."""
+    def close(self) -> None:
+        """Close the HTTP client without stopping a directory-mode service."""
         if self.client is not None:
             self.client.close()
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Close the client, and stop the service if in directory mode."""
+        self.close()
         if self._service_manager is not None and not self._is_url_mode:
             self._service_manager.__exit__(exc_type, exc_val, exc_tb)
             self.rest_api_url = None
@@ -306,6 +310,12 @@ class ExternalChapkitModelTemplate:
         """
         return self.get_model_template_config_with_digest()[0]
 
+    def get_reported_source_digest(self) -> str | None:
+        """The commit the service reports it was built from, or None when it does not report one."""
+        self._ensure_initialized()
+        assert self.client is not None
+        return self.client.info().git_revision
+
     def get_model_template_config_with_digest(self) -> tuple[ModelTemplateConfigV2, str | None]:
         """Fetch the service info once and return the template config together with the commit
         the service reports it was built from, or None when it does not report a usable one."""
@@ -319,6 +329,25 @@ class ExternalChapkitModelTemplate:
 
         config = ml_service_info_to_model_template_config(model_info, self.rest_api_url, user_options)
         return config, model_info.git_revision
+
+
+def _failure_message(kind: str, job, artifact_id: str, client: CHAPKitRestAPIWrapper) -> str:
+    """Describe a failed chapkit job, including the model's stdout and stderr.
+
+    chapkit inlines only a truncated stderr tail in ``job.error``; the complete script
+    output is kept on the run's diagnostic artifact, stored under the artifact id that
+    was pre-allocated when the run was submitted. A cancelled run leaves no artifact.
+    """
+    message = (
+        f"{kind} job {job.id} ended with status '{job.status}': {job.error or 'Unknown error'}. "
+        f"Stacktrace: {job.error_traceback or ''}"
+    )
+    if job.status == "canceled":
+        return message
+    output = client.get_run_output(artifact_id)
+    if output:
+        return f"{message}\nModel output:\n{output}"
+    return message
 
 
 class ExternalChapkitModel(ExternalModelBase):
@@ -390,10 +419,7 @@ class ExternalChapkitModel(ExternalModelBase):
         job, artifact_id = self.client.train_and_wait(self.configuration_id, new_df, run_info, geo)
 
         if job.status != "completed":
-            raise ModelFailedException(
-                f"Training job {job.id} ended with status '{job.status}': {job.error or 'Unknown error'}. "
-                f"Stacktrace: {job.error_traceback or ''}"
-            )
+            raise ModelFailedException(_failure_message("Training", job, artifact_id, self.client))
 
         assert artifact_id is not None, f"No artifact_id returned: {job}"
         self._train_id = artifact_id
@@ -415,10 +441,7 @@ class ExternalChapkitModel(ExternalModelBase):
         )
 
         if job.status != "completed":
-            raise ModelFailedException(
-                f"Prediction job {job.id} ended with status '{job.status}': {job.error or 'Unknown error'}. "
-                f"Stacktrace: {job.error_traceback or ''}"
-            )
+            raise ModelFailedException(_failure_message("Prediction", job, artifact_id, self.client))
 
         assert artifact_id is not None, f"No prediction artifact: {job.error or ''}"
 
