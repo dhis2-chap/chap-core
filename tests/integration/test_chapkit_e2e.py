@@ -29,6 +29,9 @@ from chap_core.rest_api.db_worker_functions import run_backtest
 from chap_core.rest_api.services.schemas import MLServiceInfo
 
 FIXTURE_DIR = Path(__file__).parent.parent / "fixtures" / "chapkit_test_model"
+# Chapkit reports the GIT_REVISION env var as git_revision. A template must be stored
+# from the revision its service reports, or a run against it is refused.
+FIXTURE_GIT_REVISION = "0123456789abcdef0123456789abcdef01234567"
 EXAMPLE_DATA = Path(__file__).parent.parent.parent / "example_data"
 EXAMPLE_CSV = EXAMPLE_DATA / "vietnam_monthly.csv"
 EXAMPLE_GEOJSON = EXAMPLE_DATA / "vietnam_monthly.geojson"
@@ -76,6 +79,7 @@ def chapkit_service(tmp_path_factory, chapkit_train_log):
     env = {
         **os.environ,
         "SERVICEKIT_ORCHESTRATOR_URL": "",  # disable registration for CLI test
+        "GIT_REVISION": FIXTURE_GIT_REVISION,
         "CHAPKIT_DATABASE_URL": f"sqlite+aiosqlite:///{data_dir}/chapkit.db",
         "CHAPKIT_TEST_TRAIN_LOG": str(chapkit_train_log),
     }
@@ -137,7 +141,7 @@ def _register_service_and_dataset(session: SessionWrapper, chapkit_service: str)
     info_response = httpx.get(f"{chapkit_service}/api/v1/info")
     info = MLServiceInfo.model_validate(info_response.json())
     template_config = ml_service_info_to_model_template_config(info, chapkit_service)
-    template_id = session.add_model_template_from_yaml_config(template_config)
+    template_id = session.add_model_template_from_yaml_config(template_config, source_digest=info.git_revision)
     session.add_configured_model(template_id, ModelConfiguration(), uses_chapkit=True)
     return DataSetManager(session.session).save_dataset_from_csv("vietnam_test", EXAMPLE_CSV, EXAMPLE_GEOJSON)
 
@@ -157,6 +161,7 @@ def test_chapkit_service_info(chapkit_service):
     info = r.json()
     assert info["id"] == "chapkit-test-model"
     assert info["period_type"] == "monthly"
+    assert info["git_revision"] == FIXTURE_GIT_REVISION
 
 
 @pytest.mark.slow
