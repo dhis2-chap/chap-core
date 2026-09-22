@@ -387,7 +387,10 @@ def database_url():
     project_root = Path(__file__).parent.parent
     db_dir = project_root / "target"
     db_dir.mkdir(exist_ok=True)
-    return f"sqlite:///{db_dir}/test.db"
+    # One file per xdist worker so parallel processes do not drop each other's tables
+    worker = os.environ.get("PYTEST_XDIST_WORKER")
+    name = f"test_{worker}.db" if worker else "test.db"
+    return f"sqlite:///{db_dir}/{name}"
 
 
 @pytest.fixture(scope="session")

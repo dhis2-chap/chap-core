@@ -192,7 +192,9 @@ def test_list_jobs(celery_session_worker, big_request_json, test_config):
     time.sleep(2)
     jobs = pool.list_jobs()
     assert len(jobs) >= 1
-    assert any(j.id == job.id for j in jobs), "Job not found in list of jobs"
-    # assert jobs[0].id == job.id
-    assert jobs[0].type == "time_consuming_function"
-    assert jobs[0].name == "test_job_name"
+    # Redis is shared with other test processes under xdist, so look up our own job
+    # rather than assuming it is the most recent one.
+    matching = [j for j in jobs if j.id == job.id]
+    assert matching, "Job not found in list of jobs"
+    assert matching[0].type == "time_consuming_function"
+    assert matching[0].name == "test_job_name"
