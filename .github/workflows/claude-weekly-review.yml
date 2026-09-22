@@ -28,7 +28,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue list --label weekly-review --state all --limit 1 \
+          gh issue list --label weekly-review --author "app/github-actions" \
+            --state all --limit 1 \
             --json body --jq '.[0].body // "No previous report."' > previous-report.md
           {
             echo "# Commits merged in the last 7 days"
@@ -100,6 +101,7 @@ jobs:
             --model claude-fable-5-1
             --max-turns 80
             --disallowedTools "Agent,Task,Skill"
+            --allowedTools "Write"
 
       - name: Open issue with the report
         env:
