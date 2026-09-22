@@ -1,7 +1,7 @@
 import itertools
 import math
 import random
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import optuna
 
@@ -132,7 +132,7 @@ class TPESearcher(Searcher):
     def __init__(self, direction: str):
         if direction not in ("maximize", "minimize"):
             raise ValueError("Invalid optimization direction")
-        self._direction = direction
+        self.direction = cast("Literal['maximize', 'minimize']", direction)
         self._pending: dict[int, optuna.trial.Trial] = {}
         self._study: optuna.study.Study | None = None
 
@@ -142,7 +142,7 @@ class TPESearcher(Searcher):
         self._keys = list(search_space.keys())
         self._dists = {k: _to_optuna_distr(v) for k, v in search_space.items()}
         self._study = optuna.create_study(
-            direction=self._direction,
+            direction=self.direction,
             sampler=optuna.samplers.TPESampler(seed=seed),
         )
         self._pending.clear()

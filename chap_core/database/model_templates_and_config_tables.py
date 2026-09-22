@@ -9,6 +9,7 @@ from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 from chap_core.database.base_tables import DBModel
+from chap_core.exceptions import ModelTemplateRevisionConflict
 from chap_core.model_spec import PeriodType
 
 logger = logging.getLogger(__name__)
@@ -165,6 +166,25 @@ def drifted_template_content_fields(existing: ModelTemplateDB, incoming: ModelTe
         for field in ModelTemplateDB.model_fields
         if field not in _NON_CONTENT_TEMPLATE_FIELDS
         and getattr(existing, field, None) != getattr(incoming, field, None)
+    )
+
+
+def chapkit_revision_conflict(
+    template: "ModelTemplateDB", reported_digest: str | None
+) -> ModelTemplateRevisionConflict | None:
+    """The conflict between a stored chapkit template and the revision its service reports now, or None.
+
+    A chapkit template must report a git revision to run, so an unknown revision on either
+    side is a conflict too. A version bump in the service creates a new row.
+    """
+    if template.source_digest is not None and template.source_digest == reported_digest:
+        return None
+    return ModelTemplateRevisionConflict(
+        template.name,
+        template.version,
+        template.source_digest,
+        reported_digest,
+        "set a new info.version in the chapkit service (built with the GIT_REVISION build arg) and register it again.",
     )
 
 

@@ -181,5 +181,5 @@ def test_objective_rejects_metric_not_supported_as_direct_hpo_objective() -> Non
         Objective(
             model_template=template,
             backtest_params=BacktestParams(n_periods=1, n_splits=1, stride=1),
-            metric="sensitivity",
+            metric="coverage_10_90",
         )

@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from chap_core.assessment.metrics.base import OptimizationDirection
 from chap_core.assessment.metrics.outbreak_detection import (
     OutbreakAccuracyMetric,
     SensitivityMetric,
@@ -303,7 +304,6 @@ def test_outbreak_and_alert_drops_uncomputable_thresholds(threshold_value):
     assert outbreak_and_alert(historical, observations, forecasts).empty
 
 
-def test_outbreak_metrics_are_not_optimization_objectives():
-    """None of the three is valid alone: two are maximised by degenerate models, accuracy by silence."""
+def test_outbreak_metrics_are_maximized():
     for metric_cls in (SensitivityMetric, SpecificityMetric, OutbreakAccuracyMetric):
-        assert metric_cls.spec.optimization_direction is None
+        assert metric_cls.spec.optimization_direction == OptimizationDirection.MAXIMIZE

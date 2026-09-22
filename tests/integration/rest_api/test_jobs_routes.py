@@ -149,6 +149,7 @@ def test_prediction_result_returns_prediction(monkeypatch, override_session):
     assert body["modelId"] == "naive_model"
     assert body["nPeriods"] == 3
     assert body["name"] == "test prediction"
+    assert body["predictionSetupId"] is None
 
 
 def test_evaluation_result_returns_backtest(monkeypatch, override_session):
