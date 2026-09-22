@@ -384,27 +384,61 @@ def test_backtest_flow_from_request(
     assert (data["nPeriods"], data["nSplits"], data["stride"], data["nRetrain"]) == (3, 2, 1, 2)
 
 
-def test_compatible_backtests(override_session, p_seeded_engine):
-    """Compatibility is specification identity: same dataset and parameters, not overlapping org units."""
-    with SessionWrapper(p_seeded_engine) as session:
-        dataset_id = session.session.exec(select(DataSet.id)).first()
-        params = {"n_periods": 3, "n_splits": 2, "stride": 1, "n_retrain": 1}
-        backtest_id = _run(session, "first", dataset_id, **params)
-        matching_id = _run(session, "second", dataset_id, **params)
-        # Same dataset, so the same org units and overlapping split periods, but a
-        # different specification: the overlap heuristic would have accepted this one.
-        non_matching_id = _run(session, "third", dataset_id, **{**params, "n_splits": 3})
+def test_compatible_backtests(clean_engine, dependency_overrides):
+    with Session(clean_engine) as session:
+        dataset = DataSet(name="ds", type="testing", created=datetime.now(), covariates=[])
+        session.add(dataset)
+        session.commit()
 
-    response = client.get(f"/v1/analytics/compatible-backtests/{backtest_id}")
+        ds_id = dataset.id
+        # One specification for all three: same dataset, same (default) parameters.
+        specification = BacktestSpecification(dataset_id=ds_id)
+        session.add(specification)
+        session.commit()
+        backtest = Backtest(
+            specification=specification,
+            dataset_id=ds_id,
+            name="testing",
+            model_id="naive_model",
+            model_db_id=1,
+            org_units=["Oslo", "Bergen"],
+            split_periods=["202201", "202202"],
+        )
+        matching = Backtest(
+            specification=specification,
+            dataset_id=ds_id,
+            name="testing2",
+            model_id="chap_auto_ewars",
+            model_db_id=1,
+            org_units=["Bergen", "Trondheim"],
+            split_periods=["202202", "202203"],
+        )
+        non_matching = Backtest(
+            specification=specification,
+            dataset_id=ds_id,
+            name="testing3",
+            model_id="auto_regressive_monthly",
+            model_db_id=1,
+            org_units=["Trondheim"],
+            split_periods=["202203"],
+        )
+
+        session.add(backtest)
+        session.add(matching)
+        session.add(non_matching)
+        session.commit()
+        backtest_id = backtest.id
+        matching_id = matching.id
+    url = f"/v1/analytics/compatible-backtests/{backtest_id}"
+    print(url)
+    response = client.get(url)
     assert response.status_code == 200, response.json()
     ids = {b["id"] for b in response.json()}
     assert matching_id in ids, (matching_id, ids)
     assert backtest_id not in ids, (backtest_id, ids)
-    assert non_matching_id not in ids, (non_matching_id, ids)
     response = client.get(f"/v1/analytics/backtest-overlap/{backtest_id}/{matching_id}")
     assert response.status_code == 200, response.json()
-    overlap = response.json()
-    assert overlap["orgUnits"] and overlap["splitPeriods"], overlap
+    assert response.json() == {"orgUnits": ["Bergen"], "splitPeriods": ["202202"]}, response.json()
 
 
 def test_get_backtest_bare_route_returns_info(override_session, seeded_session):

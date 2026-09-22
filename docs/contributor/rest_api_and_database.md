@@ -85,7 +85,7 @@ Higher-level endpoints used by the Modeling App:
 - `GET /evaluation-entry` -- return quantile-based forecast data for a backtest.
 - `GET /prediction-entry/{id}` -- return quantile-based forecast data for a prediction.
 - `GET /actualCases/{id}` -- return observed disease cases for a backtest's dataset.
-- `GET /compatible-backtests/{id}` -- find the other backtests on the same specification, which are comparable by construction.
+- `GET /compatible-backtests/{id}` -- find backtests compatible for comparison.
 - `GET /backtest-overlap/{id1}/{id2}` -- find overlapping org units and periods.
 - `GET /data-sources` -- return the list of available climate data sources.
 - `GET /covariate-names` -- suggest covariate names (standard names plus what live model templates require).

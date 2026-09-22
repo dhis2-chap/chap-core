@@ -214,19 +214,24 @@ def _filter_dataset_by_locations(
 def get_compatible_backtests(
     backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
 ):
-    """Find every other backtest that ran under the same specification as this one — the same dataset and evaluation parameters, so the same org units and split periods.
+    """Find every other backtest that shares at least one region and one split period with this one — i.e. backtests it makes sense to overlay or diff against in a plot.
 
-    Use this to power a "compare to..." picker in the UI. Backtests on one specification
-    are comparable by construction; ``GET /v1/crud/backtest-specifications/{id}`` returns
-    the same set including this backtest.
+    Use this to power a "compare to..." picker in the UI without offering choices that
+    would produce empty intersections.
     """
     logger.info(f"Checking compatible backtests for {backtest_id}")
     backtest = session.get(Backtest, backtest_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="Backtest not found")
+    org_units = set(backtest.org_units)
+    split_periods = set(backtest.split_periods)
+    res = session.exec(
+        select(Backtest.id, Backtest.org_units, Backtest.split_periods).where(Backtest.id != backtest_id)
+    ).all()
+    ids = [bt_id for bt_id, o, s in res if set(o) & org_units and set(s) & split_periods]
     backtests = session.exec(
         select(Backtest)
-        .where(Backtest.specification_id == backtest.specification_id, Backtest.id != backtest_id)
+        .where(Backtest.id.in_(ids))  # type: ignore[union-attr, attr-defined]
         .options(
             selectinload(Backtest.specification),  # type: ignore[arg-type]
             selectinload(Backtest.dataset).defer(DataSetTable.geojson),  # type: ignore[arg-type]
