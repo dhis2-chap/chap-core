@@ -62,7 +62,23 @@ describing the code they ran.
 - **versions** (required): Named versions mapping to full commit shas, optionally prefixed with `@`. Branches and tags are not allowed. Only the last entry is seeded, in every file -- earlier entries serve as historical documentation.
 - **configurations** (optional): Named configurations for the model template. Each configuration can set `user_option_values` (model-specific parameters) and `additional_continuous_covariates`. If omitted, a single "default" configuration with empty values is created.
 
-Chapkit model services do **not** belong in these files. They register themselves with Chap on startup via `SERVICEKIT_ORCHESTRATOR_URL`, which needs no entry here and no image rebuild -- see [Running Your Own Model](../../docs/modeling-app/running-your-own-model.md).
+### Marketplace models
+
+A chapkit model from the [CHAP Model Marketplace](https://github.com/dhis2-chap/model-marketplace) is
+declared with a single `marketplace:` entry naming its marketplace id:
+
+```yaml
+- marketplace: chapkit_ewars_model
+```
+
+On startup CHAP resolves the model's verified stable version from the registry and stores its template
+and verified configurations, the same registration `chap-admin install` makes over the REST API. The entry
+does not run the service: start it with `chap-admin install` or an overlay such as `compose.ewars.yml`.
+The template's source address is the in-network name `chap-admin install` uses,
+`http://marketplace-<service-id>:8000`; a service started under another name is found through its
+self-registration instead. A chapkit service that only self-registers is not a model in CHAP; see
+[Running Your Own Model](../../docs/modeling-app/running-your-own-model.md) for images that have no
+marketplace entry.
 
 ## Adding models
 

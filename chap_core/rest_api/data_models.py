@@ -333,6 +333,32 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
         return self.max_prediction_periods
 
 
+class ModelTemplateCreate(DBModel, ModelTemplateInformation, ModelTemplateMetaData):
+    """Request body for storing a model template version, for example from a marketplace entry.
+
+    A version is write-once: posting a stored name and version again returns the stored
+    row, and posting it with another source digest is refused.
+    """
+
+    name: str = Field(description="Canonical identifier of the template; the chapkit service id for chapkit models.")
+    version: str = Field(description="Version label of this template.")
+    source_url: str | None = Field(
+        default=None, description="Where the template runs or lives: the service URL for chapkit models."
+    )
+    source_digest: str | None = Field(
+        default=None, description="The revision this version came from, for example a Git commit SHA."
+    )
+    uses_chapkit: bool = Field(
+        default=False, description="When True, the template is served by a chapkit REST endpoint."
+    )
+
+
+class ModelTemplateFromService(DBModel):
+    """Request body for storing a model template from a registered chapkit service."""
+
+    service_id: str = Field(description="Id the service registered under in the v2 service registry.")
+
+
 class ConfiguredModelInfoRead(DBModel):
     """Detailed read view for a single configured model.
 

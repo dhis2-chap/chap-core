@@ -130,6 +130,10 @@ def schema_cmd(
 def register_commands(app):
     from cyclopts import App
 
-    model_app = App(name="model", help="Model introspection commands.")
+    from chap_core.cli_endpoints import marketplace
+
+    model_app = App(name="model", help="Model introspection commands and local model services.")
     model_app.command(name="schema")(schema_cmd)
+    model_app.command(name="start")(marketplace.start)
+    model_app.command(name="stop")(marketplace.stop)
     app.command(model_app)

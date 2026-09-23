@@ -5,7 +5,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from chap_core.exceptions import ModelTemplateRevisionConflict
 from chap_core.model_spec import PeriodType
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
-from chap_core.models.local_configuration import parse_local_model_config_from_directory
+from chap_core.models.local_configuration import MarketplaceModelSeed, parse_local_model_config_from_directory
+from chap_core.rest_api.data_models import ModelTemplateCreate
 
 from ..external.github import resolve_commit_sha
 from ..file_io.file_paths import get_config_path
@@ -86,6 +87,26 @@ def add_configured_model(
     )
 
 
+def add_marketplace_model(model: str, session_wrapper: SessionWrapper) -> int:
+    """Store a marketplace model's verified stable pin: its template and configurations.
+
+    Same registration as ``chap-admin install`` makes over the API, so a deployment can
+    declare its marketplace models in the seed config instead.
+    """
+    from chap_core.services.model_marketplace import configured_model_requests, model_template_request, resolve_model
+
+    pin = resolve_model(model)
+    template = ModelTemplateCreate.model_validate(model_template_request(pin))
+    template_id = session_wrapper.add_model_template_version(ModelTemplateDB(**template.model_dump()))
+    for request in configured_model_requests(pin, template_id):
+        configuration = ModelConfiguration(
+            user_option_values=request["user_option_values"],
+            additional_continuous_covariates=request["additional_continuous_covariates"],
+        )
+        add_configured_model(template_id, configuration, request["name"], session_wrapper, uses_chapkit=True)
+    return template_id
+
+
 def get_naive_model_template():
     model_template = ModelTemplateDB(
         name="naive_model",
@@ -111,6 +132,19 @@ def seed_configured_models_from_config_dir(
     wrapper = SessionWrapper(session=session)
     configured_models = parse_local_model_config_from_directory(directory)
     for config in configured_models:
+        if isinstance(config, MarketplaceModelSeed):
+            try:
+                add_marketplace_model(config.marketplace, wrapper)
+            except Exception as e:
+                # A failed flush leaves the session unusable until it is rolled back.
+                session.rollback()
+                # A relabelled revision is a configuration error that must stop startup.
+                if isinstance(e, SQLAlchemyError | ModelTemplateRevisionConflict):
+                    raise
+                logger.error(
+                    f"Could not seed marketplace model {config.marketplace}: {e}. Skipping this model when seeding the database."
+                )
+            continue
         if config.uses_chapkit:
             if skip_chapkit_models:
                 continue

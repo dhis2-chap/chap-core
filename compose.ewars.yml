@@ -1,3 +1,8 @@
+# Runs the EWARS chapkit service next to chap. Registration only tells chap the service
+# is alive; the model itself is registered from its marketplace entry, either with
+# `chap-admin install chapkit_ewars_model` (which writes its own service into
+# compose.marketplace.yml, so this overlay is then not needed) or with a
+# `- marketplace: chapkit_ewars_model` entry in config/configured_models/.
 services:
   ewars:
     restart: unless-stopped

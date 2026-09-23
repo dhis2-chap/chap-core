@@ -47,27 +47,23 @@ also wipes the Postgres volume, so reach for it only when you need a clean
 slate. `make chap-version` is also printed automatically at the end of
 `make restart` so version drift is visible at a glance.
 
-### Running with chapkit model overlays
+### Running marketplace models
 
-Chapkit-based models ship as opt-in compose overlays. Layer one onto
-`compose.yml` (not `compose.ghcr.yml` — those two are alternatives, not
-stackable) to run chap-core with the chapkit services already
-self-registered.
-
-The recommended overlay is `compose.chapkit.yml`, an umbrella file that
-includes every chapkit-converted model. As more models are converted to
-chapkit, they get added here so a single `-f` flag pulls them all in:
+Chapkit-based models are installed from the
+[CHAP Model Marketplace](https://github.com/dhis2-chap/model-marketplace)
+with `chap-admin`, which registers the model and its verified
+configurations in the running chap and starts its service:
 
 ```shell
-docker compose -f compose.yml -f compose.chapkit.yml up -d
+chap-admin install chapkit_ewars_model
+docker compose -f compose.yml -f compose.marketplace.yml up -d
 ```
 
-If you only want the EWARS service, use the single-model overlay
-`compose.ewars.yml` instead:
-
-```shell
-docker compose -f compose.yml -f compose.ewars.yml up -d
-```
+See the [CLI setup guide](docs/chap-cli/chap-core-cli-setup.md) for the
+details. `compose.chapkit.yml` and `compose.ewars.yml` run the EWARS service
+as a plain overlay; a service started that way registers with chap but is
+not a model in it until it is also declared with a `marketplace:` entry in
+`config/configured_models/` (see the README there).
 
 ## Deploy on Kubernetes
 

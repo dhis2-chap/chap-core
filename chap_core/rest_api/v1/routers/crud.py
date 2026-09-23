@@ -67,7 +67,9 @@ from chap_core.rest_api.celery_tasks import (
 )
 from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.experimental import api_experimental
+from chap_core.rest_api.services.orchestrator import Orchestrator, ServiceNotFoundError
 from chap_core.rest_api.services.schemas import MLServiceInfo
+from chap_core.rest_api.v2.dependencies import get_orchestrator
 from chap_core.services import prediction_setup_service
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
@@ -82,6 +84,8 @@ from ...data_models import (
     DatasetCreate,
     JobResponse,
     ModelConfigurationCreate,
+    ModelTemplateCreate,
+    ModelTemplateFromService,
     ModelTemplateRead,
     PredictionParams,
     PredictionSetupCreate,
@@ -126,20 +130,21 @@ def _registered_chapkit_revision_conflict(
 
 
 def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str, ModelTemplateRevisionConflict | None]:
-    """Sync live chapkit services from the v2 registry into the DB.
+    """Check the live chapkit services in the v2 registry against the stored templates.
 
-    Queries the Redis-backed Orchestrator for registered services and
-    upserts each as a model template. For new templates (no configured
-    models yet), also fetches configs from the chapkit service and
-    creates configured models. Silently skips if Redis is unavailable.
+    Registration is a liveness and URL signal only. It creates no templates or
+    configured models: a service becomes a model in CHAP when it is installed with
+    ``chap-admin install`` or seeded at startup. The one thing taken from the live
+    service is a template's user option schema, which the marketplace registry does
+    not carry, the first time the service is reachable.
 
     Callers that already hold an orchestrator should pass it in. Building a
     fresh one here reaches around FastAPI's dependency overrides and opens a
     second redis connection, which costs a full connect timeout whenever
     redis is unreachable.
 
-    Returns the revision conflict per registered template name, or None when the
-    service runs the stored source revision. A mismatched template is left untouched.
+    Returns the revision conflict per registered service id, or None when the
+    service runs the stored source revision. Silently returns nothing if Redis is unavailable.
     """
     try:
         if orchestrator is None:
@@ -151,173 +156,66 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str
         logger.debug("Could not reach service registry, skipping chapkit sync")
         return {}
 
-    conflicts: dict[str, ModelTemplateRevisionConflict | None] = {s.info.id: None for s in service_list.services}
-
-    if service_list.count > 0:
-        from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
-        from chap_core.models.external_chapkit_model import (
-            _parse_user_options_from_config_schema,
-            ml_service_info_to_model_template_config,
-        )
-
-        session_wrapper = SessionWrapper(session=session)
-        for service in service_list.services:
-            try:
-                # A stored template under this version is left untouched when the service
-                # now reports another revision, and no row is created for a service that
-                # reports no revision at all.
-                conflict = _registered_chapkit_revision_conflict(session, service.info)
-                if conflict is None:
-                    # A template version is write-once, so do not persist incomplete
-                    # metadata if its config schema is temporarily unavailable. A later
-                    # sync can then create the template with its full user options.
-                    try:
-                        client = CHAPKitRestAPIWrapper(service.url, timeout=5)
-                        try:
-                            schema = client.get_config_schema()
-                        finally:
-                            client.close()
-                        user_options = _parse_user_options_from_config_schema(schema)
-                    except Exception:
-                        logger.warning(
-                            "Could not fetch config schema from %s, will retry next sync",
-                            service.url,
-                            exc_info=True,
-                        )
-                        continue
-
-                    config = ml_service_info_to_model_template_config(service.info, service.url, user_options)
-                    template_id = session_wrapper.add_model_template_from_yaml_config(
-                        config, source_digest=service.info.git_revision
-                    )
-                    # Mark template as chapkit-originated for archival tracking
-                    template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == template_id)).one()
-                    template.uses_chapkit = True
-                    session.commit()
-                if conflict is not None:
-                    logger.warning(str(conflict))
-                    conflicts[service.info.id] = conflict
-                    continue
-                _sync_chapkit_configured_models(session_wrapper, template_id, service.url, CHAPKitRestAPIWrapper)
-            except Exception:
-                logger.warning("Failed to sync chapkit service %s", service.id, exc_info=True)
-
-    _archive_stale_chapkit_templates(session, service_list)
+    conflicts: dict[str, ModelTemplateRevisionConflict | None] = {}
+    for service in service_list.services:
+        conflict = _registered_chapkit_revision_conflict(session, service.info)
+        conflicts[service.info.id] = conflict
+        if conflict is not None:
+            logger.warning(str(conflict))
+            continue
+        try:
+            _fill_user_options_from_service(session, service)
+        except Exception:
+            logger.warning("Could not fetch config schema from %s, will retry next sync", service.url, exc_info=True)
     return conflicts
 
 
-def _archive_stale_chapkit_templates(session: Session, service_list) -> None:
-    """Archive chapkit templates whose services are no longer live."""
-    live_names = {s.info.id for s in service_list.services}
-    chapkit_templates = session.exec(
+def _fill_user_options_from_service(session: Session, service) -> None:
+    """Complete a stored template's user option schema from its live service, once."""
+    template = session.exec(
         select(ModelTemplateDB).where(
-            ModelTemplateDB.uses_chapkit == True,
-            ModelTemplateDB.archived == False,
+            ModelTemplateDB.name == service.info.id, ModelTemplateDB.version == service.info.version
         )
-    ).all()
-    for template in chapkit_templates:
-        if template.name not in live_names:
-            template.archived = True
-            session.add(template)
-    session.commit()
-
-
-def _resolve_chapkit_default_additional_covariates(client) -> list[str]:
-    """Probe a chapkit service for its BaseConfig `additional_continuous_covariates` default.
-
-    Chapkit's `/api/v1/configs/$schema` endpoint doesn't expose `default_factory`
-    values, so the only way to learn what the service considers a sensible default
-    covariate set is to materialize a config with an empty `data` dict and read
-    the pydantic-populated result back. We then delete the probe config to avoid
-    leaving cruft in the service's DB.
-
-    Returns an empty list on any failure — callers should treat the missing
-    defaults as "no additional covariates".
-    """
-    import time
-
-    probe_name = f"__chap_probe_defaults_{int(time.time() * 1000000)}__"
-    try:
-        probe = client.create_config({"name": probe_name, "data": {}})
-    except Exception:
-        logger.debug("Chapkit default probe POST failed", exc_info=True)
-        return []
-
-    try:
-        data = getattr(probe, "data", None) or {}
-        if hasattr(data, "model_dump"):
-            data = data.model_dump()
-        result = list(data.get("additional_continuous_covariates", []) or [])
-    except Exception:
-        logger.debug("Chapkit default probe response parse failed", exc_info=True)
-        result = []
-
-    client.delete_config(str(probe.id))
-    return result
-
-
-def _sync_chapkit_configured_models(
-    session_wrapper: SessionWrapper,
-    template_id: int,
-    service_url: str,
-    wrapper_cls: type,
-) -> None:
-    """Sync configured models from a chapkit service into the DB.
-
-    Skips if the template already has configured models (only syncs
-    on first discovery). Creates a default configured model if the
-    service has no configs.
-
-    `additional_continuous_covariates` for each configured model is seeded
-    from the chapkit service's `BaseConfig` defaults via a one-time probe
-    against `/api/v1/configs`. This matches the legacy config-file-driven
-    behaviour where the overlay YAML supplied the same field, and it is
-    what the modeling app reads to render the model card's covariate count
-    and the data-mapping dialog slots.
-    """
-    existing = session_wrapper.session.exec(
-        select(ConfiguredModelDB).where(ConfiguredModelDB.model_template_id == template_id)
     ).first()
-    if existing is not None:
+    if template is None or template.user_options:
         return
+    user_options = _fetch_user_options(service.url)
+    if user_options:
+        template.user_options = user_options
+        session.add(template)
+        session.commit()
 
-    client = wrapper_cls(service_url, timeout=5)
+
+def _fetch_user_options(service_url: str) -> dict:
+    from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
+    from chap_core.models.external_chapkit_model import _parse_user_options_from_config_schema
+
+    client = CHAPKitRestAPIWrapper(service_url, timeout=5)
     try:
-        try:
-            configs = client.list_configs()
-        except Exception:
-            logger.debug("Could not fetch configs from %s, will retry next sync", service_url)
-            return
-
-        default_additional = _resolve_chapkit_default_additional_covariates(client)
-
-        if not configs:
-            session_wrapper.add_configured_model(
-                template_id,
-                ModelConfiguration(user_option_values={}, additional_continuous_covariates=default_additional),
-                "default",
-                uses_chapkit=True,
-            )
-            return
-
-        for cfg in configs:
-            # Chapkit manages its own config data; chap-core stores the
-            # configured model as a reference only, with empty user options.
-            # Carry over `additional_continuous_covariates` from the config's
-            # own data when present; otherwise fall back to the service-level
-            # default probed above.
-            cfg_data = getattr(cfg, "data", None) or {}
-            if hasattr(cfg_data, "model_dump"):
-                cfg_data = cfg_data.model_dump()
-            cfg_additional = list(cfg_data.get("additional_continuous_covariates", []) or []) or default_additional
-            session_wrapper.add_configured_model(
-                template_id,
-                ModelConfiguration(user_option_values={}, additional_continuous_covariates=cfg_additional),
-                cfg.name,
-                uses_chapkit=True,
-            )
+        return _parse_user_options_from_config_schema(client.get_config_schema())
     finally:
         client.close()
+
+
+def add_model_template_from_registered_service(session: Session, service) -> int:
+    """Store the template a registered chapkit service describes, from its live info and config schema.
+
+    This is the path for custom images without a marketplace entry. The service must
+    report a git revision, since a template without a digest could never run, and a
+    stored version must be the revision the service reports.
+    """
+    from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config
+
+    conflict = _registered_chapkit_revision_conflict(session, service.info)
+    if conflict is not None:
+        raise conflict
+    config = ml_service_info_to_model_template_config(service.info, service.url, _fetch_user_options(service.url))
+    wrapper = SessionWrapper(session=session)
+    template_id = wrapper.add_model_template_from_yaml_config(config, source_digest=service.info.git_revision)
+    template = wrapper.get_model_template(template_id)
+    template.uses_chapkit = True
+    session.commit()
+    return template_id
 
 
 router = APIRouter(prefix="/crud")
@@ -882,11 +780,11 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], se
 async def list_model_templates(session: Session = Depends(get_session)):
     """List every live model template that can be configured into a runnable model — one per template name; superseded versions keep their rows but are not listed.
 
-    Acts as the discovery endpoint: it is also where the CHAPKit v2 service registry
-    gets pulled in, so a template's ``health_status`` reflects whether the backing
-    CHAPKit service is currently registered (``"live"``) and still runs the stored
-    source revision (``"revision_mismatch"`` otherwise). Stale CHAPKit templates whose
-    services have disappeared are auto-archived as a side effect.
+    The CHAPKit v2 service registry is checked on the way, so a template's
+    ``health_status`` reflects whether the backing CHAPKit service is currently
+    registered (``"live"``) and still runs the stored source revision
+    (``"revision_mismatch"`` otherwise). Registration alone does not create a
+    template; see ``POST /v1/crud/model-templates``.
     """
     conflicts = _sync_live_chapkit_services(session)
     model_templates = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.is_live == True)).all()
@@ -898,6 +796,77 @@ async def list_model_templates(session: Session = Depends(get_session)):
             read.health_status = LIVE if conflicts[t.name] is None else REVISION_MISMATCH
         results.append(read)
     return results
+
+
+@router.post(
+    "/model-templates",
+    response_model=ModelTemplateRead,
+    tags=["Models"],
+    summary="Store a model template version",
+)
+def add_model_template(model_template: ModelTemplateCreate, session: Session = Depends(get_session)):
+    """Store a model template version, for example a marketplace model that ``chap-admin install`` registers.
+
+    A version is write-once. Posting a stored name and version again returns the stored
+    row unchanged (and shows it again if it was retired), so the call can be repeated.
+    Posting it with another source digest is refused with 409: use a new version label.
+    """
+    wrapper = SessionWrapper(session=session)
+    try:
+        template_id = wrapper.add_model_template_version(ModelTemplateDB(**model_template.model_dump()))
+    except ModelTemplateRevisionConflict as conflict:
+        raise HTTPException(status_code=409, detail=str(conflict)) from conflict
+    return ModelTemplateRead.model_validate(wrapper.get_model_template(template_id))
+
+
+@router.post(
+    "/model-templates/from-service",
+    response_model=ModelTemplateRead,
+    tags=["Models"],
+    summary="Store a model template from a registered CHAPKit service",
+)
+def add_model_template_from_service(
+    request: ModelTemplateFromService,
+    session: Session = Depends(get_session),
+    orchestrator: Orchestrator = Depends(get_orchestrator),
+):
+    """Store the template a live CHAPKit service describes, read from its own info and config schema.
+
+    This is how a custom image without a marketplace entry becomes a model in CHAP.
+    The service must be registered in the v2 service registry and reachable. 404 if it
+    is not registered, 409 if it reports no git revision or another revision than the
+    one stored under its version, 502 if it cannot be read.
+    """
+    try:
+        service = orchestrator.get(request.service_id)
+    except ServiceNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    try:
+        template_id = add_model_template_from_registered_service(session, service)
+    except ModelTemplateRevisionConflict as conflict:
+        raise HTTPException(status_code=409, detail=str(conflict)) from conflict
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Could not read the service at {service.url}: {error}") from error
+    return ModelTemplateRead.model_validate(SessionWrapper(session=session).get_model_template(template_id))
+
+
+@router.delete(
+    "/model-templates/{modelTemplateId}",
+    tags=["Models"],
+    summary="Retire a model template",
+)
+def delete_model_template(
+    model_template_id: Annotated[int, Path(alias="modelTemplateId")], session: Session = Depends(get_session)
+):
+    """Hide a model template and its configured models from pickers, keeping the rows so historical backtests still resolve.
+
+    Storing the same name and version again shows the template again. 404 if the id is unknown.
+    """
+    try:
+        SessionWrapper(session=session).archive_model_template(model_template_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"message": "deleted"}
 
 
 ###########
