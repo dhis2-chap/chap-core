@@ -26,10 +26,10 @@ from chap_core.cli_endpoints._common import (
     resolve_csv_path,
     warn_unused_covariates,
 )
+from chap_core.hpo.meta_learner import MetaLearner
 
 if TYPE_CHECKING:
     from chap_core.external.ExtendedPredictor import ExtendedPredictor
-    from chap_core.hpo.hpoModel import HpoModel
     from chap_core.models.external_model import ExternalModel
 
 logger = logging.getLogger(__name__)
@@ -130,7 +130,7 @@ def _run_eval(
             "Use --estimator-options.mode=normal for a normal evaluation run. "
             "Use --estimator-options.mode=hpo for hyperparameter optimization. "
             "Use --estimator-options.mode=ensemble for ensemble learning. "
-            "Optionally --estimator-options.search_space_yaml=<path> for hpo. "
+            "Optionally --estimator-options.search-space=<path> for hpo. "
             "Optionally --estimator-options.metric=<metric> for hpo. "
             "Optionally --estimator-options.searcher=<searcher> for hpo. "
             "Optionally --estimator-options.max-trials=<max_trials> for hpo. "
@@ -169,7 +169,7 @@ def _run_eval(
         # Evaluate with hyperparameter optimization
         chap eval --model-name https://github.com/chap-models/minimal_template_example \\
             --dataset-csv ./example_data/vietnam_monthly.csv --output-file ./chap_core/hpo/eval.nc \\
-            --estimator-options.mode hpo --estimator-options.search-space-yaml ./chap_core/hpo/config3.yaml \\
+            --estimator-options.mode hpo --estimator-options.search-space ./chap_core/hpo/config3.yaml \\
             --estimator-options.metric rmse --estimator-options.searcher tpe
     """
     from chap_core.assessment.evaluation import Evaluation
@@ -213,7 +213,7 @@ def _run_eval(
         logger.warning(
             "Dry run does not support estimator_options.mode=%s; forcing mode='normal'.", estimator_options.mode.value
         )
-        estimator_options = EstimatorOptions(mode=EstimatorMode.NORMAL, metric=estimator_options.metric)
+        estimator_options = EstimatorOptions(mode=EstimatorMode.NORMAL)
 
     logger.info(f"Loading model template from {model_name}")
     template = ModelTemplate.from_directory_or_github_url(
@@ -227,7 +227,7 @@ def _run_eval(
 
     with template:
         configuration = get_configuration(model_configuration_yaml)
-        estimator: ExternalModel | HpoModel | ExtendedPredictor
+        estimator: ExternalModel | MetaLearner | ExtendedPredictor
         if estimator_options.mode == EstimatorMode.NORMAL:
             estimator = get_estimator(
                 template=template,
@@ -258,14 +258,6 @@ def _run_eval(
             raise ValueError(
                 f"The desired prediction length of {backtest_params.n_periods} is less than the model's minimum prediction length of {model_info.min_prediction_periods}"
             )
-        if (
-            model_info.max_prediction_periods is not None
-            and model_info.max_prediction_periods < backtest_params.n_periods
-        ):
-            logger.warning(
-                f"Wrapping model to extend prediction length from {model_info.max_prediction_periods} to {backtest_params.n_periods}. This is done iteratively, and may worsen model performance"
-            )
-            estimator = ExtendedPredictor(estimator, backtest_params.n_periods)
 
         model_template_db = ModelTemplateDB(
             id=template.model_template_config.name,
@@ -277,6 +269,7 @@ def _run_eval(
             id="cli_eval",
             model_template_id=model_template_db.id,
             model_template=model_template_db,
+            # dumps input/user configuration even in hpo mode, dumps input config.yaml in normal mode even if config doesn't fit and isn't used.
             **configuration.model_dump() if configuration else {},
         )
 
@@ -288,6 +281,15 @@ def _run_eval(
         if dry_run:
             from chap_core.assessment.dataset_splitting import train_test_generator
             from chap_core.assessment.prediction_evaluator import backtest
+
+            assert not isinstance(estimator, MetaLearner)
+
+            max_periods = estimator.model_information.max_prediction_periods
+            if max_periods is not None and max_periods < backtest_params.n_periods:
+                logger.warning(
+                    f"Wrapping model to extend prediction length from {max_periods} to {backtest_params.n_periods}. This is done iteratively, and may worsen model performance"
+                )
+                estimator = ExtendedPredictor(estimator, backtest_params.n_periods)
 
             train_set, test_generator = train_test_generator(
                 dataset=dataset,
@@ -335,6 +337,14 @@ def _run_eval(
             chart = create_plot_from_evaluation("evaluation_plot", evaluation)
             chart.save(str(plot_path))
             logger.info(f"Plot saved to {plot_path}")
+
+        hpo_data = evaluation.get_hpo()
+        if hpo_data is not None:
+            # trials_file = output_file.with_suffix(".hpo-trials.jsonl")
+            # hpo_data.write_trials(trials_file)
+            leaderboard_file = output_file.with_suffix(".hpo-leaderboard.csv")
+            hpo_data.write_leaderboard(leaderboard_file)
+            logger.info(f"HPO trials results saved to {leaderboard_file}")
 
 
 def register_commands(app):

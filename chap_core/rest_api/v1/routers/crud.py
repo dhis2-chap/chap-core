@@ -21,12 +21,13 @@ from typing import Annotated, Any, Final
 
 import numpy as np
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
+from sqlalchemy import func
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 from starlette.responses import StreamingResponse
 
 import chap_core.rest_api.db_worker_functions as wf
-from chap_core.api_types import FeatureCollectionModel
+from chap_core.api_types import BacktestParams, FeatureCollectionModel
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import compute_all_detailed_metrics
 from chap_core.assessment.weather_providers import resolve_weather_provider
@@ -48,6 +49,7 @@ from chap_core.database.model_templates_and_config_tables import (
 )
 from chap_core.database.tables import (
     Backtest,
+    BacktestSpecification,
     Prediction,
     PredictionInfo,
     PredictionSetupRead,
@@ -71,6 +73,9 @@ from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import (
     BacktestRead,
+    BacktestSpecificationFilter,
+    BacktestSpecificationRead,
+    BacktestSpecificationSummary,
     BacktestUpdate,
     ConfiguredModelInfoRead,
     DataBaseResponse,
@@ -330,22 +335,120 @@ worker: CeleryPool[Any] = CeleryPool()
     tags=["Backtests"],
     summary="Browse stored evaluation runs",
 )  # This should be called list
-async def get_backtests(session: Session = Depends(get_session)):
-    """List every stored backtest so you can pick one to view, compare against another, plot metrics from, or promote into a saved prediction setup.
+async def get_backtests(
+    specification_id: Annotated[int | None, Query(alias="specificationId")] = None,
+    dataset_id: Annotated[int | None, Query(alias="datasetId")] = None,
+    session: Session = Depends(get_session),
+):
+    """List stored backtests so you can pick one to view, compare against another, plot metrics from, or promote into a saved prediction setup.
 
     Each entry carries enough metadata to identify it at a glance (dataset, model,
     periods, regions) but not the raw forecasts — fetch those via
-    ``/backtests/{id}/full`` only when you actually need them.
+    ``/backtests/{id}/full`` only when you actually need them. Filter by
+    ``specificationId`` to get the backtests that are comparable with each other, or by
+    ``datasetId`` for everything run against one dataset.
     """
-    backtests = session.exec(
-        select(Backtest).options(
-            selectinload(Backtest.specification),  # type: ignore[arg-type]
-            selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
-            selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
-            selectinload(Backtest.prediction_setup),  # type: ignore[arg-type]
+    query = select(Backtest).options(*_backtest_read_loads())
+    if specification_id is not None:
+        query = query.where(Backtest.specification_id == specification_id)
+    if dataset_id is not None:
+        query = query.where(Backtest.dataset_id == dataset_id)
+    return session.exec(query).all()
+
+
+def _backtest_read_loads():
+    """Eager loads for everything `BacktestRead` reads off a `Backtest` row."""
+    return (
+        selectinload(Backtest.specification),  # type: ignore[arg-type]
+        selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
+        selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        selectinload(Backtest.prediction_setup),  # type: ignore[arg-type]
+    )
+
+
+@router.get(
+    "/backtest-specifications",
+    response_model=list[BacktestSpecificationSummary],
+    tags=["Backtests"],
+    summary="List the evaluation setups backtests have run under",
+)
+def get_backtest_specifications(
+    filters: Annotated[BacktestSpecificationFilter, Query()],
+    session: Session = Depends(get_session),
+):
+    """List backtest specifications: a dataset plus the parameters that make backtests under it comparable.
+
+    A specification with several backtests under it is a benchmark. Filter by
+    ``datasetId`` and any of the ``BacktestParams`` fields; the full tuple identifies at
+    most one specification, which is how an external system finds a benchmark again
+    without storing the specification id. Rows carry counts only; fetch
+    ``/backtest-specifications/{id}`` for the backtests themselves.
+    """
+    backtest_counts = (
+        select(Backtest.specification_id, func.count(col(Backtest.id)).label("backtest_count"))
+        .group_by(col(Backtest.specification_id))
+        .subquery()
+    )
+    query = (
+        select(BacktestSpecification, func.coalesce(backtest_counts.c.backtest_count, 0))
+        .outerjoin(backtest_counts, backtest_counts.c.specification_id == BacktestSpecification.id)
+        .options(selectinload(BacktestSpecification.dataset).defer(DataSet.geojson))  # type: ignore[arg-type]
+        .order_by(col(BacktestSpecification.id))
+    )
+    for name, value in filters.model_dump(exclude_none=True).items():
+        query = query.where(getattr(BacktestSpecification, name) == value)
+    return [
+        BacktestSpecificationSummary(
+            id=specification.id,
+            dataset=specification.dataset,
+            org_unit_count=len(specification.org_units),
+            backtest_count=backtest_count,
+            **_specification_params(specification),
         )
+        for specification, backtest_count in session.exec(query).all()
+    ]
+
+
+@router.get(
+    "/backtest-specifications/{specificationId}",
+    response_model=BacktestSpecificationRead,
+    tags=["Backtests"],
+    summary="Fetch a specification with every backtest under it",
+)
+def get_backtest_specification(
+    specification_id: Annotated[int, Path(alias="specificationId")], session: Session = Depends(get_session)
+):
+    """Read one specification together with every backtest that ran under it, newest first, in a single response.
+
+    This is the benchmark leaderboard: each backtest row is the ``BacktestRead`` shape
+    with aggregate metrics, the configured model and its template, so a client can rank
+    models without a request per backtest. Forecasts and per-org-unit metrics are not
+    included. 404 if the id is unknown.
+    """
+    specification = session.exec(
+        select(BacktestSpecification)
+        .where(BacktestSpecification.id == specification_id)
+        .options(selectinload(BacktestSpecification.dataset).defer(DataSet.geojson))  # type: ignore[arg-type]
+    ).first()
+    if specification is None:
+        raise HTTPException(status_code=404, detail="Backtest specification not found")
+    backtests = session.exec(
+        select(Backtest)
+        .where(Backtest.specification_id == specification_id)
+        .order_by(col(Backtest.created).desc().nulls_last(), col(Backtest.id).desc())
+        .options(*_backtest_read_loads())
     ).all()
-    return backtests
+    return BacktestSpecificationRead(
+        id=specification_id,
+        dataset=specification.dataset,
+        org_units=specification.org_units,
+        backtests=backtests,
+        **_specification_params(specification),
+    )
+
+
+def _specification_params(specification: BacktestSpecification) -> dict[str, Any]:
+    return {name: getattr(specification, name) for name in BacktestParams.model_fields}
 
 
 @router.get(
