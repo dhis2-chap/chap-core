@@ -245,7 +245,7 @@ def harmonize_and_add_health_dataset(
     dataset_obj = InMemoryDataSet.from_dict(health_dataset, HealthPopulationData)  # type: ignore[arg-type]
     dataset = harmonize_health_dataset(dataset_obj, usecwd_for_credentials=False, worker_config=worker_config)
     db_id: int = DataSetManager(session.session).save_dataset(
-        DataSetCreateInfo(name=name), dataset, polygons=dataset_obj.polygons.model_dump_json()
+        DataSetCreateInfo(name=name), dataset, polygons=dataset_obj.polygons.model_dump_json(), created_manually=True
     )
     status_logger.info(f"Dataset '{name}' added successfully with ID {db_id}")
     return db_id

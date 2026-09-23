@@ -169,6 +169,7 @@ def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_c
     ds = DataSetWithObservations.model_validate(response.json())
 
     assert len(ds.observations) > 0
+    assert ds.created_manually
     print(response.json())
     assert "orgUnit" in response.json()["observations"][0], response.json()["observations"][0].keys()
 
