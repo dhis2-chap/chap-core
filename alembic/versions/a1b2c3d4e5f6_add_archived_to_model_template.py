@@ -13,6 +13,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
+from chap_core.database.migration_helpers import has_column
+
 # revision identifiers, used by Alembic.
 revision: str = "a1b2c3d4e5f6"
 down_revision: Union[str, Sequence[str], None] = "ff2b1bbb8418"
@@ -22,10 +24,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Add archived column to modeltemplatedb table."""
-    op.add_column(
-        "modeltemplatedb",
-        sa.Column("archived", sa.Boolean(), nullable=False, server_default="false"),
-    )
+    if not has_column("modeltemplatedb", "archived"):
+        op.add_column(
+            "modeltemplatedb",
+            sa.Column("archived", sa.Boolean(), nullable=False, server_default="false"),
+        )
 
 
 def downgrade() -> None:

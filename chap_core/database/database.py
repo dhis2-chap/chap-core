@@ -614,13 +614,17 @@ def _run_alembic_migrations(engine):
                     connection.commit()
 
             command.upgrade(alembic_cfg, "head")
+            # The revision check above autobegins a transaction on this connection, and
+            # Alembic does not commit a transaction it did not start.
+            connection.commit()
 
         logger.info("Completed Alembic migrations successfully")
 
     except Exception as e:
+        # Continuing on a partially migrated schema leaves alembic_version stalled and
+        # every later revision skipped, so startup has to fail here.
         logger.error(f"Error during Alembic migrations: {e}", exc_info=True)
-        # Don't raise - allow system to continue if Alembic fails
-        # This ensures backward compatibility
+        raise
 
 
 def create_db_and_tables():

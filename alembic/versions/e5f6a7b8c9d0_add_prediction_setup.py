@@ -16,6 +16,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
+from chap_core.database.migration_helpers import foreign_key_name, has_column, has_table
+
 # revision identifiers, used by Alembic.
 revision: str = "e5f6a7b8c9d0"
 down_revision: Union[str, Sequence[str], None] = "d4e5f6a7b8c9"
@@ -24,42 +26,45 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        "predictionsetup",
-        sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("name", sa.String(), nullable=False),
-        sa.Column("created", sa.DateTime(), nullable=True),
-        sa.Column("backtest_id", sa.Integer(), nullable=False),
-        sa.Column("configured_model_id", sa.Integer(), nullable=False),
-        sa.Column("start_period", sa.String(), nullable=True),
-        sa.Column("org_units", sa.JSON(), nullable=True),
-        sa.Column("covariate_sources", sa.JSON(), nullable=True),
-        sa.Column("period_type", sa.String(), nullable=True),
-        sa.Column("schedule_cron_expression", sa.String(), nullable=True),
-        sa.Column("schedule_enabled", sa.Boolean(), nullable=False, server_default=sa.false()),
-        sa.Column("quantile_targets", sa.JSON(), nullable=True),
-        sa.ForeignKeyConstraint(["backtest_id"], ["backtest.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(
-            ["configured_model_id"],
-            ["configuredmodeldb.id"],
-            ondelete="RESTRICT",
-            name="fk_predictionsetup_configured_model",
-        ),
-        sa.UniqueConstraint("backtest_id", name="uq_predictionsetup_backtest_id"),
-    )
+    if not has_table("predictionsetup"):
+        op.create_table(
+            "predictionsetup",
+            sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
+            sa.Column("name", sa.String(), nullable=False),
+            sa.Column("created", sa.DateTime(), nullable=True),
+            sa.Column("backtest_id", sa.Integer(), nullable=False),
+            sa.Column("configured_model_id", sa.Integer(), nullable=False),
+            sa.Column("start_period", sa.String(), nullable=True),
+            sa.Column("org_units", sa.JSON(), nullable=True),
+            sa.Column("covariate_sources", sa.JSON(), nullable=True),
+            sa.Column("period_type", sa.String(), nullable=True),
+            sa.Column("schedule_cron_expression", sa.String(), nullable=True),
+            sa.Column("schedule_enabled", sa.Boolean(), nullable=False, server_default=sa.false()),
+            sa.Column("quantile_targets", sa.JSON(), nullable=True),
+            sa.ForeignKeyConstraint(["backtest_id"], ["backtest.id"], ondelete="CASCADE"),
+            sa.ForeignKeyConstraint(
+                ["configured_model_id"],
+                ["configuredmodeldb.id"],
+                ondelete="RESTRICT",
+                name="fk_predictionsetup_configured_model",
+            ),
+            sa.UniqueConstraint("backtest_id", name="uq_predictionsetup_backtest_id"),
+        )
 
-    op.add_column(
-        "prediction",
-        sa.Column("prediction_setup_id", sa.Integer(), nullable=True),
-    )
-    op.create_foreign_key(
-        "fk_prediction_prediction_setup",
-        "prediction",
-        "predictionsetup",
-        ["prediction_setup_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
+    if not has_column("prediction", "prediction_setup_id"):
+        op.add_column(
+            "prediction",
+            sa.Column("prediction_setup_id", sa.Integer(), nullable=True),
+        )
+    if foreign_key_name("prediction", "predictionsetup") is None:
+        op.create_foreign_key(
+            "fk_prediction_prediction_setup",
+            "prediction",
+            "predictionsetup",
+            ["prediction_setup_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
 
 
 def downgrade() -> None:

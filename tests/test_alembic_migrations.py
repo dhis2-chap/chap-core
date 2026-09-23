@@ -437,8 +437,15 @@ class TestAlembicMigrations:
         assert row.min_prediction_periods == 2
         assert row.max_prediction_periods == 6
 
-    def test_unversioned_create_all_schema_is_bootstrapped_to_head(self, engine):
-        """A legacy create_all database must still run the versioning migration."""
+    @pytest.mark.parametrize("stored_revision", [None, "ff2b1bbb8418"])
+    def test_create_all_schema_is_bootstrapped_to_head(self, engine, stored_revision):
+        """A database that startup gave the current schema must still be migrated to head.
+
+        stored_revision None is a legacy database that predates Alembic. ff2b1bbb8418 is a
+        database whose chain stalled there, because the generic migration had already added
+        the columns the next revisions add, so those revisions have to be safe to replay.
+        """
+        from alembic import command
         from alembic.script import ScriptDirectory
 
         from chap_core.database.database import _run_alembic_migrations
@@ -459,6 +466,8 @@ class TestAlembicMigrations:
                     sa.text(f"ALTER TABLE {table} ADD CONSTRAINT {baseline_constraint} UNIQUE ({baseline_columns})")
                 )
             conn.commit()
+        if stored_revision is not None:
+            command.stamp(_make_alembic_cfg(engine), stored_revision)
 
         _run_alembic_migrations(engine)
 
