@@ -226,6 +226,7 @@ def test_original_request_survives_worker_failure(monkeypatch, tmp_path):
     assert metadata["status"] == "FAILURE"
     assert "request" not in metadata
     assert json.loads(store.get("job_request:failed-request")) == {"name": "original"}
+    assert 0 < store.ttl("job_request:failed-request") <= celery_tasks.JOB_REQUEST_TTL_SECONDS
 
 
 def test_failed_dispatch_removes_request(monkeypatch):

@@ -182,7 +182,7 @@ class TrackedTask(Task):
         # The request lives in its own key so hgetall on job_meta stays cheap.
         r.hset(f"job_meta:{task_id}", mapping=job_meta)
         if original_request is not None:
-            r.set(f"job_request:{task_id}", json.dumps(original_request))
+            r.set(f"job_request:{task_id}", json.dumps(original_request), ex=JOB_REQUEST_TTL_SECONDS)
         try:
             return super().apply_async(args=args, kwargs=kwargs, **options)
         except Exception:
@@ -291,6 +291,8 @@ def celery_run_with_session(func, *args, **kwargs):
 JOB_TYPE_KW = "__job_type__"
 JOB_NAME_KW = "__job_name__"
 JOB_REQUEST_KW = "__job_request__"
+# Request bodies can be several MB of inline data, so they expire instead of living as long as job_meta.
+JOB_REQUEST_TTL_SECONDS = 30 * 24 * 60 * 60
 PREDICTION_SETUP_ID_JOB_META_KEY = "prediction_setup_id"
 
 

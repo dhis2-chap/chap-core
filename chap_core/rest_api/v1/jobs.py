@@ -104,8 +104,8 @@ def get_job_status(job_id: str) -> str:
 def get_job_request(job_id: str) -> dict[str, Any]:
     """Return the submitted JSON body, including after failure.
 
-    Requests share the job metadata's lifetime. Older jobs without a captured
-    request return 404, as do jobs removed from the tracker.
+    Requests are kept for 30 days. Expired requests, older jobs without a
+    captured request, and jobs removed from the tracker return 404.
     """
     body = redis.get(f"job_request:{job_id}")
     if body is None:
