@@ -76,6 +76,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint(foreign_key_name("prediction", "predictionsetup"), "prediction", type_="foreignkey")
+    foreign_key = foreign_key_name("prediction", "predictionsetup")
+    if foreign_key is not None:
+        op.drop_constraint(foreign_key, "prediction", type_="foreignkey")
     op.drop_column("prediction", "prediction_setup_id")
     op.drop_table("predictionsetup")

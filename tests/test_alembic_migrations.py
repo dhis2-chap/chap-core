@@ -473,6 +473,8 @@ class TestAlembicMigrations:
             with engine.connect() as conn:
                 conn.execute(sa.text("ALTER TABLE prediction DROP COLUMN prediction_setup_id"))
                 conn.execute(sa.text("ALTER TABLE prediction ADD COLUMN prediction_setup_id INTEGER"))
+                conn.execute(sa.text("ALTER TABLE modeltemplatedb DROP COLUMN archived"))
+                conn.execute(sa.text("ALTER TABLE modeltemplatedb ADD COLUMN archived BOOLEAN"))
                 conn.execute(
                     sa.text(
                         "INSERT INTO modeltemplatedb "
@@ -527,6 +529,10 @@ class TestAlembicMigrations:
             with engine.connect() as conn:
                 setup_ids = conn.execute(sa.text("SELECT prediction_setup_id FROM prediction")).scalars().all()
             assert setup_ids == [None]
+            archived = next(
+                col for col in sa.inspect(engine).get_columns("modeltemplatedb") if col["name"] == "archived"
+            )
+            assert archived["nullable"] is False
 
     def test_all_revisions_have_downgrade(self):
         """Verify every migration revision defines a non-empty downgrade."""

@@ -29,6 +29,12 @@ def upgrade() -> None:
             "modeltemplatedb",
             sa.Column("archived", sa.Boolean(), nullable=False, server_default="false"),
         )
+    else:
+        # The generic migration adds the column nullable and without a default.
+        op.execute(sa.text("UPDATE modeltemplatedb SET archived = FALSE WHERE archived IS NULL"))
+        op.alter_column(
+            "modeltemplatedb", "archived", existing_type=sa.Boolean(), nullable=False, server_default="false"
+        )
 
 
 def downgrade() -> None:
