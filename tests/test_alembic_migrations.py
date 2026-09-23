@@ -468,6 +468,39 @@ class TestAlembicMigrations:
             conn.commit()
         if stored_revision is not None:
             command.stamp(_make_alembic_cfg(engine), stored_revision)
+            # A stalled database already held predictions when the generic migration added
+            # prediction_setup_id without its foreign key and filled it with 0.
+            with engine.connect() as conn:
+                conn.execute(sa.text("ALTER TABLE prediction DROP COLUMN prediction_setup_id"))
+                conn.execute(sa.text("ALTER TABLE prediction ADD COLUMN prediction_setup_id INTEGER"))
+                conn.execute(
+                    sa.text(
+                        "INSERT INTO modeltemplatedb "
+                        "(name, version, display_name, description, author_note, author_assessed_status, author, "
+                        "supported_period_type, target, allow_free_additional_continuous_covariates, requires_geo, "
+                        "uses_chapkit, is_live, archived) "
+                        "VALUES ('legacy_model', 'v1', 'Legacy', 'legacy', 'note', 'gray', 'author', "
+                        "'any', 'disease_cases', false, false, false, true, false)"
+                    )
+                )
+                conn.execute(
+                    sa.text(
+                        "INSERT INTO configuredmodeldb "
+                        "(name, model_template_id, archived, uses_chapkit, is_live, configuration_digest) "
+                        "SELECT 'legacy_configured', id, false, false, true, 'digest' FROM modeltemplatedb"
+                    )
+                )
+                conn.execute(sa.text("INSERT INTO dataset (name) VALUES ('legacy_dataset')"))
+                conn.execute(
+                    sa.text(
+                        "INSERT INTO prediction "
+                        "(dataset_id, model_db_id, model_id, n_periods, name, created, prediction_setup_id) "
+                        "SELECT d.id, c.id, 'legacy_configured', 3, 'legacy_prediction', now(), 0 "
+                        "FROM dataset d, configuredmodeldb c "
+                        "WHERE d.name = 'legacy_dataset' AND c.name = 'legacy_configured'"
+                    )
+                )
+                conn.commit()
 
         _run_alembic_migrations(engine)
 
@@ -487,6 +520,13 @@ class TestAlembicMigrations:
         }
         assert "uq_configuredmodeldb_template_name_digest" in configured_model_constraints
         assert "configuredmodeldb_name_key" not in configured_model_constraints
+
+        if stored_revision is not None:
+            referred = {fk["referred_table"] for fk in sa.inspect(engine).get_foreign_keys("prediction")}
+            assert "predictionsetup" in referred
+            with engine.connect() as conn:
+                setup_ids = conn.execute(sa.text("SELECT prediction_setup_id FROM prediction")).scalars().all()
+            assert setup_ids == [None]
 
     def test_all_revisions_have_downgrade(self):
         """Verify every migration revision defines a non-empty downgrade."""

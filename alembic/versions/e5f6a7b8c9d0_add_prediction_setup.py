@@ -57,6 +57,14 @@ def upgrade() -> None:
             sa.Column("prediction_setup_id", sa.Integer(), nullable=True),
         )
     if foreign_key_name("prediction", "predictionsetup") is None:
+        # The generic startup migration fills the column with 0 on existing rows, which
+        # no setup has, so clear dangling ids before the constraint checks them.
+        op.execute(
+            sa.text(
+                "UPDATE prediction SET prediction_setup_id = NULL "
+                "WHERE prediction_setup_id NOT IN (SELECT id FROM predictionsetup)"
+            )
+        )
         op.create_foreign_key(
             "fk_prediction_prediction_setup",
             "prediction",
@@ -68,10 +76,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "fk_prediction_prediction_setup",
-        "prediction",
-        type_="foreignkey",
-    )
+    op.drop_constraint(foreign_key_name("prediction", "predictionsetup"), "prediction", type_="foreignkey")
     op.drop_column("prediction", "prediction_setup_id")
     op.drop_table("predictionsetup")
