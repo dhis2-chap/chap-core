@@ -178,15 +178,15 @@ class TrackedTask(Task):
         if prediction_setup_id is not None:
             job_meta[PREDICTION_SETUP_ID_JOB_META_KEY] = str(prediction_setup_id)
 
-        if original_request is not None:
-            job_meta["request"] = json.dumps(original_request)
-
         # Save before dispatch so even an immediately failing worker retains the request.
+        # The request lives in its own key so hgetall on job_meta stays cheap.
         r.hset(f"job_meta:{task_id}", mapping=job_meta)
+        if original_request is not None:
+            r.set(f"job_request:{task_id}", json.dumps(original_request))
         try:
             return super().apply_async(args=args, kwargs=kwargs, **options)
         except Exception:
-            r.delete(f"job_meta:{task_id}")
+            r.delete(f"job_meta:{task_id}", f"job_request:{task_id}")
             raise
 
     def on_success(self, retval, task_id, args, kwargs):

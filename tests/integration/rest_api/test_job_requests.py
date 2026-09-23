@@ -44,7 +44,7 @@ def test_submission_retains_original_body(
 ):
     def dispatch(self, args, kwargs, **options):
         # The body is persisted before the worker can start, and isn't sent to it.
-        assert json.loads(request_store.hget(f"job_meta:{options['task_id']}", "request")) == payload
+        assert json.loads(request_store.get(f"job_request:{options['task_id']}")) == payload
         assert JOB_REQUEST_KW not in kwargs
         return SimpleNamespace(id=options["task_id"])
 
@@ -113,28 +113,27 @@ def test_missing_or_legacy_request_returns_404(request_store, metadata):
     assert response.status_code == 404
 
 
-def test_empty_request_is_an_object(request_store):
-    request_store.hset("job_meta:empty", mapping={"status": "FAILURE", "request": "{}"})
-    response = TestClient(app).get("/v1/jobs/empty/request")
-    assert response.status_code == 200
-    assert response.json() == {}
-
-
 def test_delete_job_removes_request(request_store, monkeypatch):
-    request_store.hset("job_meta:failed", mapping={"status": "FAILURE", "request": '{"name":"original"}'})
+    request_store.hset("job_meta:failed", mapping={"status": "FAILURE"})
+    request_store.set("job_request:failed", '{"name":"original"}')
     monkeypatch.setattr(jobs.worker, "get_job", lambda _: SimpleNamespace(status="FAILURE"))
     client = TestClient(app)
     assert client.delete("/v1/jobs/failed").status_code == 200
-    assert not request_store.exists("job_meta:failed")
+    assert not request_store.exists("job_meta:failed", "job_request:failed")
     assert client.get("/v1/jobs/failed/request").status_code == 404
 
 
-def test_prediction_setup_cleanup_removes_request(request_store):
-    for job_id, setup_id in [("removed", 12), ("retained", 13)]:
-        request_store.hset(
-            f"job_meta:{job_id}", mapping={"status": "FAILURE", "prediction_setup_id": str(setup_id), "request": "{}"}
-        )
-    crud._cancel_jobs_for_prediction_setup(12)
+def test_prediction_setup_delete_removes_request(request_store, override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
     client = TestClient(app)
+    setup_id = client.post("/v1/crud/prediction-setups", json={"backtestId": backtest.id, "name": "Cleanup"}).json()[
+        "id"
+    ]
+    for job_id, job_setup_id in [("removed", setup_id), ("retained", setup_id + 1)]:
+        request_store.hset(
+            f"job_meta:{job_id}", mapping={"status": "FAILURE", "prediction_setup_id": str(job_setup_id)}
+        )
+        request_store.set(f"job_request:{job_id}", "{}")
+    assert client.delete(f"/v1/crud/prediction-setups/{setup_id}").status_code == 200
     assert client.get("/v1/jobs/removed/request").status_code == 404
     assert client.get("/v1/jobs/retained/request").status_code == 200

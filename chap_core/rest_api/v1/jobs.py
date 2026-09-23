@@ -107,10 +107,10 @@ def get_job_request(job_id: str) -> dict[str, Any]:
     Requests share the job metadata's lifetime. Older jobs without a captured
     request return 404, as do jobs removed from the tracker.
     """
-    meta = get_job_meta(job_id)
-    if not meta or "request" not in meta:
+    body = redis.get(f"job_request:{job_id}")
+    if body is None:
         raise HTTPException(status_code=404, detail=f"Request for job '{job_id}' not found")
-    return cast("dict[str, Any]", json.loads(meta["request"]))
+    return cast("dict[str, Any]", json.loads(cast("str", body)))
 
 
 @router.delete(
@@ -132,7 +132,7 @@ def delete_job(job_id: str) -> dict:
     if job_status in ["pending", "started", "running"]:
         raise HTTPException(status_code=400, detail="Cannot delete a running job. Cancel it first.")
 
-    result = redis.delete(f"job_meta:{job_id}")
+    result = redis.delete(f"job_meta:{job_id}", f"job_request:{job_id}")
 
     if result == 0:
         raise HTTPException(status_code=404, detail="Job not found")

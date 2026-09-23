@@ -1040,7 +1040,7 @@ def _cancel_jobs_for_prediction_setup(prediction_setup_id: int) -> None:
                 logger.warning(
                     "Failed to cancel job %s for prediction setup %d", task_id, prediction_setup_id, exc_info=True
                 )
-        redis.delete(key)
+        redis.delete(key, f"job_request:{task_id}")
 
 
 @router.delete(

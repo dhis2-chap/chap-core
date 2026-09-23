@@ -203,7 +203,7 @@ def test_list_jobs(celery_session_worker, big_request_json, test_config):
 def fail_with_original_request(task_id):
     import json
 
-    assert json.loads(celery_tasks.r.hget(f"job_meta:{task_id}", "request")) == {"name": "original"}
+    assert json.loads(celery_tasks.r.get(f"job_request:{task_id}")) == {"name": "original"}
     raise RuntimeError("deliberate failure")
 
 
@@ -224,7 +224,8 @@ def test_original_request_survives_worker_failure(monkeypatch, tmp_path):
     assert str(result.result) == "deliberate failure"
     metadata = store.hgetall("job_meta:failed-request")
     assert metadata["status"] == "FAILURE"
-    assert json.loads(metadata["request"]) == {"name": "original"}
+    assert "request" not in metadata
+    assert json.loads(store.get("job_request:failed-request")) == {"name": "original"}
 
 
 def test_failed_dispatch_removes_request(monkeypatch):
@@ -235,7 +236,7 @@ def test_failed_dispatch_removes_request(monkeypatch):
     monkeypatch.setattr(celery_tasks, "r", store)
 
     def reject_dispatch(*args, **kwargs):
-        assert store.hexists("job_meta:not-queued", "request")
+        assert store.exists("job_request:not-queued")
         raise RuntimeError("broker unavailable")
 
     monkeypatch.setattr(Task, "apply_async", reject_dispatch)
@@ -245,4 +246,4 @@ def test_failed_dispatch_removes_request(monkeypatch):
             kwargs={celery_tasks.JOB_REQUEST_KW: {"name": "original"}},
             task_id="not-queued",
         )
-    assert not store.exists("job_meta:not-queued")
+    assert not store.exists("job_meta:not-queued", "job_request:not-queued")
