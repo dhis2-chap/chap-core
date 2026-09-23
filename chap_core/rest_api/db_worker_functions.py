@@ -272,7 +272,7 @@ def harmonize_and_add_dataset(
         full_dataset = dataset_obj
     info = DataSetCreateInfo(name=name, type=ds_type, data_sources=data_sources or [])
     db_id: int = DataSetManager(session.session).save_dataset(
-        info, full_dataset, polygons=dataset_obj.polygons.model_dump_json()
+        info, full_dataset, polygons=dataset_obj.polygons.model_dump_json(), created_manually=True
     )
     status_logger.info(f"Dataset '{name}' added successfully with ID {db_id}")
     return db_id

@@ -246,6 +246,7 @@ def test_make_dataset_import_persists_data_sources(clean_engine, dataset_make_re
         stored = session.session.get(DataSet, dataset_id)
         assert stored is not None
         assert stored.data_sources == request.data_sources
+        assert stored.created_manually
 
 
 def test_get_data_sources():

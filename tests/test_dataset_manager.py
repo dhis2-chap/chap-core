@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from sqlmodel import Session, SQLModel
 
 from chap_core.database.dataset_manager import DataSetManager
-from chap_core.database.dataset_tables import DataSetCreateInfo, Observation
+from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo, Observation
 from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.converters import observations_to_dataframe, observations_to_dataset
 
@@ -34,6 +34,10 @@ def dataset_id(engine, health_population_data):
 def manager(engine):
     with Session(engine) as session:
         yield DataSetManager(session)
+
+
+def test_save_dataset_is_not_created_manually_by_default(manager, dataset_id):
+    assert not manager.session.get(DataSet, dataset_id).created_manually
 
 
 def _sorted_periods(observations):

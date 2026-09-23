@@ -63,7 +63,9 @@ class DataSetManager(DbManager[DataSet]):
 
         return self.save_dataset(DataSetCreateInfo(name=name), dataset, features)
 
-    def save_dataset(self, dataset_info: DataSetCreateInfo, orig_dataset: _DataSet, polygons):
+    def save_dataset(
+        self, dataset_info: DataSetCreateInfo, orig_dataset: _DataSet, polygons, created_manually: bool = False
+    ):
         """
         Add a dataset to the database. The dataset is provided as a spatio-temporal dataclass.
         The polygons should be provided as a geojson feature collection.
@@ -92,6 +94,7 @@ class DataSetManager(DbManager[DataSet]):
             created=datetime.datetime.now(),
             org_units=list(orig_dataset.locations()),
             period_type=period_type,
+            created_manually=created_manually,
             **dataset_info.model_dump(),
         )
         dataset = DataSet(geojson=polygons, **full_info.model_dump())

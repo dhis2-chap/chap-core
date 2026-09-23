@@ -103,6 +103,10 @@ class DataSetInfo(DataSetCreateInfo):
     created: datetime | None = Field(default=None, description="Server-side timestamp when the dataset was registered.")
 
     period_type: str | None = Field(default=None, description="Granularity of the periods (`month`, `week`, ...).")
+    created_manually: bool = Field(
+        default=False,
+        description="True if a user created the dataset directly, false if it was created as part of an evaluation or prediction.",
+    )
 
 
 class DataSetBase(DataSetInfo):
