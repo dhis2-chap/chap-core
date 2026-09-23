@@ -98,12 +98,6 @@ def run_backtest(
     # canonical value rather than the raw integer primary key.
     info.model_id = configured_model.name
 
-    # hack to get who ewars model to work, it requires n_peridos=3.
-    # todo: should be removed in future when system for model specific backtest params is implemented
-    if configured_model.model_template.name == "ewars_plus":
-        logger.warning("Forcing n_periods=3 for ewars_plus model")
-        n_periods = 3
-
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
 
