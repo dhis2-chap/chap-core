@@ -1832,8 +1832,8 @@ def test_backtest_with_empty_provided_data_dry_run(dependency_overrides, create_
     assert body["rejected"] == []
 
 
-def test_backtest_with_all_regions_rejected_dry_run(dependency_overrides, create_backtest_with_data_request):
-    request_payload = create_backtest_with_data_request.model_dump()
+def _drop_one_covariate_period_per_location(request_payload) -> str:
+    """Remove the first observation of a covariate for every location, so validation rejects them all."""
     obs = request_payload["provided_data"]
     target_feature = next(e["feature_name"] for e in obs if e["feature_name"] != "disease_cases")
     seen_locations = set()
@@ -1844,14 +1844,37 @@ def test_backtest_with_all_regions_rejected_dry_run(dependency_overrides, create
             continue
         pruned.append(entry)
     request_payload["provided_data"] = pruned
+    return target_feature
 
-    response = client.post("/v1/analytics/create-backtest-with-data?dryRun=true", json=request_payload)
+
+def _check_all_regions_rejected_dry_run(url, request_payload):
+    target_feature = _drop_one_covariate_period_per_location(request_payload)
+    response = client.post(f"{url}?dryRun=true", json=request_payload)
     assert response.status_code == 200, response.json()
     body = response.json()
     assert body["id"] is None
     assert body["importedCount"] == 0
     assert len(body["rejected"]) > 0
     assert all(r["featureName"] == target_feature for r in body["rejected"])
+
+
+def test_backtest_with_all_regions_rejected_dry_run(dependency_overrides, create_backtest_with_data_request):
+    _check_all_regions_rejected_dry_run(
+        "/v1/analytics/create-backtest-with-data", create_backtest_with_data_request.model_dump()
+    )
+
+
+def test_make_dataset_dry_run(dependency_overrides, dataset_make_request, org_units):
+    response = client.post("/v1/analytics/make-dataset?dryRun=true", json=dataset_make_request.model_dump())
+    assert response.status_code == 200, response.json()
+    body = response.json()
+    assert body["id"] is None
+    assert body["importedCount"] == len(org_units)
+    assert body["rejected"] == []
+
+
+def test_make_dataset_all_regions_rejected_dry_run(dependency_overrides, dataset_make_request):
+    _check_all_regions_rejected_dry_run("/v1/analytics/make-dataset", dataset_make_request.model_dump())
 
 
 @pytest.mark.parametrize("dry_run", [False, True])
