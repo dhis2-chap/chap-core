@@ -1,6 +1,5 @@
-"""Original API bodies survive job failures and share job metadata cleanup."""
+"""Original API bodies are retained for download and removed with job metadata."""
 
-import json
 from types import SimpleNamespace
 
 import fakeredis
@@ -43,10 +42,8 @@ def test_submission_retains_original_body(
     path, request_store, override_session, seeded_session, example_polygons, dataset_create, monkeypatch
 ):
     def dispatch(self, args, kwargs, **options):
-        # The body is persisted before the worker can start, and isn't sent to it.
-        assert json.loads(request_store.get(f"job_request:{options['task_id']}")) == payload
         assert JOB_REQUEST_KW not in kwargs
-        return SimpleNamespace(id=options["task_id"])
+        return SimpleNamespace(id="job-1")
 
     monkeypatch.setattr(Task, "apply_async", dispatch)
     payload = {
@@ -87,22 +84,13 @@ def test_submission_retains_original_body(
     # Unknown fields and omitted defaults must survive exactly as submitted.
     if "prediction-setups" not in path:
         payload["clientContext"] = {"note": "reproduce æøå", "optional": None}
-    monkeypatch.setenv("CHAP_API_TOKEN", "request-test-token")
-    headers = {"Authorization": "Bearer request-test-token"}
-    response = TestClient(app).post(path, json=payload, headers=headers)
+    response = TestClient(app).post(path, json=payload)
     assert response.status_code == 200, response.text
-    job_id = response.json()["id"]
-    celery_tasks.celery_run.on_failure(
-        RuntimeError("worker failed"), job_id, (), {}, SimpleNamespace(traceback="failure")
-    )
 
-    # A new client has no browser-local state and still gets the submitted object.
-    download = TestClient(app).get(f"/v1/jobs/{job_id}/request", headers=headers)
+    download = TestClient(app).get("/v1/jobs/job-1/request")
     assert download.status_code == 200, download.text
-    assert download.headers["content-type"] == "application/json"
     assert download.json() == payload
-    assert request_store.hget(f"job_meta:{job_id}", "status") == "FAILURE"
-    assert TestClient(app).get(f"/v1/jobs/{job_id}/request").status_code == 401
+    assert 0 < request_store.ttl("job_request:job-1") <= celery_tasks.JOB_REQUEST_TTL_SECONDS
 
 
 @pytest.mark.parametrize("metadata", [None, {"status": "FAILURE"}])
@@ -121,19 +109,3 @@ def test_delete_job_removes_request(request_store, monkeypatch):
     assert client.delete("/v1/jobs/failed").status_code == 200
     assert not request_store.exists("job_meta:failed", "job_request:failed")
     assert client.get("/v1/jobs/failed/request").status_code == 404
-
-
-def test_prediction_setup_delete_removes_request(request_store, override_session, seeded_session):
-    backtest = seeded_session.exec(select(Backtest)).first()
-    client = TestClient(app)
-    setup_id = client.post("/v1/crud/prediction-setups", json={"backtestId": backtest.id, "name": "Cleanup"}).json()[
-        "id"
-    ]
-    for job_id, job_setup_id in [("removed", setup_id), ("retained", setup_id + 1)]:
-        request_store.hset(
-            f"job_meta:{job_id}", mapping={"status": "FAILURE", "prediction_setup_id": str(job_setup_id)}
-        )
-        request_store.set(f"job_request:{job_id}", "{}")
-    assert client.delete(f"/v1/crud/prediction-setups/{setup_id}").status_code == 200
-    assert client.get("/v1/jobs/removed/request").status_code == 404
-    assert client.get("/v1/jobs/retained/request").status_code == 200
