@@ -2,8 +2,7 @@
 
 ``install``, ``update`` and ``uninstall`` are the ``chap-admin`` commands. They edit the
 deployment's Compose overlay and tell the running CHAP instance about the model over its
-REST API. ``start`` and ``stop`` are the ``chap model`` commands for a standalone local
-service used by ``chap eval``; they never talk to a CHAP server.
+REST API.
 """
 
 import json
@@ -63,18 +62,7 @@ def install(
     service is started. Custom chapkit images can be installed with --image IMAGE
     --accept-risk; they are registered from the running service. Docker Compose is required.
     """
-    _deploy(
-        model,
-        compose_file,
-        image,
-        accept_risk,
-        False,
-        platform,
-        updating=False,
-        no_start=no_start,
-        url=url,
-        token=token,
-    )
+    _deploy(model, compose_file, image, accept_risk, platform, updating=False, no_start=no_start, url=url, token=token)
 
 
 def update(
@@ -95,9 +83,7 @@ def update(
     require --accept-risk again. Use --image to select a new custom image, or omit it
     to pull the previously installed custom image reference.
     """
-    _deploy(
-        model, compose_file, image, accept_risk, False, platform, updating=True, no_start=no_start, url=url, token=token
-    )
+    _deploy(model, compose_file, image, accept_risk, platform, updating=True, no_start=no_start, url=url, token=token)
 
 
 def uninstall(
@@ -117,52 +103,24 @@ def uninstall(
     from chap_core.services.chap_api import ChapApi
 
     with ChapApi(url, token) as api:
-        _remove(model, compose_file, local=False, delete_data=delete_data, api=api)
+        _remove(model, compose_file, delete_data=delete_data, api=api)
 
 
-def start(
-    model: ModelArg,
-    *,
-    image: ImageArg = None,
-    accept_risk: RiskArg = False,
-    platform: PlatformArg = None,
-) -> None:
-    """Run a marketplace model as a standalone local service for chap eval. No CHAP server needed.
-
-    Starts the model's verified stable version, or moves an already started model to
-    it. The service gets a port on 127.0.0.1; the command prints the URL to pass to
-    chap eval --model-name. Custom chapkit images need --image IMAGE --accept-risk.
-    """
-    _deploy(model, (), image, accept_risk, True, platform, updating=None)
-
-
-def stop(model: ModelArg, *, delete_data: DeleteDataArg = False) -> None:
-    """Stop and remove a local model service started with chap model start.
-
-    The model's data volume is kept so a later start resumes from it; pass
-    --delete-data to remove it permanently.
-    """
-    _remove(model, (), local=True, delete_data=delete_data, api=None)
-
-
-def _remove(
-    model: str, compose_file: tuple[Path, ...], *, local: bool, delete_data: bool, api: "ChapApi | None"
-) -> None:
+def _remove(model: str, compose_file: tuple[Path, ...], *, delete_data: bool, api: "ChapApi") -> None:
     import yaml
 
     from chap_core.log_config import initialize_logging
 
     initialize_logging()
     try:
-        overlay, config, service_name = _prepare(model, compose_file, local)
+        overlay, config, service_name = _prepare(model, compose_file)
         previous = config["services"].pop(service_name, None)
         if previous is None:
             raise ValueError(f"Model '{model}' is not installed.")
-        if api is not None:
-            _retire_template(api, previous.get("x-chap-template"))
+        _retire_template(api, previous.get("x-chap-template"))
         volume = f"{service_name}-data"
         config["volumes"].pop(volume, None)
-        command = [*_compose_command(compose_file, local), "-f", str(overlay)]
+        command = [*_compose_command(compose_file), "-f", str(overlay)]
         project = None
         if delete_data:
             listing = subprocess.run(
@@ -199,19 +157,15 @@ def _retire_template(api: "ChapApi", template_name: str | None) -> None:
     logger.info("Retired model template %s and its configured models in CHAP at %s.", template_name, api.url)
 
 
-def _prepare(model: str, compose_files: tuple[Path, ...], local: bool) -> tuple[Path, dict[str, Any], str]:
+def _prepare(model: str, compose_files: tuple[Path, ...]) -> tuple[Path, dict[str, Any], str]:
     """Validate the arguments and return the overlay path, its config and the service name."""
     import yaml
 
     if not re.fullmatch(r"[a-z0-9][a-z0-9_]*", model):
         raise ValueError("Model names must contain only lowercase letters, digits and underscores.")
-    if not local and (not compose_files or any(not path.is_file() for path in compose_files)):
+    if not compose_files or any(not path.is_file() for path in compose_files):
         raise ValueError("Run from a CHAP deployment directory or pass its base files with --compose-file.")
-    if local:
-        overlay = Path.home() / ".chap" / "compose.models.yml"
-        overlay.parent.mkdir(parents=True, exist_ok=True)
-    else:
-        overlay = compose_files[0].resolve().parent / "compose.marketplace.yml"
+    overlay = compose_files[0].resolve().parent / "compose.marketplace.yml"
     config = yaml.safe_load(overlay.read_text()) if overlay.exists() else {"services": {}, "volumes": {}}
     if (
         not isinstance(config, dict)
@@ -224,13 +178,10 @@ def _prepare(model: str, compose_files: tuple[Path, ...], local: bool) -> tuple[
     return overlay, config, f"marketplace-{model.replace('_', '-')}"
 
 
-def _compose_command(compose_files: tuple[Path, ...], local: bool) -> list[str]:
+def _compose_command(compose_files: tuple[Path, ...]) -> list[str]:
     command = ["docker", "compose"]
-    if local:
-        command.extend(["--project-name", "chap-local-models"])
-    else:
-        for path in compose_files:
-            command.extend(["-f", str(path.resolve())])
+    for path in compose_files:
+        command.extend(["-f", str(path.resolve())])
     return command
 
 
@@ -312,9 +263,8 @@ def _deploy(
     compose_files: tuple[Path, ...],
     image: str | None,
     accept_risk: bool,
-    local: bool,
     platform: str | None,
-    updating: bool | None,
+    updating: bool,
     no_start: bool = False,
     url: str | None = None,
     token: str | None = None,
@@ -327,13 +277,11 @@ def _deploy(
     from chap_core.services.model_marketplace import DEFAULT_REGISTRY_URL, registry_url, resolve_model
 
     initialize_logging()
-    api = None if local else ChapApi(url, token)
+    api = ChapApi(url, token)
     try:
-        overlay, config, service_name = _prepare(model, compose_files, local)
+        overlay, config, service_name = _prepare(model, compose_files)
         services = config["services"]
         previous = services.get(service_name)
-        if updating is None:
-            updating = previous is not None
         if updating and previous is None:
             raise ValueError(f"Model '{model}' is not installed. Run 'chap-admin install {model}' first.")
         if not updating and previous is not None:
@@ -380,10 +328,6 @@ def _deploy(
                 "depends_on": {"chap": {"condition": "service_healthy"}},
             }
             config["volumes"][f"{service_name}-data"] = {}
-            if local:
-                del service["environment"]
-                del service["depends_on"]
-                service["ports"] = [{"target": 8000, "host_ip": "127.0.0.1"}]
         service.update({"image": image, "x-chap-custom": bool(custom), "x-chap-version": version})
         if not custom:
             service["x-chap-registry"] = registry
@@ -395,10 +339,10 @@ def _deploy(
 
         # A marketplace model is registered before its container runs, so CHAP knows the
         # model even when the service is not started. Every call can be repeated.
-        if api is not None and pin is not None:
+        if pin is not None:
             service["x-chap-template"] = _register_marketplace_model(api, pin)
 
-        command = _compose_command(compose_files, local)
+        command = _compose_command(compose_files)
         previous_image_id = None
         if previous is not None and "@" not in previous["image"]:
             # A pull can move a tag but not a digest; keep the ID so a rollback can move the tag back.
@@ -412,7 +356,7 @@ def _deploy(
             if "platform" not in service:
                 hint = (
                     " If this model publishes no image for your machine's architecture, retry with:"
-                    f" {_command_name(local, updating)} {model} --platform linux/amd64"
+                    f" chap-admin {'update' if updating else 'install'} {model} --platform linux/amd64"
                 )
             logger.error("Could not pull %s.%s", image, hint)
             raise SystemExit(1) from error
@@ -438,7 +382,7 @@ def _deploy(
                     else:
                         subprocess.run([*pending_command, "rm", "--stop", "--force", service_name], check=True)
                     raise
-            if api is not None and custom:
+            if custom:
                 service["x-chap-template"] = _register_custom_model(api, service_name)
                 pending.unlink()
                 pending = _write_pending(config, overlay)
@@ -453,27 +397,9 @@ def _deploy(
             image,
             " (not started)" if no_start else "",
         )
-        if local:
-            result = subprocess.run(
-                [*command, "-f", str(overlay), "port", service_name, "8000"],
-                check=True,
-                stdout=subprocess.PIPE,
-                text=True,
-            )
-            logger.info(
-                "Use with chap eval --model-name http://%s --run-config.is-chapkit-model", result.stdout.strip()
-            )
-        else:
-            logger.info("Include -f %s in future Docker Compose commands for this deployment.", overlay)
+        logger.info("Include -f %s in future Docker Compose commands for this deployment.", overlay)
     except (ValueError, OSError, httpx.HTTPError, yaml.YAMLError, subprocess.CalledProcessError) as error:
         logger.error("%s", error)
         raise SystemExit(1) from error
     finally:
-        if api is not None:
-            api.close()
-
-
-def _command_name(local: bool, updating: bool) -> str:
-    if local:
-        return "chap model start"
-    return f"chap-admin {'update' if updating else 'install'}"
+        api.close()

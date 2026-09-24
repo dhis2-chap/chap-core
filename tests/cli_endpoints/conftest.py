@@ -134,7 +134,6 @@ def marketplace_http(fake_chap):
 @pytest.fixture
 def model_deployment(tmp_path, monkeypatch, mocker, fake_chap):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
     compose = tmp_path / "compose.yml"
     compose.write_text("services:\n  chap:\n    image: chap:test\n")
     deployments = []
@@ -150,13 +149,12 @@ def model_deployment(tmp_path, monkeypatch, mocker, fake_chap):
         elif "inspect" in command:
             stdout = "sha256:previous\n"
         else:
-            stdout = "127.0.0.1:54321\n"
+            stdout = ""
         return SimpleNamespace(stdout=stdout, returncode=0)
 
     runner = mocker.patch("chap_core.cli_endpoints.marketplace.subprocess.run", side_effect=run)
     return SimpleNamespace(
         overlay=tmp_path / "compose.marketplace.yml",
-        local_overlay=tmp_path / ".chap/compose.models.yml",
         runner=runner,
         deployments=deployments,
         chap=fake_chap,

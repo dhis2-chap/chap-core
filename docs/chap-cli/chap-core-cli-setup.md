@@ -23,30 +23,6 @@ The commands below select `channels.stable` and require that version to be
 Marketplace verification checks the model revision and chapkit service, not
 forecast quality. Templates for model authors cannot be run as forecasting models.
 
-### For CLI evaluations
-
-```bash
-chap model start chapkit_simple_multistep_model
-```
-
-The model runs in a background container with a port bound to `127.0.0.1`.
-The command prints its URL and an example `chap eval --model-name` argument;
-use that URL with your dataset. No CHAP server is needed. Running the command
-again moves an already started model to the current verified version. The port
-may change after that, so use the URL printed by the latest command.
-Local model settings are stored in `~/.chap/compose.models.yml`.
-
-To stop a local model:
-
-```bash
-chap model stop chapkit_simple_multistep_model
-```
-
-Its data volume is kept so a later start resumes from it; pass `--delete-data`
-to remove it permanently.
-
-### For a CHAP deployment and the Modeling App
-
 Installing a model into a deployment is done with `chap-admin`, which comes with
 the same package and talks to the running CHAP instance over its REST API. From
 the directory containing your running CHAP Compose deployment:
@@ -129,13 +105,12 @@ chap-admin install my_org_model --accept-risk
 
 ### Custom chapkit models
 
-Custom images must implement the chapkit service API on port 8000 and, for a CHAP
-deployment, support chapkit self-registration. They are not marketplace-reviewed.
+Custom images must implement the chapkit service API on port 8000 and support
+chapkit self-registration. They are not marketplace-reviewed.
 You accept responsibility for running their code, sharing data with them, and
 using their forecasts. Both installation and updates require `--accept-risk`:
 
 ```bash
-chap model start my_model --image ghcr.io/my-org/my-model:v1 --accept-risk
 chap-admin install my_model --image ghcr.io/my-org/my-model:v1 --accept-risk
 chap-admin update my_model --image ghcr.io/my-org/my-model:v2 --accept-risk
 ```

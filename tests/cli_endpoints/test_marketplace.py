@@ -9,7 +9,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from chap_core.admin_cli import app as admin_app
 from chap_core.cli import app
 from chap_core.cli_endpoints import marketplace
-from chap_core.cli_endpoints.marketplace import install, start, stop, uninstall, update
+from chap_core.cli_endpoints.marketplace import install, uninstall, update
 from chap_core.database.database import SessionWrapper
 from chap_core.database.model_template_seed import add_marketplace_model
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
@@ -226,24 +226,6 @@ def test_install_reports_a_refused_revision(marketplace_model, model_deployment,
     assert "409" in caplog.text and "write-once" in caplog.text
 
 
-def test_start_and_restart_print_url_and_never_talk_to_chap(
-    marketplace_model, marketplace_http, model_deployment, caplog
-):
-    model = marketplace_model["id"]
-    with caplog.at_level(logging.INFO):
-        app(["model", "start", model], result_action="return_value")
-        app(["model", "start", model], result_action="return_value")
-    config = yaml.safe_load(model_deployment.local_overlay.read_text())
-    service = next(iter(config["services"].values()))
-    assert service["ports"] == [{"target": 8000, "host_ip": "127.0.0.1"}]
-    assert "environment" not in service
-    assert "depends_on" not in service
-    assert "http://127.0.0.1:54321" in caplog.text
-    assert not model_deployment.overlay.exists()
-    assert model_deployment.chap.requests == []
-    assert "--project-name" in model_deployment.runner.call_args.args[0]
-
-
 def test_custom_requires_risk_acceptance_each_time(model_deployment, caplog):
     with pytest.raises(SystemExit):
         install("custom", image="example/model:v1")
@@ -443,14 +425,6 @@ def test_uninstall_last_model_keeps_an_empty_overlay(model_deployment):
         "compose.marketplace.yml",
         "compose.yml",
     ]
-
-
-def test_stop_empties_the_local_overlay(model_deployment):
-    start("custom", image="example/model:v1", accept_risk=True)
-    stop("custom")
-    assert yaml.safe_load(model_deployment.local_overlay.read_text())["services"] == {}
-    assert "--project-name" in model_deployment.runner.call_args.args[0]
-    assert model_deployment.chap.requests == []
 
 
 def test_uninstall_deletes_the_data_volume_when_asked(model_deployment):
