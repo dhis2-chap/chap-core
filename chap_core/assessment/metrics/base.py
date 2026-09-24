@@ -63,9 +63,10 @@ class MetricSpec:
     description: str = "No description provided"
     # Which way is better when reading a score. None means neither direction is better.
     optimization_direction: OptimizationDirection | None = None
-    # Whether the score is sound to optimize on its own. False for metrics a model can
-    # game, so they keep a direction for presentation without becoming HPO objectives.
-    valid_hpo_objective: bool = True
+    # Whether the metric is a proper scoring rule (a consistent scoring function for
+    # point metrics), so that only honest forecasts optimize it. HPO objectives must be
+    # proper; other metrics keep a direction for presentation only.
+    proper_scoring_rule: bool = False
     # Display suffix for the raw score; None when no fixed unit applies.
     unit: str | None = None
     # Ideal value in raw score units for metrics where neither direction is better.
