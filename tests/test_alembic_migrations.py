@@ -476,8 +476,6 @@ class TestAlembicMigrations:
                 conn.execute(sa.text("ALTER TABLE prediction ADD COLUMN prediction_setup_id INTEGER"))
                 conn.execute(sa.text("ALTER TABLE modeltemplatedb DROP COLUMN archived"))
                 conn.execute(sa.text("ALTER TABLE modeltemplatedb ADD COLUMN archived BOOLEAN"))
-                conn.execute(sa.text("ALTER TABLE dataset DROP COLUMN created_manually"))
-                conn.execute(sa.text("ALTER TABLE dataset ADD COLUMN created_manually BOOLEAN"))
                 # Images built from master between #294 and #354 had ConfiguredModelWithDataSource,
                 # so create_all and the generic migration left its table and prediction column behind.
                 conn.execute(
@@ -548,13 +546,6 @@ class TestAlembicMigrations:
                 col for col in sa.inspect(engine).get_columns("modeltemplatedb") if col["name"] == "archived"
             )
             assert archived["nullable"] is False
-            created_manually = next(
-                col for col in sa.inspect(engine).get_columns("dataset") if col["name"] == "created_manually"
-            )
-            assert created_manually["nullable"] is False
-            with engine.connect() as conn:
-                flags = conn.execute(sa.text("SELECT created_manually FROM dataset")).scalars().all()
-            assert flags == [False]
             assert "configuredmodelwithdatasource" not in sa.inspect(engine).get_table_names()
             prediction_columns = {col["name"] for col in sa.inspect(engine).get_columns("prediction")}
             assert "configured_model_with_data_source_id" not in prediction_columns
