@@ -49,7 +49,7 @@ def register_service(
     try:
         from chap_core.rest_api.v1.routers.crud import _sync_live_chapkit_services
 
-        conflict = _sync_live_chapkit_services(session, orchestrator).get(payload.info.id)
+        conflict = _sync_live_chapkit_services(session, orchestrator).get((payload.info.id, payload.info.version))
         if conflict is not None:
             # The service is live, but the stored template is invalid. Tell the model
             # developer in their own service logs.

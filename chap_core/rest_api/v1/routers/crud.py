@@ -125,7 +125,9 @@ def _registered_chapkit_revision_conflict(
     return None
 
 
-def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str, ModelTemplateRevisionConflict | None]:
+def _sync_live_chapkit_services(
+    session: Session, orchestrator=None
+) -> dict[tuple[str, str], ModelTemplateRevisionConflict | None]:
     """Sync live chapkit services from the v2 registry into the DB.
 
     Queries the Redis-backed Orchestrator for registered services and
@@ -138,7 +140,7 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str
     second redis connection, which costs a full connect timeout whenever
     redis is unreachable.
 
-    Returns the revision conflict per registered template name, or None when the
+    Returns the revision conflict per registered (template name, version), or None when the
     service runs the stored source revision. A mismatched template is left untouched.
     """
     try:
@@ -151,7 +153,9 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str
         logger.debug("Could not reach service registry, skipping chapkit sync")
         return {}
 
-    conflicts: dict[str, ModelTemplateRevisionConflict | None] = {s.info.id: None for s in service_list.services}
+    conflicts: dict[tuple[str, str], ModelTemplateRevisionConflict | None] = {
+        (s.info.id, s.info.version): None for s in service_list.services
+    }
 
     if service_list.count > 0:
         from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
@@ -196,7 +200,7 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str
                     session.commit()
                 if conflict is not None:
                     logger.warning(str(conflict))
-                    conflicts[service.info.id] = conflict
+                    conflicts[(service.info.id, service.info.version)] = conflict
                     continue
                 _sync_chapkit_configured_models(session_wrapper, template_id, service.url, CHAPKitRestAPIWrapper)
             except Exception:
@@ -894,8 +898,8 @@ async def list_model_templates(session: Session = Depends(get_session)):
     results = []
     for t in model_templates:
         read = ModelTemplateRead.model_validate(t)
-        if t.name in conflicts:
-            read.health_status = LIVE if conflicts[t.name] is None else REVISION_MISMATCH
+        if (t.name, t.version) in conflicts:
+            read.health_status = LIVE if conflicts[(t.name, t.version)] is None else REVISION_MISMATCH
         results.append(read)
     return results
 
