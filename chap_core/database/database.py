@@ -585,6 +585,7 @@ def _run_alembic_migrations(engine):
     """
     from alembic.config import Config
     from alembic.migration import MigrationContext
+    from alembic.script import ScriptDirectory
 
     from alembic import command
 
@@ -607,11 +608,24 @@ def _run_alembic_migrations(engine):
             alembic_cfg.attributes["connection"] = connection
 
             migration_context = MigrationContext.configure(connection)
-            if migration_context.get_current_revision() is None:
+            current_revision = migration_context.get_current_revision()
+            if current_revision is None:
                 existing_tables = set(sqlalchemy.inspect(connection).get_table_names())
                 if "modeltemplatedb" in existing_tables:
                     command.stamp(alembic_cfg, _GENERIC_SCHEMA_ALEMBIC_REVISION)
                     connection.commit()
+            else:
+                known_revisions = {
+                    script.revision for script in ScriptDirectory.from_config(alembic_cfg).walk_revisions()
+                }
+                if current_revision not in known_revisions:
+                    # A newer release migrated this database and the image was rolled back. Its
+                    # schema is a superset of this release's, so start without migrating.
+                    logger.warning(
+                        f"Database is at Alembic revision {current_revision}, which this release does not know. "
+                        "Skipping Alembic migrations."
+                    )
+                    return
 
             command.upgrade(alembic_cfg, "head")
             # The revision check above autobegins a transaction on this connection, and

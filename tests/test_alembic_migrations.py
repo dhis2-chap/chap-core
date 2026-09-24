@@ -549,6 +549,32 @@ class TestAlembicMigrations:
             prediction_columns = {col["name"] for col in sa.inspect(engine).get_columns("prediction")}
             assert "configured_model_with_data_source_id" not in prediction_columns
 
+    def test_revision_unknown_to_this_release_does_not_block_startup(self, engine):
+        """Rolling back to an older image must not crash-loop on a newer stored revision.
+
+        The database was migrated by a newer release, so alembic_version holds a revision
+        this script directory does not have. Startup skips the upgrade and leaves it as is.
+        """
+        from alembic import command
+
+        from chap_core.database.database import _run_alembic_migrations
+
+        with engine.connect() as conn:
+            conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+            conn.execute(sa.text("CREATE SCHEMA public"))
+            conn.commit()
+        SQLModel.metadata.create_all(engine)
+        command.stamp(_make_alembic_cfg(engine), "head")
+        with engine.connect() as conn:
+            conn.execute(sa.text("UPDATE alembic_version SET version_num = 'f0f0f0f0f0f0'"))
+            conn.commit()
+
+        _run_alembic_migrations(engine)
+
+        with engine.connect() as conn:
+            current = conn.execute(sa.text("SELECT version_num FROM alembic_version")).scalar_one()
+        assert current == "f0f0f0f0f0f0"
+
     def test_all_revisions_have_downgrade(self):
         """Verify every migration revision defines a non-empty downgrade."""
         from alembic.config import Config
