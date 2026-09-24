@@ -1,3 +1,4 @@
+import json
 import os
 from functools import lru_cache
 from typing import Any, cast
@@ -29,4 +30,6 @@ def get_database_url():
 
 async def get_job_request(request: Request) -> dict[str, Any]:
     """Capture the submitted JSON body without model defaults or worker credentials."""
-    return cast("dict[str, Any]", await request.json())
+    body = await request.body()
+    # An empty body is left to FastAPI's body validation, which returns 422.
+    return cast("dict[str, Any]", json.loads(body)) if body else {}

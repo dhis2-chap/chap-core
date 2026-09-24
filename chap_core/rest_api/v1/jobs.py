@@ -132,7 +132,8 @@ def delete_job(job_id: str) -> dict:
     if job_status in ["pending", "started", "running"]:
         raise HTTPException(status_code=400, detail="Cannot delete a running job. Cancel it first.")
 
-    result = redis.delete(f"job_meta:{job_id}", f"job_request:{job_id}")
+    redis.delete(f"job_request:{job_id}")
+    result = redis.delete(f"job_meta:{job_id}")
 
     if result == 0:
         raise HTTPException(status_code=404, detail="Job not found")

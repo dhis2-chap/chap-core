@@ -109,3 +109,7 @@ def test_delete_job_removes_request(request_store, monkeypatch):
     assert client.delete("/v1/jobs/failed").status_code == 200
     assert not request_store.exists("job_meta:failed", "job_request:failed")
     assert client.get("/v1/jobs/failed/request").status_code == 404
+
+
+def test_empty_body_is_rejected_by_validation(request_store):
+    assert TestClient(app).post("/v1/analytics/make-prediction").status_code == 422
