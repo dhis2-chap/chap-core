@@ -41,14 +41,7 @@ def sanity_check_model(
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
     if dataset_path is None:
-        # The example dataset lives in the repository, not in the installed package.
-        example_dataset = datasets["hydromet_5_filtered"]
-        if not example_dataset.filepath().exists():
-            raise ValueError(
-                "No --dataset-path given and the example dataset is not available in this installation. "
-                "Pass --dataset-path with a CHAP-formatted CSV."
-            )
-        dataset = example_dataset.load()
+        dataset = datasets["hydromet_5_filtered"].load()
     else:
         dataset = DataSet.from_csv(dataset_path, FullData)
     train, tests = train_test_generator(dataset, 3, n_test_sets=2)

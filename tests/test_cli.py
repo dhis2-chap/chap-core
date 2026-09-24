@@ -1,4 +1,5 @@
 from contextlib import ExitStack
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from chap_core.api import forecast
@@ -509,11 +510,12 @@ def test_chap_test_exits_nonzero_when_a_core_import_fails(monkeypatch, capsys):
     assert "Some checks FAILED." in out
 
 
-def test_sanity_check_model_without_dataset_path_explains_missing_example_data(tmp_path, monkeypatch):
-    from chap_core.file_io.example_data_set import ExampleDataSet
+def test_sanity_check_default_dataset_ships_in_the_package():
+    import chap_core
+    from chap_core.file_io.example_data_set import datasets
 
-    # An installed chap-core has no example_data directory next to the package.
-    monkeypatch.setattr(ExampleDataSet, "base_path", tmp_path)
+    # sanity-check-model falls back to this dataset, so it must be inside chap_core/ to be in the wheel.
+    filepath = datasets["hydromet_5_filtered"].filepath()
 
-    with pytest.raises(ValueError, match="--dataset-path"):
-        sanity_check_model("https://github.com/dhis2-chap/minimalist_example_uv")
+    assert filepath.is_relative_to(Path(chap_core.__file__).parent)
+    assert filepath.exists()
