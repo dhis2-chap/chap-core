@@ -14,6 +14,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
+from chap_core.database.migration_helpers import has_table
+
 # revision identifiers, used by Alembic.
 revision: str = "b2c3d4e5f6a7"
 down_revision: Union[str, Sequence[str], None] = "a1b2c3d4e5f6"
@@ -22,18 +24,19 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        "configuredmodelwithdatasource",
-        sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("name", sa.String(), nullable=False),
-        sa.Column("created", sa.DateTime(), nullable=True),
-        sa.Column("configured_model_id", sa.Integer(), nullable=False),
-        sa.Column("start_period", sa.String(), nullable=True),
-        sa.Column("org_units", sa.JSON(), nullable=True),
-        sa.Column("data_sources", sa.JSON(), nullable=True),
-        sa.Column("period_type", sa.String(), nullable=True),
-        sa.ForeignKeyConstraint(["configured_model_id"], ["configuredmodeldb.id"]),
-    )
+    if not has_table("configuredmodelwithdatasource"):
+        op.create_table(
+            "configuredmodelwithdatasource",
+            sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
+            sa.Column("name", sa.String(), nullable=False),
+            sa.Column("created", sa.DateTime(), nullable=True),
+            sa.Column("configured_model_id", sa.Integer(), nullable=False),
+            sa.Column("start_period", sa.String(), nullable=True),
+            sa.Column("org_units", sa.JSON(), nullable=True),
+            sa.Column("data_sources", sa.JSON(), nullable=True),
+            sa.Column("period_type", sa.String(), nullable=True),
+            sa.ForeignKeyConstraint(["configured_model_id"], ["configuredmodeldb.id"]),
+        )
 
 
 def downgrade() -> None:
