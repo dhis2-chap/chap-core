@@ -36,6 +36,12 @@ class LocalDataSet(ExampleDataSet):
     base_path = Path(__file__).parent.parent.parent.parent.parent / "Data"
 
 
+class PackagedExampleDataSet(ExampleDataSet):
+    """An example dataset shipped inside the chap_core package, so it is available in an installed wheel."""
+
+    base_path = Path(__file__).parent / "example_data"
+
+
 dataset_names = [
     "hydro_met_subset",
     "hydromet_clean",
@@ -56,7 +62,7 @@ type DataSetType = Literal[
     "ISIMIP_dengue_harmonized",
 ]
 datasets: dict[str, ExampleDataSet] = {
-    name: ExampleDataSet(name) if name != "hydromet_5_filtered" else ExampleDataSet(name, FullData)
+    name: ExampleDataSet(name) if name != "hydromet_5_filtered" else PackagedExampleDataSet(name, FullData)
     for name in dataset_names
 } | {name: LocalDataSet(name, FullData) for name in local_datasets}
 for name, url in remote_datasets.items():

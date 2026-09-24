@@ -153,7 +153,6 @@ class SensitivityMetric(_OutbreakMetric):
         aggregation_op=AggregationOp.MEAN,
         description="True positive rate for outbreak detection alerts",
         optimization_direction=OptimizationDirection.MAXIMIZE,
-        valid_hpo_objective=False,
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
@@ -179,7 +178,6 @@ class SpecificityMetric(_OutbreakMetric):
         aggregation_op=AggregationOp.MEAN,
         description="True negative rate for outbreak detection alerts",
         optimization_direction=OptimizationDirection.MAXIMIZE,
-        valid_hpo_objective=False,
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
@@ -205,7 +203,6 @@ class OutbreakAccuracyMetric(_OutbreakMetric):
         aggregation_op=AggregationOp.MEAN,
         description="Proportion of correctly classified outbreak/non-outbreak periods",
         optimization_direction=OptimizationDirection.MAXIMIZE,
-        valid_hpo_objective=False,
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:

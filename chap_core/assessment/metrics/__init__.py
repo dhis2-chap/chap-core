@@ -287,10 +287,10 @@ def get_optimization_direction(metric_id: str) -> OptimizationDirection:
         raise ValueError(f"Unknown metric {metric_id!r}")
 
     spec = metric_cls.spec
-    if spec.optimization_direction is None or not spec.valid_hpo_objective:
+    if spec.optimization_direction is None or not spec.proper_scoring_rule:
         raise ValueError(
             f"Metric {metric_id!r} is not defined as a direct HPO objective. "
-            "Choose a metric with an explicit optimization direction."
+            "Choose a proper scoring rule with an explicit optimization direction."
         )
 
     return spec.optimization_direction

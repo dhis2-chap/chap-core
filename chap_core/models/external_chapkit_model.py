@@ -93,9 +93,12 @@ def _chapkit_config_payload(model_configuration: dict) -> dict:
 
     A chap-core configuration (a ``ModelConfiguration`` or a ``ConfiguredModelDB``
     row) carries bookkeeping fields the service has no schema for, so only the two
-    fields that describe the configuration itself are sent. Anything else is a raw
-    dict authored against the service's own config schema, and is passed through
-    minus the ``model_template`` key chap-core attaches.
+    fields that describe the configuration itself are sent. The user option values
+    are sent as top-level fields, since that is how a chapkit config schema declares
+    them; services built on chapkit < 2.1 store a nested ``user_option_values`` as an
+    opaque extra field and fall back to their defaults. Anything else is a raw dict
+    authored against the service's own config schema, and is passed through minus
+    the ``model_template`` key chap-core attaches.
 
     An empty ``additional_continuous_covariates`` is dropped rather than sent: the
     row defaults it to an empty list, which would override whatever default the
@@ -104,15 +107,33 @@ def _chapkit_config_payload(model_configuration: dict) -> dict:
     """
     covariates = model_configuration.get("additional_continuous_covariates")
     if "user_option_values" in model_configuration:
-        payload = {}
-        if model_configuration.get("user_option_values"):
-            payload["user_option_values"] = model_configuration["user_option_values"]
+        payload = dict(model_configuration.get("user_option_values") or {})
     else:
         payload = {key: value for key, value in model_configuration.items() if key != "model_template"}
         payload.pop("additional_continuous_covariates", None)
     if covariates:
         payload["additional_continuous_covariates"] = covariates
     return payload
+
+
+def _check_stored_config(sent: dict, stored: dict) -> None:
+    """Raise if the service did not store the configuration values chap-core sent.
+
+    A chapkit service answers a config it cannot interpret with HTTP 201 and its own
+    defaults, so without this check a model would silently run with a configuration
+    other than the one asked for.
+    """
+    mismatched = {key: (value, stored.get(key)) for key, value in sent.items() if stored.get(key) != value}
+    if mismatched:
+        details = ", ".join(
+            f"{key}: sent {sent_value!r}, stored {stored_value!r}"
+            for key, (sent_value, stored_value) in mismatched.items()
+        )
+        raise ValueError(
+            f"The chapkit service did not store the model configuration it was sent ({details}). "
+            "The service may be built on a chapkit version that does not accept this configuration; "
+            "rebuild it against chapkit >= 2.1.0."
+        )
 
 
 class ExternalChapkitModelTemplate:
@@ -268,10 +289,12 @@ class ExternalChapkitModelTemplate:
         else:
             name = f"{self.name}_config_{timestamp}"
 
-        config_data = {"name": name, "data": _chapkit_config_payload(model_configuration)}
+        payload = _chapkit_config_payload(model_configuration)
+        config_data = {"name": name, "data": payload}
         logger.info(f"Creating model configuration with name {name} at {self.rest_api_url}. Data: {config_data}")
 
         config_response = self.client.create_config(config_data)
+        _check_stored_config(payload, config_response.data.model_dump())
         configuration_id = str(config_response.id)
 
         # get all configs and assert that configuration_id is there
