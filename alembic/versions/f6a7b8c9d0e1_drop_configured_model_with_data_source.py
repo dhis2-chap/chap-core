@@ -15,6 +15,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
+from chap_core.database.migration_helpers import foreign_key_name
+
 # revision identifiers, used by Alembic.
 revision: str = "f6a7b8c9d0e1"
 down_revision: Union[str, Sequence[str], None] = "e5f6a7b8c9d0"
@@ -23,11 +25,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.drop_constraint(
-        "fk_prediction_configured_model_with_data_source",
-        "prediction",
-        type_="foreignkey",
-    )
+    # create_all names the constraint by the Postgres default, not the name c3d4e5f6a7b8 uses.
+    foreign_key = foreign_key_name("prediction", "configuredmodelwithdatasource")
+    if foreign_key is not None:
+        op.drop_constraint(foreign_key, "prediction", type_="foreignkey")
     op.drop_column("prediction", "configured_model_with_data_source_id")
     op.drop_table("configuredmodelwithdatasource")
 

@@ -475,6 +475,17 @@ class TestAlembicMigrations:
                 conn.execute(sa.text("ALTER TABLE prediction ADD COLUMN prediction_setup_id INTEGER"))
                 conn.execute(sa.text("ALTER TABLE modeltemplatedb DROP COLUMN archived"))
                 conn.execute(sa.text("ALTER TABLE modeltemplatedb ADD COLUMN archived BOOLEAN"))
+                # Images built from master between #294 and #354 had ConfiguredModelWithDataSource,
+                # so create_all and the generic migration left its table and prediction column behind.
+                conn.execute(
+                    sa.text(
+                        "CREATE TABLE configuredmodelwithdatasource ("
+                        "id SERIAL PRIMARY KEY, name VARCHAR NOT NULL, created TIMESTAMP, "
+                        "configured_model_id INTEGER NOT NULL REFERENCES configuredmodeldb (id), "
+                        "start_period VARCHAR, org_units JSON, data_sources JSON, period_type VARCHAR)"
+                    )
+                )
+                conn.execute(sa.text("ALTER TABLE prediction ADD COLUMN configured_model_with_data_source_id INTEGER"))
                 conn.execute(
                     sa.text(
                         "INSERT INTO modeltemplatedb "
@@ -496,8 +507,9 @@ class TestAlembicMigrations:
                 conn.execute(
                     sa.text(
                         "INSERT INTO prediction "
-                        "(dataset_id, model_db_id, model_id, n_periods, name, created, prediction_setup_id) "
-                        "SELECT d.id, c.id, 'legacy_configured', 3, 'legacy_prediction', now(), 0 "
+                        "(dataset_id, model_db_id, model_id, n_periods, name, created, prediction_setup_id, "
+                        "configured_model_with_data_source_id) "
+                        "SELECT d.id, c.id, 'legacy_configured', 3, 'legacy_prediction', now(), 0, 0 "
                         "FROM dataset d, configuredmodeldb c "
                         "WHERE d.name = 'legacy_dataset' AND c.name = 'legacy_configured'"
                     )
@@ -533,6 +545,9 @@ class TestAlembicMigrations:
                 col for col in sa.inspect(engine).get_columns("modeltemplatedb") if col["name"] == "archived"
             )
             assert archived["nullable"] is False
+            assert "configuredmodelwithdatasource" not in sa.inspect(engine).get_table_names()
+            prediction_columns = {col["name"] for col in sa.inspect(engine).get_columns("prediction")}
+            assert "configured_model_with_data_source_id" not in prediction_columns
 
     def test_all_revisions_have_downgrade(self):
         """Verify every migration revision defines a non-empty downgrade."""
