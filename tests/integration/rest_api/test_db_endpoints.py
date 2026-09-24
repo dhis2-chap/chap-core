@@ -1877,6 +1877,19 @@ def test_make_dataset_all_regions_rejected_dry_run(dependency_overrides, dataset
     _check_all_regions_rejected_dry_run("/v1/analytics/make-dataset", dataset_make_request.model_dump())
 
 
+def test_make_dataset_all_polygons_missing_returns_500_with_rejections(
+    dependency_overrides, dataset_make_request, org_units
+):
+    request_payload = dataset_make_request.model_dump()
+    request_payload["geojson"]["features"] = []
+    response = client.post("/v1/analytics/make-dataset", json=request_payload)
+    assert response.status_code == 500, response.json()
+    detail = response.json()["detail"]
+    assert detail["message"] == "Missing values. No data was imported."
+    assert {r["orgUnit"] for r in detail["rejected"]} == set(org_units)
+    assert all(r["featureName"] == "polygon" for r in detail["rejected"])
+
+
 @pytest.mark.parametrize("dry_run", [False, True])
 def test_backtest_with_weekly_data_flow(
     celery_session_worker, dependency_overrides, example_polygons, create_backtest_with_weekly_data_request, dry_run
