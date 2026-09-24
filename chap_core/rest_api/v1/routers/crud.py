@@ -130,13 +130,13 @@ def _registered_chapkit_revision_conflict(
 
 
 def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str, ModelTemplateRevisionConflict | None]:
-    """Check the live chapkit services in the v2 registry against the stored templates.
+    """Sync the live chapkit services in the v2 registry into stored model templates.
 
-    Registration is a liveness and URL signal only. It creates no templates or
-    configured models: a service becomes a model in CHAP when it is installed with
-    ``chap-admin install`` or seeded at startup. The one thing taken from the live
-    service is a template's user option schema, which the marketplace registry does
-    not carry, the first time the service is reachable.
+    A registered service that has no stored template under its version gets one,
+    from its own info and config schema. Registration creates no configured models:
+    the reviewed configurations of a model come from its marketplace entry, through
+    ``chap-admin install`` or a ``marketplace:`` seed entry. A template whose service
+    is gone is left as it is; ``chap-admin uninstall`` retires it.
 
     Callers that already hold an orchestrator should pass it in. Building a
     fresh one here reaches around FastAPI's dependency overrides and opens a
@@ -163,27 +163,21 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str
         if conflict is not None:
             logger.warning(str(conflict))
             continue
+        if _stored_template(session, service.info) is not None:
+            continue
         try:
-            _fill_user_options_from_service(session, service)
+            add_model_template_from_registered_service(session, service)
         except Exception:
+            # A template version is write-once, so do not persist incomplete metadata
+            # while the service's config schema is unavailable.
             logger.warning("Could not fetch config schema from %s, will retry next sync", service.url, exc_info=True)
     return conflicts
 
 
-def _fill_user_options_from_service(session: Session, service) -> None:
-    """Complete a stored template's user option schema from its live service, once."""
-    template = session.exec(
-        select(ModelTemplateDB).where(
-            ModelTemplateDB.name == service.info.id, ModelTemplateDB.version == service.info.version
-        )
+def _stored_template(session: Session, info: MLServiceInfo) -> ModelTemplateDB | None:
+    return session.exec(
+        select(ModelTemplateDB).where(ModelTemplateDB.name == info.id, ModelTemplateDB.version == info.version)
     ).first()
-    if template is None or template.user_options:
-        return
-    user_options = _fetch_user_options(service.url)
-    if user_options:
-        template.user_options = user_options
-        session.add(template)
-        session.commit()
 
 
 def _fetch_user_options(service_url: str) -> dict:
@@ -200,9 +194,10 @@ def _fetch_user_options(service_url: str) -> dict:
 def add_model_template_from_registered_service(session: Session, service) -> int:
     """Store the template a registered chapkit service describes, from its live info and config schema.
 
-    This is the path for custom images without a marketplace entry. The service must
-    report a git revision, since a template without a digest could never run, and a
-    stored version must be the revision the service reports.
+    What discovery does for a registered service; also an endpoint, so a service whose
+    schema was unreachable when it was discovered can be stored on demand. The service
+    must report a git revision, since a template without a digest could never run, and
+    a stored version must be the revision the service reports.
     """
     from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config
 
@@ -212,8 +207,13 @@ def add_model_template_from_registered_service(session: Session, service) -> int
     config = ml_service_info_to_model_template_config(service.info, service.url, _fetch_user_options(service.url))
     wrapper = SessionWrapper(session=session)
     template_id = wrapper.add_model_template_from_yaml_config(config, source_digest=service.info.git_revision)
-    template = wrapper.get_model_template(template_id)
-    template.uses_chapkit = True
+    # A discovered version is what the service runs now, so it is served right away even
+    # before it has a configuration; only live versions are listed, and a configuration
+    # can only be added to a listed template.
+    for template in session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == service.info.id)).all():
+        template.is_live = template.id == template_id
+        if template.id == template_id:
+            template.uses_chapkit = True
     session.commit()
     return template_id
 
@@ -780,11 +780,12 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], se
 async def list_model_templates(session: Session = Depends(get_session)):
     """List every live model template that can be configured into a runnable model — one per template name; superseded versions keep their rows but are not listed.
 
-    The CHAPKit v2 service registry is checked on the way, so a template's
-    ``health_status`` reflects whether the backing CHAPKit service is currently
-    registered (``"live"``) and still runs the stored source revision
-    (``"revision_mismatch"`` otherwise). Registration alone does not create a
-    template; see ``POST /v1/crud/model-templates``.
+    Acts as the discovery endpoint: registered CHAPKit services without a stored
+    template get one here, and a template's ``health_status`` reflects whether the
+    backing CHAPKit service is currently registered (``"live"``) and still runs the
+    stored source revision (``"revision_mismatch"`` otherwise). Discovery creates no
+    configured models; those come from the marketplace entry through
+    ``chap-admin install``.
     """
     conflicts = _sync_live_chapkit_services(session)
     model_templates = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.is_live == True)).all()

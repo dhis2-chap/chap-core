@@ -115,10 +115,11 @@ chap-admin install my_model --image ghcr.io/my-org/my-model:v1 --accept-risk
 chap-admin update my_model --image ghcr.io/my-org/my-model:v2 --accept-risk
 ```
 
-A custom image has no marketplace entry to register the model from, so
-`chap-admin` starts the service first, waits for it to register with CHAP, and
-then stores the template from the service's own description with one default
-configuration. `--no-start` is therefore not available for custom images.
+A custom image has no marketplace entry to take the model from, so
+`chap-admin` starts the service first, waits for it to register with CHAP,
+which stores the template from the service's own description, and then adds
+one default configuration. `--no-start` is therefore not available for custom
+images.
 Updating a custom model without `--image` pulls its existing image reference
 again; it never switches to a marketplace model automatically. Prefer version
 tags or digests for reproducible custom installations.

@@ -34,17 +34,18 @@ def register_service(
     """Announce a CHAPKit-hosted model service so CHAP Core can route work to it.
 
     The orchestrator records the service and returns the absolute ping URL the service
-    must hit periodically to stay live. Registration is a liveness and URL signal: it
-    does not make the service a model in CHAP. A model template is stored with
-    ``chap-admin install`` or ``POST /v1/crud/model-templates``. Requires the
+    must hit periodically to stay live. As a side effect, the service's model template
+    is stored right away if it is not yet, so it can be configured without waiting for
+    the next lazy sync. Configured models are not created from a service; they come
+    from its marketplace entry through ``chap-admin install``. Requires the
     ``X-Service-Key`` header.
     """
     response = orchestrator.register(payload)
     response.ping_url = str(request.base_url).rstrip("/") + response.ping_url
 
-    # Check the registered revision against the stored template right away so a model
-    # developer sees a mismatch in their own service logs. Best-effort: a check failure
-    # must not fail the registration itself.
+    # Eagerly store the template and check the registered revision against it, so a
+    # model developer sees a mismatch in their own service logs. Best-effort: a sync
+    # failure must not fail the registration itself.
     try:
         from chap_core.rest_api.v1.routers.crud import _sync_live_chapkit_services
 

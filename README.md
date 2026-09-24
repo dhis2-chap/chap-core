@@ -61,8 +61,9 @@ docker compose -f compose.yml -f compose.marketplace.yml up -d
 
 See the [CLI setup guide](docs/chap-cli/chap-core-cli-setup.md) for the
 details. `compose.chapkit.yml` and `compose.ewars.yml` run the EWARS service
-as a plain overlay; a service started that way registers with chap but is
-not a model in it until it is also declared with a `marketplace:` entry in
+as a plain overlay; a service started that way self-registers as a model
+template, but its verified configurations only come from the marketplace,
+through `chap-admin install` or a `marketplace:` entry in
 `config/configured_models/` (see the README there).
 
 ## Deploy on Kubernetes

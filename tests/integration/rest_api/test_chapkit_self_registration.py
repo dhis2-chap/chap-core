@@ -1,9 +1,9 @@
 """End-to-end tests for chapkit self-registration and template registration.
 
-A registered service is a liveness signal for a stored template, not a template
-itself: templates are stored through POST /v1/crud/model-templates (what
-chap-admin install calls) and reported with a health status on
-GET /v1/crud/model-templates.
+A registered service gets a model template, stored from its own info and schema,
+and a health status on GET /v1/crud/model-templates. It gets no configured models:
+those come from the marketplace entry through POST /v1/crud/configured-models
+(what chap-admin install calls), as does the template when install runs first.
 """
 
 import logging
@@ -123,17 +123,37 @@ def _test_model(client):
     return matching[0]
 
 
-def test_registered_service_is_not_a_model_until_it_is_installed(client, register_service, mock_wrapper_cls):
-    register_service()
-    client.post("/v2/services/$register", json={"url": "http://test-service:8080", "info": MOCK_INFO_DICT})
+def test_registered_service_becomes_a_template_without_configured_models(client, register_service):
+    register_service({**MOCK_INFO_DICT, "git_revision": "b" * 40})
 
-    assert client.get("/v1/crud/model-templates").json() == []
+    template = _test_model(client)
+    assert template["healthStatus"] == "live"
+    assert template["sourceDigest"] == "b" * 40
+    assert template["usesChapkit"] is True
+    assert template["userOptions"] == {"n_lags": {"type": "integer", "default": 3}}
+    # Configurations come from the marketplace entry, never from the service.
     assert client.get("/v1/crud/configured-models").json() == []
-    # Nothing is read from a service that no template needs.
-    mock_wrapper_cls.assert_not_called()
 
 
-def test_installed_template_reports_its_registered_service_as_live(client, register_service):
+def test_registration_endpoint_stores_the_template_eagerly(client):
+    response = client.post("/v2/services/$register", json={"url": "http://test-service:8080", "info": MOCK_INFO_DICT})
+    assert response.status_code == 200
+    assert _test_model(client)["version"] == "1.0.0"
+
+
+@pytest.mark.parametrize("git_revision", [None, ""])
+def test_service_without_a_git_revision_is_not_stored_until_it_reports_one(client, register_service, git_revision):
+    """Storing a row without a digest would burn the version label, so the label stays free."""
+    register_service({**MOCK_INFO_DICT, "git_revision": git_revision})
+    assert client.get("/v1/crud/model-templates").json() == []
+
+    register_service({**MOCK_INFO_DICT, "git_revision": "a" * 40})
+    template = _test_model(client)
+    assert template["sourceDigest"] == "a" * 40
+    assert template["healthStatus"] == "live"
+
+
+def test_installed_template_is_reused_when_its_service_registers(client, register_service, mock_wrapper_cls):
     installed = _install(client)
     assert installed["sourceDigest"] == "a" * 40
     assert installed["usesChapkit"] is True
@@ -143,6 +163,38 @@ def test_installed_template_reports_its_registered_service_as_live(client, regis
     template = _test_model(client)
     assert template["healthStatus"] == "live"
     assert template["id"] == installed["id"]
+    # A stored version is write-once, so nothing is read from the service for it.
+    mock_wrapper_cls.assert_not_called()
+
+
+def test_sync_is_idempotent(client, register_service, mock_wrapper_cls):
+    register_service()
+    first = client.get("/v1/crud/model-templates").json()
+    assert client.get("/v1/crud/model-templates").json() == first
+    assert mock_wrapper_cls.call_count == 1
+
+
+def test_re_registered_service_with_new_version_adds_a_new_template(
+    client, register_service, fake_orchestrator, db_engine
+):
+    register_service()
+    first_id = _test_model(client)["id"]
+
+    fake_orchestrator.deregister("test-model")
+    register_service({**MOCK_INFO_DICT, "version": "2.0.0", "display_name": "Updated Model", "requires_geo": True})
+
+    live = _test_model(client)
+    assert (live["version"], live["displayName"], live["requiresGeo"], live["isLive"]) == (
+        "2.0.0",
+        "Updated Model",
+        True,
+        True,
+    )
+    assert live["id"] != first_id
+    with Session(db_engine) as session:
+        superseded = session.get(ModelTemplateDB, first_id)
+        assert superseded is not None
+        assert superseded.is_live is False
 
 
 def test_installing_the_same_version_again_returns_the_stored_row(client):
@@ -218,27 +270,16 @@ def test_redeploying_the_stored_revision_clears_the_mismatch(client, register_se
     assert _test_model(client)["healthStatus"] == "live"
 
 
-def test_user_options_are_filled_from_the_live_service_once(client, register_service, mock_wrapper_cls):
-    assert _install(client)["userOptions"] == {}
-    register_service()
-
-    assert _test_model(client)["userOptions"] == {"n_lags": {"type": "integer", "default": 3}}
-    assert _test_model(client)["userOptions"] == {"n_lags": {"type": "integer", "default": 3}}
-    assert mock_wrapper_cls.call_count == 1
-
-
-def test_schema_fetch_failure_is_retried_on_the_next_listing(client, register_service, mock_wrapper_cls, caplog):
+def test_schema_fetch_failure_does_not_freeze_empty_user_options(client, register_service, mock_wrapper_cls, caplog):
     mock_wrapper_cls.return_value.get_config_schema.side_effect = [
         ConnectionError("service temporarily unavailable"),
         SCHEMA,
     ]
-    _install(client)
     register_service()
 
+    # An incomplete template is not created while the schema endpoint is down.
     with caplog.at_level(logging.WARNING, logger="chap_core.rest_api.v1.routers.crud"):
-        template = _test_model(client)
-    assert template["userOptions"] == {}
-    assert template["healthStatus"] == "live"
+        assert client.get("/v1/crud/model-templates").json() == []
     assert any(
         record.levelno == logging.WARNING
         and "Could not fetch config schema" in record.message

@@ -76,9 +76,9 @@ and verified configurations, the same registration `chap-admin install` makes ov
 does not run the service: start it with `chap-admin install` or an overlay such as `compose.ewars.yml`.
 The template's source address is the in-network name `chap-admin install` uses,
 `http://marketplace-<service-id>:8000`; a service started under another name is found through its
-self-registration instead. A chapkit service that only self-registers is not a model in CHAP; see
-[Running Your Own Model](../../docs/modeling-app/running-your-own-model.md) for images that have no
-marketplace entry.
+self-registration instead. A chapkit service that only self-registers gets a template but no
+configurations; see [Running Your Own Model](../../docs/modeling-app/running-your-own-model.md) for
+images that have no marketplace entry.
 
 ## Adding models
 

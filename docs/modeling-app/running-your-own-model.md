@@ -14,7 +14,7 @@ The supported way to do this is to package the model as a **chapkit service** an
 
 ## How model services attach to Chap
 
-**Chapkit services register themselves with Chap on startup.** You give the service the address of Chap's registration endpoint and it announces itself, so Chap knows where it runs and whether it is alive. Registration alone does not make it a model, though: Chap only lists models that were registered on purpose, together with the configurations they should run with. For a marketplace model, `chap-admin install` does all of this for you, including the Compose service, so you do not need this page. For your own image, you declare the service yourself as shown below and then register it as a model from its running service. Chap does not need rebuilding either way.
+**Chapkit services register themselves with Chap on startup.** You give the service the address of Chap's registration endpoint, it announces itself, and Chap stores its model template automatically. Nothing needs to be listed in a configuration file, and Chap does not need rebuilding when you add or change a model. What registration does not give you is a configuration: a model runs with a configuration, and those come from the model's marketplace entry through `chap-admin install`, which also writes the Compose service for you. For your own image, which has no marketplace entry, you declare the service yourself as shown below and add a configuration to the registered template.
 
 ## Adding a self-registering model service
 
@@ -76,21 +76,25 @@ Check that the service registered:
 curl http://localhost:8000/v2/services
 ```
 
-### 5. Register it as a model
-
-A registered service is not a model yet. Store its template from the running service, using the id it registered under (the service's own id as advertised by the chapkit image, not the Compose service name), and give it a configuration:
+Then check that its template is stored. The name comes from the service's own id as advertised by the chapkit image, not from the Compose service name:
 
 ```console
-curl -X POST http://localhost:8000/v1/crud/model-templates/from-service \
-  -H 'Content-Type: application/json' -d '{"serviceId": "my-model"}'
-curl -X POST http://localhost:8000/v1/crud/configured-models \
-  -H 'Content-Type: application/json' \
-  -d '{"name": "default", "modelTemplateId": <id from the previous response>, "userOptionValues": {}}'
+curl http://localhost:8000/v1/crud/model-templates
 ```
 
-Add `-H 'Authorization: Bearer $CHAP_API_TOKEN'` when the deployment requires a token. Both calls can be repeated: a stored template version is returned unchanged, and an identical configuration is not stored twice. The template is stored under the version the service reports, from the commit it reports; a rebuilt image under the same version is refused, so bump the service version when the model changes.
+### 5. Give it a configuration
 
-`chap-admin install my_model --image ghcr.io/my-org/my-model:v1.0.0 --accept-risk` makes the same calls after writing and starting the service itself, if you would rather not hand-write the Compose service.
+A template runs through a configuration, and registration creates none. Add one in the modeling app, or with the template id from the previous step:
+
+```console
+curl -X POST http://localhost:8000/v1/crud/configured-models \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "default", "modelTemplateId": <id>, "userOptionValues": {}}'
+```
+
+Add `-H 'Authorization: Bearer $CHAP_API_TOKEN'` when the deployment requires a token. An identical configuration is not stored twice, so the call can be repeated. The template is stored under the version the service reports, from the commit it reports; a rebuilt image under the same version is refused, so bump the service version when the model changes.
+
+`chap-admin install my_model --image ghcr.io/my-org/my-model:v1.0.0 --accept-risk` does the same after writing and starting the service itself, if you would rather not hand-write the Compose service.
 
 Then check that it became a usable model:
 
@@ -131,7 +135,7 @@ Note that the build context must be reachable from the Chap repository directory
 
 **Registered services must keep pinging.** A registration is valid for 30 seconds, and the chapkit service refreshes it automatically. If your model container stops, its registration expires and the template's `healthStatus` in `GET /v1/crud/model-templates` goes from `live` to empty. The model stays listed; runs against it fail until the service is back. To take a model out of the pickers, retire it with `DELETE /v1/crud/model-templates/{id}` (what `chap-admin uninstall` does). Retiring is not deletion: existing evaluations still resolve, and storing the same version again shows the model again.
 
-**The model registered but does not appear as a model.** Registration does not create the model; step 5 above does. If the template is stored but `healthStatus` is `revision_mismatch`, the running image was built from another commit than the one stored under its version: bump the service version and register it again.
+**The service registered but does not appear as a model.** A template without a configuration is not a runnable model; step 5 above adds one. If the template itself is missing, Chap could not read the service's config schema when it discovered it; fetch the template list to try again. If `healthStatus` is `revision_mismatch`, the running image was built from another commit than the one stored under its version, or reports none: bump the service version and register it again.
 
 **Registration is rejected.** Check whether `SERVICEKIT_REGISTRATION_KEY` is set in Chap's `.env` but missing from your service, or whether `CHAP_API_TOKEN` is set, which protects all endpoints. See [Service Registration](../webapi/service-registration.md) and [API Authentication](../webapi/api-authentication.md).
 
