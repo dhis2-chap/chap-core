@@ -1,8 +1,9 @@
 """add_dataset_created_manually
 
 Flag datasets a user created directly, as opposed to those created as a side effect of
-an evaluation or prediction. Existing rows are set to false: older manual and
-evaluation datasets were both stored with type "evaluation" and cannot be told apart.
+an evaluation or prediction. Existing rows are set to false: before this flag there was
+no manual creation flow in the Modeling App, so nearly all existing datasets are evaluation
+or prediction output and would flood the Datasets page if shown.
 
 Revision ID: b4c5d6e7f8a3
 Revises: a3b4c5d6e7f2

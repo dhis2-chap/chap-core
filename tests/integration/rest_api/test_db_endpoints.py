@@ -1766,12 +1766,16 @@ def _check_rejected_org_units(content, expected_rejections):
         assert rejected_regions == set(expected_rejections), (rejected_regions, expected_rejections)
 
 
-@pytest.mark.skip(reason="Failing because of missing geojson file")
-def test_add_csv_dataset(celery_session_worker, dependency_overrides, data_path):
-    csv_data = open(data_path / "nicaragua_weekly_data.csv", "rb")
-    geojson_data = open(data_path / "nicaragua.json", "rb")
-    response = client.post("/v1/crud/datasets/csvFile", files={"csvFile": csv_data, "geojsonFile": geojson_data})
+def test_add_csv_dataset(dependency_overrides, data_path):
+    with (
+        open(data_path / "vietnam_monthly.csv", "rb") as csv_data,
+        open(data_path / "vietnam_monthly.geojson", "rb") as geojson_data,
+    ):
+        response = client.post("/v1/crud/datasets/csvFile", files={"csv_file": csv_data, "geojson_file": geojson_data})
     assert response.status_code == 200, response.json()
+    response = client.get(f"/v1/crud/datasets/{response.json()['id']}")
+    assert response.status_code == 200, response.json()
+    assert DataSetWithObservations.model_validate(response.json()).created_manually
 
 
 def test_full_prediction_flow(celery_session_worker, dependency_overrides, example_polygons):

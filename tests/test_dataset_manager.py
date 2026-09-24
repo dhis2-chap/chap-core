@@ -212,6 +212,11 @@ def test_save_dataset_from_csv_weekly_sets_period_type(manager):
     assert manager.find_by_name("nicaragua").period_type == "week"
 
 
+def test_save_dataset_from_csv_is_created_manually(manager):
+    manager.save_dataset_from_csv("nicaragua", EXAMPLE_DATA / "nicaragua_weekly_data.csv")
+    assert manager.find_by_name("nicaragua").created_manually
+
+
 def test_observations_to_dataset_large_frame_pivots_uniquely():
     """Canary for numpy/pandas corruption: pandas switches sort algorithm at 2^15
     rows in the pivot/unstack path, and a numpy source-built for an unsupported
