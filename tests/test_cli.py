@@ -507,3 +507,13 @@ def test_chap_test_exits_nonzero_when_a_core_import_fails(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "missing: xarray" in out
     assert "Some checks FAILED." in out
+
+
+def test_sanity_check_model_without_dataset_path_explains_missing_example_data(tmp_path, monkeypatch):
+    from chap_core.file_io.example_data_set import ExampleDataSet
+
+    # An installed chap-core has no example_data directory next to the package.
+    monkeypatch.setattr(ExampleDataSet, "base_path", tmp_path)
+
+    with pytest.raises(ValueError, match="--dataset-path"):
+        sanity_check_model("https://github.com/dhis2-chap/minimalist_example_uv")
