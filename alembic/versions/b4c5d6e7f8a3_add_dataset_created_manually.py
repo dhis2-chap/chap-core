@@ -33,6 +33,10 @@ def upgrade() -> None:
     """
     if not has_column("dataset", COLUMN):
         op.add_column("dataset", sa.Column(COLUMN, sa.Boolean(), nullable=False, server_default=sa.false()))
+    else:
+        # The generic migration adds the column nullable and without a default.
+        op.execute(sa.text(f"UPDATE dataset SET {COLUMN} = FALSE WHERE {COLUMN} IS NULL"))
+        op.alter_column("dataset", COLUMN, existing_type=sa.Boolean(), nullable=False, server_default=sa.false())
 
 
 def downgrade() -> None:
