@@ -428,6 +428,7 @@ async def create_backtest(
 )
 def create_backtests(
     request: MakeBacktestsRequest,
+    original_request: dict = Depends(get_job_request),
     database_url: str = Depends(get_database_url),
     session: Session = Depends(get_session),
 ):
@@ -462,7 +463,7 @@ def create_backtests(
             BacktestCreate(name=name, dataset_id=request.dataset_id, model_id=model.id),
             **params.model_dump(),
             database_url=database_url,
-            **{JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: name},
+            **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: name},
         )
         jobs.append(BacktestJob(configured_model_id=model.id, job_id=job.id))
     assert specification.id is not None

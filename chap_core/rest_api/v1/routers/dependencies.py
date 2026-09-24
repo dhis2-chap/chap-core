@@ -30,6 +30,8 @@ def get_database_url():
 
 async def get_job_request(request: Request) -> dict[str, Any]:
     """Capture the submitted JSON body without model defaults or worker credentials."""
-    body = await request.body()
-    # An empty body is left to FastAPI's body validation, which returns 422.
-    return cast("dict[str, Any]", json.loads(body)) if body else {}
+    try:
+        return cast("dict[str, Any]", json.loads(await request.body()))
+    except ValueError:
+        # Empty or non-JSON bodies are left to FastAPI's body validation, which returns 422.
+        return {}

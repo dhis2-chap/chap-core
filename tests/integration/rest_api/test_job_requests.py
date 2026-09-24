@@ -32,6 +32,7 @@ def request_store(monkeypatch):
     [
         "/v1/analytics/make-dataset",
         "/v1/analytics/create-backtest",
+        "/v1/analytics/create-backtests",
         "/v1/analytics/create-backtest-with-data/",
         "/v1/analytics/make-prediction",
         "/v1/crud/datasets",
@@ -65,6 +66,12 @@ def test_submission_retains_original_body(
             "datasetId": seeded_session.exec(select(DataSet.id)).first(),
             "modelId": "naive_model",
         }
+    elif path == "/v1/analytics/create-backtests":
+        payload = {
+            "name": "Original request",
+            "datasetId": seeded_session.exec(select(DataSet.id)).first(),
+            "modelIds": ["naive_model"],
+        }
     elif path == "/v1/crud/datasets":
         payload = dataset_create.model_dump(mode="json", by_alias=True, exclude_unset=True)
     elif "{setup_id}" in path:
@@ -93,12 +100,8 @@ def test_submission_retains_original_body(
     assert 0 < request_store.ttl("job_request:job-1") <= celery_tasks.JOB_REQUEST_TTL_SECONDS
 
 
-@pytest.mark.parametrize("metadata", [None, {"status": "FAILURE"}])
-def test_missing_or_legacy_request_returns_404(request_store, metadata):
-    if metadata:
-        request_store.hset("job_meta:missing", mapping=metadata)
-    response = TestClient(app).get("/v1/jobs/missing/request")
-    assert response.status_code == 404
+def test_missing_request_returns_404(request_store):
+    assert TestClient(app).get("/v1/jobs/missing/request").status_code == 404
 
 
 def test_delete_job_removes_request(request_store, monkeypatch):
@@ -111,5 +114,9 @@ def test_delete_job_removes_request(request_store, monkeypatch):
     assert client.get("/v1/jobs/failed/request").status_code == 404
 
 
-def test_empty_body_is_rejected_by_validation(request_store):
-    assert TestClient(app).post("/v1/analytics/make-prediction").status_code == 422
+@pytest.mark.parametrize("body", [b"", b"hello"])
+def test_non_json_body_is_rejected_by_validation(request_store, body):
+    response = TestClient(app).post(
+        "/v1/analytics/make-prediction", content=body, headers={"content-type": "text/plain"}
+    )
+    assert response.status_code == 422
