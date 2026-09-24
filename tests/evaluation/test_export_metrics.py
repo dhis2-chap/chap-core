@@ -72,6 +72,16 @@ class TestExportMetrics:
         assert set(df["filename"]) == {"eval1.nc", "eval2.nc"}
         assert set(df["model_name"]) == {"Model_A", "Model_B"}
 
+    def test_export_metrics_help_names_output_file_as_flag(self, capsys):
+        """Positional arguments all go to input_files, so the usage line must not offer OUTPUT-FILE as one."""
+        from chap_core.cli import app
+
+        app(["export-metrics", "--help"], result_action="return_value")
+
+        usage = next(line for line in capsys.readouterr().out.splitlines() if line.startswith("Usage:"))
+        assert "--output-file" in usage
+        assert "OUTPUT-FILE" not in usage
+
     def test_export_metrics_with_specific_metric_ids(self, backtest, tmp_path):
         """Test exporting only specific metrics."""
         evaluation = Evaluation.from_backtest(backtest)
