@@ -314,6 +314,6 @@ def test_outbreak_metrics_read_as_higher_is_better():
 def test_outbreak_metrics_are_not_optimization_objectives():
     """None of the three is valid alone: two are maximised by degenerate models, accuracy by silence."""
     for metric_cls in (SensitivityMetric, SpecificityMetric, OutbreakAccuracyMetric):
-        assert metric_cls.spec.valid_hpo_objective is False
+        assert metric_cls.spec.proper_scoring_rule is False
         with pytest.raises(ValueError):
             get_optimization_direction(metric_cls.spec.metric_id)

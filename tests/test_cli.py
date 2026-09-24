@@ -1,4 +1,5 @@
 from contextlib import ExitStack
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from chap_core.api import forecast
@@ -507,3 +508,14 @@ def test_chap_test_exits_nonzero_when_a_core_import_fails(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "missing: xarray" in out
     assert "Some checks FAILED." in out
+
+
+def test_sanity_check_default_dataset_ships_in_the_package():
+    import chap_core
+    from chap_core.file_io.example_data_set import datasets
+
+    # sanity-check-model falls back to this dataset, so it must be inside chap_core/ to be in the wheel.
+    filepath = datasets["hydromet_5_filtered"].filepath()
+
+    assert filepath.is_relative_to(Path(chap_core.__file__).parent)
+    assert filepath.exists()
