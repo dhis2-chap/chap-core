@@ -104,8 +104,9 @@ def get_job_status(job_id: str) -> str:
 def get_job_request(job_id: str) -> dict[str, Any]:
     """Return the submitted JSON body, including after failure.
 
-    Requests are kept for 30 days. Expired requests, older jobs without a
-    captured request, and jobs removed from the tracker return 404.
+    Requests are kept for 7 days. Expired requests, older jobs without a
+    captured request, and jobs removed from the tracker return 404. Jobs
+    created by a multi-model request return the whole request as submitted.
     """
     body = redis.get(f"job_request:{job_id}")
     if body is None:

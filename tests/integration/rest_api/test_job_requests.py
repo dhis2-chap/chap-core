@@ -120,3 +120,19 @@ def test_non_json_body_is_rejected_by_validation(request_store, body):
         "/v1/analytics/make-prediction", content=body, headers={"content-type": "text/plain"}
     )
     assert response.status_code == 422
+
+
+def test_request_store_failure_does_not_fail_submission(request_store, override_session, seeded_session, monkeypatch):
+    monkeypatch.setattr(Task, "apply_async", lambda self, args, kwargs, **options: SimpleNamespace(id="job-1"))
+
+    def failing_set(*_args, **_kwargs):
+        raise ConnectionError("redis down")
+
+    monkeypatch.setattr(request_store, "set", failing_set)
+    payload = {
+        "name": "Original request",
+        "datasetId": seeded_session.exec(select(DataSet.id)).first(),
+        "modelId": "naive_model",
+    }
+    assert TestClient(app).post("/v1/analytics/create-backtest", json=payload).status_code == 200
+    assert TestClient(app).get("/v1/jobs/job-1/request").status_code == 404
