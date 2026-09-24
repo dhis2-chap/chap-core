@@ -527,6 +527,109 @@ def test_create_backtest_forwards_params_and_accepts_int_model_id(override_sessi
     assert (captured["n_periods"], captured["n_splits"], captured["stride"], captured["n_retrain"]) == (3, 4, 1, 2)
 
 
+class _JobIdWorker:
+    """Records every queued job and hands out distinct job ids, so a test can check what was submitted."""
+
+    def __init__(self):
+        self.queued: list[tuple] = []
+
+    def queue_db(self, func, info, **kwargs):
+        self.queued.append((func, info, kwargs))
+
+        class _Job:
+            id = f"job-{len(self.queued)}"
+
+        return _Job()
+
+
+def test_create_backtests_resolves_the_specification_and_queues_one_job_per_model(
+    override_session, seeded_session, p_seeded_engine, monkeypatch
+):
+    """The response must name the specification the jobs will file under before any job has run,
+    and the benchmarking server must get one job id per model without a second lookup."""
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    naive = seeded_session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == "naive_model")).one()
+    other = seeded_session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name != "naive_model")).first()
+    dataset_id = seeded_session.exec(select(DataSet.id)).first()
+
+    payload = {
+        "name": "bench",
+        "datasetId": dataset_id,
+        "modelIds": ["naive_model", other.id],
+        "nSplits": 4,
+        "nRetrain": 2,
+    }
+    response = client.post("/v1/analytics/create-backtests", json=payload)
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert [job["configuredModelId"] for job in data["jobs"]] == [naive.id, other.id]
+    assert [job["jobId"] for job in data["jobs"]] == ["job-1", "job-2"]
+
+    assert [info.name for _, info, _ in worker.queued] == [f"bench/{naive.name}", f"bench/{other.name}"]
+    assert [info.model_id for _, info, _ in worker.queued] == [naive.id, other.id]
+    for func, _, kwargs in worker.queued:
+        assert func is run_backtest
+        assert (kwargs["n_periods"], kwargs["n_splits"], kwargs["stride"], kwargs["n_retrain"]) == (3, 4, 1, 2)
+
+    specification = client.get(f"/v1/crud/backtest-specifications/{data['specificationId']}").json()
+    assert (specification["dataset"]["id"], specification["nSplits"], specification["nRetrain"]) == (dataset_id, 4, 2)
+    assert specification["backtests"] == []
+    # A worker running one of the queued jobs files its backtest under the returned id.
+    with SessionWrapper(p_seeded_engine) as session:
+        backtest_id = _run(session, f"bench/{naive.name}", dataset_id, n_periods=3, n_splits=4, stride=1, n_retrain=2)
+        assert session.session.get(Backtest, backtest_id).specification_id == data["specificationId"]
+
+
+def test_create_backtests_rejects_unknown_dataset_or_model_before_queueing(
+    override_session, seeded_session, monkeypatch
+):
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    dataset_id = seeded_session.exec(select(DataSet.id)).first()
+
+    response = client.post(
+        "/v1/analytics/create-backtests", json={"name": "x", "datasetId": 999999, "modelIds": ["naive_model"]}
+    )
+    assert response.status_code == 404, response.text
+    response = client.post(
+        "/v1/analytics/create-backtests",
+        json={"name": "x", "datasetId": dataset_id, "modelIds": ["naive_model", "no_such_model"]},
+    )
+    assert response.status_code == 404, response.text
+    assert "no_such_model" in response.json()["detail"]
+    response = client.post(
+        "/v1/analytics/create-backtests", json={"name": "x", "datasetId": dataset_id, "modelIds": []}
+    )
+    assert response.status_code == 422, response.text
+    assert worker.queued == []
+
+
+def test_create_backtests_rejects_a_window_that_leaves_no_org_unit_to_train_on(
+    override_session, seeded_session, monkeypatch
+):
+    """The endpoint filters the dataset before queueing, so it can refuse up front instead of
+    creating an empty specification and one doomed job per model."""
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    dataset_id = seeded_session.exec(select(DataSet.id)).first()
+
+    payload = {"name": "x", "datasetId": dataset_id, "modelIds": ["naive_model"], "nSplits": 1000}
+    response = client.post("/v1/analytics/create-backtests", json=payload)
+    assert response.status_code == 422, response.text
+    assert "No org unit" in response.json()["detail"]
+    assert worker.queued == []
+    assert (
+        client.get("/v1/crud/backtest-specifications", params={"datasetId": dataset_id, "nSplits": 1000}).json() == []
+    )
+
+
 def test_run_backtest_persists_resolved_params(override_session, p_seeded_engine):
     """The stored row records the parameters that actually ran: n_periods=None is
     resolved from the (monthly) dataset, and an integer model id is resolved to its name."""
@@ -684,6 +787,88 @@ def test_specification_org_units_are_the_ones_left_after_filtering(p_seeded_engi
         assert set(backtest.specification.org_units) == set(backtest.org_units)
 
 
+def test_specification_filter_covers_every_backtest_parameter():
+    """A parameter missing from the filter could not be part of the lookup tuple, so an
+    external system could not find its specification again. Every field must also be
+    optional with no default: an omitted parameter means any value, not the default."""
+    from chap_core.api_types import BacktestParams
+    from chap_core.rest_api.data_models import BacktestSpecificationFilter
+
+    assert set(BacktestSpecificationFilter.model_fields) == {"dataset_id", *BacktestParams.model_fields}
+    assert all(field.default is None for field in BacktestSpecificationFilter.model_fields.values())
+
+
+def test_list_backtest_specifications_filters_by_dataset_and_parameters(
+    override_session, p_seeded_engine, backtest_params, org_units
+):
+    """The seeded database holds two specifications with the same parameters on two datasets."""
+    response = client.get("/v1/crud/backtest-specifications")
+    assert response.status_code == 200, response.text
+    rows = response.json()
+    assert len(rows) == 2, rows
+    assert len({row["dataset"]["id"] for row in rows}) == 2, rows
+    assert all(row["backtestCount"] == 1 and row["orgUnitCount"] == len(org_units) for row in rows), rows
+    assert all("backtests" not in row for row in rows)
+
+    by_dataset = client.get("/v1/crud/backtest-specifications", params={"datasetId": rows[0]["dataset"]["id"]}).json()
+    assert [row["id"] for row in by_dataset] == [rows[0]["id"]]
+
+    full_tuple = {"datasetId": rows[0]["dataset"]["id"], **backtest_params.model_dump(by_alias=True)}
+    assert [row["id"] for row in client.get("/v1/crud/backtest-specifications", params=full_tuple).json()] == [
+        rows[0]["id"]
+    ]
+    assert client.get("/v1/crud/backtest-specifications", params={**full_tuple, "nSplits": 99}).json() == []
+
+
+def test_get_backtest_specification_returns_its_backtests_newest_first(override_session, p_seeded_engine):
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        params = {"n_periods": 3, "n_splits": 2, "stride": 1, "n_retrain": 1}
+        first_id = _run(session, "first", dataset_id, **params)
+        second_id = _run(session, "second", dataset_id, **params)
+        specification_id = session.session.get(Backtest, first_id).specification_id
+        # The seeded backtest has the same parameters, so it sits on the same
+        # specification; it predates `created`, which must not push it to the top.
+        seeded_id = session.session.exec(select(Backtest.id).where(Backtest.name == "test backtest")).one()
+
+    response = client.get(f"/v1/crud/backtest-specifications/{specification_id}")
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["id"] == specification_id
+    assert data["dataset"]["id"] == dataset_id
+    assert (data["nPeriods"], data["nSplits"]) == (3, 2)
+    assert data["orgUnits"]
+    assert [b["id"] for b in data["backtests"]] == [second_id, first_id, seeded_id]
+    for row in data["backtests"]:
+        BacktestRead.model_validate(row)
+        assert row["specificationId"] == specification_id
+        assert row["configuredModel"]["configurationDigest"]
+        assert row["configuredModel"]["modelTemplate"]["name"]
+        assert isinstance(row["aggregateMetrics"], dict)
+        assert "forecasts" not in row
+
+    assert client.get("/v1/crud/backtest-specifications/999999").status_code == 404
+
+
+def test_list_backtests_filters_by_specification_and_dataset(override_session, p_seeded_engine):
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        params = {"n_periods": 3, "n_splits": 2, "stride": 1, "n_retrain": 1}
+        first_id = _run(session, "first", dataset_id, **params)
+        second_id = _run(session, "second", dataset_id, **params)
+        other_id = _run(session, "other", dataset_id, **{**params, "n_splits": 3})
+        specification_id = session.session.get(Backtest, first_id).specification_id
+
+    by_specification = client.get("/v1/crud/backtests", params={"specificationId": specification_id}).json()
+    assert {first_id, second_id} <= {b["id"] for b in by_specification}
+    assert other_id not in {b["id"] for b in by_specification}
+    assert all(b["specificationId"] == specification_id for b in by_specification)
+
+    by_dataset = client.get("/v1/crud/backtests", params={"datasetId": dataset_id}).json()
+    assert {first_id, second_id, other_id} <= {b["id"] for b in by_dataset}
+    assert all(b["datasetId"] == dataset_id for b in by_dataset)
+
+
 def test_backtest_read_still_exposes_the_parameters_flat(override_session, p_seeded_engine):
     """The parameters moved behind a relationship; the wire shape must not have moved with them."""
     with SessionWrapper(p_seeded_engine) as session:
@@ -713,6 +898,7 @@ def test_backtest_read_still_exposes_the_parameters_flat(override_session, p_see
         "maxHorizonDistance",
         "chapVersion",
         "dataset",
+        "specificationId",
         "aggregateMetrics",
         "configuredModel",
         "predictionSetupId",

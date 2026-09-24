@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from chap_core.assessment.metrics import get_optimization_direction
 from chap_core.assessment.metrics.base import OptimizationDirection
 from chap_core.assessment.metrics.outbreak_detection import (
     OutbreakAccuracyMetric,
@@ -304,6 +305,15 @@ def test_outbreak_and_alert_drops_uncomputable_thresholds(threshold_value):
     assert outbreak_and_alert(historical, observations, forecasts).empty
 
 
-def test_outbreak_metrics_are_maximized():
+def test_outbreak_metrics_read_as_higher_is_better():
+    """Higher scores are better to a reader, so clients get a direction to colour them by."""
     for metric_cls in (SensitivityMetric, SpecificityMetric, OutbreakAccuracyMetric):
         assert metric_cls.spec.optimization_direction == OptimizationDirection.MAXIMIZE
+
+
+def test_outbreak_metrics_are_not_optimization_objectives():
+    """None of the three is valid alone: two are maximised by degenerate models, accuracy by silence."""
+    for metric_cls in (SensitivityMetric, SpecificityMetric, OutbreakAccuracyMetric):
+        assert metric_cls.spec.proper_scoring_rule is False
+        with pytest.raises(ValueError):
+            get_optimization_direction(metric_cls.spec.metric_id)

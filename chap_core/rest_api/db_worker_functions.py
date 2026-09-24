@@ -16,6 +16,7 @@ from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSetCreateInfo, DataSource
+from chap_core.database.tables import BacktestSpecification
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
 from chap_core.rest_api.data_models import BacktestCreate, FetchRequest, PredictionParams
@@ -98,12 +99,6 @@ def run_backtest(
     # canonical value rather than the raw integer primary key.
     info.model_id = configured_model.name
 
-    # hack to get who ewars model to work, it requires n_peridos=3.
-    # todo: should be removed in future when system for model specific backtest params is implemented
-    if configured_model.model_template.name == "ewars_plus":
-        logger.warning("Forcing n_periods=3 for ewars_plus model")
-        n_periods = 3
-
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
 
@@ -117,25 +112,17 @@ def run_backtest(
     info.future_weather_provider = future_weather_provider
 
     status_logger.info(f"Validating dataset with {len(list(dataset.locations()))} locations")
-    dataset = validate_and_filter_dataset_for_evaluation(
+    dataset, specification = resolve_backtest_specification(
+        session,
         dataset,
-        target_name="disease_cases",
-        n_periods=n_periods,
-        n_splits=n_splits,
-        stride=stride,
-    )
-    # Resolved once the dataset is filtered: which org units survive is part of what
-    # makes two backtests comparable, and the filter above reads the parameters.
-    specification = session.get_or_create_backtest_specification(
-        dataset_id=info.dataset_id,
-        params=BacktestParams(
+        info.dataset_id,
+        BacktestParams(
             n_periods=n_periods,
             n_splits=n_splits,
             stride=stride,
             n_retrain=n_retrain,
             future_weather_provider=future_weather_provider,
         ),
-        org_units=list(dataset.locations()),
     )
     train_set, test_generator = train_test_generator(
         dataset,
@@ -181,6 +168,35 @@ def run_backtest(
     assert db_id is not None
     status_logger.info(f"Backtest completed successfully. Results saved with ID {db_id}")
     return db_id
+
+
+def resolve_backtest_specification(
+    session: SessionWrapper, dataset: DataSet, dataset_id: int, params: BacktestParams
+) -> tuple[DataSet, BacktestSpecification]:
+    """Filter the dataset for these parameters and resolve the specification a run of them files under.
+
+    The org units left after filtering are part of what makes two backtests comparable,
+    so the specification is resolved from the filtered dataset. Shared by `run_backtest`
+    and the multi-model endpoint, which resolves the specification up front so its id
+    can be returned before any job has run.
+    """
+    dataset = validate_and_filter_dataset_for_evaluation(
+        dataset,
+        target_name="disease_cases",
+        n_periods=params.n_periods,
+        n_splits=params.n_splits,
+        stride=params.stride,
+    )
+    if not list(dataset.locations()):
+        raise ValueError(
+            "No org unit has target data left to train on: the evaluation window "
+            f"(n_periods={params.n_periods}, n_splits={params.n_splits}, stride={params.stride}) "
+            "covers the whole dataset."
+        )
+    specification = session.get_or_create_backtest_specification(
+        dataset_id=dataset_id, params=params, org_units=list(dataset.locations())
+    )
+    return dataset, specification
 
 
 def run_prediction(
