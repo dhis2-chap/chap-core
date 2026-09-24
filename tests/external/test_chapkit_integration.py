@@ -900,7 +900,8 @@ class TestConfigPayload:
     """What chap-core stores as config data on the service when building a model."""
 
     @staticmethod
-    def _created_config(model_configuration) -> dict:
+    def _created_config(model_configuration, store=lambda data: data) -> dict:
+        """Build a model and return the config chap-core posted; ``store`` is what the service keeps of the data."""
         created: list[dict] = []
 
         def handler(request):
@@ -911,7 +912,7 @@ class TestConfigPayload:
                 return httpx.Response(200, json=MOCK_CONFIG_SCHEMA)
             if path == "/api/v1/configs" and request.method == "POST":
                 created.append(json.loads(request.content))
-                return httpx.Response(200, json=_config_out_json())
+                return httpx.Response(200, json={**_config_out_json(), "data": store(created[-1]["data"])})
             if path == "/api/v1/configs":
                 return httpx.Response(200, json=[_config_out_json()])
             raise AssertionError(f"unexpected request {request.method} {path}")
@@ -932,11 +933,19 @@ class TestConfigPayload:
 
         created = self._created_config(row)
 
-        assert created["data"] == {
-            "user_option_values": {"max_epochs": 2},
-            "additional_continuous_covariates": ["humidity"],
-        }
+        assert created["data"] == {"max_epochs": 2, "additional_continuous_covariates": ["humidity"]}
         assert created["name"].startswith("test-model_")
+
+    def test_configuration_the_service_did_not_store_raises(self):
+        row = ConfiguredModelDB(
+            name="test-model",
+            model_template_id=1,
+            user_option_values={"max_epochs": 2},
+            uses_chapkit=True,
+        )
+
+        with pytest.raises(ValueError, match="max_epochs: sent 2, stored None"):
+            self._created_config(row, store=lambda data: {"prediction_periods": 3})
 
     def test_empty_configuration_sends_no_data(self):
         from chap_core.database.model_templates_and_config_tables import ModelConfiguration
