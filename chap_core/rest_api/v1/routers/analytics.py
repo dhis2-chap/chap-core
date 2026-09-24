@@ -133,7 +133,7 @@ def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataS
             status_code=500,
             detail={
                 "message": "Missing values. No data was imported.",
-                "rejected": [r.model_dump() for r in rejections],
+                "rejected": [r.model_dump(by_alias=True) for r in rejections],
             },
         )
     return feature_names, provided_data, rejections
@@ -820,7 +820,7 @@ async def create_backtest_with_data(
             status_code=500,
             detail={
                 "message": "Missing values. No data was imported.",
-                "rejected": [r.model_dump() for r in rejections],
+                "rejected": [r.model_dump(by_alias=True) for r in rejections],
             },
         )
 
