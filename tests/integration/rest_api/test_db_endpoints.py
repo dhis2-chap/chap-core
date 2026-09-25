@@ -1231,7 +1231,7 @@ class _NoopRedis:
     def hgetall(self, _key):
         return {}
 
-    def delete(self, _key):
+    def delete(self, *_keys):
         return 0
 
 
@@ -1312,9 +1312,10 @@ def test_delete_prediction_setup_sweeps_matching_job_meta_in_redis(override_sess
         def hgetall(self, key):
             return self.meta[key]
 
-        def delete(self, key):
-            self.deleted.append(key)
-            self.meta.pop(key, None)
+        def delete(self, *keys):
+            self.deleted.extend(keys)
+            for key in keys:
+                self.meta.pop(key, None)
             return 1
 
     fake_redis = _FakeRedis()
@@ -1325,7 +1326,7 @@ def test_delete_prediction_setup_sweeps_matching_job_meta_in_redis(override_sess
     response = client.delete(f"/v1/crud/prediction-setups/{setup_id}")
     assert response.status_code == 200, response.json()
 
-    assert fake_redis.deleted == ["job_meta:job-1"]
+    assert fake_redis.deleted == ["job_meta:job-1", "job_request:job-1"]
     assert "job_meta:job-2" in fake_redis.meta
 
 
