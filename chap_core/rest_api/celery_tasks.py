@@ -165,6 +165,7 @@ class TrackedTask(Task):
         job_type = kwargs.pop(JOB_TYPE_KW, None) or "Unspecified"
         # Read (don't pop) — the worker function also needs prediction_setup_id when present.
         prediction_setup_id = kwargs.get(PREDICTION_SETUP_ID_JOB_META_KEY)
+        original_request = kwargs.pop(JOB_REQUEST_KW, None)
         result = super().apply_async(args=args, kwargs=kwargs, **options)
 
         job_meta: dict[str, str] = {
@@ -180,6 +181,13 @@ class TrackedTask(Task):
             f"job_meta:{result.id}",
             mapping=job_meta,
         )
+        # Separate key so hgetall on job_meta stays cheap. The job is already queued, so a failed
+        # write must not fail the request; the download endpoint returns 404 instead.
+        if original_request is not None:
+            try:
+                r.set(f"job_request:{result.id}", json.dumps(original_request), ex=JOB_REQUEST_TTL_SECONDS)
+            except Exception:
+                logger.warning("Failed to store request body for job %s", result.id, exc_info=True)
 
         return result
 
@@ -284,6 +292,9 @@ def celery_run_with_session(func, *args, **kwargs):
 
 JOB_TYPE_KW = "__job_type__"
 JOB_NAME_KW = "__job_name__"
+JOB_REQUEST_KW = "__job_request__"
+# Request bodies can be several MB of inline data, so they expire instead of living as long as job_meta.
+JOB_REQUEST_TTL_SECONDS = 7 * 24 * 60 * 60
 PREDICTION_SETUP_ID_JOB_META_KEY = "prediction_setup_id"
 
 
