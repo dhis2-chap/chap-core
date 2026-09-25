@@ -14,6 +14,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.sql.expression import SelectOfScalar
 
 from chap_core.api_types import BacktestParams
+from chap_core.exceptions import ModelTemplateRevisionConflict
 from chap_core.log_config import is_debug_mode
 from chap_core.predictor.naive_estimator import NaiveEstimator
 
@@ -177,6 +178,37 @@ class SessionWrapper:
         self._make_live_template_version(model_name, template_id)
         return template_id
 
+    def add_model_template_version(self, model_template: ModelTemplateDB) -> int:
+        """Store a template version, refusing to relabel a stored revision.
+
+        Same rule as the git seed: a version label names one revision, so a stored
+        digest under this name and version must match the incoming one. A stored
+        row without a digest has nothing to compare against and is kept as is.
+        """
+        existing = self._if_exists(model_template.name, model_template.version)
+        if (
+            existing is not None
+            and existing.source_digest is not None
+            and existing.source_digest != model_template.source_digest
+        ):
+            raise ModelTemplateRevisionConflict(
+                model_template.name,
+                model_template.version,
+                existing.source_digest,
+                model_template.source_digest,
+                "use a new version label.",
+            )
+        return self.add_or_update_model_template(model_template)
+
+    def archive_model_template(self, model_template_id: int) -> None:
+        """Hide a template and its configured models from pickers. Rows stay, as backtests reference them."""
+        model_template = self.get_model_template(model_template_id)
+        model_template.archived = True
+        for configured_model in model_template.configured_models:
+            configured_model.archived = True
+        self.session.add(model_template)
+        self.session.commit()
+
     def add_model_template_from_yaml_config(
         self, model_template_config: ModelTemplateConfigV2, source_digest: str | None = None
     ) -> int:
@@ -227,6 +259,8 @@ class SessionWrapper:
                 f"Configured model {name} with an identical configuration already exists. Returning existing id"
             )
             reactivated_model_id = cast("int", identical_configured_model.id)
+            # Re-adding an archived configuration shows it again.
+            identical_configured_model.archived = False
             # Still flip is_live so that re-adding a previous configuration makes it live again.
             self._make_live_configured_model(model_template_id, name, reactivated_model_id)
             self._make_live_template_version(template_name, model_template_id)
