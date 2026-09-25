@@ -1,7 +1,13 @@
 import runpy
+import sys
 from pathlib import Path
 
-from gunicorn.config import Config
+import pytest
+
+if sys.platform == "win32":
+    pytest.skip("gunicorn imports Unix-only modules (fcntl, pwd, grp)", allow_module_level=True)
+
+from gunicorn.config import Config  # noqa: E402
 
 GUNICORN_CONF = Path(__file__).parent.parent / "gunicorn.conf.py"
 
