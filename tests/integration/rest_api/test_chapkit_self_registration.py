@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import fakeredis
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel
 
@@ -501,3 +501,23 @@ def test_config_sync_frozen_after_first_discovery(client, register_service, mock
     names = {m["name"] for m in models}
     assert "test-model:config-a" in names
     assert "test-model:config-b" not in names  # intentionally not synced
+
+
+def test_failed_database_write_for_one_service_does_not_break_the_sync(client, register_service, db_engine):
+    from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
+
+    # A legacy unique name constraint makes the configured model insert for test-model fail.
+    with Session(db_engine) as session:
+        session.execute(text("CREATE UNIQUE INDEX legacy_name_key ON configuredmodeldb (name)"))
+        legacy_template = ModelTemplateDB(name="legacy-template", version="1.0.0")
+        session.add(legacy_template)
+        session.commit()
+        session.add(ConfiguredModelDB(name="test-model", model_template_id=legacy_template.id))
+        session.commit()
+    register_service({**MOCK_INFO_DICT, "id": "other-model"})
+    register_service()
+
+    response = client.get("/v1/crud/model-templates")
+
+    assert response.status_code == 200
+    assert {"other-model", "test-model"} <= {t["name"] for t in response.json()}
