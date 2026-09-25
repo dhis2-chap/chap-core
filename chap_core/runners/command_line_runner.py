@@ -1,3 +1,4 @@
+import io
 import logging
 import os
 import subprocess
@@ -54,20 +55,19 @@ def run_command(command: str, working_directory=Path("."), env: dict | None = No
         cwd=working_directory,
         shell=True,
         env=env,
-        text=True,
-        # Without an explicit encoding, text mode decodes with the locale encoding,
-        # which garbles UTF-8 model output on Windows.
-        encoding="utf-8",
-        # Model output is not guaranteed to be valid UTF-8 (locale-dependent R
-        # warnings, for instance); a failed model must still produce a readable
-        # error message rather than a UnicodeDecodeError.
-        errors="replace",
-        bufsize=1,
     )
     assert process.stdout is not None  # guaranteed by stdout=PIPE, but not to mypy
+    # Lines end only at "\n", so a progress bar that redraws with "\r" stays one
+    # line instead of one line per update, and the returned output keeps its "\r"s.
+    # UTF-8 is explicit because the default is the locale encoding, which garbles
+    # model output on Windows. Model output is not guaranteed to be valid UTF-8
+    # (locale-dependent R warnings, for instance); a failed model must still
+    # produce a readable error message rather than a UnicodeDecodeError.
+    stream = io.TextIOWrapper(process.stdout, encoding="utf-8", errors="replace", newline="\n")
     lines = []
-    for line in process.stdout:
-        logger.debug("[model] %s", line.rstrip())
+    for line in stream:
+        # Log what a terminal would show: the text after the last "\r".
+        logger.debug("[model] %s", line.rstrip().rsplit("\r", 1)[-1])
         lines.append(line)
     output = "".join(lines)
     return_code = process.wait()

@@ -71,6 +71,17 @@ def test_run_command_decodes_output_as_utf8():
     assert CommandLineRunner("./").run_command(command) == "\u00e6\u00f8\u00e5"
 
 
+def test_run_command_logs_a_progress_bar_as_one_line(caplog):
+    """A progress bar redrawn with carriage returns is one log line showing its final state."""
+    command = f"\"{sys.executable}\" -c \"print('\\rstep 1\\rstep 2'); print('done')\""
+    with caplog.at_level(logging.DEBUG, logger="chap_core.runners.command_line_runner"):
+        output = CommandLineRunner("./").run_command(command)
+
+    streamed = [r.getMessage() for r in caplog.records if r.getMessage().startswith("[model] ")]
+    assert streamed == ["[model] step 2", "[model] done"]
+    assert "\rstep 1\rstep 2" in output
+
+
 def test_run_command_failure_reports_output_as_text():
     """A failing command must report stdout/stderr as text.
 
