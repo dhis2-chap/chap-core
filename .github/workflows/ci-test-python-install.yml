@@ -51,7 +51,7 @@ jobs:
   # expands its matrix, so those checks would stay pending and block the merge.
   test:
     needs: changes
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
