@@ -200,6 +200,9 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str
                     continue
                 _sync_chapkit_configured_models(session_wrapper, template_id, service.url, CHAPKitRestAPIWrapper)
             except Exception:
+                # Roll back so a failed database write does not poison the session for the
+                # remaining services and the archival step below.
+                session.rollback()
                 logger.warning("Failed to sync chapkit service %s", service.id, exc_info=True)
 
     _archive_stale_chapkit_templates(session, service_list)
