@@ -1,4 +1,5 @@
 import logging
+import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock, ANY
 
@@ -47,6 +48,7 @@ def test_run_command():
     assert "test2" in output, "Output from command not as expected, output is: " + output
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="uses POSIX shell syntax")
 def test_run_command_streams_output_to_debug_log(caplog):
     """Output is logged as it arrives, not only returned at the end."""
     with caplog.at_level(logging.DEBUG, logger="chap_core.runners.command_line_runner"):
@@ -56,10 +58,17 @@ def test_run_command_streams_output_to_debug_log(caplog):
     assert streamed == ["[model] first", "[model] second", "[model] third"]
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="uses POSIX shell syntax")
 def test_run_command_unbuffers_subprocess_python():
     """PYTHONUNBUFFERED reaches the subprocess, so its output is not held back."""
     output = CommandLineRunner("./").run_command('echo "$PYTHONUNBUFFERED"')
     assert output.strip() == "1"
+
+
+def test_run_command_decodes_output_as_utf8():
+    """Model output is decoded as UTF-8 whatever the locale encoding is."""
+    command = f'"{sys.executable}" -c "import sys; sys.stdout.buffer.write(\'\\u00e6\\u00f8\\u00e5\'.encode())"'
+    assert CommandLineRunner("./").run_command(command) == "\u00e6\u00f8\u00e5"
 
 
 def test_run_command_failure_reports_output_as_text():

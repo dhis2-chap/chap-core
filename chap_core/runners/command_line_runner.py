@@ -55,6 +55,9 @@ def run_command(command: str, working_directory=Path("."), env: dict | None = No
         shell=True,
         env=env,
         text=True,
+        # Without an explicit encoding, text mode decodes with the locale encoding,
+        # which garbles UTF-8 model output on Windows.
+        encoding="utf-8",
         # Model output is not guaranteed to be valid UTF-8 (locale-dependent R
         # warnings, for instance); a failed model must still produce a readable
         # error message rather than a UnicodeDecodeError.
