@@ -497,6 +497,13 @@ def test_peak_value_diff_metric_weekly(flat_observations_week, flat_forecasts_we
     pd.testing.assert_frame_equal(result_sorted, expected_sorted)
 
 
+def test_peak_metric_specs_expose_unit_and_target():
+    assert PeakValueDiffMetric.spec.target == 0.0
+    assert PeakValueDiffMetric.spec.unit is None
+    assert PeakPeriodLagMetric.spec.target == 0.0
+    assert PeakPeriodLagMetric.spec.unit == "periods"
+
+
 def test_peak_period_lag_metric_weekly(flat_observations_week, flat_forecasts_week):
     """
     PeakPeriodLagMetric should return:

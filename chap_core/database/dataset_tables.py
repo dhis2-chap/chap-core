@@ -6,7 +6,7 @@ from geojson_pydantic import (
 from geojson_pydantic import (
     FeatureCollection as _FeatureCollection,
 )
-from sqlalchemy import JSON, Column, TypeDecorator
+from sqlalchemy import JSON, Column, TypeDecorator, false
 from sqlmodel import Field, Relationship
 
 from chap_core.database.base_tables import DBModel, PeriodID
@@ -103,6 +103,11 @@ class DataSetInfo(DataSetCreateInfo):
     created: datetime | None = Field(default=None, description="Server-side timestamp when the dataset was registered.")
 
     period_type: str | None = Field(default=None, description="Granularity of the periods (`month`, `week`, ...).")
+    created_manually: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": false()},
+        description="True if a user created the dataset directly, false if it was created as part of an evaluation or prediction.",
+    )
 
 
 class DataSetBase(DataSetInfo):

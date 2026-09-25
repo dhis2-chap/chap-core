@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import fakeredis
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel
 
@@ -19,11 +19,13 @@ from chap_core.rest_api.app import app
 from chap_core.rest_api.services.orchestrator import Orchestrator
 from chap_core.rest_api.services.schemas import MLServiceInfo, RegistrationRequest
 from chap_core.rest_api.v1.routers.dependencies import get_session
+from chap_core.rest_api.v2.dependencies import get_orchestrator
 
 MOCK_INFO_DICT = {
     "id": "test-model",
     "display_name": "Test Model",
     "version": "1.0.0",
+    "git_revision": "a" * 40,
     "description": "A test model",
     "model_metadata": {
         "author": "Test",
@@ -64,6 +66,9 @@ def client(db_engine, fake_orchestrator, mock_wrapper_cls):
             yield session
 
     app.dependency_overrides[get_session] = get_test_session
+    # The v2 register endpoint takes the orchestrator through Depends, while the lazy
+    # v1 template sync calls the factory directly, so both need the fake.
+    app.dependency_overrides[get_orchestrator] = lambda: fake_orchestrator
 
     with (
         patch("chap_core.rest_api.v2.dependencies.get_orchestrator", return_value=fake_orchestrator),
@@ -95,6 +100,112 @@ def test_registered_service_appears_in_model_templates(client, register_service)
     matching = [t for t in templates if t["name"] == "test-model"]
     assert len(matching) == 1
     assert matching[0]["healthStatus"] == "live"
+
+
+def test_registered_service_git_revision_is_stored_as_source_digest(client, register_service):
+    register_service({**MOCK_INFO_DICT, "git_revision": "b" * 40})
+
+    templates = client.get("/v1/crud/model-templates").json()
+    matching = [t for t in templates if t["name"] == "test-model"]
+    assert len(matching) == 1
+    assert matching[0]["sourceDigest"] == "b" * 40
+
+
+def _test_model(client):
+    matching = [t for t in client.get("/v1/crud/model-templates").json() if t["name"] == "test-model"]
+    assert len(matching) == 1
+    return matching[0]
+
+
+@pytest.mark.parametrize("stored, reported", [("a" * 40, "b" * 40), ("a" * 40, None)])
+def test_republished_service_under_the_same_version_is_a_revision_mismatch(
+    client, register_service, mock_wrapper_cls, stored, reported
+):
+    register_service({**MOCK_INFO_DICT, "git_revision": stored})
+    assert _test_model(client)["sourceDigest"] == stored
+    service_calls = mock_wrapper_cls.call_count
+
+    # Republishing the same version from another commit leaves the stored row alone.
+    register_service({**MOCK_INFO_DICT, "git_revision": reported})
+    template = _test_model(client)
+    assert template["healthStatus"] == "revision_mismatch"
+    assert template["sourceDigest"] == stored
+    assert template["archived"] is False
+    # Nothing is fetched from a mismatched service, so its configured models are not re-synced.
+    assert mock_wrapper_cls.call_count == service_calls
+
+
+@pytest.mark.parametrize("git_revision", [None, ""])
+def test_service_without_a_git_revision_is_not_stored_until_it_reports_one(client, register_service, git_revision):
+    """Storing a row without a digest would burn the version label, so the label stays free."""
+    register_service({**MOCK_INFO_DICT, "git_revision": git_revision})
+    assert [t for t in client.get("/v1/crud/model-templates").json() if t["name"] == "test-model"] == []
+    assert client.get("/v1/crud/configured-models").json() == []
+
+    # The same version, rebuilt with the build arg, is stored and live.
+    register_service({**MOCK_INFO_DICT, "git_revision": "a" * 40})
+    template = _test_model(client)
+    assert template["version"] == "1.0.0"
+    assert template["sourceDigest"] == "a" * 40
+    assert template["healthStatus"] == "live"
+
+
+def test_registration_response_tells_a_service_without_a_git_revision_what_to_do(client):
+    payload = {"url": "http://test-service:8080", "info": {**MOCK_INFO_DICT, "git_revision": None}}
+    response = client.post("/v2/services/$register", json=payload)
+
+    assert response.status_code == 200
+    assert "GIT_REVISION build arg" in response.json()["message"]
+
+
+def test_redeploying_the_stored_revision_clears_the_mismatch(client, register_service):
+    register_service()
+    assert _test_model(client)["healthStatus"] == "live"
+    register_service({**MOCK_INFO_DICT, "git_revision": "b" * 40})
+    assert _test_model(client)["healthStatus"] == "revision_mismatch"
+
+    # The mismatch is computed at read time, so the right image needs no cleanup.
+    register_service()
+    assert _test_model(client)["healthStatus"] == "live"
+
+
+def test_version_bump_after_a_revision_mismatch_creates_a_new_live_row(client, register_service):
+    register_service()
+    first_id = _test_model(client)["id"]
+    register_service({**MOCK_INFO_DICT, "git_revision": "b" * 40})
+    assert _test_model(client)["healthStatus"] == "revision_mismatch"
+
+    register_service({**MOCK_INFO_DICT, "git_revision": "b" * 40, "version": "1.0.1"})
+    template = _test_model(client)
+    assert template["id"] != first_id
+    assert template["version"] == "1.0.1"
+    assert template["sourceDigest"] == "b" * 40
+    assert template["healthStatus"] == "live"
+
+
+def test_revision_mismatch_of_another_version_does_not_flag_the_live_template(client, register_service):
+    register_service()
+    assert _test_model(client)["healthStatus"] == "live"
+
+    # Another version of the same model, which conflicts, takes over the registration.
+    register_service({**MOCK_INFO_DICT, "git_revision": None, "version": "1.0.1"})
+    template = _test_model(client)
+    assert template["version"] == "1.0.0"
+    assert template["healthStatus"] is None
+
+
+def test_registration_response_reports_a_revision_mismatch(client, register_service):
+    register_service()
+    client.get("/v1/crud/model-templates")
+
+    payload = {"url": "http://test-service:8080", "info": {**MOCK_INFO_DICT, "git_revision": "b" * 40}}
+    response = client.post("/v2/services/$register", json=payload)
+
+    assert response.status_code == 200
+    message = response.json()["message"]
+    assert "version '1.0.0'" in message
+    assert "a" * 40 in message and "b" * 40 in message
+    assert "info.version" in message
 
 
 def test_schema_fetch_failure_does_not_freeze_empty_user_options(client, register_service, mock_wrapper_cls, caplog):
@@ -390,3 +501,23 @@ def test_config_sync_frozen_after_first_discovery(client, register_service, mock
     names = {m["name"] for m in models}
     assert "test-model:config-a" in names
     assert "test-model:config-b" not in names  # intentionally not synced
+
+
+def test_failed_database_write_for_one_service_does_not_break_the_sync(client, register_service, db_engine):
+    from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
+
+    # A legacy unique name constraint makes the configured model insert for test-model fail.
+    with Session(db_engine) as session:
+        session.execute(text("CREATE UNIQUE INDEX legacy_name_key ON configuredmodeldb (name)"))
+        legacy_template = ModelTemplateDB(name="legacy-template", version="1.0.0")
+        session.add(legacy_template)
+        session.commit()
+        session.add(ConfiguredModelDB(name="test-model", model_template_id=legacy_template.id))
+        session.commit()
+    register_service({**MOCK_INFO_DICT, "id": "other-model"})
+    register_service()
+
+    response = client.get("/v1/crud/model-templates")
+
+    assert response.status_code == 200
+    assert {"other-model", "test-model"} <= {t["name"] for t in response.json()}

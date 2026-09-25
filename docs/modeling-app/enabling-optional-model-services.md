@@ -48,7 +48,7 @@ The model also needs to be registered so that Chap seeds it on startup. Create o
 # config/configured_models/local.yaml
 - url: https://github.com/dhis2-chap/ewars_plus_python_wrapper/
   versions:
-    v1: "@modeling_app_test"
+    v1: "@<commit-sha>"  # the full sha of the commit to run; branches are rejected
 ```
 
 See [Managing models](managing-model-templates.md) for details on the configured models format.

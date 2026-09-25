@@ -42,7 +42,7 @@ CHAPKIT_TRAINING_DATA_MONTHLY = {
 
 # Example run_info structure
 CHAPKIT_RUN_INFO = {
-    "prediction_length": 3,
+    "prediction_periods": 3,
     "additional_continuous_covariates": ["humidity"],
 }
 

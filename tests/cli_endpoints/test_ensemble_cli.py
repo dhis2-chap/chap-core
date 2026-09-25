@@ -42,6 +42,7 @@ class _DummyTemplate:
         self._value = value
         self._config = config
         self.seen_period_counts: list[int] = []
+        self.seen_prediction_lengths: list[int | None] = []
         self.entered = False
         self.exited = False
 
@@ -59,8 +60,9 @@ class _DummyTemplate:
         self.exited = True
         return False
 
-    def get_model(self, _config):
+    def get_model(self, _config, prediction_length: int | None = None):
         assert self.entered, "get_model called before the template was entered"
+        self.seen_prediction_lengths.append(prediction_length)
         return _ConstantModel(self._value, self._config, self.seen_period_counts)
 
 
@@ -179,3 +181,6 @@ def test_base_model_above_maximum_prediction_length_is_extended(weekly_full_data
     for template in created:
         assert template.seen_period_counts, "base model was never asked to predict"
         assert max(template.seen_period_counts) == 1
+        # The template is told the full horizon it is being extended to, so models
+        # that need it when training, such as chapkit services, can act on it.
+        assert set(template.seen_prediction_lengths) == {2}

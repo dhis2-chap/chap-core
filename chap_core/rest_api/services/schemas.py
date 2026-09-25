@@ -14,6 +14,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, EmailStr, Field, HttpUrl, field_validator
 
+from chap_core.external.github import COMMIT_SHA_PATTERN
+
 SLUG_PATTERN = re.compile(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
 
 
@@ -105,6 +107,16 @@ class MLServiceInfo(ServiceInfo):
     git_revision: str | None = Field(default=None, description="Commit the service image was built from.")
     chapkit_version: str | None = Field(default=None, description="chapkit version installed in the service.")
     servicekit_version: str | None = Field(default=None, description="servicekit version installed in the service.")
+
+    @field_validator("git_revision", mode="before")
+    @classmethod
+    def normalize_git_revision(cls, v: object) -> str | None:
+        """Keep only a real commit sha. Blank values and placeholders such as an unexpanded
+        build variable mean the revision is unknown, and unknown is stored as None."""
+        if not isinstance(v, str):
+            return None
+        v = v.strip()
+        return v.lower() if COMMIT_SHA_PATTERN.fullmatch(v) else None
 
 
 class RegistrationRequest(BaseModel):

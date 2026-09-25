@@ -39,6 +39,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 
 from alembic import op
+from chap_core.database.migration_helpers import foreign_key_name, has_column, has_table
 
 revision: str = "f2a3b4c5d6e1"
 down_revision: str | Sequence[str] | None = "e1f2a3b4c5d6"
@@ -63,27 +64,6 @@ PARAM_COLUMNS = tuple(PARAM_TYPES)
 # for specifications that no backtest points at, so they stay local to this file.
 DEFAULT_PARAMS = {"n_periods": 3, "n_splits": 7, "stride": 1, "n_retrain": 1, "future_weather_provider": "climatology"}
 FOREIGN_KEY_NAME = "fk_backtest_specification_id_backtestspecification"
-
-
-def _has_table(table: str) -> bool:
-    return table in sa.inspect(op.get_bind()).get_table_names()
-
-
-def _has_column(table: str, column: str) -> bool:
-    return any(col["name"] == column for col in sa.inspect(op.get_bind()).get_columns(table))
-
-
-def _foreign_key_name(table: str, referred_table: str) -> str | None:
-    """Name of the constraint linking `table` to `referred_table`, whichever way it was created.
-
-    create_all names the constraint by the Postgres default rather than by
-    FOREIGN_KEY_NAME, so matching on the referred table is what makes this work on both
-    a database that reached the new schema through create_all and one that did not.
-    """
-    for fk in sa.inspect(op.get_bind()).get_foreign_keys(table):
-        if fk["referred_table"] == referred_table:
-            return fk["name"]
-    return None
 
 
 def _org_units(value) -> list[str]:
@@ -137,7 +117,7 @@ def upgrade() -> None:
     table and the specification_id column may already exist, the latter filled with 0
     rather than NULL. Both shapes end up the same way.
     """
-    if not _has_table("backtestspecification"):
+    if not has_table("backtestspecification"):
         op.create_table(
             "backtestspecification",
             sa.Column("id", sa.Integer(), nullable=False),
@@ -148,21 +128,21 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint("id"),
             sa.UniqueConstraint(*(("dataset_id",) + PARAM_COLUMNS), name="uq_backtestspecification_params"),
         )
-    if not _has_column("backtest", "specification_id"):
+    if not has_column("backtest", "specification_id"):
         op.add_column("backtest", sa.Column("specification_id", sa.Integer(), nullable=True))
 
     # The parameter columns are still there exactly when the backtests have not been
     # moved yet; create_all never drops columns, so it cannot have removed them. The
     # drop is guarded per column so that a database missing some of them, however it got
     # there, still ends up with none of them on backtest.
-    if _has_column("backtest", "n_periods"):
+    if has_column("backtest", "n_periods"):
         _backfill_specifications()
     for column in PARAM_COLUMNS:
-        if _has_column("backtest", column):
+        if has_column("backtest", column):
             op.drop_column("backtest", column)
 
     op.alter_column("backtest", "specification_id", existing_type=sa.Integer(), nullable=False)
-    if _foreign_key_name("backtest", "backtestspecification") is None:
+    if foreign_key_name("backtest", "backtestspecification") is None:
         op.create_foreign_key(FOREIGN_KEY_NAME, "backtest", "backtestspecification", ["specification_id"], ["id"])
 
 
@@ -185,7 +165,7 @@ def downgrade() -> None:
         )
     for column, type_ in PARAM_TYPES.items():
         op.alter_column("backtest", column, existing_type=type_, nullable=False)
-    foreign_key = _foreign_key_name("backtest", "backtestspecification")
+    foreign_key = foreign_key_name("backtest", "backtestspecification")
     if foreign_key is not None:
         op.drop_constraint(foreign_key, "backtest", type_="foreignkey")
     op.drop_column("backtest", "specification_id")

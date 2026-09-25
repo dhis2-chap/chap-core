@@ -50,8 +50,8 @@ class TestChapkitDataFormat:
 
     def test_run_info_structure(self):
         """Validate run_info JSON structure."""
-        assert "prediction_length" in CHAPKIT_RUN_INFO
-        assert isinstance(CHAPKIT_RUN_INFO["prediction_length"], int)
+        assert "prediction_periods" in CHAPKIT_RUN_INFO
+        assert isinstance(CHAPKIT_RUN_INFO["prediction_periods"], int)
         assert "additional_continuous_covariates" in CHAPKIT_RUN_INFO
         assert isinstance(CHAPKIT_RUN_INFO["additional_continuous_covariates"], list)
 

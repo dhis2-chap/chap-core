@@ -75,13 +75,13 @@ test-debug: ## run tests with DEBUG logging and SQL echo
 test-timed: ## run tests showing timing for 20 slowest tests
 	uv run pytest -q --durations=20
 
-test-all: ## run comprehensive test suite with examples and coverage
+test-all: ## run comprehensive test suite (slow tests, docker integration, examples) in parallel
 	mkdir -p target runs
 	./tests/test_docker_compose_integration_flow.sh
 
 	#./tests/test_docker_compose_flow.sh   # this runs pytests inside a docker container, can be skipped
-	CHAP_DEBUG=true uv run pytest --log-cli-level=INFO -o log_cli=true -v --durations=0 --cov=chap_core --cov-report html --run-slow
-	CHAP_DEBUG=true uv run pytest --log-cli-level=INFO -o log_cli=true -v --durations=0 --cov=chap_core --cov-report html --cov-append scripts/*_example.py
+	CHAP_DEBUG=true uv run pytest -v -n 4 --dist loadfile --durations=20 --run-slow --ignore=tests/test_documentation_slow.py
+	CHAP_DEBUG=true uv run pytest -v scripts/*_example.py
 
 coverage: ## run tests with coverage reporting
 	@echo ">>> Running tests with coverage"

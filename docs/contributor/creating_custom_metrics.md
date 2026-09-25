@@ -49,6 +49,7 @@ from chap_core.assessment.metrics.base import (
     AggregationOp,
     ProbabilisticMetric,
     MetricSpec,
+    OptimizationDirection,
 )
 from chap_core.assessment.metrics import metric
 
@@ -62,7 +63,7 @@ class MySpreadMetric(ProbabilisticMetric):
         metric_name="My Spread",
         aggregation_op=AggregationOp.MEAN,
         description="Standard deviation of forecast samples",
-        optimization_direction=None,
+        optimization_direction=OptimizationDirection.MINIMIZE,
     )
 
     def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:
@@ -122,7 +123,7 @@ from chap_core.assessment.metrics.base import ProbabilisticMetric
 ## MetricSpec Configuration
 
 ```python
-from chap_core.assessment.metrics.base import AggregationOp, MetricSpec
+from chap_core.assessment.metrics.base import AggregationOp, MetricSpec, TargetBehavior
 
 spec = MetricSpec(
     metric_id="unique_id",              # Used in APIs and registry
@@ -130,8 +131,31 @@ spec = MetricSpec(
     aggregation_op=AggregationOp.MEAN,   # MEAN, SUM, or ROOT_MEAN_SQUARE
     description="What this metric measures",
     optimization_direction=None,        # MINIMIZE, MAXIMIZE or None
+    proper_scoring_rule=False,          # True only for proper scoring rules, which HPO may optimize
+    unit=None,                          # Display suffix for the raw score, e.g. "%"
+    target=None,                        # Ideal raw value when neither direction is better, e.g. 0.8
+    target_behavior=TargetBehavior.CLOSEST,  # CLOSEST or AT_LEAST, only used with a target
 )
 ```
+
+The metric catalogue API returns `unit`, `target` and `target_behavior` alongside
+the optimization direction. A metric with `optimization_direction=None` should set
+a `target`, and `target_behavior` tells clients how to judge a score against it:
+`CLOSEST` means deviating in either direction is worse (ratio above truth, peak
+difference), while `AT_LEAST` means higher is better up to the target and flat
+above it, so only scores below the target should be flagged as bad (coverage
+metrics). Units do not rescale scores: MAPE is already a percentage, while
+coverage targets use fractions such as `0.8`.
+
+`optimization_direction` says which way is better when reading a score, not that the
+metric is a sound thing to optimize. Set `proper_scoring_rule=True` only when the metric
+is a proper scoring rule (or a consistent scoring function for point metrics, such as
+MAE for the median and RMSE for the mean), meaning a forecaster cannot improve its
+expected score by reporting anything other than its honest forecast. HPO only accepts
+proper scoring rules with an explicit direction. The outbreak metrics keep `MAXIMIZE`
+so clients colour high scores as good, but HPO rejects them, since sensitivity is
+maximised by always alerting and specificity by never alerting. MAPE is rejected for
+the same reason: it is minimised by systematically under-forecasting.
 
 ## Complete Examples
 
@@ -194,6 +218,7 @@ class ForecastBiasMetric(ProbabilisticMetric):
         aggregation_op=AggregationOp.MEAN,
         description="Proportion of samples above observed (0.5 = unbiased)",
         optimization_direction=None,
+        target=0.5,
     )
 
     def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:
@@ -208,6 +233,7 @@ from chap_core.assessment.metrics.base import (
     AggregationOp,
     ProbabilisticMetric,
     MetricSpec,
+    TargetBehavior,
 )
 from chap_core.assessment.metrics import metric
 
@@ -233,6 +259,8 @@ class Coverage80Metric(IntervalCoverageMetric):
         aggregation_op=AggregationOp.MEAN,
         description="Proportion within 10th-90th percentile",
         optimization_direction=None,
+        target=0.8,
+        target_behavior=TargetBehavior.AT_LEAST,
     )
     low_pct = 10
     high_pct = 90

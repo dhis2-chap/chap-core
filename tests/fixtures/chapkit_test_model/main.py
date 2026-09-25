@@ -4,6 +4,9 @@ Uses seasonal naive prediction: for each location, predict the same
 month's disease_cases value from the most recent year in training data.
 """
 
+import json
+import os
+from pathlib import Path
 from typing import Any
 
 import structlog
@@ -22,6 +25,20 @@ class TestConfig(BaseConfig):
     prediction_periods: int = 3
 
 
+def _log_train_call(config: TestConfig) -> None:
+    """Append what the service resolved for this train call to the side-channel file.
+
+    The file is how the chap-core integration tests observe the horizon that
+    reached the model, which is otherwise only visible inside the service.
+    """
+    log_path = os.environ.get("CHAPKIT_TEST_TRAIN_LOG")
+    if not log_path:
+        return
+    line = json.dumps({"prediction_periods": config.prediction_periods})
+    with Path(log_path).open("a") as f:
+        f.write(line + "\n")
+
+
 def _extract_month(period_str: str) -> int:
     """Extract month from period string like '2023-01' or '202301'."""
     s = str(period_str)
@@ -35,6 +52,7 @@ async def on_train(
     data: DataFrame,
     geo: FeatureCollection | None = None,
 ) -> Any:
+    _log_train_call(config)
     df = data.to_pandas()
     if "disease_cases" not in df.columns:
         log.warning("no disease_cases column, returning empty model")

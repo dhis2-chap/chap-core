@@ -41,6 +41,15 @@ class OptimizationDirection(StrEnum):
     MAXIMIZE = "maximize"
 
 
+class TargetBehavior(StrEnum):
+    """How a score should be judged against the target."""
+
+    # Deviating from the target in either direction is worse.
+    CLOSEST = "closest"
+    # Scores below the target are worse, scores above it are no worse than the target.
+    AT_LEAST = "at_least"
+
+
 @dataclass(frozen=True)
 class MetricSpec:
     """
@@ -52,8 +61,18 @@ class MetricSpec:
     output_dimensions: tuple[DataDimension, ...] = DEFAULT_OUTPUT_DIMENSIONS
     aggregation_op: AggregationOp = AggregationOp.MEAN
     description: str = "No description provided"
-    # None means the metic is not directly usable as a scalar optimization objective.
+    # Which way is better when reading a score. None means neither direction is better.
     optimization_direction: OptimizationDirection | None = None
+    # Whether the metric is a proper scoring rule (a consistent scoring function for
+    # point metrics), so that only honest forecasts optimize it. HPO objectives must be
+    # proper; other metrics keep a direction for presentation only.
+    proper_scoring_rule: bool = False
+    # Display suffix for the raw score; None when no fixed unit applies.
+    unit: str | None = None
+    # Ideal value in raw score units for metrics where neither direction is better.
+    target: float | None = None
+    # How to judge a score against the target. Only meaningful when target is set.
+    target_behavior: TargetBehavior = TargetBehavior.CLOSEST
 
 
 class Metric(ABC):

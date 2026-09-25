@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
+import chap_core
 from chap_core.api_types import DataList, EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import create_tsdataclass
@@ -38,6 +39,7 @@ from chap_core.rest_api.data_models import (
 from chap_core.rest_api.app import app
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.rest_api.db_worker_functions import harmonize_and_add_dataset, run_backtest
+from chap_core.time_period import TimePeriod
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -167,6 +169,7 @@ def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_c
     ds = DataSetWithObservations.model_validate(response.json())
 
     assert len(ds.observations) > 0
+    assert ds.created_manually
     print(response.json())
     assert "orgUnit" in response.json()["observations"][0], response.json()["observations"][0].keys()
 
@@ -244,6 +247,7 @@ def test_make_dataset_import_persists_data_sources(clean_engine, dataset_make_re
         stored = session.session.get(DataSet, dataset_id)
         assert stored is not None
         assert stored.data_sources == request.data_sources
+        assert stored.created_manually
 
 
 def test_get_data_sources():
@@ -525,6 +529,109 @@ def test_create_backtest_forwards_params_and_accepts_int_model_id(override_sessi
     assert (captured["n_periods"], captured["n_splits"], captured["stride"], captured["n_retrain"]) == (3, 4, 1, 2)
 
 
+class _JobIdWorker:
+    """Records every queued job and hands out distinct job ids, so a test can check what was submitted."""
+
+    def __init__(self):
+        self.queued: list[tuple] = []
+
+    def queue_db(self, func, info, **kwargs):
+        self.queued.append((func, info, kwargs))
+
+        class _Job:
+            id = f"job-{len(self.queued)}"
+
+        return _Job()
+
+
+def test_create_backtests_resolves_the_specification_and_queues_one_job_per_model(
+    override_session, seeded_session, p_seeded_engine, monkeypatch
+):
+    """The response must name the specification the jobs will file under before any job has run,
+    and the benchmarking server must get one job id per model without a second lookup."""
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    naive = seeded_session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == "naive_model")).one()
+    other = seeded_session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name != "naive_model")).first()
+    dataset_id = seeded_session.exec(select(DataSet.id)).first()
+
+    payload = {
+        "name": "bench",
+        "datasetId": dataset_id,
+        "modelIds": ["naive_model", other.id],
+        "nSplits": 4,
+        "nRetrain": 2,
+    }
+    response = client.post("/v1/analytics/create-backtests", json=payload)
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert [job["configuredModelId"] for job in data["jobs"]] == [naive.id, other.id]
+    assert [job["jobId"] for job in data["jobs"]] == ["job-1", "job-2"]
+
+    assert [info.name for _, info, _ in worker.queued] == [f"bench/{naive.name}", f"bench/{other.name}"]
+    assert [info.model_id for _, info, _ in worker.queued] == [naive.id, other.id]
+    for func, _, kwargs in worker.queued:
+        assert func is run_backtest
+        assert (kwargs["n_periods"], kwargs["n_splits"], kwargs["stride"], kwargs["n_retrain"]) == (3, 4, 1, 2)
+
+    specification = client.get(f"/v1/crud/backtest-specifications/{data['specificationId']}").json()
+    assert (specification["dataset"]["id"], specification["nSplits"], specification["nRetrain"]) == (dataset_id, 4, 2)
+    assert specification["backtests"] == []
+    # A worker running one of the queued jobs files its backtest under the returned id.
+    with SessionWrapper(p_seeded_engine) as session:
+        backtest_id = _run(session, f"bench/{naive.name}", dataset_id, n_periods=3, n_splits=4, stride=1, n_retrain=2)
+        assert session.session.get(Backtest, backtest_id).specification_id == data["specificationId"]
+
+
+def test_create_backtests_rejects_unknown_dataset_or_model_before_queueing(
+    override_session, seeded_session, monkeypatch
+):
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    dataset_id = seeded_session.exec(select(DataSet.id)).first()
+
+    response = client.post(
+        "/v1/analytics/create-backtests", json={"name": "x", "datasetId": 999999, "modelIds": ["naive_model"]}
+    )
+    assert response.status_code == 404, response.text
+    response = client.post(
+        "/v1/analytics/create-backtests",
+        json={"name": "x", "datasetId": dataset_id, "modelIds": ["naive_model", "no_such_model"]},
+    )
+    assert response.status_code == 404, response.text
+    assert "no_such_model" in response.json()["detail"]
+    response = client.post(
+        "/v1/analytics/create-backtests", json={"name": "x", "datasetId": dataset_id, "modelIds": []}
+    )
+    assert response.status_code == 422, response.text
+    assert worker.queued == []
+
+
+def test_create_backtests_rejects_a_window_that_leaves_no_org_unit_to_train_on(
+    override_session, seeded_session, monkeypatch
+):
+    """The endpoint filters the dataset before queueing, so it can refuse up front instead of
+    creating an empty specification and one doomed job per model."""
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    dataset_id = seeded_session.exec(select(DataSet.id)).first()
+
+    payload = {"name": "x", "datasetId": dataset_id, "modelIds": ["naive_model"], "nSplits": 1000}
+    response = client.post("/v1/analytics/create-backtests", json=payload)
+    assert response.status_code == 422, response.text
+    assert "No org unit" in response.json()["detail"]
+    assert worker.queued == []
+    assert (
+        client.get("/v1/crud/backtest-specifications", params={"datasetId": dataset_id, "nSplits": 1000}).json() == []
+    )
+
+
 def test_run_backtest_persists_resolved_params(override_session, p_seeded_engine):
     """The stored row records the parameters that actually ran: n_periods=None is
     resolved from the (monthly) dataset, and an integer model id is resolved to its name."""
@@ -575,6 +682,20 @@ def _run(session, name, dataset_id, **params):
     )
 
 
+def test_run_backtest_records_the_train_cutoff_not_the_dataset_end(p_seeded_engine):
+    """`last_train_period` is the end of the training window, so it must precede every
+    period forecast from it. Using the end of the full dataset instead puts the cutoff
+    after the held-out window and makes horizon distances come out wrong."""
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        backtest_id = _run(session, "cutoff", dataset_id, n_periods=3, n_splits=2, stride=1)
+        forecasts = session.session.get(Backtest, backtest_id).forecasts
+        assert forecasts
+        assert all(TimePeriod.parse(f.last_train_period) < TimePeriod.parse(f.period) for f in forecasts), (
+            "last_train_period must be before the forecast period"
+        )
+
+
 def test_backtests_with_the_same_parameters_share_one_specification(p_seeded_engine):
     """Deduplication is what makes "these two results are comparable" structural."""
     with SessionWrapper(p_seeded_engine) as session:
@@ -585,6 +706,17 @@ def test_backtests_with_the_same_parameters_share_one_specification(p_seeded_eng
 
         assert first.specification_id == second.specification_id
         assert (first.n_periods, first.n_splits, first.stride, first.n_retrain) == (3, 2, 1, 1)
+
+
+def test_backtest_records_the_chap_version_that_produced_it(p_seeded_engine):
+    """Without this a metric shift over time cannot be attributed to the model or the platform."""
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        backtest = session.session.get(Backtest, _run(session, "versioned", dataset_id, n_periods=3, n_splits=2))
+
+        # A dev checkout without package metadata reports "unknown", which is not a version.
+        expected = None if chap_core.__version__ == "unknown" else chap_core.__version__
+        assert backtest.chap_version == expected
 
 
 def test_every_backtest_parameter_is_part_of_the_uniqueness_key():
@@ -657,6 +789,88 @@ def test_specification_org_units_are_the_ones_left_after_filtering(p_seeded_engi
         assert set(backtest.specification.org_units) == set(backtest.org_units)
 
 
+def test_specification_filter_covers_every_backtest_parameter():
+    """A parameter missing from the filter could not be part of the lookup tuple, so an
+    external system could not find its specification again. Every field must also be
+    optional with no default: an omitted parameter means any value, not the default."""
+    from chap_core.api_types import BacktestParams
+    from chap_core.rest_api.data_models import BacktestSpecificationFilter
+
+    assert set(BacktestSpecificationFilter.model_fields) == {"dataset_id", *BacktestParams.model_fields}
+    assert all(field.default is None for field in BacktestSpecificationFilter.model_fields.values())
+
+
+def test_list_backtest_specifications_filters_by_dataset_and_parameters(
+    override_session, p_seeded_engine, backtest_params, org_units
+):
+    """The seeded database holds two specifications with the same parameters on two datasets."""
+    response = client.get("/v1/crud/backtest-specifications")
+    assert response.status_code == 200, response.text
+    rows = response.json()
+    assert len(rows) == 2, rows
+    assert len({row["dataset"]["id"] for row in rows}) == 2, rows
+    assert all(row["backtestCount"] == 1 and row["orgUnitCount"] == len(org_units) for row in rows), rows
+    assert all("backtests" not in row for row in rows)
+
+    by_dataset = client.get("/v1/crud/backtest-specifications", params={"datasetId": rows[0]["dataset"]["id"]}).json()
+    assert [row["id"] for row in by_dataset] == [rows[0]["id"]]
+
+    full_tuple = {"datasetId": rows[0]["dataset"]["id"], **backtest_params.model_dump(by_alias=True)}
+    assert [row["id"] for row in client.get("/v1/crud/backtest-specifications", params=full_tuple).json()] == [
+        rows[0]["id"]
+    ]
+    assert client.get("/v1/crud/backtest-specifications", params={**full_tuple, "nSplits": 99}).json() == []
+
+
+def test_get_backtest_specification_returns_its_backtests_newest_first(override_session, p_seeded_engine):
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        params = {"n_periods": 3, "n_splits": 2, "stride": 1, "n_retrain": 1}
+        first_id = _run(session, "first", dataset_id, **params)
+        second_id = _run(session, "second", dataset_id, **params)
+        specification_id = session.session.get(Backtest, first_id).specification_id
+        # The seeded backtest has the same parameters, so it sits on the same
+        # specification; it predates `created`, which must not push it to the top.
+        seeded_id = session.session.exec(select(Backtest.id).where(Backtest.name == "test backtest")).one()
+
+    response = client.get(f"/v1/crud/backtest-specifications/{specification_id}")
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["id"] == specification_id
+    assert data["dataset"]["id"] == dataset_id
+    assert (data["nPeriods"], data["nSplits"]) == (3, 2)
+    assert data["orgUnits"]
+    assert [b["id"] for b in data["backtests"]] == [second_id, first_id, seeded_id]
+    for row in data["backtests"]:
+        BacktestRead.model_validate(row)
+        assert row["specificationId"] == specification_id
+        assert row["configuredModel"]["configurationDigest"]
+        assert row["configuredModel"]["modelTemplate"]["name"]
+        assert isinstance(row["aggregateMetrics"], dict)
+        assert "forecasts" not in row
+
+    assert client.get("/v1/crud/backtest-specifications/999999").status_code == 404
+
+
+def test_list_backtests_filters_by_specification_and_dataset(override_session, p_seeded_engine):
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        params = {"n_periods": 3, "n_splits": 2, "stride": 1, "n_retrain": 1}
+        first_id = _run(session, "first", dataset_id, **params)
+        second_id = _run(session, "second", dataset_id, **params)
+        other_id = _run(session, "other", dataset_id, **{**params, "n_splits": 3})
+        specification_id = session.session.get(Backtest, first_id).specification_id
+
+    by_specification = client.get("/v1/crud/backtests", params={"specificationId": specification_id}).json()
+    assert {first_id, second_id} <= {b["id"] for b in by_specification}
+    assert other_id not in {b["id"] for b in by_specification}
+    assert all(b["specificationId"] == specification_id for b in by_specification)
+
+    by_dataset = client.get("/v1/crud/backtests", params={"datasetId": dataset_id}).json()
+    assert {first_id, second_id, other_id} <= {b["id"] for b in by_dataset}
+    assert all(b["datasetId"] == dataset_id for b in by_dataset)
+
+
 def test_backtest_read_still_exposes_the_parameters_flat(override_session, p_seeded_engine):
     """The parameters moved behind a relationship; the wire shape must not have moved with them."""
     with SessionWrapper(p_seeded_engine) as session:
@@ -684,7 +898,9 @@ def test_backtest_read_still_exposes_the_parameters_flat(override_session, p_see
         "orgUnits",
         "splitPeriods",
         "maxHorizonDistance",
+        "chapVersion",
         "dataset",
+        "specificationId",
         "aggregateMetrics",
         "configuredModel",
         "predictionSetupId",
@@ -900,6 +1116,33 @@ def test_get_prediction_setup_includes_linked_predictions(override_session, seed
     body = response.json()
     assert len(body["predictions"]) == 1
     assert body["predictions"][0]["id"] == prediction.id
+    assert body["predictions"][0]["predictionSetupId"] == setup_id
+
+
+@pytest.mark.parametrize("list_predictions", [False, True])
+def test_prediction_response_exposes_setup_id(override_session, seeded_session, list_predictions):
+    prediction = seeded_session.exec(select(Prediction)).first()
+    assert prediction is not None
+    endpoint = "/v1/crud/predictions" if list_predictions else f"/v1/crud/predictions/{prediction.id}"
+
+    def read_prediction():
+        response = client.get(endpoint)
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        return next(item for item in body if item["id"] == prediction.id) if list_predictions else body
+
+    assert read_prediction()["predictionSetupId"] is None
+
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id)
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+    prediction.prediction_setup_id = setup_id
+    seeded_session.add(prediction)
+    seeded_session.commit()
+
+    assert read_prediction()["predictionSetupId"] == setup_id
 
 
 def test_get_prediction_setup_not_found_returns_404(clean_engine, dependency_overrides):
@@ -988,7 +1231,7 @@ class _NoopRedis:
     def hgetall(self, _key):
         return {}
 
-    def delete(self, _key):
+    def delete(self, *_keys):
         return 0
 
 
@@ -1069,9 +1312,10 @@ def test_delete_prediction_setup_sweeps_matching_job_meta_in_redis(override_sess
         def hgetall(self, key):
             return self.meta[key]
 
-        def delete(self, key):
-            self.deleted.append(key)
-            self.meta.pop(key, None)
+        def delete(self, *keys):
+            self.deleted.extend(keys)
+            for key in keys:
+                self.meta.pop(key, None)
             return 1
 
     fake_redis = _FakeRedis()
@@ -1082,7 +1326,7 @@ def test_delete_prediction_setup_sweeps_matching_job_meta_in_redis(override_sess
     response = client.delete(f"/v1/crud/prediction-setups/{setup_id}")
     assert response.status_code == 200, response.json()
 
-    assert fake_redis.deleted == ["job_meta:job-1"]
+    assert fake_redis.deleted == ["job_meta:job-1", "job_request:job-1"]
     assert "job_meta:job-2" in fake_redis.meta
 
 
@@ -1425,6 +1669,7 @@ def test_run_prediction_setup_normalizes_dataset_type_to_prediction(
 
     dataset_info = captured["kwargs"]["dataset_create_info"]
     assert dataset_info["type"] == "prediction"
+    assert captured["kwargs"]["prediction_setup_id"] == setup_id
 
 
 @pytest.mark.skip(
@@ -1522,12 +1767,16 @@ def _check_rejected_org_units(content, expected_rejections):
         assert rejected_regions == set(expected_rejections), (rejected_regions, expected_rejections)
 
 
-@pytest.mark.skip(reason="Failing because of missing geojson file")
-def test_add_csv_dataset(celery_session_worker, dependency_overrides, data_path):
-    csv_data = open(data_path / "nicaragua_weekly_data.csv", "rb")
-    geojson_data = open(data_path / "nicaragua.json", "rb")
-    response = client.post("/v1/crud/datasets/csvFile", files={"csvFile": csv_data, "geojsonFile": geojson_data})
+def test_add_csv_dataset(dependency_overrides, data_path):
+    with (
+        open(data_path / "vietnam_monthly.csv", "rb") as csv_data,
+        open(data_path / "vietnam_monthly.geojson", "rb") as geojson_data,
+    ):
+        response = client.post("/v1/crud/datasets/csvFile", files={"csv_file": csv_data, "geojson_file": geojson_data})
     assert response.status_code == 200, response.json()
+    response = client.get(f"/v1/crud/datasets/{response.json()['id']}")
+    assert response.status_code == 200, response.json()
+    assert DataSetWithObservations.model_validate(response.json()).created_manually
 
 
 def test_full_prediction_flow(celery_session_worker, dependency_overrides, example_polygons):
@@ -1590,8 +1839,8 @@ def test_backtest_with_empty_provided_data_dry_run(dependency_overrides, create_
     assert body["rejected"] == []
 
 
-def test_backtest_with_all_regions_rejected_dry_run(dependency_overrides, create_backtest_with_data_request):
-    request_payload = create_backtest_with_data_request.model_dump()
+def _drop_one_covariate_period_per_location(request_payload) -> str:
+    """Remove the first observation of a covariate for every location, so validation rejects them all."""
     obs = request_payload["provided_data"]
     target_feature = next(e["feature_name"] for e in obs if e["feature_name"] != "disease_cases")
     seen_locations = set()
@@ -1602,14 +1851,50 @@ def test_backtest_with_all_regions_rejected_dry_run(dependency_overrides, create
             continue
         pruned.append(entry)
     request_payload["provided_data"] = pruned
+    return target_feature
 
-    response = client.post("/v1/analytics/create-backtest-with-data?dryRun=true", json=request_payload)
+
+def _check_all_regions_rejected_dry_run(url, request_payload):
+    target_feature = _drop_one_covariate_period_per_location(request_payload)
+    response = client.post(f"{url}?dryRun=true", json=request_payload)
     assert response.status_code == 200, response.json()
     body = response.json()
     assert body["id"] is None
     assert body["importedCount"] == 0
     assert len(body["rejected"]) > 0
     assert all(r["featureName"] == target_feature for r in body["rejected"])
+
+
+def test_backtest_with_all_regions_rejected_dry_run(dependency_overrides, create_backtest_with_data_request):
+    _check_all_regions_rejected_dry_run(
+        "/v1/analytics/create-backtest-with-data", create_backtest_with_data_request.model_dump()
+    )
+
+
+def test_make_dataset_dry_run(dependency_overrides, dataset_make_request, org_units):
+    response = client.post("/v1/analytics/make-dataset?dryRun=true", json=dataset_make_request.model_dump())
+    assert response.status_code == 200, response.json()
+    body = response.json()
+    assert body["id"] is None
+    assert body["importedCount"] == len(org_units)
+    assert body["rejected"] == []
+
+
+def test_make_dataset_all_regions_rejected_dry_run(dependency_overrides, dataset_make_request):
+    _check_all_regions_rejected_dry_run("/v1/analytics/make-dataset", dataset_make_request.model_dump())
+
+
+def test_make_dataset_all_polygons_missing_returns_500_with_rejections(
+    dependency_overrides, dataset_make_request, org_units
+):
+    request_payload = dataset_make_request.model_dump()
+    request_payload["geojson"]["features"] = []
+    response = client.post("/v1/analytics/make-dataset", json=request_payload)
+    assert response.status_code == 500, response.json()
+    detail = response.json()["detail"]
+    assert detail["message"] == "Missing values. No data was imported."
+    assert {r["orgUnit"] for r in detail["rejected"]} == set(org_units)
+    assert all(r["featureName"] == "polygon" for r in detail["rejected"])
 
 
 @pytest.mark.parametrize("dry_run", [False, True])

@@ -61,7 +61,8 @@ The v1 router (`rest_api/v1/rest_api.py`) includes four sub-routers:
 
 Standard CRUD endpoints for the core domain objects:
 
-- **Backtests** -- list, get, create, update, delete evaluations.
+- **Backtests** -- list (filterable by `specificationId` and `datasetId`), get, create, update, delete evaluations.
+- **Backtest specifications** -- list the evaluation setups backtests ran under, filterable by dataset and every `BacktestParams` field, and get one with every backtest under it (the benchmark leaderboard).
 - **Predictions** -- list, get, delete predictions.
 - **Datasets** -- list, get, create (JSON or CSV), export as CSV/DataFrame, delete.
 - **Model templates** -- list all templates (also triggers chapkit sync).
@@ -76,8 +77,9 @@ executed by the Celery worker.
 
 Higher-level endpoints used by the Modeling App:
 
-- `POST /make-dataset` -- validate, harmonize and import a dataset.
+- `POST /make-dataset` -- validate, harmonize and import a dataset. Supports a `dryRun` query param for validation only.
 - `POST /create-backtest` -- create a backtest from an existing dataset.
+- `POST /create-backtests` -- run several configured models on an existing dataset under one specification; returns the specification id and one job id per model.
 - `POST /create-backtest-with-data/` -- validate data, create dataset, then run backtest. This is the main endpoint used by the Modeling App. Supports a `dryRun` query param for validation only.
 - `POST /make-prediction` -- validate data and run a prediction.
 - `GET /evaluation-entry` -- return quantile-based forecast data for a backtest.
@@ -96,7 +98,7 @@ Monitor and manage async Celery jobs:
 - `GET /v1/jobs/{id}` -- get job status (PENDING, STARTED, SUCCESS, FAILURE, REVOKED).
 - `DELETE /v1/jobs/{id}` -- delete a completed job's metadata.
 - `POST /v1/jobs/{id}/cancel` -- cancel a running job.
-- `GET /v1/jobs/{id}/logs` -- get user-facing status logs for a job.
+- `GET /v1/jobs/{id}/logs` -- get the tail of a job's complete log.
 - `GET /v1/jobs/{id}/database_result` -- get the database ID produced by a completed job.
 - `GET /v1/jobs/{id}/prediction_result` -- get prediction results.
 - `GET /v1/jobs/{id}/evaluation_result` -- get evaluation results.

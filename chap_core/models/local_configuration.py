@@ -1,12 +1,17 @@
 # Module for parsing local configuration of models, i.e. files that are put in config/models directory.
 import logging
+import re
 
 import yaml
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, ValidationError, model_validator
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 
 logger = logging.getLogger(__name__)
+
+# A git version must name one commit, with or without the leading @. Branches, tags and
+# short shas can move or be ambiguous, so a label could then silently change code.
+FULL_COMMIT_SHA_PATTERN = re.compile(r"@?[0-9a-fA-F]{40}")
 
 
 class LocalModelTemplateWithConfigurations(BaseModel):
@@ -17,6 +22,20 @@ class LocalModelTemplateWithConfigurations(BaseModel):
     uses_chapkit: bool = False
     versions: dict[str, str]
     configurations: dict[str, ModelConfiguration] = {"default": ModelConfiguration()}
+
+    @model_validator(mode="after")
+    def git_versions_are_full_commit_shas(self):
+        # Every label is checked, not only the one that gets seeded, so the file cannot
+        # express a moving ref under any label. Chapkit services are versioned by the service.
+        if self.uses_chapkit:
+            return self
+        for label, ref in self.versions.items():
+            if not FULL_COMMIT_SHA_PATTERN.fullmatch(ref):
+                raise ValueError(
+                    f"version {label!r} of {self.url} is {ref!r}, but a version must be a full 40-character "
+                    "commit sha, not a branch, tag or short sha"
+                )
+        return self
 
 
 Configurations = list[LocalModelTemplateWithConfigurations]
@@ -30,8 +49,10 @@ def parse_local_model_config_file(file_name) -> Configurations:
     # parse the yaml file using the pydantic model
     with open(file_name) as file:
         content = yaml.safe_load(file)
-        configurations = TypeAdapter(list[LocalModelTemplateWithConfigurations]).validate_python(content)
-        return configurations
+    try:
+        return TypeAdapter(list[LocalModelTemplateWithConfigurations]).validate_python(content)
+    except ValidationError as e:
+        raise ValueError(f"Invalid model configuration file {file_name}: {e}") from e
 
 
 def parse_local_model_config_from_directory(directory, search_pattern="*.yaml") -> Configurations:

@@ -26,6 +26,7 @@ from .model_templates_and_config_tables import (
     ConfiguredModelDB,
     ModelConfiguration,
     ModelTemplateDB,
+    chapkit_revision_conflict,
     compute_configuration_digest,
     drifted_template_content_fields,
 )
@@ -130,7 +131,16 @@ class SessionWrapper:
         logger.info(f"Adding model template: {model_template}")
         model_template.is_live = False
         self.session.add(model_template)
-        self.session.commit()
+        try:
+            self.session.commit()
+        except sqlalchemy.exc.IntegrityError:
+            # Concurrent chapkit registrations can insert the same version between the
+            # existence check and this commit. Losing that race re-reads the winner's row.
+            self.session.rollback()
+            existing_template = self._if_exists(model_template.name, model_template.version)
+            if existing_template is None:
+                raise
+            return self._return_model_template_id(model_template.name, existing_template)
         # return id
         return cast("int", model_template.id)
 
@@ -153,17 +163,9 @@ class SessionWrapper:
         model_name = model_template.name
         existing_template = self._if_exists(model_name, model_template.version)
         if existing_template:
-            if (
-                model_template.source_digest is not None
-                and existing_template.source_digest is not None
-                and model_template.source_digest != existing_template.source_digest
-            ):
-                logger.warning(
-                    f"Model template {model_name!r} version {model_template.version!r} came from "
-                    f"{existing_template.source_digest!r}, but its ref now points to "
-                    f"{model_template.source_digest!r}. CHAP keeps the first revision. Use a new "
-                    "version label to get the new source."
-                )
+            # The digest is never written to an existing row. The git seed and the service
+            # registry check the revision before they get here; a chapkit template seeded
+            # from a config file is only checked when it is loaded to run.
             drifted = drifted_template_content_fields(existing_template, model_template)
             if drifted:
                 logger.warning(
@@ -178,7 +180,8 @@ class SessionWrapper:
                 existing_template.archived = False
                 self.session.commit()
         else:
-            # add_model_template_from_url gives git templates a digest. Other sources give None.
+            # Git templates always give a digest. Chapkit services give one only when they
+            # report git_revision. The naive model and ad hoc templates give None.
             template_id = self._add_model_template(model_template)
         self._make_live_template_version(model_name, template_id)
         return template_id
@@ -483,6 +486,12 @@ class SessionWrapper:
             logger.info(f"Assuming chapkit model at {source_url}")
             assert source_url is not None
             template = ExternalChapkitModelTemplate(source_url)
+            # The service can change its code while CHAP runs, so check the revision it
+            # reports now against the one this template was stored from.
+            conflict = chapkit_revision_conflict(configured_model.model_template, template.get_reported_source_digest())
+            if conflict is not None:
+                template.close()
+                raise conflict
             logger.info(f"template: {template}")
             logger.info(f"configured_model: {configured_model}")
             return template.get_model(configured_model, prediction_length=prediction_length)  # type: ignore[arg-type, return-value]
@@ -585,6 +594,7 @@ def _run_alembic_migrations(engine):
     """
     from alembic.config import Config
     from alembic.migration import MigrationContext
+    from alembic.script import ScriptDirectory
 
     from alembic import command
 
@@ -607,20 +617,37 @@ def _run_alembic_migrations(engine):
             alembic_cfg.attributes["connection"] = connection
 
             migration_context = MigrationContext.configure(connection)
-            if migration_context.get_current_revision() is None:
+            current_revision = migration_context.get_current_revision()
+            if current_revision is None:
                 existing_tables = set(sqlalchemy.inspect(connection).get_table_names())
                 if "modeltemplatedb" in existing_tables:
                     command.stamp(alembic_cfg, _GENERIC_SCHEMA_ALEMBIC_REVISION)
                     connection.commit()
+            else:
+                known_revisions = {
+                    script.revision for script in ScriptDirectory.from_config(alembic_cfg).walk_revisions()
+                }
+                if current_revision not in known_revisions:
+                    # A newer release migrated this database and the image was rolled back. Its
+                    # schema is a superset of this release's, so start without migrating.
+                    logger.warning(
+                        f"Database is at Alembic revision {current_revision}, which this release does not know. "
+                        "Skipping Alembic migrations."
+                    )
+                    return
 
             command.upgrade(alembic_cfg, "head")
+            # The revision check above autobegins a transaction on this connection, and
+            # Alembic does not commit a transaction it did not start.
+            connection.commit()
 
         logger.info("Completed Alembic migrations successfully")
 
     except Exception as e:
+        # Continuing on a partially migrated schema leaves alembic_version stalled and
+        # every later revision skipped, so startup has to fail here.
         logger.error(f"Error during Alembic migrations: {e}", exc_info=True)
-        # Don't raise - allow system to continue if Alembic fails
-        # This ensures backward compatibility
+        raise
 
 
 def create_db_and_tables():

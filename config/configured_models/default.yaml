@@ -8,21 +8,20 @@
 #- Only the last version specified (on the last line) is the one that is seed to chap
 #- Versions before that are just kept as documentation about what historically has been used, so that it is possible
 #- to go back to previous versions
+#- Every version must be a full commit sha. Branches and tags are rejected at startup, and reusing a label
+#- with a new sha fails startup: add a new label instead.
 #-
 
 - url: https://github.com/dhis2-chap/chap_auto_ewars
   versions:
-    nightly_build: "@main"
     stable: "@209759add6e13778f7061b8add8fbe814799a6cb"
 
 - url: https://github.com/dhis2-chap/chap_auto_ewars_weekly
   versions:
-    nightly_build: "@main"
     stable: "@4f40dd4be671f1d64855c06b10462bd6caddb765"
 
 - url: https://github.com/sandvelab/monthly_ar_model
   versions:
-    nightly_build: "@master"
     stable: "@5d630df4f43542093f095c7378d47f8053f9f4fa"
     uv: "@fab91107fc972b17c1f71c60f8c0cfa9f94c6560"
     uv2: "@c51c555421f5645c150470c32efc0d09b8aec871"
@@ -31,7 +30,6 @@
 - url: https://github.com/knutdrand/weekly_ar_model
   versions:
     old_version: "@36a537dac138af428a4167b2a89eac7dafd5d762"
-    nightly_build: "@master"
     stable: "@8ec1eb6ea854022350ad86c9e12a6d63638fbdbe"
     v2: "efda30f574bb41d179b6ff2d4199ca5a92a95c5d"
     uv: "@8ecbad861fa86579b977c552667ac7f16b3fd320"
@@ -41,19 +39,16 @@
 - url: https://github.com/chap-models/auto_regressive_monthly_v2
   name: auto_regressive_monthly_v2
   versions:
-    nightly_build: "@main"
     stable: "@d4d6b78212c7079b3d151bb8aba7e042c2393953"
 
 - url: https://github.com/chap-models/auto_regressive_weekly_v2
   name: auto_regressive_weekly_v2
   versions:
-    nightly_build: "@main"
     stable: "@55f8fa523fbf2ebd9e2f7f17358b76c66a16c2c9"
 
 - url: https://github.com/dhis2-chap/ewars_template
   versions:
     v1: "d666546c3975994183a6386468af217aba06b6c5"
-    v2: 'main'
     v3: 'e4520a2123a3228c10947f2b25029c3f7190e320'
     v4: 'cb4edc53ce3ed1353ae5b60a501b23095d8430fc'
     v5: '5b2affb989f4900251f75ba95c3bd814e255357d'
@@ -70,7 +65,6 @@
 - url: https://github.com/dhis2-chap/chtorch
   versions:
     v1: "@12374124aca159c8511042c99ec3e03ee4b72686"
-    v2: "@master"
     v3: "@88f59a28b6af85c697262880d27faae652dcf172"
   configurations:
     medium:
@@ -98,12 +92,10 @@
 
 - url: https://github.com/dhis2-chap/rwanda_sarimax
   versions:
-    v1: "@dev"
     uv: "@1fa5f69c1904117012f5754839be35befb1f5789"
 
 - url: https://github.com/dhis2-chap/rwanda_random_forest
   versions:
-    v1: "@chap"
     uv: "@2efbf3a870a5070b3570e3091ca25271d09d373a"
     uv2: "@3f80f90d2f5efd5af4b9c250d1e583f1cefc1f39"
 

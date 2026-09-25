@@ -21,6 +21,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 
 from alembic import op
+from chap_core.database.migration_helpers import has_column
 
 revision: str = "e1f2a3b4c5d6"
 down_revision: str | Sequence[str] | None = "d0e1f2a3b4c5"
@@ -33,11 +34,6 @@ COLUMN = "future_weather_provider"
 LEGACY_PROVIDER = "climatology"
 
 
-def _has_column(table: str, column: str) -> bool:
-    inspector = sa.inspect(op.get_bind())
-    return any(col["name"] == column for col in inspector.get_columns(table))
-
-
 def upgrade() -> None:
     """Add the provider column, backfill existing rows, then make it NOT NULL.
 
@@ -45,7 +41,7 @@ def upgrade() -> None:
     already exist with an empty value in every row; both shapes are backfilled
     the same way.
     """
-    if not _has_column("backtest", COLUMN):
+    if not has_column("backtest", COLUMN):
         op.add_column("backtest", sa.Column(COLUMN, sa.String(), nullable=True))
     op.execute(
         sa.text(f"UPDATE backtest SET {COLUMN} = :provider WHERE {COLUMN} IS NULL OR {COLUMN} = ''").bindparams(

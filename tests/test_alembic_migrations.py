@@ -49,6 +49,8 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("prediction", "prediction_setup_id"),
     ("backtest", "max_horizon_distance"),
     ("backtest", "specification_id"),
+    ("backtest", "chap_version"),
+    ("dataset", "created_manually"),
 ]
 
 # Tables added by alembic migrations (not in the baseline schema).
@@ -246,6 +248,7 @@ class TestAlembicMigrations:
         # may be left behind on backtest by an earlier revision that added them there.
         columns = {col["name"] for col in sa.inspect(engine).get_columns("backtest")}
         assert not columns & {"n_periods", "n_splits", "stride", "n_retrain", "future_weather_provider"}
+        assert "chap_version" in columns
 
     def test_downgrade_to_base_and_upgrade_again(self, engine):
         """
@@ -359,6 +362,9 @@ class TestAlembicMigrations:
             # QuickForecastFetcher - what the climatology provider now does.
             providers = conn.execute(sa.text("SELECT future_weather_provider FROM backtestspecification")).scalars()
             assert set(providers.all()) == {"climatology"}
+            # The producing chap-core version is only known for backtests run from now on.
+            versions = conn.execute(sa.text("SELECT chap_version FROM backtest")).scalars().all()
+            assert len(versions) == len(_LEGACY_BACKTESTS) and set(versions) == {None}
 
         columns = {col["name"] for col in sa.inspect(engine).get_columns("backtest")}
         assert not columns & {"n_periods", "n_splits", "stride", "n_retrain", "future_weather_provider"}
@@ -432,8 +438,15 @@ class TestAlembicMigrations:
         assert row.min_prediction_periods == 2
         assert row.max_prediction_periods == 6
 
-    def test_unversioned_create_all_schema_is_bootstrapped_to_head(self, engine):
-        """A legacy create_all database must still run the versioning migration."""
+    @pytest.mark.parametrize("stored_revision", [None, "ff2b1bbb8418"])
+    def test_create_all_schema_is_bootstrapped_to_head(self, engine, stored_revision):
+        """A database that startup gave the current schema must still be migrated to head.
+
+        stored_revision None is a legacy database that predates Alembic. ff2b1bbb8418 is a
+        database whose chain stalled there, because the generic migration had already added
+        the columns the next revisions add, so those revisions have to be safe to replay.
+        """
+        from alembic import command
         from alembic.script import ScriptDirectory
 
         from chap_core.database.database import _run_alembic_migrations
@@ -454,6 +467,55 @@ class TestAlembicMigrations:
                     sa.text(f"ALTER TABLE {table} ADD CONSTRAINT {baseline_constraint} UNIQUE ({baseline_columns})")
                 )
             conn.commit()
+        if stored_revision is not None:
+            command.stamp(_make_alembic_cfg(engine), stored_revision)
+            # A stalled database already held predictions when the generic migration added
+            # prediction_setup_id without its foreign key and filled it with 0.
+            with engine.connect() as conn:
+                conn.execute(sa.text("ALTER TABLE prediction DROP COLUMN prediction_setup_id"))
+                conn.execute(sa.text("ALTER TABLE prediction ADD COLUMN prediction_setup_id INTEGER"))
+                conn.execute(sa.text("ALTER TABLE modeltemplatedb DROP COLUMN archived"))
+                conn.execute(sa.text("ALTER TABLE modeltemplatedb ADD COLUMN archived BOOLEAN"))
+                # Images built from master between #294 and #354 had ConfiguredModelWithDataSource,
+                # so create_all and the generic migration left its table and prediction column behind.
+                conn.execute(
+                    sa.text(
+                        "CREATE TABLE configuredmodelwithdatasource ("
+                        "id SERIAL PRIMARY KEY, name VARCHAR NOT NULL, created TIMESTAMP, "
+                        "configured_model_id INTEGER NOT NULL REFERENCES configuredmodeldb (id), "
+                        "start_period VARCHAR, org_units JSON, data_sources JSON, period_type VARCHAR)"
+                    )
+                )
+                conn.execute(sa.text("ALTER TABLE prediction ADD COLUMN configured_model_with_data_source_id INTEGER"))
+                conn.execute(
+                    sa.text(
+                        "INSERT INTO modeltemplatedb "
+                        "(name, version, display_name, description, author_note, author_assessed_status, author, "
+                        "supported_period_type, target, allow_free_additional_continuous_covariates, requires_geo, "
+                        "uses_chapkit, is_live, archived) "
+                        "VALUES ('legacy_model', 'v1', 'Legacy', 'legacy', 'note', 'gray', 'author', "
+                        "'any', 'disease_cases', false, false, false, true, false)"
+                    )
+                )
+                conn.execute(
+                    sa.text(
+                        "INSERT INTO configuredmodeldb "
+                        "(name, model_template_id, archived, uses_chapkit, is_live, configuration_digest) "
+                        "SELECT 'legacy_configured', id, false, false, true, 'digest' FROM modeltemplatedb"
+                    )
+                )
+                conn.execute(sa.text("INSERT INTO dataset (name) VALUES ('legacy_dataset')"))
+                conn.execute(
+                    sa.text(
+                        "INSERT INTO prediction "
+                        "(dataset_id, model_db_id, model_id, n_periods, name, created, prediction_setup_id, "
+                        "configured_model_with_data_source_id) "
+                        "SELECT d.id, c.id, 'legacy_configured', 3, 'legacy_prediction', now(), 0, 0 "
+                        "FROM dataset d, configuredmodeldb c "
+                        "WHERE d.name = 'legacy_dataset' AND c.name = 'legacy_configured'"
+                    )
+                )
+                conn.commit()
 
         _run_alembic_migrations(engine)
 
@@ -473,6 +535,46 @@ class TestAlembicMigrations:
         }
         assert "uq_configuredmodeldb_template_name_digest" in configured_model_constraints
         assert "configuredmodeldb_name_key" not in configured_model_constraints
+
+        if stored_revision is not None:
+            referred = {fk["referred_table"] for fk in sa.inspect(engine).get_foreign_keys("prediction")}
+            assert "predictionsetup" in referred
+            with engine.connect() as conn:
+                setup_ids = conn.execute(sa.text("SELECT prediction_setup_id FROM prediction")).scalars().all()
+            assert setup_ids == [None]
+            archived = next(
+                col for col in sa.inspect(engine).get_columns("modeltemplatedb") if col["name"] == "archived"
+            )
+            assert archived["nullable"] is False
+            assert "configuredmodelwithdatasource" not in sa.inspect(engine).get_table_names()
+            prediction_columns = {col["name"] for col in sa.inspect(engine).get_columns("prediction")}
+            assert "configured_model_with_data_source_id" not in prediction_columns
+
+    def test_revision_unknown_to_this_release_does_not_block_startup(self, engine):
+        """Rolling back to an older image must not crash-loop on a newer stored revision.
+
+        The database was migrated by a newer release, so alembic_version holds a revision
+        this script directory does not have. Startup skips the upgrade and leaves it as is.
+        """
+        from alembic import command
+
+        from chap_core.database.database import _run_alembic_migrations
+
+        with engine.connect() as conn:
+            conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+            conn.execute(sa.text("CREATE SCHEMA public"))
+            conn.commit()
+        SQLModel.metadata.create_all(engine)
+        command.stamp(_make_alembic_cfg(engine), "head")
+        with engine.connect() as conn:
+            conn.execute(sa.text("UPDATE alembic_version SET version_num = 'f0f0f0f0f0f0'"))
+            conn.commit()
+
+        _run_alembic_migrations(engine)
+
+        with engine.connect() as conn:
+            current = conn.execute(sa.text("SELECT version_num FROM alembic_version")).scalar_one()
+        assert current == "f0f0f0f0f0f0"
 
     def test_all_revisions_have_downgrade(self):
         """Verify every migration revision defines a non-empty downgrade."""

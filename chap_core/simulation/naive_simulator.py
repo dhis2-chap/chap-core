@@ -11,6 +11,7 @@ import numpy as np
 import pydantic
 from numpy.random import normal, poisson
 
+from chap_core.assessment.evaluation import RECORDED_CHAP_VERSION
 from chap_core.assessment.flat_representations import max_horizon_distance
 from chap_core.database.dataset_tables import DataSet, Observation
 from chap_core.database.tables import Backtest, BacktestForecast, BacktestSpecification
@@ -92,6 +93,7 @@ class BacktestSimulator:
             model_id="Naive Forecast",
             org_units=dataset_dims.locations,
             split_periods=split_periods,
+            chap_version=RECORDED_CHAP_VERSION,
             specification=BacktestSpecification(
                 dataset_id=dataset.id,
                 org_units=dataset_dims.locations,

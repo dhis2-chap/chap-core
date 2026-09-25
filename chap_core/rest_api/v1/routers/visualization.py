@@ -18,7 +18,7 @@ from chap_core.assessment.backtest_plots.db_dimensions import DBFacetDimension, 
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metric_plots import get_metric_plots_registry, list_metric_plots
 from chap_core.assessment.metrics import available_metrics
-from chap_core.assessment.metrics.base import OptimizationDirection
+from chap_core.assessment.metrics.base import OptimizationDirection, TargetBehavior
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.tables import Backtest
@@ -63,11 +63,26 @@ class MetricInfo(DBModel):
     id: str = Field(description="Canonical metric identifier used in URLs and request bodies.")
     display_name: str = Field(description="Human-friendly metric name shown in pickers.")
     description: str = Field(default="", description="Short paragraph explaining what the metric measures.")
+    unit: str | None = Field(default=None, description="Display suffix for the raw score, e.g. '%' for MAPE.")
+    target: float | None = Field(
+        default=None,
+        description="Ideal value in raw score units, e.g. 0.8 for 80% coverage. Null when no fixed target applies.",
+    )
+    target_behavior: TargetBehavior = Field(
+        default=TargetBehavior.CLOSEST,
+        description=(
+            "How to judge a score against ``target``, only meaningful when ``target`` is set. "
+            "'closest' means deviating in either direction is worse. 'at_least' means higher is "
+            "better up to the target and flat above it, so only scores below the target should be "
+            "flagged as bad."
+        ),
+    )
     optimization_direction: OptimizationDirection | None = Field(
         default=None,
         description=(
             "Whether a lower ('minimize') or higher ('maximize') score is better. "
-            "Null for metrics where neither direction is better, such as coverage ratios."
+            "Null for metrics where neither direction is better; those set ``target`` instead, "
+            "and ``target_behavior`` says how to judge a score against it."
         ),
     )
 
@@ -78,7 +93,7 @@ class MetricInfo(DBModel):
     summary="Discover which scoring metrics are available",
 )
 def get_available_metrics(backtest_id: int):
-    """List the metrics you can score a backtest with (CRPS, MAE, ...), with a human-friendly name, description and optimization direction for each.
+    """List the metrics you can score a backtest with (CRPS, MAE, ...), with a human-friendly name, description, optimization direction, unit and target for each.
 
     Use this to populate a metric picker in a UI before requesting a specific plot. The
     result is the same regardless of ``backtest_id`` — the path takes it for symmetry
@@ -92,6 +107,9 @@ def get_available_metrics(backtest_id: int):
             display_name=metric_factory().get_name(),
             description=metric_factory().get_description(),
             optimization_direction=metric_factory.spec.optimization_direction,
+            target_behavior=metric_factory.spec.target_behavior,
+            unit=metric_factory.spec.unit,
+            target=metric_factory.spec.target,
         )
         for metric_id, metric_factory in available_metrics.items()
     ]

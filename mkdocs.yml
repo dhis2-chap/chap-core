@@ -155,6 +155,7 @@ nav:
           - MLproject Configuration: contributor/mlproject_configuration.md
           - Vocabulary: contributor/vocabulary.md
           - Testing: contributor/testing.md
+          - Pull Request Review: contributor/pr_review.md
           - Database Migrations: contributor/database_migrations.md
           - Documentation: contributor/writing_building_documentation.md
           - Development Tools: contributor/development_tools.md

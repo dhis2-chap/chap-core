@@ -99,6 +99,10 @@ class _BacktestRead(BacktestBase):
         default=None,
         description="Largest 1-based horizon distance scored in this backtest; horizon coordinates run 1..max_horizon_distance.",
     )
+    chap_version: str | None = Field(
+        default=None,
+        description="Release version of chap-core that produced the backtest; null for dev checkouts and rows predating the column.",
+    )
 
 
 class Backtest(_BacktestRead, table=True):
@@ -168,6 +172,10 @@ class ConfiguredModelRead(ModelConfiguration, DBModel):
 
     name: str = Field(description="Canonical name of the configured model.")
     id: int = Field(description="Primary key of the configured model.")
+    configuration_digest: str = Field(
+        description="Digest of the configuration contents; backtests with the same template and digest ran "
+        "the same configuration."
+    )
     model_template: ModelTemplateDB = Field(description="Parent template the configuration extends.")
 
 
@@ -272,6 +280,9 @@ class BacktestRead(BacktestParams, _BacktestRead):
     """
 
     dataset: DataSetMeta = Field(description="Slim dataset summary the backtest evaluated against.")
+    specification_id: int = Field(
+        description="Id of the `BacktestSpecification` this backtest ran under; backtests sharing it are comparable."
+    )
     aggregate_metrics: dict[str, float] = Field(
         description="Map of metric id to aggregated score across all splits / org units."
     )
@@ -308,6 +319,12 @@ class PredictionBase(DBModel):
     dataset_id: int = Field(
         foreign_key="dataset.id", description="Foreign key to the `DataSet` the prediction was run against."
     )
+    prediction_setup_id: int | None = Field(
+        default=None,
+        foreign_key="predictionsetup.id",
+        nullable=True,
+        description="Foreign key to the `PredictionSetup` that triggered the run, if any.",
+    )
     model_id: str = Field(description="Name of the configured model that produced the prediction.")
     n_periods: int = Field(description="Number of periods the model was asked to forecast.")
     name: str = Field(description="Human-friendly name for the prediction run.")
@@ -335,12 +352,6 @@ class Prediction(PredictionBase, table=True):
         description="Foreign key to the `ConfiguredModelDB` row used to run the prediction.",
     )
     configured_model: Optional["ConfiguredModelDB"] = Relationship()
-    prediction_setup_id: int | None = Field(
-        default=None,
-        foreign_key="predictionsetup.id",
-        nullable=True,
-        description="Foreign key to the `PredictionSetup` that triggered the run, if any.",
-    )
     prediction_setup: Optional["PredictionSetup"] = Relationship(back_populates="predictions")
 
 

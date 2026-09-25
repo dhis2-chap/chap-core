@@ -1,4 +1,6 @@
-from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
+from typing import TYPE_CHECKING, Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, computed_field, create_model, field_validator
 from pydantic.alias_generators import to_camel
 
 from chap_core.api_types import BacktestParams, FeatureCollectionModel
@@ -9,7 +11,14 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateInformation,
     ModelTemplateMetaData,
 )
-from chap_core.database.tables import BacktestBase, BacktestForecast, BacktestMetric, BacktestRead, QuantileTarget
+from chap_core.database.tables import (
+    BacktestBase,
+    BacktestForecast,
+    BacktestMetric,
+    BacktestRead,
+    DataSetMeta,
+    QuantileTarget,
+)
 
 
 class PredictionBase(BaseModel):
@@ -128,6 +137,50 @@ class BacktestFull(BacktestRead):
     forecasts: list[BacktestForecast] = Field(description="Per-(period, org-unit) forecast rows for this backtest.")
 
 
+class BacktestSpecificationSummary(BacktestParams):
+    """One row of the specification list: the setup plus how much has been run under it, without the backtests."""
+
+    id: int = Field(description="Primary key of the specification.")
+    dataset: DataSetMeta = Field(description="Slim summary of the dataset the specification evaluates against.")
+    org_unit_count: int = Field(description="Number of org units the evaluation runs over.")
+    backtest_count: int = Field(description="Number of backtests that ran under this specification.")
+
+
+class BacktestSpecificationRead(BacktestParams):
+    """A specification with every backtest under it: the benchmark leaderboard in one response."""
+
+    id: int = Field(description="Primary key of the specification.")
+    dataset: DataSetMeta = Field(description="Slim summary of the dataset the specification evaluates against.")
+    org_units: list[str] = Field(description="Org units the evaluation runs over, resolved from the dataset.")
+    backtests: list[BacktestRead] = Field(
+        description="Every backtest that ran under this specification, newest first. Comparable by construction."
+    )
+
+
+# Derived from BacktestParams so a parameter added there is filterable without touching this
+# module, the same way the specification's uniqueness key is derived. Every field is optional
+# and has no default: an omitted parameter means "any value", never the parameter's default.
+if TYPE_CHECKING:
+
+    class BacktestSpecificationFilter(DBModel):
+        """Query parameters of the specification list. Dataset id plus the fields of `BacktestParams`."""
+
+        dataset_id: int | None
+
+else:
+    _filter_fields: dict[str, Any] = {
+        "dataset_id": (int | None, Field(default=None, description="Only specifications evaluating this dataset."))
+    }
+    for _name, _field in BacktestParams.model_fields.items():
+        _filter_fields[_name] = (_field.annotation | None, Field(default=None, description=_field.description))
+    BacktestSpecificationFilter = create_model(
+        "BacktestSpecificationFilter",
+        __base__=DBModel,
+        __doc__="Query parameters of the specification list. Dataset id plus the fields of `BacktestParams`.",
+        **_filter_fields,
+    )
+
+
 class BacktestDomain(DBModel):
     """The set of org units + split periods a backtest covers — used by the UI to filter visualisations."""
 
@@ -178,6 +231,34 @@ class MakeBacktestRequest(BacktestParams):
     dataset_id: int = Field(description="Foreign key to the dataset the backtest evaluates against.")
 
 
+class MakeBacktestsRequest(BacktestParams):
+    """Request to run several configured models on one dataset under one set of evaluation parameters."""
+
+    name: str = Field(description="Name of the run; each backtest is named `<name>/<configured model name>`.")
+    model_ids: list[int | str] = Field(
+        min_length=1,
+        description="Configured models to backtest, each either the integer primary key or the canonical name.",
+    )
+    dataset_id: int = Field(description="Foreign key to the dataset the backtests evaluate against.")
+
+
+class BacktestJob(DBModel):
+    """One queued backtest job of a multi-model run."""
+
+    configured_model_id: int = Field(description="Primary key of the configured model the job evaluates.")
+    job_id: str = Field(description="Identifier of the queued job; poll it via the jobs endpoints.")
+
+
+class MakeBacktestsResponse(DBModel):
+    """Response of a multi-model run: where the results will land and how to follow each job."""
+
+    specification_id: int = Field(
+        description="Id of the `BacktestSpecification` every backtest of the run files under; fetch the results "
+        "with `GET /v1/crud/backtest-specifications/{id}`."
+    )
+    jobs: list[BacktestJob] = Field(description="One queued job per requested model, in request order.")
+
+
 class MakeBacktestWithDataRequest(DatasetMakeRequest, BacktestParams):
     """Long-path request: build the dataset, then immediately backtest the configured model against it."""
 
@@ -216,8 +297,14 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     )
     is_live: bool = Field(default=True, description="True for the version that CHAP serves for this template name.")
     archived: bool = Field(default=False, description="When True, the template is hidden from default pickers.")
-    health_status: str | None = Field(
-        default=None, description="Reported health status of the template, used by chapkit-hosted models."
+    health_status: Literal["live", "revision_mismatch"] | None = Field(
+        default=None,
+        description=(
+            "Health of the chapkit service behind the template: 'live' when it is registered and runs the "
+            "stored source revision, 'revision_mismatch' when it reports another revision (or none) under "
+            "the same version, so the template cannot run until the service bumps its version. None for "
+            "templates that are not chapkit-hosted or whose service is not registered."
+        ),
     )
     uses_chapkit: bool = Field(
         default=False, description="When True, the template is served by a chapkit REST endpoint."

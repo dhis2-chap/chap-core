@@ -43,7 +43,8 @@ class ExtendedPredictor(ConfiguredModel):
         min_pred_length = model_information.min_prediction_periods
         max_pred_length = model_information.max_prediction_periods
 
-        assert min_pred_length is not None
+        if min_pred_length is None:
+            min_pred_length = 1
         assert max_pred_length is not None
         assert self._desired_scope >= min_pred_length
 

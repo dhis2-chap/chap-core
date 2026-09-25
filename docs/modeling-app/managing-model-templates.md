@@ -23,7 +23,7 @@ Do not edit `default.yaml` directly -- it is overwritten on updates. Instead, cr
 ```yaml
 - url: https://github.com/org/model-repo
   versions:
-    v1: "@<commit-sha-or-branch>"
+    v1: "@<commit-sha>"  # a full commit sha; branches and tags are rejected
   configurations:       # optional
     config_name:
       user_option_values:
@@ -66,7 +66,6 @@ Remote whitelists use this format:
 - url: https://github.com/dhis2-chap/chap_auto_ewars
   versions:
     stable: "@209759add6e13778f7061b8add8fbe814799a6cb"
-    nightly: "@main"
 
 - url: https://github.com/dhis2-chap/ewars_template
   versions:
@@ -75,7 +74,7 @@ Remote whitelists use this format:
 
 Each entry has:
 - `url`: The base GitHub repository URL
-- `versions`: Named versions mapping to Git refs (commits or branches)
+- `versions`: Named versions mapping to full commit shas, as in `config/configured_models`
 
 See the API documentation for endpoints under `/api/v1/model-templates` for details on how to list and add model templates using this system.
 

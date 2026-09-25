@@ -1,4 +1,5 @@
 from contextlib import ExitStack
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from chap_core.api import forecast
@@ -55,12 +56,13 @@ def _make_fake_estimator(min_prediction_periods, max_prediction_periods):
     return estimator
 
 
-def _patched_eval_chain(fake_estimator, patch_filter=True):
+def _patched_eval_chain(fake_estimator, patch_filter=True, dataset=None):
     """Stack mocks for the parts of eval_cmd that aren't under test, returning
     the Evaluation mock so the caller can inspect ``Evaluation.create`` calls.
 
     By default the pre-backtest region filter is patched to a passthrough so the
     MagicMock dataset survives; tests exercising the filter pass ``patch_filter=False``.
+    Tests that need the backtest to actually run pass a real ``dataset``.
     """
     template_cm = MagicMock(name="ModelTemplate")
     template_cm.__enter__.return_value = template_cm
@@ -79,7 +81,7 @@ def _patched_eval_chain(fake_estimator, patch_filter=True):
     stack.enter_context(
         patch(
             "chap_core.cli_endpoints.evaluate.load_dataset_from_csv",
-            return_value=MagicMock(name="DataSet"),
+            return_value=MagicMock(name="DataSet") if dataset is None else dataset,
         )
     )
     if patch_filter:
@@ -109,6 +111,38 @@ def _patched_eval_chain(fake_estimator, patch_filter=True):
     return stack, eval_mock
 
 
+def test_eval_cmd_dry_run_retrains_n_retrain_times(tmp_path, weekly_full_data):
+    """A dry run has to follow the same retrain schedule as the real run. Training once
+    when n_retrain is 2 leaves the retrain-on-historic-data path unexercised, which is
+    exactly the failure a dry run is supposed to surface before the real run."""
+    from chap_core.api_types import BacktestParams, RunConfig
+    from chap_core.predictor.naive_estimator import NaiveEstimator
+
+    class _CountingEstimator:
+        def __init__(self):
+            self.inner = NaiveEstimator()
+            self.train_calls = 0
+            self.model_information = _make_fake_estimator(None, None).model_information
+
+        def train(self, data):
+            self.train_calls += 1
+            return self.inner.train(data)
+
+    estimator = _CountingEstimator()
+    stack, _ = _patched_eval_chain(estimator, dataset=weekly_full_data)
+    with stack:
+        eval_cmd(
+            model_name="dummy",
+            dataset_csv="dummy.csv",
+            output_file=tmp_path / "out.nc",
+            backtest_params=BacktestParams(n_periods=3, n_splits=4, stride=1, n_retrain=2),
+            run_config=RunConfig(),
+            dry_run=True,
+        )
+
+    assert estimator.train_calls == 2
+
+
 def test_eval_cmd_raises_when_n_periods_below_min_prediction_periods(tmp_path):
     """Dispatch in evaluate.py guards against horizons shorter than the model's declared min."""
     from chap_core.api_types import BacktestParams, RunConfig
@@ -126,49 +160,62 @@ def test_eval_cmd_raises_when_n_periods_below_min_prediction_periods(tmp_path):
             )
 
 
-def test_eval_cmd_wraps_in_extended_predictor_when_n_periods_above_max(tmp_path):
-    """When the requested horizon exceeds the model's declared max, the dispatch wraps
-    the estimator in ExtendedPredictor and forwards the wrapped estimator to evaluation."""
-    from chap_core.api_types import BacktestParams, RunConfig
-    from chap_core.external.ExtendedPredictor import ExtendedPredictor
+def test_eval_cmd_forwards_estimator_when_n_periods_above_max(tmp_path):
+    """The CLI forwards the estimator unchanged to Evaluation.create.
 
-    fake_estimator = _make_fake_estimator(min_prediction_periods=1, max_prediction_periods=2)
+    Extending an estimator whose declared max_prediction_periods is below the
+    requested horizon is handled by Evaluation.create.
+    """
+    from chap_core.api_types import BacktestParams, RunConfig
+
+    fake_estimator = _make_fake_estimator(
+        min_prediction_periods=1,
+        max_prediction_periods=2,
+    )
     stack, eval_mock = _patched_eval_chain(fake_estimator)
+    backtest_params = BacktestParams(n_periods=5, n_splits=2, stride=1)
+
     with stack:
         eval_cmd(
             model_name="dummy",
             dataset_csv="dummy.csv",
             output_file=tmp_path / "out.nc",
-            backtest_params=BacktestParams(n_periods=5, n_splits=2, stride=1),
+            backtest_params=backtest_params,
             run_config=RunConfig(),
         )
 
-    assert eval_mock.create.call_count == 1
-    forwarded = eval_mock.create.call_args.kwargs["estimator"]
-    assert isinstance(forwarded, ExtendedPredictor)
+    eval_mock.create.assert_called_once()
+    assert eval_mock.create.call_args.kwargs["estimator"] is fake_estimator
+    assert eval_mock.create.call_args.kwargs["backtest_params"] == backtest_params
 
 
-def test_eval_cmd_wraps_when_only_max_set_and_below_n_periods(tmp_path):
-    """Real models often declare max_prediction_periods but leave min unset
-    (e.g. chap-models/Vietnam-dengue-superensemble declares max=1, no min).
-    The dispatch must still honour the declared max even when min is None."""
+def test_eval_cmd_forwards_estimator_when_only_max_is_set(tmp_path):
+    """The CLI does not handle max_prediction_periods itself when min is unset.
+
+    Horizon extension based on max_prediction_periods is delegated to
+    Evaluation.create.
+    """
     from chap_core.api_types import BacktestParams, RunConfig
-    from chap_core.external.ExtendedPredictor import ExtendedPredictor
 
-    fake_estimator = _make_fake_estimator(min_prediction_periods=None, max_prediction_periods=2)
+    fake_estimator = _make_fake_estimator(
+        min_prediction_periods=None,
+        max_prediction_periods=2,
+    )
     stack, eval_mock = _patched_eval_chain(fake_estimator)
+    backtest_params = BacktestParams(n_periods=5, n_splits=2, stride=1)
+
     with stack:
         eval_cmd(
             model_name="dummy",
             dataset_csv="dummy.csv",
             output_file=tmp_path / "out.nc",
-            backtest_params=BacktestParams(n_periods=5, n_splits=2, stride=1),
+            backtest_params=backtest_params,
             run_config=RunConfig(),
         )
 
-    assert eval_mock.create.call_count == 1
-    forwarded = eval_mock.create.call_args.kwargs["estimator"]
-    assert isinstance(forwarded, ExtendedPredictor)
+    eval_mock.create.assert_called_once()
+    assert eval_mock.create.call_args.kwargs["estimator"] is fake_estimator
+    assert eval_mock.create.call_args.kwargs["backtest_params"] == backtest_params
 
 
 def test_eval_cmd_raises_when_only_min_set_and_above_n_periods(tmp_path):
@@ -207,6 +254,40 @@ def test_eval_cmd_does_not_wrap_when_bounds_unspecified(tmp_path):
     assert eval_mock.create.call_count == 1
     forwarded = eval_mock.create.call_args.kwargs["estimator"]
     assert forwarded is fake_estimator
+
+
+def test_get_estimator_forwards_the_prediction_length_to_the_template():
+    """Models that need the horizon up front, such as chapkit services, get it here."""
+    from chap_core.cli_endpoints._common import get_estimator
+
+    template = MagicMock(name="ModelTemplate")
+    configuration = MagicMock(name="ModelConfiguration")
+
+    get_estimator(template=template, configuration=configuration, prediction_length=5)
+
+    template.get_model.assert_called_once_with(configuration, prediction_length=5)
+
+
+def test_eval_cmd_asks_the_template_for_the_backtest_horizon(tmp_path):
+    """eval_cmd builds the estimator for the horizon the backtest will use."""
+    from chap_core.api_types import BacktestParams, RunConfig
+
+    fake_estimator = _make_fake_estimator(min_prediction_periods=1, max_prediction_periods=12)
+    stack, _ = _patched_eval_chain(fake_estimator)
+    with stack:
+        with patch(
+            "chap_core.cli_endpoints.evaluate.get_estimator",
+            return_value=fake_estimator,
+        ) as get_estimator_mock:
+            eval_cmd(
+                model_name="dummy",
+                dataset_csv="dummy.csv",
+                output_file=tmp_path / "out.nc",
+                backtest_params=BacktestParams(n_periods=7, n_splits=2, stride=1),
+                run_config=RunConfig(),
+            )
+
+    assert get_estimator_mock.call_args.kwargs["prediction_length"] == 7
 
 
 def _valid_and_nan_region_dataset():
@@ -427,3 +508,14 @@ def test_chap_test_exits_nonzero_when_a_core_import_fails(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "missing: xarray" in out
     assert "Some checks FAILED." in out
+
+
+def test_sanity_check_default_dataset_ships_in_the_package():
+    import chap_core
+    from chap_core.file_io.example_data_set import datasets
+
+    # sanity-check-model falls back to this dataset, so it must be inside chap_core/ to be in the wheel.
+    filepath = datasets["hydromet_5_filtered"].filepath()
+
+    assert filepath.is_relative_to(Path(chap_core.__file__).parent)
+    assert filepath.exists()

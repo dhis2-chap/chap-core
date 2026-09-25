@@ -28,10 +28,9 @@ The most relevant services are:
 
 ## Per-task log files
 
-In addition to the service output, the worker writes a pair of log files for each task (typically a model run) into the directory given by the `CHAP_LOGS_DIR` environment variable. In the default Docker Compose setup this is `/data/logs`, backed by a named `logs` volume shared between the `chap` and `worker` services:
+In addition to the service output, the worker writes a log file for each task (typically a model run) into the directory given by the `CHAP_LOGS_DIR` environment variable. In the default Docker Compose setup this is `/data/logs`, backed by a named `logs` volume shared between the `chap` and `worker` services:
 
-- `task_{task_id}.debug.txt`: full debug logs for the task (server-side only). Check this when a model run fails
-- `task_{task_id}.status.txt`: user-facing progress messages for the task (also exposed via the API)
+- `task_{task_id}.debug.txt`: the complete log for the task, including progress messages, library output and, for a failed chapkit model run, the model's stdout and stderr. The tail of this file is what `GET /v1/jobs/{task_id}/logs` returns
 
 `{task_id}` is the internal Celery task id. Because these files live inside the container's volume rather than in the repository on the host, read them through the running container, for example:
 
