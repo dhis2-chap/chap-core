@@ -50,6 +50,7 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("backtest", "max_horizon_distance"),
     ("backtest", "specification_id"),
     ("backtest", "chap_version"),
+    ("dataset", "created_manually"),
 ]
 
 # Tables added by alembic migrations (not in the baseline schema).
