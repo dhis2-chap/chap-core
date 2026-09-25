@@ -86,7 +86,8 @@ def redis_available():
         r.ping()
         return True
     except Exception as e:
-        if e.__class__.__name__ in ("ModuleNotFoundError", "ConnectionError"):
+        # A host that drops packets times out instead of refusing the connection.
+        if e.__class__.__name__ in ("ModuleNotFoundError", "ConnectionError", "TimeoutError"):
             return False
         else:
             # Handle other exceptions
