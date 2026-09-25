@@ -183,6 +183,17 @@ def test_version_bump_after_a_revision_mismatch_creates_a_new_live_row(client, r
     assert template["healthStatus"] == "live"
 
 
+def test_revision_mismatch_of_another_version_does_not_flag_the_live_template(client, register_service):
+    register_service()
+    assert _test_model(client)["healthStatus"] == "live"
+
+    # Another version of the same model, which conflicts, takes over the registration.
+    register_service({**MOCK_INFO_DICT, "git_revision": None, "version": "1.0.1"})
+    template = _test_model(client)
+    assert template["version"] == "1.0.0"
+    assert template["healthStatus"] is None
+
+
 def test_registration_response_reports_a_revision_mismatch(client, register_service):
     register_service()
     client.get("/v1/crud/model-templates")
