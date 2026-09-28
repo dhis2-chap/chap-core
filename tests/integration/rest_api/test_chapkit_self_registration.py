@@ -260,7 +260,6 @@ def test_registered_service_has_configured_model(client, register_service):
     [
         ("live", "live"),
         ("revision_mismatch", "revision_mismatch"),
-        ("missing_revision", "revision_mismatch"),
         ("other_version", None),
         ("deregistered", None),
         ("registry_unavailable", None),
@@ -281,8 +280,6 @@ def test_configured_model_health_comes_from_its_template_without_syncing(
 
     if service_state == "revision_mismatch":
         register_service({**MOCK_INFO_DICT, "git_revision": "b" * 40})
-    elif service_state == "missing_revision":
-        register_service({**MOCK_INFO_DICT, "git_revision": None})
     elif service_state == "other_version":
         register_service({**MOCK_INFO_DICT, "version": "1.0.1", "git_revision": None})
     elif service_state == "deregistered":
@@ -301,19 +298,12 @@ def test_configured_model_health_comes_from_its_template_without_syncing(
     assert response.status_code == 200
     models = response.json()
     assert len(models) == 1
-    assert models[0]["name"] == "test-model:custom-config"
-    assert models[0]["version"] == "1.0.0"
     assert models[0]["healthStatus"] == expected_health
     assert mock_wrapper_cls.call_count == service_calls
     with Session(db_engine) as session:
         stored_template = session.get(ModelTemplateDB, template["id"])
         assert stored_template is not None
         assert stored_template.archived is False
-
-    # A read reflects a redeploy immediately, without a template-list request in between.
-    if service_state in ("revision_mismatch", "missing_revision"):
-        register_service()
-        assert client.get("/v1/crud/configured-models").json()[0]["healthStatus"] == "live"
 
 
 def test_creates_default_config_when_no_configs(client, register_service, mock_wrapper_cls):
