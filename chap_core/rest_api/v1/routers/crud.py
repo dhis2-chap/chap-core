@@ -985,11 +985,24 @@ def add_configured_model(
     if template is None:
         raise HTTPException(status_code=404, detail="Model template not found")
     uses_chapkit = template.uses_chapkit
+    additional_covariates = model_configuration.additional_continuous_covariates
+    if uses_chapkit and not additional_covariates and template.source_url:
+        # A chapkit service runs its own default covariates when the list is empty, so
+        # store that default and let the model card show the data the model needs.
+        from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
+
+        client = CHAPKitRestAPIWrapper(template.source_url, timeout=5)
+        try:
+            additional_covariates = _resolve_chapkit_default_additional_covariates(client)
+        except Exception:
+            logger.warning("Could not read the default covariates of %s", template.name, exc_info=True)
+        finally:
+            client.close()
     db_id = session_wrapper.add_configured_model(
         model_template_id,
         ModelConfiguration(
             user_option_values=model_configuration.user_option_values,
-            additional_continuous_covariates=model_configuration.additional_continuous_covariates,
+            additional_continuous_covariates=additional_covariates,
         ),
         configuration_name,
         uses_chapkit=uses_chapkit,

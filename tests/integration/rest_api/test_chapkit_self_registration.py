@@ -267,6 +267,32 @@ def test_creates_default_config_when_no_configs(client, register_service, mock_w
     assert models[0]["name"] == "test-model"
 
 
+@pytest.mark.parametrize(
+    "requested, expected", [([], ["rainfall", "mean_temperature"]), (["population"], ["population"])]
+)
+def test_configured_model_without_covariates_stores_the_service_default(
+    client, register_service, mock_wrapper_cls, requested, expected
+):
+    register_service()
+    template = _test_model(client)
+    mock_wrapper_cls.return_value.create_config.return_value = MagicMock(
+        data={"additional_continuous_covariates": ["rainfall", "mean_temperature"]}
+    )
+
+    response = client.post(
+        "/v1/crud/configured-models",
+        json={
+            "name": "custom",
+            "modelTemplateId": template["id"],
+            "userOptionValues": {},
+            "additionalContinuousCovariates": requested,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["additionalContinuousCovariates"] == expected
+
+
 def test_non_chapkit_template_has_null_health_status(client, db_engine):
     from chap_core.database.database import SessionWrapper
     from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config

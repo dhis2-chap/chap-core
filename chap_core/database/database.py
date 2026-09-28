@@ -20,7 +20,7 @@ from chap_core.predictor.naive_estimator import NaiveEstimator
 from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
-from ..models.external_chapkit_model import ExternalChapkitModelTemplate
+from ..models.external_chapkit_model import ExternalChapkitModel, ExternalChapkitModelTemplate
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import (
     ConfiguredModelDB,
@@ -462,6 +462,24 @@ class SessionWrapper:
             self.session.commit()
         return cast("str", live_url)
 
+    def _record_service_default_covariates(self, configured_model: ConfiguredModelDB, model: object) -> None:
+        """Store the covariates a chapkit service used for a row that lists none.
+
+        chap-core sends no covariate list for such a row, so the service runs with its own
+        default. Recording that default leaves the run unchanged and makes the row, and the
+        model card built from it, state the data the model actually needs.
+        """
+        if configured_model.additional_continuous_covariates or not isinstance(model, ExternalChapkitModel):
+            return
+        stored = model.additional_continuous_covariates
+        if not stored:
+            return
+        logger.info(f"Recording the service default covariates {stored} on configured model {configured_model.name}")
+        configured_model.additional_continuous_covariates = list(stored)
+        configured_model.configuration_digest = compute_configuration_digest(configured_model)
+        self.session.add(configured_model)
+        self.session.commit()
+
     def get_configured_model_with_code(
         self, configured_model_id: int, prediction_length: int | None = None
     ) -> ConfiguredModel:
@@ -494,7 +512,9 @@ class SessionWrapper:
                 raise conflict
             logger.info(f"template: {template}")
             logger.info(f"configured_model: {configured_model}")
-            return template.get_model(configured_model, prediction_length=prediction_length)  # type: ignore[arg-type, return-value]
+            model = template.get_model(configured_model, prediction_length=prediction_length)  # type: ignore[arg-type]
+            self._record_service_default_covariates(configured_model, model)
+            return model  # type: ignore[return-value]
         else:
             logger.info(f"Assuming github model at {configured_model.model_template.source_url}")
             return cast(

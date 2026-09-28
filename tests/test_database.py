@@ -1,4 +1,5 @@
 import logging
+from unittest.mock import MagicMock
 from urllib.parse import urlparse
 
 import fakeredis
@@ -20,6 +21,7 @@ from chap_core.database.model_template_seed import (
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.model_templates_and_config_tables import (
     ConfiguredModelDB,
+    compute_configuration_digest,
     drifted_template_content_fields,
     ModelConfiguration,
     ModelTemplateDB,
@@ -34,6 +36,7 @@ from chap_core.external.model_configuration import (
     EntryPointConfig,
     ModelTemplateConfigV2,
 )
+from chap_core.models.external_chapkit_model import ExternalChapkitModel
 from chap_core.models.external_model import ExternalModel
 from chap_core.rest_api.data_models import BacktestCreate, ModelTemplateRead
 from chap_core.rest_api.db_worker_functions import run_backtest, run_prediction
@@ -639,9 +642,10 @@ def _two_chapkit_model_config_dir(tmp_path, hosts=("broken-chapkit", "ok-chapkit
     return config_dir
 
 
-def _fake_chapkit_template(model_template_yaml_config, versions=None, digests=None):
+def _fake_chapkit_template(model_template_yaml_config, versions=None, digests=None, stored_covariates=None):
     """A stand-in for ExternalChapkitModelTemplate. The template name is the URL host, and
-    `versions` and `digests` map a host to what that service reports."""
+    `versions` and `digests` map a host to what that service reports. With `stored_covariates`,
+    get_model returns a chapkit model whose service stored those covariates."""
 
     class FakeChapkitTemplate:
         def __init__(self, url):
@@ -668,6 +672,14 @@ def _fake_chapkit_template(model_template_yaml_config, versions=None, digests=No
             return (digests or {}).get(self.name)
 
         def get_model(self, configured_model, prediction_length=None):
+            if stored_covariates is not None:
+                return ExternalChapkitModel(
+                    self.name,
+                    self.url,
+                    configuration_id="config",
+                    client=MagicMock(),
+                    additional_continuous_covariates=stored_covariates,
+                )
             return ("model", self.name, prediction_length)
 
         def close(self):
@@ -682,7 +694,7 @@ def seeded_chapkit_model(engine, tmp_path, model_template_yaml_config, monkeypat
     """Seed one chapkit model whose service reported the given digest, and swap in the fake
     template at run time reporting `reported_digest`. Returns the configured model name."""
 
-    def _seed(stored_digest, reported_digest):
+    def _seed(stored_digest, reported_digest, stored_covariates=None):
         monkeypatch.setattr(
             "chap_core.database.model_template_seed.ExternalChapkitModelTemplate",
             _fake_chapkit_template(model_template_yaml_config, digests={"ok-chapkit": stored_digest or "f" * 40}),
@@ -698,7 +710,11 @@ def seeded_chapkit_model(engine, tmp_path, model_template_yaml_config, monkeypat
                 session.commit()
         monkeypatch.setattr(
             "chap_core.database.database.ExternalChapkitModelTemplate",
-            _fake_chapkit_template(model_template_yaml_config, digests={"ok-chapkit": reported_digest}),
+            _fake_chapkit_template(
+                model_template_yaml_config,
+                digests={"ok-chapkit": reported_digest},
+                stored_covariates=stored_covariates,
+            ),
         )
         # No service registry in tests, so the stored source url is used.
         monkeypatch.setattr("chap_core.rest_api.v2.dependencies.get_redis", lambda: fakeredis.FakeRedis())
@@ -712,6 +728,28 @@ def test_chapkit_model_runs_when_service_reports_the_stored_revision(engine, see
     with SessionWrapper(engine) as session:
         configured_model = session.get_configured_model_by_name(name)
         assert session.get_configured_model_with_code(configured_model.id, prediction_length=3) == ("model", name, 3)
+
+
+@pytest.mark.parametrize(
+    "row_covariates, expected", [([], ["rainfall", "mean_temperature"]), (["population"], ["population"])]
+)
+def test_running_a_chapkit_row_records_the_service_default_covariates_only_when_it_lists_none(
+    engine, seeded_chapkit_model, row_covariates, expected
+):
+    name = seeded_chapkit_model("a" * 40, "a" * 40, stored_covariates=["rainfall", "mean_temperature"])
+    with Session(engine) as session:
+        row = session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == name)).one()
+        row.additional_continuous_covariates = row_covariates
+        row.configuration_digest = compute_configuration_digest(row)
+        session.commit()
+
+    with SessionWrapper(engine) as session:
+        session.get_configured_model_with_code(session.get_configured_model_by_name(name).id)
+
+    with Session(engine) as session:
+        row = session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == name)).one()
+        assert row.additional_continuous_covariates == expected
+        assert row.configuration_digest == compute_configuration_digest(row)
 
 
 @pytest.mark.parametrize(
