@@ -121,18 +121,27 @@ def _check_stored_config(sent: dict, stored: dict) -> None:
 
     A chapkit service answers a config it cannot interpret with HTTP 201 and its own
     defaults, so without this check a model would silently run with a configuration
-    other than the one asked for.
+    other than the one asked for. A value the service dropped points at a service built
+    on a chapkit version that does not read the configuration. A value it stored
+    differently was converted or replaced by the service, most often because it does not
+    have the type the option declares.
     """
-    mismatched = {key: (value, stored.get(key)) for key, value in sent.items() if stored.get(key) != value}
-    if mismatched:
-        details = ", ".join(
-            f"{key}: sent {sent_value!r}, stored {stored_value!r}"
-            for key, (sent_value, stored_value) in mismatched.items()
-        )
+    dropped = [key for key in sent if key not in stored]
+    if dropped:
         raise ValueError(
-            f"The chapkit service did not store the model configuration it was sent ({details}). "
+            f"The chapkit service did not store these model configuration options: {', '.join(dropped)}. "
             "The service may be built on a chapkit version that does not accept this configuration; "
             "rebuild it against chapkit >= 2.1.0."
+        )
+    converted = {key: (value, stored[key]) for key, value in sent.items() if stored[key] != value}
+    if converted:
+        details = ", ".join(
+            f"{key}: sent {sent_value!r}, stored {stored_value!r}"
+            for key, (sent_value, stored_value) in converted.items()
+        )
+        raise ValueError(
+            f"The chapkit service stored different model configuration values than it was sent ({details}). "
+            "It converted or replaced them; check that each value has the type the model declares for that option."
         )
 
 
