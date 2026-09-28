@@ -169,6 +169,7 @@ def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_c
     ds = DataSetWithObservations.model_validate(response.json())
 
     assert len(ds.observations) > 0
+    assert ds.created_manually
     print(response.json())
     assert "orgUnit" in response.json()["observations"][0], response.json()["observations"][0].keys()
 
@@ -246,6 +247,7 @@ def test_make_dataset_import_persists_data_sources(clean_engine, dataset_make_re
         stored = session.session.get(DataSet, dataset_id)
         assert stored is not None
         assert stored.data_sources == request.data_sources
+        assert stored.created_manually
 
 
 def test_get_data_sources():
@@ -1229,7 +1231,7 @@ class _NoopRedis:
     def hgetall(self, _key):
         return {}
 
-    def delete(self, _key):
+    def delete(self, *_keys):
         return 0
 
 
@@ -1310,9 +1312,10 @@ def test_delete_prediction_setup_sweeps_matching_job_meta_in_redis(override_sess
         def hgetall(self, key):
             return self.meta[key]
 
-        def delete(self, key):
-            self.deleted.append(key)
-            self.meta.pop(key, None)
+        def delete(self, *keys):
+            self.deleted.extend(keys)
+            for key in keys:
+                self.meta.pop(key, None)
             return 1
 
     fake_redis = _FakeRedis()
@@ -1323,7 +1326,7 @@ def test_delete_prediction_setup_sweeps_matching_job_meta_in_redis(override_sess
     response = client.delete(f"/v1/crud/prediction-setups/{setup_id}")
     assert response.status_code == 200, response.json()
 
-    assert fake_redis.deleted == ["job_meta:job-1"]
+    assert fake_redis.deleted == ["job_meta:job-1", "job_request:job-1"]
     assert "job_meta:job-2" in fake_redis.meta
 
 
@@ -1764,12 +1767,16 @@ def _check_rejected_org_units(content, expected_rejections):
         assert rejected_regions == set(expected_rejections), (rejected_regions, expected_rejections)
 
 
-@pytest.mark.skip(reason="Failing because of missing geojson file")
-def test_add_csv_dataset(celery_session_worker, dependency_overrides, data_path):
-    csv_data = open(data_path / "nicaragua_weekly_data.csv", "rb")
-    geojson_data = open(data_path / "nicaragua.json", "rb")
-    response = client.post("/v1/crud/datasets/csvFile", files={"csvFile": csv_data, "geojsonFile": geojson_data})
+def test_add_csv_dataset(dependency_overrides, data_path):
+    with (
+        open(data_path / "vietnam_monthly.csv", "rb") as csv_data,
+        open(data_path / "vietnam_monthly.geojson", "rb") as geojson_data,
+    ):
+        response = client.post("/v1/crud/datasets/csvFile", files={"csv_file": csv_data, "geojson_file": geojson_data})
     assert response.status_code == 200, response.json()
+    response = client.get(f"/v1/crud/datasets/{response.json()['id']}")
+    assert response.status_code == 200, response.json()
+    assert DataSetWithObservations.model_validate(response.json()).created_manually
 
 
 def test_full_prediction_flow(celery_session_worker, dependency_overrides, example_polygons):

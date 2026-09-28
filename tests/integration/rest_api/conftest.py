@@ -1,6 +1,7 @@
 import datetime
 import typing
 
+import fakeredis
 import numpy as np
 import pandas as pd
 import pytest
@@ -17,9 +18,23 @@ from chap_core.database.tables import (
     BacktestSpecification,
     PredictionSamplesEntry,
 )
+from chap_core.rest_api import celery_tasks
 from chap_core.rest_api.app import app
+from chap_core.rest_api.v1 import jobs
+from chap_core.rest_api.v1.routers import crud
 from chap_core.rest_api.v1.routers.analytics import BacktestParams
 from chap_core.rest_api.v1.routers.dependencies import get_session
+
+
+@pytest.fixture
+def request_store(monkeypatch):
+    """Job metadata and request bodies in a fake Redis instead of a real one."""
+    store = fakeredis.FakeRedis(decode_responses=True)
+    monkeypatch.setattr(celery_tasks, "r", store)
+    monkeypatch.setattr(jobs, "redis", store)
+    monkeypatch.setattr(crud, "redis", store)
+    monkeypatch.delenv("CHAP_API_TOKEN", raising=False)
+    return store
 
 
 @pytest.fixture

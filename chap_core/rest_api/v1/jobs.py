@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any, cast
 
@@ -95,6 +96,24 @@ def get_job_status(job_id: str) -> str:
     return status
 
 
+@router.get(
+    "/{job_id}/request",
+    summary="Download the original submitted job request",
+    responses={404: {"description": "Job or saved request not found"}},
+)
+def get_job_request(job_id: str) -> dict[str, Any]:
+    """Return the submitted JSON body, including after failure.
+
+    Requests are kept for 7 days. Expired requests, older jobs without a
+    captured request, and jobs removed from the tracker return 404. Jobs
+    created by a multi-model request return the whole request as submitted.
+    """
+    body = redis.get(f"job_request:{job_id}")
+    if body is None:
+        raise HTTPException(status_code=404, detail=f"Request for job '{job_id}' not found")
+    return cast("dict[str, Any]", json.loads(cast("str", body)))
+
+
 @router.delete(
     "/{job_id}",
     summary="Forget a finished job",
@@ -114,6 +133,7 @@ def delete_job(job_id: str) -> dict:
     if job_status in ["pending", "started", "running"]:
         raise HTTPException(status_code=400, detail="Cannot delete a running job. Cancel it first.")
 
+    redis.delete(f"job_request:{job_id}")
     result = redis.delete(f"job_meta:{job_id}")
 
     if result == 0:

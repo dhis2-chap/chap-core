@@ -60,6 +60,7 @@ from chap_core.exceptions import ModelTemplateRevisionConflict
 from chap_core.geometry import Polygons
 from chap_core.rest_api.celery_tasks import (
     JOB_NAME_KW,
+    JOB_REQUEST_KW,
     JOB_TYPE_KW,
     PREDICTION_SETUP_ID_JOB_META_KEY,
     CeleryPool,
@@ -92,7 +93,7 @@ from ...data_models import (
     RunPredictionSetupRequest,
 )
 from .analytics import validate_full_dataset
-from .dependencies import get_database_url, get_session, get_settings
+from .dependencies import get_database_url, get_job_request, get_session, get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +129,9 @@ def _registered_chapkit_revision_conflict(
     return None
 
 
-def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str, ModelTemplateRevisionConflict | None]:
+def _sync_live_chapkit_services(
+    session: Session, orchestrator=None
+) -> dict[tuple[str, str], ModelTemplateRevisionConflict | None]:
     """Sync the live chapkit services in the v2 registry into stored model templates.
 
     A registered service that has no stored template under its version gets one,
@@ -142,8 +145,9 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str
     second redis connection, which costs a full connect timeout whenever
     redis is unreachable.
 
-    Returns the revision conflict per registered service id, or None when the
-    service runs the stored source revision. Silently returns nothing if Redis is unavailable.
+    Returns the revision conflict per registered (template name, version), or None when
+    the service runs the stored source revision. Silently returns nothing if Redis is
+    unavailable.
     """
     try:
         if orchestrator is None:
@@ -155,10 +159,10 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str
         logger.debug("Could not reach service registry, skipping chapkit sync")
         return {}
 
-    conflicts: dict[str, ModelTemplateRevisionConflict | None] = {}
+    conflicts: dict[tuple[str, str], ModelTemplateRevisionConflict | None] = {}
     for service in service_list.services:
         conflict = _registered_chapkit_revision_conflict(session, service.info)
-        conflicts[service.info.id] = conflict
+        conflicts[(service.info.id, service.info.version)] = conflict
         if conflict is not None:
             logger.warning(str(conflict))
             continue
@@ -167,8 +171,10 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str
         try:
             add_model_template_from_registered_service(session, service)
         except Exception:
-            # A template version is write-once, so do not persist incomplete metadata
-            # while the service's config schema is unavailable.
+            # Roll back so a failed database write does not poison the session for the
+            # remaining services. A template version is write-once, so nothing incomplete
+            # is persisted while the service's config schema is unavailable.
+            session.rollback()
             logger.warning("Could not fetch config schema from %s, will retry next sync", service.url, exc_info=True)
     return conflicts
 
@@ -648,7 +654,10 @@ async def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], sessi
     summary="Import a health-only dataset",
 )
 async def create_dataset(
-    data: DatasetCreate, datababase_url=Depends(get_database_url), worker_settings=Depends(get_settings)
+    data: DatasetCreate,
+    original_request: dict = Depends(get_job_request),
+    datababase_url=Depends(get_database_url),
+    worker_settings=Depends(get_settings),
 ) -> JobResponse:
     """Import a dataset that carries just disease cases and population (no climate covariates inline), with polygons attached.
 
@@ -666,6 +675,7 @@ async def create_dataset(
         data.name,
         database_url=datababase_url,
         worker_config=worker_settings,
+        **{JOB_REQUEST_KW: original_request},
     )
     return JobResponse(id=job.id)
 
@@ -693,7 +703,7 @@ async def create_dataset_csv(
     geo_json_content = await geojson_file.read()
     features = Polygons.from_geojson(json.loads(geo_json_content), id_property="NAME_1").feature_collection()
     dataset_id = DataSetManager(session).save_dataset(
-        DataSetCreateInfo(name="csv_file"), dataset, features.model_dump_json()
+        DataSetCreateInfo(name="csv_file"), dataset, features.model_dump_json(), created_manually=True
     )
     return DataBaseResponse(id=dataset_id)
 
@@ -792,8 +802,8 @@ async def list_model_templates(session: Session = Depends(get_session)):
     results = []
     for t in model_templates:
         read = ModelTemplateRead.model_validate(t)
-        if t.name in conflicts:
-            read.health_status = LIVE if conflicts[t.name] is None else REVISION_MISMATCH
+        if (t.name, t.version) in conflicts:
+            read.health_status = LIVE if conflicts[(t.name, t.version)] is None else REVISION_MISMATCH
         results.append(read)
     return results
 
@@ -1088,7 +1098,7 @@ def _cancel_jobs_for_prediction_setup(prediction_setup_id: int) -> None:
                 logger.warning(
                     "Failed to cancel job %s for prediction setup %d", task_id, prediction_setup_id, exc_info=True
                 )
-        redis.delete(key)
+        redis.delete(key, f"job_request:{task_id}")
 
 
 @router.delete(
@@ -1131,6 +1141,7 @@ async def delete_prediction_setup(
 async def run_prediction_setup(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     request: RunPredictionSetupRequest,
+    original_request: dict = Depends(get_job_request),
     session: Session = Depends(get_session),
     database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
@@ -1208,6 +1219,6 @@ async def run_prediction_setup(
         configured_model_id=setup.configured_model_id,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
+        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
     )
     return JobResponse(id=job.id)

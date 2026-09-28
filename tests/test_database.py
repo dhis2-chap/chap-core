@@ -3,7 +3,7 @@ from urllib.parse import urlparse
 
 import fakeredis
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, select
 
@@ -170,6 +170,26 @@ def test_add_model_template_unarchives_existing(model_template_yaml_config, engi
         assert returned_id == template_id
         template = session.session.get(ModelTemplateDB, template_id)
         assert template.archived is False
+
+
+def test_losing_a_concurrent_template_insert_returns_the_winners_row(model_template_yaml_config, tmp_path):
+    # A file database, so the competing request writes through its own connection.
+    engine = create_engine(f"sqlite:///{tmp_path / 'chap.db'}")
+    SQLModel.metadata.create_all(engine)
+    winner_ids = []
+
+    def insert_competing_template(session, flush_context, instances):
+        with SessionWrapper(engine) as competitor:
+            winner_ids.append(competitor.add_model_template_from_yaml_config(model_template_yaml_config))
+
+    with SessionWrapper(engine) as session:
+        # The competitor commits after this session found no row but before it flushes its insert.
+        event.listen(session.session, "before_flush", insert_competing_template, once=True)
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+
+    assert template_id == winner_ids[0]
+    with SessionWrapper(engine) as session:
+        assert len(session.session.exec(select(ModelTemplateDB)).all()) == 1
 
 
 def test_add_configured_model_chapkit_skips_required_validation(engine):

@@ -47,6 +47,9 @@ logger = get_task_logger(__name__)
 logger.setLevel(logging.INFO)
 
 
+JOB_ERROR_MAX_CHARS = 1000
+
+
 # Send database url in function queue call. Have a dict in module of database url to engines. Look up engine in dict
 class JobDescription(BaseModel):
     """Public job metadata surfaced by the `/v1/jobs` endpoints — what the UI shows in a job list."""
@@ -59,7 +62,12 @@ class JobDescription(BaseModel):
     status: str = Field(description="Current job status (`PENDING`, `STARTED`, `SUCCESS`, `FAILURE`, ...).")
     start_time: str | None = Field(description="ISO timestamp when the job started running; `None` while still queued.")
     end_time: str | None = Field(description="ISO timestamp when the job completed; `None` while still running.")
-    result: str | None = Field(description="Result blob produced by the job (JSON string) or error message on failure.")
+    result: str | None = Field(description="Result blob produced by the job (JSON string); `None` unless it succeeded.")
+    error: str | None = Field(
+        default=None,
+        description=f"Why the job failed: the exception message, cut to {JOB_ERROR_MAX_CHARS} characters. "
+        "`None` unless it failed. `GET /v1/jobs/{id}/logs` has the full traceback.",
+    )
     prediction_setup_id: int | None = Field(
         default=None, description="`PredictionSetup.id` this job belongs to, when applicable."
     )
@@ -165,6 +173,7 @@ class TrackedTask(Task):
         job_type = kwargs.pop(JOB_TYPE_KW, None) or "Unspecified"
         # Read (don't pop) — the worker function also needs prediction_setup_id when present.
         prediction_setup_id = kwargs.get(PREDICTION_SETUP_ID_JOB_META_KEY)
+        original_request = kwargs.pop(JOB_REQUEST_KW, None)
         result = super().apply_async(args=args, kwargs=kwargs, **options)
 
         job_meta: dict[str, str] = {
@@ -180,6 +189,13 @@ class TrackedTask(Task):
             f"job_meta:{result.id}",
             mapping=job_meta,
         )
+        # Separate key so hgetall on job_meta stays cheap. The job is already queued, so a failed
+        # write must not fail the request; the download endpoint returns 404 instead.
+        if original_request is not None:
+            try:
+                r.set(f"job_request:{result.id}", json.dumps(original_request), ex=JOB_REQUEST_TTL_SECONDS)
+            except Exception:
+                logger.warning("Failed to store request body for job %s", result.id, exc_info=True)
 
         return result
 
@@ -223,7 +239,8 @@ class TrackedTask(Task):
             mapping={
                 "status": "FAILURE",
                 # "duration": duration,
-                "error": str(exc),
+                # A job list shows this, so it is bounded. The traceback keeps the full text.
+                "error": str(exc)[:JOB_ERROR_MAX_CHARS],
                 "traceback": str(einfo.traceback),
                 "end_time": datetime.now().isoformat(),
             },
@@ -284,6 +301,9 @@ def celery_run_with_session(func, *args, **kwargs):
 
 JOB_TYPE_KW = "__job_type__"
 JOB_NAME_KW = "__job_name__"
+JOB_REQUEST_KW = "__job_request__"
+# Request bodies can be several MB of inline data, so they expire instead of living as long as job_meta.
+JOB_REQUEST_TTL_SECONDS = 7 * 24 * 60 * 60
 PREDICTION_SETUP_ID_JOB_META_KEY = "prediction_setup_id"
 
 
@@ -426,6 +446,7 @@ class CeleryPool[ReturnType]:
                 start_time=meta.get("start_time", None),
                 end_time=meta.get("end_time", None),
                 result=meta.get("result", None),
+                error=meta.get("error", None),
                 prediction_setup_id=_parse_prediction_setup_id(meta.get(PREDICTION_SETUP_ID_JOB_META_KEY, None)),
             )
             for meta in sorted(jobs, key=lambda x: x.get("start_time", datetime(1900, 1, 1).isoformat()), reverse=True)

@@ -136,3 +136,9 @@ def test_required_jobs_are_gated_on_steps_not_on_the_job(workflow):
             continue
         assert "if" not in job, f"{workflow} job {name!r} must gate its steps, not the job"
         assert any("if" in step for step in job["steps"]), f"{workflow} job {name!r} has no gated step"
+
+
+def test_test_matrix_runs_on_each_os():
+    """The matrix names the jobs after an OS, so each job must actually run on that OS."""
+    job = yaml.safe_load((REPO_ROOT / ".github/workflows/ci-test-python-install.yml").read_text())["jobs"]["test"]
+    assert job["runs-on"] == "${{ matrix.os }}"

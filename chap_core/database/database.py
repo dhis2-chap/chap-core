@@ -131,7 +131,16 @@ class SessionWrapper:
         logger.info(f"Adding model template: {model_template}")
         model_template.is_live = False
         self.session.add(model_template)
-        self.session.commit()
+        try:
+            self.session.commit()
+        except sqlalchemy.exc.IntegrityError:
+            # Concurrent chapkit registrations can insert the same version between the
+            # existence check and this commit. Losing that race re-reads the winner's row.
+            self.session.rollback()
+            existing_template = self._if_exists(model_template.name, model_template.version)
+            if existing_template is None:
+                raise
+            return self._return_model_template_id(model_template.name, existing_template)
         # return id
         return cast("int", model_template.id)
 

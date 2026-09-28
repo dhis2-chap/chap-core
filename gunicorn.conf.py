@@ -55,6 +55,10 @@ loglevel = 'info'
 # Capture stdout to ensure print statements appear in logs
 capture_output = True
 
+# gunicorn 26 opens a control socket under $HOME, which does not exist in the
+# read-only container. Nothing in chap-core uses it.
+control_socket_disable = True
+
 log = logging.getLogger("gunicorn.error")
 
 

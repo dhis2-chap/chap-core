@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from sqlmodel import Session, SQLModel
 
 from chap_core.database.dataset_manager import DataSetManager
-from chap_core.database.dataset_tables import DataSetCreateInfo, Observation
+from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo, Observation
 from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.converters import observations_to_dataframe, observations_to_dataset
 
@@ -34,6 +34,10 @@ def dataset_id(engine, health_population_data):
 def manager(engine):
     with Session(engine) as session:
         yield DataSetManager(session)
+
+
+def test_save_dataset_is_not_created_manually_by_default(manager, dataset_id):
+    assert not manager.session.get(DataSet, dataset_id).created_manually
 
 
 def _sorted_periods(observations):
@@ -206,6 +210,11 @@ def test_save_dataset_from_csv_with_geojson_loads_polygons(manager):
 def test_save_dataset_from_csv_weekly_sets_period_type(manager):
     manager.save_dataset_from_csv("nicaragua", EXAMPLE_DATA / "nicaragua_weekly_data.csv")
     assert manager.find_by_name("nicaragua").period_type == "week"
+
+
+def test_save_dataset_from_csv_is_created_manually(manager):
+    manager.save_dataset_from_csv("nicaragua", EXAMPLE_DATA / "nicaragua_weekly_data.csv")
+    assert manager.find_by_name("nicaragua").created_manually
 
 
 def test_observations_to_dataset_large_frame_pivots_uniquely():
