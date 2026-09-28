@@ -294,7 +294,8 @@ class ExternalChapkitModelTemplate:
         logger.info(f"Creating model configuration with name {name} at {self.rest_api_url}. Data: {config_data}")
 
         config_response = self.client.create_config(config_data)
-        _check_stored_config(payload, config_response.data.model_dump())
+        stored = config_response.data.model_dump()
+        _check_stored_config(payload, stored)
         configuration_id = str(config_response.id)
 
         # get all configs and assert that configuration_id is there
@@ -311,6 +312,7 @@ class ExternalChapkitModelTemplate:
             model_information=self.model_template_config,
             client=self.client,
             prediction_periods=prediction_length,
+            additional_continuous_covariates=stored.get("additional_continuous_covariates"),
         )
 
     @property
@@ -382,6 +384,7 @@ class ExternalChapkitModel(ExternalModelBase):
         model_information: ModelTemplateConfigV2 | None = None,
         client: CHAPKitRestAPIWrapper | None = None,
         prediction_periods: int | None = None,
+        additional_continuous_covariates: list[str] | None = None,
     ):
         self.model_name = model_name
         self.rest_api_url = rest_api_url
@@ -394,10 +397,19 @@ class ExternalChapkitModel(ExternalModelBase):
         self._train_id: str | None = None
         self._model_information = model_information
         self._prediction_periods = prediction_periods
+        self._additional_continuous_covariates = additional_continuous_covariates
 
     @property
     def model_information(self):
         return self._model_information
+
+    @property
+    def additional_continuous_covariates(self) -> list[str] | None:
+        """The additional covariates the service stored for this configuration, or None if unknown.
+
+        This includes the service's own default when chap-core sent none.
+        """
+        return self._additional_continuous_covariates
 
     def _train_horizon(self) -> int | None:
         """The horizon to request at train time, clamped to the model's declared bounds.

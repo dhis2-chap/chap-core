@@ -245,7 +245,7 @@ def causal_cmd(
     with template:
         configuration = get_configuration(model_configuration_yaml)
         estimator = get_estimator(template, configuration)
-        warn_unused_covariates(original_dataset, template.model_template_config, configuration)
+        warn_unused_covariates(original_dataset, template.model_template_config, configuration, estimator)
         model_info = estimator.model_information
 
         train_data, original_test_data = train_test_split(original_dataset, split_period_obj)

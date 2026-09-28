@@ -168,14 +168,21 @@ def check_unused_covariates(
     dataset: DataSet,
     config: ModelTemplateConfigV2,
     additional_continuous_covariates: list[str] | None = None,
+    model_covariates: list[str] | None = None,
 ) -> list[ValidationIssue]:
-    """Warn about dataset covariate columns not referenced by the model."""
+    """Warn about dataset covariate columns not referenced by the model.
+
+    ``model_covariates`` are covariates the model is known to receive, such as the list a
+    chapkit service stored for the configuration (its own default when none was sent).
+    They count as used whether or not the template allows free additional covariates.
+    """
     from chap_core.feature_generators import GEN_PREFIX
 
     dataset_fields = set(dataset.field_names()) - RESERVED_FIELDS
     used = {rc for rc in config.required_covariates if not rc.startswith(GEN_PREFIX)}
     if config.allow_free_additional_continuous_covariates:
         used |= set(additional_continuous_covariates or [])
+    used |= set(model_covariates or [])
     unused = dataset_fields - used
 
     return [
