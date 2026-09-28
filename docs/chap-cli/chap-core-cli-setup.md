@@ -32,22 +32,30 @@ chap-admin install chapkit_simple_multistep_model
 chap-admin update chapkit_simple_multistep_model
 ```
 
+`chap-admin install-all` installs every model the marketplace lists with a
+verified stable version, skipping the ones already installed. It is the way to
+get a fresh deployment populated with models.
+
 `chap-admin` reaches CHAP at `http://localhost:8000` unless `CHAP_URL` or
 `--url` says otherwise, and sends `CHAP_API_TOKEN` or `--token` when the
 deployment requires a token. It reads both from the environment, not from a
 deployment's `.env` file.
 
-Installing does three things, in this order, and each step can be repeated if a
-later one fails:
+Installing does three things, in this order:
 
-1. The model service is written into `compose.marketplace.yml` beside the first
-   base file, pinned to the verified image.
-2. The model template and its verified configurations are registered in CHAP
-   from the marketplace entry, so the model shows up in the Modeling App with
-   the reviewed ways to run it. The service does not need to be running for this.
-3. The service is pulled and started on the deployment network. Pass
-   `--no-start` to skip this, for example to start every model later with one
-   `docker compose up`.
+1. The model service is pulled and started on the deployment network, pinned to
+   the verified image.
+2. Once the service has registered with CHAP and reports the verified commit,
+   CHAP stores its model template from what the service itself describes,
+   including its configuration options, and the model's verified configurations
+   are added from the marketplace entry. The model then shows up in the Modeling
+   App with the reviewed ways to run it.
+3. The service is written into `compose.marketplace.yml` beside the first base
+   file.
+
+A service that does not start, does not register within a minute, or reports
+another commit than the verified one is removed again and nothing is written,
+so a broken image cannot be installed. The command can be repeated.
 
 Updating registers the new version as a new template version with its
 configurations. Earlier versions and the evaluations made with them are untouched.
@@ -73,10 +81,6 @@ Only the selected model is pulled and started. Updates preserve its data volume
 and Compose settings; failed updates attempt to restart the previous image.
 Use `--platform linux/amd64` for models that only publish AMD64 images, such as
 R-INLA models on Apple Silicon. The platform is retained for subsequent updates.
-
-A deployment can also declare its marketplace models in a seed file under
-`config/configured_models/` with a `marketplace:` entry; CHAP then registers
-them itself at startup. See the README in that directory.
 
 ### Removing a model
 
@@ -115,14 +119,12 @@ chap-admin install my_model --image ghcr.io/my-org/my-model:v1 --accept-risk
 chap-admin update my_model --image ghcr.io/my-org/my-model:v2 --accept-risk
 ```
 
-A custom image has no marketplace entry to take the model from, so
-`chap-admin` starts the service first, waits for it to register with CHAP,
-which stores the template from the service's own description, and then adds
-one default configuration. `--no-start` is therefore not available for custom
-images.
-Updating a custom model without `--image` pulls its existing image reference
-again; it never switches to a marketplace model automatically. Prefer version
-tags or digests for reproducible custom installations.
+A custom image is installed the same way, from what the running service
+describes, but has no marketplace entry to take configurations from, so it gets
+one default configuration. Updating a custom model without `--image` pulls its
+existing image reference again; it never switches to a marketplace model
+automatically. Prefer version tags or digests for reproducible custom
+installations.
 
 ## Exercise
 

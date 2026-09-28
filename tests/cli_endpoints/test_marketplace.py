@@ -2,18 +2,15 @@ import logging
 import subprocess
 from types import SimpleNamespace
 
+import httpx
 import pytest
 import yaml
-from sqlmodel import Session, SQLModel, create_engine, select
 
 from chap_core.admin_cli import app as admin_app
 from chap_core.cli import app
 from chap_core.cli_endpoints import marketplace
-from chap_core.cli_endpoints.marketplace import install, uninstall, update
-from chap_core.database.database import SessionWrapper
-from chap_core.database.model_template_seed import add_marketplace_model
-from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
-from chap_core.services.model_marketplace import configured_model_requests, model_template_request, resolve_model
+from chap_core.cli_endpoints.marketplace import install, install_all, uninstall, update
+from chap_core.services.model_marketplace import configured_model_requests, list_models, resolve_model
 
 
 def test_resolves_stable_not_latest(marketplace_model, marketplace_http):
@@ -85,27 +82,10 @@ def test_unknown_model_never_fetches_arbitrary_path(marketplace_http):
     assert len(marketplace_http) == 1
 
 
-def test_model_template_request_describes_the_pin(marketplace_model, marketplace_http):
-    pin = resolve_model(marketplace_model["id"])
-    request = model_template_request(pin)
-    assert request["name"] == "chapkit-simple-multistep-model"
-    assert request["version"] == "0.1.0"
-    assert request["source_digest"] == marketplace_model["versions"][0]["commit"]
-    assert request["source_url"] == "http://marketplace-chapkit-simple-multistep-model:8000"
-    assert request["uses_chapkit"] is True
-    assert request["display_name"] == "Simple Multistep"
-    assert request["author_assessed_status"] == "orange"
-    assert request["organization"] == "HISP Centre, University of Oslo"
-    assert request["supported_period_type"] == "month"
-    assert request["required_covariates"] == []
-    assert request["allow_free_additional_continuous_covariates"] is True
-    assert (request["min_prediction_periods"], request["max_prediction_periods"]) == (1, 100)
-
-
-@pytest.mark.parametrize("period_types, expected", [(["weekly"], "week"), (["weekly", "monthly"], "any"), ([], "any")])
-def test_model_template_request_maps_period_types(marketplace_model, marketplace_http, period_types, expected):
-    marketplace_model["compatibility"]["period_types"] = period_types
-    assert model_template_request(resolve_model(marketplace_model["id"]))["supported_period_type"] == expected
+def test_list_models_fetches_every_listed_entry(marketplace_model, marketplace_http):
+    entries = list_models()
+    assert [entry.id for entry in entries] == [marketplace_model["id"]]
+    assert len(marketplace_http) == 2
 
 
 def test_configured_model_requests_split_out_the_reserved_config_keys(marketplace_model, marketplace_http):
@@ -146,9 +126,13 @@ def test_install_and_update_register_the_model_and_preserve_settings_and_data(
     # chapkit writes its database under data/ in the image's working directory.
     assert service["volumes"][0] == f"{service_name}-data:/app/data"
     assert "ports" not in service
+    # The template is what the started service reports, and the configurations are the entry's.
     assert [(t["name"], t["version"], t["sourceDigest"]) for t in chap.templates] == [
         (marketplace_model["service_id"], "0.1.0", marketplace_model["versions"][0]["commit"])
     ]
+    assert ("POST", "/v1/crud/model-templates/from-service", {"service_id": marketplace_model["service_id"]}) in (
+        chap.requests
+    )
     assert [(m["name"], m["modelTemplateId"]) for m in chap.configured_models] == [
         ("monthly_climate", 1),
         ("monthly_selfhistory", 1),
@@ -171,34 +155,58 @@ def test_install_and_update_register_the_model_and_preserve_settings_and_data(
     assert [m["modelTemplateId"] for m in chap.configured_models] == [1, 1, 2, 2]
 
 
-def test_install_is_registered_before_docker_runs_and_can_be_repeated(marketplace_model, model_deployment):
+def test_install_registers_nothing_when_the_service_does_not_start(marketplace_model, model_deployment, caplog):
     model = marketplace_model["id"]
     chap = model_deployment.chap
-    model_deployment.runner.side_effect = subprocess.CalledProcessError(1, "docker")
+    run = model_deployment.runner.side_effect
+
+    def fail_start(command, **kwargs):
+        if "up" in command:
+            raise subprocess.CalledProcessError(1, command)
+        return run(command, **kwargs)
+
+    model_deployment.runner.side_effect = fail_start
     with pytest.raises(SystemExit):
         install(model)
-    assert len(chap.templates) == 1 and len(chap.configured_models) == 2
+    assert chap.templates == [] and chap.configured_models == []
     assert not model_deployment.overlay.exists()
+    assert "removing the model service" in caplog.text
+    commands = [call.args[0] for call in model_deployment.runner.call_args_list]
+    assert commands[-1][-4:] == ["rm", "--stop", "--force", f"marketplace-{marketplace_model['service_id']}"]
 
-    model_deployment.runner.side_effect = None
+    model_deployment.runner.side_effect = run
     install(model)
     assert len(chap.templates) == 1 and len(chap.configured_models) == 2
     assert model_deployment.overlay.exists()
 
 
-def test_install_no_start_registers_and_writes_the_overlay_without_starting(marketplace_model, model_deployment):
-    install(marketplace_model["id"], no_start=True)
-    commands = [call.args[0] for call in model_deployment.runner.call_args_list]
-    assert not any("up" in command for command in commands)
-    assert len(model_deployment.chap.templates) == 1
-    service = yaml.safe_load(model_deployment.overlay.read_text())["services"]
-    assert list(service) == [f"marketplace-{marketplace_model['service_id']}"]
+def test_install_can_be_repeated_after_a_failed_configuration(marketplace_model, model_deployment):
+    """A template stored before the configurations failed is reused, not refused, on the retry."""
+    model = marketplace_model["id"]
+    chap = model_deployment.chap
+    handle = chap.handle
+
+    def refuse_configurations(request):
+        if request.url.path == "/v1/crud/configured-models":
+            return httpx.Response(500, json={"detail": "database down"})
+        return handle(request)
+
+    chap.handle = refuse_configurations
+    with pytest.raises(SystemExit):
+        install(model)
+    assert len(chap.templates) == 1 and chap.configured_models == []
+    assert not model_deployment.overlay.exists()
+
+    chap.handle = handle
+    install(model)
+    assert len(chap.templates) == 1 and len(chap.configured_models) == 2
+    assert model_deployment.overlay.exists()
 
 
 def test_install_uses_the_configured_chap_url_and_token(marketplace_model, model_deployment, monkeypatch):
     monkeypatch.setenv("CHAP_URL", "http://chap.example.org")
     monkeypatch.setenv("CHAP_API_TOKEN", "secret")
-    install(marketplace_model["id"], no_start=True)
+    install(marketplace_model["id"])
     assert len(model_deployment.chap.templates) == 1
 
 
@@ -209,7 +217,7 @@ def test_install_fails_before_docker_when_chap_is_unreachable(marketplace_model,
     assert "Could not reach CHAP at http://nowhere.example.org" in caplog.text
 
 
-def test_install_reports_a_refused_revision(marketplace_model, model_deployment, caplog):
+def test_install_reports_a_refused_revision_and_removes_the_service(marketplace_model, model_deployment, caplog):
     model_deployment.chap.templates.append(
         {
             "id": 1,
@@ -222,8 +230,69 @@ def test_install_reports_a_refused_revision(marketplace_model, model_deployment,
     )
     with pytest.raises(SystemExit):
         install(marketplace_model["id"])
-    model_deployment.runner.assert_not_called()
     assert "409" in caplog.text and "write-once" in caplog.text
+    assert model_deployment.runner.call_args.args[0][-4:] == [
+        "rm",
+        "--stop",
+        "--force",
+        f"marketplace-{marketplace_model['service_id']}",
+    ]
+    assert not model_deployment.overlay.exists()
+
+
+def test_install_waits_for_the_pinned_revision_to_register(marketplace_model, model_deployment, monkeypatch, caplog):
+    """A registration from another build, such as the previous container's, is not taken for the new one."""
+    monkeypatch.setattr(marketplace, "REGISTRATION_TIMEOUT", 0)
+    model_deployment.registers = False
+    service_name = f"marketplace-{marketplace_model['service_id']}"
+    model_deployment.chap.register(
+        service_name, {"id": marketplace_model["service_id"], "version": "0.1.0", "git_revision": "b" * 40}
+    )
+    with pytest.raises(SystemExit):
+        install(marketplace_model["id"])
+    assert f"with git revision {marketplace_model['versions'][0]['commit']}" in caplog.text
+    assert model_deployment.chap.templates == []
+    assert not model_deployment.overlay.exists()
+
+
+def test_install_all_installs_every_verified_model_once(marketplace_model, model_deployment, caplog):
+    chap = model_deployment.chap
+    admin_app(["install-all"], result_action="return_value")
+    service_name = f"marketplace-{marketplace_model['service_id']}"
+    assert list(yaml.safe_load(model_deployment.overlay.read_text())["services"]) == [service_name]
+    assert len(chap.templates) == 1 and len(chap.configured_models) == 2
+    calls = model_deployment.runner.call_count
+
+    with caplog.at_level(logging.INFO):
+        install_all()
+    assert model_deployment.runner.call_count == calls
+    assert f"Skipping {marketplace_model['id']}: already installed" in caplog.text
+
+
+@pytest.mark.parametrize("change", [{"kind": "template"}, {"channels": {"stable": "missing"}}])
+def test_install_all_skips_entries_that_cannot_be_installed(marketplace_model, model_deployment, caplog, change):
+    marketplace_model.update(change)
+    with caplog.at_level(logging.INFO):
+        install_all()
+    model_deployment.runner.assert_not_called()
+    assert f"Skipping {marketplace_model['id']}" in caplog.text
+
+
+def test_install_all_reports_the_models_that_failed(marketplace_model, model_deployment, monkeypatch, caplog):
+    model_deployment.registers = False
+    monkeypatch.setattr(marketplace, "REGISTRATION_TIMEOUT", 0)
+    with pytest.raises(SystemExit):
+        install_all()
+    assert f"Could not install {marketplace_model['id']}" in caplog.text
+
+
+def test_install_all_from_another_registry_requires_risk_acceptance(marketplace_model, model_deployment, monkeypatch):
+    monkeypatch.setenv("CHAP_MARKETPLACE_URL", "https://models.example.org/registry")
+    with pytest.raises(SystemExit):
+        install_all()
+    model_deployment.runner.assert_not_called()
+    install_all(accept_risk=True)
+    assert len(model_deployment.chap.templates) == 1
 
 
 def test_custom_requires_risk_acceptance_each_time(model_deployment, caplog):
@@ -257,19 +326,14 @@ def test_custom_image_is_registered_from_the_running_service(model_deployment):
     assert service["x-chap-template"] == "custom-model"
 
 
-def test_custom_image_that_never_registers_fails(model_deployment, monkeypatch, caplog):
-    model_deployment.chap.services.clear()
+def test_custom_image_that_never_registers_is_removed_again(model_deployment, monkeypatch, caplog):
+    model_deployment.registers = False
     monkeypatch.setattr(marketplace, "REGISTRATION_TIMEOUT", 0)
     with pytest.raises(SystemExit):
         install("custom", image="example/model:v1", accept_risk=True)
     assert "did not register" in caplog.text
+    assert model_deployment.runner.call_args.args[0][-4:] == ["rm", "--stop", "--force", "marketplace-custom"]
     assert not model_deployment.overlay.exists()
-
-
-def test_custom_image_cannot_skip_the_start(model_deployment):
-    with pytest.raises(SystemExit):
-        install("custom", image="example/model:v1", accept_risk=True, no_start=True)
-    model_deployment.runner.assert_not_called()
 
 
 def test_install_existing_and_update_missing_fail(model_deployment):
@@ -518,36 +582,3 @@ def test_install_mounts_the_data_volume_in_the_image_working_directory(model_dep
 def test_overlay_stays_readable_to_other_operators(model_deployment):
     install("custom", image="example/model:v1", accept_risk=True)
     assert model_deployment.overlay.stat().st_mode & 0o044 == 0o044
-
-
-def test_seeding_a_marketplace_model_stores_its_template_and_configurations(marketplace_model, marketplace_http):
-    engine = create_engine("sqlite://")
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        wrapper = SessionWrapper(session=session)
-        template_id = add_marketplace_model(marketplace_model["id"], wrapper)
-        assert add_marketplace_model(marketplace_model["id"], wrapper) == template_id
-        template = session.get(ModelTemplateDB, template_id)
-        assert template is not None
-        assert (template.name, template.version, template.uses_chapkit) == (
-            "chapkit-simple-multistep-model",
-            "0.1.0",
-            True,
-        )
-        assert template.source_digest == marketplace_model["versions"][0]["commit"]
-        assert template.author_assessed_status.value == "orange"
-        assert template.supported_period_type.value == "month"
-        configured = session.exec(
-            select(ConfiguredModelDB).where(ConfiguredModelDB.model_template_id == template_id)
-        ).all()
-        assert sorted(model.name for model in configured) == [
-            "chapkit-simple-multistep-model:monthly_climate",
-            "chapkit-simple-multistep-model:monthly_selfhistory",
-        ]
-        assert all(model.uses_chapkit for model in configured)
-        assert configured[0].user_option_values == {
-            "n_target_lags": 6,
-            "n_samples": 100,
-            "rf_max_depth": 10,
-            "rf_min_samples_leaf": 5,
-        }

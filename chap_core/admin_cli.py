@@ -18,6 +18,7 @@ logging.basicConfig(
 
 app = App(name="chap-admin", help="Administer a running CHAP instance: install marketplace models into it.")
 app.command()(marketplace.install)
+app.command(name="install-all")(marketplace.install_all)
 app.command()(marketplace.update)
 app.command()(marketplace.uninstall)
 

@@ -38,17 +38,7 @@ class LocalModelTemplateWithConfigurations(BaseModel):
         return self
 
 
-class MarketplaceModelSeed(BaseModel):
-    """A marketplace model to store at startup, with the template and configurations of its verified stable pin.
-
-    The same registration that ``chap-admin install`` makes, without touching Compose:
-    the service itself is run by the deployment, for example through an overlay.
-    """
-
-    marketplace: str
-
-
-Configurations = list[LocalModelTemplateWithConfigurations | MarketplaceModelSeed]
+Configurations = list[LocalModelTemplateWithConfigurations]
 
 
 def parse_local_model_config_file(file_name) -> Configurations:
@@ -79,8 +69,6 @@ def parse_local_model_config_from_directory(directory, search_pattern="*.yaml") 
     # for every model template in default.yaml, keep only the version defined last
     # in the file, and remove all other versions
     for config in default_configurations:
-        if isinstance(config, MarketplaceModelSeed):
-            continue
         old_versions = list(config.versions.items())
         new_versions = old_versions[-1:]  # keep only the last version
         config.versions = dict(new_versions)

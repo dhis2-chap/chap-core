@@ -51,20 +51,21 @@ slate. `make chap-version` is also printed automatically at the end of
 
 Chapkit-based models are installed from the
 [CHAP Model Marketplace](https://github.com/dhis2-chap/model-marketplace)
-with `chap-admin`, which registers the model and its verified
-configurations in the running chap and starts its service:
+with `chap-admin`, once chap is running. It starts the model service,
+registers it in chap from what the running service reports, and adds the
+model's verified configurations:
 
 ```shell
 chap-admin install chapkit_ewars_model
-docker compose -f compose.yml -f compose.marketplace.yml up -d
+chap-admin install-all
 ```
 
-See the [CLI setup guide](docs/chap-cli/chap-core-cli-setup.md) for the
-details. `compose.chapkit.yml` and `compose.ewars.yml` run the EWARS service
-as a plain overlay; a service started that way self-registers as a model
-template, but its verified configurations only come from the marketplace,
-through `chap-admin install` or a `marketplace:` entry in
-`config/configured_models/` (see the README there).
+Include the overlay it writes in later Compose commands:
+`docker compose -f compose.yml -f compose.marketplace.yml up -d`. See the
+[CLI setup guide](docs/chap-cli/chap-core-cli-setup.md) for the details.
+`compose.chapkit.yml` and `compose.ewars.yml` run the EWARS service as a
+plain overlay; a service started that way self-registers as a model template
+but gets no configurations, which only come through `chap-admin install`.
 
 ## Deploy on Kubernetes
 

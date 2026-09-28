@@ -31,11 +31,14 @@ class FakeChap:
     def __init__(self):
         self.templates: list[dict] = []
         self.configured_models: list[dict] = []
-        # A custom service that has self-registered from the compose service name chap-admin gives it.
-        self.services: list[dict[str, Any]] = [
-            {"id": "custom-model", "url": "http://marketplace-custom:8000", "info": CUSTOM_SERVICE_INFO}
-        ]
+        # Services that have self-registered, from the compose service name chap-admin gives them.
+        self.services: list[dict[str, Any]] = []
         self.requests: list[tuple[str, str, object]] = []
+
+    def register(self, service_name: str, info: dict[str, Any]) -> None:
+        """What a chapkit container does when it starts: register under its own id from its hostname."""
+        self.services = [service for service in self.services if service["id"] != info["id"]]
+        self.services.append({"id": info["id"], "url": f"http://{service_name}:8000", "info": info})
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         path: str = request.url.path
@@ -43,8 +46,6 @@ class FakeChap:
         self.requests.append((request.method, path, body or None))
         if (request.method, path) == ("GET", "/v1/crud/model-templates"):
             return httpx.Response(200, json=[t for t in self.templates if t["isLive"]])
-        if (request.method, path) == ("POST", "/v1/crud/model-templates"):
-            return self._store_template(body)
         if (request.method, path) == ("POST", "/v1/crud/model-templates/from-service"):
             service = next((s for s in self.services if s["id"] == body["service_id"]), None)
             if service is None:
@@ -132,16 +133,37 @@ def marketplace_http(fake_chap):
 
 
 @pytest.fixture
-def model_deployment(tmp_path, monkeypatch, mocker, fake_chap):
+def model_deployment(tmp_path, monkeypatch, mocker, fake_chap, marketplace_model):
+    """A deployment directory with a fake Docker whose started services self-register with the fake CHAP."""
     monkeypatch.chdir(tmp_path)
     compose = tmp_path / "compose.yml"
     compose.write_text("services:\n  chap:\n    image: chap:test\n")
     deployments = []
+    deployment = SimpleNamespace(
+        overlay=tmp_path / "compose.marketplace.yml", deployments=deployments, chap=fake_chap, registers=True
+    )
+
+    def service_info(service: dict) -> dict[str, Any]:
+        if service["x-chap-custom"]:
+            return CUSTOM_SERVICE_INFO
+        tag = service["image"].rsplit(":", 1)[-1]
+        version = next(v for v in marketplace_model["versions"] if v["image_tag"] == tag)
+        return {
+            "id": marketplace_model["service_id"],
+            "display_name": marketplace_model["display_name"],
+            "version": version["version"],
+            "git_revision": version["commit"],
+            "model_metadata": {"author": "Someone"},
+            "period_type": "monthly",
+        }
 
     def run(command, **kwargs):
         overlays = [Path(command[index + 1]) for index, value in enumerate(command) if value == "-f"]
         if overlays:
             deployments.append(yaml.safe_load(overlays[-1].read_text()))
+        if "up" in command and deployment.registers:
+            service_name = command[-1]
+            fake_chap.register(service_name, service_info(deployments[-1]["services"][service_name]))
         if "config" in command:
             stdout = '{"name": "chap-test"}'
         elif "{{.Config.WorkingDir}}" in command:
@@ -152,10 +174,5 @@ def model_deployment(tmp_path, monkeypatch, mocker, fake_chap):
             stdout = ""
         return SimpleNamespace(stdout=stdout, returncode=0)
 
-    runner = mocker.patch("chap_core.cli_endpoints.marketplace.subprocess.run", side_effect=run)
-    return SimpleNamespace(
-        overlay=tmp_path / "compose.marketplace.yml",
-        runner=runner,
-        deployments=deployments,
-        chap=fake_chap,
-    )
+    deployment.runner = mocker.patch("chap_core.cli_endpoints.marketplace.subprocess.run", side_effect=run)
+    return deployment

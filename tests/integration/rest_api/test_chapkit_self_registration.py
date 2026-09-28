@@ -2,8 +2,9 @@
 
 A registered service gets a model template, stored from its own info and schema,
 and a health status on GET /v1/crud/model-templates. It gets no configured models:
-those come from the marketplace entry through POST /v1/crud/configured-models
-(what chap-admin install calls), as does the template when install runs first.
+those come from the marketplace entry through POST /v1/crud/configured-models,
+which is what chap-admin install calls after storing the template of the service it
+started through POST /v1/crud/model-templates/from-service.
 """
 
 import logging
@@ -14,7 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel
+from sqlmodel import Session, SQLModel, select
 
 import chap_core.database.tables  # noqa: F401 - ensure all table models are registered with SQLModel
 from chap_core.database.model_templates_and_config_tables import ModelTemplateDB
@@ -40,17 +41,6 @@ MOCK_INFO_DICT = {
     "allow_free_additional_continuous_covariates": False,
     "required_covariates": [],
     "requires_geo": False,
-}
-
-# What chap-admin install posts for the same service, as a marketplace entry describes it.
-TEMPLATE = {
-    "name": "test-model",
-    "version": "1.0.0",
-    "sourceDigest": "a" * 40,
-    "sourceUrl": "http://marketplace-test-model:8000",
-    "usesChapkit": True,
-    "displayName": "Test Model",
-    "supportedPeriodType": "month",
 }
 
 SCHEMA = {
@@ -111,8 +101,10 @@ def register_service(fake_orchestrator):
     return _register
 
 
-def _install(client, **overrides):
-    response = client.post("/v1/crud/model-templates", json={**TEMPLATE, **overrides})
+def _install(client, register_service, **info):
+    """What chap-admin install does once the service it started is up: store its template."""
+    register_service({**MOCK_INFO_DICT, **info})
+    response = client.post("/v1/crud/model-templates/from-service", json={"serviceId": "test-model"})
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -153,18 +145,18 @@ def test_service_without_a_git_revision_is_not_stored_until_it_reports_one(clien
     assert template["healthStatus"] == "live"
 
 
-def test_installed_template_is_reused_when_its_service_registers(client, register_service, mock_wrapper_cls):
-    installed = _install(client)
+def test_installed_template_is_reused_when_its_service_registers_again(client, register_service, mock_wrapper_cls):
+    installed = _install(client, register_service)
     assert installed["sourceDigest"] == "a" * 40
     assert installed["usesChapkit"] is True
-    assert _test_model(client)["healthStatus"] is None
+    assert installed["userOptions"] == {"n_lags": {"type": "integer", "default": 3}}
 
     register_service()
     template = _test_model(client)
     assert template["healthStatus"] == "live"
     assert template["id"] == installed["id"]
-    # A stored version is write-once, so nothing is read from the service for it.
-    mock_wrapper_cls.assert_not_called()
+    # A stored version is write-once, so nothing is read from the service for it again.
+    assert mock_wrapper_cls.call_count == 1
 
 
 def test_sync_is_idempotent(client, register_service, mock_wrapper_cls):
@@ -183,6 +175,11 @@ def test_re_registered_service_with_new_version_adds_a_new_template(
     fake_orchestrator.deregister("test-model")
     register_service({**MOCK_INFO_DICT, "version": "2.0.0", "display_name": "Updated Model", "requires_geo": True})
 
+    # The stored version stays live until the new one can run, that is, has a configuration.
+    assert _test_model(client)["version"] == "1.0.0"
+    with Session(db_engine) as session:
+        new_id = session.exec(select(ModelTemplateDB.id).where(ModelTemplateDB.version == "2.0.0")).one()
+    client.post("/v1/crud/configured-models", json={"name": "default", "modelTemplateId": new_id})
     live = _test_model(client)
     assert (live["version"], live["displayName"], live["requiresGeo"], live["isLive"]) == (
         "2.0.0",
@@ -197,24 +194,18 @@ def test_re_registered_service_with_new_version_adds_a_new_template(
         assert superseded.is_live is False
 
 
-def test_installing_the_same_version_again_returns_the_stored_row(client):
-    first = _install(client)
-    again = _install(client, displayName="Another display name")
-    assert again["id"] == first["id"]
-    assert again["displayName"] == "Test Model"
-
-
-def test_installing_another_revision_under_a_stored_version_is_refused(client):
-    _install(client)
-    response = client.post("/v1/crud/model-templates", json={**TEMPLATE, "sourceDigest": "b" * 40})
+def test_installing_another_revision_under_a_stored_version_is_refused(client, register_service):
+    _install(client, register_service)
+    register_service({**MOCK_INFO_DICT, "git_revision": "b" * 40})
+    response = client.post("/v1/crud/model-templates/from-service", json={"serviceId": "test-model"})
     assert response.status_code == 409
-    assert "write-once" in response.json()["detail"]
+    assert "b" * 40 in response.json()["detail"]
     assert _test_model(client)["sourceDigest"] == "a" * 40
 
 
-def test_a_new_version_is_a_new_live_row_and_the_old_one_stays(client, db_engine):
-    first_id = _install(client)["id"]
-    template = _install(client, version="1.0.1", sourceDigest="b" * 40)
+def test_a_new_version_is_a_new_live_row_and_the_old_one_stays(client, register_service, db_engine):
+    first_id = _install(client, register_service)["id"]
+    template = _install(client, register_service, version="1.0.1", git_revision="b" * 40)
     assert template["id"] != first_id
     # The stored version stays live until the new one can run, that is, has a configuration.
     assert _test_model(client)["version"] == "1.0.0"
@@ -230,14 +221,14 @@ def test_a_new_version_is_a_new_live_row_and_the_old_one_stays(client, db_engine
 def test_republished_service_under_the_same_version_is_a_revision_mismatch(
     client, register_service, mock_wrapper_cls, reported
 ):
-    _install(client)
+    _install(client, register_service)
     register_service({**MOCK_INFO_DICT, "git_revision": reported})
     template = _test_model(client)
     assert template["healthStatus"] == "revision_mismatch"
     assert template["sourceDigest"] == "a" * 40
     assert template["archived"] is False
     # Nothing is fetched from a mismatched service.
-    mock_wrapper_cls.assert_not_called()
+    assert mock_wrapper_cls.call_count == 1
 
 
 def test_registration_response_tells_a_service_without_a_git_revision_what_to_do(client):
@@ -248,8 +239,8 @@ def test_registration_response_tells_a_service_without_a_git_revision_what_to_do
     assert "GIT_REVISION build arg" in response.json()["message"]
 
 
-def test_registration_response_reports_a_revision_mismatch(client):
-    _install(client)
+def test_registration_response_reports_a_revision_mismatch(client, register_service):
+    _install(client, register_service)
     payload = {"url": "http://test-service:8080", "info": {**MOCK_INFO_DICT, "git_revision": "b" * 40}}
     response = client.post("/v2/services/$register", json=payload)
 
@@ -261,7 +252,7 @@ def test_registration_response_reports_a_revision_mismatch(client):
 
 
 def test_redeploying_the_stored_revision_clears_the_mismatch(client, register_service):
-    _install(client)
+    _install(client, register_service)
     register_service({**MOCK_INFO_DICT, "git_revision": "b" * 40})
     assert _test_model(client)["healthStatus"] == "revision_mismatch"
 
@@ -291,8 +282,7 @@ def test_schema_fetch_failure_does_not_freeze_empty_user_options(client, registe
 
 
 def test_deregistered_service_loses_live_status_but_the_template_stays(client, register_service, fake_orchestrator):
-    _install(client)
-    register_service()
+    _install(client, register_service)
     assert _test_model(client)["healthStatus"] == "live"
 
     fake_orchestrator.deregister("test-model")
@@ -302,8 +292,8 @@ def test_deregistered_service_loses_live_status_but_the_template_stays(client, r
     assert template["archived"] is False
 
 
-def test_retiring_a_template_hides_it_and_its_configured_models_until_it_is_installed_again(client):
-    template_id = _install(client)["id"]
+def test_retiring_a_template_hides_it_and_its_configured_models_until_it_is_installed_again(client, register_service):
+    template_id = _install(client, register_service)["id"]
     response = client.post(
         "/v1/crud/configured-models",
         json={"name": "tuned", "modelTemplateId": template_id, "userOptionValues": {"n_lags": 5}},
@@ -317,7 +307,7 @@ def test_retiring_a_template_hides_it_and_its_configured_models_until_it_is_inst
     assert client.delete("/v1/crud/model-templates/999").status_code == 404
 
     # Installing again shows the template, and re-adding a configuration shows it too.
-    assert _install(client)["archived"] is False
+    assert _install(client, register_service)["archived"] is False
     client.post(
         "/v1/crud/configured-models",
         json={"name": "tuned", "modelTemplateId": template_id, "userOptionValues": {"n_lags": 5}},

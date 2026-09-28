@@ -87,22 +87,43 @@ class ModelPin:
     entry: MarketplaceModel
 
 
+def list_models(base_url: str | None = None) -> list[MarketplaceModel]:
+    """Every entry the registry lists, in registry order."""
+    base_url = (base_url or registry_url()).rstrip("/")
+    with httpx.Client(timeout=30, follow_redirects=True) as client:
+        registry = _fetch_registry(client, base_url)
+        return [_fetch_entry(client, base_url, model_file) for model_file in registry.models]
+
+
 def resolve_model(model: str, base_url: str | None = None) -> ModelPin:
     """Return only the registry's verified stable pin, never the latest channel."""
     base_url = (base_url or registry_url()).rstrip("/")
     with httpx.Client(timeout=30, follow_redirects=True) as client:
-        response = client.get(f"{base_url}/registry.yaml")
-        response.raise_for_status()
-        registry = Registry.model_validate(yaml.safe_load(response.text))
+        registry = _fetch_registry(client, base_url)
         model_file = f"models/{model}.yaml"
         if model_file not in registry.models:
             raise ValueError(f"Model '{model}' is not listed in the marketplace.")
-        response = client.get(f"{base_url}/{model_file}")
-        response.raise_for_status()
-        entry = MarketplaceModel.model_validate(yaml.safe_load(response.text))
-
+        entry = _fetch_entry(client, base_url, model_file)
     if entry.id != model or entry.service_id != model.replace("_", "-"):
         raise ValueError(f"Marketplace identity does not match '{model}'.")
+    return stable_pin(entry)
+
+
+def _fetch_registry(client: httpx.Client, base_url: str) -> Registry:
+    response = client.get(f"{base_url}/registry.yaml")
+    response.raise_for_status()
+    return Registry.model_validate(yaml.safe_load(response.text))
+
+
+def _fetch_entry(client: httpx.Client, base_url: str, model_file: str) -> MarketplaceModel:
+    response = client.get(f"{base_url}/{model_file}")
+    response.raise_for_status()
+    return MarketplaceModel.model_validate(yaml.safe_load(response.text))
+
+
+def stable_pin(entry: MarketplaceModel) -> ModelPin:
+    """The verified stable version of an entry, as the image pin to run."""
+    model = entry.id
     if entry.kind != "model":
         raise ValueError(f"'{model}' is a template for model authors, not a forecasting model.")
     stable = entry.channels.get("stable")
@@ -117,50 +138,6 @@ def resolve_model(model: str, base_url: str | None = None) -> ModelPin:
     return ModelPin(
         image=f"{entry.source.image}:{version.image_tag}", version=version.version, commit=version.commit, entry=entry
     )
-
-
-def service_url(service_id: str) -> str:
-    """Where a marketplace service is reachable from CHAP inside the Compose network."""
-    return f"http://marketplace-{service_id}:8000"
-
-
-def model_template_request(pin: ModelPin) -> dict[str, Any]:
-    """The model template a pin describes, as the body of ``POST /v1/crud/model-templates``.
-
-    The template is named after the chapkit service id, which is what the service reports
-    as its own id, so the live service registry and the stored template line up. The
-    registry does not carry the template's user option schema; CHAP fills it in from the
-    service the first time it is registered and reachable.
-    """
-    entry = pin.entry
-    period_types = set(entry.compatibility.period_types)
-    if period_types == {"monthly"}:
-        period_type = "month"
-    elif period_types == {"weekly"}:
-        period_type = "week"
-    else:
-        period_type = "any"
-    return {
-        "name": entry.service_id,
-        "version": pin.version,
-        "source_digest": pin.commit,
-        "source_url": service_url(entry.service_id),
-        "uses_chapkit": True,
-        "display_name": entry.display_name or entry.id,
-        "description": entry.summary or "No Description",
-        "author": entry.attribution.author or "Unknown Author",
-        "organization": entry.attribution.organization,
-        "contact_email": entry.attribution.contact,
-        "citation_info": entry.attribution.citation,
-        "author_assessed_status": entry.assessed_status or "red",
-        "documentation_url": entry.source.repository,
-        "supported_period_type": period_type,
-        "required_covariates": entry.covariates.required,
-        "allow_free_additional_continuous_covariates": entry.covariates.allow_free_additional,
-        "requires_geo": entry.compatibility.requires_geo,
-        "min_prediction_periods": entry.compatibility.min_prediction_periods,
-        "max_prediction_periods": entry.compatibility.max_prediction_periods,
-    }
 
 
 def configured_model_requests(pin: ModelPin, model_template_id: int) -> list[dict[str, Any]]:

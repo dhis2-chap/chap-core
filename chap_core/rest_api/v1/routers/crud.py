@@ -84,7 +84,6 @@ from ...data_models import (
     DatasetCreate,
     JobResponse,
     ModelConfigurationCreate,
-    ModelTemplateCreate,
     ModelTemplateFromService,
     ModelTemplateRead,
     PredictionParams,
@@ -135,8 +134,8 @@ def _sync_live_chapkit_services(session: Session, orchestrator=None) -> dict[str
     A registered service that has no stored template under its version gets one,
     from its own info and config schema. Registration creates no configured models:
     the reviewed configurations of a model come from its marketplace entry, through
-    ``chap-admin install`` or a ``marketplace:`` seed entry. A template whose service
-    is gone is left as it is; ``chap-admin uninstall`` retires it.
+    ``chap-admin install``. A template whose service is gone is left as it is;
+    ``chap-admin uninstall`` retires it.
 
     Callers that already hold an orchestrator should pass it in. Building a
     fresh one here reaches around FastAPI's dependency overrides and opens a
@@ -207,13 +206,12 @@ def add_model_template_from_registered_service(session: Session, service) -> int
     config = ml_service_info_to_model_template_config(service.info, service.url, _fetch_user_options(service.url))
     wrapper = SessionWrapper(session=session)
     template_id = wrapper.add_model_template_from_yaml_config(config, source_digest=service.info.git_revision)
-    # A discovered version is what the service runs now, so it is served right away even
-    # before it has a configuration; only live versions are listed, and a configuration
-    # can only be added to a listed template.
-    for template in session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == service.info.id)).all():
-        template.is_live = template.id == template_id
-        if template.id == template_id:
-            template.uses_chapkit = True
+    # Which version is live follows the usual rule: a new version takes over from the
+    # previous live one once it has a configured model, so a service that comes up at a
+    # version nobody has configured yet does not hide the version people can run.
+    template = wrapper.get_model_template(template_id)
+    template.uses_chapkit = True
+    session.add(template)
     session.commit()
     return template_id
 
@@ -785,7 +783,8 @@ async def list_model_templates(session: Session = Depends(get_session)):
     backing CHAPKit service is currently registered (``"live"``) and still runs the
     stored source revision (``"revision_mismatch"`` otherwise). Discovery creates no
     configured models; those come from the marketplace entry through
-    ``chap-admin install``.
+    ``chap-admin install``. A newly discovered version of a stored template is listed
+    once it has a configured model.
     """
     conflicts = _sync_live_chapkit_services(session)
     model_templates = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.is_live == True)).all()
@@ -797,27 +796,6 @@ async def list_model_templates(session: Session = Depends(get_session)):
             read.health_status = LIVE if conflicts[t.name] is None else REVISION_MISMATCH
         results.append(read)
     return results
-
-
-@router.post(
-    "/model-templates",
-    response_model=ModelTemplateRead,
-    tags=["Models"],
-    summary="Store a model template version",
-)
-def add_model_template(model_template: ModelTemplateCreate, session: Session = Depends(get_session)):
-    """Store a model template version, for example a marketplace model that ``chap-admin install`` registers.
-
-    A version is write-once. Posting a stored name and version again returns the stored
-    row unchanged (and shows it again if it was retired), so the call can be repeated.
-    Posting it with another source digest is refused with 409: use a new version label.
-    """
-    wrapper = SessionWrapper(session=session)
-    try:
-        template_id = wrapper.add_model_template_version(ModelTemplateDB(**model_template.model_dump()))
-    except ModelTemplateRevisionConflict as conflict:
-        raise HTTPException(status_code=409, detail=str(conflict)) from conflict
-    return ModelTemplateRead.model_validate(wrapper.get_model_template(template_id))
 
 
 @router.post(
@@ -833,10 +811,12 @@ def add_model_template_from_service(
 ):
     """Store the template a live CHAPKit service describes, read from its own info and config schema.
 
-    This is how a custom image without a marketplace entry becomes a model in CHAP.
-    The service must be registered in the v2 service registry and reachable. 404 if it
-    is not registered, 409 if it reports no git revision or another revision than the
-    one stored under its version, 502 if it cannot be read.
+    This is how ``chap-admin install`` registers a model once its service is up, and how
+    a custom image without a marketplace entry becomes a model in CHAP. A version is
+    write-once, so repeating the call returns the stored row (and shows it again if it
+    was retired). The service must be registered in the v2 service registry and
+    reachable. 404 if it is not registered, 409 if it reports no git revision or another
+    revision than the one stored under its version, 502 if it cannot be read.
     """
     try:
         service = orchestrator.get(request.service_id)
