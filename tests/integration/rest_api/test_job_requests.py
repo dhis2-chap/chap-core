@@ -2,7 +2,6 @@
 
 from types import SimpleNamespace
 
-import fakeredis
 import pytest
 from celery import Task
 from fastapi.testclient import TestClient
@@ -14,17 +13,6 @@ from chap_core.rest_api import celery_tasks
 from chap_core.rest_api.app import app
 from chap_core.rest_api.celery_tasks import JOB_REQUEST_KW
 from chap_core.rest_api.v1 import jobs
-from chap_core.rest_api.v1.routers import crud
-
-
-@pytest.fixture
-def request_store(monkeypatch):
-    store = fakeredis.FakeRedis(decode_responses=True)
-    monkeypatch.setattr(celery_tasks, "r", store)
-    monkeypatch.setattr(jobs, "redis", store)
-    monkeypatch.setattr(crud, "redis", store)
-    monkeypatch.delenv("CHAP_API_TOKEN", raising=False)
-    return store
 
 
 @pytest.mark.parametrize(
