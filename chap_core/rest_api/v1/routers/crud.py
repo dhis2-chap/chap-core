@@ -871,14 +871,19 @@ def add_model_template_from_service(
     summary="Retire a model template",
 )
 def delete_model_template(
-    model_template_id: Annotated[int, Path(alias="modelTemplateId")], session: Session = Depends(get_session)
+    model_template_id: Annotated[int, Path(alias="modelTemplateId")],
+    all_versions: Annotated[bool, Query(alias="allVersions")] = False,
+    session: Session = Depends(get_session),
 ):
     """Hide a model template and its configured models from pickers, keeping the rows so historical backtests still resolve.
 
-    Storing the same name and version again shows the template again. 404 if the id is unknown.
+    Retiring the live version makes the newest earlier version that can run live again.
+    With ``allVersions=true`` every version of the template's name is retired instead,
+    which is what ``chap-admin uninstall`` does. Storing the same name and version again
+    shows that version again. 404 if the id is unknown.
     """
     try:
-        SessionWrapper(session=session).archive_model_template(model_template_id)
+        SessionWrapper(session=session).archive_model_template(model_template_id, all_versions=all_versions)
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     return {"message": "deleted"}

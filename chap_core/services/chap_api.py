@@ -52,8 +52,13 @@ class ChapApi:
         response = self._call("POST", "/v1/crud/model-templates/from-service", json={"service_id": service_id})
         return cast("dict[str, Any]", response)
 
-    def archive_model_template(self, model_template_id: int) -> None:
-        self._call("DELETE", f"/v1/crud/model-templates/{model_template_id}")
+    def archive_model_template(self, model_template_id: int, all_versions: bool = False) -> None:
+        params = {"allVersions": "true"} if all_versions else None
+        self._call("DELETE", f"/v1/crud/model-templates/{model_template_id}", params=params)
+
+    def runnable_model_templates(self) -> list[dict[str, Any]]:
+        """The live templates that are not retired. The listing also returns retired ones."""
+        return [template for template in self.model_templates() if not template["archived"]]
 
     def create_configured_model(self, configured_model: dict[str, Any]) -> dict[str, Any]:
         return cast("dict[str, Any]", self._call("POST", "/v1/crud/configured-models", json=configured_model))

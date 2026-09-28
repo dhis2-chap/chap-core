@@ -629,6 +629,47 @@ def test_uninstall_removes_one_model_and_retires_it_in_chap(marketplace_model, m
     assert ("DELETE", "/v1/crud/model-templates/2", None) in chap.requests
 
 
+def test_uninstall_after_an_update_retires_every_version(marketplace_model, model_deployment):
+    model = marketplace_model["id"]
+    chap = model_deployment.chap
+    install(model)
+    marketplace_model["versions"].append(
+        {**marketplace_model["versions"][0], "version": "0.2.0", "commit": "a" * 40, "image_tag": "sha-aaaaaaa"}
+    )
+    marketplace_model["channels"]["stable"] = "0.2.0"
+    update(model)
+    uninstall(model)
+    # No earlier version takes over: the model is gone from the deployment.
+    assert [(t["version"], t["archived"]) for t in chap.templates] == [("0.1.0", True), ("0.2.0", True)]
+    assert all(m["archived"] for m in chap.configured_models)
+
+
+def test_failed_reinstall_after_an_uninstall_retires_the_template_again(marketplace_model, model_deployment):
+    model = marketplace_model["id"]
+    chap = model_deployment.chap
+    install(model)
+    uninstall(model)
+    handle = chap.handle
+
+    def refuse_configurations(request):
+        if request.url.path == "/v1/crud/configured-models":
+            return httpx.Response(500, json={"detail": "database down"})
+        return handle(request)
+
+    chap.handle = refuse_configurations
+    with pytest.raises(SystemExit):
+        install(model)
+    # The reinstall showed the retired template again, so the rollback must retire it again.
+    assert [t["archived"] for t in chap.templates] == [True]
+
+
+def test_custom_image_can_reuse_the_name_of_an_uninstalled_model(model_deployment):
+    install("custom", image="example/model:v1", accept_risk=True)
+    uninstall("custom")
+    install("custom", image="example/model:v1", accept_risk=True)
+    assert [t["archived"] for t in model_deployment.chap.templates] == [False]
+
+
 def test_uninstall_of_a_model_chap_does_not_list_still_removes_the_service(model_deployment, caplog):
     install("custom", image="example/model:v1", accept_risk=True)
     model_deployment.chap.templates.clear()

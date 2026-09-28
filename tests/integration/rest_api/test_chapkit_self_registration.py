@@ -339,6 +339,18 @@ def test_retiring_the_live_version_hands_live_status_back_to_the_previous_one(cl
     assert [m["name"] for m in client.get("/v1/crud/configured-models").json()] == ["test-model"]
 
 
+def test_retiring_all_versions_leaves_no_version_live(client, register_service):
+    first_id = _install(client, register_service)["id"]
+    client.post("/v1/crud/configured-models", json={"name": "default", "modelTemplateId": first_id})
+    second_id = _install(client, register_service, version="1.0.1", git_revision="b" * 40)["id"]
+    client.post("/v1/crud/configured-models", json={"name": "default", "modelTemplateId": second_id})
+
+    assert client.delete(f"/v1/crud/model-templates/{second_id}?allVersions=true").status_code == 200
+    template = _test_model(client)
+    assert (template["version"], template["archived"]) == ("1.0.1", True)
+    assert client.get("/v1/crud/configured-models").json() == []
+
+
 def test_template_archived_by_an_earlier_chap_comes_back_when_its_service_registers(
     client, register_service, db_engine
 ):

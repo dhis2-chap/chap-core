@@ -186,15 +186,15 @@ def _remove(model: str, compose_file: tuple[Path, ...], *, delete_data: bool, ap
 
 
 def _retire_template(api: "ChapApi", template_name: str | None) -> None:
-    """Archive the live template the overlay recorded for the service, if CHAP still lists it."""
+    """Archive every version of the template the overlay recorded for the service, if CHAP still lists it."""
     if template_name is None:
         logger.info("The overlay records no model template for this service, so nothing is retired in CHAP.")
         return
-    live = [template for template in api.model_templates() if template["name"] == template_name]
+    live = [template for template in api.runnable_model_templates() if template["name"] == template_name]
     if not live:
         logger.info("Model template %s is not listed by CHAP at %s, so nothing is retired.", template_name, api.url)
         return
-    api.archive_model_template(live[0]["id"])
+    api.archive_model_template(live[0]["id"], all_versions=True)
     logger.info("Retired model template %s and its configured models in CHAP at %s.", template_name, api.url)
 
 
@@ -385,7 +385,7 @@ def _deploy(
         pin = resolve_model(model, registry)
         image, version = pin.image, pin.version
     _check_chap(api)
-    live_templates = api.model_templates()
+    live_templates = api.runnable_model_templates()
     live_before = {template["id"] for template in live_templates}
     own_template = previous.get("x-chap-template") if previous is not None else None
     taken = {template["name"] for template in live_templates} - {own_template}

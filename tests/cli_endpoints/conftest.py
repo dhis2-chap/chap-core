@@ -64,10 +64,15 @@ class FakeChap:
             )
         if request.method == "DELETE" and path.startswith("/v1/crud/model-templates/"):
             template = next(t for t in self.templates if t["id"] == int(path.rsplit("/", 1)[1]))
-            template["archived"] = True
-            for model in self.configured_models:
-                if model["modelTemplateId"] == template["id"]:
-                    model["archived"] = True
+            all_versions = request.url.params.get("allVersions") == "true"
+            retired = [t for t in self.templates if t["name"] == template["name"]] if all_versions else [template]
+            for version in retired:
+                version["archived"] = True
+                for model in self.configured_models:
+                    if model["modelTemplateId"] == version["id"]:
+                        model["archived"] = True
+            if all_versions:
+                return httpx.Response(200, json={"message": "deleted"})
             # Like CHAP, retiring the live version hands live status back to the newest runnable one.
             runnable = [
                 t

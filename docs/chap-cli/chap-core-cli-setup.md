@@ -94,8 +94,8 @@ R-INLA models on Apple Silicon. The platform is retained for subsequent updates.
 chap-admin uninstall chapkit_simple_multistep_model
 ```
 
-The model template and its configured models are retired in CHAP so they leave
-the pickers; they are never deleted, since evaluations reference them. The
+Every version of the model template and their configured models are retired in
+CHAP so they leave the pickers; they are never deleted, since evaluations reference them. The
 service is then stopped and removed. The model's data volume is kept so a later
 install resumes from it; pass `--delete-data` to remove it permanently.
 Uninstalling the last model leaves `compose.marketplace.yml` in place with no

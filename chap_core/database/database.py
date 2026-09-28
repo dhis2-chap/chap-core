@@ -186,19 +186,28 @@ class SessionWrapper:
         self._make_live_template_version(model_name, template_id)
         return template_id
 
-    def archive_model_template(self, model_template_id: int) -> None:
+    def archive_model_template(self, model_template_id: int, all_versions: bool = False) -> None:
         """Hide a template and its configured models from pickers. Rows stay, as backtests reference them.
 
-        Retiring the live version hands live status back to the newest version that is
-        not retired and can run, so that undoing a failed update leaves the model as it was.
+        With ``all_versions``, every version of the template's name is retired, which is
+        what taking a model out of a deployment means. Otherwise only this version is, and
+        retiring the live version hands live status back to the newest version that is not
+        retired and can run, so that undoing a failed update leaves the model as it was.
         """
         model_template = self.get_model_template(model_template_id)
-        model_template.archived = True
-        for configured_model in model_template.configured_models:
-            configured_model.archived = True
-        self.session.add(model_template)
+        if all_versions:
+            retired = list(
+                self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == model_template.name)).all()
+            )
+        else:
+            retired = [model_template]
+        for template in retired:
+            template.archived = True
+            for configured_model in template.configured_models:
+                configured_model.archived = True
+            self.session.add(template)
         self.session.commit()
-        if not model_template.is_live:
+        if all_versions or not model_template.is_live:
             return
         runnable = self.session.exec(
             select(ModelTemplateDB)
