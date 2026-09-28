@@ -5,7 +5,7 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 import psycopg2
 import sqlalchemy
@@ -285,7 +285,10 @@ class SessionWrapper:
             .where(ConfiguredModelDB.is_live == True, ModelTemplateDB.is_live == True)
         )
 
-    def get_configured_models(self) -> list[ModelSpecRead]:
+    def get_configured_models(
+        self,
+        template_health: dict[tuple[str, str | None], Literal["live", "revision_mismatch"]] | None = None,
+    ) -> list[ModelSpecRead]:
         # TODO: using ModelSpecRead for backwards compatibility, should in future return ConfiguredModelDB?
 
         # get configured models from db, excluding those with archived templates
@@ -325,6 +328,9 @@ class SessionWrapper:
             # NOTE: the sequence is important, starting with template data and add/overwrite with configured model data
             # ...in case of conflicting attrs, eg id and name
             merged_data = {**template_data, **configured_data}
+            if template_health is not None and configured_model.model_template.uses_chapkit:
+                template = configured_model.model_template
+                merged_data["health_status"] = template_health.get((template.name, template.version))
             configured_models_data.append(merged_data)
 
         # debug
