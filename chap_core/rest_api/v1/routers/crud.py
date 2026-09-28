@@ -68,7 +68,9 @@ from chap_core.rest_api.celery_tasks import (
 )
 from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.experimental import api_experimental
+from chap_core.rest_api.services.orchestrator import Orchestrator
 from chap_core.rest_api.services.schemas import MLServiceInfo
+from chap_core.rest_api.v2.dependencies import get_orchestrator
 from chap_core.services import prediction_setup_service
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
@@ -922,7 +924,9 @@ async def list_model_templates(session: Session = Depends(get_session)):
     tags=["Models"],
     summary="Browse configured (ready-to-run) models",
 )
-def list_configured_models(session: Session = Depends(get_session)):
+def list_configured_models(
+    session: Session = Depends(get_session), orchestrator: Orchestrator = Depends(get_orchestrator)
+):
     """List every configured model — a template + user-chosen options bundled into something you can actually run.
 
     Use this to populate model pickers in backtest / prediction creation flows. Each
@@ -930,11 +934,9 @@ def list_configured_models(session: Session = Depends(get_session)):
     surface "Model X (CRPS-tuned, 12 lags, ERA5)" or similar in a UI.
     Health is read from the service registry without syncing or archiving templates.
     """
-    from chap_core.rest_api.v2.dependencies import get_orchestrator
-
     template_health: dict[tuple[str, str | None], Literal["live", "revision_mismatch"]] = {}
     try:
-        services = get_orchestrator().get_all().services
+        services = orchestrator.get_all().services
     except Exception:
         logger.debug("Could not reach service registry, configured model health is unknown")
     else:
