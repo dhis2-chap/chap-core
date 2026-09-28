@@ -255,6 +255,13 @@ def test_check_unused_covariates_warns_when_allow_free_but_column_not_listed():
     assert any("mean_temperature" in i.message for i in issues)
 
 
+def test_check_unused_covariates_counts_covariates_the_model_receives():
+    dataset = DataSet.from_csv(LAOS_SUBSET, FullData)
+    config = ModelTemplateConfigV2(name="test_model", required_covariates=["population"])
+    issues = check_unused_covariates(dataset, config, model_covariates=["rainfall", "mean_temperature"])
+    assert issues == []
+
+
 def test_validate_weekly_data_against_monthly_model():
     dataset = DataSet.from_csv(NICARAGUA_WEEKLY_SUBSET, FullData)
     config = ModelTemplateConfigV2(

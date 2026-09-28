@@ -121,18 +121,27 @@ def _check_stored_config(sent: dict, stored: dict) -> None:
 
     A chapkit service answers a config it cannot interpret with HTTP 201 and its own
     defaults, so without this check a model would silently run with a configuration
-    other than the one asked for.
+    other than the one asked for. A value the service dropped points at a service built
+    on a chapkit version that does not read the configuration. A value it stored
+    differently was converted or replaced by the service, most often because it does not
+    have the type the option declares.
     """
-    mismatched = {key: (value, stored.get(key)) for key, value in sent.items() if stored.get(key) != value}
-    if mismatched:
-        details = ", ".join(
-            f"{key}: sent {sent_value!r}, stored {stored_value!r}"
-            for key, (sent_value, stored_value) in mismatched.items()
-        )
+    dropped = [key for key in sent if key not in stored]
+    if dropped:
         raise ValueError(
-            f"The chapkit service did not store the model configuration it was sent ({details}). "
+            f"The chapkit service did not store these model configuration options: {', '.join(dropped)}. "
             "The service may be built on a chapkit version that does not accept this configuration; "
             "rebuild it against chapkit >= 2.1.0."
+        )
+    converted = {key: (value, stored[key]) for key, value in sent.items() if stored[key] != value}
+    if converted:
+        details = ", ".join(
+            f"{key}: sent {sent_value!r}, stored {stored_value!r}"
+            for key, (sent_value, stored_value) in converted.items()
+        )
+        raise ValueError(
+            f"The chapkit service stored different model configuration values than it was sent ({details}). "
+            "It converted or replaced them; check that each value has the type the model declares for that option."
         )
 
 
@@ -294,7 +303,8 @@ class ExternalChapkitModelTemplate:
         logger.info(f"Creating model configuration with name {name} at {self.rest_api_url}. Data: {config_data}")
 
         config_response = self.client.create_config(config_data)
-        _check_stored_config(payload, config_response.data.model_dump())
+        stored = config_response.data.model_dump()
+        _check_stored_config(payload, stored)
         configuration_id = str(config_response.id)
 
         # get all configs and assert that configuration_id is there
@@ -311,6 +321,7 @@ class ExternalChapkitModelTemplate:
             model_information=self.model_template_config,
             client=self.client,
             prediction_periods=prediction_length,
+            additional_continuous_covariates=stored.get("additional_continuous_covariates"),
         )
 
     @property
@@ -382,6 +393,7 @@ class ExternalChapkitModel(ExternalModelBase):
         model_information: ModelTemplateConfigV2 | None = None,
         client: CHAPKitRestAPIWrapper | None = None,
         prediction_periods: int | None = None,
+        additional_continuous_covariates: list[str] | None = None,
     ):
         self.model_name = model_name
         self.rest_api_url = rest_api_url
@@ -394,10 +406,19 @@ class ExternalChapkitModel(ExternalModelBase):
         self._train_id: str | None = None
         self._model_information = model_information
         self._prediction_periods = prediction_periods
+        self._additional_continuous_covariates = additional_continuous_covariates
 
     @property
     def model_information(self):
         return self._model_information
+
+    @property
+    def additional_continuous_covariates(self) -> list[str] | None:
+        """The additional covariates the service stored for this configuration, or None if unknown.
+
+        This includes the service's own default when chap-core sent none.
+        """
+        return self._additional_continuous_covariates
 
     def _train_horizon(self) -> int | None:
         """The horizon to request at train time, clamped to the model's declared bounds.
