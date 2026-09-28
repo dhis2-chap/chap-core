@@ -166,7 +166,9 @@ def _sync_live_chapkit_services(
         if conflict is not None:
             logger.warning(str(conflict))
             continue
-        if _stored_template(session, service.info) is not None:
+        stored = _stored_template(session, service.info)
+        if stored is not None:
+            _revive_stale_archived_template(session, stored)
             continue
         try:
             add_model_template_from_registered_service(session, service)
@@ -177,6 +179,28 @@ def _sync_live_chapkit_services(
             session.rollback()
             logger.warning("Could not fetch config schema from %s, will retry next sync", service.url, exc_info=True)
     return conflicts
+
+
+def _revive_stale_archived_template(session: Session, template: ModelTemplateDB) -> None:
+    """Show again a template that an earlier CHAP archived because its service had gone away.
+
+    Earlier versions archived a chapkit template whenever its service dropped out of the
+    registry, and left its configured models as they were. Such a row is archived but
+    still has configured models that are not, which retiring a template never leaves
+    behind, so a deliberate retire stays in place.
+    """
+    if not template.archived:
+        return
+    live_configuration = session.exec(
+        select(ConfiguredModelDB.id).where(
+            ConfiguredModelDB.model_template_id == template.id, col(ConfiguredModelDB.archived).is_(False)
+        )
+    ).first()
+    if live_configuration is None:
+        return
+    template.archived = False
+    session.add(template)
+    session.commit()
 
 
 def _stored_template(session: Session, info: MLServiceInfo) -> ModelTemplateDB | None:

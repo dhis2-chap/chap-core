@@ -18,7 +18,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, select
 
 import chap_core.database.tables  # noqa: F401 - ensure all table models are registered with SQLModel
-from chap_core.database.model_templates_and_config_tables import ModelTemplateDB
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 from chap_core.rest_api.app import app
 from chap_core.rest_api.services.orchestrator import Orchestrator
 from chap_core.rest_api.services.schemas import MLServiceInfo, RegistrationRequest
@@ -337,6 +337,34 @@ def test_retiring_the_live_version_hands_live_status_back_to_the_previous_one(cl
     live = _test_model(client)
     assert (live["version"], live["archived"]) == ("1.0.0", False)
     assert [m["name"] for m in client.get("/v1/crud/configured-models").json()] == ["test-model"]
+
+
+def test_template_archived_by_an_earlier_chap_comes_back_when_its_service_registers(
+    client, register_service, db_engine
+):
+    """Earlier versions archived a template whose service went away and left its configured models."""
+    with Session(db_engine) as session:
+        template = ModelTemplateDB(
+            name="test-model", version="1.0.0", source_digest="a" * 40, uses_chapkit=True, archived=True, is_live=True
+        )
+        session.add(template)
+        session.commit()
+        session.add(ConfiguredModelDB(name="test-model", model_template_id=template.id, uses_chapkit=True))
+        session.commit()
+
+    register_service()
+    assert _test_model(client)["archived"] is False
+    assert [m["name"] for m in client.get("/v1/crud/configured-models").json()] == ["test-model"]
+
+
+def test_retired_template_stays_retired_while_its_service_runs(client, register_service):
+    template_id = _install(client, register_service)["id"]
+    client.post("/v1/crud/configured-models", json={"name": "default", "modelTemplateId": template_id})
+    assert client.delete(f"/v1/crud/model-templates/{template_id}").status_code == 200
+
+    register_service()
+    assert _test_model(client)["archived"] is True
+    assert client.get("/v1/crud/configured-models").json() == []
 
 
 def test_template_from_a_registered_service(client, register_service):

@@ -11,6 +11,7 @@ from chap_core.cli import app
 from chap_core.cli_endpoints import marketplace
 from chap_core.cli_endpoints.marketplace import install, install_all, uninstall, update
 from chap_core.services.model_marketplace import configured_model_requests, list_models, resolve_model
+from tests.cli_endpoints.conftest import CUSTOM_SERVICE_INFO
 
 
 def test_resolves_stable_not_latest(marketplace_model, marketplace_http):
@@ -194,12 +195,12 @@ def test_install_can_be_repeated_after_a_failed_configuration(marketplace_model,
     chap.handle = refuse_configurations
     with pytest.raises(SystemExit):
         install(model)
-    assert len(chap.templates) == 1 and chap.configured_models == []
+    assert [t["archived"] for t in chap.templates] == [True] and chap.configured_models == []
     assert not model_deployment.overlay.exists()
 
     chap.handle = handle
     install(model)
-    assert len(chap.templates) == 1 and len(chap.configured_models) == 2
+    assert [t["archived"] for t in chap.templates] == [False] and len(chap.configured_models) == 2
     assert model_deployment.overlay.exists()
 
 
@@ -302,7 +303,86 @@ def test_install_waits_for_the_pinned_revision_to_register(marketplace_model, mo
     with pytest.raises(SystemExit):
         install(marketplace_model["id"])
     assert f"with git revision {marketplace_model['versions'][0]['commit']}" in caplog.text
-    assert model_deployment.chap.templates == []
+    # The template the earlier build registered is left as it was, and gets no configurations.
+    assert [(t["sourceDigest"], t["archived"]) for t in model_deployment.chap.templates] == [("b" * 40, False)]
+    assert model_deployment.chap.configured_models == []
+    assert not model_deployment.overlay.exists()
+
+
+def test_failed_install_retires_the_template_its_service_registered(marketplace_model, model_deployment, monkeypatch):
+    """Registration makes a first version live at once, so a failed install must take it back."""
+    monkeypatch.setattr(marketplace, "REGISTRATION_TIMEOUT", 0)
+    model_deployment.reports = {"git_revision": "b" * 40}
+    with pytest.raises(SystemExit):
+        install(marketplace_model["id"])
+    chap = model_deployment.chap
+    assert [(t["name"], t["archived"]) for t in chap.templates] == [(marketplace_model["service_id"], True)]
+    assert chap.services == []
+    assert not model_deployment.overlay.exists()
+
+
+def test_interrupted_install_retires_the_template_and_removes_the_service(marketplace_model, model_deployment):
+    chap = model_deployment.chap
+    handle = chap.handle
+
+    def interrupt_configurations(request):
+        if request.url.path == "/v1/crud/configured-models" and chap.configured_models:
+            raise KeyboardInterrupt
+        return handle(request)
+
+    chap.handle = interrupt_configurations
+    with pytest.raises(KeyboardInterrupt):
+        install(marketplace_model["id"])
+    assert [t["archived"] for t in chap.templates] == [True]
+    assert model_deployment.runner.call_args.args[0][-4:] == [
+        "rm",
+        "--stop",
+        "--force",
+        f"marketplace-{marketplace_model['service_id']}",
+    ]
+    assert not model_deployment.overlay.exists()
+
+
+def test_failed_redeploy_of_the_live_version_keeps_it_live(marketplace_model, model_deployment):
+    model = marketplace_model["id"]
+    chap = model_deployment.chap
+    install(model)
+    handle = chap.handle
+
+    def refuse_configurations(request):
+        if request.url.path == "/v1/crud/configured-models":
+            return httpx.Response(500, json={"detail": "database down"})
+        return handle(request)
+
+    chap.handle = refuse_configurations
+    with pytest.raises(SystemExit):
+        update(model, platform="linux/amd64")
+    assert [(t["version"], t["isLive"], t["archived"]) for t in chap.templates] == [("0.1.0", True, False)]
+    assert not any(m["archived"] for m in chap.configured_models)
+
+
+def test_install_refuses_a_service_that_reports_another_model_id(marketplace_model, model_deployment, caplog):
+    model_deployment.reports = {"id": "chapkit-ewars-model"}
+    with pytest.raises(SystemExit):
+        install(marketplace_model["id"])
+    assert "registered as 'chapkit-ewars-model'" in caplog.text
+    chap = model_deployment.chap
+    # What the impostor registered is taken back, so the real service registers again.
+    assert [(t["name"], t["archived"]) for t in chap.templates] == [("chapkit-ewars-model", True)]
+    assert chap.services == []
+    assert chap.configured_models == []
+    assert not model_deployment.overlay.exists()
+
+
+def test_custom_image_cannot_take_over_a_model_another_install_serves(model_deployment, caplog):
+    chap = model_deployment.chap
+    chap.register("marketplace-other", CUSTOM_SERVICE_INFO)
+    with pytest.raises(SystemExit):
+        install("custom", image="example/model:v1", accept_risk=True)
+    assert "already a model in CHAP" in caplog.text
+    assert [(t["name"], t["archived"]) for t in chap.templates] == [("custom-model", False)]
+    assert chap.configured_models == []
+    assert chap.services == []
     assert not model_deployment.overlay.exists()
 
 

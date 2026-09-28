@@ -53,10 +53,11 @@ Installing does three things, in this order:
 3. The service is written into `compose.marketplace.yml` beside the first base
    file.
 
-A service that does not start, does not register within a minute, or reports
-another commit than the verified one is removed again and nothing is written,
-so a broken image cannot be installed. If adding the configurations fails, the
-template registered for the service is retired again. The command can be repeated.
+A service that does not start, does not register within a minute, reports
+another commit than the verified one, or registers under another model's id is
+removed again, and the template its registration stored is retired, so a broken
+image cannot be installed. The same happens if adding the configurations fails or
+the command is interrupted. The command can be repeated.
 
 Updating registers the new version as a new template version with its
 configurations. Earlier versions and the evaluations made with them are untouched.
@@ -126,7 +127,8 @@ chap-admin update my_model --image ghcr.io/my-org/my-model:v2 --accept-risk
 
 A custom image is installed the same way, from what the running service
 describes, but has no marketplace entry to take configurations from, so it gets
-one default configuration. Updating a custom model without `--image` pulls its
+one default configuration. It is refused if it registers under the id of a model
+that another installation already serves. Updating a custom model without `--image` pulls its
 existing image reference again; it never switches to a marketplace model
 automatically. Prefer version tags or digests for reproducible custom
 installations.

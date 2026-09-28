@@ -36,9 +36,17 @@ class FakeChap:
         self.requests: list[tuple[str, str, object]] = []
 
     def register(self, service_name: str, info: dict[str, Any]) -> None:
-        """What a chapkit container does when it starts: register under its own id from its hostname."""
+        """What a chapkit container does when it starts: register under its own id from its hostname.
+
+        Like CHAP, registration stores the template of a version it does not have yet.
+        """
         self.services = [service for service in self.services if service["id"] != info["id"]]
         self.services.append({"id": info["id"], "url": f"http://{service_name}:8000", "info": info})
+        stored = [t for t in self.templates if (t["name"], t["version"]) == (info["id"], info["version"])]
+        if not stored:
+            self._store_template(
+                {"name": info["id"], "version": info["version"], "source_digest": info["git_revision"]}
+            )
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         path: str = request.url.path
@@ -81,6 +89,11 @@ class FakeChap:
         if (request.method, path) == ("POST", "/v1/crud/configured-models"):
             model = {"id": len(self.configured_models) + 1, "archived": False, **body}
             model["modelTemplateId"] = model.pop("model_template_id")
+            # Like CHAP, a version with a configured model takes over as the live version.
+            template = next(t for t in self.templates if t["id"] == model["modelTemplateId"])
+            for other in self.templates:
+                if other["name"] == template["name"]:
+                    other["isLive"] = other is template
             # Like CHAP, an identical configuration is returned, not stored twice.
             identity = {key: model[key] for key in ("modelTemplateId", "name", "user_option_values")}
             stored = next((m for m in self.configured_models if {k: m[k] for k in identity} == identity), None)
@@ -100,9 +113,7 @@ class FakeChap:
                 return httpx.Response(409, json={"detail": "A version is write-once"})
             stored["archived"] = False
             return httpx.Response(200, json=stored)
-        for template in self.templates:
-            if template["name"] == body["name"]:
-                template["isLive"] = False
+        # Like CHAP, a new version is live at once only when no version of the name is live.
         template = {
             "id": len(self.templates) + 1,
             "name": body["name"],
@@ -110,7 +121,7 @@ class FakeChap:
             "sourceDigest": body.get("source_digest"),
             "sourceUrl": body.get("source_url"),
             "usesChapkit": body.get("uses_chapkit", False),
-            "isLive": True,
+            "isLive": not any(t["isLive"] for t in self.templates if t["name"] == body["name"]),
             "archived": False,
         }
         self.templates.append(template)
@@ -157,10 +168,17 @@ def model_deployment(tmp_path, monkeypatch, mocker, fake_chap, marketplace_model
     compose.write_text("services:\n  chap:\n    image: chap:test\n")
     deployments = []
     deployment = SimpleNamespace(
-        overlay=tmp_path / "compose.marketplace.yml", deployments=deployments, chap=fake_chap, registers=True
+        overlay=tmp_path / "compose.marketplace.yml",
+        deployments=deployments,
+        chap=fake_chap,
+        registers=True,
+        reports={},
     )
 
     def service_info(service: dict) -> dict[str, Any]:
+        return {**reported_info(service), **deployment.reports}
+
+    def reported_info(service: dict) -> dict[str, Any]:
         if service["x-chap-custom"]:
             return CUSTOM_SERVICE_INFO
         tag = service["image"].rsplit(":", 1)[-1]

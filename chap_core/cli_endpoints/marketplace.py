@@ -266,21 +266,32 @@ def _check_chap(api: "ChapApi") -> None:
     api.services()
 
 
-def _register_service(api: "ChapApi", service_name: str, pin: "ModelPin | None") -> str:
+def _register_service(api: "ChapApi", service_name: str, pin: "ModelPin | None", taken: set[str]) -> str:
     """Store the template of a just started service in CHAP and give it its configurations.
 
     The service's own id is only known once it has registered, so it is found by the
     hostname it registered from; an update drops the previous container's registration
     before starting the new one, so the registration seen is the new container's. A
-    marketplace service must also report the pinned commit. Returns the template name.
+    marketplace service must report the entry's service id and the pinned commit. A
+    custom service must not register under a model name in ``taken``, which another
+    install already serves. Returns the template name.
     """
     from chap_core.services.model_marketplace import configured_model_requests
 
     deadline = time.monotonic() + REGISTRATION_TIMEOUT
     while True:
-        registered = [
-            service for service in api.services() if service["url"].split("//", 1)[-1].split(":")[0] == service_name
-        ]
+        registered = [service for service in api.services() if _hostname(service) == service_name]
+        for service in registered:
+            if pin is not None and service["id"] != pin.entry.service_id:
+                raise ValueError(
+                    f"Service {service_name} registered as '{service['id']}', but the marketplace entry is "
+                    f"'{pin.entry.service_id}'. Refusing to register it under another model's name."
+                )
+            if pin is None and service["id"] in taken:
+                raise ValueError(
+                    f"Service {service_name} registered as '{service['id']}', which is already a model in "
+                    f"CHAP at {api.url}. Refusing to replace it with a custom image."
+                )
         if pin is not None:
             registered = [service for service in registered if service["info"].get("git_revision") == pin.commit]
         if registered:
@@ -298,14 +309,8 @@ def _register_service(api: "ChapApi", service_name: str, pin: "ModelPin | None")
         requests = [{"name": "default", "model_template_id": template["id"], "user_option_values": {}}]
     else:
         requests = configured_model_requests(pin, template["id"])
-    try:
-        for request in requests:
-            api.create_configured_model(request)
-    except DEPLOYMENT_ERRORS:
-        # Retire what this call registered, so CHAP does not keep a live version whose
-        # container the caller is about to remove or roll back.
-        api.archive_model_template(template["id"])
-        raise
+    for request in requests:
+        api.create_configured_model(request)
     logger.info(
         "Registered model template %s version %s (id %s) with %d configured models in CHAP at %s.",
         template["name"],
@@ -315,6 +320,29 @@ def _register_service(api: "ChapApi", service_name: str, pin: "ModelPin | None")
         api.url,
     )
     return str(template["name"])
+
+
+def _hostname(service: dict[str, Any]) -> str:
+    return str(service["url"]).split("//", 1)[-1].split(":")[0]
+
+
+def _undo_registration(api: "ChapApi", service_name: str, pin: "ModelPin | None", live_before: set[int]) -> None:
+    """Take back what a failed run left in CHAP, before its container is removed or rolled back.
+
+    A template of this model that is live now but was not before the run was made live by
+    it: by the service's own registration, which makes a first version live at once, or
+    by the configurations posted for it. Retiring it hands live status back to the version
+    the restored container runs. The run's registrations are dropped, so a service whose
+    registration it overwrote registers again.
+    """
+    registered = [service for service in api.services() if _hostname(service) == service_name]
+    names = {service["id"] for service in registered} | ({pin.entry.service_id} if pin is not None else set())
+    for template in api.model_templates():
+        if template["name"] in names and template["id"] not in live_before:
+            api.archive_model_template(template["id"])
+            logger.info("Retired model template %s version %s in CHAP.", template["name"], template["version"])
+    for service in registered:
+        api.deregister_service(service["id"])
 
 
 def _deploy(
@@ -357,6 +385,10 @@ def _deploy(
         pin = resolve_model(model, registry)
         image, version = pin.image, pin.version
     _check_chap(api)
+    live_templates = api.model_templates()
+    live_before = {template["id"] for template in live_templates}
+    own_template = previous.get("x-chap-template") if previous is not None else None
+    taken = {template["name"] for template in live_templates} - {own_template}
 
     # Retain operator settings and the data volume when updating a model.
     if previous is not None:
@@ -416,8 +448,12 @@ def _deploy(
             if previous is not None and previous.get("x-chap-template"):
                 api.deregister_service(previous["x-chap-template"])
             subprocess.run([*pending_command, *up], check=True)
-            service["x-chap-template"] = _register_service(api, service_name, pin)
+            service["x-chap-template"] = _register_service(api, service_name, pin, taken)
         except (*DEPLOYMENT_ERRORS, KeyboardInterrupt):
+            try:
+                _undo_registration(api, service_name, pin, live_before)
+            except DEPLOYMENT_ERRORS as error:
+                logger.warning("Could not take back the registration in CHAP: %s", error)
             if previous is not None:
                 logger.warning("Update failed; restoring the previous model service.")
                 if previous_image_id is not None:
