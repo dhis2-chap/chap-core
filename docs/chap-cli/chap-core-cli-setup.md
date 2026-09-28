@@ -55,10 +55,15 @@ Installing does three things, in this order:
 
 A service that does not start, does not register within a minute, or reports
 another commit than the verified one is removed again and nothing is written,
-so a broken image cannot be installed. The command can be repeated.
+so a broken image cannot be installed. If adding the configurations fails, the
+template registered for the service is retired again. The command can be repeated.
 
 Updating registers the new version as a new template version with its
 configurations. Earlier versions and the evaluations made with them are untouched.
+Before the new container starts, the old container's registration in CHAP is
+dropped so the new one is what gets registered; when the deployment sets
+`SERVICEKIT_REGISTRATION_KEY`, export it in the shell running `chap-admin` too.
+A failed update restores the previous container and the previous template version.
 
 If your deployment uses different base files, supply them in the same order as
 when starting CHAP:

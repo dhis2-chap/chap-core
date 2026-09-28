@@ -43,7 +43,7 @@ class ChapApi:
             except ValueError:
                 detail = response.text
             raise ChapApiError(f"CHAP at {self.url} answered {response.status_code} for {method} {path}: {detail}")
-        return response.json()
+        return response.json() if response.content else None
 
     def model_templates(self) -> list[dict[str, Any]]:
         return cast("list[dict[str, Any]]", self._call("GET", "/v1/crud/model-templates"))
@@ -60,3 +60,13 @@ class ChapApi:
 
     def services(self) -> list[dict[str, Any]]:
         return cast("list[dict[str, Any]]", self._call("GET", "/v2/services")["services"])
+
+    def deregister_service(self, service_id: str) -> None:
+        """Drop a service's registration. Needs SERVICEKIT_REGISTRATION_KEY when the deployment sets one."""
+        key = os.getenv("SERVICEKIT_REGISTRATION_KEY")
+        headers = {"X-Service-Key": key} if key else {}
+        try:
+            self._call("DELETE", f"/v2/services/{service_id}", headers=headers)
+        except ChapApiError as error:
+            if "answered 404" not in str(error):
+                raise

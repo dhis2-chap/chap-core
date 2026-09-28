@@ -145,11 +145,12 @@ def configured_model_requests(pin: ModelPin, model_template_id: int) -> list[dic
 
     A registry ``config`` is the flat object the chapkit service accepts. Its reserved
     BaseConfig keys are split out: the covariate list is stored as such, and the horizon
-    is dropped because CHAP sets it per run.
+    is dropped because CHAP sets it per run. An entry without configurations gets one
+    ``default`` configuration with the service defaults, so the model can run.
     """
+    configurations = {name: dict(c.config) for name, c in pin.entry.configurations.items()} or {"default": {}}
     requests = []
-    for name, configuration in pin.entry.configurations.items():
-        config = dict(configuration.config)
+    for name, config in configurations.items():
         covariates = config.pop("additional_continuous_covariates", pin.entry.covariates.defaults)
         for key in RESERVED_CONFIG_KEYS:
             config.pop(key, None)

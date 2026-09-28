@@ -10,7 +10,7 @@ from typing import cast
 import psycopg2
 import sqlalchemy
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, SQLModel, col, create_engine, select
 from sqlmodel.sql.expression import SelectOfScalar
 
 from chap_core.api_types import BacktestParams
@@ -178,13 +178,29 @@ class SessionWrapper:
         return template_id
 
     def archive_model_template(self, model_template_id: int) -> None:
-        """Hide a template and its configured models from pickers. Rows stay, as backtests reference them."""
+        """Hide a template and its configured models from pickers. Rows stay, as backtests reference them.
+
+        Retiring the live version hands live status back to the newest version that is
+        not retired and can run, so that undoing a failed update leaves the model as it was.
+        """
         model_template = self.get_model_template(model_template_id)
         model_template.archived = True
         for configured_model in model_template.configured_models:
             configured_model.archived = True
         self.session.add(model_template)
         self.session.commit()
+        if not model_template.is_live:
+            return
+        runnable = self.session.exec(
+            select(ModelTemplateDB)
+            .join(ConfiguredModelDB, col(ConfiguredModelDB.model_template_id) == col(ModelTemplateDB.id))
+            .where(ModelTemplateDB.name == model_template.name, col(ModelTemplateDB.archived).is_(False))
+            .order_by(col(ModelTemplateDB.id).desc())
+        ).first()
+        if runnable is not None:
+            model_template.is_live = False
+            runnable.is_live = True
+            self.session.commit()
 
     def add_model_template_from_yaml_config(
         self, model_template_config: ModelTemplateConfigV2, source_digest: str | None = None

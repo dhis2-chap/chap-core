@@ -270,9 +270,9 @@ def _register_service(api: "ChapApi", service_name: str, pin: "ModelPin | None")
     """Store the template of a just started service in CHAP and give it its configurations.
 
     The service's own id is only known once it has registered, so it is found by the
-    hostname it registered from. A marketplace service must report the pinned commit;
-    until it does, the registration seen may be the previous container's. Returns the
-    template name.
+    hostname it registered from; an update drops the previous container's registration
+    before starting the new one, so the registration seen is the new container's. A
+    marketplace service must also report the pinned commit. Returns the template name.
     """
     from chap_core.services.model_marketplace import configured_model_requests
 
@@ -298,8 +298,14 @@ def _register_service(api: "ChapApi", service_name: str, pin: "ModelPin | None")
         requests = [{"name": "default", "model_template_id": template["id"], "user_option_values": {}}]
     else:
         requests = configured_model_requests(pin, template["id"])
-    for request in requests:
-        api.create_configured_model(request)
+    try:
+        for request in requests:
+            api.create_configured_model(request)
+    except DEPLOYMENT_ERRORS:
+        # Retire what this call registered, so CHAP does not keep a live version whose
+        # container the caller is about to remove or roll back.
+        api.archive_model_template(template["id"])
+        raise
     logger.info(
         "Registered model template %s version %s (id %s) with %d configured models in CHAP at %s.",
         template["name"],
@@ -407,6 +413,8 @@ def _deploy(
         pending_command = [*command, "-f", str(pending)]
         up = ["up", "-d", "--no-deps", "--wait", "--wait-timeout", "120", service_name]
         try:
+            if previous is not None and previous.get("x-chap-template"):
+                api.deregister_service(previous["x-chap-template"])
             subprocess.run([*pending_command, *up], check=True)
             service["x-chap-template"] = _register_service(api, service_name, pin)
         except (*DEPLOYMENT_ERRORS, KeyboardInterrupt):

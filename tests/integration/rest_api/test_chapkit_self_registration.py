@@ -315,6 +315,19 @@ def test_retiring_a_template_hides_it_and_its_configured_models_until_it_is_inst
     assert [m["name"] for m in client.get("/v1/crud/configured-models").json()] == ["test-model:tuned"]
 
 
+def test_retiring_the_live_version_hands_live_status_back_to_the_previous_one(client, register_service):
+    first_id = _install(client, register_service)["id"]
+    client.post("/v1/crud/configured-models", json={"name": "default", "modelTemplateId": first_id})
+    second_id = _install(client, register_service, version="1.0.1", git_revision="b" * 40)["id"]
+    client.post("/v1/crud/configured-models", json={"name": "default", "modelTemplateId": second_id})
+    assert _test_model(client)["version"] == "1.0.1"
+
+    assert client.delete(f"/v1/crud/model-templates/{second_id}").status_code == 200
+    live = _test_model(client)
+    assert (live["version"], live["archived"]) == ("1.0.0", False)
+    assert [m["name"] for m in client.get("/v1/crud/configured-models").json()] == ["test-model"]
+
+
 def test_template_from_a_registered_service(client, register_service):
     register_service()
     response = client.post("/v1/crud/model-templates/from-service", json={"serviceId": "test-model"})

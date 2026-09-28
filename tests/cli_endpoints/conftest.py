@@ -60,7 +60,24 @@ class FakeChap:
             for model in self.configured_models:
                 if model["modelTemplateId"] == template["id"]:
                     model["archived"] = True
+            # Like CHAP, retiring the live version hands live status back to the newest runnable one.
+            runnable = [
+                t
+                for t in self.templates
+                if t["name"] == template["name"]
+                and not t["archived"]
+                and any(m["modelTemplateId"] == t["id"] for m in self.configured_models)
+            ]
+            if template["isLive"] and runnable:
+                template["isLive"] = False
+                runnable[-1]["isLive"] = True
             return httpx.Response(200, json={"message": "deleted"})
+        if request.method == "DELETE" and path.startswith("/v2/services/"):
+            service_id = path.rsplit("/", 1)[1]
+            if not any(s["id"] == service_id for s in self.services):
+                return httpx.Response(404, json={"detail": "Service not found"})
+            self.services = [s for s in self.services if s["id"] != service_id]
+            return httpx.Response(204)
         if (request.method, path) == ("POST", "/v1/crud/configured-models"):
             model = {"id": len(self.configured_models) + 1, "archived": False, **body}
             model["modelTemplateId"] = model.pop("model_template_id")

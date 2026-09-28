@@ -203,6 +203,57 @@ def test_install_can_be_repeated_after_a_failed_configuration(marketplace_model,
     assert model_deployment.overlay.exists()
 
 
+def test_failed_configuration_during_update_retires_the_new_version_and_restores_the_old(
+    marketplace_model, model_deployment
+):
+    model = marketplace_model["id"]
+    chap = model_deployment.chap
+    install(model)
+    previous = model_deployment.overlay.read_text()
+    marketplace_model["versions"].append(
+        {**marketplace_model["versions"][0], "version": "0.2.0", "commit": "a" * 40, "image_tag": "sha-aaaaaaa"}
+    )
+    marketplace_model["channels"]["stable"] = "0.2.0"
+    handle = chap.handle
+
+    def refuse_second_configuration(request):
+        if request.url.path == "/v1/crud/configured-models" and len(chap.configured_models) == 3:
+            return httpx.Response(500, json={"detail": "database down"})
+        return handle(request)
+
+    chap.handle = refuse_second_configuration
+    with pytest.raises(SystemExit):
+        update(model)
+    assert model_deployment.overlay.read_text() == previous
+    # CHAP is back on the old version, which the restored container runs.
+    assert [(t["version"], t["isLive"], t["archived"]) for t in chap.templates] == [
+        ("0.1.0", True, False),
+        ("0.2.0", False, True),
+    ]
+    assert [(m["modelTemplateId"], m["archived"]) for m in chap.configured_models] == [
+        (1, False),
+        (1, False),
+        (2, True),
+    ]
+    assert ("DELETE", "/v1/crud/model-templates/2", None) in chap.requests
+    assert chap.services[-1]["info"]["version"] == "0.1.0"
+
+
+def test_entry_without_configurations_gets_a_default_one(marketplace_model, marketplace_http, model_deployment):
+    del marketplace_model["configurations"]
+    requests = configured_model_requests(resolve_model(marketplace_model["id"]), 3)
+    assert requests == [
+        {
+            "name": "default",
+            "model_template_id": 3,
+            "user_option_values": {},
+            "additional_continuous_covariates": marketplace_model["covariates"]["defaults"],
+        }
+    ]
+    install(marketplace_model["id"])
+    assert [m["name"] for m in model_deployment.chap.configured_models] == ["default"]
+
+
 def test_install_uses_the_configured_chap_url_and_token(marketplace_model, model_deployment, monkeypatch):
     monkeypatch.setenv("CHAP_URL", "http://chap.example.org")
     monkeypatch.setenv("CHAP_API_TOKEN", "secret")
@@ -324,6 +375,33 @@ def test_custom_image_is_registered_from_the_running_service(model_deployment):
     assert [(m["name"], m["user_option_values"]) for m in chap.configured_models] == [("default", {})]
     service = yaml.safe_load(model_deployment.overlay.read_text())["services"]["marketplace-custom"]
     assert service["x-chap-template"] == "custom-model"
+
+
+def test_update_drops_the_previous_registration_before_starting_the_new_container(
+    model_deployment, monkeypatch, caplog
+):
+    """A stale registration from the old container must not be taken for the new one."""
+    chap = model_deployment.chap
+    install("custom", image="example/model:v1", accept_risk=True)
+    monkeypatch.setattr(marketplace, "REGISTRATION_TIMEOUT", 0)
+    model_deployment.registers = False
+    with pytest.raises(SystemExit):
+        update("custom", image="example/model:v2", accept_risk=True)
+    assert "did not register" in caplog.text
+    up = next(
+        i
+        for i, (method, path, _) in enumerate(chap.requests)
+        if (method, path) == ("DELETE", "/v2/services/custom-model")
+    )
+    assert up < len(chap.requests) - 1
+
+    # A registration that already expired is not an error.
+    model_deployment.registers = True
+    chap.services.clear()
+    update("custom", image="example/model:v2", accept_risk=True)
+    assert yaml.safe_load(model_deployment.overlay.read_text())["services"]["marketplace-custom"]["image"] == (
+        "example/model:v2"
+    )
 
 
 def test_custom_image_that_never_registers_is_removed_again(model_deployment, monkeypatch, caplog):
