@@ -1,3 +1,5 @@
+from typing import Literal
+
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, Relationship
 
@@ -48,6 +50,14 @@ class ModelSpecRead(ModelSpecBase):
     target: FeatureType = Field(description="The feature type this model predicts.")
     archived: bool = Field(default=False, description="When True, the model is hidden from default pickers.")
     uses_chapkit: bool = Field(default=False, description="When True, the model is served by a chapkit REST endpoint.")
+    health_status: Literal["live", "revision_mismatch"] | None = Field(
+        default=None,
+        description=(
+            "Health of the chapkit service behind this model's template: 'live' when it is registered and runs "
+            "the stored source revision, 'revision_mismatch' when it reports another revision (or none) under "
+            "the same version. None for templates that are not chapkit-hosted or whose service is not registered."
+        ),
+    )
     user_option_values: dict | None = Field(default=None, description="Configured user-option values, if any.")
     additional_continuous_covariates: list[str] = Field(
         default=[],
