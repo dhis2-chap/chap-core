@@ -2,12 +2,13 @@ import json
 import logging
 import time
 import uuid
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
 from chap_core.rest_api.app import app
-from chap_core.rest_api.celery_tasks import JobDescription, JobType
+from chap_core.rest_api.celery_tasks import JOB_ERROR_MAX_CHARS, JobDescription, JobType, TrackedTask
 from chap_core.rest_api.v1 import jobs
 from chap_core.util import redis_available
 
@@ -55,6 +56,30 @@ def test_list_jobs_filters_by_prediction_setup_id(monkeypatch):
     data = response.json()
     assert [job["id"] for job in data] == ["job-1"]
     assert data[0]["prediction_setup_id"] == 12
+
+
+def _fail_job(job_id, exc):
+    TrackedTask().on_failure(exc, job_id, (), {}, SimpleNamespace(traceback="Traceback (most recent call last): ..."))
+
+
+def test_failed_job_lists_why_it_failed(request_store):
+    _fail_job("job-1", RuntimeError("Prediction job ended with status 'failed'"))
+
+    response = client.get(f"{base_path}?ids=job-1")
+
+    assert response.status_code == 200, response.json()
+    [job] = response.json()
+    assert job["status"] == "FAILURE"
+    assert job["error"] == "Prediction job ended with status 'failed'"
+    assert job["result"] is None
+
+
+def test_failed_job_error_is_bounded(request_store):
+    _fail_job("job-1", RuntimeError("x" * (JOB_ERROR_MAX_CHARS + 500)))
+
+    [job] = client.get(f"{base_path}?ids=job-1").json()
+
+    assert len(job["error"]) == JOB_ERROR_MAX_CHARS
 
 
 @pytest.mark.skip(reason="Old API")
