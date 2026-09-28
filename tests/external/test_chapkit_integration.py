@@ -1038,8 +1038,20 @@ class TestConfigPayload:
             uses_chapkit=True,
         )
 
-        with pytest.raises(ValueError, match="max_epochs: sent 2, stored None"):
+        with pytest.raises(ValueError, match="did not store these model configuration options: max_epochs"):
             self._created_config(row, store=lambda data: {"prediction_periods": 3})
+
+    def test_configuration_value_the_service_converted_raises_a_type_error_message(self):
+        row = ConfiguredModelDB(
+            name="test-model",
+            model_template_id=1,
+            user_option_values={"max_epochs": "yes"},
+            uses_chapkit=True,
+        )
+
+        with pytest.raises(ValueError, match="max_epochs: sent 'yes', stored True") as error:
+            self._created_config(row, store=lambda data: {**data, "max_epochs": True})
+        assert "chapkit >=" not in str(error.value)
 
     def test_model_reports_the_covariates_the_service_stored(self):
         from chap_core.database.model_templates_and_config_tables import ModelConfiguration
