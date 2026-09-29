@@ -9,6 +9,9 @@ if TYPE_CHECKING:
     from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
+class ContextInfo(BaseModel):
+    context_length: int | None = None
+
 
 class ConfiguredModel(abc.ABC):
     """
@@ -29,6 +32,9 @@ class ConfiguredModel(abc.ABC):
     @abc.abstractmethod
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         pass
+
+    def context(self) -> ContextInfo | None:
+        return None
 
 
 class ModelConfiguration(BaseModel):
