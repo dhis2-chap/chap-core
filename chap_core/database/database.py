@@ -480,9 +480,26 @@ class SessionWrapper:
         stored = model.additional_continuous_covariates
         if not stored:
             return
+        digest = compute_configuration_digest(
+            ModelConfiguration(
+                user_option_values=configured_model.user_option_values or {},
+                additional_continuous_covariates=list(stored),
+            )
+        )
+        # A row re-created under the same name after the default was recorded at creation
+        # already holds this configuration; the (template, name, digest) triple is unique.
+        duplicate = self.session.exec(
+            select(ConfiguredModelDB).where(
+                ConfiguredModelDB.model_template_id == configured_model.model_template_id,
+                ConfiguredModelDB.name == configured_model.name,
+                ConfiguredModelDB.configuration_digest == digest,
+            )
+        ).first()
+        if duplicate is not None:
+            return
         logger.info(f"Recording the service default covariates {stored} on configured model {configured_model.name}")
         configured_model.additional_continuous_covariates = list(stored)
-        configured_model.configuration_digest = compute_configuration_digest(configured_model)
+        configured_model.configuration_digest = digest
         self.session.add(configured_model)
         self.session.commit()
 

@@ -752,6 +752,35 @@ def test_running_a_chapkit_row_records_the_service_default_covariates_only_when_
         assert row.configuration_digest == compute_configuration_digest(row)
 
 
+def test_running_an_old_chapkit_row_keeps_it_when_a_row_with_the_default_already_exists(engine, seeded_chapkit_model):
+    default = ["rainfall", "mean_temperature"]
+    name = seeded_chapkit_model("a" * 40, "a" * 40, stored_covariates=default)
+    with Session(engine) as session:
+        old_row = session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == name)).one()
+        old_id = old_row.id
+        recreated = ModelConfiguration(
+            user_option_values=old_row.user_option_values, additional_continuous_covariates=default
+        )
+        session.add(
+            ConfiguredModelDB(
+                name=name,
+                model_template_id=old_row.model_template_id,
+                **recreated.model_dump(),
+                configuration_digest=compute_configuration_digest(recreated),
+                uses_chapkit=True,
+            )
+        )
+        session.commit()
+
+    with SessionWrapper(engine) as session:
+        session.get_configured_model_with_code(old_id)
+
+    with Session(engine) as session:
+        kept = session.get(ConfiguredModelDB, old_id)
+        assert kept is not None
+        assert kept.additional_continuous_covariates == []
+
+
 @pytest.mark.parametrize(
     "stored_digest, reported_digest", [("a" * 40, "b" * 40), (None, "a" * 40), ("a" * 40, None), (None, None)]
 )
