@@ -345,6 +345,25 @@ def test_configured_model_without_covariates_stores_the_service_default(
     assert response.json()["additionalContinuousCovariates"] == expected
 
 
+def test_configured_model_keeps_the_service_default_when_the_probe_cleanup_fails(
+    client, register_service, mock_wrapper_cls
+):
+    register_service()
+    template = _test_model(client)
+    mock_wrapper_cls.return_value.create_config.return_value = MagicMock(
+        data={"additional_continuous_covariates": ["rainfall", "mean_temperature"]}
+    )
+    mock_wrapper_cls.return_value.delete_config.side_effect = ConnectionError("service went away")
+
+    response = client.post(
+        "/v1/crud/configured-models",
+        json={"name": "custom", "modelTemplateId": template["id"], "additionalContinuousCovariates": []},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["additionalContinuousCovariates"] == ["rainfall", "mean_temperature"]
+
+
 def test_non_chapkit_template_has_null_health_status(client, db_engine):
     from chap_core.database.database import SessionWrapper
     from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config

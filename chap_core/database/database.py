@@ -20,7 +20,7 @@ from chap_core.predictor.naive_estimator import NaiveEstimator
 from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
-from ..models.external_chapkit_model import ExternalChapkitModel, ExternalChapkitModelTemplate
+from ..models.external_chapkit_model import ExternalChapkitModelTemplate
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import (
     ConfiguredModelDB,
@@ -468,60 +468,6 @@ class SessionWrapper:
             self.session.commit()
         return cast("str", live_url)
 
-    def _record_service_default_covariates(self, configured_model: ConfiguredModelDB, model: object) -> None:
-        """Record the covariates a chapkit service used for a row that lists none.
-
-        chap-core sends no covariate list for such a row, so the service runs with its own
-        default. The default is stored as a new configuration row rather than on the old one,
-        so results already attached to the old row keep the configuration they were run
-        with. The new row becomes live in the old row's place, so the model card states the
-        data the model actually needs. Best-effort: a failure here never fails the run.
-        """
-        if configured_model.additional_continuous_covariates or not isinstance(model, ExternalChapkitModel):
-            return
-        stored = model.additional_continuous_covariates
-        if not stored:
-            return
-        try:
-            configuration = ModelConfiguration(
-                user_option_values=configured_model.user_option_values or {},
-                additional_continuous_covariates=list(stored),
-            )
-            digest = compute_configuration_digest(configuration)
-            # (template, name, digest) is unique, so a row re-created with the default already holds it.
-            existing = self.session.exec(
-                select(ConfiguredModelDB).where(
-                    ConfiguredModelDB.model_template_id == configured_model.model_template_id,
-                    ConfiguredModelDB.name == configured_model.name,
-                    ConfiguredModelDB.configuration_digest == digest,
-                )
-            ).first()
-            if existing is not None:
-                return
-            logger.info(
-                f"Recording the service default covariates {stored} as a new configuration of {configured_model.name}"
-            )
-            recorded = ConfiguredModelDB(
-                name=configured_model.name,
-                model_template_id=configured_model.model_template_id,
-                **configuration.model_dump(),
-                configuration_digest=digest,
-                is_live=False,
-                archived=configured_model.archived,
-                uses_chapkit=True,
-            )
-            self.session.add(recorded)
-            self.session.commit()
-            if configured_model.is_live:
-                self._make_live_configured_model(
-                    configured_model.model_template_id, configured_model.name, cast("int", recorded.id)
-                )
-        except Exception:
-            self.session.rollback()
-            logger.warning(
-                "Could not record the default covariates of configured model %s", configured_model.name, exc_info=True
-            )
-
     def get_configured_model_with_code(
         self, configured_model_id: int, prediction_length: int | None = None
     ) -> ConfiguredModel:
@@ -554,9 +500,7 @@ class SessionWrapper:
                 raise conflict
             logger.info(f"template: {template}")
             logger.info(f"configured_model: {configured_model}")
-            model = template.get_model(configured_model, prediction_length=prediction_length)  # type: ignore[arg-type]
-            self._record_service_default_covariates(configured_model, model)
-            return model  # type: ignore[return-value]
+            return template.get_model(configured_model, prediction_length=prediction_length)  # type: ignore[arg-type, return-value]
         else:
             logger.info(f"Assuming github model at {configured_model.model_template.source_url}")
             return cast(

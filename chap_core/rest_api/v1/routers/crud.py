@@ -262,7 +262,12 @@ def _resolve_chapkit_default_additional_covariates(client) -> list[str]:
         logger.debug("Chapkit default probe response parse failed", exc_info=True)
         result = []
 
-    client.delete_config(str(probe.id))
+    try:
+        client.delete_config(str(probe.id))
+    except Exception:
+        logger.warning(
+            "Could not delete the default-probe config %s from the chapkit service", probe_name, exc_info=True
+        )
     return result
 
 
