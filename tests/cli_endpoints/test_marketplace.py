@@ -517,6 +517,23 @@ def test_update_drops_the_previous_registration_before_starting_the_new_containe
     )
 
 
+def test_custom_update_that_registers_under_another_id_is_refused(model_deployment, caplog):
+    chap = model_deployment.chap
+    install("custom", image="example/model:v1", accept_risk=True)
+    previous = model_deployment.overlay.read_text()
+    model_deployment.reports = {"id": "another-model"}
+    with pytest.raises(SystemExit):
+        update("custom", image="example/model:v2", accept_risk=True)
+    assert "registered as 'another-model', but this installation serves 'custom-model'" in caplog.text
+    assert model_deployment.overlay.read_text() == previous
+    # The model the installation serves stays as it was; the other id is taken back.
+    assert [(t["name"], t["isLive"], t["archived"]) for t in chap.templates] == [
+        ("custom-model", True, False),
+        ("another-model", True, True),
+    ]
+    assert not any(m["archived"] for m in chap.configured_models)
+
+
 def test_custom_image_that_never_registers_is_removed_again(model_deployment, monkeypatch, caplog):
     model_deployment.registers = False
     monkeypatch.setattr(marketplace, "REGISTRATION_TIMEOUT", 0)

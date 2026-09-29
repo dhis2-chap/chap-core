@@ -128,7 +128,9 @@ chap-admin update my_model --image ghcr.io/my-org/my-model:v2 --accept-risk
 A custom image is installed the same way, from what the running service
 describes, but has no marketplace entry to take configurations from, so it gets
 one default configuration. It is refused if it registers under the id of a model
-that another installation already serves. Updating a custom model without `--image` pulls its
+that another installation already serves. An update is refused if the new image
+registers under another id than the installed one, since that is another model:
+uninstall the old one and install the new image instead. Updating a custom model without `--image` pulls its
 existing image reference again; it never switches to a marketplace model
 automatically. Prefer version tags or digests for reproducible custom
 installations.

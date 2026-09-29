@@ -276,7 +276,9 @@ def _check_chap(api: "ChapApi") -> None:
     api.services()
 
 
-def _register_service(api: "ChapApi", service_name: str, pin: "ModelPin | None", taken: set[str]) -> str:
+def _register_service(
+    api: "ChapApi", service_name: str, pin: "ModelPin | None", taken: set[str], previous_name: str | None
+) -> str:
     """Store the template of a just started service in CHAP and give it its configurations.
 
     The service's own id is only known once it has registered, so it is found by the
@@ -284,7 +286,8 @@ def _register_service(api: "ChapApi", service_name: str, pin: "ModelPin | None",
     before starting the new one, so the registration seen is the new container's. A
     marketplace service must report the entry's service id and the pinned commit. A
     custom service must not register under a model name in ``taken``, which another
-    install already serves. Returns the template name.
+    install already serves. An update must register under the ``previous_name`` it
+    replaces, since another id is another model. Returns the template name.
     """
     from chap_core.services.model_marketplace import configured_model_requests
 
@@ -296,6 +299,11 @@ def _register_service(api: "ChapApi", service_name: str, pin: "ModelPin | None",
                 raise ValueError(
                     f"Service {service_name} registered as '{service['id']}', but the marketplace entry is "
                     f"'{pin.entry.service_id}'. Refusing to register it under another model's name."
+                )
+            if previous_name is not None and service["id"] != previous_name:
+                raise ValueError(
+                    f"Service {service_name} registered as '{service['id']}', but this installation serves "
+                    f"'{previous_name}'. Another id is another model: uninstall this one and install the new image."
                 )
             if pin is None and service["id"] in taken:
                 raise ValueError(
@@ -458,7 +466,7 @@ def _deploy(
             if previous is not None and previous.get("x-chap-template"):
                 api.deregister_service(previous["x-chap-template"])
             subprocess.run([*pending_command, *up], check=True)
-            service["x-chap-template"] = _register_service(api, service_name, pin, taken)
+            service["x-chap-template"] = _register_service(api, service_name, pin, taken, own_template)
         except (*DEPLOYMENT_ERRORS, KeyboardInterrupt):
             try:
                 _undo_registration(api, service_name, pin, live_before)
