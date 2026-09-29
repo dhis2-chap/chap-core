@@ -9,7 +9,7 @@ from chap_core.datatypes import HealthData, Samples
 from chap_core.exceptions import CommandLineException, InvalidModelException, ModelFailedException, NoPredictionsError
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.geometry import Polygons
-from chap_core.models.configured_model import ConfiguredModel
+from chap_core.models.configured_model import ConfiguredModel, ContextInfo
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period.date_util_wrapper import Month, TimePeriod
 
@@ -340,3 +340,22 @@ class ExternalModel(ExternalModelBase):
         shutil.copyfile(Path(self._working_dir) / report_filename, out_file)
 
         self._runner.teardown()
+
+    def context(self) -> ContextInfo | None:
+
+        file_name_test = Path(self._working_dir) / "context_test"
+
+        try: 
+            self._runner.context(
+                file_name_test,
+        )
+        except CommandLineException as e:
+            logger.error("Error calculating contextwindow, command failed")
+            raise ModelFailedException(str(e)) from e
+        
+        #shutil.copyfile(Path(self._working_dir) / report_filename, out_file)
+        self._runner.teardown()
+
+        #TODO åpne filen, put den inn i en ContextInfo objekt, return det
+
+        return None

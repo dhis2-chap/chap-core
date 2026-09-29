@@ -156,3 +156,9 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
         command = self._format_command(self._report_command, keys)
         logger.debug(f"Running command {command}")
         return self._runner.run_command(command)
+
+    #TODO 
+    def context(self, output_file):
+        command = self._format_command(self._report_command, keys)
+        logger.debug(f"Running command {command}")
+        return self._runner.run_command(command)
