@@ -345,6 +345,29 @@ def test_configured_model_without_covariates_stores_the_service_default(
     assert response.json()["additionalContinuousCovariates"] == expected
 
 
+def test_configured_model_reads_the_default_from_the_registered_service_not_the_repository_url(
+    client, register_service, mock_wrapper_cls
+):
+    metadata = {
+        "author": "Test",
+        "author_assessed_status": "yellow",
+        "repository_url": "https://github.com/example/test-model",
+    }
+    register_service({**MOCK_INFO_DICT, "model_metadata": metadata})
+    template = _test_model(client)
+    mock_wrapper_cls.return_value.create_config.return_value = MagicMock(
+        data={"additional_continuous_covariates": ["rainfall", "mean_temperature"]}
+    )
+
+    response = client.post(
+        "/v1/crud/configured-models",
+        json={"name": "custom", "modelTemplateId": template["id"], "additionalContinuousCovariates": []},
+    )
+
+    assert response.json()["additionalContinuousCovariates"] == ["rainfall", "mean_temperature"]
+    assert mock_wrapper_cls.call_args.args[0] == "http://test-service:8080"
+
+
 def test_configured_model_keeps_the_service_default_when_the_probe_cleanup_fails(
     client, register_service, mock_wrapper_cls
 ):
