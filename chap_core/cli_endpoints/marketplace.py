@@ -91,18 +91,22 @@ def install_all(
     def run() -> None:
         with ChapApi(url, token) as api:
             _check_chap(api)
-            registry = registry_url()
-            failed = []
-            for entry in list_models(registry):
+            entries, invalid = list_models(registry_url())
+            for model_file, reason in invalid.items():
+                logger.error("Could not read %s from the marketplace: %s", model_file, reason)
+            failed = list(invalid)
+            installed = _load_overlay(compose_file)[1]["services"]
+            for entry in entries:
                 try:
                     stable_pin(entry)
                 except ValueError as reason:
                     logger.info("Skipping %s: %s", entry.id, reason)
                     continue
-                if _prepare(entry.id, compose_file)[1]["services"].get(_service_name(entry.id)) is not None:
+                if _service_name(entry.id) in installed:
                     logger.info("Skipping %s: already installed.", entry.id)
                     continue
                 try:
+                    # Validates the model name, so a badly named entry fails on its own.
                     _deploy(api, entry.id, compose_file, None, accept_risk, platform, updating=False)
                 except DEPLOYMENT_ERRORS as error:
                     logger.error("Could not install %s: %s", entry.id, error)
@@ -202,6 +206,12 @@ def _prepare(model: str, compose_files: tuple[Path, ...]) -> tuple[Path, dict[st
     """Validate the arguments and return the overlay path, its config and the service name."""
     if not re.fullmatch(r"[a-z0-9][a-z0-9_]*", model):
         raise ValueError("Model names must contain only lowercase letters, digits and underscores.")
+    overlay, config = _load_overlay(compose_files)
+    return overlay, config, _service_name(model)
+
+
+def _load_overlay(compose_files: tuple[Path, ...]) -> tuple[Path, dict[str, Any]]:
+    """Return the deployment's model overlay path and its validated config."""
     if not compose_files or any(not path.is_file() for path in compose_files):
         raise ValueError("Run from a CHAP deployment directory or pass its base files with --compose-file.")
     overlay = compose_files[0].resolve().parent / "compose.marketplace.yml"
@@ -214,7 +224,7 @@ def _prepare(model: str, compose_files: tuple[Path, ...]) -> tuple[Path, dict[st
     ):
         raise ValueError(f"Invalid model Compose file: {overlay}")
     config["volumes"] = config.get("volumes") or {}
-    return overlay, config, _service_name(model)
+    return overlay, config
 
 
 def _service_name(model: str) -> str:

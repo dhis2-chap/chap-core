@@ -84,9 +84,17 @@ def test_unknown_model_never_fetches_arbitrary_path(marketplace_http):
 
 
 def test_list_models_fetches_every_listed_entry(marketplace_model, marketplace_http):
-    entries = list_models()
+    entries, invalid = list_models()
     assert [entry.id for entry in entries] == [marketplace_model["id"]]
+    assert invalid == {}
     assert len(marketplace_http) == 2
+
+
+def test_list_models_reports_an_invalid_entry_instead_of_failing(marketplace_model, marketplace_http):
+    marketplace_model["schema_version"] = 999
+    entries, invalid = list_models()
+    assert entries == []
+    assert list(invalid) == [f"models/{marketplace_model['id']}.yaml"]
 
 
 def test_configured_model_requests_split_out_the_reserved_config_keys(marketplace_model, marketplace_http):
@@ -415,6 +423,31 @@ def test_install_all_reports_the_models_that_failed(marketplace_model, model_dep
     with pytest.raises(SystemExit):
         install_all()
     assert f"Could not install {marketplace_model['id']}" in caplog.text
+
+
+def test_install_all_reports_an_unreadable_entry_and_installs_the_others(model_deployment, monkeypatch, caplog):
+    def with_an_unreadable_entry(base_url=None):
+        entries, invalid = list_models(base_url)
+        return entries, {**invalid, "models/broken.yaml": "schema_version must be 2"}
+
+    monkeypatch.setattr("chap_core.services.model_marketplace.list_models", with_an_unreadable_entry)
+    with pytest.raises(SystemExit):
+        install_all()
+    assert "Could not read models/broken.yaml from the marketplace" in caplog.text
+    assert "Could not install models/broken.yaml" in caplog.text
+    assert len(model_deployment.chap.configured_models) == 2
+
+
+def test_install_all_reports_a_badly_named_entry_and_installs_the_others(model_deployment, monkeypatch, caplog):
+    def with_a_badly_named_entry(base_url=None):
+        entries, invalid = list_models(base_url)
+        return [entries[0].model_copy(update={"id": "bad-name"}), *entries], invalid
+
+    monkeypatch.setattr("chap_core.services.model_marketplace.list_models", with_a_badly_named_entry)
+    with pytest.raises(SystemExit):
+        install_all()
+    assert "Could not install bad-name" in caplog.text
+    assert len(model_deployment.chap.configured_models) == 2
 
 
 def test_install_all_from_another_registry_requires_risk_acceptance(marketplace_model, model_deployment, monkeypatch):

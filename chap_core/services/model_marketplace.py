@@ -87,12 +87,18 @@ class ModelPin:
     entry: MarketplaceModel
 
 
-def list_models(base_url: str | None = None) -> list[MarketplaceModel]:
-    """Every entry the registry lists, in registry order."""
+def list_models(base_url: str | None = None) -> tuple[list[MarketplaceModel], dict[str, str]]:
+    """Every valid entry the registry lists, in registry order, and why each other entry could not be read."""
     base_url = (base_url or registry_url()).rstrip("/")
+    entries, invalid = [], {}
     with httpx.Client(timeout=30, follow_redirects=True) as client:
         registry = _fetch_registry(client, base_url)
-        return [_fetch_entry(client, base_url, model_file) for model_file in registry.models]
+        for model_file in registry.models:
+            try:
+                entries.append(_fetch_entry(client, base_url, model_file))
+            except (httpx.HTTPError, ValueError, yaml.YAMLError) as error:
+                invalid[model_file] = str(error)
+    return entries, invalid
 
 
 def resolve_model(model: str, base_url: str | None = None) -> ModelPin:
