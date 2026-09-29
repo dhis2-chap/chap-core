@@ -17,7 +17,7 @@ alias_generator=to_camel and FastAPI's response_model_by_alias defaults to True.
 
 import json
 import logging
-from typing import Annotated, Any, Final
+from typing import Annotated, Any, Final, Literal
 
 import numpy as np
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
@@ -899,17 +899,27 @@ def delete_model_template(
     tags=["Models"],
     summary="Browse configured (ready-to-run) models",
 )
-def list_configured_models(session: Session = Depends(get_session)):
+def list_configured_models(
+    session: Session = Depends(get_session), orchestrator: Orchestrator = Depends(get_orchestrator)
+):
     """List every configured model — a template + user-chosen options bundled into something you can actually run.
 
     Use this to populate model pickers in backtest / prediction creation flows. Each
     entry carries the configuration values along with template metadata so you can
     surface "Model X (CRPS-tuned, 12 lags, ERA5)" or similar in a UI.
+    Health is read from the service registry without syncing or archiving templates.
     """
-    configured_models_read = SessionWrapper(session=session).get_configured_models()
+    template_health: dict[tuple[str, str | None], Literal["live", "revision_mismatch"]] = {}
+    try:
+        services = orchestrator.get_all().services
+    except Exception:
+        logger.debug("Could not reach service registry, configured model health is unknown")
+    else:
+        for service in services:
+            conflict = _registered_chapkit_revision_conflict(session, service.info)
+            template_health[(service.info.id, service.info.version)] = LIVE if conflict is None else REVISION_MISMATCH
 
-    # return
-    return configured_models_read
+    return SessionWrapper(session=session).get_configured_models(template_health=template_health)
 
 
 @router.get(

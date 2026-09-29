@@ -297,6 +297,7 @@ def warn_unused_covariates(
     dataset: DataSet,
     template_config: ModelTemplateConfigV2,
     configuration: ModelConfiguration | None = None,
+    estimator: object | None = None,
 ) -> None:
     """Check for unused dataset columns and log each one as a warning.
 
@@ -314,11 +315,19 @@ def warn_unused_covariates(
         Optional per-run model configuration. When present, its
         additional_continuous_covariates are forwarded to the validation so explicitly
         configured extra columns are not flagged as unused.
+    estimator : object | None
+        Optional estimator built from the configuration. For a chapkit model, the
+        covariates its service stored are counted as used, since a service fills in its
+        own default when the configuration lists none.
     """
+    from chap_core.models.external_chapkit_model import ExternalChapkitModel
     from chap_core.services.dataset_validation import check_unused_covariates
 
     additional = configuration.additional_continuous_covariates if configuration is not None else None
-    issues = check_unused_covariates(dataset, template_config, additional)
+    model_covariates = (
+        estimator.additional_continuous_covariates if isinstance(estimator, ExternalChapkitModel) else None
+    )
+    issues = check_unused_covariates(dataset, template_config, additional, model_covariates)
     for issue in issues:
         logger.warning(issue.message)
 

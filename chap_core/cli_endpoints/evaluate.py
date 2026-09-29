@@ -246,7 +246,7 @@ def _run_eval(
                 "Ensemble mode is not implemented for `chap evaluate`; use the `chap evaluate-ensemble` command"
             )
 
-        warn_unused_covariates(dataset, template.model_template_config, configuration)
+        warn_unused_covariates(dataset, template.model_template_config, configuration, estimator)
 
         model_info = estimator.model_information
         if model_info.min_prediction_periods is None and model_info.max_prediction_periods is None:

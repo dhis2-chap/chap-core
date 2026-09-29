@@ -326,6 +326,52 @@ def test_retiring_a_template_hides_it_and_its_configured_models_until_it_is_inst
     assert [m["name"] for m in client.get("/v1/crud/configured-models").json()] == ["test-model:tuned"]
 
 
+@pytest.mark.parametrize(
+    "service_state, expected_health",
+    [
+        ("live", "live"),
+        ("revision_mismatch", "revision_mismatch"),
+        ("other_version", None),
+        ("deregistered", None),
+        ("registry_unavailable", None),
+        ("non_chapkit", None),
+    ],
+)
+def test_configured_model_health_comes_from_its_template_without_syncing(
+    client, register_service, fake_orchestrator, mock_wrapper_cls, db_engine, service_state, expected_health
+):
+    template = _install(client, register_service)
+    client.post("/v1/crud/configured-models", json={"name": "custom-config", "modelTemplateId": template["id"]})
+    service_calls = mock_wrapper_cls.call_count
+
+    if service_state == "revision_mismatch":
+        register_service({**MOCK_INFO_DICT, "git_revision": "b" * 40})
+    elif service_state == "other_version":
+        register_service({**MOCK_INFO_DICT, "version": "1.0.1", "git_revision": None})
+    elif service_state == "deregistered":
+        fake_orchestrator.deregister("test-model")
+    elif service_state == "registry_unavailable":
+        fake_orchestrator.get_all = MagicMock(side_effect=ConnectionError("registry unavailable"))
+    elif service_state == "non_chapkit":
+        with Session(db_engine) as session:
+            stored_template = session.get(ModelTemplateDB, template["id"])
+            assert stored_template is not None
+            stored_template.uses_chapkit = False
+            session.commit()
+
+    response = client.get("/v1/crud/configured-models")
+
+    assert response.status_code == 200
+    models = response.json()
+    assert len(models) == 1
+    assert models[0]["healthStatus"] == expected_health
+    assert mock_wrapper_cls.call_count == service_calls
+    with Session(db_engine) as session:
+        stored_template = session.get(ModelTemplateDB, template["id"])
+        assert stored_template is not None
+        assert stored_template.archived is False
+
+
 def test_retiring_the_live_version_hands_live_status_back_to_the_previous_one(client, register_service):
     first_id = _install(client, register_service)["id"]
     client.post("/v1/crud/configured-models", json={"name": "default", "modelTemplateId": first_id})
