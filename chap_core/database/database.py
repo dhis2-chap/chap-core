@@ -469,39 +469,58 @@ class SessionWrapper:
         return cast("str", live_url)
 
     def _record_service_default_covariates(self, configured_model: ConfiguredModelDB, model: object) -> None:
-        """Store the covariates a chapkit service used for a row that lists none.
+        """Record the covariates a chapkit service used for a row that lists none.
 
         chap-core sends no covariate list for such a row, so the service runs with its own
-        default. Recording that default leaves the run unchanged and makes the row, and the
-        model card built from it, state the data the model actually needs.
+        default. The default is stored as a new configuration row rather than on the old one,
+        so results already attached to the old row keep the configuration they were run
+        with. The new row becomes live in the old row's place, so the model card states the
+        data the model actually needs. Best-effort: a failure here never fails the run.
         """
         if configured_model.additional_continuous_covariates or not isinstance(model, ExternalChapkitModel):
             return
         stored = model.additional_continuous_covariates
         if not stored:
             return
-        digest = compute_configuration_digest(
-            ModelConfiguration(
+        try:
+            configuration = ModelConfiguration(
                 user_option_values=configured_model.user_option_values or {},
                 additional_continuous_covariates=list(stored),
             )
-        )
-        # A row re-created under the same name after the default was recorded at creation
-        # already holds this configuration; the (template, name, digest) triple is unique.
-        duplicate = self.session.exec(
-            select(ConfiguredModelDB).where(
-                ConfiguredModelDB.model_template_id == configured_model.model_template_id,
-                ConfiguredModelDB.name == configured_model.name,
-                ConfiguredModelDB.configuration_digest == digest,
+            digest = compute_configuration_digest(configuration)
+            # (template, name, digest) is unique, so a row re-created with the default already holds it.
+            existing = self.session.exec(
+                select(ConfiguredModelDB).where(
+                    ConfiguredModelDB.model_template_id == configured_model.model_template_id,
+                    ConfiguredModelDB.name == configured_model.name,
+                    ConfiguredModelDB.configuration_digest == digest,
+                )
+            ).first()
+            if existing is not None:
+                return
+            logger.info(
+                f"Recording the service default covariates {stored} as a new configuration of {configured_model.name}"
             )
-        ).first()
-        if duplicate is not None:
-            return
-        logger.info(f"Recording the service default covariates {stored} on configured model {configured_model.name}")
-        configured_model.additional_continuous_covariates = list(stored)
-        configured_model.configuration_digest = digest
-        self.session.add(configured_model)
-        self.session.commit()
+            recorded = ConfiguredModelDB(
+                name=configured_model.name,
+                model_template_id=configured_model.model_template_id,
+                **configuration.model_dump(),
+                configuration_digest=digest,
+                is_live=False,
+                archived=configured_model.archived,
+                uses_chapkit=True,
+            )
+            self.session.add(recorded)
+            self.session.commit()
+            if configured_model.is_live:
+                self._make_live_configured_model(
+                    configured_model.model_template_id, configured_model.name, cast("int", recorded.id)
+                )
+        except Exception:
+            self.session.rollback()
+            logger.warning(
+                "Could not record the default covariates of configured model %s", configured_model.name, exc_info=True
+            )
 
     def get_configured_model_with_code(
         self, configured_model_id: int, prediction_length: int | None = None

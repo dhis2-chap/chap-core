@@ -743,13 +743,32 @@ def test_running_a_chapkit_row_records_the_service_default_covariates_only_when_
         row.configuration_digest = compute_configuration_digest(row)
         session.commit()
 
-    with SessionWrapper(engine) as session:
-        session.get_configured_model_with_code(session.get_configured_model_by_name(name).id)
+        row_id = row.id
 
+    with SessionWrapper(engine) as session:
+        session.get_configured_model_with_code(row_id)
+
+    with SessionWrapper(engine) as session:
+        live = session.get_configured_model_by_name(name)
+        assert live.additional_continuous_covariates == expected
+        assert live.configuration_digest == compute_configuration_digest(live)
     with Session(engine) as session:
-        row = session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == name)).one()
-        assert row.additional_continuous_covariates == expected
-        assert row.configuration_digest == compute_configuration_digest(row)
+        ran = session.get(ConfiguredModelDB, row_id)
+        assert ran is not None
+        assert ran.additional_continuous_covariates == row_covariates
+
+
+def test_a_failure_to_record_the_default_covariates_does_not_fail_the_run(engine, seeded_chapkit_model, monkeypatch):
+    name = seeded_chapkit_model("a" * 40, "a" * 40, stored_covariates=["rainfall", "mean_temperature"])
+
+    def broken_digest(configuration):
+        raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr("chap_core.database.database.compute_configuration_digest", broken_digest)
+    with SessionWrapper(engine) as session:
+        model = session.get_configured_model_with_code(session.get_configured_model_by_name(name).id)
+
+    assert isinstance(model, ExternalChapkitModel)
 
 
 def test_running_an_old_chapkit_row_keeps_it_when_a_row_with_the_default_already_exists(engine, seeded_chapkit_model):
