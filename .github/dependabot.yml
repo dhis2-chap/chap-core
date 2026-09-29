@@ -13,3 +13,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # 0.0.44 types table-model constructors and 0.0.45 switches datetimes to UTC,
+      # which needs code changes and a Postgres migration (CLIM-1245).
+      - dependency-name: "sqlmodel"
+        versions: [">=0.0.44"]
