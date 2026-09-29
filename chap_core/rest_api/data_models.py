@@ -5,7 +5,7 @@ from pydantic.alias_generators import to_camel
 
 from chap_core.api_types import BacktestParams, FeatureCollectionModel
 from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID, resolve_weather_provider
-from chap_core.database.alert_tables import AlertLevel
+from chap_core.database.alert_tables import AlertApproval, AlertLevel
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSetCreateInfo, ObservationBase
 from chap_core.database.model_templates_and_config_tables import (
@@ -414,6 +414,41 @@ class AlertPolicyUpdate(DBModel):
         default=None,
         description="New full list of levels, replacing the existing ones; `None` leaves them unchanged.",
     )
+
+
+class AlertCreate(DBModel):
+    """One alert to record."""
+
+    time_period: str = Field(description="Period the alert is about, e.g. `2024-07`.")
+    org_unit: str = Field(description="Identifier of the org unit the alert is for.")
+    alert_policy_id: int = Field(description="Foreign key to the `AlertPolicy` whose level was breached.")
+    level: str = Field(description="Name of the level that fired; must be one the policy defines.")
+    prediction_id: int | None = Field(
+        default=None, description="Foreign key to the `Prediction` that raised it; `None` if not linked to a run."
+    )
+
+
+class AlertsCreate(DBModel):
+    """Request body for recording a batch of alerts. One run raises many at once."""
+
+    alerts: list[AlertCreate] = Field(min_length=1, description="The alerts to record.")
+
+
+class AlertApprovalRequest(DBModel):
+    """Request body for moving a set of alerts through the release gate."""
+
+    alert_ids: list[int] = Field(min_length=1, description="Alerts to review, applied together.")
+    approved: AlertApproval = Field(
+        description="New gate state. `approved` clears the alerts for dissemination; `declined` records "
+        "a deliberate decision not to release them, so they do not return to the queue."
+    )
+    approved_by: str = Field(description="Identifier of whoever reviewed them.")
+
+
+class AlertIdsResponse(DBModel):
+    """Ids of the alerts a batch call created."""
+
+    ids: list[int] = Field(description="Primary keys of the created alerts, in request order.")
 
 
 class PredictionSetupCreate(DBModel):

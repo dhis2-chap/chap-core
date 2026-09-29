@@ -24,6 +24,7 @@ openapi_tags = [
     {"name": "Datasets", "description": "Create, manage, and export datasets"},
     {"name": "Models", "description": "Model templates and configured models"},
     {"name": "Prediction Setups", "description": "Automation configs that schedule predictions from a backtest"},
+    {"name": "Alerts", "description": "Alerts raised against a policy, and the gate that releases them"},
     {"name": "Alert Policies", "description": "Tiered thresholds a prediction setup raises alerts against"},
     {"name": "Visualizations", "description": "Generate plots and charts"},
     {"name": "Jobs", "description": "Monitor and manage async jobs"},

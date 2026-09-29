@@ -32,7 +32,7 @@ from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import compute_all_detailed_metrics
 from chap_core.assessment.weather_providers import resolve_weather_provider
 from chap_core.data import DataSet as InMemoryDataSet
-from chap_core.database.alert_tables import AlertPolicyRead
+from chap_core.database.alert_tables import Alert, AlertApproval, AlertPolicyRead, AlertRead
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import (
@@ -72,12 +72,15 @@ from chap_core.rest_api.experimental import api_experimental
 from chap_core.rest_api.services.orchestrator import Orchestrator
 from chap_core.rest_api.services.schemas import MLServiceInfo
 from chap_core.rest_api.v2.dependencies import get_orchestrator
-from chap_core.services import alert_policy_service, prediction_setup_service
+from chap_core.services import alert_policy_service, alert_service, prediction_setup_service
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import (
+    AlertApprovalRequest,
+    AlertIdsResponse,
     AlertPolicyCreate,
     AlertPolicyUpdate,
+    AlertsCreate,
     BacktestRead,
     BacktestSpecificationFilter,
     BacktestSpecificationRead,
@@ -1035,6 +1038,118 @@ async def delete_configured_model(
 
 
 ###########
+# alerts
+
+
+@router.post(
+    "/alerts",
+    response_model=AlertIdsResponse,
+    tags=["Alerts"],
+    summary="Record alerts raised against a policy",
+)
+@api_experimental
+async def create_alerts(request: AlertsCreate, session: Session = Depends(get_session)):
+    """Record a batch of alerts — one run raises many at once, so they are written together.
+
+    Every alert names a level its policy actually defines; a level name only means
+    something against its policy. Alerts land in the `pending` state, waiting for a
+    reviewer to clear them for dissemination. The batch is validated before anything is
+    written, so it fails whole. 422 if a policy, level or prediction is unknown.
+    """
+    alerts = [
+        Alert(
+            time_period=entry.time_period,
+            org_unit=entry.org_unit,
+            alert_policy_id=entry.alert_policy_id,
+            level=entry.level,
+            prediction_id=entry.prediction_id,
+        )
+        for entry in request.alerts
+    ]
+    try:
+        created = alert_service.create_alerts(session, alerts)
+    except alert_service.InvalidAlertError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    return AlertIdsResponse(ids=[alert.id for alert in created if alert.id is not None])
+
+
+@router.get(
+    "/alerts",
+    response_model=list[AlertRead],
+    tags=["Alerts"],
+    summary="Browse alerts, or pull the review queue",
+)
+@api_experimental
+async def list_alerts(
+    alert_policy_id: Annotated[int | None, Query(alias="alertPolicyId")] = None,
+    prediction_id: Annotated[int | None, Query(alias="predictionId")] = None,
+    org_unit: Annotated[str | None, Query(alias="orgUnit")] = None,
+    approved: Annotated[AlertApproval | None, Query()] = None,
+    session: Session = Depends(get_session),
+):
+    """List alerts, narrowed by whichever filters you pass.
+
+    `approved=pending` is the review queue: everything nobody has decided on yet.
+    `approved=approved` is what dissemination should be sending.
+    """
+    return alert_service.list_alerts(
+        session,
+        alert_policy_id=alert_policy_id,
+        prediction_id=prediction_id,
+        org_unit=org_unit,
+        approved=approved,
+    )
+
+
+@router.get(
+    "/alerts/{alertId}",
+    response_model=AlertRead,
+    tags=["Alerts"],
+    summary="View one alert",
+)
+@api_experimental
+async def get_alert(
+    alert_id: Annotated[int, Path(alias="alertId")],
+    session: Session = Depends(get_session),
+):
+    """Read a single alert, including where it stands in the release gate. 404 if the id is unknown."""
+    try:
+        return alert_service.get_alert(session, alert_id)
+    except alert_service.AlertNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.post(
+    "/alerts/$approve",
+    response_model=list[AlertRead],
+    tags=["Alerts"],
+    summary="Clear a set of alerts for release, or decline them",
+)
+@api_experimental
+async def approve_alerts(request: AlertApprovalRequest, session: Session = Depends(get_session)):
+    """Move a set of alerts through the release gate in one go.
+
+    Reviewers work through a queue and decide on several alerts at a time, so the whole
+    set is applied atomically — if any id is unknown, nothing is written and you get a
+    404. `approved` clears them for dissemination; `declined` records a deliberate
+    decision not to release, so they do not come back around for re-triage.
+
+    This gate is about dissemination, not epidemiology: it says a human cleared the
+    alert to go out, not that the outbreak turned out to be real.
+    """
+    try:
+        return alert_service.set_approval(
+            session,
+            alert_ids=request.alert_ids,
+            approved=request.approved,
+            approved_by=request.approved_by,
+        )
+    except alert_service.AlertNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except alert_service.InvalidAlertError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+
 # alert policies
 
 

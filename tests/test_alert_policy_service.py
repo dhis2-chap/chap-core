@@ -206,3 +206,20 @@ def test_delete_is_refused_while_a_setup_points_at_it(engine, monitor_level):
 
         with pytest.raises(AlertPolicyInUseError):
             delete_alert_policy(session, policy.id)
+
+
+def test_delete_is_refused_while_alerts_reference_it(engine, monitor_level):
+    """An alert's level name only means something against its policy."""
+    from chap_core.database.alert_tables import Alert
+    from chap_core.services.alert_service import create_alerts
+
+    with Session(engine) as session:
+        policy = create_alert_policy(session, name="p", levels=[monitor_level])
+        assert policy.id is not None
+        create_alerts(
+            session,
+            [Alert(time_period="2024-07", org_unit="A", alert_policy_id=policy.id, level="monitor")],
+        )
+
+        with pytest.raises(AlertPolicyInUseError, match="alerts raised against it"):
+            delete_alert_policy(session, policy.id)

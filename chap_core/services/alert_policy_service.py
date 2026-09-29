@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from chap_core.database.alert_tables import AlertLevel, AlertPolicy
+from chap_core.database.alert_tables import Alert, AlertLevel, AlertPolicy
 from chap_core.database.tables import PredictionSetup
 
 if TYPE_CHECKING:
@@ -36,7 +36,7 @@ class InvalidAlertPolicyError(AlertPolicyServiceError):
 
 
 class AlertPolicyInUseError(AlertPolicyServiceError):
-    """Raised when deleting a policy that a prediction setup still points at."""
+    """Raised when deleting a policy that a prediction setup or an alert still points at."""
 
 
 _MUTABLE_FIELDS = frozenset({"name", "levels"})
@@ -135,13 +135,19 @@ def delete_alert_policy(session: Session, policy_id: int) -> None:
 
     Raises:
         AlertPolicyNotFoundError: policy does not exist.
-        AlertPolicyInUseError: a prediction setup still points at the policy.
+        AlertPolicyInUseError: a prediction setup or an alert still points at the
+            policy. An alert's level name only means something against its policy,
+            so deleting the policy would leave the alert unreadable.
     """
     policy = get_alert_policy(session, policy_id)
 
-    in_use = session.exec(select(PredictionSetup.id).where(PredictionSetup.alert_policy_id == policy_id)).first()
-    if in_use is not None:
-        raise AlertPolicyInUseError(f"AlertPolicy {policy_id} is still used by prediction setup {in_use}")
+    setup_id = session.exec(select(PredictionSetup.id).where(PredictionSetup.alert_policy_id == policy_id)).first()
+    if setup_id is not None:
+        raise AlertPolicyInUseError(f"AlertPolicy {policy_id} is still used by prediction setup {setup_id}")
+
+    alert_id = session.exec(select(Alert.id).where(Alert.alert_policy_id == policy_id)).first()
+    if alert_id is not None:
+        raise AlertPolicyInUseError(f"AlertPolicy {policy_id} still has alerts raised against it, e.g. {alert_id}")
 
     session.delete(policy)
     try:
