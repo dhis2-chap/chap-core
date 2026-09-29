@@ -1,7 +1,7 @@
-# Runs the EWARS chapkit service next to chap. The service self-registers as a model
-# template but gets no configurations that way; `chap-admin install chapkit_ewars_model`
-# starts the service itself (in compose.marketplace.yml, so this overlay is then not
-# needed) and adds the verified configurations from the marketplace.
+# Development only. Runs the EWARS chapkit service next to chap. The service registers a
+# model template but gets no configurations, so it cannot be run. Deployments install
+# EWARS with `chap-admin install-all` instead, which writes compose.marketplace.yml. Do not
+# use both: the two services register under the same id.
 services:
   ewars:
     restart: unless-stopped
