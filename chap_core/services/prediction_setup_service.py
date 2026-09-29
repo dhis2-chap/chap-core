@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
+from chap_core.database.alert_tables import AlertPolicy
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import Backtest, Prediction, PredictionSetup, QuantileTarget
@@ -43,7 +44,22 @@ class InvalidSetupError(PredictionSetupServiceError):
     """Raised when input fails validation (cron format, required fields, immutable fields)."""
 
 
-_MUTABLE_FIELDS = frozenset({"name", "schedule_cron_expression", "schedule_enabled", "quantile_targets"})
+class AlertPolicyNotFoundError(PredictionSetupServiceError):
+    """Raised when the referenced AlertPolicy does not exist."""
+
+
+_MUTABLE_FIELDS = frozenset(
+    {"name", "schedule_cron_expression", "schedule_enabled", "quantile_targets", "alert_policy_id"}
+)
+
+
+def _validate_alert_policy(session: Session, alert_policy_id: int | None) -> int | None:
+    """Check the policy exists. Returns the id unchanged; `None` means no alerting."""
+    if alert_policy_id is None:
+        return None
+    if session.get(AlertPolicy, alert_policy_id) is None:
+        raise AlertPolicyNotFoundError(f"AlertPolicy {alert_policy_id} not found")
+    return alert_policy_id
 
 
 def _normalize_cron_expression(cron_expression: str | None) -> str | None:
@@ -74,6 +90,7 @@ def _setup_read_options(include_predictions: bool = False) -> list[Any]:
     """Eager-load options for returning a setup with its parent model template (and optionally predictions)."""
     options: list[Any] = [
         selectinload(PredictionSetup.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        selectinload(PredictionSetup.alert_policy),  # type: ignore[arg-type]
     ]
     if include_predictions:
         options.append(
@@ -96,17 +113,20 @@ def create_prediction_setup(
     schedule_cron_expression: str | None,
     schedule_enabled: bool,
     quantile_targets: list[QuantileTarget],
+    alert_policy_id: int | None = None,
 ) -> PredictionSetup:
     """Create a new PredictionSetup, snapshotting fields from the backtest's dataset.
 
     Raises:
         BacktestNotFoundError: backtest does not exist.
+        AlertPolicyNotFoundError: alert policy does not exist.
         InvalidSetupError: cron expression or enabled flag is invalid.
         DuplicateSetupError: backtest already has a PredictionSetup.
     """
     if not name:
         raise InvalidSetupError("name is required")
     cron = _validate_schedule(schedule_cron_expression, schedule_enabled)
+    _validate_alert_policy(session, alert_policy_id)
 
     backtest = session.exec(
         select(Backtest)
@@ -131,6 +151,7 @@ def create_prediction_setup(
         schedule_cron_expression=cron,
         schedule_enabled=schedule_enabled,
         quantile_targets=list(quantile_targets),
+        alert_policy_id=alert_policy_id,
     )
     session.add(setup)
     try:
@@ -192,6 +213,9 @@ def update_prediction_setup(
         if not update_data["name"]:
             raise InvalidSetupError("name cannot be null or empty")
         setup.name = update_data["name"]
+
+    if "alert_policy_id" in update_data:
+        setup.alert_policy_id = _validate_alert_policy(session, update_data["alert_policy_id"])
 
     if "schedule_cron_expression" in update_data or "schedule_enabled" in update_data:
         new_cron = update_data.get("schedule_cron_expression", setup.schedule_cron_expression)

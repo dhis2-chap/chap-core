@@ -161,6 +161,7 @@ class TestOpenAPITags:
             "Datasets",
             "Models",
             "Prediction Setups",
+            "Alert Policies",
             "Visualizations",
             "Jobs",
             "Services",

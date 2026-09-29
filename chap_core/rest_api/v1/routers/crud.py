@@ -32,6 +32,7 @@ from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import compute_all_detailed_metrics
 from chap_core.assessment.weather_providers import resolve_weather_provider
 from chap_core.data import DataSet as InMemoryDataSet
+from chap_core.database.alert_tables import AlertPolicyRead
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import (
@@ -71,10 +72,12 @@ from chap_core.rest_api.experimental import api_experimental
 from chap_core.rest_api.services.orchestrator import Orchestrator
 from chap_core.rest_api.services.schemas import MLServiceInfo
 from chap_core.rest_api.v2.dependencies import get_orchestrator
-from chap_core.services import prediction_setup_service
+from chap_core.services import alert_policy_service, prediction_setup_service
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import (
+    AlertPolicyCreate,
+    AlertPolicyUpdate,
     BacktestRead,
     BacktestSpecificationFilter,
     BacktestSpecificationRead,
@@ -1032,6 +1035,114 @@ async def delete_configured_model(
 
 
 ###########
+# alert policies
+
+
+@router.post(
+    "/alert-policies",
+    response_model=DataBaseResponse,
+    tags=["Alert Policies"],
+    summary="Define the tiers at which forecasts raise alerts",
+)
+@api_experimental
+async def create_alert_policy(request: AlertPolicyCreate, session: Session = Depends(get_session)):
+    """Create a named ladder of alert levels — a `monitor` tier, an `alert` tier, an `action` tier — that a prediction setup can be pointed at.
+
+    Each level pairs an epidemic channel (the same strategy and parameters
+    `POST /v1/analytics/thresholds` takes) with the exceedance probability at which that
+    tier fires, so one policy expresses a whole escalation ladder. 422 if the policy has
+    no levels, an unnamed level, or two levels sharing a name.
+    """
+    try:
+        policy = alert_policy_service.create_alert_policy(session, name=request.name, levels=request.levels)
+    except alert_policy_service.InvalidAlertPolicyError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    if policy.id is None:
+        raise HTTPException(status_code=500, detail="AlertPolicy creation produced no id")
+    return DataBaseResponse(id=policy.id)
+
+
+@router.get(
+    "/alert-policies",
+    response_model=list[AlertPolicyRead],
+    tags=["Alert Policies"],
+    summary="Browse saved alert policies",
+)
+@api_experimental
+async def list_alert_policies(session: Session = Depends(get_session)):
+    """List every alert policy, so a UI can offer them when configuring a prediction setup."""
+    return alert_policy_service.list_alert_policies(session)
+
+
+@router.get(
+    "/alert-policies/{alertPolicyId}",
+    response_model=AlertPolicyRead,
+    tags=["Alert Policies"],
+    summary="View one alert policy and its levels",
+)
+@api_experimental
+async def get_alert_policy(
+    alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
+    session: Session = Depends(get_session),
+):
+    """Read a policy's levels, each with its channel parameters and the probability at which it fires. 404 if the id is unknown."""
+    try:
+        return alert_policy_service.get_alert_policy(session, alert_policy_id)
+    except alert_policy_service.AlertPolicyNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.patch(
+    "/alert-policies/{alertPolicyId}",
+    response_model=AlertPolicyRead,
+    tags=["Alert Policies"],
+    summary="Rename an alert policy or retune its levels",
+)
+@api_experimental
+async def update_alert_policy(
+    alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
+    request: AlertPolicyUpdate,
+    session: Session = Depends(get_session),
+):
+    """Adjust a policy in place — rename it, or move where its tiers sit.
+
+    Levels are replaced whole rather than merged: a tier only means something alongside
+    the others, so send the full ladder. Only the fields you actually send are touched.
+    404 if the id is unknown, 422 if the new values are malformed.
+    """
+    update_data = request.model_dump(exclude_unset=True, by_alias=False)
+    try:
+        return alert_policy_service.update_alert_policy(session, alert_policy_id, update_data)
+    except alert_policy_service.AlertPolicyNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except alert_policy_service.InvalidAlertPolicyError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+
+@router.delete(
+    "/alert-policies/{alertPolicyId}",
+    tags=["Alert Policies"],
+    summary="Remove an alert policy",
+)
+@api_experimental
+async def delete_alert_policy(
+    alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
+    session: Session = Depends(get_session),
+):
+    """Delete a policy no prediction setup points at.
+
+    Refused with 409 while a setup still references it, so a running forecast cannot
+    lose the definition of what counts as an alert. 404 if the id is unknown.
+    """
+    try:
+        alert_policy_service.delete_alert_policy(session, alert_policy_id)
+    except alert_policy_service.AlertPolicyNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except alert_policy_service.AlertPolicyInUseError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    return {"message": "deleted"}
+
+
 # prediction setups
 
 
@@ -1058,8 +1169,11 @@ async def create_prediction_setup(request: PredictionSetupCreate, session: Sessi
             schedule_cron_expression=request.schedule_cron_expression,
             schedule_enabled=request.schedule_enabled,
             quantile_targets=request.quantile_targets,
+            alert_policy_id=request.alert_policy_id,
         )
     except prediction_setup_service.BacktestNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except prediction_setup_service.AlertPolicyNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except prediction_setup_service.DuplicateSetupError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
@@ -1129,6 +1243,8 @@ async def update_prediction_setup(
     try:
         return prediction_setup_service.update_prediction_setup(session, prediction_setup_id, update_data)
     except prediction_setup_service.PredictionSetupNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except prediction_setup_service.AlertPolicyNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except prediction_setup_service.InvalidSetupError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e

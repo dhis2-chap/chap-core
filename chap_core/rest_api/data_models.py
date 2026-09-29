@@ -5,6 +5,7 @@ from pydantic.alias_generators import to_camel
 
 from chap_core.api_types import BacktestParams, FeatureCollectionModel
 from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID, resolve_weather_provider
+from chap_core.database.alert_tables import AlertLevel
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSetCreateInfo, ObservationBase
 from chap_core.database.model_templates_and_config_tables import (
@@ -390,11 +391,40 @@ class BacktestUpdate(DBModel):
     name: str | None = Field(default=None, description="New human-friendly name; `None` leaves it unchanged.")
 
 
+class AlertPolicyCreate(DBModel):
+    """Request body for creating an alert policy."""
+
+    name: str = Field(description="Human-friendly name for the policy.")
+    levels: list[AlertLevel] = Field(
+        min_length=1,
+        description="The tiers of this policy, e.g. a `monitor` level and an `action` level. "
+        "Names must be unique within a policy.",
+    )
+
+
+class AlertPolicyUpdate(DBModel):
+    """Partial-update body for an existing alert policy. Rejects unknown fields with HTTP 422."""
+
+    # Reject unknown fields so clients trying to update immutable fields (id, created)
+    # get a clear 422 instead of a silent no-op.
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")  # type: ignore[assignment]
+
+    name: str | None = Field(default=None, description="New human-friendly name; `None` leaves it unchanged.")
+    levels: list[AlertLevel] | None = Field(
+        default=None,
+        description="New full list of levels, replacing the existing ones; `None` leaves them unchanged.",
+    )
+
+
 class PredictionSetupCreate(DBModel):
     """Request body for creating a recurring prediction setup attached to a backtest."""
 
     backtest_id: int = Field(description="Foreign key to the parent `Backtest` the setup will run forward in time.")
     name: str = Field(description="Human-friendly name for the setup.")
+    alert_policy_id: int | None = Field(
+        default=None,
+        description="Foreign key to the `AlertPolicy` the setup raises alerts against; `None` means no alerting.",
+    )
     schedule_cron_expression: str | None = Field(
         default=None, description="Standard cron expression for when to run; `None` means manual-only."
     )
@@ -421,6 +451,9 @@ class PredictionSetupUpdate(DBModel):
     schedule_enabled: bool | None = Field(default=None, description="New enabled flag; `None` leaves it unchanged.")
     quantile_targets: list[QuantileTarget] | None = Field(
         default=None, description="New full quantile-targets list; `None` leaves it unchanged."
+    )
+    alert_policy_id: int | None = Field(
+        default=None, description="New alert policy to raise alerts against; `None` leaves it unchanged."
     )
 
 
