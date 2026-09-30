@@ -10,7 +10,6 @@ from chap_core.api_types import BacktestParams
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
-from chap_core.assessment.prediction_evaluator import backtest as _backtest
 from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
@@ -85,8 +84,6 @@ def run_backtest(
     session: SessionWrapper | None = None,
     future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
 ):
-    from chap_core.assessment.dataset_splitting import train_test_generator
-
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     assert session is not None, "session is required"
     status_logger.info(f"Starting backtest for model '{info.model_id}' on dataset ID {info.dataset_id}")
@@ -112,41 +109,27 @@ def run_backtest(
     info.future_weather_provider = future_weather_provider
 
     status_logger.info(f"Validating dataset with {len(list(dataset.locations()))} locations")
-    dataset, specification = resolve_backtest_specification(
-        session,
-        dataset,
-        info.dataset_id,
-        BacktestParams(
-            n_periods=n_periods,
-            n_splits=n_splits,
-            stride=stride,
-            n_retrain=n_retrain,
-            future_weather_provider=future_weather_provider,
-        ),
-    )
-    train_set, test_generator = train_test_generator(
-        dataset,
-        prediction_length=n_periods,
-        n_test_sets=n_splits,
+    backtest_params = BacktestParams(
+        n_periods=n_periods,
+        n_splits=n_splits,
         stride=stride,
+        n_retrain=n_retrain,
         future_weather_provider=future_weather_provider,
     )
+    dataset, specification = resolve_backtest_specification(session, dataset, info.dataset_id, backtest_params)
 
     status_logger.info(f"Running {n_splits} evaluation splits with prediction length {n_periods}")
     assert configured_model.id is not None, "configured_model.id is required"
     estimator = session.get_configured_model_with_code(configured_model.id, prediction_length=n_periods)
-    predictions_list = _backtest(
+    # Historical context is for CLI plots; persisted backtests reach it through their dataset.
+    evaluation = Evaluation.create(
+        configured_model=configured_model,
         estimator=estimator,
-        train_set=train_set,
-        test_generator=test_generator,
-        n_test_sets=n_splits,
-        n_retrain=n_retrain,
-    )
-    # The last period the model was trained on, not the last period in the dataset:
-    # the tail of `dataset` is the held-out test window the splits forecast.
-    last_train_period = train_set.period_range[-1]
-    evaluation = Evaluation.from_samples_with_truth(
-        predictions_list, last_train_period, configured_model, info=info, specification=specification
+        dataset=dataset,
+        backtest_params=backtest_params,
+        historical_context_years=0,
+        info=info,
+        specification=specification,
     )
     backtest = evaluation.to_backtest()
     backtest.model_db_id = configured_model.id
