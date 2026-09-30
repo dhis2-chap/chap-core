@@ -420,19 +420,19 @@ def test_mlflow_runner_report_wraps_execution_errors(tmp_path):
         with pytest.raises(ModelFailedException):
             runner.report("model", "historic.csv", "out.pdf")
 
-def test_mlflow_runner_context_invokes_context_entry_point(tmp_path):
+def test_mlflow_runner_invokes_context_entry_point(tmp_path):
     """Test that MlflowTrainPredictRunner finds and invokes context endpoint"""
     runner = MlFlowTrainPredictRunner(model_path=tmp_path)
     with patch("mlflow.projects.run") as mock_run:
         mock_run.return_value = MagicMock()
         runner.context(
-            output_file="/abs/out/report.pdf",
+            output_file="/abs/out/context.json",
         )
         mock_run.assert_called_once()
         _, kwargs = mock_run.call_args
         assert kwargs["entry_point"] == "context"
         assert kwargs["parameters"] == {
-            "out_file": "/abs/out/report.pdf",
+            "out_file": "/abs/out/context.json",
         }
 
 

@@ -9,9 +9,6 @@ if TYPE_CHECKING:
     from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
-class ContextInfo(BaseModel):
-    context_length: int # TODO ikke sikker enda på om den burde ære required eller ikke enda
-
 
 class ConfiguredModel(abc.ABC):
     """
@@ -34,6 +31,7 @@ class ConfiguredModel(abc.ABC):
         pass
 
     def context(self) -> ContextInfo | None:
+        """Returns a models context length, or None if the model does not specify one"""
         return None
 
 
@@ -41,3 +39,8 @@ class ModelConfiguration(BaseModel):
     """
     BaseClass used for configuration that a ModelTemplate takes for creating specific Models
     """
+class ContextInfo(BaseModel):
+    """
+    ContextInfo used for handling the context_length of a configured model
+    """
+    context_length: int

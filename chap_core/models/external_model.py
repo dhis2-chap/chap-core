@@ -343,35 +343,37 @@ class ExternalModel(ExternalModelBase):
         self._runner.teardown()
 
     def context(self) -> ContextInfo | None:
-        # TODO usikker på om jeg skal returnere None eller raise error. Base class returnerer None foreløpig
+        """Finds the context window of a model"""
         if self._model_information is None or self._model_information.entry_points is None:
-            raise InvalidModelException("Model has no entry points configured; cannot generate report")
-        if self._model_information.entry_points.context is None:
-            raise InvalidModelException(f"Model '{self._name}' does not define a 'context' entry point")
-
-        if self._dry_run:
             return None
+        if self._model_information.entry_points.context is None:
+            return None 
+        
 
-        file_name = "context_test.json"
-        file_name_test = Path(self._working_dir) / file_name
+        file_name = "context.json"
+        file_path = Path(self._working_dir) / file_name
 
         with open(file_name_test, "w") as _:
             pass
 
         try: 
-            #'{"context_length : 12"}'
             self._runner.context(
                 file_name,
         )
         except CommandLineException as e:
-            logger.error("Error calculating contextwindow, command failed")
+            logger.error("Error getting context, command failed")
             raise ModelFailedException(str(e)) from e
         
-        test = file_name_test.read_text()
+        if self._dry_run:
+            return None
+        
+        file_content = file_path.read_text()
+
+        self._runner.teardown()
 
         try:
-            context = ContextInfo.model_validate_json(test)
+            context = ContextInfo.model_validate_json(file_content)
         except ValidationError as e:
-            raise ModelFailedException(str(e)) from e #TODO usikker på om dette er en exception som gir mening her
+            raise ModelFailedException(str(e)) from e
 
         return context
