@@ -1056,16 +1056,9 @@ async def create_alerts(request: AlertsCreate, session: Session = Depends(get_se
     reviewer to clear them for dissemination. The batch is validated before anything is
     written, so it fails whole. 422 if a policy, level or prediction is unknown.
     """
-    alerts = [
-        Alert(
-            time_period=entry.time_period,
-            org_unit=entry.org_unit,
-            alert_policy_id=entry.alert_policy_id,
-            level=entry.level,
-            prediction_id=entry.prediction_id,
-        )
-        for entry in request.alerts
-    ]
+    # AlertCreate and Alert share AlertBase, so the row is the create body plus the
+    # server-owned fields the service fills in.
+    alerts = [Alert(**entry.model_dump()) for entry in request.alerts]
     try:
         created = alert_service.create_alerts(session, alerts)
     except alert_service.InvalidAlertError as e:

@@ -5,7 +5,7 @@ from pydantic.alias_generators import to_camel
 
 from chap_core.api_types import BacktestParams, FeatureCollectionModel
 from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID, resolve_weather_provider
-from chap_core.database.alert_tables import AlertApproval, AlertLevel
+from chap_core.database.alert_tables import AlertApproval, AlertBase, AlertLevel, AlertPolicyBase
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSetCreateInfo, ObservationBase
 from chap_core.database.model_templates_and_config_tables import (
@@ -391,10 +391,13 @@ class BacktestUpdate(DBModel):
     name: str | None = Field(default=None, description="New human-friendly name; `None` leaves it unchanged.")
 
 
-class AlertPolicyCreate(DBModel):
-    """Request body for creating an alert policy."""
+class AlertPolicyCreate(AlertPolicyBase):
+    """Request body for creating an alert policy.
 
-    name: str = Field(description="Human-friendly name for the policy.")
+    Redeclares `levels` as required with at least one entry, so an empty ladder is
+    a schema error rather than something the service has to catch.
+    """
+
     levels: list[AlertLevel] = Field(
         min_length=1,
         description="The tiers of this policy, e.g. a `monitor` level and an `action` level. "
@@ -416,16 +419,12 @@ class AlertPolicyUpdate(DBModel):
     )
 
 
-class AlertCreate(DBModel):
-    """One alert to record."""
+class AlertCreate(AlertBase):
+    """One alert to record.
 
-    time_period: str = Field(description="Period the alert is about, e.g. `2024-07`.")
-    org_unit: str = Field(description="Identifier of the org unit the alert is for.")
-    alert_policy_id: int = Field(description="Foreign key to the `AlertPolicy` whose level was breached.")
-    level: str = Field(description="Name of the level that fired; must be one the policy defines.")
-    prediction_id: int | None = Field(
-        default=None, description="Foreign key to the `Prediction` that raised it; `None` if not linked to a run."
-    )
+    Exactly :class:`~chap_core.database.alert_tables.AlertBase`: the release-gate
+    fields are deliberately not settable, so every alert starts in `pending`.
+    """
 
 
 class AlertsCreate(DBModel):

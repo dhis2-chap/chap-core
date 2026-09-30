@@ -51,14 +51,10 @@ class AlertLevel(DBModel):
         return str(self.threshold_params.type)
 
 
-class AlertPolicy(DBModel, table=True):
-    """Persisted alert policy: a named set of alert levels a prediction setup scores against."""
+class AlertPolicyBase(DBModel):
+    """Fields shared by every alert-policy shape (DB row, read view, create body)."""
 
-    id: int | None = Field(primary_key=True, default=None, description="Primary key.")
     name: str = Field(description="Human-friendly name for the policy.")
-    created: datetime.datetime | None = Field(
-        default=None, description="Server-side timestamp when the policy was created."
-    )
     levels: list[AlertLevel] = Field(
         default_factory=list,
         sa_column=Column(PydanticListType(AlertLevel)),
@@ -66,13 +62,20 @@ class AlertPolicy(DBModel, table=True):
     )
 
 
-class AlertPolicyRead(DBModel):
+class AlertPolicy(AlertPolicyBase, table=True):
+    """Persisted alert policy: a named set of alert levels a prediction setup scores against."""
+
+    id: int | None = Field(primary_key=True, default=None, description="Primary key.")
+    created: datetime.datetime | None = Field(
+        default=None, description="Server-side timestamp when the policy was created."
+    )
+
+
+class AlertPolicyRead(AlertPolicyBase):
     """API read shape for an `AlertPolicy`."""
 
     id: int = Field(description="Primary key of the policy.")
-    name: str = Field(description="Human-friendly name for the policy.")
     created: datetime.datetime | None = Field(description="Server-side timestamp when the policy was created.")
-    levels: list[AlertLevel] = Field(description="The tiers of this policy, in the order the caller supplied them.")
 
 
 class AlertApproval(StrEnum):
@@ -117,13 +120,14 @@ class AlertApprovalType(TypeDecorator):
         return AlertApproval(value)
 
 
-class Alert(DBModel, table=True):
-    """One alert raised for a `(location, period)` against a level of an `AlertPolicy`."""
+class AlertBase(DBModel):
+    """What an alert is: which policy level fired, and where and when.
 
-    id: int | None = Field(primary_key=True, default=None, description="Primary key.")
-    created: datetime.datetime | None = Field(
-        default=None, description="Server-side timestamp when the alert was recorded."
-    )
+    Also the create shape. The release-gate fields live on :class:`AlertRecord`
+    instead, so a caller cannot record an alert that is already cleared for
+    dissemination -- every alert starts in `pending`.
+    """
+
     time_period: PeriodID = Field(description="Period the alert is about, e.g. `2024-07`.")
     org_unit: str = Field(description="Identifier of the org unit the alert is for.")
     alert_policy_id: int = Field(
@@ -140,6 +144,17 @@ class Alert(DBModel, table=True):
         description="Foreign key to the `Prediction` whose forecast raised the alert; `None` if it "
         "was recorded without a linked run. Cleared rather than cascaded if the prediction is deleted, "
         "so the record of what was raised survives.",
+    )
+
+
+class AlertRecord(AlertBase):
+    """A recorded alert: identity plus everything the server owns, minus the key.
+
+    Shared by the DB row and the read view, which differ only in how `id` is typed.
+    """
+
+    created: datetime.datetime | None = Field(
+        default=None, description="Server-side timestamp when the alert was recorded."
     )
     approved: AlertApproval = Field(
         default=AlertApproval.PENDING,
@@ -159,7 +174,13 @@ class Alert(DBModel, table=True):
     )
 
 
-class AlertRead(DBModel):
+class Alert(AlertRecord, table=True):
+    """One alert raised for a `(location, period)` against a level of an `AlertPolicy`."""
+
+    id: int | None = Field(primary_key=True, default=None, description="Primary key.")
+
+
+class AlertRead(AlertRecord):
     """API read shape for an `Alert`.
 
     Carries the policy's id rather than the policy itself: a listing is usually long
@@ -167,12 +188,3 @@ class AlertRead(DBModel):
     """
 
     id: int = Field(description="Primary key of the alert.")
-    created: datetime.datetime | None = Field(description="Server-side timestamp when the alert was recorded.")
-    time_period: PeriodID = Field(description="Period the alert is about.")
-    org_unit: str = Field(description="Identifier of the org unit the alert is for.")
-    alert_policy_id: int = Field(description="Foreign key to the `AlertPolicy` whose level was breached.")
-    level: str = Field(description="Name of the `AlertLevel` that fired.")
-    prediction_id: int | None = Field(description="Foreign key to the `Prediction` that raised it, if any.")
-    approved: AlertApproval = Field(description="Where the alert stands in the release gate.")
-    approved_by: str | None = Field(description="Who reviewed it; `None` while pending.")
-    approved_at: datetime.datetime | None = Field(description="When it was reviewed; `None` while pending.")
