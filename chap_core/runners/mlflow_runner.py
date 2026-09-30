@@ -107,7 +107,7 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
 
 
     def context(self, output_file):
-        logging.debug(f"Running context with output to {output_file}")
+        logger.debug(f"Running context with output to {output_file}")
 
         params = {
             "out_file": str(output_file),
@@ -124,5 +124,12 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
                 entry_point="context",
                 parameters=params,
             )
+        
         except ShellCommandException as e:
+            logger.error(
+                "Error running mlflow project"
+            )
+            raise ModelFailedException(str(e)) from e
+        except mlflow.exceptions.ExecutionException as e:
+            logger.error("Execution of model failed for some reason. Check the logs for more information")
             raise ModelFailedException(str(e)) from e
