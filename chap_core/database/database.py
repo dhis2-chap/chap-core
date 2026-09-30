@@ -209,6 +209,8 @@ class SessionWrapper:
         self.session.commit()
         if all_versions or not model_template.is_live:
             return
+        # Archived configured models still count on purpose: a version without an active one
+        # only needs a new configuration, which is better than leaving no version live.
         runnable = self.session.exec(
             select(ModelTemplateDB)
             .join(ConfiguredModelDB, col(ConfiguredModelDB.model_template_id) == col(ModelTemplateDB.id))

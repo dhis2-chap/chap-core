@@ -288,6 +288,10 @@ def _register_service(
     custom service must not register under a model name in ``taken``, which another
     install already serves. An update must register under the ``previous_name`` it
     replaces, since another id is another model. Returns the template name.
+
+    These checks keep chap-admin from mixing models, not a boundary of the registry: its
+    REST API lets the latest registration of an id win, so a custom service that claims a
+    taken id routes that model's runs to itself until it is refused and deregistered.
     """
     from chap_core.services.model_marketplace import configured_model_requests
 
