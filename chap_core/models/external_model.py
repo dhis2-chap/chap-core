@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 
 import pandas as pd
+from pydantic_core import ValidationError
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import HealthData, Samples
@@ -342,20 +343,35 @@ class ExternalModel(ExternalModelBase):
         self._runner.teardown()
 
     def context(self) -> ContextInfo | None:
+        # TODO usikker på om jeg skal returnere None eller raise error. Base class returnerer None foreløpig
+        if self._model_information is None or self._model_information.entry_points is None:
+            raise InvalidModelException("Model has no entry points configured; cannot generate report")
+        if self._model_information.entry_points.context is None:
+            raise InvalidModelException(f"Model '{self._name}' does not define a 'context' entry point")
 
-        file_name_test = Path(self._working_dir) / "context_test"
+        if self._dry_run:
+            return None
+
+        file_name = "context_test.json"
+        file_name_test = Path(self._working_dir) / file_name
+
+        with open(file_name_test, "w") as _:
+            pass
 
         try: 
+            #'{"context_length : 12"}'
             self._runner.context(
-                file_name_test,
+                file_name,
         )
         except CommandLineException as e:
             logger.error("Error calculating contextwindow, command failed")
             raise ModelFailedException(str(e)) from e
         
-        #shutil.copyfile(Path(self._working_dir) / report_filename, out_file)
-        self._runner.teardown()
+        test = file_name_test.read_text()
 
-        #TODO åpne filen, put den inn i en ContextInfo objekt, return det
+        try:
+            context = ContextInfo.model_validate_json(test)
+        except ValidationError as e:
+            raise ModelFailedException(str(e)) from e #TODO usikker på om dette er en exception som gir mening her
 
-        return None
+        return context
