@@ -33,6 +33,10 @@ class InvalidAlertError(AlertServiceError):
     """Raised when input fails validation (unknown policy, unknown level, unknown prediction)."""
 
 
+class AlertApprovedError(AlertServiceError):
+    """Raised when deleting an alert that has been cleared for dissemination."""
+
+
 def _validate_level(session: Session, alert_policy_id: int, level: str) -> None:
     """Check the policy exists and actually defines the named level.
 
@@ -101,6 +105,20 @@ def get_alert(session: Session, alert_id: int) -> Alert:
     if alert is None:
         raise AlertNotFoundError(f"Alert {alert_id} not found")
     return alert
+
+
+def delete_alert(session: Session, alert_id: int) -> None:
+    """Delete an alert, e.g. one raised by a bad run, so its prediction can be deleted.
+
+    Raises:
+        AlertNotFoundError: alert does not exist.
+        AlertApprovedError: the alert has been cleared for dissemination.
+    """
+    alert = get_alert(session, alert_id)
+    if alert.approved is AlertApproval.APPROVED:
+        raise AlertApprovedError(f"Alert {alert_id} is approved for dissemination and cannot be deleted")
+    session.delete(alert)
+    session.commit()
 
 
 def list_alerts(

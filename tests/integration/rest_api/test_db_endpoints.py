@@ -2355,6 +2355,27 @@ def test_deleting_a_prediction_with_alerts_returns_409(override_session, seeded_
     assert "alert" in response.json()["detail"].lower()
 
 
+def test_deleting_an_alert_lets_its_policy_be_deleted(clean_engine, dependency_overrides):
+    policy_id = _create_alert_policy("Alerts K").json()["id"]
+    (alert_id,) = _create_alerts(policy_id).json()["ids"]
+
+    assert client.delete(f"/v1/crud/alerts/{alert_id}").status_code == 200
+    assert client.get(f"/v1/crud/alerts/{alert_id}").status_code == 404
+    assert client.delete(f"/v1/crud/alert-policies/{policy_id}").status_code == 200
+
+
+def test_deleting_an_approved_alert_returns_409(clean_engine, dependency_overrides):
+    policy_id = _create_alert_policy("Alerts L").json()["id"]
+    (alert_id,) = _create_alerts(policy_id).json()["ids"]
+    client.post("/v1/crud/alerts/$approve", json={"alertIds": [alert_id], "approved": "approved", "approvedBy": "knut"})
+
+    assert client.delete(f"/v1/crud/alerts/{alert_id}").status_code == 409
+
+
+def test_deleting_an_unknown_alert_returns_404(clean_engine, dependency_overrides):
+    assert client.delete("/v1/crud/alerts/99999").status_code == 404
+
+
 def test_deleting_a_prediction_without_alerts_still_works(override_session, seeded_session):
     prediction = seeded_session.exec(select(Prediction)).first()
     assert prediction is not None

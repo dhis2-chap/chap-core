@@ -21,9 +21,11 @@ from chap_core.database.model_templates_and_config_tables import ConfiguredModel
 from chap_core.database.tables import Prediction
 from chap_core.services.alert_policy_service import create_alert_policy
 from chap_core.services.alert_service import (
+    AlertApprovedError,
     AlertNotFoundError,
     InvalidAlertError,
     create_alerts,
+    delete_alert,
     get_alert,
     list_alerts,
     set_approval,
@@ -264,6 +266,35 @@ def test_get_missing_alert_raises_not_found(engine):
     with Session(engine) as session:
         with pytest.raises(AlertNotFoundError):
             get_alert(session, 99999)
+
+
+def test_deleting_an_alert_frees_its_prediction(engine, policy_id, prediction_id):
+    """A bad run's alerts can be removed so the run itself can be deleted."""
+    with Session(engine) as session:
+        (alert,) = create_alerts(session, [_alert(policy_id, prediction_id=prediction_id)])
+        assert alert.id is not None
+        delete_alert(session, alert.id)
+
+        session.delete(session.get(Prediction, prediction_id))
+        session.commit()
+        assert session.get(Prediction, prediction_id) is None
+
+
+def test_an_approved_alert_cannot_be_deleted(engine, policy_id):
+    """It has been cleared for dissemination, so it stays on record."""
+    with Session(engine) as session:
+        (alert,) = create_alerts(session, [_alert(policy_id)])
+        assert alert.id is not None
+        set_approval(session, [alert.id], AlertApproval.APPROVED, "knut")
+        with pytest.raises(AlertApprovedError):
+            delete_alert(session, alert.id)
+        assert get_alert(session, alert.id).approved is AlertApproval.APPROVED
+
+
+def test_deleting_a_missing_alert_raises_not_found(engine):
+    with Session(engine) as session:
+        with pytest.raises(AlertNotFoundError):
+            delete_alert(session, 99999)
 
 
 def test_the_database_refuses_to_delete_a_prediction_with_alerts(engine, policy_id, prediction_id):

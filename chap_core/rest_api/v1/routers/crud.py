@@ -1125,6 +1125,30 @@ async def get_alert(
         raise HTTPException(status_code=404, detail=str(e)) from e
 
 
+@router.delete(
+    "/alerts/{alertId}",
+    tags=["Alerts"],
+    summary="Remove an alert",
+)
+@api_experimental
+async def delete_alert(
+    alert_id: Annotated[int, Path(alias="alertId")],
+    session: Session = Depends(get_session),
+):
+    """Delete an alert, e.g. one raised by a bad run, so its prediction or policy can be deleted.
+
+    Refused with 409 once the alert is approved: it has been cleared for dissemination
+    and stays on record. 404 if the id is unknown.
+    """
+    try:
+        alert_service.delete_alert(session, alert_id)
+    except alert_service.AlertNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except alert_service.AlertApprovedError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    return {"message": "deleted"}
+
+
 @router.post(
     "/alerts/$approve",
     response_model=list[AlertRead],
