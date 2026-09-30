@@ -449,7 +449,7 @@ def test_command_line_runner_context_formats_command():
             predict_command="python predict.py {model} {historic_data} {future_data} {out_file}",
             context_command="python context.py {out_file}",
         )
-        runner.context("out_file.pdf")
+        runner.context()
         mock_run.assert_called_once_with("python context.py out_file.pdf")
 
 

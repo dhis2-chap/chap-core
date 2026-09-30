@@ -186,3 +186,25 @@ def test_external_model_context_invokes_runner(tmp_path):
 
     assert (working_dir / "context.json").exists()
     assert context.context_length == 12
+
+
+def test_external_model_without_context_entry_point_returns_none(tmp_path):
+    working_dir = tmp_path / "workdir"
+    working_dir.mkdir()
+
+    runner = Mock()
+    model = ExternalModel(
+        runner=runner,
+        name="test_context_model",
+        working_dir=str(working_dir),
+        model_information=ModelTemplateConfigV2(
+            name="test_context_model",
+            entry_points=EntryPointConfig(
+                train=CommandConfig(command="python train.py {train_data} {model}"),
+                predict=CommandConfig(command="python predict.py {model} {historic_data} {future_data} {out_file}"),
+            ),
+        ),
+    )
+
+    assert model.context() == None
+    runner.report.assert_not_called()
