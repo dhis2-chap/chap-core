@@ -148,3 +148,40 @@ def test_external_model_report_without_entry_point_raises(weekly_full_data, tmp_
     with pytest.raises(InvalidModelException):
         model.report(weekly_full_data, tmp_path / "report.pdf")
     runner.report.assert_not_called()
+
+
+def _context_model_template_config() -> ModelTemplateConfigV2:
+    return ModelTemplateConfigV2(
+        name="test_context_model",
+        entry_points=EntryPointConfig(
+            train=CommandConfig(command="python train.py {train_data} {model}"),
+            predict=CommandConfig(command="python predict.py {model} {historic_data} {future_data} {out_file}"),
+            context=CommandConfig(command="python context.py {out_file}"),
+        ),
+    )
+
+
+def test_external_model_context_invokes_runner(tmp_path):
+    working_dir = tmp_path / "workdir"
+    working_dir.mkdir()
+
+    def _fake_context(out_filename):
+        (working_dir / out_filename).write_text('{"context_length" : 12}')
+
+    runner = Mock()
+    runner.context.side_effect = _fake_context
+    model = ExternalModel(
+        runner=runner,
+        name="test_context_model",
+        working_dir=str(working_dir),
+        model_information=_context_model_template_config(),
+    )
+
+    context = model.context()
+
+    runner.context.assert_called_once()
+    args, _ = runner.context.call_args
+    assert args[0] == "context.json"
+   
+    assert (working_dir / "context.json").exists()
+    assert context.context_length == 12
