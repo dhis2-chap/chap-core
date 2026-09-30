@@ -1041,7 +1041,6 @@ async def delete_configured_model(
     tags=["Prediction Setups"],
     summary="Promote a backtest into a reusable prediction config",
 )
-@api_experimental
 async def create_prediction_setup(request: PredictionSetupCreate, session: Session = Depends(get_session)):
     """Save a backtest as a prediction setup — a named configuration you can rerun on fresh data, either ad-hoc via ``/run`` or on a cron schedule.
 
@@ -1076,7 +1075,6 @@ async def create_prediction_setup(request: PredictionSetupCreate, session: Sessi
     tags=["Prediction Setups"],
     summary="Browse saved prediction setups",
 )
-@api_experimental
 async def list_prediction_setups(session: Session = Depends(get_session)):
     """List every prediction setup so you can manage them, run them ad-hoc, or check which backtests have been promoted into a recurring forecast.
 
@@ -1093,7 +1091,6 @@ async def list_prediction_setups(session: Session = Depends(get_session)):
     tags=["Prediction Setups"],
     summary="View a prediction setup with its forecast history",
 )
-@api_experimental
 async def get_prediction_setup(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     session: Session = Depends(get_session),
@@ -1114,7 +1111,6 @@ async def get_prediction_setup(
     tags=["Prediction Setups"],
     summary="Tweak a prediction setup's schedule or targets",
 )
-@api_experimental
 async def update_prediction_setup(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     request: PredictionSetupUpdate,
@@ -1170,7 +1166,6 @@ def _cancel_jobs_for_prediction_setup(prediction_setup_id: int) -> None:
     tags=["Prediction Setups"],
     summary="Retire a prediction setup",
 )
-@api_experimental
 async def delete_prediction_setup(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     session: Session = Depends(get_session),
@@ -1201,7 +1196,6 @@ async def delete_prediction_setup(
     tags=["Prediction Setups"],
     summary="Run a prediction setup against fresh observations",
 )
-@api_experimental
 async def run_prediction_setup(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     request: RunPredictionSetupRequest,
