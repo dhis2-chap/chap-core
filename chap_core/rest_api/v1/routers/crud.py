@@ -79,7 +79,6 @@ from ...data_models import (
     AlertApprovalRequest,
     AlertIdsResponse,
     AlertPolicyCreate,
-    AlertPolicyUpdate,
     AlertsCreate,
     BacktestRead,
     BacktestSpecificationFilter,
@@ -714,10 +713,21 @@ async def get_prediction(
 async def delete_prediction(
     prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
 ):
-    """Permanently delete a prediction and every forecast row it contains. Use this to clean up obsolete or test forecasts from the listing. 404 if the id is unknown."""
+    """Permanently delete a prediction and every forecast row it contains. Use this to clean up obsolete or test forecasts from the listing.
+
+    Refused with 409 while alerts raised from this prediction still exist: an alert
+    only means something alongside the forecast that justified it, so the alerts have
+    to go first. 404 if the id is unknown.
+    """
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
         raise HTTPException(status_code=404, detail="Prediction not found")
+    alerts = alert_service.list_alerts(session, prediction_id=prediction_id)
+    if alerts:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Prediction {prediction_id} has {len(alerts)} alert(s) raised from it; delete those first",
+        )
     session.delete(prediction)
     session.commit()
     return {"message": "deleted"}
@@ -1198,33 +1208,6 @@ async def get_alert_policy(
         return alert_policy_service.get_alert_policy(session, alert_policy_id)
     except alert_policy_service.AlertPolicyNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-
-
-@router.patch(
-    "/alert-policies/{alertPolicyId}",
-    response_model=AlertPolicyRead,
-    tags=["Alert Policies"],
-    summary="Rename an alert policy or retune its levels",
-)
-@api_experimental
-async def update_alert_policy(
-    alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
-    request: AlertPolicyUpdate,
-    session: Session = Depends(get_session),
-):
-    """Adjust a policy in place — rename it, or move where its tiers sit.
-
-    Levels are replaced whole rather than merged: a tier only means something alongside
-    the others, so send the full ladder. Only the fields you actually send are touched.
-    404 if the id is unknown, 422 if the new values are malformed.
-    """
-    update_data = request.model_dump(exclude_unset=True, by_alias=False)
-    try:
-        return alert_policy_service.update_alert_policy(session, alert_policy_id, update_data)
-    except alert_policy_service.AlertPolicyNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except alert_policy_service.InvalidAlertPolicyError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 @router.delete(

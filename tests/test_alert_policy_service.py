@@ -24,7 +24,6 @@ from chap_core.services.alert_policy_service import (
     delete_alert_policy,
     get_alert_policy,
     list_alert_policies,
-    update_alert_policy,
 )
 from chap_core.services.prediction_setup_service import create_prediction_setup
 
@@ -139,44 +138,6 @@ def test_list_returns_every_policy(engine, monitor_level):
         create_alert_policy(session, name="first", levels=[monitor_level])
         create_alert_policy(session, name="second", levels=[monitor_level])
         assert sorted(policy.name for policy in list_alert_policies(session)) == ["first", "second"]
-
-
-def test_update_replaces_the_levels_whole(engine, monitor_level, action_level):
-    """A tier only means something alongside the others, so the ladder is replaced, not merged."""
-    with Session(engine) as session:
-        policy = create_alert_policy(session, name="ladder", levels=[monitor_level, action_level])
-        assert policy.id is not None
-
-        updated = update_alert_policy(session, policy.id, {"levels": [action_level]})
-        assert [level.name for level in updated.levels] == ["action"]
-
-
-def test_update_renames_without_touching_levels(engine, monitor_level):
-    with Session(engine) as session:
-        policy = create_alert_policy(session, name="old", levels=[monitor_level])
-        assert policy.id is not None
-
-        updated = update_alert_policy(session, policy.id, {"name": "new"})
-        assert updated.name == "new"
-        assert [level.name for level in updated.levels] == ["monitor"]
-
-
-def test_update_rejects_immutable_fields(engine, monitor_level):
-    with Session(engine) as session:
-        policy = create_alert_policy(session, name="p", levels=[monitor_level])
-        assert policy.id is not None
-
-        with pytest.raises(InvalidAlertPolicyError, match="immutable"):
-            update_alert_policy(session, policy.id, {"created": None})
-
-
-def test_update_to_an_empty_ladder_is_rejected(engine, monitor_level):
-    with Session(engine) as session:
-        policy = create_alert_policy(session, name="p", levels=[monitor_level])
-        assert policy.id is not None
-
-        with pytest.raises(InvalidAlertPolicyError, match="at least one level"):
-            update_alert_policy(session, policy.id, {"levels": []})
 
 
 def test_delete_removes_an_unused_policy(engine, monitor_level):

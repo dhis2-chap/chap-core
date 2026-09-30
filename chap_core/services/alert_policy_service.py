@@ -2,6 +2,11 @@
 
 Domain logic that doesn't depend on HTTP concerns. Raises typed exceptions that
 the router (or any other caller) maps to its own error format.
+
+There is deliberately no update: a policy's levels cannot be edited in place.
+Renaming or dropping a tier would leave every existing alert naming a level the
+policy no longer defines, breaking the invariant that `Alert.level` is always
+one of its policy's level names. Policies are created and replaced, not edited.
 """
 
 from __future__ import annotations
@@ -37,9 +42,6 @@ class InvalidAlertPolicyError(AlertPolicyServiceError):
 
 class AlertPolicyInUseError(AlertPolicyServiceError):
     """Raised when deleting a policy that a prediction setup or an alert still points at."""
-
-
-_MUTABLE_FIELDS = frozenset({"name", "levels"})
 
 
 def _validate_levels(levels: Sequence[AlertLevel | dict[str, Any]]) -> list[AlertLevel]:
@@ -93,41 +95,6 @@ def get_alert_policy(session: Session, policy_id: int) -> AlertPolicy:
 
 def list_alert_policies(session: Session) -> list[AlertPolicy]:
     return list(session.exec(select(AlertPolicy)).all())
-
-
-def update_alert_policy(session: Session, policy_id: int, update_data: dict[str, Any]) -> AlertPolicy:
-    """Apply a partial update to an AlertPolicy.
-
-    ``update_data`` holds only the fields the caller explicitly set, e.g. from
-    pydantic's ``model_dump(exclude_unset=True)``. Levels are replaced whole
-    rather than merged: a tier is meaningful only alongside the others.
-
-    Raises:
-        AlertPolicyNotFoundError: policy does not exist.
-        InvalidAlertPolicyError: an immutable field, or values that fail validation.
-    """
-    rejected = set(update_data.keys()) - _MUTABLE_FIELDS
-    if rejected:
-        raise InvalidAlertPolicyError(f"Cannot update immutable fields: {sorted(rejected)}")
-
-    policy = get_alert_policy(session, policy_id)
-
-    if "name" in update_data:
-        name = update_data["name"]
-        if not name or not name.strip():
-            raise InvalidAlertPolicyError("name cannot be null or empty")
-        policy.name = name
-
-    if "levels" in update_data:
-        levels = update_data["levels"]
-        if levels is None:
-            raise InvalidAlertPolicyError("levels cannot be null")
-        policy.levels = _validate_levels(levels)
-
-    session.add(policy)
-    session.commit()
-    session.refresh(policy)
-    return policy
 
 
 def delete_alert_policy(session: Session, policy_id: int) -> None:

@@ -244,6 +244,7 @@ class PredictionSetup(DBModel, table=True):
     alert_policy_id: int | None = Field(
         default=None,
         foreign_key="alertpolicy.id",
+        ondelete="RESTRICT",
         description="Foreign key to the `AlertPolicy` this setup raises alerts against; `None` means no alerting.",
     )
     alert_policy: AlertPolicy | None = Relationship()

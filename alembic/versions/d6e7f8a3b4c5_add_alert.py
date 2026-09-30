@@ -7,10 +7,16 @@ it for dissemination.
 The gate is stored as a plain string rather than a native enum, so adding a
 state later needs no type migration.
 
-The policy foreign key is RESTRICT: an alert's level name only means something
-against its policy, so the policy cannot be deleted out from under it. The
-prediction foreign key is SET NULL, so deleting a run does not erase the record
-of what it raised.
+Both foreign keys are RESTRICT. An alert's level name only means something
+against its policy, and an alert only means something alongside the forecast
+that justified it, so neither parent can be deleted while alerts reference it.
+The services refuse those deletes with a 409 before the database is reached;
+the constraints are the backstop.
+
+Both are also declared on the model fields, not just here. `create_db_and_tables`
+runs `SQLModel.metadata.create_all` before Alembic, so on a fresh database
+`create_all` creates this table and the `has_table` guard below skips: a rule
+declared only in this migration would never take effect.
 
 Revision ID: d6e7f8a3b4c5
 Revises: c5d6e7f8a3b4
@@ -55,7 +61,7 @@ def upgrade() -> None:
             sa.ForeignKeyConstraint(
                 ["prediction_id"],
                 ["prediction.id"],
-                ondelete="SET NULL",
+                ondelete="RESTRICT",
                 name="fk_alert_prediction",
             ),
         )

@@ -2182,22 +2182,6 @@ def test_create_alert_policy_with_out_of_range_exceedance_returns_422(clean_engi
     assert response.status_code == 422, response.text
 
 
-def test_update_alert_policy_replaces_levels(clean_engine, dependency_overrides):
-    policy_id = _create_alert_policy("Ladder B").json()["id"]
-    response = client.patch(
-        f"/v1/crud/alert-policies/{policy_id}",
-        json={"levels": [{"name": "alert", "thresholdParams": {"type": "seasonal"}, "exceedanceThreshold": 0.5}]},
-    )
-    assert response.status_code == 200, response.json()
-    assert [level["name"] for level in response.json()["levels"]] == ["alert"]
-
-
-def test_update_alert_policy_rejects_unknown_fields(clean_engine, dependency_overrides):
-    policy_id = _create_alert_policy("Ladder C").json()["id"]
-    response = client.patch(f"/v1/crud/alert-policies/{policy_id}", json={"nonsense": 1})
-    assert response.status_code == 422, response.text
-
-
 def test_delete_unused_alert_policy(clean_engine, dependency_overrides):
     policy_id = _create_alert_policy("Ladder D").json()["id"]
     assert client.delete(f"/v1/crud/alert-policies/{policy_id}").status_code == 200
@@ -2356,3 +2340,29 @@ def test_deleting_a_policy_with_alerts_returns_409(clean_engine, dependency_over
     policy_id = _create_alert_policy("Alerts H").json()["id"]
     _create_alerts(policy_id)
     assert client.delete(f"/v1/crud/alert-policies/{policy_id}").status_code == 409
+
+
+def test_deleting_a_prediction_with_alerts_returns_409(override_session, seeded_session):
+    """An alert only means something alongside the forecast that justified it."""
+    prediction = seeded_session.exec(select(Prediction)).first()
+    assert prediction is not None
+    policy_id = _create_alert_policy("Alerts I").json()["id"]
+    payload = _alert_payload(policy_id) | {"predictionId": prediction.id}
+    assert client.post("/v1/crud/alerts", json={"alerts": [payload]}).status_code == 200
+
+    response = client.delete(f"/v1/crud/predictions/{prediction.id}")
+    assert response.status_code == 409, response.text
+    assert "alert" in response.json()["detail"].lower()
+
+
+def test_deleting_a_prediction_without_alerts_still_works(override_session, seeded_session):
+    prediction = seeded_session.exec(select(Prediction)).first()
+    assert prediction is not None
+    assert client.delete(f"/v1/crud/predictions/{prediction.id}").status_code == 200
+
+
+def test_there_is_no_patch_endpoint_for_alert_policies(clean_engine, dependency_overrides):
+    """Levels are immutable: editing them would orphan the alerts naming them."""
+    policy_id = _create_alert_policy("Alerts J").json()["id"]
+    response = client.patch(f"/v1/crud/alert-policies/{policy_id}", json={"name": "renamed"})
+    assert response.status_code == 405, response.text

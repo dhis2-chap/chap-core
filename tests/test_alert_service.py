@@ -7,6 +7,8 @@ isolation; the HTTP-layer wiring is verified by the FastAPI integration tests.
 
 from __future__ import annotations
 
+import datetime
+
 import pytest
 from sqlalchemy import event
 from sqlmodel import Session, SQLModel, create_engine
@@ -199,3 +201,51 @@ def test_get_missing_alert_raises_not_found(engine):
     with Session(engine) as session:
         with pytest.raises(AlertNotFoundError):
             get_alert(session, 99999)
+
+
+def test_the_database_refuses_to_delete_a_prediction_with_alerts(engine, policy_id):
+    """The RESTRICT is declared on the model field, not only in the migration.
+
+    `create_db_and_tables` runs `SQLModel.metadata.create_all` before Alembic, so on a
+    fresh database the table comes from the model and a rule declared only in the
+    migration would never take effect. This asserts against a schema built by
+    `create_all` with foreign keys enforced, which is what production gets.
+    """
+    from sqlalchemy.exc import IntegrityError
+
+    from chap_core.database.dataset_tables import DataSet
+    from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
+    from chap_core.database.tables import Prediction
+
+    with Session(engine) as session:
+        template = ModelTemplateDB(name="tpl", version="1.0.0")
+        session.add(template)
+        dataset = DataSet(name="ds")
+        session.add(dataset)
+        session.commit()
+        assert template.id is not None and dataset.id is not None
+        model = ConfiguredModelDB(name="cfg", model_template_id=template.id)
+        session.add(model)
+        session.commit()
+        assert model.id is not None
+
+        prediction = Prediction(
+            dataset_id=dataset.id,
+            model_id="cfg",
+            model_db_id=model.id,
+            n_periods=3,
+            name="pred",
+            created=datetime.datetime.now(),
+        )
+        session.add(prediction)
+        session.commit()
+        assert prediction.id is not None
+
+        alert = _alert(policy_id)
+        alert.prediction_id = prediction.id
+        create_alerts(session, [alert])
+
+        session.delete(prediction)
+        with pytest.raises(IntegrityError):
+            session.commit()
+        session.rollback()

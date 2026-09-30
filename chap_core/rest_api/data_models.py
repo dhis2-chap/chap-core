@@ -405,20 +405,6 @@ class AlertPolicyCreate(AlertPolicyBase):
     )
 
 
-class AlertPolicyUpdate(DBModel):
-    """Partial-update body for an existing alert policy. Rejects unknown fields with HTTP 422."""
-
-    # Reject unknown fields so clients trying to update immutable fields (id, created)
-    # get a clear 422 instead of a silent no-op.
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")  # type: ignore[assignment]
-
-    name: str | None = Field(default=None, description="New human-friendly name; `None` leaves it unchanged.")
-    levels: list[AlertLevel] | None = Field(
-        default=None,
-        description="New full list of levels, replacing the existing ones; `None` leaves them unchanged.",
-    )
-
-
 class AlertCreate(AlertBase):
     """One alert to record.
 

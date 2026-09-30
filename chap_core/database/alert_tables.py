@@ -132,6 +132,7 @@ class AlertBase(DBModel):
     org_unit: str = Field(description="Identifier of the org unit the alert is for.")
     alert_policy_id: int = Field(
         foreign_key="alertpolicy.id",
+        ondelete="RESTRICT",
         description="Foreign key to the `AlertPolicy` whose level was breached.",
     )
     level: str = Field(
@@ -141,9 +142,10 @@ class AlertBase(DBModel):
     prediction_id: int | None = Field(
         default=None,
         foreign_key="prediction.id",
+        ondelete="RESTRICT",
         description="Foreign key to the `Prediction` whose forecast raised the alert; `None` if it "
-        "was recorded without a linked run. Cleared rather than cascaded if the prediction is deleted, "
-        "so the record of what was raised survives.",
+        "was recorded without a linked run. Deleting a prediction that raised alerts is refused, so "
+        "an alert is never separated from the forecast that justified it.",
     )
 
 
