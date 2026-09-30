@@ -80,8 +80,9 @@ deployment uses one.
 Include `compose.marketplace.yml` in subsequent Docker Compose commands, for
 example `docker compose -f compose.yml -f compose.marketplace.yml up -d`.
 Continue using your deployment's existing `COMPOSE_PROJECT_NAME` and environment
-settings. `SERVICEKIT_REGISTRATION_KEY` is forwarded when set in the environment
-or deployment's `.env` file.
+settings. `SERVICEKIT_REGISTRATION_KEY` is passed to the model containers when set
+in the environment or the deployment's `.env` file. `chap-admin` itself reads it
+only from the shell.
 
 Only the selected model is pulled and started. Updates preserve its data volume
 and Compose settings; failed updates attempt to restart the previous image.
