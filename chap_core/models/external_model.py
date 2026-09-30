@@ -347,26 +347,25 @@ class ExternalModel(ExternalModelBase):
         if self._model_information is None or self._model_information.entry_points is None:
             return None
         if self._model_information.entry_points.context is None:
-            return None 
-        
+            return None
 
         file_name = "context.json"
         file_path = Path(self._working_dir) / file_name
 
-        with open(file_name_test, "w") as _:
+        with open(file_path, "w") as _:
             pass
 
-        try: 
+        try:
             self._runner.context(
                 file_name,
-        )
+            )
         except CommandLineException as e:
             logger.error("Error getting context, command failed")
             raise ModelFailedException(str(e)) from e
-        
+
         if self._dry_run:
             return None
-        
+
         file_content = file_path.read_text()
 
         self._runner.teardown()

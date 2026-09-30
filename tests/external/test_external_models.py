@@ -178,10 +178,11 @@ def test_external_model_context_invokes_runner(tmp_path):
     )
 
     context = model.context()
+    assert context is not None
 
     runner.context.assert_called_once()
     args, _ = runner.context.call_args
     assert args[0] == "context.json"
-   
+
     assert (working_dir / "context.json").exists()
     assert context.context_length == 12

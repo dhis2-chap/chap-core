@@ -420,6 +420,7 @@ def test_mlflow_runner_report_wraps_execution_errors(tmp_path):
         with pytest.raises(ModelFailedException):
             runner.report("model", "historic.csv", "out.pdf")
 
+
 def test_mlflow_runner_invokes_context_entry_point(tmp_path):
     """Test that MlflowTrainPredictRunner finds and invokes context endpoint"""
     runner = MlFlowTrainPredictRunner(model_path=tmp_path)

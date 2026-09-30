@@ -39,8 +39,16 @@ class ModelConfiguration(BaseModel):
     """
     BaseClass used for configuration that a ModelTemplate takes for creating specific Models
     """
+
+
 class ContextInfo(BaseModel):
     """
     ContextInfo used for handling the context_length of a configured model
+
+    The context length is an int and represents how many timesteps backwards from the most recent timestep
+    the model uses.
+
+    0 represents the entire context length.
     """
+
     context_length: int

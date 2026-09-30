@@ -49,7 +49,7 @@ class TrainPredictRunner(abc.ABC):
     def context(
         self,
         output_file: str,
-    ): 
+    ):
         raise NotImplementedError("This runner does not support context window")
 
     def report(
