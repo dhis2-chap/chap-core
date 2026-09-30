@@ -2091,3 +2091,299 @@ def test_get_dataset_df_with_nans(override_session, seeded_session):
     assert any(record.get("disease_cases") is None for record in records), (
         "Expected at least one None disease_cases value in the response"
     )
+
+
+# alert policies
+
+
+def _alert_policy_payload(name: str = "Dengue ladder") -> dict:
+    return {
+        "name": name,
+        "levels": [
+            {
+                "name": "monitor",
+                "thresholdParams": {"type": "seasonal", "stdMultiplier": 1.0},
+                "exceedanceThreshold": 0.3,
+            },
+            {
+                "name": "action",
+                "thresholdParams": {"type": "percentile", "quantile": 0.9},
+                "exceedanceThreshold": 0.8,
+            },
+        ],
+    }
+
+
+def _create_alert_policy(name: str = "Dengue ladder"):
+    return client.post("/v1/crud/alert-policies", json=_alert_policy_payload(name))
+
+
+def test_create_alert_policy_happy_path(clean_engine, dependency_overrides):
+    """A policy round-trips its tiers, each keeping its own strategy's params."""
+    response = _create_alert_policy("Ladder A")
+    assert response.status_code == 200, response.json()
+    policy_id = response.json()["id"]
+
+    body = client.get(f"/v1/crud/alert-policies/{policy_id}").json()
+    assert body["name"] == "Ladder A"
+    assert [level["name"] for level in body["levels"]] == ["monitor", "action"]
+    assert body["levels"][0]["thresholdParams"] == {"type": "seasonal", "stdMultiplier": 1.0}
+    assert body["levels"][1]["thresholdParams"]["quantile"] == 0.9
+    assert body["levels"][1]["exceedanceThreshold"] == 0.8
+
+
+def test_list_alert_policies_includes_every_created_policy(clean_engine, dependency_overrides):
+    # clean_engine is session-scoped, so assert on a subset rather than on an empty list.
+    first = _create_alert_policy("Listed one").json()["id"]
+    second = _create_alert_policy("Listed two").json()["id"]
+
+    response = client.get("/v1/crud/alert-policies")
+    assert response.status_code == 200
+    listed = {policy["id"]: policy["name"] for policy in response.json()}
+    assert listed[first] == "Listed one"
+    assert listed[second] == "Listed two"
+
+
+def test_get_unknown_alert_policy_returns_404(clean_engine, dependency_overrides):
+    assert client.get("/v1/crud/alert-policies/99999").status_code == 404
+
+
+def test_create_alert_policy_without_levels_returns_422(clean_engine, dependency_overrides):
+    response = client.post("/v1/crud/alert-policies", json={"name": "empty", "levels": []})
+    assert response.status_code == 422, response.text
+
+
+def test_create_alert_policy_with_an_unknown_strategy_returns_422(clean_engine, dependency_overrides):
+    """The params discriminator only admits registered strategies."""
+    response = client.post(
+        "/v1/crud/alert-policies",
+        json={
+            "name": "bogus",
+            "levels": [{"name": "alert", "thresholdParams": {"type": "not-a-strategy"}, "exceedanceThreshold": 0.5}],
+        },
+    )
+    assert response.status_code == 422, response.text
+
+
+def test_create_alert_policy_with_out_of_range_exceedance_returns_422(clean_engine, dependency_overrides):
+    response = client.post(
+        "/v1/crud/alert-policies",
+        json={
+            "name": "bad cut",
+            "levels": [
+                {
+                    "name": "alert",
+                    "thresholdParams": {"type": "seasonal"},
+                    "exceedanceThreshold": 1.5,
+                }
+            ],
+        },
+    )
+    assert response.status_code == 422, response.text
+
+
+def test_delete_unused_alert_policy(clean_engine, dependency_overrides):
+    policy_id = _create_alert_policy("Ladder D").json()["id"]
+    assert client.delete(f"/v1/crud/alert-policies/{policy_id}").status_code == 200
+    assert client.get(f"/v1/crud/alert-policies/{policy_id}").status_code == 404
+
+
+def test_prediction_setup_carries_its_alert_policy(override_session, seeded_session):
+    """A setup created against a policy reports it back on read."""
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    policy_id = _create_alert_policy("Ladder E").json()["id"]
+
+    payload = _prediction_setup_payload(backtest.id, "Setup with alerts") | {"alertPolicyId": policy_id}
+    response = client.post("/v1/crud/prediction-setups", json=payload)
+    assert response.status_code == 200, response.json()
+
+    body = client.get(f"/v1/crud/prediction-setups/{response.json()['id']}").json()
+    assert body["alertPolicy"]["id"] == policy_id
+    assert [level["name"] for level in body["alertPolicy"]["levels"]] == ["monitor", "action"]
+
+
+def test_prediction_setup_without_a_policy_reports_none(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    setup_id = _create_prediction_setup(backtest.id, "No alerts").json()["id"]
+    assert client.get(f"/v1/crud/prediction-setups/{setup_id}").json()["alertPolicy"] is None
+
+
+def test_prediction_setup_with_unknown_alert_policy_returns_404(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    payload = _prediction_setup_payload(backtest.id, "ghost policy") | {"alertPolicyId": 99999}
+    assert client.post("/v1/crud/prediction-setups", json=payload).status_code == 404
+
+
+def test_attaching_an_alert_policy_by_patch(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    setup_id = _create_prediction_setup(backtest.id, "Later alerts").json()["id"]
+    policy_id = _create_alert_policy("Ladder F").json()["id"]
+
+    response = client.patch(f"/v1/crud/prediction-setups/{setup_id}", json={"alertPolicyId": policy_id})
+    assert response.status_code == 200, response.json()
+    assert response.json()["alertPolicy"]["id"] == policy_id
+
+
+def test_deleting_an_alert_policy_in_use_returns_409(override_session, seeded_session):
+    """A running forecast must not lose the definition of what counts as an alert."""
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    policy_id = _create_alert_policy("Ladder G").json()["id"]
+    payload = _prediction_setup_payload(backtest.id, "Setup holding a policy") | {"alertPolicyId": policy_id}
+    assert client.post("/v1/crud/prediction-setups", json=payload).status_code == 200
+
+    assert client.delete(f"/v1/crud/alert-policies/{policy_id}").status_code == 409
+
+
+# alerts
+
+
+def _alert_payload(policy_id: int, org_unit: str = "A", period: str = "2024-07", level: str = "action") -> dict:
+    return {"timePeriod": period, "orgUnit": org_unit, "alertPolicyId": policy_id, "level": level}
+
+
+def _create_alerts(policy_id: int, **kwargs):
+    return client.post("/v1/crud/alerts", json={"alerts": [_alert_payload(policy_id, **kwargs)]})
+
+
+def test_create_alert_starts_pending(clean_engine, dependency_overrides):
+    """An alert is recorded unreleased; a human has to clear it."""
+    policy_id = _create_alert_policy("Alerts A").json()["id"]
+    response = _create_alerts(policy_id)
+    assert response.status_code == 200, response.text
+    (alert_id,) = response.json()["ids"]
+
+    body = client.get(f"/v1/crud/alerts/{alert_id}").json()
+    assert body["approved"] == "pending"
+    assert body["approvedBy"] is None
+    assert body["level"] == "action"
+    assert body["alertPolicyId"] == policy_id
+
+
+def test_create_alert_with_a_level_the_policy_lacks_returns_422(clean_engine, dependency_overrides):
+    policy_id = _create_alert_policy("Alerts B").json()["id"]
+    response = _create_alerts(policy_id, level="catastrophe")
+    assert response.status_code == 422, response.text
+
+
+def test_create_alert_with_unknown_policy_returns_422(clean_engine, dependency_overrides):
+    response = client.post("/v1/crud/alerts", json={"alerts": [_alert_payload(99999)]})
+    assert response.status_code == 422, response.text
+
+
+def test_get_unknown_alert_returns_404(clean_engine, dependency_overrides):
+    assert client.get("/v1/crud/alerts/99999").status_code == 404
+
+
+def test_approving_a_set_of_alerts(clean_engine, dependency_overrides):
+    policy_id = _create_alert_policy("Alerts C").json()["id"]
+    created = client.post(
+        "/v1/crud/alerts",
+        json={"alerts": [_alert_payload(policy_id, org_unit="A"), _alert_payload(policy_id, org_unit="B")]},
+    ).json()["ids"]
+
+    response = client.post(
+        "/v1/crud/alerts/$approve",
+        json={"alertIds": created, "approved": "approved", "approvedBy": "knut"},
+    )
+    assert response.status_code == 200, response.text
+    assert {alert["approved"] for alert in response.json()} == {"approved"}
+    assert {alert["approvedBy"] for alert in response.json()} == {"knut"}
+
+
+def test_declining_keeps_alerts_out_of_the_queue(clean_engine, dependency_overrides):
+    """A declined alert must not come back around for re-triage."""
+    policy_id = _create_alert_policy("Alerts D").json()["id"]
+    (alert_id,) = _create_alerts(policy_id, org_unit="OU_DECLINED").json()["ids"]
+
+    response = client.post(
+        "/v1/crud/alerts/$approve",
+        json={"alertIds": [alert_id], "approved": "declined", "approvedBy": "knut"},
+    )
+    assert response.status_code == 200, response.text
+
+    queue = client.get("/v1/crud/alerts", params={"approved": "pending", "orgUnit": "OU_DECLINED"}).json()
+    assert queue == []
+    declined = client.get("/v1/crud/alerts", params={"approved": "declined", "orgUnit": "OU_DECLINED"}).json()
+    assert [alert["id"] for alert in declined] == [alert_id]
+
+
+def test_approving_with_one_unknown_id_changes_nothing(clean_engine, dependency_overrides):
+    """The reviewer gets a 404 rather than a half-applied decision."""
+    policy_id = _create_alert_policy("Alerts E").json()["id"]
+    (alert_id,) = _create_alerts(policy_id).json()["ids"]
+
+    response = client.post(
+        "/v1/crud/alerts/$approve",
+        json={"alertIds": [alert_id, 99999], "approved": "approved", "approvedBy": "knut"},
+    )
+    assert response.status_code == 404, response.text
+    assert client.get(f"/v1/crud/alerts/{alert_id}").json()["approved"] == "pending"
+
+
+def test_listing_alerts_filters_by_policy(clean_engine, dependency_overrides):
+    first_policy = _create_alert_policy("Alerts F").json()["id"]
+    second_policy = _create_alert_policy("Alerts G").json()["id"]
+    (expected,) = _create_alerts(first_policy).json()["ids"]
+    _create_alerts(second_policy)
+
+    listed = client.get("/v1/crud/alerts", params={"alertPolicyId": first_policy}).json()
+    assert [alert["id"] for alert in listed] == [expected]
+
+
+def test_deleting_a_policy_with_alerts_returns_409(clean_engine, dependency_overrides):
+    """An alert's level name only means something against its policy."""
+    policy_id = _create_alert_policy("Alerts H").json()["id"]
+    _create_alerts(policy_id)
+    assert client.delete(f"/v1/crud/alert-policies/{policy_id}").status_code == 409
+
+
+def test_deleting_a_prediction_with_alerts_returns_409(override_session, seeded_session):
+    """An alert only means something alongside the forecast that justified it."""
+    prediction = seeded_session.exec(select(Prediction)).first()
+    assert prediction is not None
+    policy_id = _create_alert_policy("Alerts I").json()["id"]
+    payload = _alert_payload(policy_id) | {"predictionId": prediction.id}
+    assert client.post("/v1/crud/alerts", json={"alerts": [payload]}).status_code == 200
+
+    response = client.delete(f"/v1/crud/predictions/{prediction.id}")
+    assert response.status_code == 409, response.text
+    assert "alert" in response.json()["detail"].lower()
+
+
+def test_deleting_an_alert_lets_its_policy_be_deleted(clean_engine, dependency_overrides):
+    policy_id = _create_alert_policy("Alerts K").json()["id"]
+    (alert_id,) = _create_alerts(policy_id).json()["ids"]
+
+    assert client.delete(f"/v1/crud/alerts/{alert_id}").status_code == 200
+    assert client.get(f"/v1/crud/alerts/{alert_id}").status_code == 404
+    assert client.delete(f"/v1/crud/alert-policies/{policy_id}").status_code == 200
+
+
+def test_deleting_an_approved_alert_returns_409(clean_engine, dependency_overrides):
+    policy_id = _create_alert_policy("Alerts L").json()["id"]
+    (alert_id,) = _create_alerts(policy_id).json()["ids"]
+    client.post("/v1/crud/alerts/$approve", json={"alertIds": [alert_id], "approved": "approved", "approvedBy": "knut"})
+
+    assert client.delete(f"/v1/crud/alerts/{alert_id}").status_code == 409
+
+
+def test_deleting_an_unknown_alert_returns_404(clean_engine, dependency_overrides):
+    assert client.delete("/v1/crud/alerts/99999").status_code == 404
+
+
+def test_deleting_a_prediction_without_alerts_still_works(override_session, seeded_session):
+    prediction = seeded_session.exec(select(Prediction)).first()
+    assert prediction is not None
+    assert client.delete(f"/v1/crud/predictions/{prediction.id}").status_code == 200
+
+
+def test_there_is_no_patch_endpoint_for_alert_policies(clean_engine, dependency_overrides):
+    """Levels are immutable: editing them would orphan the alerts naming them."""
+    policy_id = _create_alert_policy("Alerts J").json()["id"]
+    response = client.patch(f"/v1/crud/alert-policies/{policy_id}", json={"name": "renamed"})
+    assert response.status_code == 405, response.text
