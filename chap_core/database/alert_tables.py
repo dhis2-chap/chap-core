@@ -142,6 +142,7 @@ class AlertBase(DBModel):
     alert_policy_id: int = Field(
         foreign_key="alertpolicy.id",
         ondelete="RESTRICT",
+        index=True,
         description="Foreign key to the `AlertPolicy` whose level was breached.",
     )
     level: str = Field(
@@ -173,6 +174,7 @@ class AlertRecord(AlertBase):
             AlertApprovalType(),
             nullable=False,
             server_default=AlertApproval.PENDING.value,
+            index=True,
         ),
         description="Where the alert stands in the release gate. Cleared for dissemination only when "
         "`approved`; says nothing about whether the outbreak was real.",

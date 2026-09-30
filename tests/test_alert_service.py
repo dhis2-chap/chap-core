@@ -10,7 +10,7 @@ from __future__ import annotations
 import datetime
 
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, inspect
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, create_engine
 
@@ -282,3 +282,10 @@ def test_the_database_refuses_to_delete_a_prediction_with_alerts(engine, policy_
         with pytest.raises(IntegrityError):
             session.commit()
         session.rollback()
+
+
+def test_the_review_queue_columns_are_indexed(engine):
+    """The indexes are declared on the model, since the migration skips a table `create_all` already made."""
+    indexed = {tuple(index["column_names"]) for index in inspect(engine).get_indexes("alert")}
+    assert ("alert_policy_id",) in indexed
+    assert ("approved",) in indexed
