@@ -60,9 +60,12 @@ def _validate_levels(levels: Sequence[AlertLevel | dict[str, Any]]) -> list[Aler
         parsed = [level if isinstance(level, AlertLevel) else AlertLevel.model_validate(level) for level in levels]
     except ValidationError as e:
         raise InvalidAlertPolicyError(f"Invalid alert level: {e}") from e
-    names = [level.name.strip() for level in parsed]
-    if not all(names):
+    names = [level.name for level in parsed]
+    if not all(name.strip() for name in names):
         raise InvalidAlertPolicyError("Every alert level needs a name")
+    padded = [name for name in names if name != name.strip()]
+    if padded:
+        raise InvalidAlertPolicyError(f"Alert level names cannot start or end with whitespace, got {padded}")
     duplicates = sorted({name for name in names if names.count(name) > 1})
     if duplicates:
         raise InvalidAlertPolicyError(f"Alert level names must be unique within a policy, got duplicates: {duplicates}")

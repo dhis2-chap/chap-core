@@ -121,6 +121,14 @@ def test_create_with_duplicate_level_names_is_rejected(engine, monitor_level):
             create_alert_policy(session, name="dupes", levels=[monitor_level, monitor_level])
 
 
+def test_a_level_name_with_surrounding_whitespace_is_rejected(engine, monitor_level):
+    """Alerts match level names exactly, so `"alert "` would never match `"alert"`."""
+    padded = monitor_level.model_copy(update={"name": "monitor "})
+    with Session(engine) as session:
+        with pytest.raises(InvalidAlertPolicyError, match="whitespace"):
+            create_alert_policy(session, name="padded", levels=[padded])
+
+
 def test_a_level_with_several_threshold_lines_is_rejected(engine, action_level):
     """A level is judged against one line, so a band like `[0.25, 0.75]` is ambiguous."""
     band = action_level.model_dump() | {"threshold_params": {"type": "percentile", "quantile": [0.25, 0.75]}}
