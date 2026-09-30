@@ -1,8 +1,8 @@
 """add_alert
 
-Creates the alert table: one alert per (org unit, period) that breached a level
-of an AlertPolicy, plus the release gate recording whether a human has cleared
-it for dissemination.
+Creates the alert table: one alert per (prediction, org unit, period) that
+breached a level of an AlertPolicy, plus the release gate recording whether a
+human has cleared it for dissemination.
 
 The gate is stored as a plain string rather than a native enum, so adding a
 state later needs no type migration.
@@ -63,6 +63,9 @@ def upgrade() -> None:
                 ["prediction.id"],
                 ondelete="RESTRICT",
                 name="fk_alert_prediction",
+            ),
+            sa.UniqueConstraint(
+                "prediction_id", "org_unit", "time_period", name="uq_alert_prediction_org_unit_period"
             ),
         )
         op.create_index("ix_alert_alert_policy_id", "alert", ["alert_policy_id"])

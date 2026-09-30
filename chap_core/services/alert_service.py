@@ -53,17 +53,37 @@ def create_alerts(session: Session, alerts: Sequence[Alert]) -> list[Alert]:
     Alerts arrive in batches -- one run raises many at once -- so the whole batch
     is validated before anything is written and fails together.
 
+    A prediction raises at most one alert per org unit and period, so re-running
+    or re-importing it does not queue the same alert twice.
+
     Raises:
-        InvalidAlertError: unknown policy, a level the policy does not define, or
-            an unknown prediction.
+        InvalidAlertError: unknown policy, a level the policy does not define, an
+            unknown prediction, or a second alert for the same prediction, org unit
+            and period.
     """
     if not alerts:
         return []
 
+    seen = set()
     for alert in alerts:
         _validate_level(session, alert.alert_policy_id, alert.level)
-        if alert.prediction_id is not None and session.get(Prediction, alert.prediction_id) is None:
+        if alert.prediction_id is None:
+            continue
+        if session.get(Prediction, alert.prediction_id) is None:
             raise InvalidAlertError(f"Prediction {alert.prediction_id} not found")
+        key = (alert.prediction_id, alert.org_unit, alert.time_period)
+        existing = session.exec(
+            select(Alert.id).where(
+                Alert.prediction_id == alert.prediction_id,
+                Alert.org_unit == alert.org_unit,
+                Alert.time_period == alert.time_period,
+            )
+        ).first()
+        if key in seen or existing is not None:
+            raise InvalidAlertError(
+                f"Prediction {alert.prediction_id} already has an alert for {alert.org_unit} in {alert.time_period}"
+            )
+        seen.add(key)
 
     now = datetime.datetime.now()
     for alert in alerts:

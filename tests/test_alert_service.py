@@ -11,10 +11,14 @@ import datetime
 
 import pytest
 from sqlalchemy import event
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, create_engine
 
 from chap_core.assessment.thresholds.params import SeasonalParams
 from chap_core.database.alert_tables import Alert, AlertApproval, AlertLevel
+from chap_core.database.dataset_tables import DataSet
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
+from chap_core.database.tables import Prediction
 from chap_core.services.alert_policy_service import create_alert_policy
 from chap_core.services.alert_service import (
     AlertNotFoundError,
@@ -64,8 +68,45 @@ def policy_id(engine):
         return policy.id
 
 
-def _alert(policy_id: int, org_unit: str = "A", period: str = "2024-07", level: str = "action") -> Alert:
-    return Alert(time_period=period, org_unit=org_unit, alert_policy_id=policy_id, level=level)
+@pytest.fixture
+def prediction_id(engine):
+    """A prediction for alerts to be raised by."""
+    with Session(engine) as session:
+        template = ModelTemplateDB(name="tpl", version="1.0.0")
+        session.add(template)
+        dataset = DataSet(name="ds")
+        session.add(dataset)
+        session.commit()
+        assert template.id is not None and dataset.id is not None
+        model = ConfiguredModelDB(name="cfg", model_template_id=template.id)
+        session.add(model)
+        session.commit()
+        assert model.id is not None
+
+        prediction = Prediction(
+            dataset_id=dataset.id,
+            model_id="cfg",
+            model_db_id=model.id,
+            n_periods=3,
+            name="pred",
+            created=datetime.datetime.now(),
+        )
+        session.add(prediction)
+        session.commit()
+        assert prediction.id is not None
+        return prediction.id
+
+
+def _alert(
+    policy_id: int,
+    org_unit: str = "A",
+    period: str = "2024-07",
+    level: str = "action",
+    prediction_id: int | None = None,
+) -> Alert:
+    return Alert(
+        time_period=period, org_unit=org_unit, alert_policy_id=policy_id, level=level, prediction_id=prediction_id
+    )
 
 
 def test_created_alerts_start_pending(engine, policy_id):
@@ -105,6 +146,28 @@ def test_a_bad_entry_writes_none_of_the_batch(engine, policy_id):
     with Session(engine) as session:
         with pytest.raises(InvalidAlertError):
             create_alerts(session, [_alert(policy_id), _alert(policy_id, level="nonsense")])
+        assert list_alerts(session) == []
+
+
+def test_a_prediction_raises_one_alert_per_org_unit_and_period(engine, policy_id, prediction_id):
+    """Re-running a prediction must not queue the same alert twice."""
+    with Session(engine) as session:
+        create_alerts(session, [_alert(policy_id, prediction_id=prediction_id)])
+        with pytest.raises(InvalidAlertError, match="already has an alert"):
+            create_alerts(session, [_alert(policy_id, level="monitor", prediction_id=prediction_id)])
+        assert len(list_alerts(session)) == 1
+
+
+def test_a_batch_with_two_alerts_for_the_same_place_and_period_is_rejected(engine, policy_id, prediction_id):
+    with Session(engine) as session:
+        with pytest.raises(InvalidAlertError, match="already has an alert"):
+            create_alerts(
+                session,
+                [
+                    _alert(policy_id, level="monitor", prediction_id=prediction_id),
+                    _alert(policy_id, level="action", prediction_id=prediction_id),
+                ],
+            )
         assert list_alerts(session) == []
 
 
@@ -203,7 +266,7 @@ def test_get_missing_alert_raises_not_found(engine):
             get_alert(session, 99999)
 
 
-def test_the_database_refuses_to_delete_a_prediction_with_alerts(engine, policy_id):
+def test_the_database_refuses_to_delete_a_prediction_with_alerts(engine, policy_id, prediction_id):
     """The RESTRICT is declared on the model field, not only in the migration.
 
     `create_db_and_tables` runs `SQLModel.metadata.create_all` before Alembic, so on a
@@ -211,39 +274,9 @@ def test_the_database_refuses_to_delete_a_prediction_with_alerts(engine, policy_
     migration would never take effect. This asserts against a schema built by
     `create_all` with foreign keys enforced, which is what production gets.
     """
-    from sqlalchemy.exc import IntegrityError
-
-    from chap_core.database.dataset_tables import DataSet
-    from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
-    from chap_core.database.tables import Prediction
-
     with Session(engine) as session:
-        template = ModelTemplateDB(name="tpl", version="1.0.0")
-        session.add(template)
-        dataset = DataSet(name="ds")
-        session.add(dataset)
-        session.commit()
-        assert template.id is not None and dataset.id is not None
-        model = ConfiguredModelDB(name="cfg", model_template_id=template.id)
-        session.add(model)
-        session.commit()
-        assert model.id is not None
-
-        prediction = Prediction(
-            dataset_id=dataset.id,
-            model_id="cfg",
-            model_db_id=model.id,
-            n_periods=3,
-            name="pred",
-            created=datetime.datetime.now(),
-        )
-        session.add(prediction)
-        session.commit()
-        assert prediction.id is not None
-
-        alert = _alert(policy_id)
-        alert.prediction_id = prediction.id
-        create_alerts(session, [alert])
+        prediction = session.get(Prediction, prediction_id)
+        create_alerts(session, [_alert(policy_id, prediction_id=prediction_id)])
 
         session.delete(prediction)
         with pytest.raises(IntegrityError):

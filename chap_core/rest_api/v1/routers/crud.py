@@ -1064,7 +1064,10 @@ async def create_alerts(request: AlertsCreate, session: Session = Depends(get_se
     Every alert names a level its policy actually defines; a level name only means
     something against its policy. Alerts land in the `pending` state, waiting for a
     reviewer to clear them for dissemination. The batch is validated before anything is
-    written, so it fails whole. 422 if a policy, level or prediction is unknown.
+    written, so it fails whole. A prediction raises at most one alert per org unit and
+    period, carrying the most severe level breached. 422 if a policy, level or
+    prediction is unknown, or the prediction already has an alert for that org unit and
+    period.
     """
     # AlertCreate and Alert share AlertBase, so the row is the create body plus the
     # server-owned fields the service fills in.
@@ -1167,9 +1170,11 @@ async def create_alert_policy(request: AlertPolicyCreate, session: Session = Dep
     """Create a named ladder of alert levels — a `monitor` tier, an `alert` tier, an `action` tier — that a prediction setup can be pointed at.
 
     Each level pairs an epidemic channel (the same strategy and parameters
-    `POST /v1/analytics/thresholds` takes) with the exceedance probability at which that
-    tier fires, so one policy expresses a whole escalation ladder. 422 if the policy has
-    no levels, an unnamed level, or two levels sharing a name.
+    `POST /v1/analytics/thresholds` takes, with a single threshold line) with the
+    exceedance probability at or above which that tier fires, so one policy expresses a
+    whole escalation ladder. Levels are ordered from least to most severe. 422 if the
+    policy has no levels, an unnamed level, a level with more than one threshold line,
+    or two levels sharing a name.
     """
     try:
         policy = alert_policy_service.create_alert_policy(session, name=request.name, levels=request.levels)

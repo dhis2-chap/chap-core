@@ -121,6 +121,14 @@ def test_create_with_duplicate_level_names_is_rejected(engine, monitor_level):
             create_alert_policy(session, name="dupes", levels=[monitor_level, monitor_level])
 
 
+def test_a_level_with_several_threshold_lines_is_rejected(engine, action_level):
+    """A level is judged against one line, so a band like `[0.25, 0.75]` is ambiguous."""
+    band = action_level.model_dump() | {"threshold_params": {"type": "percentile", "quantile": [0.25, 0.75]}}
+    with Session(engine) as session:
+        with pytest.raises(InvalidAlertPolicyError, match="one threshold line"):
+            create_alert_policy(session, name="band", levels=[band])
+
+
 def test_create_with_empty_name_is_rejected(engine, monitor_level):
     with Session(engine) as session:
         with pytest.raises(InvalidAlertPolicyError, match="name is required"):

@@ -17,7 +17,8 @@ second field that could disagree with it.
 import datetime
 from enum import StrEnum
 
-from sqlalchemy import Column, String, TypeDecorator
+from pydantic import field_validator
+from sqlalchemy import Column, String, TypeDecorator, UniqueConstraint
 from sqlmodel import Field
 
 from chap_core.assessment.thresholds.params import ThresholdParams
@@ -36,14 +37,22 @@ class AlertLevel(DBModel):
     )
     threshold_params: ThresholdParams = Field(
         description="Parameters for the epidemic channel this tier is judged against. Its `type` selects "
-        "the threshold strategy, exactly as in `POST /v1/analytics/thresholds`.",
+        "the threshold strategy, exactly as in `POST /v1/analytics/thresholds`. Must describe a single "
+        "threshold line, so it is unambiguous which line the tier is judged against.",
     )
     exceedance_threshold: float = Field(
         ge=0.0,
         le=1.0,
-        description="Probability of breaching the channel, strictly above which this tier fires. "
-        "`0.5` means the tier fires when more than half the forecast mass sits above the channel.",
+        description="Probability of breaching the channel at or above which this tier fires. "
+        "`0.5` means the tier fires when at least half the forecast mass sits above the channel.",
     )
+
+    @field_validator("threshold_params")
+    @classmethod
+    def _single_line(cls, params: ThresholdParams) -> ThresholdParams:
+        if len(params.lines) != 1:
+            raise ValueError(f"An alert level is judged against one threshold line, got {params.lines}")
+        return params
 
     @property
     def threshold_strategy(self) -> str:
@@ -58,7 +67,7 @@ class AlertPolicyBase(DBModel):
     levels: list[AlertLevel] = Field(
         default_factory=list,
         sa_column=Column(PydanticListType(AlertLevel)),
-        description="The tiers of this policy, in the order the caller supplied them.",
+        description="The tiers of this policy, ordered from least to most severe.",
     )
 
 
@@ -177,7 +186,15 @@ class AlertRecord(AlertBase):
 
 
 class Alert(AlertRecord, table=True):
-    """One alert raised for a `(location, period)` against a level of an `AlertPolicy`."""
+    """One alert raised for a `(location, period)` against a level of an `AlertPolicy`.
+
+    A prediction raises at most one alert per org unit and period, carrying the most
+    severe level breached.
+    """
+
+    __table_args__ = (
+        UniqueConstraint("prediction_id", "org_unit", "time_period", name="uq_alert_prediction_org_unit_period"),
+    )
 
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
 
