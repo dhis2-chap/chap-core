@@ -262,8 +262,40 @@ def _resolve_chapkit_default_additional_covariates(client) -> list[str]:
         logger.debug("Chapkit default probe response parse failed", exc_info=True)
         result = []
 
-    client.delete_config(str(probe.id))
+    try:
+        client.delete_config(str(probe.id))
+    except Exception:
+        logger.warning(
+            "Could not delete the default-probe config %s from the chapkit service", probe_name, exc_info=True
+        )
     return result
+
+
+def _registered_service_default_covariates(orchestrator: Orchestrator, template: ModelTemplateDB) -> list[str]:
+    """The default covariates of the registered service behind a chapkit template, or [] if unknown.
+
+    The service is looked up in the registry rather than through the template's
+    `source_url`, which holds the repository URL when the service declares one. Only a
+    service registered under the template's own version is asked, since another version
+    can declare other defaults.
+    """
+    from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
+
+    try:
+        service = orchestrator.get(template.name)
+    except Exception:
+        logger.debug("Service %s is not registered, storing no default covariates", template.name)
+        return []
+    if service.info.version != template.version:
+        return []
+    client = CHAPKitRestAPIWrapper(service.url, timeout=5)
+    try:
+        return _resolve_chapkit_default_additional_covariates(client)
+    except Exception:
+        logger.warning("Could not read the default covariates of %s", template.name, exc_info=True)
+        return []
+    finally:
+        client.close()
 
 
 def _sync_chapkit_configured_models(
@@ -981,6 +1013,7 @@ def get_configured_model_info(
 def add_configured_model(
     model_configuration: ModelConfigurationCreate,
     session: Session = Depends(get_session),
+    orchestrator: Orchestrator = Depends(get_orchestrator),
 ):
     """Bind a model template together with user-chosen option values into a new, named configured model — the unit that backtests and predictions actually reference.
 
@@ -997,11 +1030,16 @@ def add_configured_model(
     if template is None:
         raise HTTPException(status_code=404, detail="Model template not found")
     uses_chapkit = template.uses_chapkit
+    additional_covariates = model_configuration.additional_continuous_covariates
+    if uses_chapkit and not additional_covariates:
+        # A chapkit service runs its own default covariates when the list is empty, so
+        # store that default and let the model card show the data the model needs.
+        additional_covariates = _registered_service_default_covariates(orchestrator, template)
     db_id = session_wrapper.add_configured_model(
         model_template_id,
         ModelConfiguration(
             user_option_values=model_configuration.user_option_values,
-            additional_continuous_covariates=model_configuration.additional_continuous_covariates,
+            additional_continuous_covariates=additional_covariates,
         ),
         configuration_name,
         uses_chapkit=uses_chapkit,

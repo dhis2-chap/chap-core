@@ -319,6 +319,74 @@ def test_creates_default_config_when_no_configs(client, register_service, mock_w
     assert models[0]["name"] == "test-model"
 
 
+@pytest.mark.parametrize(
+    "requested, expected", [([], ["rainfall", "mean_temperature"]), (["population"], ["population"])]
+)
+def test_configured_model_without_covariates_stores_the_service_default(
+    client, register_service, mock_wrapper_cls, requested, expected
+):
+    register_service()
+    template = _test_model(client)
+    mock_wrapper_cls.return_value.create_config.return_value = MagicMock(
+        data={"additional_continuous_covariates": ["rainfall", "mean_temperature"]}
+    )
+
+    response = client.post(
+        "/v1/crud/configured-models",
+        json={
+            "name": "custom",
+            "modelTemplateId": template["id"],
+            "userOptionValues": {},
+            "additionalContinuousCovariates": requested,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["additionalContinuousCovariates"] == expected
+
+
+def test_configured_model_reads_the_default_from_the_registered_service_not_the_repository_url(
+    client, register_service, mock_wrapper_cls
+):
+    metadata = {
+        "author": "Test",
+        "author_assessed_status": "yellow",
+        "repository_url": "https://github.com/example/test-model",
+    }
+    register_service({**MOCK_INFO_DICT, "model_metadata": metadata})
+    template = _test_model(client)
+    mock_wrapper_cls.return_value.create_config.return_value = MagicMock(
+        data={"additional_continuous_covariates": ["rainfall", "mean_temperature"]}
+    )
+
+    response = client.post(
+        "/v1/crud/configured-models",
+        json={"name": "custom", "modelTemplateId": template["id"], "additionalContinuousCovariates": []},
+    )
+
+    assert response.json()["additionalContinuousCovariates"] == ["rainfall", "mean_temperature"]
+    assert mock_wrapper_cls.call_args.args[0] == "http://test-service:8080"
+
+
+def test_configured_model_keeps_the_service_default_when_the_probe_cleanup_fails(
+    client, register_service, mock_wrapper_cls
+):
+    register_service()
+    template = _test_model(client)
+    mock_wrapper_cls.return_value.create_config.return_value = MagicMock(
+        data={"additional_continuous_covariates": ["rainfall", "mean_temperature"]}
+    )
+    mock_wrapper_cls.return_value.delete_config.side_effect = ConnectionError("service went away")
+
+    response = client.post(
+        "/v1/crud/configured-models",
+        json={"name": "custom", "modelTemplateId": template["id"], "additionalContinuousCovariates": []},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["additionalContinuousCovariates"] == ["rainfall", "mean_temperature"]
+
+
 def test_non_chapkit_template_has_null_health_status(client, db_engine):
     from chap_core.database.database import SessionWrapper
     from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config
