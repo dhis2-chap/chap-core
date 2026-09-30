@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 class ContextInfo(BaseModel):
-    context_length: int | None = None
+    context_length: int # TODO ikke sikker enda på om den burde ære required eller ikke enda
 
 
 class ConfiguredModel(abc.ABC):
