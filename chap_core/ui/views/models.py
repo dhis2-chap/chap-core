@@ -98,6 +98,13 @@ def state(entry) -> tuple[str | None, str]:
     return None, ":gray[Not started]"
 
 
+def show_failure(message: str, error: Exception) -> None:
+    st.error(f"{message}: {error}")
+    if isinstance(error, ChapsError):
+        with st.expander("What chaps printed"):
+            st.code(error.output, "log")
+
+
 def start(entry) -> None:
     with st.spinner(f"Starting {entry.name}. Pulling the image can take a while."):
         try:
@@ -107,10 +114,7 @@ def start(entry) -> None:
             else:
                 start_service(entry.image, entry.id)
         except Exception as e:
-            st.error(f"Could not start {entry.name}: {e}")
-            if isinstance(e, ChapsError):
-                with st.expander("What chaps printed"):
-                    st.code(e.output, "log")
+            show_failure(f"Could not start {entry.name}", e)
             return
     st.rerun()
 
@@ -146,9 +150,13 @@ def card(entry) -> None:
                 and project
                 and st.button("Stop in chaps", key=f"chaps-stop:{entry.id}", icon=":material/stop:")
             ):
-                chaps_stop(entry.id, project)
-                load_chaps_models.clear()
-                st.rerun()
+                try:
+                    chaps_stop(entry.id, project)
+                except Exception as e:
+                    show_failure(f"Could not stop {entry.name}", e)
+                else:
+                    load_chaps_models.clear()
+                    st.rerun()
             elif container and not container.managed and not in_chaps:
                 st.caption(f"Running in `{container.name}`, which another tool manages.")
             elif container and container.managed and st.button("Stop", key=f"stop:{entry.id}", icon=":material/stop:"):
@@ -182,9 +190,10 @@ def card(entry) -> None:
                         try:
                             chaps_expose(entry.id, project)
                         except Exception as e:
-                            st.error(f"Could not expose {entry.name}: {e}")
-                    load_chaps_models.clear()
-                    st.rerun()
+                            show_failure(f"Could not expose {entry.name}", e)
+                        else:
+                            load_chaps_models.clear()
+                            st.rerun()
             elif not (container or (in_chaps and in_chaps.state != "not-running")) and st.button(
                 "Start", key=f"start:{entry.id}", width="stretch", disabled=bool(docker_problem) and not chaps
             ):

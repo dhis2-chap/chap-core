@@ -232,3 +232,23 @@ def test_stop_reaches_a_runner_that_has_not_started_its_own_session_yet(tmp_path
     finally:
         runner.kill()
         runner.wait()
+
+
+def test_stop_without_process_groups_stops_the_runner(tmp_path, monkeypatch):
+    runner = subprocess.Popen(["sleep", "30"])
+    monkeypatch.delattr(os, "killpg")  # as on Windows
+    try:
+        run_dir = tmp_path / "20260101-000000-000_eval"
+        run_dir.mkdir()
+        (run_dir / "args.json").write_text('["eval"]')
+        (run_dir / "pid").write_text(str(runner.pid))
+        stop_job(load_job(run_dir))
+        assert runner.wait(timeout=10) == -15
+    finally:
+        runner.kill()
+        runner.wait()
+
+
+def test_run_job_stops_a_job_that_takes_too_long(tmp_path, data_path):
+    job = run_job(tmp_path, ["validate", "--dataset-csv", str(data_path / "laos_subset.csv")], "validate", timeout=0.01)
+    assert job.status == "stopped"

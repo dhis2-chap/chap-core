@@ -237,9 +237,13 @@ def validate_against_model(runs_dir: Path, dataset_csv: str, model_name: str, ti
 
 
 def run_job(runs_dir: Path, args: list[str], label: str, timeout: float = 600) -> Job:
-    """Run a chap command like `start_job`, but wait for it to finish."""
+    """Run a chap command like `start_job`, but wait for it to finish. A job that takes too long is stopped."""
     job = start_job(runs_dir, args, label)
-    _processes[job.run_dir].wait(timeout=timeout)
+    try:
+        _processes[job.run_dir].wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        stop_job(job)
+        _processes[job.run_dir].wait()
     return load_job(job.run_dir)
 
 
@@ -282,7 +286,11 @@ def stop_job(job: Job) -> None:
     with contextlib.suppress(PermissionError, ValueError):
         pid = int((job.run_dir / PID_NAME).read_text())
         try:
-            os.killpg(pid, signal.SIGTERM)
+            if hasattr(os, "killpg"):
+                os.killpg(pid, signal.SIGTERM)
+            else:
+                # Windows has no process groups; there the runner itself is stopped.
+                os.kill(pid, signal.SIGTERM)
         except ProcessLookupError:
             # The runner has not started its own session yet, so there is no group to signal.
             with contextlib.suppress(ProcessLookupError):
