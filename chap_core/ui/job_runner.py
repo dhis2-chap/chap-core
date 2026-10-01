@@ -40,11 +40,9 @@ def hold_running_lock(run_dir: Path) -> None:
     running job from a dead one even after a restart, without trusting a process id that may
     have been reused (see services.load_job).
     """
+    import fcntl
+
     global _running_lock
-    try:
-        import fcntl
-    except ImportError:  # Windows: the UI falls back to the process id
-        return
     _running_lock = open(run_dir / LOCK_NAME, "w")
     fcntl.flock(_running_lock, fcntl.LOCK_EX)
 
@@ -54,8 +52,7 @@ def run(run_dir: Path, args: list[str]) -> int:
     # The UI starts this process without fork-only options (see services.start_job), so do here what
     # they would have done: lead a new session, so stopping the job reaches everything it started,
     # and work inside the run directory, so relative output paths land there.
-    if hasattr(os, "setsid"):
-        os.setsid()
+    os.setsid()
     os.chdir(run_dir)
     hold_running_lock(run_dir)
     try:

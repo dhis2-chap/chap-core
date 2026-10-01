@@ -19,6 +19,9 @@ INSTALL_HINT = (
     "  uv sync --extra ui            (in a chap-core checkout)"
 )
 
+# The UI manages its runs with POSIX process groups and file locks. chap is used through WSL on Windows.
+WINDOWS_HINT = "chap ui runs on macOS and Linux. On Windows, run it inside WSL, as the rest of chap."
+
 
 def ui_cmd(
     port: Annotated[int, Parameter(help="Port the UI listens on.")] = 8501,
@@ -67,6 +70,9 @@ def ui_cmd(
     CLI command for every run. Nothing is written until you run something,
     upload a file or save a configuration.
     """
+    if sys.platform == "win32":
+        print(WINDOWS_HINT)
+        sys.exit(1)
     if importlib.util.find_spec("streamlit") is None:
         print(INSTALL_HINT)
         sys.exit(1)

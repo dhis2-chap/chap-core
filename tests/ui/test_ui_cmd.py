@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from chap_core.cli_endpoints import ui
-from chap_core.cli_endpoints.ui import INSTALL_HINT, ui_cmd
+from chap_core.cli_endpoints.ui import INSTALL_HINT, WINDOWS_HINT, ui_cmd
 
 
 def test_ui_cmd_prints_install_hint_without_streamlit(monkeypatch, capsys):
@@ -91,3 +91,10 @@ def test_ui_listens_only_on_this_machine_unless_told_otherwise(monkeypatch):
     with pytest.raises(SystemExit):
         ui_cmd(host="0.0.0.0")
     assert [cmd[cmd.index("--server.address") + 1] for cmd in calls] == ["127.0.0.1", "0.0.0.0"]
+
+
+def test_ui_cmd_points_windows_users_to_wsl(monkeypatch, capsys):
+    monkeypatch.setattr(ui.sys, "platform", "win32")
+    with pytest.raises(SystemExit):
+        ui_cmd(open_browser=False)
+    assert WINDOWS_HINT in capsys.readouterr().out

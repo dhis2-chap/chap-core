@@ -286,11 +286,7 @@ def stop_job(job: Job) -> None:
     with contextlib.suppress(PermissionError, ValueError):
         pid = int((job.run_dir / PID_NAME).read_text())
         try:
-            if hasattr(os, "killpg"):
-                os.killpg(pid, signal.SIGTERM)
-            else:
-                # Windows has no process groups; there the runner itself is stopped.
-                os.kill(pid, signal.SIGTERM)
+            os.killpg(pid, signal.SIGTERM)
         except ProcessLookupError:
             # The runner has not started its own session yet, so there is no group to signal.
             with contextlib.suppress(ProcessLookupError):
@@ -446,14 +442,8 @@ def _is_running(run_dir: Path, proc: subprocess.Popen | None, started: datetime)
     """
     if proc is not None:
         return proc.returncode is None
-    try:
-        import fcntl
-    except ImportError:  # Windows has no flock: fall back to the process id
-        try:
-            os.kill(int((run_dir / PID_NAME).read_text()), 0)
-        except (ProcessLookupError, PermissionError, ValueError, FileNotFoundError, OSError):
-            return False
-        return True
+    import fcntl
+
     lock = run_dir / LOCK_NAME
     if not lock.exists():
         return (datetime.now() - started).total_seconds() < STARTUP_GRACE_SECONDS
