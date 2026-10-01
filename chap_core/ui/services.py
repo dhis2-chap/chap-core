@@ -277,9 +277,16 @@ def stop_job(job: Job) -> None:
     """
     running = _is_running(job.run_dir, _processes.get(job.run_dir), job.started)
     (job.run_dir / STOPPED_NAME).touch()
-    if running:
-        with contextlib.suppress(ProcessLookupError, PermissionError, ValueError):
-            os.killpg(int((job.run_dir / PID_NAME).read_text()), signal.SIGTERM)
+    if not running:
+        return
+    with contextlib.suppress(PermissionError, ValueError):
+        pid = int((job.run_dir / PID_NAME).read_text())
+        try:
+            os.killpg(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            # The runner has not started its own session yet, so there is no group to signal.
+            with contextlib.suppress(ProcessLookupError):
+                os.kill(pid, signal.SIGTERM)
 
 
 def job_outputs(job: Job) -> list[Path]:

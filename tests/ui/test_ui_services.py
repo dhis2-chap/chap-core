@@ -216,3 +216,19 @@ def test_a_job_counts_as_running_while_its_runner_holds_the_lock(tmp_path):
         fcntl.flock(lock, fcntl.LOCK_EX)
         assert load_job(run_dir).status == "running"
     assert load_job(run_dir).status == "failed"
+
+
+def test_stop_reaches_a_runner_that_has_not_started_its_own_session_yet(tmp_path):
+    runner = subprocess.Popen(["sleep", "30"])  # not a process group leader, like a runner before setsid
+    try:
+        run_dir = tmp_path / "20260101-000000-000_eval"
+        run_dir.mkdir()
+        (run_dir / "args.json").write_text('["eval"]')
+        (run_dir / "pid").write_text(str(runner.pid))
+        job = load_job(run_dir)
+        assert job.status == "running"
+        stop_job(job)
+        assert runner.wait(timeout=10) == -15
+    finally:
+        runner.kill()
+        runner.wait()
