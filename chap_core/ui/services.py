@@ -279,6 +279,51 @@ def command_name(args: list[str]) -> str:
     return " ".join(itertools.takewhile(lambda a: not a.startswith("-"), args))
 
 
+def dataset_geojson(csv_path: Path) -> dict | None:
+    """Region polygons stored next to a dataset as `<name>.geojson`, if there are any."""
+    path = Path(csv_path).with_suffix(".geojson")
+    return json.loads(path.read_text()) if path.exists() else None
+
+
+def dataset_incidence(csv_path: Path) -> tuple[dict[str, float], str]:
+    """Value per location for a dataset map: annual incidence per 1000 when population is known, else mean cases.
+
+    Uses the same numbers as the "Disease Cases Map" dataset plot.
+    """
+    from chap_core.plotting.dataset_plot import get_dataset_plot
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+
+    plot_cls = get_dataset_plot("disease-cases-map")
+    assert plot_cls is not None
+    plot = plot_cls.from_dataset(DataSet.from_csv(csv_path))
+    data = plot.data()
+    column = data.columns[-1]
+    label = "Annual incidence per 1000" if column == "annual_incidence_per_1000" else "Mean disease cases"
+    return dict(zip(data["location"].astype(str), data[column].astype(float), strict=True)), label
+
+
+def metric_by_location(nc_path: Path, metric_id: str) -> dict[str, float]:
+    """One metric of an evaluation, aggregated per location."""
+    from chap_core.assessment.evaluation import Evaluation
+    from chap_core.assessment.flat_representations import DataDimension
+    from chap_core.assessment.metrics import get_metric
+
+    metric_cls = get_metric(metric_id)
+    if metric_cls is None:
+        raise ValueError(f"Unknown metric: {metric_id}")
+    flat = Evaluation.from_file(nc_path).to_flat()
+    values = metric_cls().get_metric(flat.observations, flat.forecasts, dimensions=(DataDimension.location,))
+    return dict(zip(values["location"].astype(str), values["metric"].astype(float), strict=True))
+
+
+def evaluation_dataset(nc_path: Path) -> str | None:
+    """The dataset an evaluation was made from, when it was made by a UI run."""
+    run_dir = Path(nc_path).parent
+    if not (run_dir / ARGS_NAME).exists():
+        return None
+    return option_value(load_job(run_dir).args, "--dataset-csv")
+
+
 def make_dataset_plot(csv_path: Path, plot_id: str):
     """Altair chart for one registered dataset plot of a CSV dataset."""
     from chap_core.plotting.dataset_plot import get_dataset_plot

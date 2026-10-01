@@ -5,16 +5,21 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 from chap_core.assessment.backtest_plots import list_backtest_plots
 from chap_core.cli_endpoints.utils import compute_metrics_table
+from chap_core.ui.maps import choropleth_html
 from chap_core.ui.services import (
     EXAMPLE_EVALUATIONS,
+    dataset_geojson,
+    evaluation_dataset,
     example_files,
     get_workdir,
     list_evaluations,
     list_jobs,
     make_plot,
+    metric_by_location,
     plot_facets,
     save_upload,
 )
@@ -110,6 +115,34 @@ with st.container(border=True, key="card-metrics"):
                 "bash",
                 wrap_lines=True,
             )
+
+
+@st.cache_data(show_spinner="Computing metrics per location...")
+def location_metric(path: str, mtime: float, metric_id: str) -> dict[str, float]:
+    return metric_by_location(Path(path), metric_id)
+
+
+with st.container(border=True, key="card-map"):
+    st.subheader("Map")
+    controls = st.container(horizontal=True, vertical_alignment="bottom", gap="medium")
+    map_eval = controls.selectbox("Evaluation", selected, format_func=label, key="results-map-eval")
+    metric_id = controls.selectbox(
+        "Metric", list(HEADLINE), format_func=lambda m: HEADLINE[m], key="results-map-metric"
+    )
+    dataset = evaluation_dataset(Path(map_eval))
+    geojson = dataset_geojson(Path(dataset)) if dataset and Path(dataset).exists() else None
+    if geojson is None:
+        st.caption(
+            "No region polygons for this evaluation. Maps are shown for evaluations run here "
+            "on a dataset with a GeoJSON next to it."
+        )
+    else:
+        try:
+            values = location_metric(map_eval, mtime(map_eval), metric_id)
+            hint = "share inside the 50% interval" if metric_id == "coverage_25_75" else "lower is better"
+            components.html(choropleth_html(geojson, values, f"{HEADLINE[metric_id]} ({hint})"), height=480)
+        except Exception as e:
+            st.warning(f"The map is not available for this evaluation: {e}")
 
 with st.container(border=True, key="card-plot"):
     plots = {plot["id"]: plot for plot in list_backtest_plots()}

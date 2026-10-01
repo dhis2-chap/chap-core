@@ -4,9 +4,19 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 from chap_core.plotting.dataset_plot import list_dataset_plots
-from chap_core.ui.services import EXAMPLE_DATASETS, example_files, get_workdir, make_dataset_plot, save_upload
+from chap_core.ui.maps import choropleth_html
+from chap_core.ui.services import (
+    EXAMPLE_DATASETS,
+    dataset_geojson,
+    dataset_incidence,
+    example_files,
+    get_workdir,
+    make_dataset_plot,
+    save_upload,
+)
 from chap_core.ui.widgets import page_header
 
 workdir = get_workdir()
@@ -53,9 +63,19 @@ if Path(dataset_csv).exists():
         if "time_period" in df.columns:
             cols[2].metric("From", str(df["time_period"].min()))
             cols[3].metric("To", str(df["time_period"].max()))
-        geojson = Path(dataset_csv).with_suffix(".geojson")
-        st.caption(f"Polygons from `{geojson.name}`" if geojson.exists() else "No GeoJSON next to this file.")
-        overview_tab, plots_tab, table_tab = st.tabs(["Cases", "Plots", "Table"])
+        polygons = Path(dataset_csv).with_suffix(".geojson")
+        st.caption(f"Polygons from `{polygons.name}`" if polygons.exists() else "No GeoJSON next to this file.")
+        geojson = dataset_geojson(Path(dataset_csv))
+        overview_tab, map_tab, plots_tab, table_tab = st.tabs(["Cases", "Map", "Plots", "Table"])
+        with map_tab:
+            if geojson is None:
+                st.info("Add a GeoJSON with the same name as the CSV to see the regions on a map.")
+            else:
+                try:
+                    values, legend = dataset_incidence(Path(dataset_csv))
+                    components.html(choropleth_html(geojson, values, legend), height=480)
+                except Exception as e:
+                    st.warning(f"The map is not available for this dataset: {e}")
         with overview_tab:
             if {"time_period", "location", "disease_cases"} <= set(df.columns):
                 st.line_chart(df.pivot_table(index="time_period", columns="location", values="disease_cases"))
