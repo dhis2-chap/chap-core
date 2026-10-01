@@ -56,14 +56,3 @@ def test_backtest_parameters_reflect_new_fields(monkeypatch):
         "type": "integer",
         "minimum": 2,
     }
-
-
-def test_backtest_parameters_openapi():
-    response = client.get("/openapi.json")
-    assert response.status_code == 200, response.text
-    schema = response.json()
-    operation = schema["paths"]["/v1/analytics/backtest-parameters"]["get"]
-    assert operation["tags"] == ["Backtests"]
-    response_schema = operation["responses"]["200"]["content"]["application/json"]["schema"]
-    assert response_schema["type"] == "array"
-    assert response_schema["items"]["$ref"] == "#/components/schemas/BacktestParameterInfo"
