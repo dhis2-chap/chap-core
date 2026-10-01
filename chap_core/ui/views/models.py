@@ -5,14 +5,13 @@ from typing import Literal
 import streamlit as st
 
 from chap_core.ui.models import (
-    catalog_entries,
     list_services,
     service_info,
     service_logs,
     start_service,
     stop_service,
 )
-from chap_core.ui.widgets import page_header
+from chap_core.ui.widgets import load_catalog, model_images, page_header
 
 BADGE_COLORS: dict[str, Literal["green", "orange", "red", "gray"]] = {
     "good": "green",
@@ -27,20 +26,9 @@ page_header(
 )
 
 
-@st.cache_data(ttl=600, show_spinner="Loading the model marketplace...")
-def load_catalog():
-    from chap_core.services.model_marketplace import list_models
-
-    try:
-        marketplace, invalid = list_models()
-    except Exception as e:
-        marketplace, invalid = [], {"marketplace": str(e)}
-    return catalog_entries(marketplace), invalid
-
-
 def docker_services():
     try:
-        return {s.model_id: s for s in list_services()}, None
+        return {s.model_id: s for s in list_services(model_images())}, None
     except Exception as e:
         return {}, str(e)
 
@@ -106,10 +94,12 @@ def card(entry) -> None:
                 st.caption(f"Model `{entry.model_name}`")
             if entry.repository:
                 st.link_button("Source", entry.repository, icon=":material/code:")
+            if service and not service.managed:
+                st.caption(f"Running in `{service.name}`, which another tool such as chaps manages.")
+            elif service and st.button("Stop service", key=f"stop:{entry.id}", icon=":material/stop:"):
+                stop_service(service.id)
+                st.rerun()
             if service:
-                if st.button("Stop service", key=f"stop:{entry.id}", icon=":material/stop:"):
-                    stop_service(service.id)
-                    st.rerun()
                 st.code(service_logs(service.id, tail=60), "log", height=200)
         with footer[2]:
             if entry.kind != "chapkit":

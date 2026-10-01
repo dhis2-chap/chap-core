@@ -35,3 +35,7 @@ def test_catalog_lists_marketplace_github_and_local_models(marketplace_model):
 def test_command_titles_follow_page_titles():
     assert command_title("eval") == "Evaluate"
     assert command_title("generate-modelcard") == "Model card"
+
+
+def test_model_label_falls_back_to_the_address_when_no_service_answers():
+    assert model_label("http://localhost:1") == "localhost:1"

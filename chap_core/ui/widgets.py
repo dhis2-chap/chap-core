@@ -556,13 +556,33 @@ def _model_widget(field: Field, widget_key: str, initial, help_text) -> str | No
     return value or None
 
 
-def _running_service_options() -> dict[str, str]:
-    try:
-        from chap_core.ui.models import list_services
+@st.cache_data(ttl=600, show_spinner="Loading the model marketplace...")
+def load_catalog():
+    """Catalog entries from the marketplace, GitHub and local examples, and why any could not be read."""
+    from chap_core.services.model_marketplace import list_models
+    from chap_core.ui.models import catalog_entries
 
-        return {f"Chapkit: {s.model_id}": s.url for s in list_services() if s.url and s.status == "running"}
+    try:
+        marketplace, invalid = list_models()
+    except Exception as e:
+        marketplace, invalid = [], {"marketplace": str(e)}
+    return catalog_entries(marketplace), invalid
+
+
+def model_images() -> dict[str, str]:
+    """Image repository of each chapkit model in the catalog, mapped to its catalog id."""
+    entries, _ = load_catalog()
+    return {e.image.rsplit(":", 1)[0]: e.id for e in entries if e.image}
+
+
+def _running_service_options() -> dict[str, str]:
+    from chap_core.ui.models import list_services, model_label
+
+    try:
+        services = list_services(model_images())
     except Exception:
         return {}
+    return {f"Running: {model_label(s.url)}": s.url for s in services if s.url and s.status == "running"}
 
 
 def _copy_choice(source_key: str, target_key: str, mapping: dict[str, str] | None = None) -> None:

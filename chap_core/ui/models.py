@@ -64,6 +64,7 @@ class ChapkitService:
     image: str
     status: str
     url: str | None
+    managed: bool  # started from the UI, so the UI may stop it; others belong to e.g. a chaps deployment
 
 
 def catalog_entries(marketplace: list[MarketplaceModel]) -> list[CatalogEntry]:
@@ -138,15 +139,26 @@ def model_kind(model_name: str) -> str:
 
 
 def model_label(model_name: str) -> str:
-    """Short name for a model: the chapkit model id for a local service, otherwise the last path part."""
+    """Short name for a model: a chapkit service's own display name, otherwise the last path part."""
     if model_name.startswith("http") and "github.com" not in model_name:
-        try:
-            match = next((s.model_id for s in list_services() if s.url and model_name.startswith(s.url)), None)
-        except Exception:
-            match = None
-        if match:
-            return match
+        name = service_name(model_name)
+        if name:
+            return name
     return model_name.split("@")[0].rstrip("/").split("/")[-1]
+
+
+_service_names: dict[str, str] = {}
+
+
+def service_name(url: str) -> str | None:
+    """Display name a chapkit service reports about itself, remembered once it has answered."""
+    url = url.rstrip("/")
+    if url not in _service_names:
+        info = service_info(url)
+        if not info:
+            return None
+        _service_names[url] = info.get("display_name") or info.get("id") or url
+    return _service_names[url]
 
 
 def marketplace_image(entry: MarketplaceModel) -> str:
@@ -182,15 +194,27 @@ def start_service(image: str, model_id: str) -> ChapkitService:
         labels={SERVICE_LABEL: model_id},
         name=f"chap-ui-{model_id.replace('_', '-')}",
     )
-    return _service(container)
+    container.reload()
+    return _service(container, model_id)
 
 
-def list_services() -> list[ChapkitService]:
-    """Chapkit containers started from the UI."""
+def list_services(images: dict[str, str] | None = None) -> list[ChapkitService]:
+    """Chapkit containers started from the UI, plus running containers of known model images.
+
+    `images` maps an image repository (without tag) to its catalog id, so models deployed by
+    other tools, such as chaps, are recognised too.
+    """
     import docker
 
-    client = docker.from_env()
-    return [_service(c) for c in client.containers.list(all=True, filters={"label": SERVICE_LABEL})]
+    services = []
+    for container in docker.from_env().containers.list(all=True):
+        model_id = container.labels.get(SERVICE_LABEL)
+        if model_id is None and images and container.status == "running":
+            repository = (container.image.tags[0] if container.image.tags else "").rsplit(":", 1)[0]
+            model_id = images.get(repository)
+        if model_id is not None:
+            services.append(_service(container, model_id))
+    return services
 
 
 def stop_service(service_id: str) -> None:
@@ -220,9 +244,9 @@ def service_info(url: str) -> dict | None:
         return None
 
 
-def _service(container) -> ChapkitService:
-    container.reload()
+def _service(container, model_id: str) -> ChapkitService:
     bindings = (container.ports or {}).get(CHAPKIT_PORT) or []
     url = f"http://localhost:{bindings[0]['HostPort']}" if bindings else None
     image = container.image.tags[0] if container.image.tags else container.image.short_id
-    return ChapkitService(container.id, container.name, container.labels[SERVICE_LABEL], image, container.status, url)
+    managed = SERVICE_LABEL in container.labels
+    return ChapkitService(container.id, container.name, model_id, image, container.status, url, managed)
