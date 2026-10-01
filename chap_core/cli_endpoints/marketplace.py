@@ -480,7 +480,8 @@ def _deploy(
                 logger.warning("Update failed; restoring the previous model service.")
                 if previous_image_id is not None:
                     subprocess.run(["docker", "tag", previous_image_id, previous["image"]], check=True)
-                subprocess.run([*command, "-f", str(overlay), *up], check=True)
+                # Recreate even an unchanged container, so it registers again after the deregistration above.
+                subprocess.run([*command, "-f", str(overlay), "up", "--force-recreate", *up[1:]], check=True)
             else:
                 logger.warning("Installation failed; removing the model service.")
                 subprocess.run([*pending_command, "rm", "--stop", "--force", service_name], check=True)

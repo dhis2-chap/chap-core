@@ -622,6 +622,7 @@ def test_failed_start_restores_previous_image(model_deployment):
     # The pull has moved the tag, so the rollback must move it back before starting the overlay again.
     assert commands[-2] == ["docker", "tag", "sha256:previous", "example/model:v1"]
     assert "up" in commands[-1] and str(model_deployment.overlay) in commands[-1]
+    assert "--force-recreate" in commands[-1]
 
 
 def test_multiple_compose_files_and_platform(model_deployment, tmp_path):
