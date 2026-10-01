@@ -161,6 +161,19 @@ def test_extended_predictor_initialization():
     assert extended_predictor._desired_scope == desired_scope
 
 
+def test_extend_to_horizon_wraps_when_n_periods_above_max():
+    model = MockModel(min_pred_length=None, max_pred_length=2)
+    extended = ExtendedPredictor.extend_to_horizon(model, 5)
+    assert isinstance(extended, ExtendedPredictor)
+    assert extended.model_information.max_prediction_periods == 5
+
+
+@pytest.mark.parametrize("max_pred_length", [None, 5, 6])
+def test_extend_to_horizon_returns_estimator_when_within_max(max_pred_length):
+    model = MockModel(min_pred_length=None, max_pred_length=max_pred_length)
+    assert ExtendedPredictor.extend_to_horizon(model, 5) is model
+
+
 def test_extended_predictor_adapts_model_information():
     """Test that model_information reflects the extended prediction capability."""
     mock_model = MockModel(min_pred_length=2, max_pred_length=4)
