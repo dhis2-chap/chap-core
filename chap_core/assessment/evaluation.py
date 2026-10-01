@@ -835,17 +835,21 @@ class Evaluation(EvaluationBase):
 
         ds.close()
 
-        if flat_data.hpo is not None:
-            logger.warning(
-                "HPO doesn't yet support converting flat representation back into HyperparameterOptimization."
-            )
-
-        return cls(
+        evaluation = cls(
             backtest,
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
             hpo=None,
         )
+
+        evaluation._flat_data_cache = flat_data
+        if flat_data.hpo is not None:
+            logger.warning(
+                "HPO doesn't yet support converting flat representation back into HyperparameterOptimization, "
+                "but FlatHyperparameterOptimization will be available in flat data cache."
+            )
+
+        return evaluation
 
     @staticmethod
     def _ensure_backcompatibility(ds: xr.Dataset) -> xr.Dataset:
