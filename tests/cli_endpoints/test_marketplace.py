@@ -329,17 +329,19 @@ def test_failed_install_retires_the_template_its_service_registered(marketplace_
     assert not model_deployment.overlay.exists()
 
 
-def test_interrupted_install_retires_the_template_and_removes_the_service(marketplace_model, model_deployment):
+@pytest.mark.parametrize("error", [KeyboardInterrupt, TypeError])
+def test_interrupted_install_retires_the_template_and_removes_the_service(marketplace_model, model_deployment, error):
+    """Any exception after the service starts is rolled back, not only the expected deployment errors."""
     chap = model_deployment.chap
     handle = chap.handle
 
     def interrupt_configurations(request):
         if request.url.path == "/v1/crud/configured-models" and chap.configured_models:
-            raise KeyboardInterrupt
+            raise error
         return handle(request)
 
     chap.handle = interrupt_configurations
-    with pytest.raises(KeyboardInterrupt):
+    with pytest.raises(error):
         install(marketplace_model["id"])
     assert [t["archived"] for t in chap.templates] == [True]
     assert model_deployment.runner.call_args.args[0][-4:] == [

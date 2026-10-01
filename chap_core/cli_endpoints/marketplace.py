@@ -471,7 +471,7 @@ def _deploy(
                 api.deregister_service(previous["x-chap-template"])
             subprocess.run([*pending_command, *up], check=True)
             service["x-chap-template"] = _register_service(api, service_name, pin, taken, own_template)
-        except (*DEPLOYMENT_ERRORS, KeyboardInterrupt):
+        except BaseException:
             try:
                 _undo_registration(api, service_name, pin, live_before)
             except DEPLOYMENT_ERRORS as error:
