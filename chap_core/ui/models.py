@@ -68,6 +68,14 @@ class ChapsModel:
     url: str | None
 
     @property
+    def internal(self) -> bool:
+        """Running, but reachable only through chap-core's proxy, which forwards reads only.
+
+        chap eval needs to write to the model, so such a model needs a host port of its own first.
+        """
+        return self.url is None and self.state in ("registered", "running-not-registered", "unmanaged", "up")
+
+    @property
     def answering(self) -> bool:
         """Whether the model takes requests: chaps says registered, running or up."""
         return self.url is not None and self.state in ("registered", "running-not-registered", "unmanaged", "up")
@@ -342,6 +350,15 @@ def _write_models(path: Path, models: list[SavedModel]) -> None:
     path.write_text(yaml.safe_dump([{"name": m.name, "model": m.model} for m in models], sort_keys=False))
 
 
+def chaps_registry_args() -> list[str]:
+    """The marketplace chap ui lists models from, as chaps expects it: the URL of its registry.yaml.
+
+    Empty when the default marketplace is used, so chaps keeps whatever its deployment recorded.
+    """
+    base = os.environ.get("CHAP_MARKETPLACE_URL")
+    return ["--registry-url", f"{base.rstrip('/')}/registry.yaml"] if base else []
+
+
 def chaps_binary() -> str | None:
     """The chaps program, when it is installed."""
     return shutil.which("chaps")
@@ -392,13 +409,32 @@ def chaps_start(model_id: str, project: Path | None) -> tuple[Path, str]:
     if project is None:
         project = get_runs_dir() / "chaps"
         project.parent.mkdir(parents=True, exist_ok=True)
-        output.append(_check(run_external([binary, "init", str(project), "--only", "none", "--models", "none"])))
-    enabled = run_external([binary, "-C", str(project), "models", "enable", model_id, "--port", "auto"])
+        output.append(
+            _check(
+                run_external(
+                    [binary, *chaps_registry_args(), "init", str(project), "--only", "none", "--models", "none"]
+                )
+            )
+        )
+    enabled = run_external(
+        [binary, *chaps_registry_args(), "-C", str(project), "models", "enable", model_id, "--port", "auto"]
+    )
     if enabled.returncode != 0 and "already enabled" not in (enabled.stdout + enabled.stderr):
         _check(enabled)
     output.append(enabled.stdout + enabled.stderr)
-    output.append(_check(run_external([binary, "-C", str(project), "up"])))
+    output.append(_check(run_external([binary, *chaps_registry_args(), "-C", str(project), "up"])))
     return project, "\n".join(output)
+
+
+def chaps_expose(model_id: str, project: Path) -> str:
+    """Give a model of a chaps deployment a host port of its own, so chap eval can reach it."""
+    from chap_core.ui.services import run_external
+
+    binary = chaps_binary()
+    if binary is None:
+        raise RuntimeError("chaps is not installed")
+    output = _check(run_external([binary, "-C", str(project), "models", "expose", model_id, "--port", "auto"]))
+    return output + _check(run_external([binary, *chaps_registry_args(), "-C", str(project), "up"]))
 
 
 def chaps_stop(model_id: str, project: Path) -> str:
@@ -411,10 +447,19 @@ def chaps_stop(model_id: str, project: Path) -> str:
     return _check(run_external([binary, "-C", str(project), "models", "disable", model_id]))
 
 
+class ChapsError(RuntimeError):
+    """A chaps command failed; the message is its error line, `output` everything it printed."""
+
+    def __init__(self, message: str, output: str):
+        super().__init__(message)
+        self.output = output
+
+
 def _check(result) -> str:
     output = (result.stdout or "") + (result.stderr or "")
     if result.returncode != 0:
-        raise RuntimeError(
-            output.strip().splitlines()[-1] if output.strip() else f"chaps exited with {result.returncode}"
-        )
+        lines = output.strip().splitlines()
+        errors = [line.removeprefix("error: ") for line in lines if line.startswith("error: ")]
+        message = errors[0] if errors else lines[-1] if lines else f"chaps exited with {result.returncode}"
+        raise ChapsError(message, output)
     return output

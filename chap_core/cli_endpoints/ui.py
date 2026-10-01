@@ -46,7 +46,11 @@ def ui_cmd(
         ),
     ] = None,
     registry_url: Annotated[
-        str | None, Parameter(help="Model marketplace to list models from, for a fork or a mirror.")
+        str | None,
+        Parameter(
+            help="Model marketplace to list and start models from, for a fork or a mirror: its base URL "
+            "or its registry.yaml. Passed on to chaps too."
+        ),
     ] = None,
     open_browser: Annotated[bool, Parameter(help="Open the UI in a browser on start.")] = True,
 ):
@@ -87,7 +91,8 @@ def ui_cmd(
     }
     env = {**os.environ, **{name: str(Path(value).resolve()) for name, value in settings.items() if value}}
     if registry_url:
-        env["CHAP_MARKETPLACE_URL"] = registry_url
+        # chap-core's marketplace client takes the registry's base URL; accept the index file too.
+        env["CHAP_MARKETPLACE_URL"] = registry_url.rstrip("/").removesuffix("/registry.yaml")
     sys.exit(subprocess.call(cmd, env=env))
 
 

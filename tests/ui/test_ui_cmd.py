@@ -59,3 +59,20 @@ def test_ui_cmd_passes_folders_models_and_marketplace_to_the_ui(monkeypatch, tmp
 
 def test_install_hint_shows_how_to_run_with_uvx():
     assert "uvx --from 'chap-core[ui]' chap ui" in INSTALL_HINT
+
+
+@pytest.mark.parametrize(
+    "given",
+    ["https://example.org/registry", "https://example.org/registry/", "https://example.org/registry/registry.yaml"],
+)
+def test_registry_url_is_passed_as_the_marketplace_base_url(monkeypatch, given):
+    calls = []
+
+    def fake_call(cmd, env):
+        calls.append(env)
+        return 0
+
+    monkeypatch.setattr(ui.subprocess, "call", fake_call)
+    with pytest.raises(SystemExit):
+        ui_cmd(registry_url=given)
+    assert calls[0]["CHAP_MARKETPLACE_URL"] == "https://example.org/registry"

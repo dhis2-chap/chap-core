@@ -5,7 +5,9 @@ from typing import Literal
 import streamlit as st
 
 from chap_core.ui.models import (
+    ChapsError,
     chaps_binary,
+    chaps_expose,
     chaps_project,
     chaps_start,
     chaps_stop,
@@ -87,6 +89,8 @@ def state(entry) -> tuple[str | None, str]:
         return None, "Not started"
     if url and service_info(url):
         return url, f":green[Running] :gray[· {url}{' · chaps' if in_chaps else ''}]"
+    if in_chaps and in_chaps.internal:
+        return None, ":orange[Only reachable through chap-core]"
     if in_chaps and in_chaps.state == "not-running" and container is None:
         return None, ":gray[In the chaps deployment, not running]"
     if in_chaps or container:
@@ -104,6 +108,9 @@ def start(entry) -> None:
                 start_service(entry.image, entry.id)
         except Exception as e:
             st.error(f"Could not start {entry.name}: {e}")
+            if isinstance(e, ChapsError):
+                with st.expander("What chaps printed"):
+                    st.code(e.output, "log")
             return
     st.rerun()
 
@@ -163,6 +170,21 @@ def card(entry) -> None:
                 st.button(
                     "Use", key=f"use:{entry.id}", type="primary", width="stretch", on_click=use_model, args=(url,)
                 )
+            elif in_chaps and in_chaps.internal and project:
+                if st.button(
+                    "Expose",
+                    key=f"expose:{entry.id}",
+                    width="stretch",
+                    help="chap eval needs to reach the model directly: chap-core's proxy only forwards reads. "
+                    "This gives it a host port with `chaps models expose`.",
+                ):
+                    with st.spinner(f"Giving {entry.name} a port of its own..."):
+                        try:
+                            chaps_expose(entry.id, project)
+                        except Exception as e:
+                            st.error(f"Could not expose {entry.name}: {e}")
+                    load_chaps_models.clear()
+                    st.rerun()
             elif not (container or (in_chaps and in_chaps.state != "not-running")) and st.button(
                 "Start", key=f"start:{entry.id}", width="stretch", disabled=bool(docker_problem) and not chaps
             ):
@@ -216,7 +238,7 @@ def grid() -> None:
 
 
 starting = any(not (s.url and s.status == "running" and service_info(s.url)) for s in services.values())
-starting |= any(m.state != "not-running" and not m.answering for m in deployment.values())
+starting |= any(m.state != "not-running" and not m.answering and not m.internal for m in deployment.values())
 if starting:
     st.fragment(run_every=3)(grid)()
 else:

@@ -1,15 +1,20 @@
 import json
 import os
 
+import pytest
+
 from chap_core.services.model_marketplace import MarketplaceModel
 from chap_core.ui.catalog import command_title
 from chap_core.ui.models import (
     ASSESSMENT,
+    ChapsError,
     ChapsModel,
     SavedModel,
     catalog_entries,
     chaps_models,
     chaps_project,
+    chaps_registry_args,
+    chaps_stop,
     forget_model,
     github_models,
     marketplace_image,
@@ -109,3 +114,40 @@ def test_chaps_models_reads_the_deployment_status(monkeypatch, tmp_path):
     assert models["chapkit-ewars-model"] == ChapsModel("chapkit-ewars-model", "up", "http://localhost:5001")
     assert models["chapkit-ewars-model"].answering
     assert not models["auto-arima-chapkit"].answering
+
+
+def test_chaps_gets_the_registry_index_of_the_marketplace_in_use(monkeypatch):
+    monkeypatch.delenv("CHAP_MARKETPLACE_URL", raising=False)
+    assert chaps_registry_args() == []
+    monkeypatch.setenv("CHAP_MARKETPLACE_URL", "https://example.org/registry")
+    assert chaps_registry_args() == ["--registry-url", "https://example.org/registry/registry.yaml"]
+
+
+def fake_chaps(tmp_path, monkeypatch, script: str) -> None:
+    fake = tmp_path / "bin" / "chaps"
+    fake.parent.mkdir(exist_ok=True)
+    fake.write_text(f"#!/bin/sh\n{script}\n")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{fake.parent}{os.pathsep}{os.environ['PATH']}")
+
+
+def test_models_behind_chap_core_are_internal_until_exposed(monkeypatch, tmp_path):
+    status = {"models": [{"id": "auto-arima-chapkit", "state": "registered", "reach": "internal"}]}
+    fake_chaps(tmp_path, monkeypatch, f"echo '{json.dumps(status)}'")
+    model = chaps_models(tmp_path)["auto-arima-chapkit"]
+    assert model.url is None
+    assert model.internal
+    assert not model.answering
+
+
+def test_chaps_failures_report_the_error_line(monkeypatch, tmp_path):
+    fake_chaps(
+        tmp_path,
+        monkeypatch,
+        "echo 'some progress'; echo 'error: docker could not be asked about this project' >&2; "
+        "echo '  caused by: docker compose exited with status 1' >&2; exit 1",
+    )
+    with pytest.raises(ChapsError) as failure:
+        chaps_stop("auto_arima_chapkit", tmp_path)
+    assert str(failure.value) == "docker could not be asked about this project"
+    assert "caused by" in failure.value.output
