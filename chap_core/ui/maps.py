@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import copy
 import html
 import json
@@ -118,3 +119,13 @@ map.on("load", () => {{
   map.on("mouseleave", "fill", () => {{ map.getCanvas().style.cursor = ""; popup.remove(); }});
 }});
 </script></body></html>"""
+
+
+def choropleth_url(geojson: dict, values: dict[str, float], legend: str, height: int = 480) -> str:
+    """The map page as a data: URL, for `st.iframe`.
+
+    Embedded as raw HTML the page shares the app's origin only partly, and MapLibre's web worker
+    never answers; as a data: URL the page and its worker share one origin and the map loads.
+    """
+    page = choropleth_html(geojson, values, legend, height)
+    return "data:text/html;base64," + base64.b64encode(page.encode()).decode()

@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 
 from chap_core.ui.catalog import command_title
 from chap_core.ui.commands import build_args, command_fields, command_help
@@ -421,7 +420,7 @@ def _show_file(path: Path) -> None:
         if st.button("Open in Results", key=f"open:{path}", icon=":material/insights:"):
             open_in_results(path)
     elif suffix == ".html":
-        components.html(path.read_text(errors="replace"), height=600, scrolling=True)
+        st.iframe(path, height="content")
     elif suffix in (".png", ".jpg", ".jpeg", ".svg"):
         st.image(str(path))
     elif suffix == ".csv":

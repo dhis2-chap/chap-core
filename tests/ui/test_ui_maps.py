@@ -1,6 +1,14 @@
+import base64
 import json
 
-from chap_core.ui.maps import BASEMAP_STYLE, NO_DATA_COLOR, bounding_box, choropleth_html, feature_location
+from chap_core.ui.maps import (
+    BASEMAP_STYLE,
+    NO_DATA_COLOR,
+    bounding_box,
+    choropleth_html,
+    choropleth_url,
+    feature_location,
+)
 from chap_core.ui.services import dataset_geojson, dataset_incidence, evaluation_dataset, metric_by_location
 
 
@@ -49,3 +57,11 @@ def test_choropleth_html_colours_known_locations_over_the_basemap(data_path):
     assert config["style"] == BASEMAP_STYLE
     assert NO_DATA_COLOR in json.dumps(config["fill"])
     assert "Cases &amp; more" in page
+
+
+def test_choropleth_url_carries_the_whole_map_page(data_path):
+    geojson = dataset_geojson(data_path / "laos_subset.csv")
+    assert geojson is not None
+    url = choropleth_url(geojson, {}, "Cases")
+    assert url.startswith("data:text/html;base64,")
+    assert base64.b64decode(url.split(",", 1)[1]).decode() == choropleth_html(geojson, {}, "Cases")

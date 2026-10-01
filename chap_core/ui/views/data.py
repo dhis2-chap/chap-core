@@ -4,10 +4,9 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 
 from chap_core.plotting.dataset_plot import list_dataset_plots
-from chap_core.ui.maps import choropleth_html
+from chap_core.ui.maps import choropleth_url
 from chap_core.ui.services import (
     EXAMPLE_DATASETS,
     dataset_geojson,
@@ -73,7 +72,7 @@ if Path(dataset_csv).exists():
             else:
                 try:
                     values, legend = dataset_incidence(Path(dataset_csv))
-                    components.html(choropleth_html(geojson, values, legend), height=480)
+                    st.iframe(choropleth_url(geojson, values, legend), height=480)
                 except Exception as e:
                     st.warning(f"The map is not available for this dataset: {e}")
         with overview_tab:
