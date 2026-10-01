@@ -252,6 +252,8 @@ def backtest_windows(periods: list[str], n_periods: int, n_splits: int, stride: 
     Mirrors `train_test_generator`: splits are counted back from the end of the data, and split i
     trains on everything up to `first_train_end + i * stride` and forecasts the next `n_periods`.
     """
+    if min(n_periods, n_splits, stride) < 1:
+        return []
     first_train_end = len(periods) - n_periods - (n_splits - 1) * stride - 1
     if first_train_end < 0:
         return []

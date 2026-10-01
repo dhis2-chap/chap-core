@@ -84,3 +84,13 @@ def test_configure_view_can_stop_using_the_configuration(workdir, data_path):
     assert not at.exception
     assert at.session_state["model_configuration_yaml"] is None
     assert at.info[0].value.startswith("No model configuration is in use")
+
+
+def test_data_view_keeps_a_dataset_chosen_on_another_page(workdir, data_path):
+    nicaragua = str(data_path / "nicaragua_weekly_subset.csv")
+    at = AppTest.from_file(str(VIEWS / "data.py"), default_timeout=60)
+    at.session_state["dataset_csv"] = nicaragua
+    at.run()
+    assert not at.exception
+    assert at.session_state["dataset_csv"] == nicaragua
+    assert str(at.selectbox[0].value) == nicaragua

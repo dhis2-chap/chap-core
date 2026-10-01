@@ -30,12 +30,25 @@ with st.container(border=True, key="card-data-source"):
     examples = example_files(EXAMPLE_DATASETS)
     uploads = sorted((workdir / "uploads").glob("*.csv"))
     sources = [s for s, ok in (("Example", examples), ("Uploaded", uploads)) if ok] + ["Upload", "Path or URL"]
-    source = st.pills("Source", sources, default=sources[0], key="data-source", label_visibility="collapsed")
+    # Start from the dataset already chosen, here or on another page, so visiting this page never replaces it.
+    current = st.session_state.get("dataset_csv")
+    example_names, upload_names = [str(p) for p in examples], [str(p) for p in uploads]
+    if current in example_names:
+        start = "Example"
+    elif current in upload_names:
+        start = "Uploaded"
+    elif current:
+        start = "Path or URL"
+    else:
+        start = sources[0]
+    source = st.pills("Source", sources, default=start, key="data-source", label_visibility="collapsed")
     dataset_csv = None
     if source == "Example":
-        dataset_csv = str(st.selectbox("Example dataset", examples, format_func=lambda p: p.name))
+        index = example_names.index(current) if current in example_names else 0
+        dataset_csv = str(st.selectbox("Example dataset", examples, index=index, format_func=lambda p: p.name))
     elif source == "Uploaded":
-        dataset_csv = str(st.selectbox("Uploaded file", uploads, format_func=lambda p: p.name))
+        index = upload_names.index(current) if current in upload_names else 0
+        dataset_csv = str(st.selectbox("Uploaded file", uploads, index=index, format_func=lambda p: p.name))
     elif source == "Upload":
         cols = st.columns(2)
         csv_file = cols[0].file_uploader("CSV file", type="csv")

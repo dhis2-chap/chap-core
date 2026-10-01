@@ -72,3 +72,10 @@ def test_plot_type_is_a_choice_of_registered_plots():
     plot_type = next(f for f in command_fields("plot-backtest") if f.key == "plot_type")
     assert plot_type.kind == "choice"
     assert plot_type.choices == tuple(BACKTEST_PLOT_IDS)
+
+
+def test_numeric_fields_carry_the_cli_minimum():
+    fields = {f.key: f for f in command_fields("eval")}
+    assert fields["backtest_params.stride"].minimum == 1
+    assert fields["backtest_params.n_splits"].minimum == 1
+    assert fields["historical_context_years"].minimum is None

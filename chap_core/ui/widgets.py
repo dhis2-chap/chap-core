@@ -457,9 +457,26 @@ def field_widget(field: Field, form_key: str, prefill: dict[str, Any]) -> Any:
     if field.kind == "bool":
         return st.checkbox(label, value=bool(initial), help=help_text, key=widget_key)
     if field.kind == "int":
-        return st.number_input(label, value=initial, step=1, help=help_text, key=widget_key, placeholder="default")
+        return st.number_input(
+            label,
+            value=initial,
+            step=1,
+            help=help_text,
+            key=widget_key,
+            placeholder="default",
+            min_value=None if field.minimum is None else int(field.minimum),
+            max_value=None if field.maximum is None else int(field.maximum),
+        )
     if field.kind == "float":
-        return st.number_input(label, value=initial, help=help_text, key=widget_key, placeholder="default")
+        return st.number_input(
+            label,
+            value=initial,
+            help=help_text,
+            key=widget_key,
+            placeholder="default",
+            min_value=field.minimum,
+            max_value=field.maximum,
+        )
     if field.kind == "choice":
         options = list(field.choices)
         index = options.index(str(initial)) if initial is not None and str(initial) in options else None

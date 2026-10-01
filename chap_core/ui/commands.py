@@ -79,6 +79,8 @@ class Field:
     group: str | None
     choices: tuple[str, ...] = ()
     negative_flag: str | None = None
+    minimum: float | None = None
+    maximum: float | None = None
 
     @property
     def is_output(self) -> bool:
@@ -129,6 +131,7 @@ def command_fields(command: str) -> list[Field]:
         negative = next((name for name in arg.names if name.startswith("--no-") or ".no-" in name), None)
         parent = flag.rsplit(".", 1)[0] if "." in flag else None
         hint, optional = _unwrap_optional(arg.hint)
+        bounds = _bounds(arg.field_info.annotation)
         kind, choices = _kind(hint)
         cli_default = arg.field_info.default
         if cli_default is arg.field_info.empty:
@@ -155,6 +158,8 @@ def command_fields(command: str) -> list[Field]:
                 group=groups.get(parent) if parent else None,
                 choices=choices,
                 negative_flag=negative if kind == "bool" else None,
+                minimum=bounds[0],
+                maximum=bounds[1],
             )
         )
     return fields
@@ -204,6 +209,21 @@ def _negative(field: Field) -> str:
         return field.negative_flag
     head, _, tail = field.flag.rpartition(".")
     return f"{head}.no-{tail}" if head else f"--no-{field.flag.removeprefix('--')}"
+
+
+def _bounds(annotation) -> tuple[float | None, float | None]:
+    """Lowest and highest allowed value from Annotated constraints such as pydantic's Field(ge=1)."""
+    low = high = None
+    for constraint in typing.get_args(annotation)[1:] if typing.get_origin(annotation) is typing.Annotated else ():
+        if getattr(constraint, "ge", None) is not None:
+            low = constraint.ge
+        elif getattr(constraint, "gt", None) is not None:
+            low = constraint.gt + 1 if isinstance(constraint.gt, int) else constraint.gt
+        if getattr(constraint, "le", None) is not None:
+            high = constraint.le
+        elif getattr(constraint, "lt", None) is not None:
+            high = constraint.lt - 1 if isinstance(constraint.lt, int) else constraint.lt
+    return low, high
 
 
 def _unwrap_optional(hint) -> tuple[Any, bool]:

@@ -112,7 +112,9 @@ with left:
         if overview and overview["periods"]:
             periods = overview["periods"]
             windows = backtest_windows(periods, n_periods, n_splits, stride)
-            if not windows:
+            if min(n_periods, n_splits, stride) < 1:
+                st.warning("Periods to forecast, test splits and periods between splits must all be at least 1.")
+            elif not windows:
                 st.warning("The dataset is too short for this many splits and periods.")
             else:
                 st.caption(

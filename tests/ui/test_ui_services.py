@@ -117,3 +117,9 @@ def test_command_name_and_option_value_read_job_arguments():
     assert command_name(args) == "causal build-counterfactual"
     assert option_value(args, "--dataset-csv") == "d.csv"
     assert option_value(args, "--model-name") is None
+
+
+@pytest.mark.parametrize(("n_periods", "n_splits", "stride"), [(3, 7, -1), (3, 7, 0), (0, 7, 1), (3, 0, 1)])
+def test_backtest_windows_is_empty_for_values_chap_eval_rejects(n_periods, n_splits, stride):
+    periods = [f"2020-{m:02d}" for m in range(1, 13)]
+    assert backtest_windows(periods, n_periods, n_splits, stride) == []
