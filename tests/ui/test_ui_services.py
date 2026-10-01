@@ -1,6 +1,8 @@
+import fcntl
 import os
 import subprocess
 import sys
+import time
 
 import pytest
 
@@ -18,6 +20,7 @@ from chap_core.ui.services import (
     job_outputs,
     list_evaluations,
     list_jobs,
+    load_job,
     make_dataset_plot,
     make_plot,
     option_value,
@@ -25,6 +28,7 @@ from chap_core.ui.services import (
     resolve_paths,
     run_job,
     save_upload,
+    stop_job,
     validate_against_model,
     workspace_files,
 )
@@ -179,3 +183,36 @@ def test_helpers_close_descriptors_inherited_from_the_ui():
         os.close(write_end)
     assert result.returncode != 0
     assert "Bad file descriptor" in result.stderr
+
+
+def _dead_run_dir(runs_dir, pid: int):
+    """A run whose runner died without writing an exit code, its process id now belonging to `pid`."""
+    run_dir = runs_dir / "20260101-000000-000_eval"
+    run_dir.mkdir(parents=True)
+    (run_dir / "args.json").write_text('["eval"]')
+    (run_dir / "pid").write_text(str(pid))
+    (run_dir / "running.lock").touch()
+    old = time.time() - 3600
+    os.utime(run_dir / "args.json", (old, old))
+    return run_dir
+
+
+def test_a_reused_process_id_does_not_keep_a_dead_job_running_or_get_stopped(tmp_path):
+    unrelated = subprocess.Popen(["sleep", "30"], start_new_session=True)
+    try:
+        run_dir = _dead_run_dir(tmp_path, unrelated.pid)
+        job = load_job(run_dir)
+        assert job.status == "failed"
+        stop_job(job)
+        assert unrelated.poll() is None
+    finally:
+        unrelated.kill()
+        unrelated.wait()
+
+
+def test_a_job_counts_as_running_while_its_runner_holds_the_lock(tmp_path):
+    run_dir = _dead_run_dir(tmp_path, os.getpid())
+    with open(run_dir / "running.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        assert load_job(run_dir).status == "running"
+    assert load_job(run_dir).status == "failed"

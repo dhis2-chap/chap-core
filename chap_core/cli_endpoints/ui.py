@@ -22,6 +22,13 @@ INSTALL_HINT = (
 
 def ui_cmd(
     port: Annotated[int, Parameter(help="Port the UI listens on.")] = 8501,
+    host: Annotated[
+        str,
+        Parameter(
+            help="Address the UI listens on. The default only accepts connections from this machine; "
+            "0.0.0.0 lets anyone who can reach it run models, as the UI has no login."
+        ),
+    ] = "127.0.0.1",
     runs_dir: Annotated[
         Path,
         Parameter(
@@ -72,6 +79,8 @@ def ui_cmd(
         "streamlit",
         "run",
         str(app_path),
+        "--server.address",
+        host,
         "--server.port",
         str(port),
         "--server.headless",

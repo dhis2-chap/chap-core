@@ -25,7 +25,10 @@ ARGS_NAME = "args.json"
 PID_NAME = "pid"
 EXIT_CODE_NAME = "exit_code"
 STOPPED_NAME = "stopped"
-JOB_FILES = {LOG_NAME, COMMAND_NAME, ARGS_NAME, PID_NAME, EXIT_CODE_NAME, STOPPED_NAME}
+LOCK_NAME = "running.lock"  # held by the job runner while it lives, see job_runner.hold_running_lock
+JOB_FILES = {LOG_NAME, COMMAND_NAME, ARGS_NAME, PID_NAME, EXIT_CODE_NAME, STOPPED_NAME, LOCK_NAME}
+# How long a job may take to lock running.lock after it was started.
+STARTUP_GRACE_SECONDS = 60
 
 # Only present in a source checkout, not in an installed wheel
 REPO_ROOT = Path(__file__).parent.parent.parent
@@ -255,7 +258,7 @@ def load_job(run_dir: Path) -> Job:
     if (run_dir / STOPPED_NAME).exists():
         finished = datetime.fromtimestamp((run_dir / STOPPED_NAME).stat().st_mtime)
         return Job(run_dir, args, "stopped", None, started, finished)
-    if _is_running(run_dir, proc):
+    if _is_running(run_dir, proc, started):
         return Job(run_dir, args, "running", None, started, None)
     return Job(run_dir, args, "failed", None, started, None)
 
@@ -267,10 +270,16 @@ def list_jobs(runs_dir: Path) -> list[Job]:
 
 
 def stop_job(job: Job) -> None:
-    """Stop a running job and everything it started."""
+    """Stop a running job and everything it started.
+
+    The process group is only signalled while the job is still running, so a process id that the
+    system has since given to another program is never touched.
+    """
+    running = _is_running(job.run_dir, _processes.get(job.run_dir), job.started)
     (job.run_dir / STOPPED_NAME).touch()
-    with contextlib.suppress(ProcessLookupError, PermissionError, ValueError):
-        os.killpg(int((job.run_dir / PID_NAME).read_text()), signal.SIGTERM)
+    if running:
+        with contextlib.suppress(ProcessLookupError, PermissionError, ValueError):
+            os.killpg(int((job.run_dir / PID_NAME).read_text()), signal.SIGTERM)
 
 
 def job_outputs(job: Job) -> list[Path]:
@@ -414,11 +423,32 @@ def make_dataset_plot(csv_path: Path, plot_id: str):
     return plot_cls.from_dataset(DataSet.from_csv(csv_path)).plot()
 
 
-def _is_running(run_dir: Path, proc: subprocess.Popen | None) -> bool:
+def _is_running(run_dir: Path, proc: subprocess.Popen | None, started: datetime) -> bool:
+    """Whether a job's runner is alive.
+
+    Jobs started by this server are asked directly. Others, after a UI restart, are alive while
+    their runner holds running.lock; a process id alone could have been reused by another program.
+    """
     if proc is not None:
         return proc.returncode is None
     try:
-        os.kill(int((run_dir / PID_NAME).read_text()), 0)
-    except (ProcessLookupError, PermissionError, ValueError, FileNotFoundError):
+        import fcntl
+    except ImportError:  # Windows has no flock: fall back to the process id
+        try:
+            os.kill(int((run_dir / PID_NAME).read_text()), 0)
+        except (ProcessLookupError, PermissionError, ValueError, FileNotFoundError, OSError):
+            return False
+        return True
+    lock = run_dir / LOCK_NAME
+    if not lock.exists():
+        return (datetime.now() - started).total_seconds() < STARTUP_GRACE_SECONDS
+    fd = os.open(lock, os.O_RDWR)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        return True
+    else:
+        fcntl.flock(fd, fcntl.LOCK_UN)
         return False
-    return True
+    finally:
+        os.close(fd)

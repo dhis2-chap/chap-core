@@ -76,3 +76,18 @@ def test_registry_url_is_passed_as_the_marketplace_base_url(monkeypatch, given):
     with pytest.raises(SystemExit):
         ui_cmd(registry_url=given)
     assert calls[0]["CHAP_MARKETPLACE_URL"] == "https://example.org/registry"
+
+
+def test_ui_listens_only_on_this_machine_unless_told_otherwise(monkeypatch):
+    calls = []
+
+    def fake_call(cmd, env):
+        calls.append(cmd)
+        return 0
+
+    monkeypatch.setattr(ui.subprocess, "call", fake_call)
+    with pytest.raises(SystemExit):
+        ui_cmd()
+    with pytest.raises(SystemExit):
+        ui_cmd(host="0.0.0.0")
+    assert [cmd[cmd.index("--server.address") + 1] for cmd in calls] == ["127.0.0.1", "0.0.0.0"]

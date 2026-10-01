@@ -29,6 +29,26 @@ def close_inherited_descriptors() -> None:
                 os.close(fd)
 
 
+LOCK_NAME = "running.lock"
+_running_lock = None
+
+
+def hold_running_lock(run_dir: Path) -> None:
+    """Lock running.lock in the run directory for as long as this process lives.
+
+    The system releases the lock when the process ends, however it ends, so the UI can tell a
+    running job from a dead one even after a restart, without trusting a process id that may
+    have been reused (see services.load_job).
+    """
+    global _running_lock
+    try:
+        import fcntl
+    except ImportError:  # Windows: the UI falls back to the process id
+        return
+    _running_lock = open(run_dir / LOCK_NAME, "w")
+    fcntl.flock(_running_lock, fcntl.LOCK_EX)
+
+
 def run(run_dir: Path, args: list[str]) -> int:
     close_inherited_descriptors()
     # The UI starts this process without fork-only options (see services.start_job), so do here what
@@ -37,6 +57,7 @@ def run(run_dir: Path, args: list[str]) -> int:
     if hasattr(os, "setsid"):
         os.setsid()
     os.chdir(run_dir)
+    hold_running_lock(run_dir)
     try:
         from chap_core.cli import app
 
