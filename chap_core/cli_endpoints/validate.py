@@ -17,6 +17,8 @@ from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime v
 from chap_core.cli_endpoints._common import discover_geojson, load_dataset_from_csv, resolve_csv_path
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     import pandas as pd
 
     from chap_core.services.dataset_validation import ValidationIssue
@@ -45,43 +47,7 @@ def validate_cmd(
         chap validate --dataset-csv ./data/vietnam.csv \\
             --model-name https://github.com/dhis2-chap/minimalist_example_r
     """
-    import pandas as pd
-
-    from chap_core.models.model_template import ModelTemplate
-    from chap_core.services.dataset_validation import validate_dataset
-
-    column_mapping = None
-    if data_source_mapping is not None:
-        logger.info(f"Loading column mapping from {data_source_mapping}")
-        with open(data_source_mapping) as f:
-            column_mapping = json.load(f)
-
-    csv_path, url_geojson_path = resolve_csv_path(dataset_csv)
-    raw_df = pd.read_csv(csv_path)
-    if column_mapping is not None:
-        raw_df.rename(columns={v: k for k, v in column_mapping.items()}, inplace=True)
-
-    for required_col in ("time_period", "location"):
-        if required_col not in raw_df.columns:
-            print(f"Error: Required column '{required_col}' not found in CSV.")
-            print(f"Available columns: {list(raw_df.columns)}")
-            sys.exit(1)
-
-    try:
-        geojson_path = url_geojson_path or discover_geojson(csv_path)
-        dataset = load_dataset_from_csv(csv_path, geojson_path, column_mapping)
-    except ValueError as e:
-        print(f"Error loading dataset: {e}")
-        _report_period_gaps(raw_df)
-        sys.exit(1)
-
-    model_template_config = None
-    if model_name is not None:
-        logger.info(f"Loading model template from {model_name}")
-        template = ModelTemplate.from_directory_or_github_url(model_name)
-        model_template_config = template.model_template_config
-
-    issues = validate_dataset(dataset, raw_df=raw_df, model_template_config=model_template_config)
+    issues = collect_validation_issues(dataset_csv, model_name, data_source_mapping)
 
     errors = [i for i in issues if i.level == "error"]
     warnings = [i for i in issues if i.level == "warning"]
@@ -99,6 +65,57 @@ def validate_cmd(
 
     if not issues:
         print("Validation passed: no issues found.")
+
+
+def collect_validation_issues(
+    dataset_csv: str,
+    model_name: str | None = None,
+    data_source_mapping: Path | None = None,
+) -> list[ValidationIssue]:
+    """Validate a CSV dataset and return the issues found instead of printing them.
+
+    Structural problems that stop the dataset from loading (missing required columns,
+    period gaps) are returned as error-level issues.
+    """
+    import pandas as pd
+
+    from chap_core.models.model_template import ModelTemplate
+    from chap_core.services.dataset_validation import ValidationIssue, validate_dataset
+
+    column_mapping = None
+    if data_source_mapping is not None:
+        logger.info(f"Loading column mapping from {data_source_mapping}")
+        with open(data_source_mapping) as f:
+            column_mapping = json.load(f)
+
+    csv_path, url_geojson_path = resolve_csv_path(dataset_csv)
+    raw_df = pd.read_csv(csv_path)
+    if column_mapping is not None:
+        raw_df.rename(columns={v: k for k, v in column_mapping.items()}, inplace=True)
+
+    missing_columns = [col for col in ("time_period", "location") if col not in raw_df.columns]
+    if missing_columns:
+        return [
+            ValidationIssue(
+                level="error",
+                message=f"Required column '{col}' not found in CSV. Available columns: {list(raw_df.columns)}",
+            )
+            for col in missing_columns
+        ]
+
+    try:
+        geojson_path = url_geojson_path or discover_geojson(csv_path)
+        dataset = load_dataset_from_csv(csv_path, geojson_path, column_mapping)
+    except ValueError as e:
+        return [ValidationIssue(level="error", message=f"Error loading dataset: {e}"), *_period_gap_issues(raw_df)]
+
+    model_template_config = None
+    if model_name is not None:
+        logger.info(f"Loading model template from {model_name}")
+        template = ModelTemplate.from_directory_or_github_url(model_name)
+        model_template_config = template.model_template_config
+
+    return validate_dataset(dataset, raw_df=raw_df, model_template_config=model_template_config)
 
 
 def _print_issue(issue: ValidationIssue):
@@ -147,10 +164,12 @@ def _is_adjacent(a: str, b: str) -> bool:
         return False
 
 
-def _report_period_gaps(raw_df: pd.DataFrame):
-    """Analyze and report per-location period gaps when dataset loading fails."""
+def _period_gap_issues(raw_df: pd.DataFrame) -> list[ValidationIssue]:
+    """Report per-location period gaps when dataset loading fails."""
+    from chap_core.services.dataset_validation import ValidationIssue
     from chap_core.time_period import TimePeriod
 
+    issues = []
     for location in sorted(raw_df["location"].unique()):
         loc_periods = sorted(raw_df[raw_df["location"] == location]["time_period"].unique())
         if len(loc_periods) < 2:
@@ -172,8 +191,10 @@ def _report_period_gaps(raw_df: pd.DataFrame):
                     break
 
         if missing:
-            formatted = _format_period_ranges(missing)
-            print(f"  Location '{location}': missing {formatted}")
+            issues.append(
+                ValidationIssue(level="error", message="Missing time periods", location=location, time_periods=missing)
+            )
+    return issues
 
 
 def register_commands(app):
