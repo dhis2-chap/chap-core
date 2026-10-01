@@ -36,7 +36,6 @@ from chap_core.database.dataset_tables import DataSet, Observation, ObservationB
 from chap_core.database.tables import Backtest, BacktestForecast, BacktestSpecification
 from chap_core.external.ExtendedPredictor import ExtendedPredictor
 from chap_core.hpo.types import FlatHyperparameterOptimization, HyperparameterOptimization
-from chap_core.models.configured_model import ConfiguredModel
 from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.time_period import Month, TimePeriod
 
@@ -455,7 +454,10 @@ class Evaluation(EvaluationBase):
 
         Args:
             configured_model: Configured model database object with metadata
-            estimator: Model estimator instance ready for training/prediction
+            estimator: Model estimator instance ready for training/prediction. It is run
+                as given: wrap a model whose max_prediction_periods is below
+                ``backtest_params.n_periods`` with ``ExtendedPredictor.extend_to_horizon``
+                first. Only the model tuned from a HyperparameterOptimizer is wrapped here.
             dataset: Dataset to evaluate on
             backtest_params: Backtest execution parameters (n_periods, n_splits, stride)
             backtest_name: Name for the backtest (default: "evaluation")
@@ -486,22 +488,12 @@ class Evaluation(EvaluationBase):
                 hpo_data.model_configuration,  # type: ignore[arg-type]
                 prediction_length=backtest_params.n_periods,
             )
-            tuned_estimator = model()  # type: ignore[assignment]
+            # The tuned model is built here, so callers cannot extend its horizon themselves.
+            tuned_estimator = ExtendedPredictor.extend_to_horizon(model(), backtest_params.n_periods)  # type: ignore[assignment]
         elif isinstance(estimator, MetaLearner):
             raise TypeError(f"Unsupported MetaLearner: {type(estimator).__name__}")
         else:
             tuned_estimator = estimator
-
-        # also used by hpo objective call
-        if (
-            isinstance(tuned_estimator, ConfiguredModel) and tuned_estimator.model_information is not None
-        ):  # ensembleModel returns None, NaiveModel has no model_information
-            max_periods = tuned_estimator.model_information.max_prediction_periods
-            if max_periods is not None and max_periods < backtest_params.n_periods:
-                logger.warning(
-                    f"Wrapping model to extend prediction length from {max_periods} to {backtest_params.n_periods}. This is done iteratively, and may worsen model performance"
-                )
-                tuned_estimator = ExtendedPredictor(tuned_estimator, backtest_params.n_periods)
 
         # Run backtest
         evaluation_results = backtest(
