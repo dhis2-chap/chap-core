@@ -454,7 +454,10 @@ class Evaluation(EvaluationBase):
 
         Args:
             configured_model: Configured model database object with metadata
-            estimator: Model estimator instance ready for training/prediction
+            estimator: Model estimator instance ready for training/prediction. It is run
+                as given: wrap a model whose max_prediction_periods is below
+                ``backtest_params.n_periods`` with ``ExtendedPredictor.extend_to_horizon``
+                first. Only the model tuned from a HyperparameterOptimizer is wrapped here.
             dataset: Dataset to evaluate on
             backtest_params: Backtest execution parameters (n_periods, n_splits, stride)
             backtest_name: Name for the backtest (default: "evaluation")
