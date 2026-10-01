@@ -2387,3 +2387,42 @@ def test_there_is_no_patch_endpoint_for_alert_policies(clean_engine, dependency_
     policy_id = _create_alert_policy("Alerts J").json()["id"]
     response = client.patch(f"/v1/crud/alert-policies/{policy_id}", json={"name": "renamed"})
     assert response.status_code == 405, response.text
+
+
+def _test_backtest_id(session) -> int:
+    return session.exec(select(Backtest).where(Backtest.name == "test backtest")).one().id
+
+
+@pytest.mark.parametrize("before_first_split", [False, True])
+def test_outbreak_metrics_scores_every_level_and_horizon(override_session, seeded_session, before_first_split):
+    backtest_id = _test_backtest_id(seeded_session)
+    policy_id = _create_alert_policy().json()["id"]
+
+    response = client.get(
+        f"/v1/analytics/backtests/{backtest_id}/outbreak-metrics",
+        params={"alertPolicyId": policy_id, "baselineBeforeFirstSplit": before_first_split},
+    )
+
+    assert response.status_code == 200, response.json()
+    body = response.json()
+    assert body["categories"] == ["none", "monitor", "action"]
+    assert [level["level"] for level in body["overall"]["levels"]] == ["monitor", "action"]
+    assert body["overall"]["nCells"] > 0
+    horizons = [entry["horizonDistance"] for entry in body["byHorizon"]]
+    assert horizons == sorted(horizons) and len(horizons) == 3
+    assert sum(entry["nCells"] for entry in body["byHorizon"]) == body["overall"]["nCells"]
+
+
+def test_outbreak_metrics_unknown_ids_return_404(override_session, seeded_session):
+    backtest_id = _test_backtest_id(seeded_session)
+    policy_id = _create_alert_policy().json()["id"]
+
+    unknown_policy = client.get(
+        f"/v1/analytics/backtests/{backtest_id}/outbreak-metrics", params={"alertPolicyId": policy_id + 1000}
+    )
+    unknown_backtest = client.get(
+        f"/v1/analytics/backtests/{backtest_id + 1000}/outbreak-metrics", params={"alertPolicyId": policy_id}
+    )
+
+    assert unknown_policy.status_code == 404
+    assert unknown_backtest.status_code == 404
