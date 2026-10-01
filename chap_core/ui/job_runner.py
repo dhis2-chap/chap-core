@@ -3,12 +3,19 @@
 Usage: python -m chap_core.ui.job_runner <run_dir> <chap arguments...>
 """
 
+import os
 import sys
 import traceback
 from pathlib import Path
 
 
 def run(run_dir: Path, args: list[str]) -> int:
+    # The UI starts this process without fork-only options (see services.start_job), so do here what
+    # they would have done: lead a new session, so stopping the job reaches everything it started,
+    # and work inside the run directory, so relative output paths land there.
+    if hasattr(os, "setsid"):
+        os.setsid()
+    os.chdir(run_dir)
     try:
         from chap_core.cli import app
 

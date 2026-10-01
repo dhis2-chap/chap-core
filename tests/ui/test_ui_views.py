@@ -94,3 +94,12 @@ def test_data_view_keeps_a_dataset_chosen_on_another_page(workdir, data_path):
     assert not at.exception
     assert at.session_state["dataset_csv"] == nicaragua
     assert str(at.selectbox[0].value) == nicaragua
+
+
+def test_results_view_shows_the_selection_kept_in_session_state(workdir, data_path):
+    second = str(data_path / "example_evaluation_2.nc")
+    at = AppTest.from_file(str(VIEWS / "results.py"), default_timeout=120)
+    at.session_state["results-selected"] = [second, str(data_path / "missing.nc")]
+    at.run()
+    assert not at.exception
+    assert at.multiselect[0].value == [second]

@@ -143,15 +143,19 @@ def start_job(workdir: Path, args: list[str], label: str) -> Job:
         "MPLBACKEND": "Agg",
         "CHAP_RUNS_DIR": str(workdir / "model-runs"),
     }
+    # Start the job with posix_spawn rather than fork: forking the UI process, which has threads and
+    # libraries such as PROJ loaded, can crash the child in their fork handlers before it starts.
+    # Python only uses posix_spawn without cwd= or start_new_session=, so the runner changes into
+    # its run directory and starts its own session itself. File descriptors Python opens are not
+    # inheritable, so not closing them only passes on the log and stdin set here.
     with open(run_dir / LOG_NAME, "w") as log:
         proc = subprocess.Popen(
             [sys.executable, "-m", "chap_core.ui.job_runner", str(run_dir), *args],
-            cwd=run_dir,
             stdout=log,
             stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL,
             env=env,
-            start_new_session=True,
+            close_fds=False,
         )
     (run_dir / PID_NAME).write_text(str(proc.pid))
     _processes[run_dir] = proc

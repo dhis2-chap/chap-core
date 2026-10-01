@@ -47,14 +47,27 @@ def label(path: str) -> str:
     return p.name
 
 
+def add_uploads() -> None:
+    """Save newly uploaded files once and add them to the comparison."""
+    paths = [str(save_upload(workdir, f.name, f.getvalue())) for f in st.session_state.get("results-upload") or []]
+    selection = list(dict.fromkeys([*st.session_state.get("results-selected", []), *paths]))
+    st.session_state["results-selected"] = selection
+    st.session_state["selected_evals"] = selection
+
+
+# The selection lives in session state, so evaluations chosen elsewhere or uploaded here show up in it.
+if "results-selected" not in st.session_state:
+    st.session_state["results-selected"] = [
+        p for p in st.session_state.get("selected_evals", []) if p in options
+    ] or options[:1]
+st.session_state["results-selected"] = [p for p in st.session_state["results-selected"] if p in options]
+
 with st.container(horizontal=True, vertical_alignment="bottom"):
-    default = [p for p in st.session_state.get("selected_evals", []) if p in options] or options[:1]
-    selected = st.multiselect("Comparing", options, default=default, format_func=label, key="results-selected")
+    selected = st.multiselect("Comparing", options, format_func=label, key="results-selected")
     with st.popover("Add evaluation file", icon=":material/upload:"):
-        for upload in st.file_uploader("Evaluation files (.nc)", type="nc", accept_multiple_files=True) or []:
-            path = str(save_upload(workdir, upload.name, upload.getvalue()))
-            st.session_state["selected_evals"] = [*selected, path]
-            st.rerun()
+        st.file_uploader(
+            "Evaluation files (.nc)", type="nc", accept_multiple_files=True, key="results-upload", on_change=add_uploads
+        )
 
 if not selected:
     st.info("Pick evaluations to compare, run one on the Evaluate page, or add a file.")

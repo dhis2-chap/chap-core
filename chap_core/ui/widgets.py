@@ -391,6 +391,7 @@ def command_page(command: str, title: str, notes: str = "") -> None:
 def open_in_results(path: Path) -> None:
     st.session_state["evaluation"] = str(path)
     st.session_state["selected_evals"] = [str(path)]
+    st.session_state["results-selected"] = [str(path)]
     st.switch_page("views/results.py")
 
 
