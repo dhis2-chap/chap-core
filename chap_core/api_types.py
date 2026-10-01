@@ -118,19 +118,30 @@ class EvaluationEntry(PredictionEntry):
 class BacktestParams(DBModel):
     """Shared backtest scheduling parameters used by request models."""
 
-    n_periods: int = Field(default=3, gt=0, description="Number of periods to forecast at each split.")
-    n_splits: int = Field(default=7, gt=0, description="Total number of rolling train/test splits.")
-    stride: int = Field(default=1, gt=0, description="Number of periods to advance between successive splits.")
+    n_periods: int = Field(
+        default=3, ge=1, title="Forecast periods", description="Number of periods to forecast at each split."
+    )
+    n_splits: int = Field(
+        default=7, ge=1, title="Number of splits", description="Total number of rolling train/test splits."
+    )
+    stride: int = Field(
+        default=1,
+        ge=1,
+        title="Step between splits",
+        description="Number of periods to advance between successive splits.",
+    )
     n_retrain: int = Field(
         default=1,
-        gt=0,
-        description="Number of times the model is retrained, evenly spaced across the splits. 1 means train once.",
+        ge=1,
+        title="Number of training runs",
+        description="Number of times the model is trained, evenly spaced across the splits. "
+        "1 means train once. Cannot exceed the number of splits.",
     )
     future_weather_provider: str = Field(
         default=DEFAULT_WEATHER_PROVIDER_ID,
-        description="Id of the registered future-weather provider supplying climate covariates for each "
-        "forecast window. Use the same provider here and on the prediction so backtest scores reflect "
-        "what the model will see in production. See GET /v1/analytics/weather-providers.",
+        title="Future-weather provider",
+        description="Source of weather data for each forecast window. Use the same provider for backtesting "
+        "and prediction so scores reflect production conditions.",
     )
 
     @field_validator("future_weather_provider")

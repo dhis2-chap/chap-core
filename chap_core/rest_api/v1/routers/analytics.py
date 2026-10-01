@@ -908,6 +908,43 @@ class ThresholdStrategyInfo(DBModel):
     description: str = Field(default="", description="Short paragraph explaining what the strategy computes.")
 
 
+class BacktestParameterInfo(DBModel):
+    """Default value and display metadata for one backtest parameter."""
+
+    name: str = Field(description="CamelCase parameter name used in request bodies.")
+    label: str = Field(description="Human-friendly label shown in forms.")
+    description: str = Field(description="Short help text for the parameter.")
+    default: int | str = Field(description="Value used when the parameter is omitted.")
+    type: str = Field(description="JSON Schema type of the parameter.")
+    minimum: int | None = Field(default=None, description="Inclusive lower bound, when applicable.")
+
+
+@router.get(
+    "/backtest-parameters",
+    response_model=list[BacktestParameterInfo],
+    response_model_exclude_none=True,
+    tags=["Backtests"],
+    summary="Discover backtest parameter defaults and display metadata",
+)
+def list_backtest_parameters():
+    """Populate a backtest form from the same field definitions used to validate requests.
+
+    Use `GET /v1/analytics/weather-providers` to populate the `futureWeatherProvider` picker.
+    """
+    properties = BacktestParams.model_json_schema(by_alias=False)["properties"]
+    return [
+        BacktestParameterInfo(
+            name=field.alias or name,
+            label=properties[name]["title"],
+            description=field.description,
+            default=field.default,
+            type=properties[name]["type"],
+            minimum=properties[name].get("minimum"),
+        )
+        for name, field in BacktestParams.model_fields.items()
+    ]
+
+
 class WeatherProviderInfo(DBModel):
     """One registered future-weather provider, for populating a picker."""
 

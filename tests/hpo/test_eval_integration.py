@@ -1,5 +1,4 @@
 import json
-import logging
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -155,29 +154,56 @@ def test_hpo_metadata_is_written_to_evaluation_netcdf(
     assert stored_hpo["n_failed_trials"] == 0
 
 
-def test_evaluation_from_file_currently_drops_runtime_hpo(
+def test_evaluation_from_file_preserves_flat_hpo(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """NetCDF loading documents the current limitation: flat HPO metadata is not rebuilt into runtime HPO."""
+    """Loading and re-exporting an evaluation preserves flat HPO metadata."""
     hpo = make_flat_hpo()
     flat_data = make_flat_evaluation(hpo)
+
     backtest = MagicMock()
     backtest.org_units = ["A"]
     backtest.split_periods = ["2024-01"]
     backtest.future_weather_provider = DEFAULT_WEATHER_PROVIDER_ID
+
     evaluation = Evaluation(backtest)
     monkeypatch.setattr(evaluation, "to_flat", lambda: flat_data)
     monkeypatch.setattr(evaluation_module, "CHAP_VERSION", "2.0.0")
+
     output = tmp_path / "evaluation-with-hpo.nc"
-    evaluation.to_file(output, model_name="demo-template", model_version="1.0")
+    evaluation.to_file(
+        output,
+        model_name="demo-template",
+        model_version="1.0",
+    )
 
-    with caplog.at_level(logging.WARNING, logger=evaluation_module.__name__):
-        loaded = Evaluation.from_file(output)
+    # Load the evaluation from NetCDF.
+    loaded = Evaluation.from_file(output)
 
+    # Runtime HPO is still not reconstructed.
     assert loaded.get_hpo() is None
-    assert "doesn't yet support converting flat representation back" in caplog.text
+
+    # Flat HPO metadata must be preserved.
+    loaded_hpo = loaded.to_flat().hpo
+    assert loaded_hpo is not None
+    assert loaded_hpo == hpo
+
+    # Re-export the loaded evaluation.
+    reexported = tmp_path / "reexported-evaluation.nc"
+    loaded.to_file(reexported)
+
+    # Verify that the re-export also contains the HPO metadata.
+    with xr.open_dataset(reexported) as dataset:
+        stored_hpo = json.loads(dataset.attrs["hpo"])
+
+    assert stored_hpo["searcher"] == "GridSearcher"
+    assert stored_hpo["model_template_name"] == "demo-template"
+    assert stored_hpo["best_params"] == {"x": 1}
+    assert stored_hpo["best_score"] == 1.5
+    assert stored_hpo["n_trials"] == 1
+    assert stored_hpo["n_successful_trials"] == 1
+    assert stored_hpo["n_failed_trials"] == 0
 
 
 def test_evaluation_create_uses_hpo_best_configuration_and_attaches_runtime_metadata(
