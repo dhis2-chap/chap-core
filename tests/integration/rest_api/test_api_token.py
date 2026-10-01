@@ -21,6 +21,9 @@ TEST_SERVICE_KEY = "test-service-key"
 
 # Any gated route works here; this one needs no database.
 GATED_PATH = "/v2/services"
+# A gated route outside the service registry. The token check runs before the handler, so a
+# rejected request never reaches celery.
+NON_REGISTRY_PATH = "/health/probe"
 
 
 @pytest.fixture
@@ -99,9 +102,21 @@ class TestTokenEnabled:
     def test_valid_token_is_accepted(self, client, auth_headers):
         assert client.get(GATED_PATH, headers=auth_headers).status_code == 200
 
-    def test_openapi_is_gated(self, client, auth_headers):
-        assert client.get("/openapi.json").status_code == 401
-        assert client.get("/openapi.json", headers=auth_headers).status_code == 200
+    @pytest.mark.parametrize("path", ["/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"])
+    def test_api_reference_needs_no_token(self, client, path):
+        assert client.get(path).status_code == 200
+
+    def test_spec_offers_the_bearer_scheme_on_gated_operations_only(self, client):
+        schema = client.get("/openapi.json").json()
+
+        assert schema["components"]["securitySchemes"]["HTTPBearer"]["scheme"] == "bearer"
+        assert schema["paths"]["/v2/services"]["get"]["security"] == [{"HTTPBearer": []}]
+        assert "security" not in schema["paths"]["/system/info"]["get"]
+
+    def test_x_service_key_is_not_an_operation_parameter(self, client):
+        parameters = client.get("/openapi.json").json()["paths"]["/v2/services"]["get"].get("parameters", [])
+
+        assert all(p["name"].lower() != "x-service-key" for p in parameters)
 
     @pytest.mark.parametrize("path", ["/health", "/health/ready", "/system/info"])
     def test_open_paths_need_no_token(self, client, path, monkeypatch):
@@ -162,7 +177,7 @@ class TestServiceKeyHeaderCarriesTheToken:
     def test_registration_key_is_not_a_general_api_credential(self, client, monkeypatch):
         monkeypatch.setenv(SERVICE_KEY_ENV_VAR, TEST_SERVICE_KEY)
 
-        response = client.get("/openapi.json", headers={"X-Service-Key": TEST_SERVICE_KEY})
+        response = client.get(NON_REGISTRY_PATH, headers={"X-Service-Key": TEST_SERVICE_KEY})
 
         assert response.status_code == 401
 

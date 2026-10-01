@@ -6,10 +6,10 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPBearer
 
 from chap_core import __version__ as chap_core_version
-from chap_core.rest_api.auth import ApiTokenMiddleware, warn_on_weak_token
+from chap_core.rest_api.auth import require_api_token, require_api_token_or_registration_key, warn_on_weak_token
+from chap_core.rest_api.common_routes import open_router as open_common_router
 from chap_core.rest_api.common_routes import router as common_router
 from chap_core.rest_api.v1.rest_api import router as v1_router
 from chap_core.rest_api.v2.rest_api import router as v2_router
@@ -46,8 +46,6 @@ app = FastAPI(
     version=chap_core_version,
     openapi_tags=openapi_tags,
     root_path=os.environ.get("CHAP_ROOT_PATH", ""),
-    # Documents the bearer scheme in the OpenAPI spec; ApiTokenMiddleware does the enforcing.
-    dependencies=[Depends(HTTPBearer(auto_error=False))],
 )
 
 origins = [
@@ -57,10 +55,6 @@ origins = [
 ]
 
 warn_on_weak_token()
-
-# Must stay before CORSMiddleware: add_middleware inserts at the front, so this keeps CORS
-# outermost and 401 responses still carry CORS headers.
-app.add_middleware(ApiTokenMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -87,9 +81,13 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
-app.include_router(common_router)
-app.include_router(v1_router, prefix="/v1")
-app.include_router(v2_router, prefix="/v2")
+# CHAP_API_TOKEN is enforced per router (see rest_api/auth.py). Every router but the open
+# health and info endpoints takes it; the v2 router holds only the service registry and its
+# proxy, which also take the registration key.
+app.include_router(open_common_router)
+app.include_router(common_router, dependencies=[Depends(require_api_token)])
+app.include_router(v1_router, prefix="/v1", dependencies=[Depends(require_api_token)])
+app.include_router(v2_router, prefix="/v2", dependencies=[Depends(require_api_token_or_registration_key)])
 
 
 def get_openapi_schema():

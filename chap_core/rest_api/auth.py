@@ -9,14 +9,19 @@ The API token is normally presented as ``Authorization: Bearer <token>``, but it
 accepted in ``X-Service-Key`` because servicekit can only send that header. On the service
 registry paths the registration key is accepted there as well, so a chapkit service holding
 either secret can register without needing to send an ``Authorization`` header.
+
+The token is enforced by the route dependencies below, which ``app.py`` attaches to every
+router except the open health and info endpoints. FastAPI does not run route dependencies
+for its own ``/docs``, ``/redoc`` and ``/openapi.json``, so the API reference stays public
+and its Authorize button sends the token on "Try it out".
 """
 
 import logging
 import os
 import secrets
 
-from fastapi.responses import JSONResponse
-from starlette.types import ASGIApp, Receive, Scope, Send
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +33,12 @@ SERVICE_KEY_HEADER = "X-Service-Key"
 # is brute-forceable by anyone who can reach the port.
 MIN_TOKEN_LENGTH = 32
 
-# /health is called without headers by the container HEALTHCHECK and the Helm probes, and
-# /system/info is how clients discover that a token is required.
-OPEN_PATHS = frozenset({"/health", "/health/ready", "/system/info"})
-
-# servicekit can only send X-Service-Key, never Authorization, so self-registering chapkit
-# services present their secret there instead. Confined to the service registry so a
-# registration key cannot be used as a general-purpose API credential.
-SERVICE_REGISTRY_PREFIX = "/v2/services"
+# auto_error=False: a missing or non-Bearer header is answered by require_api_token, with
+# the same 401 as a wrong token, and not at all when no token is configured.
+bearer_scheme = HTTPBearer(
+    auto_error=False,
+    description=f"The server's {API_TOKEN_ENV_VAR}, when it has one. `/system/info` reports whether it does.",
+)
 
 
 def get_api_token() -> str | None:
@@ -69,72 +72,45 @@ def secret_matches(presented: str | None, expected: str) -> bool:
     return secrets.compare_digest(presented.encode(), expected.encode())
 
 
-def _bearer_matches(header: str | None, expected: str) -> bool:
-    if not header:
-        return False
-    scheme, _, token = header.partition(" ")
-    if scheme.lower() != "bearer":
-        return False
-    return secret_matches(token, expected)
+def _authorize(
+    request: Request, credentials: HTTPAuthorizationCredentials | None, accept_registration_key: bool
+) -> None:
+    expected = get_api_token()
+    if expected is None:
+        return
+    if credentials is not None and secret_matches(credentials.credentials, expected):
+        return
+    service_key = request.headers.get(SERVICE_KEY_HEADER)
+    if secret_matches(service_key, expected):
+        return
+    registration_key = get_service_key()
+    if accept_registration_key and registration_key is not None and secret_matches(service_key, registration_key):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Missing or invalid API token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
-class ApiTokenMiddleware:
-    """Reject requests without a valid bearer token when ``CHAP_API_TOKEN`` is set.
+def require_api_token(
+    request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)
+) -> None:
+    """Reject the request unless it carries the API token, when ``CHAP_API_TOKEN`` is set.
 
-    Raw ASGI rather than ``BaseHTTPMiddleware`` so the streaming proxy in
-    ``v2/routers/proxy.py`` passes through untouched, and so ``/docs`` and ``/openapi.json``
-    are covered too -- route dependencies never reach those.
+    ``X-Service-Key`` is read from the request rather than declared as a header parameter,
+    so it does not show up as a parameter of every operation in the OpenAPI spec.
     """
+    _authorize(request, credentials, accept_registration_key=False)
 
-    def __init__(self, app: ASGIApp):
-        self.app = app
 
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
-            return await self.app(scope, receive, send)
+def require_api_token_or_registration_key(
+    request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)
+) -> None:
+    """``require_api_token`` for the service registry, which also takes the registration key.
 
-        expected = get_api_token()
-        path = self._path(scope)
-        if expected is None or path in OPEN_PATHS:
-            return await self.app(scope, receive, send)
-
-        if not self._is_authorized(scope, path, expected):
-            response = JSONResponse(
-                status_code=401,
-                content={"detail": "Missing or invalid API token"},
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-            return await response(scope, receive, send)
-
-        return await self.app(scope, receive, send)
-
-    @classmethod
-    def _is_authorized(cls, scope: Scope, path: str, api_token: str) -> bool:
-        if _bearer_matches(cls._header(scope, b"authorization"), api_token):
-            return True
-
-        service_key = cls._header(scope, b"x-service-key")
-        if not service_key:
-            return False
-        if secret_matches(service_key, api_token):
-            return True
-
-        registration_key = get_service_key()
-        if registration_key is not None and path.startswith(SERVICE_REGISTRY_PREFIX):
-            return secret_matches(service_key, registration_key)
-        return False
-
-    @staticmethod
-    def _path(scope: Scope) -> str:
-        path: str = scope.get("path", "")
-        root_path: str = scope.get("root_path", "")
-        if root_path and path.startswith(root_path):
-            return path[len(root_path) :] or "/"
-        return path
-
-    @staticmethod
-    def _header(scope: Scope, name: bytes) -> str | None:
-        for key, value in scope.get("headers", []):
-            if key == name:
-                return str(value.decode("latin-1"))
-        return None
+    servicekit can only send ``X-Service-Key``, never ``Authorization``, so self-registering
+    chapkit services present their secret there instead. Confined to the service registry so a
+    registration key cannot be used as a general-purpose API credential.
+    """
+    _authorize(request, credentials, accept_registration_key=True)
