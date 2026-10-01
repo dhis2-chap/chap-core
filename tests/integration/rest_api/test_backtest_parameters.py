@@ -22,8 +22,8 @@ def test_backtest_parameters():
     for name, label in {
         "nPeriods": "Forecast periods",
         "nSplits": "Number of splits",
-        "stride": "Stride",
-        "nRetrain": "Number of retrains",
+        "stride": "Step between splits",
+        "nRetrain": "Number of training runs",
     }.items():
         assert by_name[name]["label"] == label
         assert by_name[name]["type"] == "integer"
@@ -32,8 +32,8 @@ def test_backtest_parameters():
     assert by_name["futureWeatherProvider"] == {
         "name": "futureWeatherProvider",
         "label": "Future-weather provider",
-        "description": "Registered provider supplying climate covariates for each forecast window. "
-        "See GET /v1/analytics/weather-providers.",
+        "description": "Source of weather data for each forecast window. Use the same provider for backtesting "
+        "and prediction so scores reflect production conditions.",
         "default": DEFAULT_WEATHER_PROVIDER_ID,
         "type": "string",
     }

@@ -125,20 +125,23 @@ class BacktestParams(DBModel):
         default=7, ge=1, title="Number of splits", description="Total number of rolling train/test splits."
     )
     stride: int = Field(
-        default=1, ge=1, title="Stride", description="Number of periods to advance between successive splits."
+        default=1,
+        ge=1,
+        title="Step between splits",
+        description="Number of periods to advance between successive splits.",
     )
     n_retrain: int = Field(
         default=1,
         ge=1,
-        title="Number of retrains",
-        description="Number of times the model is retrained, evenly spaced across the splits. "
-        "1 means train once. Must not exceed nSplits.",
+        title="Number of training runs",
+        description="Number of times the model is trained, evenly spaced across the splits. "
+        "1 means train once. Cannot exceed the number of splits.",
     )
     future_weather_provider: str = Field(
         default=DEFAULT_WEATHER_PROVIDER_ID,
         title="Future-weather provider",
-        description="Registered provider supplying climate covariates for each forecast window. "
-        "See GET /v1/analytics/weather-providers.",
+        description="Source of weather data for each forecast window. Use the same provider for backtesting "
+        "and prediction so scores reflect production conditions.",
     )
 
     @field_validator("future_weather_provider")

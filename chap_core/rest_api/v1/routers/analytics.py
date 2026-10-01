@@ -927,7 +927,10 @@ class BacktestParameterInfo(DBModel):
     summary="Discover backtest parameter defaults and display metadata",
 )
 def list_backtest_parameters():
-    """Populate a backtest form from the same field definitions used to validate requests."""
+    """Populate a backtest form from the same field definitions used to validate requests.
+
+    Use `GET /v1/analytics/weather-providers` to populate the `futureWeatherProvider` picker.
+    """
     properties = BacktestParams.model_json_schema(by_alias=False)["properties"]
     return [
         BacktestParameterInfo(
