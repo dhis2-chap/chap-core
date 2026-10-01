@@ -1,4 +1,4 @@
-"""Streamlit-free helpers behind the chap UI pages: workspace files and background jobs."""
+"""Streamlit-free helpers behind the chap UI pages: the runs folder, uploads and background jobs."""
 
 from __future__ import annotations
 
@@ -35,19 +35,30 @@ EXAMPLE_DATASETS = ["laos_subset.csv", "Minimalist_multiregion_example_data.csv"
 EXAMPLE_EVALUATIONS = ["example_evaluation.nc", "example_evaluation_2.nc"]
 EXAMPLE_MODEL = EXAMPLE_MODELS_DIR / "naive_python_model_uv"
 
+# Datasets published with region polygons, offered as examples in any installation.
+PUBLISHED_DATASETS = {
+    "Laos, provinces, monthly": "https://raw.githubusercontent.com/dhis2/climate-health-data/main/lao/chap_LAO_admin1_monthly.csv",
+    "Thailand, provinces, monthly": "https://raw.githubusercontent.com/dhis2/climate-health-data/main/tha/chap_THA_admin1_monthly.csv",
+    "Vietnam, provinces, monthly": "https://raw.githubusercontent.com/dhis2/climate-health-data/main/vnm/chap_VNM_admin1_monthly.csv",
+}
+
 # Popen handles of jobs started by this server process, so finished children are reaped.
 _processes: dict[Path, subprocess.Popen] = {}
 
 
-# Outside any project folder, so runs and uploads are not left in a repository.
-DEFAULT_WORKDIR = Path.home() / ".chap" / "ui"
+def get_runs_dir() -> Path:
+    """The runs folder, shared with the chap CLI: CHAP_RUNS_DIR, else ./runs.
+
+    It holds one folder per run, plus uploads, saved configurations and the models' own working
+    folders. It is created when something is first written to it, not when the UI starts.
+    """
+    return Path(os.environ.get("CHAP_RUNS_DIR", "runs")).resolve()
 
 
-def get_workdir() -> Path:
-    """Workdir the UI was started with (`chap ui --workdir`), falling back to ~/.chap/ui."""
-    workdir = Path(os.environ.get("CHAP_UI_WORKDIR", DEFAULT_WORKDIR)).resolve()
-    workdir.mkdir(parents=True, exist_ok=True)
-    return workdir
+def get_uploads_dir() -> Path:
+    """Where files added through the browser are kept: CHAP_UPLOADS_DIR, else <runs folder>/uploads."""
+    uploads = os.environ.get("CHAP_UPLOADS_DIR")
+    return Path(uploads).resolve() if uploads else get_runs_dir() / "uploads"
 
 
 def example_files(names: list[str]) -> list[Path]:
@@ -62,18 +73,35 @@ def example_models() -> list[Path]:
     return sorted(p.parent for p in EXAMPLE_MODELS_DIR.glob("*/MLproject"))
 
 
-def save_upload(workdir: Path, name: str, content: bytes) -> Path:
-    """Store an uploaded file under `<workdir>/uploads/` and return its path."""
-    path = workdir / "uploads" / Path(name).name
+def save_upload(uploads_dir: Path, name: str, content: bytes) -> Path:
+    """Store a file added through the browser in the uploads folder and return its path."""
+    path = uploads_dir / Path(name).name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content)
     return path
 
 
-def workspace_files(workdir: Path, suffixes: tuple[str, ...]) -> list[Path]:
+def fetch_published_dataset(uploads_dir: Path, url: str) -> Path:
+    """Download a published dataset and its polygons into the uploads folder, once, and return the CSV."""
+    import shutil
+
+    from chap_core.cli_endpoints._common import resolve_csv_path
+
+    target = uploads_dir / url.rsplit("/", 1)[-1]
+    if not target.exists():
+        csv_path, geojson_path = resolve_csv_path(url)
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        if geojson_path is not None:
+            shutil.copyfile(geojson_path, target.with_suffix(".geojson"))
+        shutil.copyfile(csv_path, target)
+    return target
+
+
+def workspace_files(runs_dir: Path, uploads_dir: Path, suffixes: tuple[str, ...]) -> list[Path]:
     """Uploaded files, saved configs, run outputs and example files with one of the given suffixes."""
-    files = sorted(p for folder in ("uploads", "configs") for p in (workdir / folder).glob("*") if p.suffix in suffixes)
-    for job in list_jobs(workdir):
+    folders = (uploads_dir, runs_dir / "configs")
+    files = sorted(p for folder in folders for p in folder.glob("*") if p.suffix in suffixes)
+    for job in list_jobs(runs_dir):
         files += [p for p in job_outputs(job) if p.suffix in suffixes]
     if EXAMPLE_DATA_DIR.exists():
         files += sorted(p for p in EXAMPLE_DATA_DIR.glob("*") if p.suffix in suffixes)
@@ -129,15 +157,15 @@ class Job:
         return self.run_dir / LOG_NAME
 
 
-def start_job(workdir: Path, args: list[str], label: str) -> Job:
-    """Run a chap command in the background in a fresh run directory under `<workdir>/runs/`."""
+def start_job(runs_dir: Path, args: list[str], label: str) -> Job:
+    """Run a chap command in the background in a fresh folder of the runs folder."""
     slug = re.sub(r"[^A-Za-z0-9]+", "-", label).strip("-").lower() or "job"
     stamp = f"{datetime.now():%Y%m%d-%H%M%S-%f}"[:-3]
-    run_dir = workdir / "runs" / f"{stamp}_{slug}"
+    run_dir = runs_dir / f"{stamp}_{slug}"
     run_dir.mkdir(parents=True)
     (run_dir / ARGS_NAME).write_text(json.dumps(args))
     (run_dir / COMMAND_NAME).write_text(format_cli_command(args) + "\n")
-    env = _child_env(workdir)
+    env = _child_env(runs_dir)
     # Start the job with posix_spawn rather than fork: forking the UI process, which has threads and
     # libraries such as PROJ loaded, can crash the child in their fork handlers before it starts.
     # Python only uses posix_spawn without cwd= or start_new_session=, so the runner changes into
@@ -157,17 +185,33 @@ def start_job(workdir: Path, args: list[str], label: str) -> Job:
     return load_job(run_dir)
 
 
-def _child_env(workdir: Path) -> dict[str, str]:
-    """Environment for processes the UI starts."""
+def _child_env(runs_dir: Path) -> dict[str, str]:
+    """Environment for processes the UI starts; models keep their working folders in the runs folder."""
     return {
         **os.environ,
         "PYTHONUNBUFFERED": "1",
         "MPLBACKEND": "Agg",
-        "CHAP_RUNS_DIR": str(workdir / "model-runs"),
+        "CHAP_RUNS_DIR": str(runs_dir),
     }
 
 
-def validate_against_model(workdir: Path, dataset_csv: str, model_name: str, timeout: float = 600) -> list[dict]:
+def run_external(argv: list[str], timeout: float = 1800) -> subprocess.CompletedProcess:
+    """Run another program, such as chaps, from the UI and wait for it.
+
+    Goes through chap_core.ui.spawn so it is started with posix_spawn and does not keep the UI's
+    socket (see start_job).
+    """
+    return subprocess.run(
+        [sys.executable, "-m", "chap_core.ui.spawn", *argv],
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        close_fds=False,
+        timeout=timeout,
+    )
+
+
+def validate_against_model(runs_dir: Path, dataset_csv: str, model_name: str, timeout: float = 600) -> list[dict]:
     """Validation issues for a dataset and a model, found in a separate process.
 
     Loading the model can start other programs, which must not be forked from the UI process
@@ -178,7 +222,7 @@ def validate_against_model(workdir: Path, dataset_csv: str, model_name: str, tim
         capture_output=True,
         text=True,
         stdin=subprocess.DEVNULL,
-        env=_child_env(workdir),
+        env=_child_env(runs_dir),
         close_fds=False,
         timeout=timeout,
     )
@@ -189,9 +233,9 @@ def validate_against_model(workdir: Path, dataset_csv: str, model_name: str, tim
     return issues
 
 
-def run_job(workdir: Path, args: list[str], label: str, timeout: float = 600) -> Job:
+def run_job(runs_dir: Path, args: list[str], label: str, timeout: float = 600) -> Job:
     """Run a chap command like `start_job`, but wait for it to finish."""
-    job = start_job(workdir, args, label)
+    job = start_job(runs_dir, args, label)
     _processes[job.run_dir].wait(timeout=timeout)
     return load_job(job.run_dir)
 
@@ -216,9 +260,9 @@ def load_job(run_dir: Path) -> Job:
     return Job(run_dir, args, "failed", None, started, None)
 
 
-def list_jobs(workdir: Path) -> list[Job]:
-    """All jobs in the workdir, newest first."""
-    run_dirs = sorted((p.parent for p in (workdir / "runs").glob(f"*/{ARGS_NAME}")), reverse=True)
+def list_jobs(runs_dir: Path) -> list[Job]:
+    """All runs started from the UI, newest first. The models' own working folders are not runs."""
+    run_dirs = sorted((p.parent for p in runs_dir.glob(f"*/{ARGS_NAME}")), reverse=True)
     return [load_job(run_dir) for run_dir in run_dirs]
 
 
@@ -236,9 +280,11 @@ def job_outputs(job: Job) -> list[Path]:
     )
 
 
-def list_evaluations(workdir: Path) -> list[Path]:
+def list_evaluations(runs_dir: Path) -> list[Path]:
     """Evaluation files written by successful jobs, newest first."""
-    return [p for job in list_jobs(workdir) if job.status == "succeeded" for p in job_outputs(job) if p.suffix == ".nc"]
+    return [
+        p for job in list_jobs(runs_dir) if job.status == "succeeded" for p in job_outputs(job) if p.suffix == ".nc"
+    ]
 
 
 def make_plot(nc_path: Path, plot_id: str, coords: dict[str, Any] | None = None):

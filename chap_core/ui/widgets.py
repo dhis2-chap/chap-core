@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -15,7 +16,8 @@ from chap_core.ui.services import (
     command_name,
     example_models,
     format_cli_command,
-    get_workdir,
+    get_runs_dir,
+    get_uploads_dir,
     job_outputs,
     list_evaluations,
     list_jobs,
@@ -111,7 +113,7 @@ def settings() -> dict[str, Any]:
 
 def sidebar(sections: dict[str, list], commands: dict[str, list], current) -> None:
     """Navigation: the main sections as links, the remaining commands searchable and grouped, then run options."""
-    running = sum(job.status == "running" for job in list_jobs(get_workdir()))
+    running = sum(job.status == "running" for job in list_jobs(get_runs_dir()))
     with st.sidebar:
         st.html('<div class="chap-brand"><b>CHAP</b><span>Modeling workbench</span></div>')
         for section, pages in sections.items():
@@ -134,7 +136,7 @@ def sidebar(sections: dict[str, list], commands: dict[str, list], current) -> No
         options = settings()
         for key, label in GLOBAL_RUN_OPTIONS.items():
             options[key] = st.toggle(label, value=options[key], key=f"settings:{key}")
-        st.caption(f"Workspace `{get_workdir()}`")
+        st.caption(f"Runs folder `{get_runs_dir()}`")
 
 
 def context_bar() -> None:
@@ -306,7 +308,12 @@ def run_panel(
             disabled=bool(missing) or running,
             key=f"run:{key}",
         ):
-            st.session_state[job_key] = start_job(get_workdir(), args, label).run_dir
+            model = values.get("model_name") or values.get("model_url")
+            if model:
+                from chap_core.ui.models import models_file, remember_model
+
+                remember_model(models_file(), model)
+            st.session_state[job_key] = start_job(get_runs_dir(), args, label).run_dir
             st.rerun()
         with st.expander("Show as CLI command"):
             st.code(format_cli_command(args), "bash", wrap_lines=True)
@@ -360,7 +367,7 @@ def _job_details_body(run_dir: Path, was_running: bool) -> None:
 
 def recent_runs(limit: int = 3) -> None:
     """The latest runs, as a short list with a link to all of them."""
-    jobs = list_jobs(get_workdir())[:limit]
+    jobs = list_jobs(get_runs_dir())[:limit]
     with st.container(border=True, key="card-recent"):
         cols = st.columns([3, 2], vertical_alignment="center")
         cols[0].subheader("Recent runs")
@@ -444,7 +451,7 @@ def _initial(field: Field, prefill: dict[str, Any]) -> Any:
     if shared and st.session_state.get(shared):
         return st.session_state[shared]
     if shared == "evaluation":
-        latest = list_evaluations(get_workdir())
+        latest = list_evaluations(get_runs_dir())
         if latest:
             return str(latest[0])
     return field.default
@@ -521,7 +528,7 @@ def clear_shared(name: str) -> None:
 def _list_widget(field: Field, widget_key: str, initial, help_text) -> list[str]:
     suffixes = PATH_SUFFIXES.get(field.key)
     if suffixes:
-        files = [str(p) for p in workspace_files(get_workdir(), suffixes)]
+        files = [str(p) for p in workspace_files(get_runs_dir(), get_uploads_dir(), suffixes)]
         default = [v for v in (initial or st.session_state.get("selected_evals") or []) if v in files]
         return st.multiselect(field.label, files, default=default, help=help_text, key=widget_key, format_func=_short)
     text = st.text_area(
@@ -542,7 +549,7 @@ def _path_widget(field: Field, widget_key: str, initial, help_text) -> str | Non
     _publish_shared(field, widget_key, value)
     if not field.is_output:
         with cols[1].popover("Browse", icon=":material/folder_open:", width="stretch"):
-            files = workspace_files(get_workdir(), suffixes) if suffixes else []
+            files = workspace_files(get_runs_dir(), get_uploads_dir(), suffixes) if suffixes else []
             if files:
                 st.selectbox(
                     "Workspace files",
@@ -585,7 +592,11 @@ def _model_widget(field: Field, widget_key: str, initial, help_text) -> str | No
     )
     _publish_shared(field, widget_key, value)
     with cols[1].popover("Choose", icon=":material/model_training:", width="stretch"):
-        options = {**_running_service_options(), **{f"Example: {p.name}": str(p) for p in example_models()}}
+        from chap_core.ui.models import models_file, saved_models
+
+        options = _running_service_options()
+        options |= {f"Yours: {m.name}": m.model for m in saved_models(models_file())}
+        options |= {f"Example: {p.name}": str(p) for p in example_models()}
         options |= {f"GitHub: {m.name}": m.model_name for m in github_models()}
         st.selectbox(
             "Known models",
@@ -601,16 +612,30 @@ def _model_widget(field: Field, widget_key: str, initial, help_text) -> str | No
 
 
 @st.cache_data(ttl=600, show_spinner="Loading the model marketplace...")
-def load_catalog():
-    """Catalog entries from the marketplace, GitHub and local examples, and why any could not be read."""
+def load_marketplace():
+    """The marketplace's models and why any entry could not be read; refreshed every ten minutes."""
     from chap_core.services.model_marketplace import list_models
-    from chap_core.ui.models import catalog_entries
 
     try:
-        marketplace, invalid = list_models()
+        return list_models()
     except Exception as e:
-        marketplace, invalid = [], {"marketplace": str(e)}
-    return catalog_entries(marketplace), invalid
+        return [], {"marketplace": str(e)}
+
+
+def load_catalog():
+    """Every model the UI knows: marketplace, your saved models and a checkout's models."""
+    from chap_core.ui.models import catalog_entries, models_file, saved_models
+
+    marketplace, invalid = load_marketplace()
+    return catalog_entries(marketplace, saved_models(models_file())), invalid
+
+
+@st.cache_data(ttl=5, show_spinner=False)
+def load_chaps_models(project: str):
+    """The models of a chaps deployment; asked again at most every few seconds."""
+    from chap_core.ui.models import chaps_models
+
+    return chaps_models(Path(project))
 
 
 def model_images() -> dict[str, str]:
@@ -620,13 +645,16 @@ def model_images() -> dict[str, str]:
 
 
 def _running_service_options() -> dict[str, str]:
-    from chap_core.ui.models import list_services, model_label
+    """Chapkit services that are up: containers of marketplace images, and a chaps deployment's models."""
+    from chap_core.ui.models import chaps_project, list_services, model_label
 
-    try:
-        services = list_services(model_images())
-    except Exception:
-        return {}
-    return {f"Running: {model_label(s.url)}": s.url for s in services if s.url and s.status == "running"}
+    urls: list[str] = []
+    with contextlib.suppress(Exception):  # Docker may not be available
+        urls += [s.url for s in list_services(model_images()) if s.url and s.status == "running"]
+    project = chaps_project()
+    if project is not None:
+        urls += [m.url for m in load_chaps_models(str(project)).values() if m.answering and m.url]
+    return {f"Running: {model_label(url)}": url for url in dict.fromkeys(urls)}
 
 
 def _copy_choice(source_key: str, target_key: str, mapping: dict[str, str] | None = None) -> None:
@@ -638,10 +666,10 @@ def _copy_choice(source_key: str, target_key: str, mapping: dict[str, str] | Non
 def _store_upload(source_key: str, target_key: str) -> None:
     upload = st.session_state.get(source_key)
     if upload is not None:
-        st.session_state[target_key] = str(save_upload(get_workdir(), upload.name, upload.getvalue()))
+        st.session_state[target_key] = str(save_upload(get_uploads_dir(), upload.name, upload.getvalue()))
 
 
 def _short(value) -> str:
     path = Path(value)
-    runs = get_workdir() / "runs"
+    runs = get_runs_dir()
     return str(path.relative_to(runs)) if path.is_relative_to(runs) else path.name

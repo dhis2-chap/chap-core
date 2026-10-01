@@ -7,7 +7,7 @@ import pandas as pd
 import streamlit as st
 
 from chap_core.ui.services import (
-    get_workdir,
+    get_runs_dir,
     job_outputs,
     list_jobs,
     load_job,
@@ -22,7 +22,7 @@ STATUS_STYLE = {"running": "color: #1F5FAD", "succeeded": "color: #1E7B45", "fai
 
 page_header("Runs", "Everything started from the workbench. Runs keep going when you leave the page.")
 
-jobs = list_jobs(get_workdir())
+jobs = list_jobs(get_runs_dir())
 if not jobs:
     st.info("Nothing has been run yet.")
     st.stop()
@@ -86,7 +86,7 @@ def details(run_dir: Path, was_running: bool) -> None:
             st.rerun()
     else:
         if buttons.button("Run again", icon=":material/replay:"):
-            start_job(get_workdir(), job.args, job.name.split("_", 1)[-1])
+            start_job(get_runs_dir(), job.args, job.name.split("_", 1)[-1])
             st.rerun()
         if buttons.button("Delete", icon=":material/delete:"):
             shutil.rmtree(job.run_dir)

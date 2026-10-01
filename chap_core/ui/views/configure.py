@@ -5,7 +5,7 @@ import re
 import streamlit as st
 import yaml
 
-from chap_core.ui.services import get_workdir, run_job
+from chap_core.ui.services import get_runs_dir, run_job
 from chap_core.ui.widgets import clear_shared, page_header
 
 page_header(
@@ -41,7 +41,7 @@ with st.container(border=True, key="card-configure"):
     if st.button("Load options", icon=":material/download:", disabled=not model_name):
         with st.spinner("Loading model options..."):
             job = run_job(
-                get_workdir(),
+                get_runs_dir(),
                 ["model", "schema", "--model-name", model_name, "--output-file", "schema.yaml"],
                 "model schema",
             )
@@ -96,7 +96,7 @@ with st.container(border=True, key="card-configure"):
         default_name = re.sub(r"[^A-Za-z0-9]+", "-", model_name.split("@")[0].rstrip("/").split("/")[-1]).strip("-")
         file_name = st.text_input("File name", value=f"{default_name}.yaml")
         if st.button("Save configuration", type="primary", icon=":material/save:"):
-            path = get_workdir() / "configs" / file_name
+            path = get_runs_dir() / "configs" / file_name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(yaml.safe_dump(config, sort_keys=False))
             st.session_state["model_configuration_yaml"] = str(path)

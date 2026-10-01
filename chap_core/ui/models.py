@@ -1,8 +1,13 @@
-"""Model sources for the UI: marketplace entries, GitHub models and local chapkit containers."""
+"""Model sources for the UI: the marketplace, your saved models, a checkout's models, and running
+chapkit services, whether chap started them or a chaps deployment did."""
 
 from __future__ import annotations
 
+import json
+import os
+import shutil
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import yaml
@@ -12,7 +17,8 @@ from chap_core.ui.services import REPO_ROOT
 if TYPE_CHECKING:
     from chap_core.services.model_marketplace import MarketplaceModel
 
-SERVICE_LABEL = "chap-ui.model"
+# Label on containers chap started itself, so it knows it may stop them.
+SERVICE_LABEL = "org.dhis2.chap.model"
 CHAPKIT_PORT = "8000/tcp"
 CONFIGURED_MODELS_DIR = REPO_ROOT / "config" / "configured_models"
 
@@ -33,7 +39,7 @@ class CatalogEntry:
 
     id: str
     name: str
-    kind: str  # chapkit | github | local
+    kind: str  # chapkit | saved | github | local
     source: str
     summary: str
     status: str
@@ -42,6 +48,29 @@ class CatalogEntry:
     model_name: str | None = None  # value for --model-name, for models that do not need a service
     image: str | None = None  # docker image, for chapkit models
     repository: str | None = None
+    service_id: str | None = None  # chapkit service id, as chaps and compose name it
+
+
+@dataclass(frozen=True)
+class SavedModel:
+    """A model the user ran or added, remembered in the models file."""
+
+    name: str
+    model: str
+
+
+@dataclass(frozen=True)
+class ChapsModel:
+    """A model in a chaps deployment, as `chaps status` reports it."""
+
+    service_id: str
+    state: str
+    url: str | None
+
+    @property
+    def answering(self) -> bool:
+        """Whether the model takes requests: chaps says registered, running or up."""
+        return self.url is not None and self.state in ("registered", "running-not-registered", "unmanaged", "up")
 
 
 @dataclass(frozen=True)
@@ -67,8 +96,8 @@ class ChapkitService:
     managed: bool  # started from the UI, so the UI may stop it; others belong to e.g. a chaps deployment
 
 
-def catalog_entries(marketplace: list[MarketplaceModel]) -> list[CatalogEntry]:
-    """Marketplace models, GitHub models and bundled examples as one list."""
+def catalog_entries(marketplace: list[MarketplaceModel], saved: list[SavedModel] | None = None) -> list[CatalogEntry]:
+    """Marketplace models, your saved models, and a checkout's GitHub models and examples as one list."""
     from chap_core.ui.services import example_models
 
     entries = []
@@ -94,8 +123,23 @@ def catalog_entries(marketplace: list[MarketplaceModel]) -> list[CatalogEntry]:
                 tags=tuple(tags),
                 image=marketplace_image(m),
                 repository=m.source.repository,
+                service_id=m.service_id,
             )
         )
+    entries.extend(
+        CatalogEntry(
+            id=f"saved:{model.model}",
+            name=model.name,
+            kind="saved",
+            source="Your models",
+            summary=model.model,
+            status="Saved",
+            tone="neutral",
+            tags=("Yours",),
+            model_name=model.model,
+        )
+        for model in saved or []
+    )
     for g in github_models():
         org = g.url.rstrip("/").split("/")[-2]
         entries.append(
@@ -103,7 +147,7 @@ def catalog_entries(marketplace: list[MarketplaceModel]) -> list[CatalogEntry]:
                 id=g.name,
                 name=g.name,
                 kind="github",
-                source=f"GitHub · {org}",
+                source=f"GitHub · {org} · from the chap-core checkout",
                 summary="One of the models CHAP installs by default, run from its GitHub repository.",
                 status="Installed by default",
                 tone="good",
@@ -117,7 +161,7 @@ def catalog_entries(marketplace: list[MarketplaceModel]) -> list[CatalogEntry]:
             id=path.name,
             name=path.name,
             kind="local",
-            source="Local example",
+            source="Example · from the chap-core checkout",
             summary="Example model bundled with chap-core, useful for trying things out quickly.",
             status="Example",
             tone="neutral",
@@ -192,7 +236,7 @@ def start_service(image: str, model_id: str) -> ChapkitService:
         detach=True,
         ports={CHAPKIT_PORT: ("127.0.0.1", None)},
         labels={SERVICE_LABEL: model_id},
-        name=f"chap-ui-{model_id.replace('_', '-')}",
+        name=f"chap-{model_id.replace('_', '-')}",
     )
     container.reload()
     return _service(container, model_id)
@@ -250,3 +294,127 @@ def _service(container, model_id: str) -> ChapkitService:
     image = container.image.tags[0] if container.image.tags else container.image.short_id
     managed = SERVICE_LABEL in container.labels
     return ChapkitService(container.id, container.name, model_id, image, container.status, url, managed)
+
+
+def models_file() -> Path:
+    """Where your models are listed: CHAP_MODELS_FILE, else models.yaml in the runs folder."""
+    from chap_core.ui.services import get_runs_dir
+
+    path = os.environ.get("CHAP_MODELS_FILE")
+    return Path(path).resolve() if path else get_runs_dir() / "models.yaml"
+
+
+def saved_models(path: Path) -> list[SavedModel]:
+    """The models in a models file; an absent or unreadable file lists none."""
+    try:
+        entries = yaml.safe_load(path.read_text()) or []
+    except (OSError, yaml.YAMLError):
+        return []
+    return [
+        SavedModel(str(e.get("name") or e["model"]), str(e["model"]))
+        for e in entries
+        if isinstance(e, dict) and e.get("model")
+    ]
+
+
+def remember_model(path: Path, model: str, name: str | None = None) -> None:
+    """Add a model to the models file unless it is listed already.
+
+    Addresses of chapkit services are not remembered: they change whenever a service restarts,
+    and the marketplace already lists those models.
+    """
+    if model.startswith("http") and "github.com" not in model:
+        return
+    models = saved_models(path)
+    if any(m.model == model for m in models):
+        return
+    models.append(SavedModel(name or model_label(model), model))
+    _write_models(path, models)
+
+
+def forget_model(path: Path, model: str) -> None:
+    """Remove a model from the models file."""
+    _write_models(path, [m for m in saved_models(path) if m.model != model])
+
+
+def _write_models(path: Path, models: list[SavedModel]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(yaml.safe_dump([{"name": m.name, "model": m.model} for m in models], sort_keys=False))
+
+
+def chaps_binary() -> str | None:
+    """The chaps program, when it is installed."""
+    return shutil.which("chaps")
+
+
+def chaps_project() -> Path | None:
+    """The chaps deployment to use: CHAPS_PROJECT_DIR, the folder chap ui was started in when it is
+    one, or the deployment chap ui created in the runs folder earlier."""
+    from chap_core.ui.services import get_runs_dir
+
+    configured = os.environ.get("CHAPS_PROJECT_DIR")
+    candidates = [Path(configured)] if configured else [Path.cwd(), get_runs_dir() / "chaps"]
+    return next((p.resolve() for p in candidates if (p / ".chaps").is_dir()), None)
+
+
+def chaps_models(project: Path) -> dict[str, ChapsModel]:
+    """The models of a chaps deployment by service id, with their state and address."""
+    from chap_core.ui.services import run_external
+
+    binary = chaps_binary()
+    if binary is None:
+        return {}
+    result = run_external([binary, "--json", "-C", str(project), "status"], timeout=60)
+    try:
+        status = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return {}
+    return {
+        m["id"]: ChapsModel(
+            m["id"], m.get("state", ""), m.get("reach") if str(m.get("reach", "")).startswith("http") else None
+        )
+        for m in status.get("models", [])
+    }
+
+
+def chaps_start(model_id: str, project: Path | None) -> tuple[Path, str]:
+    """Enable a marketplace model in a chaps deployment and start it.
+
+    Without a deployment, a models-only one is created as chaps/ in the runs folder. Returns the
+    deployment and what chaps printed.
+    """
+    from chap_core.ui.services import get_runs_dir, run_external
+
+    binary = chaps_binary()
+    if binary is None:
+        raise RuntimeError("chaps is not installed")
+    output = []
+    if project is None:
+        project = get_runs_dir() / "chaps"
+        project.parent.mkdir(parents=True, exist_ok=True)
+        output.append(_check(run_external([binary, "init", str(project), "--only", "none", "--models", "none"])))
+    enabled = run_external([binary, "-C", str(project), "models", "enable", model_id, "--port", "auto"])
+    if enabled.returncode != 0 and "already enabled" not in (enabled.stdout + enabled.stderr):
+        _check(enabled)
+    output.append(enabled.stdout + enabled.stderr)
+    output.append(_check(run_external([binary, "-C", str(project), "up"])))
+    return project, "\n".join(output)
+
+
+def chaps_stop(model_id: str, project: Path) -> str:
+    """Disable a model in a chaps deployment, which stops its container."""
+    from chap_core.ui.services import run_external
+
+    binary = chaps_binary()
+    if binary is None:
+        raise RuntimeError("chaps is not installed")
+    return _check(run_external([binary, "-C", str(project), "models", "disable", model_id]))
+
+
+def _check(result) -> str:
+    output = (result.stdout or "") + (result.stderr or "")
+    if result.returncode != 0:
+        raise RuntimeError(
+            output.strip().splitlines()[-1] if output.strip() else f"chaps exited with {result.returncode}"
+        )
+    return output

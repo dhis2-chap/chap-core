@@ -14,7 +14,8 @@ from chap_core.ui.services import (
     dataset_geojson,
     evaluation_dataset,
     example_files,
-    get_workdir,
+    get_runs_dir,
+    get_uploads_dir,
     list_evaluations,
     list_jobs,
     make_plot,
@@ -27,15 +28,15 @@ from chap_core.ui.widgets import job_title, page_header
 # Headline metrics: error metrics where lower is better, and the share of observations inside the 50% interval.
 HEADLINE = {"crps": "CRPS", "mae": "MAE", "rmse": "RMSE", "coverage_25_75": "Within 50% interval"}
 
-workdir = get_workdir()
+runs_dir = get_runs_dir()
 page_header("Results", "Compare evaluations side by side. Lower is better for every error metric.")
 
 titles = {
-    str(p): job_title(job) for job in list_jobs(workdir) if job.status == "succeeded" for p in job.run_dir.glob("*.nc")
+    str(p): job_title(job) for job in list_jobs(runs_dir) if job.status == "succeeded" for p in job.run_dir.glob("*.nc")
 }
-uploads = sorted((workdir / "uploads").glob("*.nc"))
+uploads = sorted(get_uploads_dir().glob("*.nc"))
 options = list(
-    dict.fromkeys(str(p) for p in [*list_evaluations(workdir), *uploads, *example_files(EXAMPLE_EVALUATIONS)])
+    dict.fromkeys(str(p) for p in [*list_evaluations(runs_dir), *uploads, *example_files(EXAMPLE_EVALUATIONS)])
 )
 
 
@@ -49,7 +50,9 @@ def label(path: str) -> str:
 
 def add_uploads() -> None:
     """Save newly uploaded files once and add them to the comparison."""
-    paths = [str(save_upload(workdir, f.name, f.getvalue())) for f in st.session_state.get("results-upload") or []]
+    paths = [
+        str(save_upload(get_uploads_dir(), f.name, f.getvalue())) for f in st.session_state.get("results-upload") or []
+    ]
     selection = list(dict.fromkeys([*st.session_state.get("results-selected", []), *paths]))
     st.session_state["results-selected"] = selection
     st.session_state["selected_evals"] = selection

@@ -14,7 +14,7 @@ VIEWS = UI / "views"
 
 @pytest.fixture
 def workdir(monkeypatch, tmp_path):
-    monkeypatch.setenv("CHAP_UI_WORKDIR", str(tmp_path))
+    monkeypatch.setenv("CHAP_RUNS_DIR", str(tmp_path))
     return tmp_path
 
 
@@ -93,7 +93,7 @@ def test_data_view_keeps_a_dataset_chosen_on_another_page(workdir, data_path):
     at.run()
     assert not at.exception
     assert at.session_state["dataset_csv"] == nicaragua
-    assert str(at.selectbox[0].value) == nicaragua
+    assert at.selectbox[0].value == "nicaragua_weekly_subset.csv (chap-core checkout)"
 
 
 def test_results_view_shows_the_selection_kept_in_session_state(workdir, data_path):
@@ -103,3 +103,12 @@ def test_results_view_shows_the_selection_kept_in_session_state(workdir, data_pa
     at.run()
     assert not at.exception
     assert at.multiselect[0].value == [second]
+
+
+def test_data_view_starts_from_the_first_published_example(workdir, monkeypatch):
+    monkeypatch.setattr(
+        "chap_core.ui.services.fetch_published_dataset", lambda uploads_dir, url: uploads_dir / url.rsplit("/", 1)[-1]
+    )
+    at = AppTest.from_file(str(VIEWS / "data.py"), default_timeout=60)
+    at.run()
+    assert at.selectbox[0].value == "Laos, provinces, monthly"

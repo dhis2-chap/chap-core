@@ -13,29 +13,53 @@ from cyclopts import Parameter
 
 INSTALL_HINT = (
     "The chap UI needs the optional 'ui' dependencies (streamlit).\n"
-    "Install them with one of:\n"
-    "  uv sync --extra ui\n"
-    "  uv tool install 'chap_core[ui]'"
+    "Run it with them, or install them, with one of:\n"
+    "  uvx --from 'chap-core[ui]' chap ui\n"
+    "  uv tool install 'chap-core[ui]'\n"
+    "  uv sync --extra ui            (in a chap-core checkout)"
 )
 
 
 def ui_cmd(
     port: Annotated[int, Parameter(help="Port the UI listens on.")] = 8501,
-    workdir: Annotated[Path, Parameter(help="Directory where uploads and evaluation runs are stored.")] = Path.home()
-    / ".chap"
-    / "ui",
+    runs_dir: Annotated[
+        Path,
+        Parameter(
+            help="Folder for runs, uploads, saved configurations and the models' working folders. "
+            "The same folder chap eval uses (CHAP_RUNS_DIR)."
+        ),
+    ] = Path(os.environ.get("CHAP_RUNS_DIR", "runs")),
+    uploads_dir: Annotated[
+        Path | None, Parameter(help="Folder for files added through the browser. Default: uploads/ in the runs folder.")
+    ] = None,
+    models: Annotated[
+        Path | None,
+        Parameter(
+            help="YAML list of your models, for example one shared by a team. Default: models.yaml in the runs folder."
+        ),
+    ] = None,
+    chaps_project: Annotated[
+        Path | None,
+        Parameter(
+            help="A chaps deployment whose models the UI should use and start. "
+            "Found automatically when chap ui is started inside one."
+        ),
+    ] = None,
+    registry_url: Annotated[
+        str | None, Parameter(help="Model marketplace to list models from, for a fork or a mirror.")
+    ] = None,
     open_browser: Annotated[bool, Parameter(help="Open the UI in a browser on start.")] = True,
 ):
     """Start a local web UI for running and comparing model evaluations.
 
-    The UI runs the same `chap eval` command under the hood and shows the
-    equivalent CLI command for every run.
+    The UI runs the same chap commands under the hood and shows the equivalent
+    CLI command for every run. Nothing is written until you run something,
+    upload a file or save a configuration.
     """
     if importlib.util.find_spec("streamlit") is None:
         print(INSTALL_HINT)
         sys.exit(1)
 
-    workdir.mkdir(parents=True, exist_ok=True)
     ui_dir = Path(__file__).parent.parent / "ui"
     app_path = ui_dir / "app.py"
     cmd = [
@@ -55,7 +79,15 @@ def ui_cmd(
         "--client.toolbarMode",
         "minimal",
     ]
-    env = {**os.environ, "CHAP_UI_WORKDIR": str(workdir.resolve())}
+    settings = {
+        "CHAP_RUNS_DIR": runs_dir,
+        "CHAP_UPLOADS_DIR": uploads_dir,
+        "CHAP_MODELS_FILE": models,
+        "CHAPS_PROJECT_DIR": chaps_project,
+    }
+    env = {**os.environ, **{name: str(Path(value).resolve()) for name, value in settings.items() if value}}
+    if registry_url:
+        env["CHAP_MARKETPLACE_URL"] = registry_url
     sys.exit(subprocess.call(cmd, env=env))
 
 

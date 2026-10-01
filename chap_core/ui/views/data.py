@@ -9,32 +9,44 @@ from chap_core.plotting.dataset_plot import list_dataset_plots
 from chap_core.ui.maps import choropleth_url
 from chap_core.ui.services import (
     EXAMPLE_DATASETS,
+    PUBLISHED_DATASETS,
     dataset_geojson,
     dataset_incidence,
     example_files,
-    get_workdir,
+    fetch_published_dataset,
+    get_runs_dir,
+    get_uploads_dir,
     make_dataset_plot,
     save_upload,
     validate_against_model,
 )
 from chap_core.ui.widgets import page_header
 
-workdir = get_workdir()
 page_header(
     "Dataset",
     "One row per location and time period, with time_period, location, disease_cases and covariates. "
     "A GeoJSON with the same name is picked up automatically.",
 )
 
+uploads_dir = get_uploads_dir()
 with st.container(border=True, key="card-data-source"):
     st.subheader("Choose a dataset")
-    examples = example_files(EXAMPLE_DATASETS)
-    uploads = sorted((workdir / "uploads").glob("*.csv"))
-    sources = [s for s, ok in (("Example", examples), ("Uploaded", uploads)) if ok] + ["Upload", "Path or URL"]
+    # Examples: the published datasets, plus the repository's own when running from a checkout.
+    # Published ones are downloaded into the uploads folder when picked, so everything else uses a local file.
+    published_copies = {name: str(uploads_dir / url.rsplit("/", 1)[-1]) for name, url in PUBLISHED_DATASETS.items()}
+    examples = dict(PUBLISHED_DATASETS)
+    examples |= {f"{p.name} (chap-core checkout)": str(p) for p in example_files(EXAMPLE_DATASETS)}
+    uploads = sorted(uploads_dir.glob("*.csv"))
+    sources = ["Example"] + (["Uploaded"] if uploads else []) + ["Upload", "Path or URL"]
     # Start from the dataset already chosen, here or on another page, so visiting this page never replaces it.
     current = st.session_state.get("dataset_csv")
-    example_names, upload_names = [str(p) for p in examples], [str(p) for p in uploads]
-    if current in example_names:
+    example_names = list(examples)
+    current_example = next(
+        (name for name in example_names if current and current in (examples[name], published_copies.get(name))),
+        None,
+    )
+    upload_names = [str(p) for p in uploads]
+    if current_example:
         start = "Example"
     elif current in upload_names:
         start = "Uploaded"
@@ -45,8 +57,17 @@ with st.container(border=True, key="card-data-source"):
     source = st.pills("Source", sources, default=start, key="data-source", label_visibility="collapsed")
     dataset_csv = None
     if source == "Example":
-        index = example_names.index(current) if current in example_names else 0
-        dataset_csv = str(st.selectbox("Example dataset", examples, index=index, format_func=lambda p: p.name))
+        index = example_names.index(current_example) if current_example else 0
+        choice = st.selectbox("Example dataset", example_names, index=index)
+        if choice in PUBLISHED_DATASETS:
+            st.caption(f"Published in [dhis2/climate-health-data]({examples[choice]}), with region polygons.")
+            with st.spinner("Downloading the dataset..."):
+                try:
+                    dataset_csv = str(fetch_published_dataset(uploads_dir, examples[choice]))
+                except Exception as e:
+                    st.error(f"Could not download the dataset: {e}")
+        else:
+            dataset_csv = examples[choice]
     elif source == "Uploaded":
         index = upload_names.index(current) if current in upload_names else 0
         dataset_csv = str(st.selectbox("Uploaded file", uploads, index=index, format_func=lambda p: p.name))
@@ -55,9 +76,9 @@ with st.container(border=True, key="card-data-source"):
         csv_file = cols[0].file_uploader("CSV file", type="csv")
         geojson_file = cols[1].file_uploader("Region polygons (optional)", type=["geojson", "json"])
         if csv_file is not None:
-            csv_path = save_upload(workdir, csv_file.name, csv_file.getvalue())
+            csv_path = save_upload(uploads_dir, csv_file.name, csv_file.getvalue())
             if geojson_file is not None:
-                save_upload(workdir, csv_path.with_suffix(".geojson").name, geojson_file.getvalue())
+                save_upload(uploads_dir, csv_path.with_suffix(".geojson").name, geojson_file.getvalue())
             dataset_csv = str(csv_path)
     else:
         dataset_csv = st.text_input("Path or URL to a CSV file", value=st.session_state.get("dataset_csv", "")) or None
@@ -119,7 +140,7 @@ with st.container(border=True, key="card-data-validate"):
             try:
                 if model_name:
                     # Loading a model can start other programs, so that happens outside the UI process.
-                    issues = validate_against_model(workdir, dataset_csv, model_name)
+                    issues = validate_against_model(get_runs_dir(), dataset_csv, model_name)
                 else:
                     from chap_core.cli_endpoints.validate import collect_validation_issues
 

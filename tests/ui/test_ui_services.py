@@ -13,6 +13,8 @@ from chap_core.ui.services import (
     backtest_windows,
     command_name,
     format_cli_command,
+    get_runs_dir,
+    get_uploads_dir,
     job_outputs,
     list_evaluations,
     list_jobs,
@@ -58,10 +60,30 @@ def test_resolve_paths_makes_inputs_absolute_and_keeps_outputs_relative(tmp_path
 
 
 def test_workspace_files_lists_uploads_by_suffix(tmp_path):
-    csv = save_upload(tmp_path, "data.csv", b"a,b\n")
-    save_upload(tmp_path, "notes.txt", b"")
-    assert csv in workspace_files(tmp_path, (".csv",))
-    assert not [p for p in workspace_files(tmp_path, (".csv",)) if p.suffix == ".txt"]
+    uploads = tmp_path / "uploads"
+    csv = save_upload(uploads, "data.csv", b"a,b\n")
+    save_upload(uploads, "notes.txt", b"")
+    assert csv == uploads / "data.csv"
+    files = workspace_files(tmp_path, uploads, (".csv",))
+    assert csv in files
+    assert not [p for p in files if p.suffix == ".txt"]
+
+
+def test_runs_folder_is_shared_with_the_cli_and_not_created_by_reading_it(monkeypatch, tmp_path):
+    monkeypatch.delenv("CHAP_RUNS_DIR", raising=False)
+    monkeypatch.delenv("CHAP_UPLOADS_DIR", raising=False)
+    monkeypatch.chdir(tmp_path)
+    assert get_runs_dir() == tmp_path / "runs"
+    assert get_uploads_dir() == tmp_path / "runs" / "uploads"
+    assert list_jobs(get_runs_dir()) == []
+    assert not (tmp_path / "runs").exists()
+    monkeypatch.setenv("CHAP_UPLOADS_DIR", str(tmp_path / "data"))
+    assert get_uploads_dir() == tmp_path / "data"
+
+
+def test_jobs_get_their_own_folder_in_the_runs_folder(tmp_path, data_path):
+    job = run_job(tmp_path, ["validate", "--dataset-csv", str(data_path / "laos_subset.csv")], "validate")
+    assert job.run_dir.parent == tmp_path
 
 
 def test_list_evaluations_is_empty_without_runs(tmp_path):
