@@ -11,6 +11,7 @@ from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlmodel import Field, Relationship
 
 from chap_core.api_types import BacktestParams
+from chap_core.database.alert_tables import AlertPolicy, AlertPolicyRead
 from chap_core.database.base_tables import DBModel, PeriodID
 from chap_core.database.dataset_tables import DataSet, DataSetInfo, DataSource, PydanticListType
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
@@ -240,6 +241,13 @@ class PredictionSetup(DBModel, table=True):
         sa_column=Column(PydanticListType(QuantileTarget)),
         description="Where to push each quantile of the predictive distribution.",
     )
+    alert_policy_id: int | None = Field(
+        default=None,
+        foreign_key="alertpolicy.id",
+        ondelete="RESTRICT",
+        description="Foreign key to the `AlertPolicy` this setup raises alerts against; `None` means no alerting.",
+    )
+    alert_policy: AlertPolicy | None = Relationship()
     predictions: list["Prediction"] = Relationship(back_populates="prediction_setup")
 
 
@@ -265,6 +273,9 @@ class PredictionSetupRead(DBModel):
     schedule_enabled: bool = Field(description="When True, the scheduler executes the setup at every cron tick.")
     quantile_targets: list[QuantileTarget] = Field(
         description="Where to push each quantile of the predictive distribution."
+    )
+    alert_policy: AlertPolicyRead | None = Field(
+        default=None, description="Alert policy this setup raises alerts against; `None` means no alerting."
     )
 
 

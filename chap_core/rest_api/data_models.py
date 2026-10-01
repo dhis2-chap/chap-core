@@ -5,6 +5,7 @@ from pydantic.alias_generators import to_camel
 
 from chap_core.api_types import BacktestParams, FeatureCollectionModel
 from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID, resolve_weather_provider
+from chap_core.database.alert_tables import AlertApproval, AlertBase, AlertLevel, AlertPolicyBase
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSetCreateInfo, ObservationBase
 from chap_core.database.model_templates_and_config_tables import (
@@ -396,11 +397,60 @@ class BacktestUpdate(DBModel):
     name: str | None = Field(default=None, description="New human-friendly name; `None` leaves it unchanged.")
 
 
+class AlertPolicyCreate(AlertPolicyBase):
+    """Request body for creating an alert policy.
+
+    Redeclares `levels` as required with at least one entry, so an empty ladder is
+    a schema error rather than something the service has to catch.
+    """
+
+    levels: list[AlertLevel] = Field(
+        min_length=1,
+        description="The tiers of this policy, e.g. a `monitor` level and an `action` level. "
+        "Names must be unique within a policy.",
+    )
+
+
+class AlertCreate(AlertBase):
+    """One alert to record.
+
+    Exactly :class:`~chap_core.database.alert_tables.AlertBase`: the release-gate
+    fields are deliberately not settable, so every alert starts in `pending`.
+    """
+
+
+class AlertsCreate(DBModel):
+    """Request body for recording a batch of alerts. One run raises many at once."""
+
+    alerts: list[AlertCreate] = Field(min_length=1, description="The alerts to record.")
+
+
+class AlertApprovalRequest(DBModel):
+    """Request body for moving a set of alerts through the release gate."""
+
+    alert_ids: list[int] = Field(min_length=1, description="Alerts to review, applied together.")
+    approved: AlertApproval = Field(
+        description="New gate state. `approved` clears the alerts for dissemination; `declined` records "
+        "a deliberate decision not to release them, so they do not return to the queue."
+    )
+    approved_by: str = Field(description="Identifier of whoever reviewed them.")
+
+
+class AlertIdsResponse(DBModel):
+    """Ids of the alerts a batch call created."""
+
+    ids: list[int] = Field(description="Primary keys of the created alerts, in request order.")
+
+
 class PredictionSetupCreate(DBModel):
     """Request body for creating a recurring prediction setup attached to a backtest."""
 
     backtest_id: int = Field(description="Foreign key to the parent `Backtest` the setup will run forward in time.")
     name: str = Field(description="Human-friendly name for the setup.")
+    alert_policy_id: int | None = Field(
+        default=None,
+        description="Foreign key to the `AlertPolicy` the setup raises alerts against; `None` means no alerting.",
+    )
     schedule_cron_expression: str | None = Field(
         default=None, description="Standard cron expression for when to run; `None` means manual-only."
     )
@@ -427,6 +477,9 @@ class PredictionSetupUpdate(DBModel):
     schedule_enabled: bool | None = Field(default=None, description="New enabled flag; `None` leaves it unchanged.")
     quantile_targets: list[QuantileTarget] | None = Field(
         default=None, description="New full quantile-targets list; `None` leaves it unchanged."
+    )
+    alert_policy_id: int | None = Field(
+        default=None, description="New alert policy to raise alerts against; `None` leaves it unchanged."
     )
 
 

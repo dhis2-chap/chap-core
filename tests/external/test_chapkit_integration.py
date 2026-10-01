@@ -671,6 +671,25 @@ class TestFailedRunOutput:
         assert self.STDERR in str(exc_info.value)
         assert artifact_calls == [f"/api/v1/artifacts/{VALID_ULID_3}"]
 
+    def test_successful_train_logs_model_output_at_debug_level(self, train_data, caplog):
+        artifact = _workspace_artifact_json({**self.METADATA, "status": "success", "stdout": "Model formula: y ~ x"})
+        model = self._model(self._handler(httpx.Response(200, json=artifact), "completed"))
+
+        with caplog.at_level(logging.DEBUG, logger="chap_core.models.external_chapkit_model"):
+            model.train(train_data)
+
+        assert "Model formula: y ~ x" in caplog.text
+
+    def test_successful_train_skips_the_artifact_fetch_without_debug_logging(self, train_data, caplog):
+        artifact_calls: list[str] = []
+        artifact = _workspace_artifact_json({**self.METADATA, "status": "success", "stdout": "Model formula: y ~ x"})
+        model = self._model(self._handler(httpx.Response(200, json=artifact), "completed", artifact_calls))
+
+        with caplog.at_level(logging.INFO, logger="chap_core.models.external_chapkit_model"):
+            model.train(train_data)
+
+        assert artifact_calls == []
+
     def test_train_failure_survives_unreadable_artifact(self, train_data):
         model = self._model(self._handler(httpx.Response(404, json={"title": "Not Found", "status": 404})))
 

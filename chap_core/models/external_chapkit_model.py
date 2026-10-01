@@ -385,6 +385,19 @@ def _failure_message(kind: str, job, artifact_id: str, client: CHAPKitRestAPIWra
     return message
 
 
+def _log_run_output(kind: str, artifact_id: str, client: CHAPKitRestAPIWrapper) -> None:
+    """Log what the model printed during a successful run, at debug level like local models.
+
+    The output sits on the run's artifact, which also holds the zipped workspace, so it is
+    only fetched when debug logging is on.
+    """
+    if not logger.isEnabledFor(logging.DEBUG):
+        return
+    output = client.get_run_output(artifact_id)
+    if output:
+        logger.debug("%s output of artifact %s:\n%s", kind, artifact_id, output)
+
+
 class ExternalChapkitModel(ExternalModelBase):
     def __init__(
         self,
@@ -467,6 +480,7 @@ class ExternalChapkitModel(ExternalModelBase):
             raise ModelFailedException(_failure_message("Training", job, artifact_id, self.client))
 
         assert artifact_id is not None, f"No artifact_id returned: {job}"
+        _log_run_output("Training", artifact_id, self.client)
         self._train_id = artifact_id
         return self
 
@@ -489,6 +503,7 @@ class ExternalChapkitModel(ExternalModelBase):
             raise ModelFailedException(_failure_message("Prediction", job, artifact_id, self.client))
 
         assert artifact_id is not None, f"No prediction artifact: {job.error or ''}"
+        _log_run_output("Prediction", artifact_id, self.client)
 
         # get artifact from the client
         prediction_data = self.client.get_prediction_artifact_dataframe(artifact_id)
