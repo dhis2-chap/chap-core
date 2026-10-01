@@ -119,9 +119,10 @@ The v2 API currently only contains the **service registry** for chapkit model se
 3. The chapkit container sends periodic `PUT /v2/services/{id}/$ping` requests to stay registered.
 4. If pings stop, Redis automatically expires the registration.
 
-The registration endpoint also eagerly syncs the chapkit service into the PostgreSQL
-database (model templates and configured models) so the v1 CRUD endpoints can serve
-them immediately.
+The registration endpoint also eagerly stores the service's model template (from its own
+info and config schema) if no template is stored under its version yet, and reports a
+revision mismatch in its response. Registration creates no configured models: the reviewed
+configurations come from the marketplace entry through `chap-admin install`.
 
 ### Authentication
 
@@ -260,14 +261,23 @@ perform the database operations.
 
 Chapkit is an external model service framework. The integration works as follows:
 
-1. Chapkit containers register via `POST /v2/services/$register`.
-2. The `Orchestrator` stores registrations in Redis with TTL-based expiration.
-3. When `GET /v1/crud/model-templates` is called, `_sync_live_chapkit_services()`
-   queries the orchestrator and upserts model templates/configured models into
-   PostgreSQL.
-4. Stale chapkit templates (whose services are no longer live) are archived.
-5. When running a backtest or prediction with a chapkit model, `SessionWrapper.get_configured_model_with_code()` resolves the live service URL from the
-   orchestrator (Redis) and falls back to the stored URL if unavailable.
+1. `chap-admin install` writes the service into the deployment's Compose overlay and
+   starts it.
+2. Chapkit containers register via `POST /v2/services/$register`.
+3. The `Orchestrator` stores registrations in Redis with TTL-based expiration.
+4. Once the service is registered with the pinned commit, `chap-admin install` stores
+   its template through `POST /v1/crud/model-templates/from-service` (from the service's
+   info and config schema) and adds the marketplace entry's verified configurations
+   through `POST /v1/crud/configured-models`.
+5. When `GET /v1/crud/model-templates` is called, `_sync_live_chapkit_services()`
+   queries the orchestrator, stores a template for every registered service that has
+   none under its version yet, and reports each stored template's `health_status`. It
+   creates no configured models, and a new version it discovers is listed once it has one.
+6. `chap-admin uninstall` archives the template and its configured models through
+   `DELETE /v1/crud/model-templates/{id}`; nothing is archived because a service went away.
+7. When running a backtest or prediction with a chapkit model, `SessionWrapper.get_configured_model_with_code()` resolves the live service URL from the
+   orchestrator (Redis) and falls back to the stored `source_url` if the service has not
+   registered.
 
 
 ## camelCase conversion
