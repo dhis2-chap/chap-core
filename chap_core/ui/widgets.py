@@ -86,7 +86,7 @@ SHARED_VALUES = {
 
 CSS = """
 <style>
-.block-container { padding-top: 1.5rem; max-width: 1400px; }
+.block-container { padding-top: 1.5rem; padding-left: 3rem; padding-right: 3rem; max-width: none; }
 [class*="st-key-card"] { background: #FFFFFF; }
 .st-key-context-bar { border-bottom: 1px solid #E3E6EA; padding-bottom: 0.6rem; margin-bottom: 0.4rem; }
 .st-key-context-bar button { border-radius: 999px; min-height: 2rem; padding: 0.1rem 0.85rem; }
@@ -157,6 +157,16 @@ def context_bar() -> None:
         for key, label, target in chips:
             if st.button(label, key=f"chip-{key}", type="secondary" if label[0] != "+" else "tertiary"):
                 st.switch_page(target)
+        if config:
+            st.button(
+                "",
+                icon=":material/close:",
+                key="chip-config-clear",
+                type="tertiary",
+                help="Stop using this model configuration",
+                on_click=clear_shared,
+                args=("model_configuration_yaml",),
+            )
 
 
 def page_header(title: str, description: str) -> None:
@@ -473,17 +483,22 @@ def _sync_shared(field: Field, widget_key: str, initial) -> None:
     synced_key = f"{widget_key}:synced"
     if widget_key not in st.session_state:
         st.session_state[widget_key] = str(initial) if initial else ""
-    elif current and current != st.session_state.get(synced_key):
-        st.session_state[widget_key] = current
+    elif shared in st.session_state and current != st.session_state.get(synced_key):
+        st.session_state[widget_key] = current or ""
     st.session_state[synced_key] = current
 
 
 def _publish_shared(field: Field, widget_key: str, value: str) -> None:
-    """Make a value typed into a form the shared choice for the other pages."""
+    """Make a value typed into a form, or its removal, the shared choice for the other pages."""
     shared = SHARED_VALUES.get(field.key)
-    if shared and value:
-        st.session_state[shared] = value
-        st.session_state[f"{widget_key}:synced"] = value
+    if shared and (value or shared in st.session_state):
+        st.session_state[shared] = value or None
+        st.session_state[f"{widget_key}:synced"] = value or None
+
+
+def clear_shared(name: str) -> None:
+    """Forget a shared choice, such as the model configuration, on every page."""
+    st.session_state[name] = None
 
 
 def _list_widget(field: Field, widget_key: str, initial, help_text) -> list[str]:
@@ -528,7 +543,19 @@ def _path_widget(field: Field, widget_key: str, initial, help_text) -> str | Non
                 on_change=_store_upload,
                 args=(f"{widget_key}:upload", widget_key),
             )
+            if value:
+                st.button(
+                    "Clear",
+                    icon=":material/close:",
+                    key=f"{widget_key}:clear",
+                    on_click=_clear_widget,
+                    args=(widget_key,),
+                )
     return value or None
+
+
+def _clear_widget(widget_key: str) -> None:
+    st.session_state[widget_key] = ""
 
 
 def _model_widget(field: Field, widget_key: str, initial, help_text) -> str | None:

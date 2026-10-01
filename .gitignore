@@ -40,6 +40,7 @@ site/
 *.log
 /logs/*
 runs/
+chap-ui/
 mlruns/
 mlflow.db
 

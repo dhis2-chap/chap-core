@@ -73,3 +73,14 @@ def test_configure_view_starts_from_the_selected_model(workdir):
     at.run()
     assert not at.exception
     assert at.text_input[0].value == "https://github.com/dhis2-chap/chtorch"
+
+
+def test_configure_view_can_stop_using_the_configuration(workdir, data_path):
+    at = AppTest.from_file(str(VIEWS / "configure.py"), default_timeout=60)
+    at.session_state["model_configuration_yaml"] = str(data_path / "hpo_config.yaml")
+    at.run()
+    next(button for button in at.button if button.label == "Stop using it").click()
+    at.run()
+    assert not at.exception
+    assert at.session_state["model_configuration_yaml"] is None
+    assert at.info[0].value.startswith("No model configuration is in use")

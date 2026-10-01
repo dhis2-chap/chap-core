@@ -39,9 +39,13 @@ EXAMPLE_MODEL = EXAMPLE_MODELS_DIR / "naive_python_model_uv"
 _processes: dict[Path, subprocess.Popen] = {}
 
 
+# Outside any project folder, so runs and uploads are not left in a repository.
+DEFAULT_WORKDIR = Path.home() / ".chap" / "ui"
+
+
 def get_workdir() -> Path:
-    """Workdir the UI was started with (`chap ui --workdir`), falling back to ./chap-ui."""
-    workdir = Path(os.environ.get("CHAP_UI_WORKDIR", "chap-ui")).resolve()
+    """Workdir the UI was started with (`chap ui --workdir`), falling back to ~/.chap/ui."""
+    workdir = Path(os.environ.get("CHAP_UI_WORKDIR", DEFAULT_WORKDIR)).resolve()
     workdir.mkdir(parents=True, exist_ok=True)
     return workdir
 

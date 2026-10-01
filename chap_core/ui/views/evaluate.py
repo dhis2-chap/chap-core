@@ -43,6 +43,11 @@ def dataset_overview(path: str, mtime: float) -> dict:
     }
 
 
+def period_start(period: str) -> str:
+    """A period by its first day, so weekly periods like 2004-01-05/2004-01-11 read as 2004-01-05."""
+    return period.split("/")[0]
+
+
 def card_header(title: str, popover_label: str):
     cols = st.columns([3, 1], vertical_alignment="center")
     cols[0].subheader(title)
@@ -86,12 +91,14 @@ with left:
             facts = {
                 "File": short_name(dataset),
                 "Locations": overview["locations"],
-                "Periods": f"{overview['periods'][0]} to {overview['periods'][-1]}" if overview["periods"] else "-",
+                "Periods": f"{period_start(overview['periods'][0])} to {period_start(overview['periods'][-1])}"
+                if overview["periods"]
+                else "-",
                 "Validation": ":green[No issues]"
                 if not problems
                 else f":red[{overview['errors']} errors, {overview['warnings']} warnings]",
             }
-            for col, (name, value) in zip(st.columns(4), facts.items(), strict=True):
+            for col, (name, value) in zip(st.columns([3, 1, 3, 2]), facts.items(), strict=True):
                 col.markdown(f":gray[{name}]  \n**{value}**")
         elif dataset:
             st.caption(f"`{dataset}`")
@@ -110,7 +117,7 @@ with left:
             else:
                 st.caption(
                     f"{n_splits} forecasts of {n_periods} periods for {short_name(dataset)}, "
-                    f"the first starting {windows[0]['forecast_start']}."
+                    f"the first starting {period_start(windows[0]['forecast_start'])}."
                 )
                 index = {period: i for i, period in enumerate(periods)}
                 bars = pd.DataFrame(
@@ -137,7 +144,7 @@ with left:
                         )
                     ]
                 )
-                labels = "[" + ",".join(f"'{p}'" for p in periods) + "]"
+                labels = "[" + ",".join(f"'{period_start(p)}'" for p in periods) + "]"
                 chart = (
                     alt.Chart(bars)
                     .mark_bar(height=10, cornerRadius=2)

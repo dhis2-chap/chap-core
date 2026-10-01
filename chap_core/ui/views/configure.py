@@ -6,13 +6,35 @@ import streamlit as st
 import yaml
 
 from chap_core.ui.services import get_workdir, run_job
-from chap_core.ui.widgets import page_header
+from chap_core.ui.widgets import clear_shared, page_header
 
 page_header(
     "Configure a model",
     "Load the options a model accepts, fill them in, and save a configuration file "
     "that Evaluate and the other commands use.",
 )
+
+current = st.session_state.get("model_configuration_yaml")
+if current:
+    with st.container(border=True, key="card-configure-current"):
+        cols = st.columns([4, 1], vertical_alignment="center")
+        cols[0].markdown(
+            f"**In use:** `{current}`  \n:gray[Evaluate and the other commands pass this file to the model.]"
+        )
+        cols[1].button(
+            "Stop using it",
+            icon=":material/close:",
+            width="stretch",
+            on_click=clear_shared,
+            args=("model_configuration_yaml",),
+        )
+        with st.expander("Show file"):
+            try:
+                st.code(open(current).read(), "yaml")
+            except OSError as e:
+                st.warning(str(e))
+else:
+    st.info("No model configuration is in use; models run with their defaults.", icon=":material/info:")
 
 with st.container(border=True, key="card-configure"):
     model_name = st.text_input("Model", value=st.session_state.get("model_name", ""), key="config-model")

@@ -21,9 +21,9 @@ INSTALL_HINT = (
 
 def ui_cmd(
     port: Annotated[int, Parameter(help="Port the UI listens on.")] = 8501,
-    workdir: Annotated[Path, Parameter(help="Directory where uploads and evaluation runs are stored.")] = Path(
-        "chap-ui"
-    ),
+    workdir: Annotated[Path, Parameter(help="Directory where uploads and evaluation runs are stored.")] = Path.home()
+    / ".chap"
+    / "ui",
     open_browser: Annotated[bool, Parameter(help="Open the UI in a browser on start.")] = True,
 ):
     """Start a local web UI for running and comparing model evaluations.
