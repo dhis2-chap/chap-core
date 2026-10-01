@@ -3,13 +3,34 @@
 Usage: python -m chap_core.ui.job_runner <run_dir> <chap arguments...>
 """
 
+import contextlib
 import os
 import sys
 import traceback
 from pathlib import Path
 
 
+def close_inherited_descriptors() -> None:
+    """Close every file descriptor inherited from the UI except stdin, stdout and stderr.
+
+    The UI starts its helpers with posix_spawn and close_fds=False (see services.start_job), so
+    inheritable descriptors such as the server's listening socket come along. Holding on to that
+    socket would keep the UI's port busy until the job ends, so it is closed straight away.
+    """
+    for fd_dir in ("/dev/fd", "/proc/self/fd"):
+        if os.path.isdir(fd_dir):
+            descriptors = [int(name) for name in os.listdir(fd_dir) if name.isdigit()]
+            break
+    else:
+        descriptors = list(range(3, 1024))
+    for fd in descriptors:
+        if fd > 2:
+            with contextlib.suppress(OSError):
+                os.close(fd)
+
+
 def run(run_dir: Path, args: list[str]) -> int:
+    close_inherited_descriptors()
     # The UI starts this process without fork-only options (see services.start_job), so do here what
     # they would have done: lead a new session, so stopping the job reaches everything it started,
     # and work inside the run directory, so relative output paths land there.

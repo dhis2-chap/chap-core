@@ -1,3 +1,7 @@
+import os
+import subprocess
+import sys
+
 import pytest
 
 from chap_core.assessment.backtest_plots import list_backtest_plots
@@ -19,6 +23,7 @@ from chap_core.ui.services import (
     resolve_paths,
     run_job,
     save_upload,
+    validate_against_model,
     workspace_files,
 )
 
@@ -123,3 +128,32 @@ def test_command_name_and_option_value_read_job_arguments():
 def test_backtest_windows_is_empty_for_values_chap_eval_rejects(n_periods, n_splits, stride):
     periods = [f"2020-{m:02d}" for m in range(1, 13)]
     assert backtest_windows(periods, n_periods, n_splits, stride) == []
+
+
+def test_validate_against_model_runs_in_a_separate_process(tmp_path, data_path, models_path):
+    issues = validate_against_model(
+        tmp_path, str(data_path / "laos_subset.csv"), str(models_path / "naive_python_model_uv")
+    )
+    assert issues
+    assert all(issue["level"] == "warning" for issue in issues)
+
+
+def test_validate_against_model_explains_an_unreachable_service(tmp_path, data_path):
+    with pytest.raises(RuntimeError, match="could not be reached as a chapkit service"):
+        validate_against_model(tmp_path, str(data_path / "laos_subset.csv"), "http://localhost:1")
+
+
+def test_helpers_close_descriptors_inherited_from_the_ui():
+    read_end, write_end = os.pipe()
+    os.set_inheritable(read_end, True)
+    try:
+        code = (
+            "import os; from chap_core.ui.job_runner import close_inherited_descriptors; "
+            f"close_inherited_descriptors(); os.fstat({read_end})"
+        )
+        result = subprocess.run([sys.executable, "-c", code], close_fds=False, capture_output=True, text=True)
+    finally:
+        os.close(read_end)
+        os.close(write_end)
+    assert result.returncode != 0
+    assert "Bad file descriptor" in result.stderr

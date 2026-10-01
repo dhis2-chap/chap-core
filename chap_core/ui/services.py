@@ -137,12 +137,7 @@ def start_job(workdir: Path, args: list[str], label: str) -> Job:
     run_dir.mkdir(parents=True)
     (run_dir / ARGS_NAME).write_text(json.dumps(args))
     (run_dir / COMMAND_NAME).write_text(format_cli_command(args) + "\n")
-    env = {
-        **os.environ,
-        "PYTHONUNBUFFERED": "1",
-        "MPLBACKEND": "Agg",
-        "CHAP_RUNS_DIR": str(workdir / "model-runs"),
-    }
+    env = _child_env(workdir)
     # Start the job with posix_spawn rather than fork: forking the UI process, which has threads and
     # libraries such as PROJ loaded, can crash the child in their fork handlers before it starts.
     # Python only uses posix_spawn without cwd= or start_new_session=, so the runner changes into
@@ -160,6 +155,38 @@ def start_job(workdir: Path, args: list[str], label: str) -> Job:
     (run_dir / PID_NAME).write_text(str(proc.pid))
     _processes[run_dir] = proc
     return load_job(run_dir)
+
+
+def _child_env(workdir: Path) -> dict[str, str]:
+    """Environment for processes the UI starts."""
+    return {
+        **os.environ,
+        "PYTHONUNBUFFERED": "1",
+        "MPLBACKEND": "Agg",
+        "CHAP_RUNS_DIR": str(workdir / "model-runs"),
+    }
+
+
+def validate_against_model(workdir: Path, dataset_csv: str, model_name: str, timeout: float = 600) -> list[dict]:
+    """Validation issues for a dataset and a model, found in a separate process.
+
+    Loading the model can start other programs, which must not be forked from the UI process
+    (see start_job), so this runs `chap_core.ui.validation_runner` the same way jobs are started.
+    """
+    result = subprocess.run(
+        [sys.executable, "-m", "chap_core.ui.validation_runner", dataset_csv, model_name],
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        env=_child_env(workdir),
+        close_fds=False,
+        timeout=timeout,
+    )
+    if result.returncode != 0:
+        lines = (result.stderr or result.stdout).strip().splitlines()
+        raise RuntimeError(lines[-1] if lines else f"validation exited with code {result.returncode}")
+    issues: list[dict] = json.loads(result.stdout.strip().splitlines()[-1])
+    return issues
 
 
 def run_job(workdir: Path, args: list[str], label: str, timeout: float = 600) -> Job:

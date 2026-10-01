@@ -79,7 +79,7 @@ def collect_validation_issues(
     """
     import pandas as pd
 
-    from chap_core.models.model_template import ModelTemplate
+    from chap_core.models.utils import get_model_template_from_directory_or_github_url
     from chap_core.services.dataset_validation import ValidationIssue, validate_dataset
 
     column_mapping = None
@@ -112,7 +112,8 @@ def collect_validation_issues(
     model_template_config = None
     if model_name is not None:
         logger.info(f"Loading model template from {model_name}")
-        template = ModelTemplate.from_directory_or_github_url(model_name)
+        # The general loader also accepts the URL of a running chapkit service.
+        template = get_model_template_from_directory_or_github_url(model_name, ignore_env=True, dry_run=True)
         model_template_config = template.model_template_config
 
     return validate_dataset(dataset, raw_df=raw_df, model_template_config=model_template_config)

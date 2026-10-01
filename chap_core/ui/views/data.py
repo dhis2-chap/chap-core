@@ -15,6 +15,7 @@ from chap_core.ui.services import (
     get_workdir,
     make_dataset_plot,
     save_upload,
+    validate_against_model,
 )
 from chap_core.ui.widgets import page_header
 
@@ -113,22 +114,27 @@ with st.container(border=True, key="card-data-validate"):
         help="Local model directory or GitHub URL. Leave empty for a general check.",
     )
     if st.button("Validate dataset", icon=":material/fact_check:"):
-        from chap_core.cli_endpoints.validate import collect_validation_issues
-
+        issues: list[dict] | None
         with st.spinner("Validating..."):
             try:
-                issues = collect_validation_issues(dataset_csv, model_name or None)
+                if model_name:
+                    # Loading a model can start other programs, so that happens outside the UI process.
+                    issues = validate_against_model(workdir, dataset_csv, model_name)
+                else:
+                    from chap_core.cli_endpoints.validate import collect_validation_issues
+
+                    issues = [issue.model_dump() for issue in collect_validation_issues(dataset_csv)]
             except Exception as e:
-                st.exception(e)
-                st.stop()
-        if not issues:
+                st.error(f"Validation could not run: {e}")
+                issues = None
+        if issues == []:
             st.success("Validation passed: no issues found.")
-        else:
-            if any(issue.level == "error" for issue in issues):
+        elif issues:
+            if any(issue["level"] == "error" for issue in issues):
                 st.error("The dataset has errors that must be fixed before evaluation.")
             else:
                 st.warning("The dataset has warnings.")
-            st.dataframe(pd.DataFrame([issue.model_dump() for issue in issues]), hide_index=True)
+            st.dataframe(pd.DataFrame(issues), hide_index=True)
     with st.expander("Show as CLI command"):
         command = f"chap validate --dataset-csv {dataset_csv}" + (f" --model-name {model_name}" if model_name else "")
         st.code(command, "bash", wrap_lines=True)
