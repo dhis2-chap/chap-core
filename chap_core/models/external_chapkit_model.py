@@ -8,6 +8,7 @@ from chap_core.model_spec import PeriodType
 from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper, RunInfo
 from chap_core.models.chapkit_service_manager import ChapkitServiceManager, is_url
 from chap_core.models.external_model import ExternalModelBase
+from chap_core.services.model_marketplace import RESERVED_CONFIG_KEYS
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import TimePeriod
 
@@ -36,7 +37,7 @@ def _parse_user_options_from_config_schema(config_schema: dict) -> dict:
     elif "properties" in config_schema:
         user_options = dict(config_schema["properties"])
 
-    for reserved in ("prediction_periods", "additional_continuous_covariates"):
+    for reserved in RESERVED_CONFIG_KEYS:
         user_options.pop(reserved, None)
 
     return user_options

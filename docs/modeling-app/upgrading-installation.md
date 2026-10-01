@@ -59,23 +59,34 @@ For latest release go to: [https://github.com/dhis2-chap/chap-core/releases](htt
 ## 3. Upgrade Chap Core
 
 !!! warning "Pass the same `-f` flags you started with"
-    Docker Compose has no memory of the overlay files you used last time. If you started Chap with `docker compose -f compose.yml -f compose.chapkit.yml up -d` (as [First-time Setup](fresh-installation.md) instructs) and then upgrade with a bare `docker compose up`, the bundled model services are silently left out and their models disappear from the modeling app.
+    Docker Compose has no memory of the overlay files you used last time. If you installed marketplace models with `chap-admin` (as [First-time Setup](fresh-installation.md) instructs) and then upgrade with a bare `docker compose up`, the model services are silently left out and their models stop working.
 
-    The commands below assume the `compose.chapkit.yml` overlay from the first-time setup guide. Adjust them to match how you started Chap — see the [overlay reference](../webapi/docker-compose-doc.md#compose-file-reference). If you use a `compose.override.yml` file, add `-f compose.override.yml` to every command below — Compose only picks that file up on its own when no `-f` flag is passed at all, so with the flags below it would otherwise be dropped and its services removed on upgrade.
+    The commands below assume `compose.yml` with the `compose.marketplace.yml` file that `chap-admin` writes. Adjust them to match how you started Chap — see the [overlay reference](../webapi/docker-compose-doc.md#compose-file-reference). If you use a `compose.override.yml` file, add `-f compose.override.yml` to every command below — Compose only picks that file up on its own when no `-f` flag is passed at all, so with the flags below it would otherwise be dropped and its services removed on upgrade.
+
+!!! note "Deployments started with `compose.chapkit.yml`"
+    Earlier versions started the EWARS model service with the `compose.chapkit.yml` overlay, and Chap created its configurations when the service registered. Chap no longer does that, so a service started this way cannot be run. Stop the stack with the old flags, start it without the overlay, and install the models with `chap-admin` as described in [Install the Models](fresh-installation.md#5-install-the-models):
+
+    ```console
+    docker compose -f compose.yml -f compose.chapkit.yml down
+    docker compose up --build -d
+    chap-admin install-all
+    ```
+
+    Install uv first if you do not have it, as described in the [prerequisites](fresh-installation.md#prerequisites). Use only `compose.yml` and `compose.marketplace.yml` from then on. Running both overlays starts two EWARS services under the same id, and Chap sends work to whichever registered last. Backtests made with the old EWARS model are kept.
 
 ```console
 # Stop all containers first
-docker compose -f compose.yml -f compose.chapkit.yml down
+docker compose -f compose.yml -f compose.marketplace.yml down
 
 # Spin the containers up with --build to get new changes
-docker compose -f compose.yml -f compose.chapkit.yml up --build -d
+docker compose -f compose.yml -f compose.marketplace.yml up --build -d
 ```
 
 NOTE: There might be issues with cached images. If you encounter problems, try forcing a fresh pull of all images:
 
 ```console
-docker compose -f compose.yml -f compose.chapkit.yml build --no-cache
-docker compose -f compose.yml -f compose.chapkit.yml up -d
+docker compose -f compose.yml -f compose.marketplace.yml build --no-cache
+docker compose -f compose.yml -f compose.marketplace.yml up -d
 ```
 
 Docker compose up will:
@@ -85,6 +96,12 @@ Docker compose up will:
 - Start all services with the new version
 
 The database migration happens automatically - you do not need to run any manual migration commands. In the compose.yml file, we pin postgres to a major version (17). Note that between upgrades, there might be minor incompatibilities, such as collation issues. Feel free to handle these by pinning the postgres version further, or handle the database separately.
+
+If you installed models with `chap-admin`, upgrade it to the same version as Chap, so it matches the REST API it talks to:
+
+```console
+uv tool install chap-core==[VERSION] --python 3.13
+```
 
 ## 4. Verify the Upgrade
 
@@ -100,20 +117,20 @@ If you encounter issues and need to restore from your backup:
 
 ```console
 # Stop the services
-docker compose -f compose.yml -f compose.chapkit.yml down
+docker compose -f compose.yml -f compose.marketplace.yml down
 
 # Remove the database volume to start fresh
-docker compose -f compose.yml -f compose.chapkit.yml down --volumes
+docker compose -f compose.yml -f compose.marketplace.yml down --volumes
 
 # Start only the database
-docker compose -f compose.yml -f compose.chapkit.yml up -d postgres
+docker compose -f compose.yml -f compose.marketplace.yml up -d postgres
 
 # Wait for postgres to initialize, then restore the backup
 
 cat backup_20241023_120000.sql | docker compose exec -T postgres psql -U ${POSTGRES_USER} chap_core
 
 # Start all services
-docker compose -f compose.yml -f compose.chapkit.yml up --build
+docker compose -f compose.yml -f compose.marketplace.yml up --build
 ```
 
 ---
@@ -125,10 +142,10 @@ docker compose -f compose.yml -f compose.chapkit.yml up --build
 To stop all services (pass the same `-f` flags used to start them):
 
 ```console
-docker compose -f compose.yml -f compose.chapkit.yml down
+docker compose -f compose.yml -f compose.marketplace.yml down
 ```
 
-This preserves your database data. To start again, run the same `docker compose -f compose.yml -f compose.chapkit.yml up -d` command from step 3.
+This preserves your database data. To start again, run `docker compose -f compose.yml -f compose.marketplace.yml up -d`.
 
 ### Viewing Logs
 
