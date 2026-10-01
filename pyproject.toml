@@ -169,6 +169,7 @@ norecursedirs = [
     "dist",
     "target",
     "external_models",
+    ".claude",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning:plotly.io._kaleido",
@@ -271,6 +272,7 @@ exclude = [
     "**/.venv",
     "runs",
     "external_models",
+    ".claude",
     "tests/.github_cache",
 ]
 typeCheckingMode = "basic"
