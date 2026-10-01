@@ -9,7 +9,7 @@ import yaml
 from chap_core.admin_cli import app as admin_app
 from chap_core.cli import app
 from chap_core.cli_endpoints import marketplace
-from chap_core.cli_endpoints.marketplace import install, install_all, uninstall, update
+from chap_core.cli_endpoints.marketplace import install, install_all, uninstall, update, update_all
 from chap_core.services.model_marketplace import configured_model_requests, list_models, resolve_model
 from tests.cli_endpoints.conftest import CUSTOM_SERVICE_INFO
 
@@ -459,6 +459,71 @@ def test_install_all_from_another_registry_requires_risk_acceptance(marketplace_
     model_deployment.runner.assert_not_called()
     install_all(accept_risk=True)
     assert len(model_deployment.chap.templates) == 1
+
+
+def test_update_all_updates_only_models_whose_stable_version_changed(marketplace_model, model_deployment, caplog):
+    chap = model_deployment.chap
+    install(marketplace_model["id"])
+    calls = model_deployment.runner.call_count
+    with caplog.at_level(logging.INFO):
+        admin_app(["update-all"], result_action="return_value")
+    assert model_deployment.runner.call_count == calls
+    assert f"Skipping {marketplace_model['id']}: already on the stable version 0.1.0" in caplog.text
+
+    marketplace_model["versions"][0].update(version="0.2.0", commit="a" * 40, image_tag="sha-aaaaaaa")
+    marketplace_model["channels"]["stable"] = "0.2.0"
+    update_all()
+    service = yaml.safe_load(model_deployment.overlay.read_text())["services"][
+        f"marketplace-{marketplace_model['service_id']}"
+    ]
+    assert service["image"].endswith(":sha-aaaaaaa") and service["x-chap-version"] == "0.2.0"
+    assert [(t["version"], t["isLive"]) for t in chap.templates] == [("0.1.0", False), ("0.2.0", True)]
+
+
+def test_update_all_leaves_models_that_are_not_installed(marketplace_model, model_deployment):
+    update_all()
+    model_deployment.runner.assert_not_called()
+    assert not model_deployment.overlay.exists()
+
+
+def test_update_all_leaves_a_model_from_another_registry(marketplace_model, model_deployment, monkeypatch):
+    monkeypatch.setenv("CHAP_MARKETPLACE_URL", "https://models.example.org/registry")
+    install(marketplace_model["id"], accept_risk=True)
+    installed = model_deployment.overlay.read_text()
+    calls = model_deployment.runner.call_count
+    monkeypatch.delenv("CHAP_MARKETPLACE_URL")
+    marketplace_model["versions"][0].update(version="0.2.0", commit="a" * 40, image_tag="sha-aaaaaaa")
+    marketplace_model["channels"]["stable"] = "0.2.0"
+    update_all()
+    assert model_deployment.runner.call_count == calls
+    assert model_deployment.overlay.read_text() == installed
+
+
+def test_update_all_keeps_a_model_without_a_verified_stable_version(marketplace_model, model_deployment, caplog):
+    install(marketplace_model["id"])
+    installed = model_deployment.overlay.read_text()
+    calls = model_deployment.runner.call_count
+    marketplace_model["versions"][0]["status"] = "yanked"
+    with caplog.at_level(logging.INFO):
+        update_all()
+    assert model_deployment.runner.call_count == calls
+    assert model_deployment.overlay.read_text() == installed
+    assert f"Skipping {marketplace_model['id']}: Model '{marketplace_model['id']}' has no verified stable" in (
+        caplog.text
+    )
+
+
+def test_update_all_reports_the_models_that_failed(marketplace_model, model_deployment, monkeypatch, caplog):
+    install(marketplace_model["id"])
+    installed = model_deployment.overlay.read_text()
+    marketplace_model["versions"][0].update(version="0.2.0", commit="a" * 40, image_tag="sha-aaaaaaa")
+    marketplace_model["channels"]["stable"] = "0.2.0"
+    model_deployment.registers = False
+    monkeypatch.setattr(marketplace, "REGISTRATION_TIMEOUT", 0)
+    with pytest.raises(SystemExit):
+        update_all()
+    assert f"Could not update {marketplace_model['id']}" in caplog.text
+    assert model_deployment.overlay.read_text() == installed
 
 
 def test_custom_requires_risk_acceptance_each_time(model_deployment, caplog):
