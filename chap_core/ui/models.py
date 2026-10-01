@@ -21,7 +21,7 @@ CONFIGURED_MODELS_DIR = REPO_ROOT / "config" / "configured_models"
 ASSESSMENT = {
     "green": ("Validated", "good"),
     "yellow": ("Ready for testing", "good"),
-    "orange": ("Promising", "warn"),
+    "orange": ("Limited data", "warn"),
     "red": ("Experimental", "bad"),
     "gray": ("Not for use", "neutral"),
 }
