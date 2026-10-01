@@ -6,12 +6,16 @@ from chap_core.cli_endpoints.validate import collect_validation_issues
 from chap_core.plotting.dataset_plot import list_dataset_plots
 from chap_core.ui.commands import command_fields
 from chap_core.ui.services import (
+    backtest_windows,
+    command_name,
     format_cli_command,
     job_outputs,
     list_evaluations,
     list_jobs,
     make_dataset_plot,
     make_plot,
+    option_value,
+    plot_facets,
     resolve_paths,
     run_job,
     save_upload,
@@ -85,3 +89,31 @@ def test_collect_validation_issues_passes_for_example_dataset(data_path):
 def test_collect_validation_issues_reports_missing_columns(data_path):
     issues = collect_validation_issues(str(data_path / "climate_data.csv"))
     assert any(issue.level == "error" and "Required column" in issue.message for issue in issues)
+
+
+def test_backtest_windows_count_back_from_the_end_of_the_data():
+    periods = [f"2020-{m:02d}" for m in range(1, 13)]
+    windows = backtest_windows(periods, n_periods=3, n_splits=2, stride=1)
+    assert windows == [
+        {"split": 1, "train_end": "2020-08", "forecast_start": "2020-09", "forecast_end": "2020-11"},
+        {"split": 2, "train_end": "2020-09", "forecast_start": "2020-10", "forecast_end": "2020-12"},
+    ]
+
+
+def test_backtest_windows_is_empty_when_the_data_is_too_short():
+    assert backtest_windows(["2020-01", "2020-02"], n_periods=3, n_splits=1, stride=1) == []
+
+
+def test_faceted_plot_can_show_a_single_cell(data_path):
+    nc = data_path / "example_evaluation.nc"
+    facets = plot_facets(nc, "evaluation_plot")
+    assert [column for column, _, _ in facets] == ["split_period", "location"]
+    chart = make_plot(nc, "evaluation_plot", {column: values[0] for column, _, values in facets})
+    assert chart.to_dict()
+
+
+def test_command_name_and_option_value_read_job_arguments():
+    args = ["causal", "build-counterfactual", "--dataset-csv", "d.csv"]
+    assert command_name(args) == "causal build-counterfactual"
+    assert option_value(args, "--dataset-csv") == "d.csv"
+    assert option_value(args, "--model-name") is None

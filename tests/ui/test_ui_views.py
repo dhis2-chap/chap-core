@@ -46,7 +46,9 @@ def test_results_view_shows_example_evaluation(workdir, data_path):
     at.run()
     assert not at.exception
     assert at.multiselect[0].value == [str(data_path / "example_evaluation.nc")]
-    assert len(at.dataframe) == 1
+    headline = at.dataframe[0].value
+    assert list(headline.columns) == ["Evaluation", "CRPS", "MAE", "RMSE", "Within 50% interval"]
+    assert len(headline) == 1
 
 
 def test_evaluate_view_uses_the_selected_dataset(workdir, data_path):
@@ -63,3 +65,11 @@ def test_runs_view_without_runs(workdir):
     at.run()
     assert not at.exception
     assert at.info[0].value == "Nothing has been run yet."
+
+
+def test_configure_view_starts_from_the_selected_model(workdir):
+    at = AppTest.from_file(str(VIEWS / "configure.py"), default_timeout=60)
+    at.session_state["model_name"] = "https://github.com/dhis2-chap/chtorch"
+    at.run()
+    assert not at.exception
+    assert at.text_input[0].value == "https://github.com/dhis2-chap/chtorch"

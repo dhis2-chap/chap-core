@@ -23,9 +23,6 @@ CUSTOM_VIEWS = {
 
 # Commands rendered by the generic form page, per sidebar section.
 COMMAND_PAGES: dict[str, list[CommandPage]] = {
-    "Models": [
-        CommandPage("sanity-check-model", "Sanity check", ":material/health_and_safety:"),
-    ],
     "Analysis": [
         CommandPage("causal", "Counterfactual analysis", ":material/compare_arrows:"),
         CommandPage(
@@ -55,6 +52,7 @@ COMMAND_PAGES: dict[str, list[CommandPage]] = {
         CommandPage("aggregate-eval", "Aggregate evaluation", ":material/account_tree:"),
     ],
     "Tools": [
+        CommandPage("sanity-check-model", "Model sanity check", ":material/health_and_safety:"),
         CommandPage("convert-request", "Convert request", ":material/swap_horiz:"),
         CommandPage("write-open-api-spec", "OpenAPI spec", ":material/api:"),
         CommandPage("test", "Self-test", ":material/build:"),
@@ -65,3 +63,20 @@ COMMAND_PAGES: dict[str, list[CommandPage]] = {
 def covered_commands() -> set[str]:
     """Every command that has a page in the UI."""
     return set(CUSTOM_VIEWS) | {page.command for pages in COMMAND_PAGES.values() for page in pages}
+
+
+CUSTOM_TITLES = {
+    "eval": "Evaluate",
+    "validate": "Validate dataset",
+    "plot-dataset": "Dataset plot",
+    "model schema": "Model options",
+}
+
+
+def command_title(command: str) -> str:
+    """Human name of a command, as its page is titled."""
+    for pages in COMMAND_PAGES.values():
+        for page in pages:
+            if page.command == command:
+                return page.title
+    return CUSTOM_TITLES.get(command, command)

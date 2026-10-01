@@ -5,37 +5,40 @@ from pathlib import Path
 import streamlit as st
 
 from chap_core.ui.catalog import COMMAND_PAGES, CommandPage
-from chap_core.ui.widgets import command_form, page_header, run_panel, sidebar_options
+from chap_core.ui.widgets import command_page, context_bar, inject_css, sidebar
 
 VIEWS = Path(__file__).parent / "views"
 
 st.set_page_config(page_title="CHAP", page_icon=":material/coronavirus:", layout="wide")
 
 
-def command_page(page: CommandPage):
+def as_page(page: CommandPage):
     def render():
-        page_header(page.command, page.title)
-        if page.notes:
-            st.info(page.notes, icon=":material/info:")
-        fields, values = command_form(page.command)
-        run_panel(page.command, fields, values, label=page.command)
+        command_page(page.command, page.title, page.notes)
 
-    url = page.command.replace(" ", "-")
-    return st.Page(render, title=page.title, icon=page.icon, url_path=url)
+    return st.Page(render, title=page.title, icon=page.icon, url_path=page.command.replace(" ", "-"))
 
 
 sections = {
     "Workflow": [
-        st.Page(VIEWS / "data.py", title="Data", icon=":material/dataset:", default=True),
-        st.Page(VIEWS / "evaluate.py", title="Evaluate", icon=":material/science:"),
-        st.Page(VIEWS / "results.py", title="Results", icon=":material/insights:"),
+        st.Page(VIEWS / "data.py", title="1 · Data", icon=":material/dataset:", default=True),
+        st.Page(VIEWS / "evaluate.py", title="2 · Evaluate", icon=":material/science:"),
+        st.Page(VIEWS / "results.py", title="3 · Results", icon=":material/insights:"),
         st.Page(VIEWS / "runs.py", title="Runs", icon=":material/history:"),
     ],
-    "Models": [st.Page(VIEWS / "models.py", title="Model catalog", icon=":material/model_training:")],
+    "Models": [
+        st.Page(VIEWS / "models.py", title="Catalog", icon=":material/model_training:"),
+        st.Page(VIEWS / "configure.py", title="Configure a model", icon=":material/tune:"),
+    ],
 }
-for section, pages in COMMAND_PAGES.items():
-    sections.setdefault(section, []).extend(command_page(page) for page in pages)
+commands = {section: [as_page(page) for page in pages] for section, pages in COMMAND_PAGES.items()}
 
-navigation = st.navigation(sections, expanded=True)
-sidebar_options()
-navigation.run()
+inject_css()
+all_pages = [page for group in (*sections.values(), *commands.values()) for page in group]
+current = st.navigation(all_pages, position="hidden")
+sidebar(sections, commands, current)
+top = st.container()
+current.run()
+# Drawn last so it shows choices the page itself just made, but placed above the page.
+with top:
+    context_bar()

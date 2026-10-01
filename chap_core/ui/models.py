@@ -17,6 +17,33 @@ CHAPKIT_PORT = "8000/tcp"
 CONFIGURED_MODELS_DIR = REPO_ROOT / "config" / "configured_models"
 
 
+# The model author's own maturity rating, as documented in docs/external_models/model_metadata.md.
+ASSESSMENT = {
+    "green": ("Validated", "good"),
+    "yellow": ("Ready for testing", "good"),
+    "orange": ("Promising", "warn"),
+    "red": ("Experimental", "bad"),
+    "gray": ("Not for use", "neutral"),
+}
+
+
+@dataclass(frozen=True)
+class CatalogEntry:
+    """One model in the catalog, whichever source it comes from."""
+
+    id: str
+    name: str
+    kind: str  # chapkit | github | local
+    source: str
+    summary: str
+    status: str
+    tone: str  # good | warn | bad | neutral
+    tags: tuple[str, ...]
+    model_name: str | None = None  # value for --model-name, for models that do not need a service
+    image: str | None = None  # docker image, for chapkit models
+    repository: str | None = None
+
+
 @dataclass(frozen=True)
 class GithubModel:
     name: str
@@ -37,6 +64,77 @@ class ChapkitService:
     image: str
     status: str
     url: str | None
+
+
+def catalog_entries(marketplace: list[MarketplaceModel]) -> list[CatalogEntry]:
+    """Marketplace models, GitHub models and bundled examples as one list."""
+    from chap_core.ui.services import example_models
+
+    entries = []
+    for m in marketplace:
+        status, tone = ASSESSMENT.get(m.assessed_status or "gray", ASSESSMENT["gray"])
+        compat, covariates = m.compatibility, m.covariates
+        tags = [p.capitalize() for p in compat.period_types or []]
+        tags += [c.replace("_", " ").capitalize() for c in covariates.required or []] or ["No covariates"]
+        if compat.max_prediction_periods is not None:
+            tags.append(f"Horizon {compat.min_prediction_periods or 0}-{compat.max_prediction_periods}")
+        if m.kind == "template":
+            tags.append("Template")
+        version = m.channels.get("stable") or m.channels.get("latest") or ""
+        entries.append(
+            CatalogEntry(
+                id=m.id,
+                name=m.display_name or m.id,
+                kind="chapkit",
+                source=f"Chapkit · v{version}" if version else "Chapkit",
+                summary=m.summary or "",
+                status=status,
+                tone=tone,
+                tags=tuple(tags),
+                image=marketplace_image(m),
+                repository=m.source.repository,
+            )
+        )
+    for g in github_models():
+        org = g.url.rstrip("/").split("/")[-2]
+        entries.append(
+            CatalogEntry(
+                id=g.name,
+                name=g.name,
+                kind="github",
+                source=f"GitHub · {org}",
+                summary="One of the models CHAP installs by default, run from its GitHub repository.",
+                status="Installed by default",
+                tone="good",
+                tags=(*(p.capitalize() for p in ("monthly", "weekly") if p in g.name), "GitHub"),
+                model_name=g.model_name,
+                repository=g.url,
+            )
+        )
+    entries.extend(
+        CatalogEntry(
+            id=path.name,
+            name=path.name,
+            kind="local",
+            source="Local example",
+            summary="Example model bundled with chap-core, useful for trying things out quickly.",
+            status="Example",
+            tone="neutral",
+            tags=("Local",),
+            model_name=str(path),
+        )
+        for path in example_models()
+    )
+    return entries
+
+
+def model_kind(model_name: str) -> str:
+    """Where a model comes from, in words."""
+    if "github.com" in model_name:
+        return "GitHub repository"
+    if model_name.startswith("http"):
+        return "Chapkit service"
+    return "Local folder"
 
 
 def model_label(model_name: str) -> str:

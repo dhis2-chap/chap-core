@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import itertools
 import json
 import os
 import re
@@ -205,12 +206,73 @@ def list_evaluations(workdir: Path) -> list[Path]:
     return [p for job in list_jobs(workdir) if job.status == "succeeded" for p in job_outputs(job) if p.suffix == ".nc"]
 
 
-def make_plot(nc_path: Path, plot_id: str):
-    """Altair chart for one registered backtest plot of an evaluation file."""
-    from chap_core.assessment.backtest_plots import create_plot_from_evaluation
+def make_plot(nc_path: Path, plot_id: str, coords: dict[str, Any] | None = None):
+    """Altair chart for one registered backtest plot of an evaluation file.
+
+    With `coords` (e.g. one split period and one location) a faceted plot shows only that cell.
+    """
+    from chap_core.assessment.backtest_plots import FacetedBacktestPlot, create_plot_from_evaluation, get_backtest_plot
     from chap_core.assessment.evaluation import Evaluation
 
-    return create_plot_from_evaluation(plot_id, Evaluation.from_file(nc_path))
+    evaluation = Evaluation.from_file(nc_path)
+    plot_cls = get_backtest_plot(plot_id)
+    if not coords or plot_cls is None or not issubclass(plot_cls, FacetedBacktestPlot):
+        return create_plot_from_evaluation(plot_id, evaluation)
+    flat = evaluation.to_flat()
+    historical = flat.historical_observations if plot_cls.needs_historical else None
+    return plot_cls().get_subplot(flat.observations, flat.forecasts, coords, historical)
+
+
+def plot_facets(nc_path: Path, plot_id: str) -> list[tuple[str, str, list[Any]]]:
+    """The dimensions a plot is faceted by, as (column, display name, values); empty for unfaceted plots."""
+    from chap_core.assessment.backtest_plots import FacetedBacktestPlot, get_backtest_plot
+    from chap_core.assessment.evaluation import Evaluation
+
+    plot_cls = get_backtest_plot(plot_id)
+    if plot_cls is None or not issubclass(plot_cls, FacetedBacktestPlot):
+        return []
+    flat = Evaluation.from_file(nc_path).to_flat()
+    historical = flat.historical_observations if plot_cls.needs_historical else None
+    plot = plot_cls()
+    coords = plot.facet_coords(flat.observations, flat.forecasts, historical)
+    return [
+        (dim.clean_name, dim.display_name, coords[dim.clean_name])
+        for dim in plot.facet_dimensions
+        if dim.clean_name in coords
+    ]
+
+
+def backtest_windows(periods: list[str], n_periods: int, n_splits: int, stride: int) -> list[dict[str, Any]]:
+    """Training and forecast window of each backtest split, as `chap eval` cuts them.
+
+    Mirrors `train_test_generator`: splits are counted back from the end of the data, and split i
+    trains on everything up to `first_train_end + i * stride` and forecasts the next `n_periods`.
+    """
+    first_train_end = len(periods) - n_periods - (n_splits - 1) * stride - 1
+    if first_train_end < 0:
+        return []
+    windows = []
+    for i in range(n_splits):
+        train_end = first_train_end + i * stride
+        windows.append(
+            {
+                "split": i + 1,
+                "train_end": periods[train_end],
+                "forecast_start": periods[train_end + 1],
+                "forecast_end": periods[train_end + n_periods],
+            }
+        )
+    return windows
+
+
+def option_value(args: list[str], flag: str) -> str | None:
+    """Value given for a CLI option in a job's arguments."""
+    return args[args.index(flag) + 1] if flag in args and args.index(flag) + 1 < len(args) else None
+
+
+def command_name(args: list[str]) -> str:
+    """The chap command a job ran, e.g. `eval` or `causal build-counterfactual`."""
+    return " ".join(itertools.takewhile(lambda a: not a.startswith("-"), args))
 
 
 def make_dataset_plot(csv_path: Path, plot_id: str):

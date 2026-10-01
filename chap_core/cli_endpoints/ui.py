@@ -36,7 +36,8 @@ def ui_cmd(
         sys.exit(1)
 
     workdir.mkdir(parents=True, exist_ok=True)
-    app_path = Path(__file__).parent.parent / "ui" / "app.py"
+    ui_dir = Path(__file__).parent.parent / "ui"
+    app_path = ui_dir / "app.py"
     cmd = [
         sys.executable,
         "-m",
@@ -49,6 +50,10 @@ def ui_cmd(
         str(not open_browser).lower(),
         "--browser.gatherUsageStats",
         "false",
+        "--theme.base",
+        str(ui_dir / "theme.toml"),
+        "--client.toolbarMode",
+        "minimal",
     ]
     env = {**os.environ, "CHAP_UI_WORKDIR": str(workdir.resolve())}
     sys.exit(subprocess.call(cmd, env=env))

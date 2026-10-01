@@ -30,3 +30,4 @@ def test_ui_cmd_starts_streamlit_with_workdir(monkeypatch, tmp_path):
     assert cmd[cmd.index("--server.port") + 1] == "9999"
     assert cmd[cmd.index("--server.headless") + 1] == "true"
     assert env["CHAP_UI_WORKDIR"] == str((tmp_path / "work").resolve())
+    assert Path(cmd[cmd.index("--theme.base") + 1]).is_file()
