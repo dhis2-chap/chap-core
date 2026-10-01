@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
 # Label on containers chap started itself, so it knows it may stop them.
 SERVICE_LABEL = "org.dhis2.chap.model"
 CHAPKIT_PORT = "8000/tcp"
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 CONFIGURED_MODELS_DIR = REPO_ROOT / "config" / "configured_models"
 
 
@@ -49,6 +51,7 @@ class CatalogEntry:
     image: str | None = None  # docker image, for chapkit models
     repository: str | None = None
     service_id: str | None = None  # chapkit service id, as chaps and compose name it
+    added: bool = False  # added to a chaps deployment with `chaps models add`
 
 
 @dataclass(frozen=True)
@@ -364,6 +367,13 @@ def chaps_binary() -> str | None:
     return shutil.which("chaps")
 
 
+def _chaps() -> str:
+    binary = chaps_binary()
+    if binary is None:
+        raise RuntimeError("chaps is not installed")
+    return binary
+
+
 def chaps_project() -> Path | None:
     """The chaps deployment to use: CHAPS_PROJECT_DIR, the folder chap ui was started in when it is
     one, or the deployment chap ui created in the runs folder earlier."""
@@ -394,57 +404,111 @@ def chaps_models(project: Path) -> dict[str, ChapsModel]:
     }
 
 
-def chaps_start(model_id: str, project: Path | None) -> tuple[Path, str]:
-    """Enable a marketplace model in a chaps deployment and start it.
+def chaps_deployment(project: Path | None) -> tuple[Path, str]:
+    """The chaps deployment to start models in, and what chaps printed creating it.
 
-    Without a deployment, a models-only one is created as chaps/ in the runs folder. Returns the
-    deployment and what chaps printed.
+    Without one, a models-only deployment is created as chaps/ in the runs folder.
     """
     from chap_core.ui.services import get_runs_dir, run_external
 
-    binary = chaps_binary()
-    if binary is None:
-        raise RuntimeError("chaps is not installed")
-    output = []
-    if project is None:
-        project = get_runs_dir() / "chaps"
-        project.parent.mkdir(parents=True, exist_ok=True)
-        output.append(
-            _check(
-                run_external(
-                    [binary, *chaps_registry_args(), "init", str(project), "--only", "none", "--models", "none"]
-                )
-            )
-        )
+    if project is not None:
+        return project, ""
+    project = get_runs_dir() / "chaps"
+    project.parent.mkdir(parents=True, exist_ok=True)
+    command = [_chaps(), *chaps_registry_args(), "init", str(project), "--only", "none", "--models", "none"]
+    return project, _check(run_external(command))
+
+
+def chaps_start(model_id: str, project: Path | None) -> tuple[Path, str]:
+    """Enable a model in a chaps deployment and start it. Returns the deployment and what chaps printed."""
+    from chap_core.ui.services import run_external
+
+    project, output = chaps_deployment(project)
     enabled = run_external(
-        [binary, *chaps_registry_args(), "-C", str(project), "models", "enable", model_id, "--port", "auto"]
+        [_chaps(), *chaps_registry_args(), "-C", str(project), "models", "enable", model_id, "--port", "auto"]
     )
     if enabled.returncode != 0 and "already enabled" not in (enabled.stdout + enabled.stderr):
         _check(enabled)
-    output.append(enabled.stdout + enabled.stderr)
-    output.append(_check(run_external([binary, *chaps_registry_args(), "-C", str(project), "up"])))
-    return project, "\n".join(output)
+    output += enabled.stdout + enabled.stderr
+    return project, output + _check(run_external([_chaps(), *chaps_registry_args(), "-C", str(project), "up"]))
+
+
+def chaps_add(source: str, project: Path | None, model_id: str | None = None) -> tuple[Path, str]:
+    """Add a model the marketplace does not list, from its repository URL or an image, and start it."""
+    from chap_core.ui.services import run_external
+
+    project, output = chaps_deployment(project)
+    command = [_chaps(), *chaps_registry_args(), "-C", str(project), "models", "add", source, "--port", "auto"]
+    output += _check(run_external(command + (["--id", model_id] if model_id else [])))
+    return project, output + _check(run_external([_chaps(), *chaps_registry_args(), "-C", str(project), "up"]))
+
+
+def chaps_added_models(project: Path) -> list[CatalogEntry]:
+    """Models added to a chaps deployment with `chaps models add`, as catalog entries."""
+    from chap_core.ui.services import run_external
+
+    if chaps_binary() is None:
+        return []
+    result = run_external([_chaps(), "--json", "-C", str(project), "models", "list"], timeout=60)
+    try:
+        listed = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return []
+    status, tone = ASSESSMENT["gray"]
+    return [
+        CatalogEntry(
+            id=m["id"],
+            name=m.get("display_name") or m["id"],
+            kind="chapkit",
+            source="Chapkit · added to chaps",
+            summary=f"Added to the chaps deployment from `{m['image']}`.",
+            status=status,
+            tone=tone,
+            tags=("Added",),
+            image=m["image"],
+            service_id=m["service_id"],
+            added=True,
+        )
+        for m in listed
+        if m.get("manual")
+    ]
+
+
+def chaps_test(model_id: str, project: Path) -> str:
+    """Have chaps train and predict with a running model on generated data."""
+    from chap_core.ui.services import run_external
+
+    return _check(run_external([_chaps(), "-C", str(project), "models", "test", model_id]))
+
+
+def chaps_logs(service_id: str, project: Path, tail: int = 200) -> str:
+    """The last lines a model of a chaps deployment logged."""
+    from chap_core.ui.services import run_external
+
+    output = run_external([_chaps(), "-C", str(project), "logs", service_id], timeout=60).stdout
+    return "\n".join(ANSI_ESCAPE.sub("", output).splitlines()[-tail:])
+
+
+def chaps_remove(model_id: str, project: Path) -> str:
+    """Take a model added with `chaps models add` out of the deployment again."""
+    from chap_core.ui.services import run_external
+
+    return _check(run_external([_chaps(), "-C", str(project), "models", "remove", model_id]))
 
 
 def chaps_expose(model_id: str, project: Path) -> str:
     """Give a model of a chaps deployment a host port of its own, so chap eval can reach it."""
     from chap_core.ui.services import run_external
 
-    binary = chaps_binary()
-    if binary is None:
-        raise RuntimeError("chaps is not installed")
-    output = _check(run_external([binary, "-C", str(project), "models", "expose", model_id, "--port", "auto"]))
-    return output + _check(run_external([binary, *chaps_registry_args(), "-C", str(project), "up"]))
+    output = _check(run_external([_chaps(), "-C", str(project), "models", "expose", model_id, "--port", "auto"]))
+    return output + _check(run_external([_chaps(), *chaps_registry_args(), "-C", str(project), "up"]))
 
 
 def chaps_stop(model_id: str, project: Path) -> str:
     """Disable a model in a chaps deployment, which stops its container."""
     from chap_core.ui.services import run_external
 
-    binary = chaps_binary()
-    if binary is None:
-        raise RuntimeError("chaps is not installed")
-    return _check(run_external([binary, "-C", str(project), "models", "disable", model_id]))
+    return _check(run_external([_chaps(), "-C", str(project), "models", "disable", model_id]))
 
 
 class ChapsError(RuntimeError):

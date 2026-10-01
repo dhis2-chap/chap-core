@@ -623,11 +623,23 @@ def load_marketplace():
 
 
 def load_catalog():
-    """Every model the UI knows: marketplace, your saved models and a checkout's models."""
-    from chap_core.ui.models import catalog_entries, models_file, saved_models
+    """Every model the UI knows: marketplace, models added to chaps, your saved models and a checkout's models."""
+    from chap_core.ui.models import catalog_entries, chaps_project, models_file, saved_models
 
     marketplace, invalid = load_marketplace()
-    return catalog_entries(marketplace, saved_models(models_file())), invalid
+    entries = catalog_entries(marketplace, saved_models(models_file()))
+    project = chaps_project()
+    if project is not None:
+        entries[len(marketplace) : len(marketplace)] = load_chaps_added_models(str(project))
+    return entries, invalid
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def load_chaps_added_models(project: str):
+    """Models added to a chaps deployment with `chaps models add`."""
+    from chap_core.ui.models import chaps_added_models
+
+    return chaps_added_models(Path(project))
 
 
 @st.cache_data(ttl=5, show_spinner=False)

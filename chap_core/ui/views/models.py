@@ -6,11 +6,15 @@ import streamlit as st
 
 from chap_core.ui.models import (
     ChapsError,
+    chaps_add,
     chaps_binary,
     chaps_expose,
+    chaps_logs,
     chaps_project,
+    chaps_remove,
     chaps_start,
     chaps_stop,
+    chaps_test,
     forget_model,
     list_services,
     models_file,
@@ -21,7 +25,13 @@ from chap_core.ui.models import (
     stop_service,
 )
 from chap_core.ui.services import get_runs_dir
-from chap_core.ui.widgets import load_catalog, load_chaps_models, model_images, page_header
+from chap_core.ui.widgets import (
+    load_catalog,
+    load_chaps_added_models,
+    load_chaps_models,
+    model_images,
+    page_header,
+)
 
 BADGE_COLORS: dict[str, Literal["green", "orange", "red", "gray"]] = {
     "good": "green",
@@ -42,6 +52,13 @@ def docker_services():
         return {s.model_id: s for s in list_services(model_images())}, None
     except Exception as e:
         return {}, str(e)
+
+
+def show_failure(message: str, error: Exception) -> None:
+    st.error(f"{message}: {error}")
+    if isinstance(error, ChapsError):
+        with st.expander("What chaps printed"):
+            st.code(error.output, "log")
 
 
 def use_model(model_name: str) -> None:
@@ -78,6 +95,34 @@ with st.expander("Add a model", icon=":material/add:"):
     if cols[2].button("Add", disabled=not new_model, width="stretch"):
         remember_model(saved_path, new_model, new_name or None)
         st.rerun()
+    st.divider()
+    if chaps:
+        st.caption(
+            "A chapkit model the marketplace does not list starts in the chaps deployment with "
+            "`chaps models add`, from its repository (following its newest published build) or an image."
+        )
+        cols = st.columns([2, 4, 1], vertical_alignment="bottom")
+        new_id = cols[0].text_input("Id (optional)", key="add-chapkit-id")
+        new_source = cols[1].text_input(
+            "Chapkit model",
+            key="add-chapkit-source",
+            placeholder="https://github.com/org/repo, ghcr.io/org/image:tag or a local image:tag",
+        )
+        if cols[2].button("Start", key="add-chapkit", disabled=not new_source, width="stretch"):
+            with st.spinner("Adding the model to chaps and starting it. Pulling the image can take a while."):
+                try:
+                    chaps_add(new_source.strip(), project, new_id.strip() or None)
+                except Exception as e:
+                    show_failure("Could not add the model", e)
+                else:
+                    load_chaps_added_models.clear()
+                    load_chaps_models.clear()
+                    st.rerun()
+    else:
+        st.caption(
+            "With [chaps](https://github.com/winterop-com/chaps) installed, chapkit models the marketplace "
+            "does not list can be started here from their repository or image."
+        )
 
 
 def state(entry) -> tuple[str | None, str]:
@@ -91,18 +136,13 @@ def state(entry) -> tuple[str | None, str]:
         return url, f":green[Running] :gray[· {url}{' · chaps' if in_chaps else ''}]"
     if in_chaps and in_chaps.internal:
         return None, ":orange[Only reachable through chap-core]"
+    if container and not container.managed and not container.url and in_chaps is None:
+        return None, f":gray[Running in `{container.name}` without a host port]"
     if in_chaps and in_chaps.state == "not-running" and container is None:
         return None, ":gray[In the chaps deployment, not running]"
     if in_chaps or container:
         return None, ":orange[Starting...]"
     return None, ":gray[Not started]"
-
-
-def show_failure(message: str, error: Exception) -> None:
-    st.error(f"{message}: {error}")
-    if isinstance(error, ChapsError):
-        with st.expander("What chaps printed"):
-            st.code(error.output, "log")
 
 
 def start(entry) -> None:
@@ -162,8 +202,35 @@ def card(entry) -> None:
             elif container and container.managed and st.button("Stop", key=f"stop:{entry.id}", icon=":material/stop:"):
                 stop_service(container.id)
                 st.rerun()
-            if container:
-                st.code(service_logs(container.id, tail=60), "log", height=200)
+            if (
+                url
+                and in_chaps
+                and project
+                and st.button("Test", key=f"chaps-test:{entry.id}", icon=":material/science:")
+            ):
+                with st.spinner("chaps trains and predicts with the model on generated data..."):
+                    try:
+                        st.success(chaps_test(entry.id, project).strip().splitlines()[-1])
+                    except Exception as e:
+                        show_failure(f"{entry.name} did not pass", e)
+            if (
+                entry.added
+                and project
+                and not in_chaps
+                and st.button("Remove from chaps", key=f"chaps-remove:{entry.id}", icon=":material/delete:")
+            ):
+                try:
+                    chaps_remove(entry.id, project)
+                except Exception as e:
+                    show_failure(f"Could not remove {entry.name}", e)
+                else:
+                    load_chaps_added_models.clear()
+                    st.rerun()
+            if ((in_chaps and project) or container) and st.toggle("Show logs", key=f"logs:{entry.id}"):
+                if in_chaps and project:
+                    st.code(chaps_logs(in_chaps.service_id, project, tail=60), "log", height=200)
+                elif container:
+                    st.code(service_logs(container.id, tail=60), "log", height=200)
         with footer[2]:
             if entry.kind != "chapkit":
                 st.button(
@@ -246,7 +313,9 @@ def grid() -> None:
                 card(entry)
 
 
-starting = any(not (s.url and s.status == "running" and service_info(s.url)) for s in services.values())
+starting = any(
+    not (s.url and s.status == "running" and service_info(s.url)) for s in services.values() if s.managed or s.url
+)
 starting |= any(m.state != "not-running" and not m.answering and not m.internal for m in deployment.values())
 if starting:
     st.fragment(run_every=3)(grid)()

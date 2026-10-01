@@ -11,6 +11,9 @@ from chap_core.ui.models import (
     ChapsModel,
     SavedModel,
     catalog_entries,
+    chaps_add,
+    chaps_added_models,
+    chaps_logs,
     chaps_models,
     chaps_project,
     chaps_registry_args,
@@ -151,3 +154,40 @@ def test_chaps_failures_report_the_error_line(monkeypatch, tmp_path):
         chaps_stop("auto_arima_chapkit", tmp_path)
     assert str(failure.value) == "docker could not be asked about this project"
     assert "caused by" in failure.value.output
+
+
+def test_chaps_added_models_are_catalog_entries(monkeypatch, tmp_path):
+    listed = [
+        {"id": "chapkit_ewars_model", "service_id": "chapkit-ewars-model", "image": "ghcr.io/a/b:1", "manual": False},
+        {
+            "id": "my_model",
+            "service_id": "my-model",
+            "display_name": "My model",
+            "image": "ghcr.io/me/my_model:sha-1",
+            "manual": True,
+        },
+    ]
+    fake_chaps(tmp_path, monkeypatch, f"echo '{json.dumps(listed)}'")
+    (entry,) = chaps_added_models(tmp_path)
+    assert (entry.id, entry.name, entry.kind, entry.service_id, entry.added) == (
+        "my_model",
+        "My model",
+        "chapkit",
+        "my-model",
+        True,
+    )
+
+
+def test_chaps_add_adds_the_model_on_a_free_port_and_starts_it(monkeypatch, tmp_path):
+    calls = tmp_path / "calls"
+    fake_chaps(tmp_path, monkeypatch, f'echo "$@" >> {calls}')
+    (tmp_path / ".chaps").mkdir()
+    chaps_add("https://github.com/me/my_model", tmp_path, "my_model")
+    added, up = calls.read_text().splitlines()
+    assert added.endswith("models add https://github.com/me/my_model --port auto --id my_model")
+    assert up.endswith(f"-C {tmp_path} up")
+
+
+def test_chaps_logs_are_plain_text(monkeypatch, tmp_path):
+    fake_chaps(tmp_path, monkeypatch, r"printf 'one\n\033[32mtwo\033[0m\n'")
+    assert chaps_logs("my-model", tmp_path, tail=1) == "two"
