@@ -6,12 +6,41 @@ pytest.importorskip("streamlit")
 from streamlit.testing.v1 import AppTest
 
 import chap_core.ui
+from chap_core.ui.catalog import COMMAND_PAGES
 
-VIEWS = Path(chap_core.ui.__file__).parent / "views"
+UI = Path(chap_core.ui.__file__).parent
+VIEWS = UI / "views"
 
 
-def test_results_view_shows_example_evaluation(monkeypatch, tmp_path, data_path):
+@pytest.fixture
+def workdir(monkeypatch, tmp_path):
     monkeypatch.setenv("CHAP_UI_WORKDIR", str(tmp_path))
+    return tmp_path
+
+
+def render_command_page(command):
+    from chap_core.ui.widgets import command_form, run_panel
+
+    fields, values = command_form(command)
+    run_panel(command, fields, values, label=command)
+
+
+@pytest.mark.parametrize("command", [page.command for pages in COMMAND_PAGES.values() for page in pages])
+def test_command_page_renders_form_and_cli_command(workdir, command):
+    at = AppTest.from_function(render_command_page, args=(command,), default_timeout=60)
+    at.run()
+    assert not at.exception
+    assert at.code[0].value.startswith(f"chap {command}")
+
+
+def test_app_starts_on_the_data_page(workdir):
+    at = AppTest.from_file(str(UI / "app.py"), default_timeout=60)
+    at.run()
+    assert not at.exception
+    assert at.title[0].value == "Dataset"
+
+
+def test_results_view_shows_example_evaluation(workdir, data_path):
     at = AppTest.from_file(str(VIEWS / "results.py"), default_timeout=120)
     at.session_state["selected_evals"] = [str(data_path / "example_evaluation.nc")]
     at.run()
@@ -20,11 +49,17 @@ def test_results_view_shows_example_evaluation(monkeypatch, tmp_path, data_path)
     assert len(at.dataframe) == 1
 
 
-def test_evaluate_view_shows_cli_command_for_selected_dataset(monkeypatch, tmp_path, data_path):
-    monkeypatch.setenv("CHAP_UI_WORKDIR", str(tmp_path))
+def test_evaluate_view_uses_the_selected_dataset(workdir, data_path):
     at = AppTest.from_file(str(VIEWS / "evaluate.py"), default_timeout=60)
     at.session_state["dataset_csv"] = str(data_path / "laos_subset.csv")
     at.run()
     assert not at.exception
     assert at.code[0].value.startswith("chap eval --model-name")
     assert str(data_path / "laos_subset.csv") in at.code[0].value
+
+
+def test_runs_view_without_runs(workdir):
+    at = AppTest.from_file(str(VIEWS / "runs.py"), default_timeout=60)
+    at.run()
+    assert not at.exception
+    assert at.info[0].value == "Nothing has been run yet."

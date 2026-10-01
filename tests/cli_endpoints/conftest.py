@@ -8,13 +8,6 @@ import pytest
 import yaml
 
 
-@pytest.fixture
-def marketplace_model():
-    # Registry schema v2 example from dhis2-chap/model-marketplace.
-    path = Path(__file__).parents[1] / "fixtures/marketplace/chapkit_simple_multistep_model.yaml"
-    return yaml.safe_load(path.read_text())
-
-
 CUSTOM_SERVICE_INFO = {
     "id": "custom-model",
     "display_name": "Custom Model",

@@ -1,54 +1,73 @@
 import pytest
 
-from chap_core.api_types import BacktestParams
 from chap_core.assessment.backtest_plots import list_backtest_plots
 from chap_core.cli_endpoints.utils import compute_metrics_table
 from chap_core.cli_endpoints.validate import collect_validation_issues
+from chap_core.plotting.dataset_plot import list_dataset_plots
+from chap_core.ui.commands import command_fields
 from chap_core.ui.services import (
-    COMMAND_NAME,
-    LOG_NAME,
-    build_eval_command,
     format_cli_command,
+    job_outputs,
     list_evaluations,
+    list_jobs,
+    make_dataset_plot,
     make_plot,
-    new_run_dir,
-    start_eval,
+    resolve_paths,
+    run_job,
+    save_upload,
+    workspace_files,
 )
 
 
-def test_build_eval_command_uses_dotted_backtest_flags(tmp_path):
-    args = build_eval_command(
-        "my_model", "data.csv", tmp_path / "out.nc", BacktestParams(n_periods=2, n_splits=4, stride=3)
-    )
-    assert format_cli_command(args) == (
-        f"chap eval --model-name my_model --dataset-csv data.csv --output-file {tmp_path / 'out.nc'} "
-        "--backtest-params.n-periods 2 --backtest-params.n-splits 4 --backtest-params.stride 3"
-    )
+def test_format_cli_command_quotes_arguments():
+    assert format_cli_command(["eval", "--model-name", "my model"]) == "chap eval --model-name 'my model'"
 
 
-def test_build_eval_command_adds_model_configuration(tmp_path):
-    args = build_eval_command("m", "d.csv", tmp_path / "o.nc", BacktestParams(), tmp_path / "config.yaml")
-    assert args[-2:] == ["--model-configuration-yaml", str(tmp_path / "config.yaml")]
+def test_successful_job_records_command_log_and_outputs(tmp_path, data_path):
+    args = ["model", "schema", "--model-name", str(data_path.parent / "external_models/naive_python_model_uv")]
+    job = run_job(tmp_path, [*args, "--output-file", "schema.yaml"], "model schema")
+    assert job.status == "succeeded"
+    assert job.exit_code == 0
+    assert job.command.startswith("chap model schema")
+    assert [p.name for p in job_outputs(job)] == ["schema.yaml"]
+    assert list_jobs(tmp_path) == [job]
 
 
-def test_new_run_dir_is_listed_once_it_has_an_evaluation(tmp_path):
-    run_dir = new_run_dir(tmp_path, "https://github.com/dhis2-chap/minimalist_example_r/")
-    assert run_dir.name.endswith("_minimalist-example-r")
+def test_failing_job_is_reported_as_failed(tmp_path, data_path):
+    job = run_job(tmp_path, ["validate", "--dataset-csv", str(data_path / "climate_data.csv")], "validate")
+    assert job.status == "failed"
+    assert job.exit_code == 1
+    assert "Required column" in job.log.read_text()
+
+
+def test_resolve_paths_makes_inputs_absolute_and_keeps_outputs_relative(tmp_path):
+    (tmp_path / "data.csv").touch()
+    fields = command_fields("eval")
+    values = {"dataset_csv": "data.csv", "output_file": "evaluation.nc", "model_name": "https://github.com/a/b"}
+    resolved = resolve_paths(fields, values, tmp_path)
+    assert resolved == values | {"dataset_csv": str(tmp_path / "data.csv")}
+
+
+def test_workspace_files_lists_uploads_by_suffix(tmp_path):
+    csv = save_upload(tmp_path, "data.csv", b"a,b\n")
+    save_upload(tmp_path, "notes.txt", b"")
+    assert csv in workspace_files(tmp_path, (".csv",))
+    assert not [p for p in workspace_files(tmp_path, (".csv",)) if p.suffix == ".txt"]
+
+
+def test_list_evaluations_is_empty_without_runs(tmp_path):
     assert list_evaluations(tmp_path) == []
-    (run_dir / "evaluation.nc").touch()
-    assert list_evaluations(tmp_path) == [run_dir / "evaluation.nc"]
-
-
-def test_start_eval_runs_chap_and_logs_output(tmp_path):
-    proc = start_eval(["eval", "--help"], tmp_path)
-    assert proc.wait(timeout=120) == 0
-    assert (tmp_path / COMMAND_NAME).read_text() == "chap eval --help\n"
-    assert "--model-name" in (tmp_path / LOG_NAME).read_text()
 
 
 @pytest.mark.parametrize("plot_id", [plot["id"] for plot in list_backtest_plots()])
 def test_make_plot_for_every_registered_plot(data_path, plot_id):
     chart = make_plot(data_path / "example_evaluation.nc", plot_id)
+    assert chart.to_dict()
+
+
+@pytest.mark.parametrize("plot_id", [plot["id"] for plot in list_dataset_plots()])
+def test_make_dataset_plot_for_every_registered_plot(data_path, plot_id):
+    chart = make_dataset_plot(data_path / "laos_subset.csv", plot_id)
     assert chart.to_dict()
 
 
