@@ -112,3 +112,12 @@ def test_data_view_starts_from_the_first_published_example(workdir, monkeypatch)
     at = AppTest.from_file(str(VIEWS / "data.py"), default_timeout=60)
     at.run()
     assert at.selectbox[0].value == "Laos, provinces, monthly"
+
+
+def test_catalog_shows_how_to_install_chaps_when_it_is_missing(workdir, monkeypatch, tmp_path):
+    monkeypatch.setenv("PATH", str(tmp_path / "no-programs"))
+    monkeypatch.setenv("CHAP_MARKETPLACE_URL", "http://127.0.0.1:9")  # unreachable: no network in the test
+    at = AppTest.from_file(str(VIEWS / "models.py"), default_timeout=60)
+    at.run()
+    assert not at.exception
+    assert any("winterop-com/chaps/main/install.sh" in block.value for block in at.code)

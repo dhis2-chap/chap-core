@@ -80,8 +80,18 @@ elif chaps:
 else:
     st.caption(
         "Chapkit models start as plain Docker containers. Install [chaps](https://github.com/winterop-com/chaps) "
-        "to run them as a managed deployment instead."
+        "to run them as a managed deployment instead, and to start models the marketplace does not list."
     )
+    with st.expander("Install chaps", icon=":material/download:"):
+        st.code(
+            "curl -fsSL https://raw.githubusercontent.com/winterop-com/chaps/main/install.sh | sh\nchaps doctor",
+            "bash",
+        )
+        st.caption(
+            "macOS and Linux. `chaps doctor` checks Docker and the rest. Then reload this page; restart `chap ui` "
+            "if chaps went into a folder that was not on its PATH. "
+            "More in the [chaps install guide](https://winterop-com.github.io/chaps/install.html)."
+        )
 if docker_problem and not chaps:
     st.warning(f"Docker is not available, so chapkit models cannot be started: {docker_problem}")
 
