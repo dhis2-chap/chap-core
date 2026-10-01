@@ -1,11 +1,14 @@
 """Tests for the opt-in CHAP_API_TOKEN gate."""
 
+import re
+
 import fakeredis
 import pytest
 from fastapi.testclient import TestClient
 
 from chap_core.rest_api.app import app
 from chap_core.rest_api.auth import (
+    API_REFERENCE_PATHS,
     API_TOKEN_ENV_VAR,
     MIN_TOKEN_LENGTH,
     SERVICE_KEY_ENV_VAR,
@@ -67,6 +70,27 @@ def sample_registration():
     }
 
 
+OPEN_PATHS = {"/health", "/health/ready", "/system/info"}
+
+
+def test_every_operation_but_the_open_ones_requires_the_token(client, monkeypatch):
+    """Every operation, including any added later, needs the token unless it is meant to be open."""
+    from chap_core.rest_api import common_routes
+
+    monkeypatch.setattr(common_routes, "_check_db", lambda: "ok")
+    monkeypatch.setattr(common_routes, "_check_redis", lambda: "ok")
+    monkeypatch.setattr(common_routes, "_check_celery", lambda: "ok")
+    schema = client.get("/openapi.json").json()
+    reached = {}
+    for path, operations in schema["paths"].items():
+        url = re.sub(r"\{[^}]+\}", "1", path)
+        for method in operations:
+            reached[f"{method.upper()} {path}"] = client.request(method, url).status_code
+
+    public = {operation for operation, code in reached.items() if code != 401}
+    assert public == {f"GET {path}" for path in OPEN_PATHS}
+
+
 class TestTokenDisabled:
     def test_gated_path_is_open_when_token_unset(self, unauthenticated_client):
         assert unauthenticated_client.get(GATED_PATH).status_code == 200
@@ -106,17 +130,19 @@ class TestTokenEnabled:
     def test_api_reference_needs_no_token(self, client, path):
         assert client.get(path).status_code == 200
 
-    def test_spec_offers_the_bearer_scheme_on_gated_operations_only(self, client):
+    def test_api_reference_paths_are_the_apps_own(self):
+        assert API_REFERENCE_PATHS == {app.docs_url, app.swagger_ui_oauth2_redirect_url, app.redoc_url, app.openapi_url}
+
+    def test_spec_offers_the_bearer_scheme_for_the_authorize_button(self, client):
         schema = client.get("/openapi.json").json()
 
         assert schema["components"]["securitySchemes"]["HTTPBearer"]["scheme"] == "bearer"
         assert schema["paths"]["/v2/services"]["get"]["security"] == [{"HTTPBearer": []}]
-        assert "security" not in schema["paths"]["/system/info"]["get"]
 
-    def test_x_service_key_is_not_an_operation_parameter(self, client):
-        parameters = client.get("/openapi.json").json()["paths"]["/v2/services"]["get"].get("parameters", [])
+    def test_request_body_is_not_read_without_the_token(self, client):
+        response = client.post("/v1/crud/datasets", content=b"{not json", headers={"Content-Type": "application/json"})
 
-        assert all(p["name"].lower() != "x-service-key" for p in parameters)
+        assert response.status_code == 401
 
     @pytest.mark.parametrize("path", ["/health", "/health/ready", "/system/info"])
     def test_open_paths_need_no_token(self, client, path, monkeypatch):

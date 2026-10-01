@@ -70,16 +70,11 @@ class SystemInfoResponse(BaseModel):
 
 router = APIRouter(tags=["System"])
 
-# Answer without the API token: /health and /health/ready are called without headers by the
-# container HEALTHCHECK and the Helm probes, and /system/info is how clients discover that a
-# token is required. app.py puts the token on `router` only.
-open_router = APIRouter(tags=["System"])
-
 
 # -- Health and info endpoints --
 
 
-@open_router.get(
+@router.get(
     "/health",
     summary="Liveness probe",
     description=(
@@ -147,7 +142,7 @@ def _check_celery_db_roundtrip() -> str:
         result.forget()
 
 
-@open_router.get(
+@router.get(
     "/health/ready",
     summary="Readiness probe with dependency checks",
     description=(
@@ -215,7 +210,7 @@ async def deep_probe() -> Response:
     return JSONResponse(status_code=200 if healthy else 503, content=body.model_dump())
 
 
-@open_router.get(
+@router.get(
     "/system/info",
     summary="System and version information",
     description="Returns build/runtime metadata (CHAP version, Python version, server time, git revision).",
