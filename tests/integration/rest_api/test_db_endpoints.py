@@ -2394,7 +2394,7 @@ def _test_backtest_id(session) -> int:
 
 
 @pytest.mark.parametrize("before_first_split", [False, True])
-def test_outbreak_metrics_scores_every_level_and_horizon(override_session, seeded_session, before_first_split):
+def test_outbreak_metrics_scores_every_level(override_session, seeded_session, before_first_split):
     backtest_id = _test_backtest_id(seeded_session)
     policy_id = _create_alert_policy().json()["id"]
 
@@ -2406,11 +2406,33 @@ def test_outbreak_metrics_scores_every_level_and_horizon(override_session, seede
     assert response.status_code == 200, response.json()
     body = response.json()
     assert body["categories"] == ["none", "monitor", "action"]
-    assert [level["level"] for level in body["overall"]["levels"]] == ["monitor", "action"]
-    assert body["overall"]["nCells"] > 0
-    horizons = [entry["horizonDistance"] for entry in body["byHorizon"]]
-    assert horizons == sorted(horizons) and len(horizons) == 3
-    assert sum(entry["nCells"] for entry in body["byHorizon"]) == body["overall"]["nCells"]
+    (overall,) = body["rows"]
+    assert overall["nCells"] > 0
+    assert [level["level"] for level in overall["levels"]] == ["monitor", "action"]
+    assert "sensitivity" in overall["levels"][0]["metrics"]
+    assert "weighted_kappa" in overall["categorical"]
+
+
+def test_outbreak_metrics_groups_by_the_requested_dimensions(override_session, seeded_session):
+    backtest_id = _test_backtest_id(seeded_session)
+    policy_id = _create_alert_policy().json()["id"]
+
+    response = client.get(
+        f"/v1/analytics/backtests/{backtest_id}/outbreak-metrics",
+        params={"alertPolicyId": policy_id, "groupBy": ["location", "horizon_distance"]},
+    )
+
+    assert response.status_code == 200, response.json()
+    rows = response.json()["rows"]
+    groups = [(row["location"], row["horizonDistance"]) for row in rows]
+    assert groups == sorted(groups) and len(groups) == 9
+    assert all(row["timePeriod"] is None for row in rows)
+
+
+def test_list_outbreak_metrics_includes_both_kinds():
+    metrics = {m["id"]: m["kind"] for m in client.get("/v1/analytics/outbreak-metrics").json()}
+    assert metrics["sensitivity"] == "binary"
+    assert metrics["weighted_kappa"] == "categorical"
 
 
 def test_outbreak_metrics_unknown_ids_return_404(override_session, seeded_session):

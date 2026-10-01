@@ -18,6 +18,12 @@ from chap_core.api_types import (
     PredictionEntry,
 )
 from chap_core.assessment.dataset_splitting import train_test_generator
+from chap_core.assessment.flat_representations import DataDimension
+from chap_core.assessment.outbreak_metrics import (
+    OutbreakMetricKind,
+    get_binary_outbreak_metrics,
+    get_categorical_outbreak_metrics,
+)
 from chap_core.assessment.thresholds import get_threshold_strategy, list_threshold_strategies
 from chap_core.assessment.thresholds.params import ThresholdParams
 from chap_core.assessment.weather_providers import list_weather_providers
@@ -1021,54 +1027,68 @@ def compute_thresholds(request: ThresholdRequest, session: Session = Depends(get
     return ThresholdResponse(params=request.params, lines=lines, entries=entries)
 
 
-class BinaryOutbreakMetrics(DBModel):
-    """How well one alert level's alerts match the outbreaks observed at that level.
+class OutbreakMetricInfo(DBModel):
+    """Catalogue entry for one registered outbreak metric."""
 
-    A metric is `null` when its denominator is zero, e.g. sensitivity when no cell was an outbreak.
-    """
-
-    level: str = Field(description="Name of the alert level.")
-    sensitivity: float | None = Field(description="Share of outbreaks that were alerted.")
-    specificity: float | None = Field(description="Share of non-outbreaks that were not alerted.")
-    accuracy: float | None = Field(description="Share of cells where alert and outbreak agree.")
-    ppv: float | None = Field(description="Positive predictive value: share of alerts that were outbreaks.")
-    npv: float | None = Field(description="Negative predictive value: share of non-alerts that were not outbreaks.")
-    f1: float | None = Field(description="Harmonic mean of sensitivity and PPV.")
-    balanced_accuracy: float | None = Field(description="Mean of sensitivity and specificity.")
-    mcc: float | None = Field(description="Matthews correlation coefficient, in [-1, 1].")
-
-
-class CategoricalOutbreakMetrics(DBModel):
-    """How well the policy as a whole puts each cell in the right category.
-
-    A cell's category is the most severe level breached, or none: ternary for a two-level policy.
-    """
-
-    accuracy: float | None = Field(description="Share of cells whose predicted category is the observed one.")
-    macro_f1: float | None = Field(description="F1 averaged over the categories that occur.")
-    weighted_kappa: float | None = Field(
-        description="Cohen's kappa with quadratic weights, so a miss by one level costs less than a miss by two. "
-        "`null` when undefined, e.g. when every cell falls in one category."
+    id: str = Field(description="Metric identifier, the key it is reported under.")
+    display_name: str = Field(description="Human-friendly metric name.")
+    description: str = Field(default="", description="What the metric measures.")
+    kind: OutbreakMetricKind = Field(
+        description="`binary` metrics are reported per alert level; `categorical` metrics judge the policy as a whole."
     )
 
 
-class OutbreakMetrics(DBModel):
-    """Binary metrics for every level and categorical metrics for the policy, over one set of cells."""
+class LevelOutbreakMetrics(DBModel):
+    """Binary metrics for one alert level."""
 
-    horizon_distance: int | None = Field(description="Horizon the metrics are restricted to; `null` for all horizons.")
+    level: str = Field(description="Name of the alert level.")
+    metrics: dict[str, float | None] = Field(
+        description="Value per binary metric id. `null` where undefined, e.g. sensitivity when no cell was an outbreak."
+    )
+
+
+class OutbreakMetricsRow(DBModel):
+    """Outbreak metrics for one group of cells."""
+
+    location: str | None = Field(default=None, description="Location of the group; `null` unless grouped by it.")
+    time_period: str | None = Field(default=None, description="Period of the group; `null` unless grouped by it.")
+    horizon_distance: int | None = Field(default=None, description="Horizon of the group; `null` unless grouped by it.")
     n_cells: int = Field(description="Number of (location, period, horizon) cells scored.")
-    levels: list[BinaryOutbreakMetrics] = Field(description="One entry per policy level, least to most severe.")
-    categorical: CategoricalOutbreakMetrics
+    levels: list[LevelOutbreakMetrics] = Field(description="One entry per policy level, least to most severe.")
+    categorical: dict[str, float | None] = Field(
+        description="Value per categorical metric id, judging the most severe level breached. `null` where undefined."
+    )
 
 
 class OutbreakMetricsResponse(DBModel):
     """Outbreak-detection metrics of a backtest judged against an alert policy."""
 
     categories: list[str] = Field(
-        description="Category names, index-aligned with the category values: `none` followed by the level names."
+        description="Category names in severity order, as the categorical metrics see them: "
+        "`none` followed by the level names."
     )
-    overall: OutbreakMetrics = Field(description="Metrics over every scored cell.")
-    by_horizon: list[OutbreakMetrics] = Field(description="Metrics per horizon distance, ascending.")
+    rows: list[OutbreakMetricsRow] = Field(
+        description="One row per group, in sorted group order; a single row when not grouped."
+    )
+
+
+@router.get(
+    "/outbreak-metrics",
+    response_model=list[OutbreakMetricInfo],
+    tags=["Metrics"],
+    summary="Discover which outbreak metrics are available",
+)
+def list_outbreak_metrics():
+    """List the registered outbreak metrics, binary ones (per alert level) and categorical ones (per policy).
+
+    The ids are the keys the metrics are reported under by
+    `GET /v1/analytics/backtests/{backtestId}/outbreak-metrics`.
+    """
+    specs = [*get_binary_outbreak_metrics().values(), *get_categorical_outbreak_metrics().values()]
+    return [
+        OutbreakMetricInfo(id=spec.id, display_name=spec.name, description=spec.description, kind=spec.kind)
+        for spec in specs
+    ]
 
 
 @router.get(
@@ -1080,6 +1100,7 @@ class OutbreakMetricsResponse(DBModel):
 def get_outbreak_metrics(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     alert_policy_id: Annotated[int, Query(alias="alertPolicyId")],
+    group_by: Annotated[list[DataDimension] | None, Query(alias="groupBy")] = None,
     baseline_before_first_split: Annotated[bool, Query(alias="baselineBeforeFirstSplit")] = False,
     session: Session = Depends(get_session),
 ):
@@ -1088,21 +1109,20 @@ def get_outbreak_metrics(
     Each level's threshold is computed by its strategy, as in `POST /v1/analytics/thresholds`.
     A cell (location, period, horizon) is an outbreak at a level when observed cases exceed
     the threshold, and is alerted when the share of forecast samples above it reaches the
-    level's `exceedanceThreshold`. Every level gets binary metrics; the levels together
-    get categorical metrics on the most severe level breached.
+    level's `exceedanceThreshold`. Every level gets the binary metrics; the levels together
+    get the categorical metrics on the most severe level breached. See
+    `GET /v1/analytics/outbreak-metrics` for the metrics.
+
+    `groupBy` (repeatable: `location`, `time_period`, `horizon_distance`) splits the cells
+    into one row per group; without it every cell is pooled into one row.
 
     Thresholds are computed from the backtest's whole dataset by default. With
     `baselineBeforeFirstSplit`, only observations before the first forecast period are used,
     so the scored periods cannot raise their own threshold. 404 if the backtest or policy
     is unknown; 400 if the policy has no levels or no threshold can be computed.
     """
-    from chap_core.assessment.alert_policy_scoring import (
-        binary_metrics,
-        categorical_metrics,
-        categories,
-        label_cells,
-    )
     from chap_core.assessment.evaluation import Evaluation
+    from chap_core.assessment.outbreak_metrics.scoring import label_cells, score
     from chap_core.database.alert_tables import AlertPolicy
 
     backtest = session.get(Backtest, backtest_id)
@@ -1130,26 +1150,19 @@ def get_outbreak_metrics(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    def score(cells: pd.DataFrame, horizon_distance: int | None) -> OutbreakMetrics:
-        ranked = categories(cells)
-        return OutbreakMetrics(
-            horizon_distance=horizon_distance,
-            n_cells=len(ranked),
-            levels=[
-                BinaryOutbreakMetrics(level=level.name, **binary_metrics(rows["outbreak"], rows["alert"]))
-                for i, level in enumerate(policy.levels)
-                for rows in [cells[cells["level"] == i]]
-            ],
-            categorical=CategoricalOutbreakMetrics(
-                **categorical_metrics(ranked["observed"], ranked["predicted"], len(policy.levels) + 1)
-            ),
-        )
-
+    dimensions = [str(dim) for dim in dict.fromkeys(group_by or [])]
     return OutbreakMetricsResponse(
         categories=["none", *(level.name for level in policy.levels)],
-        overall=score(labelled, None),
-        by_horizon=[
-            score(labelled[labelled["horizon_distance"] == horizon], int(horizon))
-            for horizon in sorted(labelled["horizon_distance"].unique())
+        rows=[
+            OutbreakMetricsRow(
+                **group.group,
+                n_cells=group.n_cells,
+                levels=[
+                    LevelOutbreakMetrics(level=level.name, metrics=metrics)
+                    for level, metrics in zip(policy.levels, group.levels, strict=True)
+                ],
+                categorical=group.categorical,
+            )
+            for group in score(labelled, len(policy.levels), dimensions)
         ],
     )

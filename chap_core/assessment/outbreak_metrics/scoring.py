@@ -13,12 +13,17 @@ as a single ordinal classifier, ternary for a two-level policy.
 
 from __future__ import annotations
 
-import warnings
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
 
+from chap_core.assessment.outbreak_metrics import (
+    BinaryConfusion,
+    get_binary_outbreak_metrics,
+    get_categorical_outbreak_metrics,
+)
 from chap_core.assessment.thresholds import get_threshold_strategy
 
 if TYPE_CHECKING:
@@ -100,53 +105,75 @@ def categories(labelled: pd.DataFrame) -> pd.DataFrame:
     return ranked.groupby(_CELL, as_index=False)[["observed", "predicted"]].max()
 
 
-def binary_metrics(outbreak: pd.Series, alert: pd.Series) -> dict[str, float | None]:
-    """Binary classification metrics of ``alert`` against ``outbreak``.
+def score(labelled: pd.DataFrame, n_levels: int, group_by: list[str]) -> list[GroupScore]:
+    """Run every registered outbreak metric over the labelled cells, per group.
 
-    A metric whose denominator is zero (for instance sensitivity when there are no
-    outbreaks) is ``None``.
+    Args:
+        labelled: Output of :func:`label_cells`.
+        n_levels: Number of levels in the policy.
+        group_by: Cell dimensions to group by, any of ``location``, ``time_period``
+            and ``horizon_distance``. Empty pools every cell into one group.
+
+    Returns:
+        One :class:`GroupScore` per group, in sorted group order.
     """
-    tp = int((outbreak & alert).sum())
-    fp = int((~outbreak & alert).sum())
-    fn = int((outbreak & ~alert).sum())
-    tn = int((~outbreak & ~alert).sum())
-    sensitivity = _ratio(tp, tp + fn)
-    specificity = _ratio(tn, tn + fp)
-    mcc_denominator = float(np.sqrt(float(tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)))
-    return {
-        "sensitivity": sensitivity,
-        "specificity": specificity,
-        "accuracy": _ratio(tp + tn, tp + tn + fp + fn),
-        "ppv": _ratio(tp, tp + fp),
-        "npv": _ratio(tn, tn + fn),
-        "f1": _ratio(2 * tp, 2 * tp + fp + fn),
-        "balanced_accuracy": None if sensitivity is None or specificity is None else (sensitivity + specificity) / 2,
-        "mcc": _ratio(tp * tn - fp * fn, mcc_denominator),
-    }
+    ranked = categories(labelled)
+    if not group_by:
+        return [_score_group({}, labelled, ranked, n_levels)]
+    ranked_groups = dict(list(ranked.groupby(group_by)))
+    return [
+        _score_group(
+            {
+                dim: value.item() if isinstance(value, np.generic) else value
+                for dim, value in zip(group_by, key, strict=True)
+            },
+            cells,
+            ranked_groups[key],
+            n_levels,
+        )
+        for key, cells in labelled.groupby(group_by, sort=True)
+    ]
 
 
-def categorical_metrics(observed: pd.Series, predicted: pd.Series, n_categories: int) -> dict[str, float | None]:
-    """Multi-class metrics of the predicted category against the observed one.
+@dataclass
+class GroupScore:
+    """Outbreak metrics for one group of cells."""
 
-    ``macro_f1`` averages F1 over the categories that occur in either series.
-    ``weighted_kappa`` is Cohen's kappa with quadratic weights over all
-    ``n_categories``, so a miss by one level costs less than a miss by two; it is
-    ``None`` when undefined, e.g. when every cell falls in one category.
-    """
-    from sklearn.exceptions import UndefinedMetricWarning
-    from sklearn.metrics import cohen_kappa_score, f1_score
-
-    if observed.empty:
-        return {"accuracy": None, "macro_f1": None, "weighted_kappa": None}
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UndefinedMetricWarning)
-        kappa = cohen_kappa_score(observed, predicted, labels=list(range(n_categories)), weights="quadratic")
-    return {
-        "accuracy": float((observed == predicted).mean()),
-        "macro_f1": float(f1_score(observed, predicted, average="macro", zero_division=0)),
-        "weighted_kappa": None if np.isnan(kappa) else float(kappa),
-    }
+    group: dict[str, Any]
+    n_cells: int
+    levels: list[dict[str, float | None]]
+    categorical: dict[str, float | None]
 
 
-def _ratio(numerator: float, denominator: float) -> float | None:
-    return None if denominator == 0 else numerator / denominator
+def _score_group(group: dict[str, Any], cells: pd.DataFrame, ranked: pd.DataFrame, n_levels: int) -> GroupScore:
+    binary_metrics = get_binary_outbreak_metrics()
+    categorical_metrics = get_categorical_outbreak_metrics()
+    levels = []
+    for i in range(n_levels):
+        confusion = binary_confusion(cells[cells["level"] == i])
+        levels.append({metric_id: spec.compute(confusion) for metric_id, spec in binary_metrics.items()})
+    matrix = confusion_matrix(ranked["observed"], ranked["predicted"], n_levels + 1)
+    return GroupScore(
+        group=group,
+        n_cells=len(ranked),
+        levels=levels,
+        categorical={metric_id: spec.compute(matrix) for metric_id, spec in categorical_metrics.items()},
+    )
+
+
+def binary_confusion(cells: pd.DataFrame) -> BinaryConfusion:
+    """Confusion counts of one level's labelled cells."""
+    outbreak, alert = cells["outbreak"], cells["alert"]
+    return BinaryConfusion(
+        tp=int((outbreak & alert).sum()),
+        fp=int((~outbreak & alert).sum()),
+        fn=int((outbreak & ~alert).sum()),
+        tn=int((~outbreak & ~alert).sum()),
+    )
+
+
+def confusion_matrix(observed: pd.Series, predicted: pd.Series, n_categories: int) -> np.ndarray:
+    """Count of cells per (observed, predicted) category, observed along the rows."""
+    matrix = np.zeros((n_categories, n_categories), dtype=int)
+    np.add.at(matrix, (observed.to_numpy(dtype=int), predicted.to_numpy(dtype=int)), 1)
+    return matrix
