@@ -132,6 +132,7 @@ nav:
           - Model Explainability: external_models/model_explainability.md
       - CLI:
           - Overview: chap-cli/index.md
+          - In the browser (chap ui): chap-cli/ui.md
 
           - eval Reference: chap-cli/eval-reference.md
           - report Reference: chap-cli/report-reference.md
