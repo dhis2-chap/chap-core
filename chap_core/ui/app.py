@@ -19,9 +19,12 @@ def as_page(page: CommandPage):
     return st.Page(render, title=page.title, icon=page.icon, url_path=page.command.replace(" ", "-"))
 
 
+start = st.Page(VIEWS / "start.py", title="Start", icon=":material/home:", default=True)
+guide = st.Page(VIEWS / "guide.py", title="Find the best model", icon=":material/emoji_events:", url_path="guide")
 sections = {
     "Workflow": [
-        st.Page(VIEWS / "data.py", title="1 · Data", icon=":material/dataset:", default=True),
+        start,
+        st.Page(VIEWS / "data.py", title="1 · Data", icon=":material/dataset:"),
         st.Page(VIEWS / "evaluate.py", title="2 · Evaluate", icon=":material/science:"),
         st.Page(VIEWS / "results.py", title="3 · Results", icon=":material/insights:"),
         st.Page(VIEWS / "runs.py", title="Runs", icon=":material/history:"),
@@ -34,7 +37,11 @@ sections = {
 commands = {section: [as_page(page) for page in pages] for section, pages in COMMAND_PAGES.items()}
 
 inject_css()
-all_pages = [page for group in (*sections.values(), *commands.values()) for page in group]
+all_pages = [page for group in (*sections.values(), *commands.values()) for page in group] + [guide]
+# Pages by name, for views that send the user on to another page (st.switch_page needs the page itself).
+st.session_state["pages"] = {"start": start, "guide": guide} | {
+    page.url_path: page for group in (*sections.values(), *commands.values()) for page in group
+}
 current = st.navigation(all_pages, position="hidden")
 sidebar(sections, commands, current)
 top = st.container()

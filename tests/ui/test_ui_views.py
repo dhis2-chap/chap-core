@@ -34,11 +34,25 @@ def test_command_page_renders_form_and_cli_command(workdir, command):
     assert at.code[0].value.startswith(f"chap {command}")
 
 
-def test_app_starts_on_the_data_page(workdir):
+def test_app_starts_on_the_use_cases(workdir):
     at = AppTest.from_file(str(UI / "app.py"), default_timeout=60)
     at.run()
     assert not at.exception
-    assert at.title[0].value == "Dataset"
+    assert at.title[0].value == "What do you want to do?"
+    assert any(button.label == "Start" for button in at.button)
+
+
+def test_the_guide_says_when_no_model_fits(workdir, monkeypatch, data_path):
+    import streamlit as st
+
+    monkeypatch.setenv("CHAP_MARKETPLACE_URL", "http://127.0.0.1:9")  # unreachable: no network in the test
+    st.cache_data.clear()
+    at = AppTest.from_file(str(UI / "app.py"), default_timeout=60)
+    at.session_state["guide"] = {"step": 2, "dataset_csv": str(data_path / "laos_subset.csv"), "dataset_name": "Laos"}
+    at.switch_page("views/guide.py")
+    at.run()
+    assert not at.exception
+    assert any("None of the marketplace models can use this data" in w.value for w in at.warning)
 
 
 def test_results_view_shows_example_evaluation(workdir, data_path):
