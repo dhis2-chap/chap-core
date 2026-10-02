@@ -159,8 +159,8 @@ def test_chaps_start_runs_the_model_in_a_deployment_or_a_group(monkeypatch, tmp_
     assert chaps_start("https://github.com/me/my_model", None, "my_model")["url"] == "http://localhost:5001"
     chaps_start("chapkit_ewars_model", tmp_path)
     in_group, in_deployment = calls.read_text().splitlines()
-    assert in_group == "--json run https://github.com/me/my_model --no-wait --id my_model"
-    assert in_deployment == f"--json -C {tmp_path} run chapkit_ewars_model --no-wait"
+    assert in_group == "--json run --no-wait --id my_model -- https://github.com/me/my_model"
+    assert in_deployment == f"--json -C {tmp_path} run --no-wait -- chapkit_ewars_model"
 
 
 def test_chaps_stop_acts_where_the_model_runs(monkeypatch, tmp_path):

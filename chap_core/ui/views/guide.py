@@ -4,6 +4,7 @@ Data, the models that fit it, two plain questions, a run that starts what it nee
 The guide's progress lives in st.session_state["guide"], so leaving the page and coming back resumes it.
 """
 
+import time
 from pathlib import Path
 from typing import Any, Literal
 
@@ -43,6 +44,8 @@ from chap_core.ui.services import (
 from chap_core.ui.widgets import chaps_location, load_chaps_models, load_marketplace
 
 STEPS = ["Your data", "Models", "Questions", "Run", "Answer"]
+# How long a model may take to answer after it is started; a first start downloads its image.
+START_TIMEOUT_SECONDS = 600
 BADGE_COLORS: dict[str, Literal["green", "orange", "red", "gray"]] = {
     "good": "green",
     "warn": "orange",
@@ -298,6 +301,11 @@ def advance(model_id: str, progress: dict) -> None:
             name = model.display_name or model.id
             job = start_job(get_runs_dir(), eval_args(url), f"Evaluate · {name}")
             progress.update(state="evaluating", url=url, run_dir=str(job.run_dir))
+        elif progress["state"] == "starting" and time.time() - progress.get("started_at", 0) > START_TIMEOUT_SECONDS:
+            minutes = START_TIMEOUT_SECONDS // 60
+            progress.update(
+                state="failed", error=f"did not answer within {minutes} minutes; its logs are in the Catalog"
+            )
         elif progress["state"] == "waiting":
             try:
                 if chaps_binary():
@@ -306,7 +314,7 @@ def advance(model_id: str, progress: dict) -> None:
                     start_service(marketplace_image(model), model.id)
                 guide["started"].append(model.id)
                 load_chaps_models.clear()
-                progress["state"] = "starting"
+                progress.update(state="starting", started_at=time.time())
             except Exception as e:
                 progress.update(state="failed", error=f"could not start: {e}")
     elif progress["state"] == "evaluating":

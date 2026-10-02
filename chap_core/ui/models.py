@@ -479,11 +479,12 @@ def chaps_start(
     `everywhere` publishes it on every address. Starting one that was started before reuses it.
     Returns what chaps reports, with the model's URL.
     """
-    args = ["run", source, "--no-wait"]
+    args = ["run", "--no-wait"]
     args += ["--id", model_id] if model_id else []
     args += ["--port", str(port)] if port else []
     args += ["--bind", "0.0.0.0"] if everywhere else []
-    return dict(_chaps_json(args, project))
+    # The source is typed by the user: after `--`, one starting with `-` cannot pass for an option.
+    return dict(_chaps_json([*args, "--", source], project))
 
 
 def chaps_stop(model: ChapsModel, delete_data: bool = False) -> dict:
