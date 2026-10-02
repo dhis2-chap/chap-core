@@ -226,7 +226,7 @@ def state(entry: CatalogEntry) -> tuple[str | None, str]:
 
 
 def instance_row(name: str, source: str, url: str | None, status: str, actions) -> None:
-    cols = st.columns([2.2, 1.6, 1.6, 3.2], vertical_alignment="center")
+    cols = st.columns([2, 1.3, 1.4, 4], vertical_alignment="center")
     cols[0].markdown(f"**{name}**  \n:gray[{source}]")
     cols[1].markdown(status)
     cols[2].markdown(f"[{url.removeprefix('http://')}]({url})" if url else ":gray[-]")
@@ -365,7 +365,7 @@ def show_metrics(url: str) -> None:
 def uptime(seconds: float) -> str:
     minutes = int(seconds // 60)
     if minutes < 1:
-        return "under a minute"
+        return "< 1 min"
     if minutes < 60:
         return f"{minutes} min"
     hours, minutes = divmod(minutes, 60)
