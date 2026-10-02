@@ -36,9 +36,32 @@ chaps doctor
 
 `chaps doctor` checks Docker and the rest. Without chaps, `chap ui` starts chapkit models as plain Docker containers. Docker is needed either way. Models that run from a folder or a GitHub repository need neither.
 
+## Start: what do you want to do?
+
+`chap ui` opens on **Start**, which asks what you want to do rather than which command to run:
+
+- **Find the best model for my data** walks you through a comparison, step by step (below).
+- **Forecast the coming months**, **Check a model I built** and **Look at a dataset** open the matching page. Guided versions of these will follow.
+
+![The Start page](assets/ui/start.png)
+
+### Find the best model for my data
+
+A guided comparison in five steps:
+
+1. **Your data:** pick an example, upload a file, or reuse an earlier one. Chap checks it at once and says, in plain words, whether it can use it: how many regions, which periods, and which covariates it has.
+2. **Models:** the marketplace models that fit your data, each with the reason it fits, such as "uses rainfall and mean temperature, all in your data". Models that cannot use your data are listed separately with the reason, such as a covariate your data does not have.
+3. **Questions:** how far ahead you need to forecast, and how thorough the test should be. Chap turns the answers into the backtest settings of `chap eval`, shown under **Advanced**, and only offers choices your data is long enough for.
+4. **Run:** Chap starts the models that are not running yet and tests each of them. You can leave the page; **Start** brings you back.
+5. **Answer:** which model forecast best, in words and in a table. "Off by" is the mean absolute error, the overall score is the CRPS, and the likely range is the 10-90% band of the forecasts. From here you can forecast with the winner, open the details in Results, or stop the models the comparison started (their data is kept).
+
+![Choosing the models that fit the data](assets/ui/guide-models.png)
+
+![The answer of a comparison](assets/ui/guide-answer.png)
+
 ## The workflow
 
-The sidebar follows the usual order: Data, Evaluate, Results, and Runs. A bar at the top shows the dataset, model and model configuration you are working with; every page uses them.
+The sidebar also gives direct access to every page, in the usual order: Data, Evaluate, Results, and Runs. A bar at the top shows the dataset, model and model configuration you are working with; every page uses them.
 
 ### Data
 
