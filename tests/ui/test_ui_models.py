@@ -225,3 +225,36 @@ def test_chaps_that_does_not_answer_lists_nothing(monkeypatch, tmp_path):
 
     monkeypatch.setattr(services, "run_external", hang)
     assert chaps_models(None) == []
+
+
+def test_starting_again_replaces_a_container_that_exited(monkeypatch):
+    import docker
+
+    from chap_core.ui.models import SERVICE_LABEL, start_service
+
+    class Container:
+        def __init__(self, status):
+            self.status, self.removed = status, False
+            self.id, self.name = "abc", "chap-auto-arima-chapkit"
+            self.image = type("Image", (), {"tags": ["img"], "short_id": "img"})()
+            self.labels = {SERVICE_LABEL: "auto_arima_chapkit"}
+            self.ports = {"8000/tcp": [{"HostIp": "127.0.0.1", "HostPort": "5005"}]}
+
+        def remove(self):
+            self.removed = True
+
+        def reload(self):
+            pass
+
+    exited = Container("exited")
+
+    class Containers:
+        def list(self, all, filters):
+            return [exited]
+
+        def run(self, image, **kwargs):
+            assert exited.removed, "the exited container still holds the name"
+            return Container("running")
+
+    monkeypatch.setattr(docker, "from_env", lambda: type("Client", (), {"containers": Containers()})())
+    assert start_service("img", "auto_arima_chapkit").status == "running"

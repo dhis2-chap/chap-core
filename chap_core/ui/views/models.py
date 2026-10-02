@@ -468,7 +468,7 @@ def card(entry: CatalogEntry) -> None:
                     "Use", key=f"use:{entry.id}", type="primary", width="stretch", on_click=use_model, args=(url,)
                 )
             elif not (
-                services.get(entry.id)
+                ((c := services.get(entry.id)) is not None and c.status == "running")
                 or ((m := deployment.get(entry.service_id or "")) is not None and m.state != "not running")
             ) and st.button(
                 "Try again" if failure else "Start instance",

@@ -246,12 +246,17 @@ def start_service(image: str, model_id: str) -> ChapkitService:
     import docker
 
     client = docker.from_env()
+    name = f"chap-{model_id.replace('_', '-')}"
+    # A container this UI started earlier that has since exited holds the name; it is replaced.
+    for old in client.containers.list(all=True, filters={"name": f"^{name}$", "label": SERVICE_LABEL}):
+        if old.status != "running":
+            old.remove()
     container = client.containers.run(
         image,
         detach=True,
         ports={CHAPKIT_PORT: ("127.0.0.1", None)},
         labels={SERVICE_LABEL: model_id},
-        name=f"chap-{model_id.replace('_', '-')}",
+        name=name,
     )
     container.reload()
     return _service(container, model_id)
