@@ -19,6 +19,7 @@ from chap_core.assessment.metrics.base import (
     DEFAULT_OUTPUT_DIMENSIONS,
     AggregationOp,
     DeterministicMetric,
+    GlobalOnlyMetric,
     Metric,
     MetricSpec,
     OptimizationDirection,
@@ -86,7 +87,9 @@ def _discover_metrics():
         example_metric,
         mae,
         mape,
+        outbreak_classification,
         outbreak_detection,
+        outbreak_probability,
         percentile_coverage,
         rmse,
         test_metrics,
@@ -104,10 +107,21 @@ from chap_core.assessment.metrics.crps_norm import CRPSNormMetric
 from chap_core.assessment.metrics.example_metric import ExampleMetric
 from chap_core.assessment.metrics.mae import MAEMetric
 from chap_core.assessment.metrics.mape import MAPEMetric
+from chap_core.assessment.metrics.outbreak_classification import (
+    FalseAlarmRateMetric,
+    MatthewsCorrelationMetric,
+    OutbreakF1Metric,
+    OutbreakPrecisionMetric,
+)
 from chap_core.assessment.metrics.outbreak_detection import (
     OutbreakAccuracyMetric,
     SensitivityMetric,
     SpecificityMetric,
+)
+from chap_core.assessment.metrics.outbreak_probability import (
+    BrierScoreMetric,
+    BrierSkillScoreMetric,
+    OutbreakLogScoreMetric,
 )
 from chap_core.assessment.metrics.peak_diff import PeakPeriodLagMetric, PeakValueDiffMetric
 from chap_core.assessment.metrics.percentile_coverage import (
@@ -132,6 +146,8 @@ available_metrics: dict[str, type[Metric]] = _metrics_registry
 __all__ = [
     "DEFAULT_OUTPUT_DIMENSIONS",
     "AggregationOp",
+    "BrierScoreMetric",
+    "BrierSkillScoreMetric",
     "CRPSLog1pMetric",
     "CRPSMetric",
     "CRPSNormMetric",
@@ -140,11 +156,17 @@ __all__ = [
     "DataDimension",
     "DeterministicMetric",
     "ExampleMetric",
+    "FalseAlarmRateMetric",
+    "GlobalOnlyMetric",
     "MAEMetric",
     "MAPEMetric",
+    "MatthewsCorrelationMetric",
     "Metric",
     "MetricSpec",
     "OutbreakAccuracyMetric",
+    "OutbreakF1Metric",
+    "OutbreakLogScoreMetric",
+    "OutbreakPrecisionMetric",
     "PeakPeriodLagMetric",
     "PeakValueDiffMetric",
     "PercentileCoverageMetric",
@@ -225,6 +247,9 @@ def compute_all_detailed_metrics(evaluation: Evaluation) -> pd.DataFrame:
     for metric_id, metric_factory in available_metrics.items():
         metric = metric_factory(historical_observations=historical_df)
         if not metric.is_applicable(flat_data.observations):
+            continue
+        if not metric.spec.output_dimensions:
+            # Global-only metric (F1, skill scores): no per-cell value to export.
             continue
         try:
             detailed = metric.get_detailed_metric(flat_data.observations, flat_data.forecasts)

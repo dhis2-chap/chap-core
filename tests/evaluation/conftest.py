@@ -482,3 +482,33 @@ def make_flat_forecasts():
         )
 
     return _make
+
+
+@pytest.fixture
+def balanced_alert_scenario(two_season_history, make_flat_forecasts):
+    """One outbreak and one quiet period, each scored at two horizons.
+
+    June's channel sits near 111 and November's near 61, so the observations
+    below are clearly on either side of them. Scoring each period at two horizons
+    -- one alerting, one not -- yields exactly one true positive, false negative,
+    false positive and true negative, so every confusion-matrix metric has a
+    hand-checkable value.
+
+    Returns ``(historical_observations, observations, forecasts)``.
+    """
+    observations = pd.DataFrame(
+        [
+            {"location": "A", "time_period": "2023-06", "disease_cases": 200.0},
+            {"location": "A", "time_period": "2023-11", "disease_cases": 20.0},
+        ]
+    )
+    forecasts = pd.concat(
+        [
+            make_flat_forecasts("A", "2023-06", 1, [300.0] * 10),  # outbreak, alerted -> TP
+            make_flat_forecasts("A", "2023-06", 2, [10.0] * 10),  # outbreak, missed -> FN
+            make_flat_forecasts("A", "2023-11", 1, [300.0] * 10),  # quiet, alerted -> FP
+            make_flat_forecasts("A", "2023-11", 2, [10.0] * 10),  # quiet, silent -> TN
+        ],
+        ignore_index=True,
+    )
+    return two_season_history, observations, forecasts

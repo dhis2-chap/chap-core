@@ -235,6 +235,44 @@ class Metric(ABC):
         return self.spec.description
 
 
+class GlobalOnlyMetric(Metric):
+    """Base for metrics that cannot be computed per cell and then averaged.
+
+    F1, Matthews correlation and skill scores are ratios of aggregates: there is
+    no per-cell value whose mean recovers the metric. Such a metric is defined
+    only over a whole set of scored cells, so it reports one global value and
+    refuses to be broken down by dimension rather than returning a number that
+    looks per-cell but is not.
+
+    Subclasses implement :meth:`compute_global` and declare
+    ``output_dimensions=()`` in their spec.
+    """
+
+    def get_metric(
+        self,
+        observations: pa.typing.DataFrame[FlatObserved],
+        forecasts: pa.typing.DataFrame[FlatForecasts],
+        dimensions: tuple[DataDimension, ...] = (),
+    ) -> pd.DataFrame:
+        if dimensions:
+            named = ", ".join(d.value for d in dimensions)
+            raise ValueError(
+                f"{type(self).__name__} is defined over a whole set of scored cells, so it cannot be broken down by {named}."
+            )
+        null_mask = observations.disease_cases.isnull()  # type: ignore[attr-defined]
+        observations = observations[~null_mask]  # type: ignore[index]
+        value = self.compute_global(observations, forecasts)  # type: ignore[arg-type]
+        return self._validate_output(pd.DataFrame({"metric": [value]}), ())
+
+    @abstractmethod
+    def compute_global(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> float:
+        """Compute the metric over every scored cell at once."""
+        raise NotImplementedError
+
+    def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
+        raise NotImplementedError(f"{type(self).__name__} has no per-cell value.")
+
+
 class DeterministicMetric(Metric):
     """
     Base class for deterministic metrics that operate on the median of samples.
