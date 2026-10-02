@@ -165,3 +165,10 @@ def test_stop_all_leaves_a_deployments_models_alone(workdir, monkeypatch, tmp_pa
     (tmp_path / ".chaps").mkdir()
     at = catalog_with_chaps(monkeypatch, tmp_path, [ps_row("up", None, tmp_path)])
     assert "Stop all" not in {b.label for b in at.button}
+
+
+def test_every_page_has_the_command_palette_shortcut(workdir):
+    at = AppTest.from_file(str(UI / "app.py"), default_timeout=60)
+    at.run()
+    assert not at.exception
+    assert any("chapCommandPalette" in str(block.proto) for block in at.get("html"))

@@ -111,6 +111,38 @@ def settings() -> dict[str, Any]:
     return current
 
 
+# Cmd+K (macOS) or Ctrl+K jumps to "Find a command" from anywhere, opening the sidebar if it is
+# collapsed; Escape leaves it. Registered once per browser tab, however often the page reruns.
+COMMAND_PALETTE_SHORTCUT = """
+<script>
+(() => {
+  if (window.chapCommandPalette) return;
+  window.chapCommandPalette = true;
+  const mac = /Mac|iPhone|iPad/.test(navigator.platform);
+  const field = () => document.querySelector(".st-key-nav-search input");
+  const hint = () => {
+    const input = field();
+    if (input) input.placeholder = `Find a command... (${mac ? "\u2318K" : "Ctrl+K"})`;
+  };
+  new MutationObserver(hint).observe(document.body, { childList: true, subtree: true });
+  document.addEventListener("keydown", (event) => {
+    const input = field();
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      const sidebar = document.querySelector('[data-testid="stSidebar"]');
+      if (!input || sidebar?.getAttribute("aria-expanded") === "false") {
+        document.querySelector('[data-testid="stExpandSidebarButton"] button, [data-testid="stExpandSidebarButton"]')?.click();
+      }
+      setTimeout(() => { const target = field(); target?.focus(); target?.select(); }, 150);
+    } else if (event.key === "Escape" && input && document.activeElement === input) {
+      input.blur();
+    }
+  });
+})();
+</script>
+"""
+
+
 def sidebar(sections: dict[str, list], commands: dict[str, list], current) -> None:
     """Navigation: the main sections as links, the remaining commands searchable and grouped, then run options."""
     running = sum(job.status == "running" for job in list_jobs(get_runs_dir()))
@@ -125,6 +157,7 @@ def sidebar(sections: dict[str, list], commands: dict[str, list], current) -> No
         query = st.text_input(
             "Find a command", placeholder="Find a command...", label_visibility="collapsed", key="nav-search"
         ).lower()
+        st.html(COMMAND_PALETTE_SHORTCUT, unsafe_allow_javascript=True)
         for group, pages in commands.items():
             matches = [page for page in pages if query in page.title.lower()]
             if matches:
