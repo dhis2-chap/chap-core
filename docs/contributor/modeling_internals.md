@@ -100,8 +100,8 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
 
 - **`chap_core/assessment/metrics/`** — the scoring metrics, all hand-implemented on
   numpy: a from-scratch order-statistic **CRPS** estimator, Winkler interval scores,
-  MAE / RMSE / MAPE, percentile-coverage calibration, outbreak-detection
-  sensitivity/specificity, and peak-timing diff. This is substantive statistical
+  MAE / RMSE / MAPE, percentile-coverage calibration, and peak-timing diff, plus the
+  alert-policy outbreak metrics in `chap_core/assessment/outbreak_metrics/`. This is substantive statistical
   code and the busiest ML-adjacent surface (the REST worker, the REST API router, the
   CLI, and HPO all route through it) — but it is *scoring*, not learning. See
   [Evaluation pipeline](evaluation_pipeline.md) and

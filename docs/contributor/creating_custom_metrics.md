@@ -152,10 +152,14 @@ metric is a sound thing to optimize. Set `proper_scoring_rule=True` only when th
 is a proper scoring rule (or a consistent scoring function for point metrics, such as
 MAE for the median and RMSE for the mean), meaning a forecaster cannot improve its
 expected score by reporting anything other than its honest forecast. HPO only accepts
-proper scoring rules with an explicit direction. The outbreak metrics keep `MAXIMIZE`
-so clients colour high scores as good, but HPO rejects them, since sensitivity is
-maximised by always alerting and specificity by never alerting. MAPE is rejected for
-the same reason: it is minimised by systematically under-forecasting.
+proper scoring rules with an explicit direction. MAPE, for example, is rejected: it is
+minimised by systematically under-forecasting.
+
+Outbreak-detection metrics (sensitivity, PPV, kappa, ...) are not part of this registry.
+They score forecasts against an alert policy, live in
+`chap_core/assessment/outbreak_metrics/`, and are registered with
+`@binary_outbreak_metric` (a function of a `BinaryConfusion` with `tp`, `fp`, `fn`, `tn`) or
+`@categorical_outbreak_metric` (a function of the confusion matrix of alert levels).
 
 ## Complete Examples
 
