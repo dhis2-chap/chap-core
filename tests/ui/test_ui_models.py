@@ -97,6 +97,7 @@ def test_chaps_project_is_only_a_deployment_chap_ui_starts_in(monkeypatch, tmp_p
     monkeypatch.chdir(tmp_path)
     assert chaps_project() is None  # models then start in a `chaps run` group
     (tmp_path / ".chaps").mkdir()
+    (tmp_path / ".chaps" / "project.yaml").touch()
     assert chaps_project() == tmp_path.resolve()
     (tmp_path / "sub").mkdir()
     monkeypatch.chdir(tmp_path / "sub")

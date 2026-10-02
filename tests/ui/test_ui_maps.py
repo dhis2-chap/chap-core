@@ -65,3 +65,13 @@ def test_choropleth_url_carries_the_whole_map_page(data_path):
     url = choropleth_url(geojson, {}, "Cases")
     assert url.startswith("data:text/html;base64,")
     assert base64.b64decode(url.split(",", 1)[1]).decode() == choropleth_html(geojson, {}, "Cases")
+
+
+def test_region_names_cannot_close_the_maps_script():
+    from chap_core.ui.maps import choropleth_html
+
+    geojson = {"type": "FeatureCollection", "features": [{"type": "Feature", "id": "a",
+               "properties": {"name": "</script><script>alert(1)</script>"},
+               "geometry": {"type": "Point", "coordinates": [0, 0]}}]}  # fmt: skip
+    page = choropleth_html(geojson, {"a": 1.0}, "Cases")
+    assert "</script><script>alert(1)" not in page

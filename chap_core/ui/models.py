@@ -440,7 +440,8 @@ def chaps_project() -> Path | None:
     `chaps run` group."""
     configured = os.environ.get("CHAPS_PROJECT_DIR")
     start = (Path(configured) if configured else Path.cwd()).resolve()
-    return next((folder for folder in (start, *start.parents) if (folder / ".chaps").is_dir()), None)
+    # The marker chaps itself looks for, so a stray `.chaps` folder is not taken for a deployment.
+    return next((folder for folder in (start, *start.parents) if (folder / ".chaps" / "project.yaml").is_file()), None)
 
 
 def chaps_models(project: Path | None) -> list[ChapsModel]:

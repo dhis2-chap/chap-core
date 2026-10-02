@@ -83,7 +83,7 @@ html, body {{ margin: 0; height: 100%; font-family: "IBM Plex Sans", system-ui, 
 <div class="legend">{html.escape(legend)}<div class="ramp"></div>
 <div class="ends"><span>{low:.3g}</span><span>{high:.3g}</span></div></div>
 <script>
-const config = {json.dumps(config)};
+const config = {json.dumps(config).replace("<", "\\u003c")};
 const map = new maplibregl.Map({{
   container: "map", style: config.style, attributionControl: {{ compact: true }},
   // Keep the drawn frame so the map can be captured, e.g. saved as an image or screenshotted.

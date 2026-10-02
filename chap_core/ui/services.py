@@ -236,6 +236,10 @@ def validate_against_model(runs_dir: Path, dataset_csv: str, model_name: str, ti
     return issues
 
 
+# How long a stopped job gets to end on its own before it is killed.
+STOP_GRACE_SECONDS = 30
+
+
 def run_job(runs_dir: Path, args: list[str], label: str, timeout: float = 600) -> Job:
     """Run a chap command like `start_job`, but wait for it to finish. A job that takes too long is stopped."""
     job = start_job(runs_dir, args, label)
@@ -243,7 +247,14 @@ def run_job(runs_dir: Path, args: list[str], label: str, timeout: float = 600) -
         _processes[job.run_dir].wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         stop_job(job)
-        _processes[job.run_dir].wait()
+        try:
+            _processes[job.run_dir].wait(timeout=STOP_GRACE_SECONDS)
+        except subprocess.TimeoutExpired:
+            # The job ignored SIGTERM: end it and everything it started, rather than wait for ever.
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.killpg(_processes[job.run_dir].pid, signal.SIGKILL)
+            _processes[job.run_dir].kill()
+            _processes[job.run_dir].wait()
     return load_job(job.run_dir)
 
 

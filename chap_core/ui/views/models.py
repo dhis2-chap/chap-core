@@ -287,8 +287,12 @@ def chaps_row(model: ChapsModel) -> None:
             with st.popover("Stop"):
                 keep = st.button("Stop, keep its data", key=f"stop-run:{key}", width="stretch")
                 st.caption(f"Starting it again picks up its configurations and trained models. `chaps stop {model.id}`")
-                delete = st.button("Stop and delete its data", key=f"stop-purge:{key}", width="stretch")
-                st.caption(f"Removes its data volume too. `chaps stop {model.id} --purge`")
+                delete = False
+                # Deleting data is only offered for chap ui's own group: a deployment or another group's
+                # data belongs to whoever runs it.
+                if model.group is not None and model.group == OWN_GROUP:
+                    delete = st.button("Stop and delete its data", key=f"stop-purge:{key}", width="stretch")
+                    st.caption(f"Removes its data volume too. `chaps stop {model.id} --purge`")
             if keep or delete:
                 try:
                     chaps_stop(model, delete_data=delete)
@@ -394,7 +398,7 @@ def running_panel() -> None:
             return
         # Only chap ui's own `chaps run` group: a deployment's models are its operator's to stop.
         own = [m for m in instances if m.group is not None and m.group == OWN_GROUP]
-        if own and cols[1].button(
+        if (own or managed) and cols[1].button(
             "Stop all",
             width="stretch",
             help="Stops every model chap ui started, keeping their data. Models in other groups stay.",
