@@ -334,6 +334,12 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
         return self.max_prediction_periods
 
 
+class ModelTemplateFromService(DBModel):
+    """Request body for storing a model template from a registered chapkit service."""
+
+    service_id: str = Field(description="Id the service registered under in the v2 service registry.")
+
+
 class ConfiguredModelInfoRead(DBModel):
     """Detailed read view for a single configured model.
 

@@ -10,7 +10,7 @@ from typing import Literal, cast
 import psycopg2
 import sqlalchemy
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, SQLModel, col, create_engine, select
 from sqlmodel.sql.expression import SelectOfScalar
 
 from chap_core.api_types import BacktestParams
@@ -186,6 +186,42 @@ class SessionWrapper:
         self._make_live_template_version(model_name, template_id)
         return template_id
 
+    def archive_model_template(self, model_template_id: int, all_versions: bool = False) -> None:
+        """Hide a template and its configured models from pickers. Rows stay, as backtests reference them.
+
+        With ``all_versions``, every version of the template's name is retired, which is
+        what taking a model out of a deployment means. Otherwise only this version is, and
+        retiring the live version hands live status back to the newest version that is not
+        retired and can run, so that undoing a failed update leaves the model as it was.
+        """
+        model_template = self.get_model_template(model_template_id)
+        if all_versions:
+            retired = list(
+                self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == model_template.name)).all()
+            )
+        else:
+            retired = [model_template]
+        for template in retired:
+            template.archived = True
+            for configured_model in template.configured_models:
+                configured_model.archived = True
+            self.session.add(template)
+        self.session.commit()
+        if all_versions or not model_template.is_live:
+            return
+        # Archived configured models still count on purpose: a version without an active one
+        # only needs a new configuration, which is better than leaving no version live.
+        runnable = self.session.exec(
+            select(ModelTemplateDB)
+            .join(ConfiguredModelDB, col(ConfiguredModelDB.model_template_id) == col(ModelTemplateDB.id))
+            .where(ModelTemplateDB.name == model_template.name, col(ModelTemplateDB.archived).is_(False))
+            .order_by(col(ModelTemplateDB.id).desc())
+        ).first()
+        if runnable is not None:
+            model_template.is_live = False
+            runnable.is_live = True
+            self.session.commit()
+
     def add_model_template_from_yaml_config(
         self, model_template_config: ModelTemplateConfigV2, source_digest: str | None = None
     ) -> int:
@@ -236,6 +272,8 @@ class SessionWrapper:
                 f"Configured model {name} with an identical configuration already exists. Returning existing id"
             )
             reactivated_model_id = cast("int", identical_configured_model.id)
+            # Re-adding an archived configuration shows it again.
+            identical_configured_model.archived = False
             # Still flip is_live so that re-adding a previous configuration makes it live again.
             self._make_live_configured_model(model_template_id, name, reactivated_model_id)
             self._make_live_template_version(template_name, model_template_id)
