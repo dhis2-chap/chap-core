@@ -54,7 +54,7 @@ with st.container(border=True, key="card-data-source"):
         start = "Path or URL"
     else:
         start = sources[0]
-    source = st.pills("Source", sources, default=start, key="data-source", label_visibility="collapsed")
+    source = st.segmented_control("Source", sources, default=start, key="data-source", label_visibility="collapsed")
     dataset_csv = None
     if source == "Example":
         index = example_names.index(current_example) if current_example else 0

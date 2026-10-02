@@ -31,7 +31,7 @@ left, right = st.columns([3, 2], gap="large")
 with left:
     counts = {status: sum(job.status == status for job in jobs) for status in STATUS_TEXT}
     choices = ["All", *[s for s in STATUS_TEXT if counts[s]]]
-    status_filter = st.pills(
+    status_filter = st.segmented_control(
         "Show",
         choices,
         default="All",

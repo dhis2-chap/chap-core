@@ -472,10 +472,12 @@ def page() -> None:
     counts = {name: n for name, n in counts.items() if n or name in ("All", "Running", "Yours")}
     running_panel()
     with st.container(horizontal=True, vertical_alignment="bottom", gap="medium"):
-        source = st.pills(
+        source = st.segmented_control(
             "Show", list(counts), default="All", format_func=lambda k: f"{k} {counts[k]}", key="catalog-source"
         )
-        periods = st.pills("Period type", ["Monthly", "Weekly"], selection_mode="multi", key="catalog-period")
+        periods = st.segmented_control(
+            "Period type", ["Monthly", "Weekly"], selection_mode="multi", key="catalog-period"
+        )
         query = st.text_input("Search models", placeholder="Name, covariate or author", key="catalog-search").lower()
     grid(source, periods, query)
 

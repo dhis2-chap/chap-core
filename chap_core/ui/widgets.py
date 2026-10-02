@@ -90,7 +90,7 @@ CSS = """
 .block-container { padding-top: 1.5rem; padding-left: 3rem; padding-right: 3rem; max-width: none; }
 [class*="st-key-card"] { background: #FFFFFF; }
 .st-key-context-bar { border-bottom: 1px solid #E3E6EA; padding-bottom: 0.6rem; margin-bottom: 0.4rem; }
-.st-key-context-bar button { border-radius: 999px; min-height: 2rem; padding: 0.1rem 0.85rem; }
+.st-key-context-bar button { border-radius: 6px; min-height: 2rem; padding: 0.1rem 0.85rem; }
 [data-testid="stColumn"]:has([class*="st-key-card-run"]) { position: sticky; top: 1rem; align-self: flex-start; z-index: 2; }
 .chap-brand { display: flex; flex-direction: column; padding: 0 0.5rem 0.25rem; line-height: 1.3; }
 .chap-brand b { font-size: 1.15rem; letter-spacing: 0.02em; }
