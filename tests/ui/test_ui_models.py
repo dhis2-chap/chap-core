@@ -258,3 +258,26 @@ def test_starting_again_replaces_a_container_that_exited(monkeypatch):
 
     monkeypatch.setattr(docker, "from_env", lambda: type("Client", (), {"containers": Containers()})())
     assert start_service("img", "auto_arima_chapkit").status == "running"
+
+
+def test_metrics_are_read_from_chapkits_prometheus_output():
+    from chap_core.ui.models import parse_metrics
+
+    text = """# HELP ml_train_jobs_total Total number of ML training jobs submitted
+# TYPE ml_train_jobs_total counter
+ml_train_jobs_total 2.0
+ml_predict_jobs_total 3.0
+http_server_duration_milliseconds_count{http_method="GET",http_target="/health"} 4.0
+http_server_duration_milliseconds_count{http_method="POST",http_target="/api/v1/ml/$train"} 2.0
+process_resident_memory_bytes 1.42508032e+08
+"""
+    metrics = parse_metrics(text)
+    assert (metrics.trainings, metrics.predictions, metrics.requests) == (2.0, 3.0, 6.0)
+    assert metrics.memory_bytes == 142508032.0
+    assert metrics.cpu_seconds is None  # not every service reports it
+
+
+def test_a_service_without_metrics_reports_none():
+    from chap_core.ui.models import service_metrics
+
+    assert service_metrics("http://127.0.0.1:9") is None

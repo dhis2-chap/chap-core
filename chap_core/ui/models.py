@@ -3,8 +3,10 @@ chapkit services, whether chap started them or a chaps deployment did."""
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -304,6 +306,51 @@ def service_info(url: str) -> dict | None:
         with CHAPKitRestAPIWrapper(url, timeout=2) as client:
             info: dict = client.info().model_dump(mode="json")
             return info
+    except Exception:
+        return None
+
+
+@dataclass(frozen=True)
+class ServiceMetrics:
+    """What a chapkit service built with monitoring reports about itself. A field is None when the
+    service does not report it, such as process figures outside Linux."""
+
+    trainings: float | None
+    predictions: float | None
+    requests: float | None
+    memory_bytes: float | None
+    cpu_seconds: float | None
+    started: float | None  # Unix time
+
+
+# One sample of the Prometheus text format: a name, optional labels, and a value.
+PROMETHEUS_SAMPLE = re.compile(r"^([a-zA-Z_:][\w:]*)(?:\{[^}]*\})?\s+(\S+)")
+
+
+def parse_metrics(text: str) -> ServiceMetrics:
+    """The figures chap ui shows, from a service's /metrics; samples of one name are summed over their labels."""
+    totals: dict[str, float] = {}
+    for line in text.splitlines():
+        if (sample := PROMETHEUS_SAMPLE.match(line)) is not None:
+            with contextlib.suppress(ValueError):
+                totals[sample[1]] = totals.get(sample[1], 0.0) + float(sample[2])
+    return ServiceMetrics(
+        trainings=totals.get("ml_train_jobs_total"),
+        predictions=totals.get("ml_predict_jobs_total"),
+        requests=totals.get("http_server_duration_milliseconds_count"),
+        memory_bytes=totals.get("process_resident_memory_bytes"),
+        cpu_seconds=totals.get("process_cpu_seconds_total"),
+        started=totals.get("process_start_time_seconds"),
+    )
+
+
+def service_metrics(url: str) -> ServiceMetrics | None:
+    """The service's metrics, or None when it has no /metrics: it was built without chapkit's monitoring."""
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(f"{url.rstrip('/')}/metrics", timeout=2) as response:
+            return parse_metrics(response.read().decode())
     except Exception:
         return None
 

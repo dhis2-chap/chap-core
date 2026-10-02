@@ -23,6 +23,7 @@ from chap_core.ui.models import (
     remember_model,
     service_info,
     service_logs,
+    service_metrics,
     start_service,
     stop_service,
 )
@@ -275,6 +276,8 @@ def chaps_row(model: ChapsModel) -> None:
                 refresh()
                 st.rerun()
             st.toggle("Logs", key=f"logs:{key}")
+            if answering:
+                st.toggle("Metrics", key=f"metrics:{key}")
             if answering and st.button("Test", key=f"test:{key}"):
                 with st.spinner("chaps trains and predicts with the model on generated data..."):
                     try:
@@ -298,7 +301,7 @@ def chaps_row(model: ChapsModel) -> None:
     if model.group != OWN_GROUP:
         source += f" · group `{model.group}`" if model.group else f" · `{model.project_dir}`"
     instance_row(name, source, model.url, status, actions)
-    row_details(key, lambda: chaps_logs(model, tail=60))
+    row_details(key, lambda: chaps_logs(model, tail=60), model.url)
 
 
 def container_row(container: ChapkitService) -> None:
@@ -315,16 +318,18 @@ def container_row(container: ChapkitService) -> None:
             if answering:
                 st.button("Use", key=f"use-run:{key}", type="primary", on_click=use_model, args=(container.url,))
             st.toggle("Logs", key=f"logs:{key}")
+            if answering:
+                st.toggle("Metrics", key=f"metrics:{key}")
             if st.button("Stop", key=f"stop-run:{key}"):
                 stop_service(container.id)
                 st.rerun()
 
     instance_row(name, f"Docker container `{container.name}`", container.url, status, actions)
-    row_details(key, lambda: service_logs(container.id, tail=60))
+    row_details(key, lambda: service_logs(container.id, tail=60), container.url)
 
 
-def row_details(key: str, logs) -> None:
-    """What a row's actions left behind: a failure, a test result, and its logs when asked for."""
+def row_details(key: str, logs, url: str | None) -> None:
+    """What a row's actions left behind: a failure, a test result, and its logs and metrics when asked for."""
     if failure := st.session_state.get(f"row-failed:{key}"):
         show_failure(*failure)
     result = st.session_state.get(f"test-result:{key}")
@@ -334,6 +339,37 @@ def row_details(key: str, logs) -> None:
         st.success(result)
     if st.session_state.get(f"logs:{key}"):
         st.code(logs(), "log", height=220)
+    if url and st.session_state.get(f"metrics:{key}"):
+        show_metrics(url)
+
+
+def show_metrics(url: str) -> None:
+    metrics = service_metrics(url)
+    if metrics is None:
+        st.caption(f"`{url}/metrics` does not answer: this model is built without chapkit's monitoring.")
+        return
+    figures = {
+        "Trainings": f"{metrics.trainings:.0f}" if metrics.trainings is not None else None,
+        "Predictions": f"{metrics.predictions:.0f}" if metrics.predictions is not None else None,
+        "HTTP requests": f"{metrics.requests:.0f}" if metrics.requests is not None else None,
+        "Memory": f"{metrics.memory_bytes / 2**20:.0f} MB" if metrics.memory_bytes is not None else None,
+        "CPU time": f"{metrics.cpu_seconds:.1f} s" if metrics.cpu_seconds is not None else None,
+        "Up for": uptime(time.time() - metrics.started) if metrics.started is not None else None,
+    }
+    shown = {label: value for label, value in figures.items() if value is not None}
+    for col, (label, value) in zip(st.columns(len(shown)), shown.items(), strict=True):
+        col.metric(label, value)
+    st.caption(f"From `{url}/metrics`. Trainings and predictions count from when the service started.")
+
+
+def uptime(seconds: float) -> str:
+    minutes = int(seconds // 60)
+    if minutes < 1:
+        return "under a minute"
+    if minutes < 60:
+        return f"{minutes} min"
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours} h {minutes} min" if hours < 24 else f"{hours // 24} d {hours % 24} h"
 
 
 def running_panel() -> None:
