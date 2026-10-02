@@ -150,6 +150,38 @@ class TestEvaluation:
         for col in required_cols:
             assert col in flat_data.observations.columns
 
+    def test_create_records_the_callers_info_and_specification(self, mocker):
+        """Callers persisting the backtest pass their own BacktestCreate and specification,
+        which must reach the Evaluation instead of the CLI's in-memory defaults."""
+        from chap_core.api_types import BacktestParams
+        from chap_core.database.tables import BacktestSpecification
+        from chap_core.rest_api.data_models import BacktestCreate
+
+        train_set = mocker.MagicMock()
+        train_set.period_range = [mocker.MagicMock()]
+        mocker.patch(
+            "chap_core.assessment.dataset_splitting.train_test_generator",
+            return_value=(train_set, iter(())),
+        )
+        mocker.patch("chap_core.assessment.prediction_evaluator.backtest", return_value=[])
+        mocker.patch.object(Evaluation, "calculate_periods_from_years", return_value=0)
+        mocker.patch.object(Evaluation, "extract_historical_observations", return_value=[])
+        from_samples = mocker.patch.object(Evaluation, "from_samples_with_truth")
+
+        info = BacktestCreate(name="rest", dataset_id=7, model_id="model")
+        specification = BacktestSpecification(dataset_id=7)
+        Evaluation.create(
+            configured_model=mocker.MagicMock(id=1),
+            estimator=mocker.MagicMock(),
+            dataset=mocker.MagicMock(),
+            backtest_params=BacktestParams(n_periods=3, n_splits=2, stride=1),
+            info=info,
+            specification=specification,
+        )
+
+        assert from_samples.call_args.kwargs["info"] is info
+        assert from_samples.call_args.kwargs["specification"] is specification
+
     class TestModelCard:
         """Tests for ModelCard class"""
 

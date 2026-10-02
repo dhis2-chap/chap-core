@@ -443,6 +443,8 @@ class Evaluation(EvaluationBase):
         backtest_params: BacktestParams,
         backtest_name: str = "evaluation",
         historical_context_years: int = 6,
+        info: BacktestCreate | None = None,
+        specification: BacktestSpecification | None = None,
     ) -> Evaluation:
         """
         Uses ``train_test_generator`` to create an expanding window split of the
@@ -464,6 +466,9 @@ class Evaluation(EvaluationBase):
             historical_context_years: Years of historical data to include for plotting
                 context (default: 6). Number of periods is calculated based on dataset
                 period type (e.g., 6 years = 312 weeks or 72 months).
+            info: Backtest metadata to record. Defaults to an in-memory backtest named
+                ``backtest_name`` (``dataset_id=0``), as used by the CLI.
+            specification: Specification row to attach, for callers that persist the backtest.
 
         Returns:
             Evaluation instance with backtest results
@@ -507,7 +512,7 @@ class Evaluation(EvaluationBase):
         # Prepare metadata
         last_train_period = train_set.period_range[-1]
 
-        backtest_info = BacktestCreate(
+        backtest_info = info or BacktestCreate(
             name=backtest_name,
             dataset_id=0,
             model_id=configured_model.id,
@@ -539,6 +544,7 @@ class Evaluation(EvaluationBase):
             info=backtest_info,
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
+            specification=specification,
             hpo=hpo_data,
         )
 
