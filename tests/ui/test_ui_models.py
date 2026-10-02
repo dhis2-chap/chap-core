@@ -97,7 +97,10 @@ def test_chaps_project_is_only_a_deployment_chap_ui_starts_in(monkeypatch, tmp_p
     monkeypatch.chdir(tmp_path)
     assert chaps_project() is None  # models then start in a `chaps run` group
     (tmp_path / ".chaps").mkdir()
-    assert chaps_project() == tmp_path
+    assert chaps_project() == tmp_path.resolve()
+    (tmp_path / "sub").mkdir()
+    monkeypatch.chdir(tmp_path / "sub")
+    assert chaps_project() == tmp_path.resolve()  # as chaps finds it from a folder inside one
 
 
 def fake_chaps(tmp_path, monkeypatch, script: str) -> Path:
@@ -112,8 +115,9 @@ def fake_chaps(tmp_path, monkeypatch, script: str) -> Path:
 
 
 def ps_row(service_id: str, state: str, url: str | None, project_dir) -> dict:
+    port = int(url.rsplit(":", 1)[-1]) if url else None
     return {"id": service_id.replace("-", "_"), "service_id": service_id, "state": state, "url": url,
-            "project_dir": str(project_dir)}  # fmt: skip
+            "port": port, "project_dir": str(project_dir)}  # fmt: skip
 
 
 def test_chaps_models_reads_chaps_ps(monkeypatch, tmp_path):
@@ -139,9 +143,12 @@ def test_chaps_gets_the_registry_index_of_the_marketplace_in_use(monkeypatch):
 
 
 def test_models_behind_chap_core_are_internal_until_exposed(monkeypatch, tmp_path):
-    listed = {"models": [ps_row("auto-arima-chapkit", "registered", None, tmp_path)]}
+    # chaps reports chap-core's read-only proxy as the address of a model without a host port.
+    proxy = "http://localhost:8700/v2/services/auto-arima-chapkit/run/"
+    listed = {"models": [{**ps_row("auto-arima-chapkit", "registered", None, tmp_path), "url": proxy}]}
     fake_chaps(tmp_path, monkeypatch, f"echo '{json.dumps(listed)}'")
     (model,) = chaps_models(tmp_path)
+    assert model.url is None
     assert model.internal
     assert not model.answering
 
@@ -204,3 +211,17 @@ def test_the_same_model_in_two_groups_is_two_instances(monkeypatch, tmp_path):
         ("default", "http://localhost:5001"),
         ("other", "http://localhost:5002"),
     ]
+
+
+def test_chaps_that_does_not_answer_lists_nothing(monkeypatch, tmp_path):
+    import subprocess
+
+    from chap_core.ui import services
+
+    fake_chaps(tmp_path, monkeypatch, "true")
+
+    def hang(argv, timeout=1800):
+        raise subprocess.TimeoutExpired(argv, timeout)
+
+    monkeypatch.setattr(services, "run_external", hang)
+    assert chaps_models(None) == []

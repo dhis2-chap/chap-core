@@ -124,20 +124,44 @@ def test_catalog_shows_how_to_install_chaps_when_it_is_missing(workdir, monkeypa
     assert any("winterop-com/chaps/main/install.sh" in block.value for block in at.code)
 
 
-def test_catalog_lists_instances_chaps_runs_with_a_stop_button(workdir, monkeypatch, tmp_path):
-    ps = '{"models": [{"id": "my_model", "service_id": "my-model", "state": "up", "url": "http://127.0.0.1:9", "project_dir": "/tmp"}]}'
+def catalog_with_chaps(monkeypatch, tmp_path, rows: list[dict]) -> AppTest:
+    """The catalog page with a chaps on PATH whose `ps` lists `rows`."""
+    import json
+
+    import streamlit as st
+
+    ps = json.dumps({"models": rows})
     fake = tmp_path / "bin" / "chaps"
-    fake.parent.mkdir()
+    fake.parent.mkdir(exist_ok=True)
     fake.write_text(f"#!/bin/sh\ncase \"$*\" in\n  *' ps') echo '{ps}' ;;\n  *) echo '[]' ;;\nesac\n")
     fake.chmod(0o755)
     monkeypatch.setenv("PATH", f"{fake.parent}:{os.environ['PATH']}")
     monkeypatch.setenv("CHAP_MARKETPLACE_URL", "http://127.0.0.1:9")  # unreachable: no network in the test
     monkeypatch.chdir(tmp_path)
-    import streamlit as st
-
     st.cache_data.clear()  # what other tests asked chaps is cached across AppTests
     at = AppTest.from_file(str(VIEWS / "models.py"), default_timeout=60)
     at.run()
     assert not at.exception
+    return at
+
+
+def ps_row(state: str, group: str | None, project_dir) -> dict:
+    return {"id": "my_model", "service_id": "my-model", "state": state, "url": "http://127.0.0.1:9", "port": 9,
+            "group": group, "project_dir": str(project_dir)}  # fmt: skip
+
+
+def test_catalog_lists_instances_chaps_runs_with_a_stop_menu(workdir, monkeypatch, tmp_path):
+    at = catalog_with_chaps(monkeypatch, tmp_path, [ps_row("up", "default", tmp_path)])
     assert any("**my_model**" in block.value for block in at.markdown)
-    assert {"Stop, keep its data", "Stop and delete its data"} <= {button.label for button in at.button}
+    assert {"Stop, keep its data", "Stop and delete its data", "Stop all"} <= {b.label for b in at.button}
+
+
+def test_a_stopped_model_can_be_started_again(workdir, monkeypatch, tmp_path):
+    at = catalog_with_chaps(monkeypatch, tmp_path, [ps_row("not running", "default", tmp_path)])
+    assert "Start" in {b.label for b in at.button}
+
+
+def test_stop_all_leaves_a_deployments_models_alone(workdir, monkeypatch, tmp_path):
+    (tmp_path / ".chaps").mkdir()
+    at = catalog_with_chaps(monkeypatch, tmp_path, [ps_row("up", None, tmp_path)])
+    assert "Stop all" not in {b.label for b in at.button}

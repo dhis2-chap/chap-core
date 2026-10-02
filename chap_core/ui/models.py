@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -70,7 +71,7 @@ class ChapsModel:
     id: str
     service_id: str
     state: str
-    url: str | None
+    url: str | None  # its own host address; None behind chap-core, where only a read-only proxy reaches it
     project_dir: Path  # the deployment or `chaps run` group it runs in, for logs, test and expose
     group: str | None = None  # the `chaps run` group; None in a deployment
 
@@ -378,11 +379,12 @@ def _chaps() -> str:
 
 
 def chaps_project() -> Path | None:
-    """The chaps deployment to start models in: CHAPS_PROJECT_DIR, or the folder chap ui was started
-    in when it is one. Without one, models start in chaps' default `chaps run` group."""
+    """The chaps deployment to start models in: CHAPS_PROJECT_DIR, or the one the folder chap ui was
+    started in belongs to, found the way chaps finds it. Without one, models start in chaps' default
+    `chaps run` group."""
     configured = os.environ.get("CHAPS_PROJECT_DIR")
-    candidate = Path(configured) if configured else Path.cwd()
-    return candidate.resolve() if (candidate / ".chaps").is_dir() else None
+    start = (Path(configured) if configured else Path.cwd()).resolve()
+    return next((folder for folder in (start, *start.parents) if (folder / ".chaps").is_dir()), None)
 
 
 def chaps_models(project: Path | None) -> list[ChapsModel]:
@@ -394,7 +396,15 @@ def chaps_models(project: Path | None) -> list[ChapsModel]:
     except ChapsError:
         return []
     return [
-        ChapsModel(m["id"], m["service_id"], m.get("state", ""), m.get("url"), Path(m["project_dir"]), m.get("group"))
+        ChapsModel(
+            m["id"],
+            m["service_id"],
+            m.get("state", ""),
+            # Without a host port chaps reports chap-core's proxy URL, which chap eval cannot write through.
+            m.get("url") if m.get("port") is not None else None,
+            Path(m["project_dir"]),
+            m.get("group"),
+        )
         for m in listed.get("models", [])
     ]
 
@@ -488,7 +498,10 @@ def _chaps_json(args: list[str], project: Path | None, timeout: float = 1800):
     from chap_core.ui.services import run_external
 
     location = ["-C", str(project)] if project else []
-    result = run_external([_chaps(), "--json", *chaps_registry_args(), *location, *args], timeout=timeout)
+    try:
+        result = run_external([_chaps(), "--json", *chaps_registry_args(), *location, *args], timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise ChapsError(f"chaps did not answer within {timeout:.0f} seconds; is Docker running?", "") from None
     output = (result.stdout or "") + (result.stderr or "")
     try:
         document = json.loads(result.stdout)

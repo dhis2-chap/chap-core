@@ -1,5 +1,6 @@
 """Find models, keep your own list of them, and run chapkit models as local instances through chaps or Docker."""
 
+import time
 from typing import Literal
 
 import streamlit as st
@@ -72,6 +73,27 @@ def refresh() -> None:
     load_chaps_added_models.clear()
 
 
+# How long after a start from this page a model that does not answer yet counts as starting. After
+# that it is shown as not answering, and the page stops asking.
+STARTUP_SECONDS = 300
+
+
+def still_starting() -> bool:
+    return time.time() - float(st.session_state.get("last-start", 0.0)) < STARTUP_SECONDS
+
+
+def pending(model: ChapsModel) -> bool:
+    """Running, but not answering yet: starting, or broken once the startup time is over."""
+    return model.state not in ("not running", "registered, unreachable") and not model.answering and not model.internal
+
+
+def waiting(two_lines: bool) -> str:
+    gap = "  \n" if two_lines else " "
+    if still_starting():
+        return f":orange[Starting]{gap}:gray[{'W' if two_lines else '· w'}aiting for it to answer]"
+    return f":red[Not answering]{gap}:gray[{'S' if two_lines else '· s'}ee its logs]"
+
+
 def load_instances() -> bool:
     """Ask chaps and Docker what runs now. Returns whether an instance is still starting."""
     global services, docker_problem, instances, deployment, running
@@ -86,9 +108,9 @@ def load_instances() -> bool:
         and (services.get(e.id) or ((m := deployment.get(e.service_id or "")) is not None and m.answering))
     }
     starting = any(
-        not (s.url and s.status == "running" and service_info(s.url)) for s in services.values() if s.managed or s.url
+        s.status == "running" and not (s.url and service_info(s.url)) for s in services.values() if s.managed or s.url
     )
-    return starting or any(m.state != "not running" and not m.answering and not m.internal for m in instances)
+    return still_starting() and (starting or any(pending(m) for m in instances))
 
 
 entries, invalid = load_catalog()
@@ -127,6 +149,7 @@ def start_instance(entry: CatalogEntry | None, source: str, port: int | None, ev
     """Start an instance, keeping a failure on the model's card instead of losing it on the next rerun."""
     key = f"start-failed:{entry.id if entry else source}"
     st.session_state.pop(key, None)
+    st.session_state["last-start"] = time.time()
     try:
         if chaps:
             chaps_start(source, project, model_id, port, everywhere)
@@ -189,8 +212,12 @@ def state(entry: CatalogEntry) -> tuple[str | None, str]:
         return None, f":gray[Running in `{container.name}` without a host port]"
     if in_chaps and in_chaps.state == "not running" and container is None:
         return None, ":gray[Enabled in chaps, not running]"
+    if container and container.status != "running" and in_chaps is None:
+        return None, ":red[Exited]"
+    if in_chaps and in_chaps.state == "registered, unreachable":
+        return None, ":red[Not answering] :gray[· see its logs]"
     if in_chaps or container:
-        return None, ":orange[Starting] :gray[· waiting for it to answer]"
+        return None, waiting(two_lines=False)
     return None, ":gray[Not running]"
 
 
@@ -216,8 +243,10 @@ def chaps_row(model: ChapsModel) -> None:
         status = ":orange[Only reachable through chap-core]"
     elif model.state == "not running":
         status = ":gray[Not running]"
+    elif model.state == "registered, unreachable":
+        status = ":red[Not answering]  \n:gray[See its logs]"
     else:
-        status = ":orange[Starting]  \n:gray[Waiting for it to answer]"
+        status = waiting(two_lines=True)
     key = f"{model.project_dir}:{model.service_id}"  # the same model may run in several groups
 
     def actions() -> None:
@@ -237,6 +266,14 @@ def chaps_row(model: ChapsModel) -> None:
                         st.session_state[f"row-failed:{key}"] = (f"Could not expose {name}", e)
                     refresh()
                     st.rerun()
+            if model.state == "not running" and st.button("Start", key=f"start-run:{key}", type="primary"):
+                st.session_state["last-start"] = time.time()
+                try:
+                    chaps_start(model.id, model.project_dir)
+                except Exception as e:
+                    st.session_state[f"row-failed:{key}"] = (f"Could not start {name}", e)
+                refresh()
+                st.rerun()
             st.toggle("Logs", key=f"logs:{key}")
             if answering and st.button("Test", key=f"test:{key}"):
                 with st.spinner("chaps trains and predicts with the model on generated data..."):
@@ -268,7 +305,9 @@ def container_row(container: ChapkitService) -> None:
     entry = next((e for e in entries if e.id == container.model_id), None)
     name = entry.name if entry else container.name
     answering = container.url and container.status == "running" and service_info(container.url)
-    status = ":green[Running]" if answering else ":orange[Starting]  \n:gray[Waiting for it to answer]"
+    status = (
+        ":green[Running]" if answering else ":red[Exited]" if container.status != "running" else waiting(two_lines=True)
+    )
     key = container.id
 
     def actions() -> None:
@@ -317,7 +356,8 @@ def running_panel() -> None:
         if not instances and not managed:
             st.markdown(":gray[Nothing is running. Start a chapkit model below to use it in an evaluation.]")
             return
-        own = [m for m in instances if m.group == OWN_GROUP]
+        # Only chap ui's own `chaps run` group: a deployment's models are its operator's to stop.
+        own = [m for m in instances if m.group is not None and m.group == OWN_GROUP]
         if own and cols[1].button(
             "Stop all",
             width="stretch",
@@ -427,7 +467,10 @@ def card(entry: CatalogEntry) -> None:
                 st.button(
                     "Use", key=f"use:{entry.id}", type="primary", width="stretch", on_click=use_model, args=(url,)
                 )
-            elif not (services.get(entry.id) or deployment.get(entry.service_id or "")) and st.button(
+            elif not (
+                services.get(entry.id)
+                or ((m := deployment.get(entry.service_id or "")) is not None and m.state != "not running")
+            ) and st.button(
                 "Try again" if failure else "Start instance",
                 key=f"start:{entry.id}",
                 width="stretch",
