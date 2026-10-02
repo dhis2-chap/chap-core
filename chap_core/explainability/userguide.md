@@ -113,7 +113,7 @@ Number of perturbations to create for the training of the surrogate model. A hig
 Integer seed for the random number generator. When set, results are reproducible across runs with the same configuration. When left unset, each run uses a different random seed.
 
 #### ```last_n``` (Default: None)
-If set, only the last `last_n` time steps of the location's historical data are used for the explanation. Useful for focusing the explanation on recent history or for reducing computation time on long series.
+If set, only the last `last_n` time steps of every location's historical data are used for the explanation, based on the selected location's last_n. Locations that don't fit into the last_n period will be dropped. Useful for focusing the explanation on recent history or for reducing computation time on long series.
 
 #### ```timed``` (Default: False)
 Flag for whether to print timing debug logs during execution.

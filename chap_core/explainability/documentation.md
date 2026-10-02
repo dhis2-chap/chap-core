@@ -24,7 +24,7 @@ Currently the surrogate model is a class handled in surrogate.py for easy mainte
     - location (str): The location on which to explain
     - horizon (int): The number of time steps into the future on which to explain
     - granularity (int): Number of time steps in advance to find weighting on (default: 4)
-    - surrogate_name (str): The model used as explainable surrogate - one of ["ridge", "tree"] (Default ridge)
+    - surrogate_name (str): The model used as explainable surrogate - one of ["ridge", "bayesian", "blr", "bayesian_linear"] (Default ridge)
     - threshold (Optional float): The threshold above which to count as positive observation
 
     The function doesn't return anything, but prints the variable contribution weighting.
