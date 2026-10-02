@@ -24,6 +24,7 @@ from chap_core.database.tables import (
     Prediction,
     PredictionInfo,
     PredictionRead,
+    PredictionSetupObservation,
 )
 from chap_core.rest_api.data_models import (
     BacktestCreate,
@@ -1117,6 +1118,72 @@ def test_get_prediction_setup_includes_linked_predictions(override_session, seed
     assert len(body["predictions"]) == 1
     assert body["predictions"][0]["id"] == prediction.id
     assert body["predictions"][0]["predictionSetupId"] == setup_id
+
+
+def test_prediction_setup_monitoring_returns_evaluation_and_prediction_points(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Monitored")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+    prediction = seeded_session.exec(select(Prediction)).first()
+    assert prediction is not None
+    prediction.prediction_setup_id = setup_id
+    seeded_session.add(prediction)
+    # Stand-in for a later run uploading the observed cases for the prediction's periods.
+    for entry in prediction.forecasts:
+        seeded_session.add(
+            PredictionSetupObservation(
+                prediction_setup_id=setup_id, org_unit=entry.org_unit, period=entry.period, disease_cases=1.0
+            )
+        )
+    seeded_session.commit()
+
+    response = client.get(f"/v1/crud/prediction-setups/{setup_id}/monitoring", params={"metric": "mae"})
+
+    assert response.status_code == 200, response.json()
+    body = response.json()
+    assert body["metricId"] == "mae"
+    assert body["evaluationValue"] == backtest.aggregate_metrics.get("mae")
+    sources = [point["source"] for point in body["points"]]
+    # Evaluation points come first, one per backtest split, then one per prediction.
+    assert sources == sorted(sources)
+    assert sources.count("evaluation") == len({forecast.last_seen_period for forecast in backtest.forecasts})
+    first_forecast_period = TimePeriod.parse(min(entry.period for entry in prediction.forecasts))
+    [prediction_point] = [point for point in body["points"] if point["source"] == "prediction"]
+    assert prediction_point["period"] == (first_forecast_period - first_forecast_period.time_delta).id
+    assert prediction_point["nObserved"] == len(prediction.forecasts)
+
+
+def test_flat_prediction_forecasts_counts_horizons_from_first_forecast_period(seeded_session):
+    from chap_core.services.prediction_monitoring_service import flat_prediction_forecasts
+
+    prediction = seeded_session.exec(select(Prediction)).first()
+    assert prediction is not None
+
+    forecasts = flat_prediction_forecasts([prediction])
+
+    forecast_periods = sorted({entry.period for entry in prediction.forecasts})
+    assert sorted(forecasts.horizon_distance.unique()) == list(range(1, len(forecast_periods) + 1))
+    assert set(forecasts[forecasts.horizon_distance == 1].time_period) == {forecast_periods[0]}
+
+
+def test_prediction_setup_monitoring_unknown_metric_returns_422(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Monitored")
+    assert created.status_code == 200, created.json()
+
+    response = client.get(
+        f"/v1/crud/prediction-setups/{created.json()['id']}/monitoring", params={"metric": "not_a_metric"}
+    )
+
+    assert response.status_code == 422
+
+
+def test_prediction_setup_monitoring_not_found_returns_404(clean_engine, dependency_overrides):
+    response = client.get("/v1/crud/prediction-setups/99999/monitoring", params={"metric": "mae"})
+    assert response.status_code == 404
 
 
 @pytest.mark.parametrize("list_predictions", [False, True])
