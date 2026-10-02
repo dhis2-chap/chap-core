@@ -623,31 +623,38 @@ def load_marketplace():
 
 
 def load_catalog():
-    """Every model the UI knows: marketplace, models added to chaps, your saved models and a checkout's models."""
-    from chap_core.ui.models import catalog_entries, chaps_project, models_file, saved_models
+    """Every model the UI knows: marketplace, models chaps started from a URL or image, your saved
+    models and a checkout's models."""
+    from chap_core.ui.models import catalog_entries, models_file, saved_models
 
     marketplace, invalid = load_marketplace()
     entries = catalog_entries(marketplace, saved_models(models_file()))
-    project = chaps_project()
-    if project is not None:
-        entries[len(marketplace) : len(marketplace)] = load_chaps_added_models(str(project))
+    entries[len(marketplace) : len(marketplace)] = load_chaps_added_models(chaps_location())
     return entries, invalid
 
 
+def chaps_location() -> str:
+    """Cache key for where chaps models live: the deployment's folder, or "" for `chaps run` groups."""
+    from chap_core.ui.models import chaps_project
+
+    project = chaps_project()
+    return str(project) if project else ""
+
+
 @st.cache_data(ttl=60, show_spinner=False)
-def load_chaps_added_models(project: str):
-    """Models added to a chaps deployment with `chaps models add`."""
+def load_chaps_added_models(location: str):
+    """Running models chaps started from a URL or an image."""
     from chap_core.ui.models import chaps_added_models
 
-    return chaps_added_models(Path(project))
+    return chaps_added_models(load_chaps_models(location))
 
 
 @st.cache_data(ttl=5, show_spinner=False)
-def load_chaps_models(project: str):
-    """The models of a chaps deployment; asked again at most every few seconds."""
+def load_chaps_models(location: str):
+    """The models chaps runs; asked again at most every few seconds."""
     from chap_core.ui.models import chaps_models
 
-    return chaps_models(Path(project))
+    return chaps_models(Path(location) if location else None)
 
 
 def model_images() -> dict[str, str]:
@@ -658,14 +665,12 @@ def model_images() -> dict[str, str]:
 
 def _running_service_options() -> dict[str, str]:
     """Chapkit services that are up: containers of marketplace images, and a chaps deployment's models."""
-    from chap_core.ui.models import chaps_project, list_services, model_label
+    from chap_core.ui.models import list_services, model_label
 
     urls: list[str] = []
     with contextlib.suppress(Exception):  # Docker may not be available
         urls += [s.url for s in list_services(model_images()) if s.url and s.status == "running"]
-    project = chaps_project()
-    if project is not None:
-        urls += [m.url for m in load_chaps_models(str(project)).values() if m.answering and m.url]
+    urls += [m.url for m in load_chaps_models(chaps_location()).values() if m.answering and m.url]
     return {f"Running: {model_label(url)}": url for url in dict.fromkeys(urls)}
 
 

@@ -51,8 +51,8 @@ def ui_cmd(
     chaps_project: Annotated[
         Path | None,
         Parameter(
-            help="A chaps deployment whose models the UI should use and start. "
-            "Found automatically when chap ui is started inside one."
+            help="A chaps deployment whose models the UI should use and start. Found automatically when "
+            "chap ui is started inside one. Without one, models start with `chaps run`."
         ),
     ] = None,
     registry_url: Annotated[

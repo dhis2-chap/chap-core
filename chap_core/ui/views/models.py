@@ -6,12 +6,10 @@ import streamlit as st
 
 from chap_core.ui.models import (
     ChapsError,
-    chaps_add,
     chaps_binary,
     chaps_expose,
     chaps_logs,
     chaps_project,
-    chaps_remove,
     chaps_start,
     chaps_stop,
     chaps_test,
@@ -24,8 +22,8 @@ from chap_core.ui.models import (
     start_service,
     stop_service,
 )
-from chap_core.ui.services import get_runs_dir
 from chap_core.ui.widgets import (
+    chaps_location,
     load_catalog,
     load_chaps_added_models,
     load_chaps_models,
@@ -70,13 +68,16 @@ entries, invalid = load_catalog()
 services, docker_problem = docker_services()
 chaps = chaps_binary()
 project = chaps_project()
-deployment = load_chaps_models(str(project)) if project else {}
+deployment = load_chaps_models(chaps_location()) if chaps else {}
 saved_path = models_file()
 
 if chaps and project:
     st.caption(f"Chapkit models start in the chaps deployment at `{project}`.")
 elif chaps:
-    st.caption(f"Chapkit models start in a chaps deployment created at `{get_runs_dir() / 'chaps'}`.")
+    st.caption(
+        "Chapkit models start with `chaps run`, which needs no deployment of your own. "
+        "`chaps ps` lists them in a terminal, and models started there show up here."
+    )
 else:
     st.caption(
         "Chapkit models start as plain Docker containers. Install [chaps](https://github.com/winterop-com/chaps) "
@@ -108,8 +109,8 @@ with st.expander("Add a model", icon=":material/add:"):
     st.divider()
     if chaps:
         st.caption(
-            "A chapkit model the marketplace does not list starts in the chaps deployment with "
-            "`chaps models add`, from its repository (following its newest published build) or an image."
+            "A chapkit model the marketplace does not list starts with `chaps run`, from its repository "
+            "(following its newest published build) or an image. Starting it again reuses it."
         )
         cols = st.columns([2, 4, 1], vertical_alignment="bottom")
         new_id = cols[0].text_input("Id (optional)", key="add-chapkit-id")
@@ -119,9 +120,9 @@ with st.expander("Add a model", icon=":material/add:"):
             placeholder="https://github.com/org/repo, ghcr.io/org/image:tag or a local image:tag",
         )
         if cols[2].button("Start", key="add-chapkit", disabled=not new_source, width="stretch"):
-            with st.spinner("Adding the model to chaps and starting it. Pulling the image can take a while."):
+            with st.spinner("Starting the model. Pulling the image can take a while."):
                 try:
-                    chaps_add(new_source.strip(), project, new_id.strip() or None)
+                    chaps_start(new_source.strip(), project, new_id.strip() or None)
                 except Exception as e:
                     show_failure("Could not add the model", e)
                 else:
@@ -148,8 +149,8 @@ def state(entry) -> tuple[str | None, str]:
         return None, ":orange[Only reachable through chap-core]"
     if container and not container.managed and not container.url and in_chaps is None:
         return None, f":gray[Running in `{container.name}` without a host port]"
-    if in_chaps and in_chaps.state == "not-running" and container is None:
-        return None, ":gray[In the chaps deployment, not running]"
+    if in_chaps and in_chaps.state == "not running" and container is None:
+        return None, ":gray[Enabled in chaps, not running]"
     if in_chaps or container:
         return None, ":orange[Starting...]"
     return None, ":gray[Not started]"
@@ -195,50 +196,35 @@ def card(entry) -> None:
             if entry.kind == "saved" and st.button("Remove from your models", key=f"forget:{entry.id}"):
                 forget_model(saved_path, entry.model_name)
                 st.rerun()
-            if (
-                in_chaps
-                and project
-                and st.button("Stop in chaps", key=f"chaps-stop:{entry.id}", icon=":material/stop:")
-            ):
+            if in_chaps and st.button("Stop", key=f"chaps-stop:{entry.id}", icon=":material/stop:"):
                 try:
-                    chaps_stop(entry.id, project)
+                    chaps_stop(in_chaps)
                 except Exception as e:
                     show_failure(f"Could not stop {entry.name}", e)
                 else:
                     load_chaps_models.clear()
+                    load_chaps_added_models.clear()
                     st.rerun()
             elif container and not container.managed and not in_chaps:
                 st.caption(f"Running in `{container.name}`, which another tool manages.")
             elif container and container.managed and st.button("Stop", key=f"stop:{entry.id}", icon=":material/stop:"):
                 stop_service(container.id)
                 st.rerun()
-            if (
-                url
-                and in_chaps
-                and project
-                and st.button("Test", key=f"chaps-test:{entry.id}", icon=":material/science:")
-            ):
+            if url and in_chaps and st.button("Test", key=f"chaps-test:{entry.id}", icon=":material/science:"):
                 with st.spinner("chaps trains and predicts with the model on generated data..."):
+                    # Kept in the session, so opening the logs or the next refresh does not lose it.
                     try:
-                        st.success(chaps_test(entry.id, project).strip().splitlines()[-1])
+                        st.session_state[f"test-result:{entry.id}"] = chaps_test(in_chaps).strip().splitlines()[-1]
                     except Exception as e:
-                        show_failure(f"{entry.name} did not pass", e)
-            if (
-                entry.added
-                and project
-                and not in_chaps
-                and st.button("Remove from chaps", key=f"chaps-remove:{entry.id}", icon=":material/delete:")
-            ):
-                try:
-                    chaps_remove(entry.id, project)
-                except Exception as e:
-                    show_failure(f"Could not remove {entry.name}", e)
-                else:
-                    load_chaps_added_models.clear()
-                    st.rerun()
-            if ((in_chaps and project) or container) and st.toggle("Show logs", key=f"logs:{entry.id}"):
-                if in_chaps and project:
-                    st.code(chaps_logs(in_chaps.service_id, project, tail=60), "log", height=200)
+                        st.session_state[f"test-result:{entry.id}"] = e
+            result = st.session_state.get(f"test-result:{entry.id}")
+            if isinstance(result, Exception):
+                show_failure(f"{entry.name} did not pass", result)
+            elif result:
+                st.success(result)
+            if (in_chaps or container) and st.toggle("Show logs", key=f"logs:{entry.id}"):
+                if in_chaps:
+                    st.code(chaps_logs(in_chaps, tail=60), "log", height=200)
                 elif container:
                     st.code(service_logs(container.id, tail=60), "log", height=200)
         with footer[2]:
@@ -255,7 +241,7 @@ def card(entry) -> None:
                 st.button(
                     "Use", key=f"use:{entry.id}", type="primary", width="stretch", on_click=use_model, args=(url,)
                 )
-            elif in_chaps and in_chaps.internal and project:
+            elif in_chaps and in_chaps.internal:
                 if st.button(
                     "Expose",
                     key=f"expose:{entry.id}",
@@ -265,13 +251,13 @@ def card(entry) -> None:
                 ):
                     with st.spinner(f"Giving {entry.name} a port of its own..."):
                         try:
-                            chaps_expose(entry.id, project)
+                            chaps_expose(in_chaps)
                         except Exception as e:
                             show_failure(f"Could not expose {entry.name}", e)
                         else:
                             load_chaps_models.clear()
                             st.rerun()
-            elif not (container or (in_chaps and in_chaps.state != "not-running")) and st.button(
+            elif not (container or (in_chaps and in_chaps.state != "not running")) and st.button(
                 "Start", key=f"start:{entry.id}", width="stretch", disabled=bool(docker_problem) and not chaps
             ):
                 start(entry)
@@ -326,7 +312,7 @@ def grid() -> None:
 starting = any(
     not (s.url and s.status == "running" and service_info(s.url)) for s in services.values() if s.managed or s.url
 )
-starting |= any(m.state != "not-running" and not m.answering and not m.internal for m in deployment.values())
+starting |= any(m.state != "not running" and not m.answering and not m.internal for m in deployment.values())
 if starting:
     st.fragment(run_every=3)(grid)()
 else:

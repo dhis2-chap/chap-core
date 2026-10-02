@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 import pytest
 
@@ -11,12 +12,11 @@ from chap_core.ui.models import (
     ChapsModel,
     SavedModel,
     catalog_entries,
-    chaps_add,
     chaps_added_models,
-    chaps_logs,
     chaps_models,
     chaps_project,
     chaps_registry_args,
+    chaps_start,
     chaps_stop,
     forget_model,
     github_models,
@@ -92,31 +92,45 @@ def test_saved_models_appear_in_the_catalog(tmp_path):
     assert [(e.name, e.model_name) for e in saved] == [("Mine", "/models/mine")]
 
 
-def test_chaps_project_is_found_from_the_folder_chap_ui_starts_in(monkeypatch, tmp_path):
+def test_chaps_project_is_only_a_deployment_chap_ui_starts_in(monkeypatch, tmp_path):
     monkeypatch.delenv("CHAPS_PROJECT_DIR", raising=False)
-    monkeypatch.setenv("CHAP_RUNS_DIR", str(tmp_path / "runs"))
     monkeypatch.chdir(tmp_path)
-    assert chaps_project() is None
+    assert chaps_project() is None  # models then start in a `chaps run` group
     (tmp_path / ".chaps").mkdir()
     assert chaps_project() == tmp_path
 
 
-def test_chaps_models_reads_the_deployment_status(monkeypatch, tmp_path):
-    status = {
-        "models": [
-            {"id": "chapkit-ewars-model", "state": "up", "reach": "http://localhost:5001"},
-            {"id": "auto-arima-chapkit", "state": "not-running", "reach": "http://localhost:5004"},
-        ]
-    }
+def fake_chaps(tmp_path, monkeypatch, script: str) -> Path:
+    """A chaps on PATH that runs `script` and records its arguments in the returned file."""
+    calls = tmp_path / "calls"
     fake = tmp_path / "bin" / "chaps"
-    fake.parent.mkdir()
-    fake.write_text(f"#!/bin/sh\necho '{json.dumps(status)}'\n")
+    fake.parent.mkdir(exist_ok=True)
+    fake.write_text(f'#!/bin/sh\necho "$@" >> {calls}\n{script}\n')
     fake.chmod(0o755)
     monkeypatch.setenv("PATH", f"{fake.parent}{os.pathsep}{os.environ['PATH']}")
-    models = chaps_models(tmp_path)
-    assert models["chapkit-ewars-model"] == ChapsModel("chapkit-ewars-model", "up", "http://localhost:5001")
+    return calls
+
+
+def ps_row(service_id: str, state: str, url: str | None, project_dir) -> dict:
+    return {"id": service_id.replace("-", "_"), "service_id": service_id, "state": state, "url": url,
+            "project_dir": str(project_dir)}  # fmt: skip
+
+
+def test_chaps_models_reads_chaps_ps(monkeypatch, tmp_path):
+    listed = {
+        "models": [
+            ps_row("chapkit-ewars-model", "up", "http://localhost:5001", tmp_path),
+            ps_row("auto-arima-chapkit", "not running", "http://localhost:5002", tmp_path),
+        ]
+    }
+    calls = fake_chaps(tmp_path, monkeypatch, f"echo '{json.dumps(listed)}'")
+    models = chaps_models(None)
+    assert models["chapkit-ewars-model"] == ChapsModel(
+        "chapkit_ewars_model", "chapkit-ewars-model", "up", "http://localhost:5001", tmp_path
+    )
     assert models["chapkit-ewars-model"].answering
     assert not models["auto-arima-chapkit"].answering
+    assert calls.read_text().split() == ["--json", "ps"]
 
 
 def test_chaps_gets_the_registry_index_of_the_marketplace_in_use(monkeypatch):
@@ -126,68 +140,51 @@ def test_chaps_gets_the_registry_index_of_the_marketplace_in_use(monkeypatch):
     assert chaps_registry_args() == ["--registry-url", "https://example.org/registry/registry.yaml"]
 
 
-def fake_chaps(tmp_path, monkeypatch, script: str) -> None:
-    fake = tmp_path / "bin" / "chaps"
-    fake.parent.mkdir(exist_ok=True)
-    fake.write_text(f"#!/bin/sh\n{script}\n")
-    fake.chmod(0o755)
-    monkeypatch.setenv("PATH", f"{fake.parent}{os.pathsep}{os.environ['PATH']}")
-
-
 def test_models_behind_chap_core_are_internal_until_exposed(monkeypatch, tmp_path):
-    status = {"models": [{"id": "auto-arima-chapkit", "state": "registered", "reach": "internal"}]}
-    fake_chaps(tmp_path, monkeypatch, f"echo '{json.dumps(status)}'")
+    listed = {"models": [ps_row("auto-arima-chapkit", "registered", None, tmp_path)]}
+    fake_chaps(tmp_path, monkeypatch, f"echo '{json.dumps(listed)}'")
     model = chaps_models(tmp_path)["auto-arima-chapkit"]
-    assert model.url is None
     assert model.internal
     assert not model.answering
 
 
-def test_chaps_failures_report_the_error_line(monkeypatch, tmp_path):
-    fake_chaps(
-        tmp_path,
-        monkeypatch,
-        "echo 'some progress'; echo 'error: docker could not be asked about this project' >&2; "
-        "echo '  caused by: docker compose exited with status 1' >&2; exit 1",
-    )
-    with pytest.raises(ChapsError) as failure:
-        chaps_stop("auto_arima_chapkit", tmp_path)
-    assert str(failure.value) == "docker could not be asked about this project"
-    assert "caused by" in failure.value.output
+def test_chaps_start_runs_the_model_in_a_deployment_or_a_group(monkeypatch, tmp_path):
+    calls = fake_chaps(tmp_path, monkeypatch, """echo '{"ok": true, "url": "http://localhost:5001"}'""")
+    assert chaps_start("https://github.com/me/my_model", None, "my_model")["url"] == "http://localhost:5001"
+    chaps_start("chapkit_ewars_model", tmp_path)
+    in_group, in_deployment = calls.read_text().splitlines()
+    assert in_group == "--json run https://github.com/me/my_model --no-wait --id my_model"
+    assert in_deployment == f"--json -C {tmp_path} run chapkit_ewars_model --no-wait"
 
 
-def test_chaps_added_models_are_catalog_entries(monkeypatch, tmp_path):
+def test_chaps_stop_acts_where_the_model_runs(monkeypatch, tmp_path):
+    calls = fake_chaps(tmp_path, monkeypatch, """echo '{"ok": true}'""")
+    chaps_stop(ChapsModel("my_model", "my-model", "up", "http://localhost:5001", tmp_path / "group"))
+    assert calls.read_text().split() == ["--json", "-C", str(tmp_path / "group"), "stop", "my_model"]
+
+
+def test_chaps_failures_report_chaps_error(monkeypatch, tmp_path):
+    failure = {
+        "ok": False,
+        "error": "nothing did not start (denied)",
+        "hint": "fix that, then `chaps run x` tries again",
+    }
+    fake_chaps(tmp_path, monkeypatch, f"echo 'Pulling' >&2; echo '{json.dumps(failure)}'; exit 1")
+    with pytest.raises(ChapsError) as raised:
+        chaps_start("ghcr.io/nobody/nothing:1", None)
+    assert str(raised.value) == "nothing did not start (denied); fix that, then `chaps run x` tries again"
+    assert "Pulling" in raised.value.output
+
+
+def test_running_models_started_from_a_url_are_catalog_entries(monkeypatch, tmp_path):
     listed = [
-        {"id": "chapkit_ewars_model", "service_id": "chapkit-ewars-model", "image": "ghcr.io/a/b:1", "manual": False},
-        {
-            "id": "my_model",
-            "service_id": "my-model",
-            "display_name": "My model",
-            "image": "ghcr.io/me/my_model:sha-1",
-            "manual": True,
-        },
-    ]
+        {"id": "chapkit_ewars_model", "service_id": "chapkit-ewars-model", "image": "ghcr.io/a/b:1", "manual": False,
+         "enabled": True},
+        {"id": "my_model", "service_id": "my-model", "display_name": "My model", "image": "ghcr.io/me/my_model:sha-1",
+         "manual": True, "enabled": True},
+        {"id": "stopped", "service_id": "stopped", "image": "ghcr.io/me/stopped:1", "manual": True, "enabled": False},
+    ]  # fmt: skip
     fake_chaps(tmp_path, monkeypatch, f"echo '{json.dumps(listed)}'")
-    (entry,) = chaps_added_models(tmp_path)
-    assert (entry.id, entry.name, entry.kind, entry.service_id, entry.added) == (
-        "my_model",
-        "My model",
-        "chapkit",
-        "my-model",
-        True,
-    )
-
-
-def test_chaps_add_adds_the_model_on_a_free_port_and_starts_it(monkeypatch, tmp_path):
-    calls = tmp_path / "calls"
-    fake_chaps(tmp_path, monkeypatch, f'echo "$@" >> {calls}')
-    (tmp_path / ".chaps").mkdir()
-    chaps_add("https://github.com/me/my_model", tmp_path, "my_model")
-    added, up = calls.read_text().splitlines()
-    assert added.endswith("models add https://github.com/me/my_model --port auto --id my_model")
-    assert up.endswith(f"-C {tmp_path} up")
-
-
-def test_chaps_logs_are_plain_text(monkeypatch, tmp_path):
-    fake_chaps(tmp_path, monkeypatch, r"printf 'one\n\033[32mtwo\033[0m\n'")
-    assert chaps_logs("my-model", tmp_path, tail=1) == "two"
+    running = {"my-model": ChapsModel("my_model", "my-model", "up", "http://localhost:5001", tmp_path)}
+    (entry,) = chaps_added_models(running)
+    assert (entry.id, entry.name, entry.kind, entry.service_id) == ("my_model", "My model", "chapkit", "my-model")

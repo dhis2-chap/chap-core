@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,7 +20,6 @@ if TYPE_CHECKING:
 # Label on containers chap started itself, so it knows it may stop them.
 SERVICE_LABEL = "org.dhis2.chap.model"
 CHAPKIT_PORT = "8000/tcp"
-ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 CONFIGURED_MODELS_DIR = REPO_ROOT / "config" / "configured_models"
 
 
@@ -51,7 +49,6 @@ class CatalogEntry:
     image: str | None = None  # docker image, for chapkit models
     repository: str | None = None
     service_id: str | None = None  # chapkit service id, as chaps and compose name it
-    added: bool = False  # added to a chaps deployment with `chaps models add`
 
 
 @dataclass(frozen=True)
@@ -62,13 +59,19 @@ class SavedModel:
     model: str
 
 
+# The `chaps ps` states of a model that is running and takes requests.
+CHAPS_ANSWERING = frozenset({"up", "registered", "running, not registered", "unmanaged"})
+
+
 @dataclass(frozen=True)
 class ChapsModel:
-    """A model in a chaps deployment, as `chaps status` reports it."""
+    """A model chaps runs, as `chaps ps` reports it."""
 
+    id: str
     service_id: str
     state: str
     url: str | None
+    project_dir: Path  # the deployment or `chaps run` group it runs in, for logs, test and expose
 
     @property
     def internal(self) -> bool:
@@ -76,12 +79,11 @@ class ChapsModel:
 
         chap eval needs to write to the model, so such a model needs a host port of its own first.
         """
-        return self.url is None and self.state in ("registered", "running-not-registered", "unmanaged", "up")
+        return self.url is None and self.state in CHAPS_ANSWERING
 
     @property
     def answering(self) -> bool:
-        """Whether the model takes requests: chaps says registered, running or up."""
-        return self.url is not None and self.state in ("registered", "running-not-registered", "unmanaged", "up")
+        return self.url is not None and self.state in CHAPS_ANSWERING
 
 
 @dataclass(frozen=True)
@@ -375,148 +377,114 @@ def _chaps() -> str:
 
 
 def chaps_project() -> Path | None:
-    """The chaps deployment to use: CHAPS_PROJECT_DIR, the folder chap ui was started in when it is
-    one, or the deployment chap ui created in the runs folder earlier."""
-    from chap_core.ui.services import get_runs_dir
-
+    """The chaps deployment to start models in: CHAPS_PROJECT_DIR, or the folder chap ui was started
+    in when it is one. Without one, models start in chaps' default `chaps run` group."""
     configured = os.environ.get("CHAPS_PROJECT_DIR")
-    candidates = [Path(configured)] if configured else [Path.cwd(), get_runs_dir() / "chaps"]
-    return next((p.resolve() for p in candidates if (p / ".chaps").is_dir()), None)
+    candidate = Path(configured) if configured else Path.cwd()
+    return candidate.resolve() if (candidate / ".chaps").is_dir() else None
 
 
-def chaps_models(project: Path) -> dict[str, ChapsModel]:
-    """The models of a chaps deployment by service id, with their state and address."""
-    from chap_core.ui.services import run_external
-
-    binary = chaps_binary()
-    if binary is None:
+def chaps_models(project: Path | None) -> dict[str, ChapsModel]:
+    """The models chaps runs, by service id: those of the deployment, or of every `chaps run` group."""
+    if chaps_binary() is None:
         return {}
-    result = run_external([binary, "--json", "-C", str(project), "status"], timeout=60)
     try:
-        status = json.loads(result.stdout)
-    except json.JSONDecodeError:
+        listed = _chaps_json(["ps"], project, timeout=60)
+    except ChapsError:
         return {}
     return {
-        m["id"]: ChapsModel(
-            m["id"], m.get("state", ""), m.get("reach") if str(m.get("reach", "")).startswith("http") else None
-        )
-        for m in status.get("models", [])
+        m["service_id"]: ChapsModel(m["id"], m["service_id"], m.get("state", ""), m.get("url"), Path(m["project_dir"]))
+        for m in listed.get("models", [])
     }
 
 
-def chaps_deployment(project: Path | None) -> tuple[Path, str]:
-    """The chaps deployment to start models in, and what chaps printed creating it.
+def chaps_start(source: str, project: Path | None, model_id: str | None = None) -> dict:
+    """Start a model with `chaps run`: a marketplace id, a repository URL or an image.
 
-    Without one, a models-only deployment is created as chaps/ in the runs folder.
+    Starting one that was started before reuses it. Returns what chaps reports, with the model's URL.
     """
-    from chap_core.ui.services import get_runs_dir, run_external
-
-    if project is not None:
-        return project, ""
-    project = get_runs_dir() / "chaps"
-    project.parent.mkdir(parents=True, exist_ok=True)
-    command = [_chaps(), *chaps_registry_args(), "init", str(project), "--only", "none", "--models", "none"]
-    return project, _check(run_external(command))
+    return dict(_chaps_json(["run", source, "--no-wait", *(["--id", model_id] if model_id else [])], project))
 
 
-def chaps_start(model_id: str, project: Path | None) -> tuple[Path, str]:
-    """Enable a model in a chaps deployment and start it. Returns the deployment and what chaps printed."""
-    from chap_core.ui.services import run_external
-
-    project, output = chaps_deployment(project)
-    enabled = run_external(
-        [_chaps(), *chaps_registry_args(), "-C", str(project), "models", "enable", model_id, "--port", "auto"]
-    )
-    if enabled.returncode != 0 and "already enabled" not in (enabled.stdout + enabled.stderr):
-        _check(enabled)
-    output += enabled.stdout + enabled.stderr
-    return project, output + _check(run_external([_chaps(), *chaps_registry_args(), "-C", str(project), "up"]))
+def chaps_stop(model: ChapsModel) -> dict:
+    """Stop a model. An added model's definition stays, so starting it again needs no download."""
+    return dict(_chaps_json(["stop", model.id], model.project_dir))
 
 
-def chaps_add(source: str, project: Path | None, model_id: str | None = None) -> tuple[Path, str]:
-    """Add a model the marketplace does not list, from its repository URL or an image, and start it."""
-    from chap_core.ui.services import run_external
-
-    project, output = chaps_deployment(project)
-    command = [_chaps(), *chaps_registry_args(), "-C", str(project), "models", "add", source, "--port", "auto"]
-    output += _check(run_external(command + (["--id", model_id] if model_id else [])))
-    return project, output + _check(run_external([_chaps(), *chaps_registry_args(), "-C", str(project), "up"]))
+def chaps_expose(model: ChapsModel) -> dict:
+    """Give a model behind chap-core a host port of its own, so chap eval can reach it."""
+    _chaps_json(["models", "expose", model.id, "--port", "auto"], model.project_dir)
+    return dict(_chaps_json(["up", "--wait"], model.project_dir))
 
 
-def chaps_added_models(project: Path) -> list[CatalogEntry]:
-    """Models added to a chaps deployment with `chaps models add`, as catalog entries."""
-    from chap_core.ui.services import run_external
-
-    if chaps_binary() is None:
-        return []
-    result = run_external([_chaps(), "--json", "-C", str(project), "models", "list"], timeout=60)
-    try:
-        listed = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return []
-    status, tone = ASSESSMENT["gray"]
-    return [
-        CatalogEntry(
-            id=m["id"],
-            name=m.get("display_name") or m["id"],
-            kind="chapkit",
-            source="Chapkit · added to chaps",
-            summary=f"Added to the chaps deployment from `{m['image']}`.",
-            status=status,
-            tone=tone,
-            tags=("Added",),
-            image=m["image"],
-            service_id=m["service_id"],
-            added=True,
-        )
-        for m in listed
-        if m.get("manual")
-    ]
+def chaps_added_models(models: dict[str, ChapsModel]) -> list[CatalogEntry]:
+    """Running models that were started from a URL or an image rather than the marketplace."""
+    entries = []
+    for project_dir in sorted({m.project_dir for m in models.values()}):
+        try:
+            listed = _chaps_json(["models", "list"], project_dir, timeout=60)
+        except ChapsError:
+            continue
+        status, tone = ASSESSMENT["gray"]
+        entries += [
+            CatalogEntry(
+                id=m["id"],
+                name=m.get("display_name") or m["id"],
+                kind="chapkit",
+                source="Chapkit · started from a URL or image",
+                summary=f"Started with `chaps run` from `{m['image']}`.",
+                status=status,
+                tone=tone,
+                tags=("Added",),
+                image=m["image"],
+                service_id=m["service_id"],
+            )
+            for m in listed
+            if m.get("manual") and m.get("enabled")
+        ]
+    return entries
 
 
-def chaps_test(model_id: str, project: Path) -> str:
+def chaps_test(model: ChapsModel) -> str:
     """Have chaps train and predict with a running model on generated data."""
     from chap_core.ui.services import run_external
 
-    return _check(run_external([_chaps(), "-C", str(project), "models", "test", model_id]))
+    return _check(run_external([_chaps(), "-C", str(model.project_dir), "models", "test", model.id]))
 
 
-def chaps_logs(service_id: str, project: Path, tail: int = 200) -> str:
-    """The last lines a model of a chaps deployment logged."""
+def chaps_logs(model: ChapsModel, tail: int = 200) -> str:
+    """The last lines a model logged."""
     from chap_core.ui.services import run_external
 
-    output = run_external([_chaps(), "-C", str(project), "logs", service_id], timeout=60).stdout
-    return "\n".join(ANSI_ESCAPE.sub("", output).splitlines()[-tail:])
-
-
-def chaps_remove(model_id: str, project: Path) -> str:
-    """Take a model added with `chaps models add` out of the deployment again."""
-    from chap_core.ui.services import run_external
-
-    return _check(run_external([_chaps(), "-C", str(project), "models", "remove", model_id]))
-
-
-def chaps_expose(model_id: str, project: Path) -> str:
-    """Give a model of a chaps deployment a host port of its own, so chap eval can reach it."""
-    from chap_core.ui.services import run_external
-
-    output = _check(run_external([_chaps(), "-C", str(project), "models", "expose", model_id, "--port", "auto"]))
-    return output + _check(run_external([_chaps(), *chaps_registry_args(), "-C", str(project), "up"]))
-
-
-def chaps_stop(model_id: str, project: Path) -> str:
-    """Disable a model in a chaps deployment, which stops its container."""
-    from chap_core.ui.services import run_external
-
-    return _check(run_external([_chaps(), "-C", str(project), "models", "disable", model_id]))
+    command = [_chaps(), "-C", str(model.project_dir), "logs", "--tail", str(tail), model.service_id]
+    return str(run_external(command, timeout=60).stdout)
 
 
 class ChapsError(RuntimeError):
-    """A chaps command failed; the message is its error line, `output` everything it printed."""
+    """A chaps command failed; the message is its error, `output` everything it printed."""
 
     def __init__(self, message: str, output: str):
         super().__init__(message)
         self.output = output
+
+
+def _chaps_json(args: list[str], project: Path | None, timeout: float = 1800):
+    """Run a chaps command with --json and return its document; a failure raises ChapsError."""
+    from chap_core.ui.services import run_external
+
+    location = ["-C", str(project)] if project else []
+    result = run_external([_chaps(), "--json", *chaps_registry_args(), *location, *args], timeout=timeout)
+    output = (result.stdout or "") + (result.stderr or "")
+    try:
+        document = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        lines = output.strip().splitlines()
+        raise ChapsError(lines[-1] if lines else f"chaps exited with {result.returncode}", output) from None
+    if isinstance(document, dict) and document.get("ok") is False:
+        # chaps gives the way out separately, in `hint`; the UI shows the whole sentence.
+        message = "; ".join(part for part in (document.get("error"), document.get("hint")) if part)
+        raise ChapsError(message or f"chaps exited with {result.returncode}", output)
+    return document
 
 
 def _check(result) -> str:
