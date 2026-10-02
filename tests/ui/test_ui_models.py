@@ -281,3 +281,10 @@ def test_a_service_without_metrics_reports_none():
     from chap_core.ui.models import service_metrics
 
     assert service_metrics("http://127.0.0.1:9") is None
+
+
+def test_request_totals_are_read_under_servicekit_3s_metric_names():
+    from chap_core.ui.models import parse_metrics
+
+    text = 'http_server_request_duration_seconds_count{http_request_method="GET",http_route="/health"} 7.0\n'
+    assert parse_metrics(text).requests == 7.0

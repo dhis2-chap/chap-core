@@ -337,7 +337,11 @@ def parse_metrics(text: str) -> ServiceMetrics:
     return ServiceMetrics(
         trainings=totals.get("ml_train_jobs_total"),
         predictions=totals.get("ml_predict_jobs_total"),
-        requests=totals.get("http_server_duration_milliseconds_count"),
+        # servicekit 3 names the request total after the stable HTTP semantic conventions; older services use
+        # the experimental name.
+        requests=totals.get(
+            "http_server_request_duration_seconds_count", totals.get("http_server_duration_milliseconds_count")
+        ),
         memory_bytes=totals.get("process_resident_memory_bytes"),
         cpu_seconds=totals.get("process_cpu_seconds_total"),
         started=totals.get("process_start_time_seconds"),
