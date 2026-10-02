@@ -92,6 +92,7 @@ def _create_evaluation(
         ModelConfiguration,
         ModelTemplateDB,
     )
+    from chap_core.external.ExtendedPredictor import ExtendedPredictor
     from chap_core.models.model_template import ModelTemplate
     from chap_core.models.utils import CHAP_RUNS_DIR
 
@@ -109,7 +110,7 @@ def _create_evaluation(
         configuration = ModelConfiguration.model_validate(model_candidate.configuration)
 
     model = template.get_model(configuration, prediction_length=backtest_params.n_periods)  # type: ignore[arg-type]
-    estimator = model()
+    estimator = ExtendedPredictor.extend_to_horizon(model(), backtest_params.n_periods)
 
     model_template_db = ModelTemplateDB(
         id=template.model_template_config.name,

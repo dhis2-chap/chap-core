@@ -36,7 +36,6 @@ from chap_core.database.dataset_tables import DataSet, Observation, ObservationB
 from chap_core.database.tables import Backtest, BacktestForecast, BacktestSpecification
 from chap_core.external.ExtendedPredictor import ExtendedPredictor
 from chap_core.hpo.types import FlatHyperparameterOptimization, HyperparameterOptimization
-from chap_core.models.configured_model import ConfiguredModel
 from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.time_period import Month, TimePeriod
 
@@ -444,6 +443,8 @@ class Evaluation(EvaluationBase):
         backtest_params: BacktestParams,
         backtest_name: str = "evaluation",
         historical_context_years: int = 6,
+        info: BacktestCreate | None = None,
+        specification: BacktestSpecification | None = None,
     ) -> Evaluation:
         """
         Uses ``train_test_generator`` to create an expanding window split of the
@@ -455,13 +456,19 @@ class Evaluation(EvaluationBase):
 
         Args:
             configured_model: Configured model database object with metadata
-            estimator: Model estimator instance ready for training/prediction
+            estimator: Model estimator instance ready for training/prediction. It is run
+                as given: wrap a model whose max_prediction_periods is below
+                ``backtest_params.n_periods`` with ``ExtendedPredictor.extend_to_horizon``
+                first. Only the model tuned from a HyperparameterOptimizer is wrapped here.
             dataset: Dataset to evaluate on
             backtest_params: Backtest execution parameters (n_periods, n_splits, stride)
             backtest_name: Name for the backtest (default: "evaluation")
             historical_context_years: Years of historical data to include for plotting
                 context (default: 6). Number of periods is calculated based on dataset
                 period type (e.g., 6 years = 312 weeks or 72 months).
+            info: Backtest metadata to record. Defaults to an in-memory backtest named
+                ``backtest_name`` (``dataset_id=0``), as used by the CLI.
+            specification: Specification row to attach, for callers that persist the backtest.
 
         Returns:
             Evaluation instance with backtest results
@@ -486,22 +493,12 @@ class Evaluation(EvaluationBase):
                 hpo_data.model_configuration,  # type: ignore[arg-type]
                 prediction_length=backtest_params.n_periods,
             )
-            tuned_estimator = model()  # type: ignore[assignment]
+            # The tuned model is built here, so callers cannot extend its horizon themselves.
+            tuned_estimator = ExtendedPredictor.extend_to_horizon(model(), backtest_params.n_periods)  # type: ignore[assignment]
         elif isinstance(estimator, MetaLearner):
             raise TypeError(f"Unsupported MetaLearner: {type(estimator).__name__}")
         else:
             tuned_estimator = estimator
-
-        # also used by hpo objective call
-        if (
-            isinstance(tuned_estimator, ConfiguredModel) and tuned_estimator.model_information is not None
-        ):  # ensembleModel returns None, NaiveModel has no model_information
-            max_periods = tuned_estimator.model_information.max_prediction_periods
-            if max_periods is not None and max_periods < backtest_params.n_periods:
-                logger.warning(
-                    f"Wrapping model to extend prediction length from {max_periods} to {backtest_params.n_periods}. This is done iteratively, and may worsen model performance"
-                )
-                tuned_estimator = ExtendedPredictor(tuned_estimator, backtest_params.n_periods)
 
         # Run backtest
         evaluation_results = backtest(
@@ -515,7 +512,7 @@ class Evaluation(EvaluationBase):
         # Prepare metadata
         last_train_period = train_set.period_range[-1]
 
-        backtest_info = BacktestCreate(
+        backtest_info = info or BacktestCreate(
             name=backtest_name,
             dataset_id=0,
             model_id=configured_model.id,
@@ -547,6 +544,7 @@ class Evaluation(EvaluationBase):
             info=backtest_info,
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
+            specification=specification,
             hpo=hpo_data,
         )
 
@@ -843,17 +841,21 @@ class Evaluation(EvaluationBase):
 
         ds.close()
 
-        if flat_data.hpo is not None:
-            logger.warning(
-                "HPO doesn't yet support converting flat representation back into HyperparameterOptimization."
-            )
-
-        return cls(
+        evaluation = cls(
             backtest,
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
             hpo=None,
         )
+
+        evaluation._flat_data_cache = flat_data
+        if flat_data.hpo is not None:
+            logger.warning(
+                "HPO doesn't yet support converting flat representation back into HyperparameterOptimization, "
+                "but FlatHyperparameterOptimization will be available in flat data cache."
+            )
+
+        return evaluation
 
     @staticmethod
     def _ensure_backcompatibility(ds: xr.Dataset) -> xr.Dataset:

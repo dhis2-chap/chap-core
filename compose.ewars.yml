@@ -1,10 +1,14 @@
+# Development only. Runs the EWARS chapkit service next to chap. The service registers a
+# model template but gets no configurations, so it cannot be run. Deployments install
+# EWARS with `chap-admin install-all` instead, which writes compose.marketplace.yml. Do not
+# use both: the two services register under the same id.
 services:
   ewars:
     restart: unless-stopped
     # Pinned to a specific build rather than latest so a deployment stays reproducible
     # (CLIM-979). The model's publish workflow tags every main build as sha-<short commit>;
     # set EWARS_IMAGE_TAG in .env to move the pin.
-    image: ghcr.io/chap-models/chapkit_ewars_model:${EWARS_IMAGE_TAG:-sha-24d58c0}
+    image: ghcr.io/chap-models/chapkit_ewars_model:${EWARS_IMAGE_TAG:-sha-964eea8}
     platform: linux/amd64
     init: true
     ports:

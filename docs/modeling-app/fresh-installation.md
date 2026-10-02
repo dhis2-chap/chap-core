@@ -7,8 +7,18 @@ Follow these steps if you're installing Chap Core for the first time.
 
 ## Prerequisites
 
-- Docker and Docker Compose installed on your system
 - Git for cloning the repository
+- Docker and Docker Compose installed on your system
+- [uv](https://docs.astral.sh/uv/) for installing the `chap-admin` command, which adds models to Chap
+
+uv installs Python tools together with the Python version they need, so the host does not need a recent Python of its own. On Linux, install it with:
+
+```console
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
+```
+
+On macOS, use `brew install uv`. See the [uv installation guide](https://docs.astral.sh/uv/getting-started/installation/) for other systems. Check that it works with `uv --version`.
 
 ## 1. Clone the Chap Core Repository
 
@@ -52,7 +62,7 @@ This creates a `.env` file with default database credentials used by Docker Comp
 ## 4. Start Chap Core
 
 ```console
-docker compose -f compose.yml -f compose.chapkit.yml up -d
+docker compose up -d
 ```
 
 This command will:
@@ -63,14 +73,32 @@ This command will:
 - Start the Chap Core API server
 - Start the Celery worker for background jobs
 - **Automatically create and initialize your database**
-- Start the bundled model services, which register themselves with Chap on startup and then appear in the modeling app — no extra configuration or rebuild needed
 
-The Chap Core REST API will be available at `http://localhost:8000` once all services are running.
+The Chap Core REST API will be available at `http://localhost:8000` once all services are running. At this point Chap has only its built-in models.
 
-!!! note "About the model services"
-    `compose.chapkit.yml` is an umbrella overlay that starts the bundled model services alongside Chap. Plain `docker compose up` (just `compose.yml`) also works and gives you Chap Core with its built-in models, but without those additional model services. `compose.yml` and `compose.ghcr.yml` are alternatives — do not stack them.
+!!! note
+    `compose.yml` and `compose.ghcr.yml` are alternatives — do not stack them.
 
-## 5. Verify the Installation
+## 5. Install the Models
+
+Model services are installed from the [CHAP Model Marketplace](https://github.com/dhis2-chap/model-marketplace) with `chap-admin`, which comes with the `chap-core` package. Install the same `chap-core` version as the Chap you checked out in step 2, since `chap-admin` uses REST API endpoints of that version. Then install every model with a verified stable version from the repository directory:
+
+```console
+uv tool install chap-core==[VERSION] --python 3.13  # e.g. chap-core==1.0.18
+chap-admin install-all
+```
+
+This is a manual step, run once after the first `docker compose up`. For each model it starts the model service, waits for it to register with Chap, and adds the model's verified configurations. The services are written into `compose.marketplace.yml` next to `compose.yml`. Add `--platform linux/amd64` on machines that are not AMD64, such as Apple Silicon, since some models only publish AMD64 images. If you set `CHAP_API_TOKEN` in `.env`, export it in your shell first, since `chap-admin` does not read `.env`.
+
+From now on, include `compose.marketplace.yml` in every Docker Compose command for this deployment:
+
+```console
+docker compose -f compose.yml -f compose.marketplace.yml up -d
+```
+
+See [Running marketplace models](../chap-cli/chap-core-cli-setup.md#running-marketplace-models) for installing, updating and removing single models.
+
+## 6. Verify the Installation
 
 You can verify that Chap Core is running correctly by:
 
@@ -82,7 +110,7 @@ You can verify that Chap Core is running correctly by:
 curl http://localhost:8000/health
 ```
 
-3. **Check the available models**: confirm the models (including the bundled model services) are registered:
+3. **Check the available models**: confirm the installed marketplace models are listed:
 
 ```console
 curl http://localhost:8000/v1/crud/configured-models
@@ -103,10 +131,10 @@ docker compose logs -f
 To stop all services (pass the same `-f` flags used to start them):
 
 ```console
-docker compose -f compose.yml -f compose.chapkit.yml down
+docker compose -f compose.yml -f compose.marketplace.yml down
 ```
 
-This preserves your database data. To start again, run the same `docker compose -f compose.yml -f compose.chapkit.yml up -d` command from step 4.
+This preserves your database data. To start again, run `docker compose -f compose.yml -f compose.marketplace.yml up -d`.
 
 ### Viewing Logs
 

@@ -505,7 +505,8 @@ def create_backtests(
     "/make-prediction",
     response_model=JobResponse,
     tags=["Predictions"],
-    summary="Run a one-off forecast from inline data",
+    deprecated=True,
+    summary="Run a one-off forecast from inline data (deprecated, use prediction setups)",
 )
 async def make_prediction(
     request: MakePredictionRequest,
@@ -515,11 +516,13 @@ async def make_prediction(
 ):
     """Run a forecast against observations supplied directly in the request body — no stored dataset needed.
 
-    Use this for ad-hoc work when DHIS2 (or another source) already has the data and you
-    want it run through a configured model once. Forecasting happens in the background;
-    the response carries a job id you poll via ``/v1/jobs/{id}`` for the result. For a
-    recurring or scheduled version of the same workflow, use a prediction setup. The
-    legacy ``data_to_be_fetched`` field is rejected — supply the observations directly.
+    Deprecated: use ``POST /v1/crud/prediction-setups/{predictionSetupId}/run`` instead.
+    Predictions made here are not linked to a prediction setup, so they cannot be
+    monitored against observed cases.
+
+    Forecasting happens in the background; the response carries a job id you poll via
+    ``/v1/jobs/{id}`` for the result. The legacy ``data_to_be_fetched`` field is
+    rejected — supply the observations directly.
     """
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
@@ -906,6 +909,43 @@ class ThresholdStrategyInfo(DBModel):
     id: str = Field(description="Canonical strategy identifier used in request bodies.")
     display_name: str = Field(description="Human-friendly strategy name shown in pickers.")
     description: str = Field(default="", description="Short paragraph explaining what the strategy computes.")
+
+
+class BacktestParameterInfo(DBModel):
+    """Default value and display metadata for one backtest parameter."""
+
+    name: str = Field(description="CamelCase parameter name used in request bodies.")
+    label: str = Field(description="Human-friendly label shown in forms.")
+    description: str = Field(description="Short help text for the parameter.")
+    default: int | str = Field(description="Value used when the parameter is omitted.")
+    type: str = Field(description="JSON Schema type of the parameter.")
+    minimum: int | None = Field(default=None, description="Inclusive lower bound, when applicable.")
+
+
+@router.get(
+    "/backtest-parameters",
+    response_model=list[BacktestParameterInfo],
+    response_model_exclude_none=True,
+    tags=["Backtests"],
+    summary="Discover backtest parameter defaults and display metadata",
+)
+def list_backtest_parameters():
+    """Populate a backtest form from the same field definitions used to validate requests.
+
+    Use `GET /v1/analytics/weather-providers` to populate the `futureWeatherProvider` picker.
+    """
+    properties = BacktestParams.model_json_schema(by_alias=False)["properties"]
+    return [
+        BacktestParameterInfo(
+            name=field.alias or name,
+            label=properties[name]["title"],
+            description=field.description,
+            default=field.default,
+            type=properties[name]["type"],
+            minimum=properties[name].get("minimum"),
+        )
+        for name, field in BacktestParams.model_fields.items()
+    ]
 
 
 class WeatherProviderInfo(DBModel):

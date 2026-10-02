@@ -1,5 +1,7 @@
+import json
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import httpx
 import pytest
@@ -13,13 +15,139 @@ def marketplace_model():
     return yaml.safe_load(path.read_text())
 
 
+CUSTOM_SERVICE_INFO = {
+    "id": "custom-model",
+    "display_name": "Custom Model",
+    "version": "1.0.0",
+    "git_revision": "c" * 40,
+    "model_metadata": {"author": "Someone"},
+    "period_type": "monthly",
+}
+
+
+class FakeChap:
+    """In-memory stand-in for the CHAP endpoints chap-admin drives, served over httpx.MockTransport."""
+
+    def __init__(self):
+        self.templates: list[dict] = []
+        self.configured_models: list[dict] = []
+        # Services that have self-registered, from the compose service name chap-admin gives them.
+        self.services: list[dict[str, Any]] = []
+        self.requests: list[tuple[str, str, object]] = []
+
+    def register(self, service_name: str, info: dict[str, Any]) -> None:
+        """What a chapkit container does when it starts: register under its own id from its hostname.
+
+        Like CHAP, registration stores the template of a version it does not have yet.
+        """
+        self.services = [service for service in self.services if service["id"] != info["id"]]
+        self.services.append({"id": info["id"], "url": f"http://{service_name}:8000", "info": info})
+        stored = [t for t in self.templates if (t["name"], t["version"]) == (info["id"], info["version"])]
+        if not stored:
+            self._store_template(
+                {"name": info["id"], "version": info["version"], "source_digest": info["git_revision"]}
+            )
+
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        path: str = request.url.path
+        body: dict = json.loads(request.content) if request.content else {}
+        self.requests.append((request.method, path, body or None))
+        if (request.method, path) == ("GET", "/v1/crud/model-templates"):
+            return httpx.Response(200, json=[t for t in self.templates if t["isLive"]])
+        if (request.method, path) == ("POST", "/v1/crud/model-templates/from-service"):
+            service = next((s for s in self.services if s["id"] == body["service_id"]), None)
+            if service is None:
+                return httpx.Response(404, json={"detail": "Service not found"})
+            info = service["info"]
+            return self._store_template(
+                {"name": info["id"], "version": info["version"], "source_digest": info["git_revision"]}
+            )
+        if request.method == "DELETE" and path.startswith("/v1/crud/model-templates/"):
+            template = next(t for t in self.templates if t["id"] == int(path.rsplit("/", 1)[1]))
+            all_versions = request.url.params.get("allVersions") == "true"
+            retired = [t for t in self.templates if t["name"] == template["name"]] if all_versions else [template]
+            for version in retired:
+                version["archived"] = True
+                for model in self.configured_models:
+                    if model["modelTemplateId"] == version["id"]:
+                        model["archived"] = True
+            if all_versions:
+                return httpx.Response(200, json={"message": "deleted"})
+            # Like CHAP, retiring the live version hands live status back to the newest runnable one.
+            runnable = [
+                t
+                for t in self.templates
+                if t["name"] == template["name"]
+                and not t["archived"]
+                and any(m["modelTemplateId"] == t["id"] for m in self.configured_models)
+            ]
+            if template["isLive"] and runnable:
+                template["isLive"] = False
+                runnable[-1]["isLive"] = True
+            return httpx.Response(200, json={"message": "deleted"})
+        if request.method == "DELETE" and path.startswith("/v2/services/"):
+            service_id = path.rsplit("/", 1)[1]
+            if not any(s["id"] == service_id for s in self.services):
+                return httpx.Response(404, json={"detail": "Service not found"})
+            self.services = [s for s in self.services if s["id"] != service_id]
+            return httpx.Response(204)
+        if (request.method, path) == ("POST", "/v1/crud/configured-models"):
+            model = {"id": len(self.configured_models) + 1, "archived": False, **body}
+            model["modelTemplateId"] = model.pop("model_template_id")
+            # Like CHAP, a version with a configured model takes over as the live version.
+            template = next(t for t in self.templates if t["id"] == model["modelTemplateId"])
+            for other in self.templates:
+                if other["name"] == template["name"]:
+                    other["isLive"] = other is template
+            # Like CHAP, an identical configuration is returned, not stored twice.
+            identity = {key: model[key] for key in ("modelTemplateId", "name", "user_option_values")}
+            stored = next((m for m in self.configured_models if {k: m[k] for k in identity} == identity), None)
+            if stored is not None:
+                stored["archived"] = False
+                return httpx.Response(200, json=stored)
+            self.configured_models.append(model)
+            return httpx.Response(200, json=model)
+        if (request.method, path) == ("GET", "/v2/services"):
+            return httpx.Response(200, json={"count": len(self.services), "services": self.services})
+        return httpx.Response(404, json={"detail": f"No fake route for {request.method} {path}"})
+
+    def _store_template(self, body: dict) -> httpx.Response:
+        stored = next((t for t in self.templates if (t["name"], t["version"]) == (body["name"], body["version"])), None)
+        if stored is not None:
+            if stored["sourceDigest"] is not None and stored["sourceDigest"] != body.get("source_digest"):
+                return httpx.Response(409, json={"detail": "A version is write-once"})
+            stored["archived"] = False
+            return httpx.Response(200, json=stored)
+        # Like CHAP, a new version is live at once only when no version of the name is live.
+        template = {
+            "id": len(self.templates) + 1,
+            "name": body["name"],
+            "version": body["version"],
+            "sourceDigest": body.get("source_digest"),
+            "sourceUrl": body.get("source_url"),
+            "usesChapkit": body.get("uses_chapkit", False),
+            "isLive": not any(t["isLive"] for t in self.templates if t["name"] == body["name"]),
+            "archived": False,
+        }
+        self.templates.append(template)
+        return httpx.Response(200, json=template)
+
+
 @pytest.fixture
-def marketplace_http(monkeypatch, marketplace_model):
+def fake_chap(monkeypatch, marketplace_model):
+    """Serve the marketplace registry and a fake CHAP through every httpx.Client the commands build."""
     monkeypatch.delenv("CHAP_MARKETPLACE_URL", raising=False)
-    requests = []
+    monkeypatch.delenv("CHAP_URL", raising=False)
+    monkeypatch.delenv("CHAP_API_TOKEN", raising=False)
+    chap = FakeChap()
+    chap.registry_requests = []
 
     def respond(request):
-        requests.append(str(request.url))
+        if request.url.host in ("localhost", "chap.example.org"):
+            return chap.handle(request)
+        if request.url.host not in ("raw.githubusercontent.com", "models.example.org"):
+            raise httpx.ConnectError(f"{request.url.host} is unreachable")
+        chap.registry_requests.append(str(request.url))
         if request.url.path.endswith("/registry.yaml"):
             content = {"schema_version": 2, "models": [f"models/{marketplace_model['id']}.yaml"]}
         else:
@@ -28,22 +156,54 @@ def marketplace_http(monkeypatch, marketplace_model):
 
     client = httpx.Client
     monkeypatch.setattr(httpx, "Client", lambda **kwargs: client(transport=httpx.MockTransport(respond), **kwargs))
-    return requests
+    return chap
 
 
 @pytest.fixture
-def model_deployment(tmp_path, monkeypatch, mocker):
-    monkeypatch.delenv("CHAP_MARKETPLACE_URL", raising=False)
+def marketplace_http(fake_chap):
+    """The registry URLs fetched so far."""
+    return fake_chap.registry_requests
+
+
+@pytest.fixture
+def model_deployment(tmp_path, monkeypatch, mocker, fake_chap, marketplace_model):
+    """A deployment directory with a fake Docker whose started services self-register with the fake CHAP."""
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
     compose = tmp_path / "compose.yml"
     compose.write_text("services:\n  chap:\n    image: chap:test\n")
     deployments = []
+    deployment = SimpleNamespace(
+        overlay=tmp_path / "compose.marketplace.yml",
+        deployments=deployments,
+        chap=fake_chap,
+        registers=True,
+        reports={},
+    )
+
+    def service_info(service: dict) -> dict[str, Any]:
+        return {**reported_info(service), **deployment.reports}
+
+    def reported_info(service: dict) -> dict[str, Any]:
+        if service["x-chap-custom"]:
+            return CUSTOM_SERVICE_INFO
+        tag = service["image"].rsplit(":", 1)[-1]
+        version = next(v for v in marketplace_model["versions"] if v["image_tag"] == tag)
+        return {
+            "id": marketplace_model["service_id"],
+            "display_name": marketplace_model["display_name"],
+            "version": version["version"],
+            "git_revision": version["commit"],
+            "model_metadata": {"author": "Someone"},
+            "period_type": "monthly",
+        }
 
     def run(command, **kwargs):
         overlays = [Path(command[index + 1]) for index, value in enumerate(command) if value == "-f"]
         if overlays:
             deployments.append(yaml.safe_load(overlays[-1].read_text()))
+        if "up" in command and deployment.registers:
+            service_name = command[-1]
+            fake_chap.register(service_name, service_info(deployments[-1]["services"][service_name]))
         if "config" in command:
             stdout = '{"name": "chap-test"}'
         elif "{{.Config.WorkingDir}}" in command:
@@ -51,13 +211,8 @@ def model_deployment(tmp_path, monkeypatch, mocker):
         elif "inspect" in command:
             stdout = "sha256:previous\n"
         else:
-            stdout = "127.0.0.1:54321\n"
+            stdout = ""
         return SimpleNamespace(stdout=stdout, returncode=0)
 
-    runner = mocker.patch("chap_core.cli_endpoints.marketplace.subprocess.run", side_effect=run)
-    return SimpleNamespace(
-        overlay=tmp_path / "compose.marketplace.yml",
-        local_overlay=tmp_path / ".chap/compose.models.yml",
-        runner=runner,
-        deployments=deployments,
-    )
+    deployment.runner = mocker.patch("chap_core.cli_endpoints.marketplace.subprocess.run", side_effect=run)
+    return deployment

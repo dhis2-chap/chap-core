@@ -6,6 +6,7 @@ from chap_core.api import forecast
 import pytest
 from chap_core.util import docker_available
 from chap_core.cli_endpoints.evaluate import eval_cmd
+from chap_core.external.ExtendedPredictor import ExtendedPredictor
 from chap_core.cli_endpoints.utils import sanity_check_model
 from chap_core.cli_endpoints.utils import test as run_chap_test
 
@@ -160,12 +161,9 @@ def test_eval_cmd_raises_when_n_periods_below_min_prediction_periods(tmp_path):
             )
 
 
-def test_eval_cmd_forwards_estimator_when_n_periods_above_max(tmp_path):
-    """The CLI forwards the estimator unchanged to Evaluation.create.
-
-    Extending an estimator whose declared max_prediction_periods is below the
-    requested horizon is handled by Evaluation.create.
-    """
+def test_eval_cmd_extends_estimator_when_n_periods_above_max(tmp_path):
+    """The CLI wraps an estimator whose declared max_prediction_periods is below the
+    requested horizon in an ExtendedPredictor before handing it to Evaluation.create."""
     from chap_core.api_types import BacktestParams, RunConfig
 
     fake_estimator = _make_fake_estimator(
@@ -185,16 +183,12 @@ def test_eval_cmd_forwards_estimator_when_n_periods_above_max(tmp_path):
         )
 
     eval_mock.create.assert_called_once()
-    assert eval_mock.create.call_args.kwargs["estimator"] is fake_estimator
+    assert isinstance(eval_mock.create.call_args.kwargs["estimator"], ExtendedPredictor)
     assert eval_mock.create.call_args.kwargs["backtest_params"] == backtest_params
 
 
-def test_eval_cmd_forwards_estimator_when_only_max_is_set(tmp_path):
-    """The CLI does not handle max_prediction_periods itself when min is unset.
-
-    Horizon extension based on max_prediction_periods is delegated to
-    Evaluation.create.
-    """
+def test_eval_cmd_extends_estimator_when_only_max_is_set(tmp_path):
+    """The CLI honours max_prediction_periods even when min is unset."""
     from chap_core.api_types import BacktestParams, RunConfig
 
     fake_estimator = _make_fake_estimator(
@@ -214,7 +208,7 @@ def test_eval_cmd_forwards_estimator_when_only_max_is_set(tmp_path):
         )
 
     eval_mock.create.assert_called_once()
-    assert eval_mock.create.call_args.kwargs["estimator"] is fake_estimator
+    assert isinstance(eval_mock.create.call_args.kwargs["estimator"], ExtendedPredictor)
     assert eval_mock.create.call_args.kwargs["backtest_params"] == backtest_params
 
 
