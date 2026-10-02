@@ -14,6 +14,8 @@ uv tool install chap-core --python 3.13
 
 This installs the `chap` command-line tool globally, making it available from any directory.
 
+To use Chap from a browser instead of the command line, see [Chap in the browser](ui.md).
+
 ## Running marketplace models
 
 With Docker and Docker Compose v2 installed, use a model ID from the

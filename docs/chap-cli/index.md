@@ -12,10 +12,13 @@ The main workflow consists of three commands:
 
 See the [Evaluation Workflow](evaluation-workflow.md) guide for detailed usage and examples.
 
+Prefer a browser? [`chap ui`](ui.md) runs the same commands from a local web app: pick a dataset, start a model, run an evaluation and compare the results without typing a command.
+
 ## Documentation
 
 - [Setup](chap-core-cli-setup.md) - How to install and configure the CLI
 - [Evaluation Workflow](evaluation-workflow.md) - Complete guide to evaluating and comparing models
+- [In the browser](ui.md) - `chap ui`, a local web app for the same workflow
 
 ## Command Reference
 

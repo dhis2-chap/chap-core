@@ -13,6 +13,8 @@ from cyclopts import Parameter
 from chap_core.cli_endpoints.generated_plot_ids import BACKTEST_PLOT_IDS
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger(__name__)
@@ -259,6 +261,13 @@ def export_metrics(
         output_file: Path to output CSV file
         metric_ids: Optional list of metric IDs to compute. If None, all metrics are computed at AGGREGATE level.
     """
+    df = compute_metrics_table(input_files, metric_ids)
+    df.to_csv(output_file, index=False)
+    logger.info(f"Metrics exported to {output_file}")
+
+
+def compute_metrics_table(input_files: list[Path], metric_ids: list[str] | None = None) -> pd.DataFrame:
+    """Compute aggregate metrics for each NetCDF evaluation file, one row per file."""
     import pandas as pd
     import xarray as xr
 
@@ -301,10 +310,7 @@ def export_metrics(
         metrics_dict = calculate_metrics(evaluation=evaluation, metric_ids=metrics_to_compute, row=row)
         results.append(metrics_dict)
 
-    # Create DataFrame and write to CSV
-    df = pd.DataFrame(results)
-    df.to_csv(output_file, index=False)
-    logger.info(f"Metrics exported to {output_file}")
+    return pd.DataFrame(results)
 
 
 def register_commands(app):
