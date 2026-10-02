@@ -313,15 +313,18 @@ class MonitoringSource(StrEnum):
 
 
 class MonitoringPoint(DBModel):
-    """Metric value for one forecast period of a prediction setup."""
+    """Metric value for one run of a prediction setup: a backtest split or a live prediction."""
 
-    period: str = Field(description="Forecast period the value is for.")
+    period: str = Field(description="Last period the run had data for, i.e. the period it predicted from.")
     source: MonitoringSource = Field(
-        description="`evaluation` for the setup's backtest forecasts, `prediction` for its live predictions."
+        description="`evaluation` for a backtest split, `prediction` for a live prediction of the setup."
     )
-    value: float = Field(description="Metric over all org units and horizons forecast for this period.")
-    running_value: float = Field(
-        description="Metric over all scored periods of the same source up to and including this one."
+    value: float = Field(
+        description="Metric over the run's forecasts that have an observed value, pooled over org units and horizons."
+    )
+    running_value: float = Field(description="Metric over all runs of the same source up to and including this one.")
+    n_observed: int = Field(
+        description="Number of (org unit, period, horizon) forecasts scored; grows as later runs bring in observed cases."
     )
 
 
@@ -333,7 +336,7 @@ class PredictionSetupMonitoring(DBModel):
         description="The metric's value in the setup's backtest; `None` if the backtest did not record it."
     )
     points: list[MonitoringPoint] = Field(
-        description="One entry per scored period and source: evaluation points first, then prediction points, each in period order."
+        description="One entry per scored run: evaluation points first, then prediction points, each in period order."
     )
 
 

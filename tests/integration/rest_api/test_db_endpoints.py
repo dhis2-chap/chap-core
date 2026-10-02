@@ -1146,11 +1146,13 @@ def test_prediction_setup_monitoring_returns_evaluation_and_prediction_points(ov
     assert body["metricId"] == "mae"
     assert body["evaluationValue"] == backtest.aggregate_metrics.get("mae")
     sources = [point["source"] for point in body["points"]]
-    assert "evaluation" in sources
-    # Evaluation points come first, then one prediction point per forecast period.
+    # Evaluation points come first, one per backtest split, then one per prediction.
     assert sources == sorted(sources)
-    prediction_periods = [point["period"] for point in body["points"] if point["source"] == "prediction"]
-    assert prediction_periods == sorted({entry.period for entry in prediction.forecasts})
+    assert sources.count("evaluation") == len({forecast.last_seen_period for forecast in backtest.forecasts})
+    first_forecast_period = TimePeriod.parse(min(entry.period for entry in prediction.forecasts))
+    [prediction_point] = [point for point in body["points"] if point["source"] == "prediction"]
+    assert prediction_point["period"] == (first_forecast_period - first_forecast_period.time_delta).id
+    assert prediction_point["nObserved"] == len(prediction.forecasts)
 
 
 def test_flat_prediction_forecasts_counts_horizons_from_first_forecast_period(seeded_session):

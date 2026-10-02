@@ -1,4 +1,4 @@
-"""Monitoring of a PredictionSetup: score its backtest and its live predictions period by period.
+"""Monitoring of a PredictionSetup: score each backtest split and each live prediction.
 
 Live predictions are scored against the observed cases stored in
 `PredictionSetupObservation`, which every run of the setup updates, so a forecast made
@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from chap_core.assessment.evaluation import Evaluation
-from chap_core.assessment.flat_representations import DataDimension, FlatForecasts, FlatObserved, horizon_diff
+from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved, horizon_diff
 from chap_core.assessment.metrics import get_metric
 from chap_core.database.tables import (
     MonitoringPoint,
@@ -25,6 +25,7 @@ from chap_core.database.tables import (
     PredictionSetupObservation,
 )
 from chap_core.services.prediction_setup_service import PredictionSetupNotFoundError
+from chap_core.time_period import TimePeriod
 
 if TYPE_CHECKING:
     from sqlmodel import Session
@@ -70,32 +71,49 @@ def flat_setup_observations(observations: list[PredictionSetupObservation]) -> p
     )
 
 
+def _origin_periods(forecasts: pd.DataFrame) -> pd.Series:
+    """The last period each forecast row's run had data for: its target period minus its horizon."""
+    origins = {
+        (period, horizon): (TimePeriod.parse(period) - horizon * TimePeriod.parse(period).time_delta).id
+        for period, horizon in forecasts[["time_period", "horizon_distance"]].drop_duplicates().itertuples(index=False)
+    }
+    return pd.Series(
+        [origins[key] for key in zip(forecasts.time_period, forecasts.horizon_distance, strict=True)],
+        index=forecasts.index,
+    )
+
+
 def metric_over_time(
     metric: Metric, observations: pd.DataFrame, forecasts: pd.DataFrame, source: MonitoringSource
 ) -> list[MonitoringPoint]:
-    """Metric value per scored period, plus the running aggregate over all periods up to it."""
+    """One point per run (backtest split or prediction), keyed by the period it predicted from.
+
+    A run is scored on the forecasts that have an observed value so far, pooled over org
+    units and horizons; the running value pools every run up to and including it.
+    """
     if observations.empty or forecasts.empty:
         return []
-    observed = observations[observations.disease_cases.notna()]
-    scored_periods = sorted(set(forecasts.time_period) & set(observed.time_period))
-    if not scored_periods:
-        return []
-    per_period = metric.get_metric(
-        FlatObserved.validate(observed), FlatForecasts.validate(forecasts), dimensions=(DataDimension.time_period,)
+    observed = FlatObserved.validate(observations[observations.disease_cases.notna()])
+    observed_keys = set(zip(observed.location, observed.time_period, strict=True))
+    is_scored = pd.Series(
+        [key in observed_keys for key in zip(forecasts.location, forecasts.time_period, strict=True)],
+        index=forecasts.index,
     )
-    values = dict(zip(per_period.time_period, per_period.metric, strict=True))
+    scored = forecasts[is_scored].assign(origin=lambda df: _origin_periods(df))
     points = []
-    for period in scored_periods:
+    for origin in sorted(scored.origin.unique()):
+        run = scored[scored.origin == origin]
+        value = metric.get_global_metric(observed, FlatForecasts.validate(run.drop(columns="origin")))
         running = metric.get_global_metric(
-            FlatObserved.validate(observed[observed.time_period <= period]),
-            FlatForecasts.validate(forecasts[forecasts.time_period <= period]),
+            observed, FlatForecasts.validate(scored[scored.origin <= origin].drop(columns="origin"))
         )
         points.append(
             MonitoringPoint(
-                period=period,
+                period=origin,
                 source=source,
-                value=float(values[period]),
+                value=float(value.metric.iloc[0]),
                 running_value=float(running.metric.iloc[0]),
+                n_observed=len(run[["location", "time_period", "horizon_distance"]].drop_duplicates()),
             )
         )
     return points
