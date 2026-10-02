@@ -505,7 +505,8 @@ def create_backtests(
     "/make-prediction",
     response_model=JobResponse,
     tags=["Predictions"],
-    summary="Run a one-off forecast from inline data",
+    deprecated=True,
+    summary="Run a one-off forecast from inline data (deprecated, use prediction setups)",
 )
 async def make_prediction(
     request: MakePredictionRequest,
@@ -515,11 +516,13 @@ async def make_prediction(
 ):
     """Run a forecast against observations supplied directly in the request body — no stored dataset needed.
 
-    Use this for ad-hoc work when DHIS2 (or another source) already has the data and you
-    want it run through a configured model once. Forecasting happens in the background;
-    the response carries a job id you poll via ``/v1/jobs/{id}`` for the result. For a
-    recurring or scheduled version of the same workflow, use a prediction setup. The
-    legacy ``data_to_be_fetched`` field is rejected — supply the observations directly.
+    Deprecated: use ``POST /v1/crud/prediction-setups/{predictionSetupId}/run`` instead.
+    Predictions made here are not linked to a prediction setup, so they cannot be
+    monitored against observed cases.
+
+    Forecasting happens in the background; the response carries a job id you poll via
+    ``/v1/jobs/{id}`` for the result. The legacy ``data_to_be_fetched`` field is
+    rejected — supply the observations directly.
     """
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})

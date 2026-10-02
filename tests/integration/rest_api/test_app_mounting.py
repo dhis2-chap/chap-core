@@ -212,6 +212,11 @@ class TestOpenAPIOperationIds:
 
         assert "/v2/services/{service_id}/run/{path}" not in schema["paths"]
 
+    def test_make_prediction_is_deprecated(self, client):
+        schema = client.get("/openapi.json").json()
+
+        assert schema["paths"]["/v1/analytics/make-prediction"]["post"]["deprecated"] is True
+
 
 class TestDocs:
     def test_docs_accessible(self, client):
