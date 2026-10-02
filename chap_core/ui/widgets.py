@@ -670,7 +670,7 @@ def _running_service_options() -> dict[str, str]:
     urls: list[str] = []
     with contextlib.suppress(Exception):  # Docker may not be available
         urls += [s.url for s in list_services(model_images()) if s.url and s.status == "running"]
-    urls += [m.url for m in load_chaps_models(chaps_location()).values() if m.answering and m.url]
+    urls += [m.url for m in load_chaps_models(chaps_location()) if m.answering and m.url]
     return {f"Running: {model_label(url)}": url for url in dict.fromkeys(urls)}
 
 

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -121,3 +122,22 @@ def test_catalog_shows_how_to_install_chaps_when_it_is_missing(workdir, monkeypa
     at.run()
     assert not at.exception
     assert any("winterop-com/chaps/main/install.sh" in block.value for block in at.code)
+
+
+def test_catalog_lists_instances_chaps_runs_with_a_stop_button(workdir, monkeypatch, tmp_path):
+    ps = '{"models": [{"id": "my_model", "service_id": "my-model", "state": "up", "url": "http://127.0.0.1:9", "project_dir": "/tmp"}]}'
+    fake = tmp_path / "bin" / "chaps"
+    fake.parent.mkdir()
+    fake.write_text(f"#!/bin/sh\ncase \"$*\" in\n  *' ps') echo '{ps}' ;;\n  *) echo '[]' ;;\nesac\n")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{fake.parent}:{os.environ['PATH']}")
+    monkeypatch.setenv("CHAP_MARKETPLACE_URL", "http://127.0.0.1:9")  # unreachable: no network in the test
+    monkeypatch.chdir(tmp_path)
+    import streamlit as st
+
+    st.cache_data.clear()  # what other tests asked chaps is cached across AppTests
+    at = AppTest.from_file(str(VIEWS / "models.py"), default_timeout=60)
+    at.run()
+    assert not at.exception
+    assert any("**my_model**" in block.value for block in at.markdown)
+    assert {"Stop, keep its data", "Stop and delete its data"} <= {button.label for button in at.button}

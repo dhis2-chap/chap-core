@@ -72,6 +72,7 @@ class ChapsModel:
     state: str
     url: str | None
     project_dir: Path  # the deployment or `chaps run` group it runs in, for logs, test and expose
+    group: str | None = None  # the `chaps run` group; None in a deployment
 
     @property
     def internal(self) -> bool:
@@ -384,31 +385,45 @@ def chaps_project() -> Path | None:
     return candidate.resolve() if (candidate / ".chaps").is_dir() else None
 
 
-def chaps_models(project: Path | None) -> dict[str, ChapsModel]:
-    """The models chaps runs, by service id: those of the deployment, or of every `chaps run` group."""
+def chaps_models(project: Path | None) -> list[ChapsModel]:
+    """The models chaps runs: those of the deployment, or of every `chaps run` group."""
     if chaps_binary() is None:
-        return {}
+        return []
     try:
         listed = _chaps_json(["ps"], project, timeout=60)
     except ChapsError:
-        return {}
-    return {
-        m["service_id"]: ChapsModel(m["id"], m["service_id"], m.get("state", ""), m.get("url"), Path(m["project_dir"]))
+        return []
+    return [
+        ChapsModel(m["id"], m["service_id"], m.get("state", ""), m.get("url"), Path(m["project_dir"]), m.get("group"))
         for m in listed.get("models", [])
-    }
+    ]
 
 
-def chaps_start(source: str, project: Path | None, model_id: str | None = None) -> dict:
+def chaps_start(
+    source: str,
+    project: Path | None,
+    model_id: str | None = None,
+    port: int | None = None,
+    everywhere: bool = False,
+) -> dict:
     """Start a model with `chaps run`: a marketplace id, a repository URL or an image.
 
-    Starting one that was started before reuses it. Returns what chaps reports, with the model's URL.
+    It gets a free port unless `port` names one, and answers on this machine only unless
+    `everywhere` publishes it on every address. Starting one that was started before reuses it.
+    Returns what chaps reports, with the model's URL.
     """
-    return dict(_chaps_json(["run", source, "--no-wait", *(["--id", model_id] if model_id else [])], project))
+    args = ["run", source, "--no-wait"]
+    args += ["--id", model_id] if model_id else []
+    args += ["--port", str(port)] if port else []
+    args += ["--bind", "0.0.0.0"] if everywhere else []
+    return dict(_chaps_json(args, project))
 
 
-def chaps_stop(model: ChapsModel) -> dict:
-    """Stop a model. An added model's definition stays, so starting it again needs no download."""
-    return dict(_chaps_json(["stop", model.id], model.project_dir))
+def chaps_stop(model: ChapsModel, delete_data: bool = False) -> dict:
+    """Stop a model. Its data stays, so starting it again picks up its configurations and trained
+    models, unless `delete_data`. An added model's definition stays, so starting it again needs no
+    download."""
+    return dict(_chaps_json(["stop", model.id, *(["--purge"] if delete_data else [])], model.project_dir))
 
 
 def chaps_expose(model: ChapsModel) -> dict:
@@ -417,10 +432,10 @@ def chaps_expose(model: ChapsModel) -> dict:
     return dict(_chaps_json(["up", "--wait"], model.project_dir))
 
 
-def chaps_added_models(models: dict[str, ChapsModel]) -> list[CatalogEntry]:
+def chaps_added_models(models: list[ChapsModel]) -> list[CatalogEntry]:
     """Running models that were started from a URL or an image rather than the marketplace."""
     entries = []
-    for project_dir in sorted({m.project_dir for m in models.values()}):
+    for project_dir in sorted({m.project_dir for m in models}):
         try:
             listed = _chaps_json(["models", "list"], project_dir, timeout=60)
         except ChapsError:

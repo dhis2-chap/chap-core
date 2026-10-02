@@ -124,12 +124,10 @@ def test_chaps_models_reads_chaps_ps(monkeypatch, tmp_path):
         ]
     }
     calls = fake_chaps(tmp_path, monkeypatch, f"echo '{json.dumps(listed)}'")
-    models = chaps_models(None)
-    assert models["chapkit-ewars-model"] == ChapsModel(
-        "chapkit_ewars_model", "chapkit-ewars-model", "up", "http://localhost:5001", tmp_path
-    )
-    assert models["chapkit-ewars-model"].answering
-    assert not models["auto-arima-chapkit"].answering
+    ewars, arima = chaps_models(None)
+    assert ewars == ChapsModel("chapkit_ewars_model", "chapkit-ewars-model", "up", "http://localhost:5001", tmp_path)
+    assert ewars.answering
+    assert not arima.answering
     assert calls.read_text().split() == ["--json", "ps"]
 
 
@@ -143,7 +141,7 @@ def test_chaps_gets_the_registry_index_of_the_marketplace_in_use(monkeypatch):
 def test_models_behind_chap_core_are_internal_until_exposed(monkeypatch, tmp_path):
     listed = {"models": [ps_row("auto-arima-chapkit", "registered", None, tmp_path)]}
     fake_chaps(tmp_path, monkeypatch, f"echo '{json.dumps(listed)}'")
-    model = chaps_models(tmp_path)["auto-arima-chapkit"]
+    (model,) = chaps_models(tmp_path)
     assert model.internal
     assert not model.answering
 
@@ -159,8 +157,12 @@ def test_chaps_start_runs_the_model_in_a_deployment_or_a_group(monkeypatch, tmp_
 
 def test_chaps_stop_acts_where_the_model_runs(monkeypatch, tmp_path):
     calls = fake_chaps(tmp_path, monkeypatch, """echo '{"ok": true}'""")
-    chaps_stop(ChapsModel("my_model", "my-model", "up", "http://localhost:5001", tmp_path / "group"))
-    assert calls.read_text().split() == ["--json", "-C", str(tmp_path / "group"), "stop", "my_model"]
+    model = ChapsModel("my_model", "my-model", "up", "http://localhost:5001", tmp_path / "group")
+    chaps_stop(model)
+    chaps_stop(model, delete_data=True)
+    keep, delete = calls.read_text().splitlines()
+    assert keep.split() == ["--json", "-C", str(tmp_path / "group"), "stop", "my_model"]
+    assert delete.split()[-1] == "--purge"
 
 
 def test_chaps_failures_report_chaps_error(monkeypatch, tmp_path):
@@ -185,6 +187,20 @@ def test_running_models_started_from_a_url_are_catalog_entries(monkeypatch, tmp_
         {"id": "stopped", "service_id": "stopped", "image": "ghcr.io/me/stopped:1", "manual": True, "enabled": False},
     ]  # fmt: skip
     fake_chaps(tmp_path, monkeypatch, f"echo '{json.dumps(listed)}'")
-    running = {"my-model": ChapsModel("my_model", "my-model", "up", "http://localhost:5001", tmp_path)}
+    running = [ChapsModel("my_model", "my-model", "up", "http://localhost:5001", tmp_path)]
     (entry,) = chaps_added_models(running)
     assert (entry.id, entry.name, entry.kind, entry.service_id) == ("my_model", "My model", "chapkit", "my-model")
+
+
+def test_the_same_model_in_two_groups_is_two_instances(monkeypatch, tmp_path):
+    listed = {
+        "models": [
+            {**ps_row("auto-arima-chapkit", "up", "http://localhost:5001", tmp_path / "default"), "group": "default"},
+            {**ps_row("auto-arima-chapkit", "up", "http://localhost:5002", tmp_path / "other"), "group": "other"},
+        ]
+    }
+    fake_chaps(tmp_path, monkeypatch, f"echo '{json.dumps(listed)}'")
+    assert [(m.group, m.url) for m in chaps_models(None)] == [
+        ("default", "http://localhost:5001"),
+        ("other", "http://localhost:5002"),
+    ]
