@@ -2005,6 +2005,7 @@ def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run
     response = client.get(f"/v1/crud/backtests/{db_id}/info")
     assert response.status_code == 200, response.json()
     backtest_info = BacktestRead.model_validate(response.json())
+    assert backtest_info.stride == request_payload["stride"]
     assert len(backtest_info.dataset.data_sources) > 0, backtest_info.dataset
     assert len(backtest_info.dataset.org_units) > 0, backtest_info.dataset
     assert backtest_info.dataset.last_period is not None, backtest_info.dataset

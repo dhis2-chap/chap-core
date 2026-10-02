@@ -335,9 +335,6 @@ def run_backtest_from_dataset(
         dataset_info=dataset_info, orig_dataset=ds, polygons=ds.polygons.model_dump_json()
     )
     backtest_create_info = BacktestCreate(name=backtest_name, dataset_id=dataset_id, model_id=model_id)
-    if ds.frequency == "W" and backtest_params.stride < 4:
-        logging.warning("Setting stride to 4 since its weekly data")
-        backtest_params.stride = 4
     result: int = run_backtest(
         info=backtest_create_info,
         n_periods=backtest_params.n_periods,
