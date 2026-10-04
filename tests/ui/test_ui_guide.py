@@ -6,6 +6,7 @@ from chap_core.ui.guide import (
     best_model,
     fit_reason,
     horizon_limits,
+    issue_line,
     model_fit,
     period_type,
     summarize_dataset,
@@ -46,7 +47,7 @@ def test_a_model_does_not_fit_data_without_a_required_covariate(model, laos):
     needs_humidity = model.model_copy(
         update={"covariates": model.covariates.model_copy(update={"required": ["humidity"]})}
     )
-    assert model_fit(needs_humidity, laos) == "needs humidity, which this data does not have"
+    assert model_fit(needs_humidity, laos) == "needs a `humidity` column, which this data does not have"
 
 
 def test_a_monthly_model_does_not_fit_weekly_data(model, laos):
@@ -64,3 +65,12 @@ def test_horizons_are_limited_by_every_chosen_model(model):
 def test_the_best_model_has_the_lowest_crps():
     metrics = pd.DataFrame({"model": ["A", "B"], "crps": [12.0, 9.5], "mae": [10.0, 11.0]})
     assert best_model(metrics)["model"] == "B"
+
+
+def test_a_validation_issue_names_where_it_is_and_the_periods():
+    from chap_core.services.dataset_validation import ValidationIssue
+
+    gap = ValidationIssue(level="error", message="Missing time periods", location="Bokeo", time_periods=["2010-11"])
+    assert issue_line(gap) == "Missing time periods (Bokeo, 2010-11)"
+    many = gap.model_copy(update={"time_periods": [f"2010-0{m}" for m in range(1, 8)]})
+    assert issue_line(many).endswith("2010-05 and 2 more)")

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
     import pandas as pd
 
+    from chap_core.services.dataset_validation import ValidationIssue
     from chap_core.services.model_marketplace import MarketplaceModel
 
 # Columns every Chap dataset has; everything else is a covariate a model may use.
@@ -70,7 +71,8 @@ def model_fit(model: MarketplaceModel, data: DatasetSummary) -> str | None:
         return f"needs {' or '.join(period_types)} data, and this data is {data.period_type}"
     missing = [name for name in model.covariates.required if name not in data.covariates]
     if missing:
-        return f"needs {', '.join(name.replace('_', ' ') for name in missing)}, which this data does not have"
+        columns = ", ".join(f"`{name}`" for name in missing)
+        return f"needs {'a ' + columns + ' column' if len(missing) == 1 else 'the columns ' + columns}, which this data does not have"
     if model.compatibility.requires_geo and not data.has_polygons:
         return "needs a map of the regions, and this data has none"
     return None
@@ -92,6 +94,14 @@ def horizon_limits(models: list[MarketplaceModel]) -> tuple[int, int]:
     low = max([m.compatibility.min_prediction_periods or 1 for m in models] or [1])
     high = min([m.compatibility.max_prediction_periods or 100 for m in models] or [100])
     return max(low, 1), high
+
+
+def issue_line(issue: ValidationIssue) -> str:
+    """A validation issue in one line, with where it is and the first periods it concerns."""
+    periods = issue.time_periods or []
+    listed = ", ".join(periods[:5]) + (f" and {len(periods) - 5} more" if len(periods) > 5 else "")
+    where = ", ".join(part for part in (issue.location, listed) if part)
+    return issue.message + (f" ({where})" if where else "")
 
 
 def kept_choice(saved, options, preferred):

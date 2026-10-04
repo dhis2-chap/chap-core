@@ -9,7 +9,7 @@ from chap_core.ui.widgets import command_page, context_bar, inject_css, sidebar
 
 VIEWS = Path(__file__).parent / "views"
 
-st.set_page_config(page_title="CHAP", page_icon=":material/coronavirus:", layout="wide")
+st.set_page_config(page_title="Chap", page_icon=":material/coronavirus:", layout="wide")
 
 
 def as_page(page: CommandPage):

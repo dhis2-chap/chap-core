@@ -22,6 +22,7 @@ from chap_core.ui.models import (
     github_models,
     marketplace_image,
     model_label,
+    plain_text,
     remember_model,
     saved_models,
 )
@@ -159,8 +160,8 @@ def test_chaps_start_runs_the_model_in_a_deployment_or_a_group(monkeypatch, tmp_
     assert chaps_start("https://github.com/me/my_model", None, "my_model")["url"] == "http://localhost:5001"
     chaps_start("chapkit_ewars_model", tmp_path)
     in_group, in_deployment = calls.read_text().splitlines()
-    assert in_group == "--json run --no-wait --id my_model -- https://github.com/me/my_model"
-    assert in_deployment == f"--json -C {tmp_path} run --no-wait -- chapkit_ewars_model"
+    assert in_group == "--json run --no-wait --allow-template --id my_model -- https://github.com/me/my_model"
+    assert in_deployment == f"--json -C {tmp_path} run --no-wait --allow-template -- chapkit_ewars_model"
 
 
 def test_chaps_stop_acts_where_the_model_runs(monkeypatch, tmp_path):
@@ -289,3 +290,7 @@ def test_request_totals_are_read_under_servicekit_3s_metric_names():
 
     text = 'http_server_request_duration_seconds_count{http_request_method="GET",http_route="/health"} 7.0\n'
     assert parse_metrics(text).requests == 7.0
+
+
+def test_log_text_loses_terminal_colour_codes():
+    assert plain_text("\x1b[2m2026-10-04\x1b[0m [\x1b[32m\x1b[1minfo\x1b[0m] ready") == "2026-10-04 [info] ready"

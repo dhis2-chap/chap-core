@@ -16,6 +16,7 @@ from chap_core.ui.guide import (
     best_model,
     fit_reason,
     horizon_limits,
+    issue_line,
     kept_choice,
     model_fit,
     summarize_dataset,
@@ -134,7 +135,7 @@ def step_data() -> None:
         if errors:
             st.markdown(":red[**Chap cannot use this data yet**]")
             for issue in errors[:10]:
-                st.markdown(f"- {issue.message}" + (f" ({issue.location})" if issue.location else ""))
+                st.markdown(f"- {issue_line(issue)}")
         else:
             st.markdown(":green[**Chap can use this data**]")
             covariates = ", ".join(c.replace("_", " ") for c in summary.covariates) or "no covariates"
@@ -169,6 +170,9 @@ def step_models() -> None:
         st.warning("None of the marketplace models can use this data. Go back and pick other data.")
     else:
         st.markdown(":gray[These models can use your data. Pick the ones to compare; Chap tests each the same way.]")
+    running = running_models([model for model, _ in fits])
+    # Models that already run come first: they start at once.
+    fits.sort(key=lambda fit: fit[0].id not in running)
     chosen = set(guide.get("models") or [m.id for m, _ in fits[:2]])
     picked = []
     for model, _ in fits:
@@ -182,6 +186,8 @@ def step_models() -> None:
             cols[1].badge(status, color=BADGE_COLORS[tone])
             st.markdown(model.summary or "")
             st.markdown(f":green[{fit_reason(model, summary)}]")
+            if model.id in running:
+                st.markdown(":blue[Running now on this machine, so it starts at once]")
     if misfits:
         with st.expander(f"{len(misfits)} models do not fit this data"):
             for model, problem in misfits:
@@ -237,8 +243,9 @@ def step_questions() -> None:
         if thoroughness and horizon:
             windows = backtest_windows(summary.periods, horizon, possible[thoroughness], 1)
             st.caption(
-                f"Each model forecasts {possible[thoroughness]} times, starting from {windows[0]['forecast_start']} "
-                f"to {windows[-1]['forecast_start']}. More tests give a more reliable answer and take longer."
+                f"Each model forecasts {possible[thoroughness]} times: the first forecast starts at "
+                f"{windows[0]['forecast_start']}, the last at {windows[-1]['forecast_start']}. More tests give a more "
+                "reliable answer and take longer."
             )
         if len(possible) < len(THOROUGHNESS):
             st.caption("Some choices are hidden: the data is too short for them.")
@@ -291,6 +298,19 @@ def running_url(model) -> str | None:
         if container.model_id == model.id and container.url and service_info(container.url):
             return container.url
     return None
+
+
+def running_models(models: list) -> set[str]:
+    """The ids of the models with an instance on this machine, from chaps or Docker."""
+    running: set[str] = set()
+    if chaps_binary():
+        services = {i.service_id for i in load_chaps_models(chaps_location()) if i.answering}
+        running |= {m.id for m in models if m.service_id in services}
+    try:
+        containers = list_services({marketplace_image(m).rsplit(":", 1)[0]: m.id for m in models})
+    except Exception:
+        containers = []
+    return running | {c.model_id for c in containers if c.status == "running" and c.url}
 
 
 def advance(model_id: str, progress: dict) -> None:
@@ -429,14 +449,17 @@ def step_answer() -> None:
             st.switch_page(pages["results"])
     with cols[2].container(border=True):
         started = [i for i in guide.get("started", []) if i in marketplace]
-        st.markdown(
-            f"**Stop the models**  \n:gray[{len(started)} started for this comparison; their data is kept]"
-            if started
-            else "**Nothing to stop**  \n:gray[The models were already running before]"
-        )
+        # chaps keeps a stopped model's data; a plain Docker container is removed with it.
+        kept = "their data is kept" if chaps_binary() else "stopping removes their containers"
+        if started:
+            st.markdown(f"**Stop the models**  \n:gray[{len(started)} started for this comparison; {kept}]")
+        elif guide.get("stopped"):
+            st.markdown(f"**Stopped**  \n:gray[The {guide['stopped']} started for this comparison are stopped]")
+        else:
+            st.markdown("**Nothing to stop**  \n:gray[The models were already running before]")
         if started and st.button("Stop them", key="guide-stop"):
             stop_started(started)
-            guide["started"] = []
+            guide.update(started=[], stopped=len(started))
             st.rerun()
     if st.button("Start over", key="guide-restart"):
         st.session_state["guide"] = {"step": 1}

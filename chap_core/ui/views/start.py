@@ -71,4 +71,6 @@ with cols[1]:
         "data",
     )
 
-st.caption("Looking at earlier results? Open **Results** in the sidebar. Know the command you want? Press Ctrl+K.")
+st.caption(
+    "Looking at earlier results? Open **Results** in the sidebar. Know the command you want? Press Ctrl+K (⌘K on a Mac)."
+)

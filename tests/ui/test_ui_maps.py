@@ -1,5 +1,8 @@
 import base64
+import gzip
 import json
+
+import pytest
 
 from chap_core.ui.maps import (
     BASEMAP_STYLE,
@@ -51,7 +54,8 @@ def test_choropleth_html_colours_known_locations_over_the_basemap(data_path):
     assert first is not None
     page = choropleth_html(geojson, {first: 2.5}, "Cases & more")
     config = json.loads(page.split("const config = ", 1)[1].split(";\n", 1)[0])
-    values = {feature_location(f): f["properties"].get("value") for f in config["features"]["features"]}
+    features = json.loads(gzip.decompress(base64.b64decode(config["features"])))
+    values = {feature_location(f): f["properties"].get("value") for f in features["features"]}
     assert values[first] == 2.5
     assert sum(v is None for v in values.values()) == len(values) - 1
     assert config["style"] == BASEMAP_STYLE
@@ -65,6 +69,25 @@ def test_choropleth_url_carries_the_whole_map_page(data_path):
     url = choropleth_url(geojson, {}, "Cases")
     assert url.startswith("data:text/html;base64,")
     assert base64.b64decode(url.split(",", 1)[1]).decode() == choropleth_html(geojson, {}, "Cases")
+
+
+def test_the_map_url_packs_the_regions_well_below_their_geojson_size(data_path):
+    # Chrome refuses data: URLs over 2 MB; the published Laos provinces are 1.8 MB of raw GeoJSON.
+    geojson = dataset_geojson(data_path / "laos_subset.csv")
+    assert geojson is not None
+    assert len(choropleth_url(geojson, {}, "Cases")) < len(json.dumps(geojson)) / 2
+
+
+def test_regions_without_a_value_are_packed_as_valid_json(data_path):
+    geojson = dataset_geojson(data_path / "laos_subset.csv")
+    assert geojson is not None
+    first = feature_location(geojson["features"][0])
+    assert first is not None
+    page = choropleth_html(geojson, {first: float("nan")}, "Cases")
+    config = json.loads(page.split("const config = ", 1)[1].split(";\n", 1)[0])
+    # The browser parses the packed features with JSON.parse, which refuses NaN.
+    features = json.loads(gzip.decompress(base64.b64decode(config["features"])), parse_constant=pytest.fail)
+    assert all("value" not in f["properties"] for f in features["features"])
 
 
 def test_region_names_cannot_close_the_maps_script():

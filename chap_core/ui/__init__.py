@@ -1,1 +1,1 @@
-"""Local Streamlit frontend for the CHAP CLI, started with `chap ui`."""
+"""Local Streamlit frontend for the Chap CLI, started with `chap ui`."""

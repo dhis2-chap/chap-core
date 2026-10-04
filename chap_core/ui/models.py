@@ -291,11 +291,20 @@ def stop_service(service_id: str) -> None:
     container.remove(force=True)
 
 
+# Terminal colour and style codes, which models write to their logs and a log panel shows as text.
+ANSI_CODES = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def plain_text(text: str) -> str:
+    """Text without terminal colour codes."""
+    return ANSI_CODES.sub("", text)
+
+
 def service_logs(service_id: str, tail: int = 200) -> str:
     import docker
 
     logs: bytes = docker.from_env().containers.get(service_id).logs(tail=tail)
-    return logs.decode(errors="replace")
+    return plain_text(logs.decode(errors="replace"))
 
 
 def service_info(url: str) -> dict | None:
@@ -477,9 +486,10 @@ def chaps_start(
 
     It gets a free port unless `port` names one, and answers on this machine only unless
     `everywhere` publishes it on every address. Starting one that was started before reuses it.
+    A template starts too: the user picked it, and without chaps it starts as any other image.
     Returns what chaps reports, with the model's URL.
     """
-    args = ["run", "--no-wait"]
+    args = ["run", "--no-wait", "--allow-template"]
     args += ["--id", model_id] if model_id else []
     args += ["--port", str(port)] if port else []
     args += ["--bind", "0.0.0.0"] if everywhere else []

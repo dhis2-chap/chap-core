@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import base64
 import copy
+import gzip
 import html
 import json
+import math
 from typing import Any
 
 MAPLIBRE = "https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl"
@@ -13,6 +15,8 @@ MAPLIBRE = "https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl"
 BASEMAP_STYLE = "https://tiles.openfreemap.org/styles/positron"
 RAMP = ["#FEF0D9", "#FDCC8A", "#FC8D59", "#E34A33", "#B30000"]
 NO_DATA_COLOR = "#C9CED6"
+# Decimals kept in coordinates: five is about a metre, finer than any region border needs.
+COORDINATE_DECIMALS = 5
 
 
 def feature_location(feature: dict) -> str | None:
@@ -40,6 +44,35 @@ def bounding_box(geojson: dict) -> list[float] | None:
     return [min(xs), min(ys), max(xs), max(ys)] if xs else None
 
 
+def _rounded(coordinates: Any) -> Any:
+    if isinstance(coordinates, float):
+        return round(coordinates, COORDINATE_DECIMALS)
+    return [_rounded(c) for c in coordinates] if isinstance(coordinates, list) else coordinates
+
+
+def _json_safe(value: Any) -> Any:
+    """The value with NaN and infinities as null: the browser's JSON parser refuses them."""
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    return [_json_safe(v) for v in value] if isinstance(value, list) else value
+
+
+def pack_features(geojson: dict) -> str:
+    """The features as gzipped, base64-encoded GeoJSON with rounded coordinates.
+
+    Chrome refuses a data: URL over 2 MB, and a province map can hold more than that in raw GeoJSON;
+    packed it is a fraction of the size. The map page unpacks it with DecompressionStream.
+    """
+    packed = copy.deepcopy(geojson)
+    for feature in packed.get("features", []):
+        if feature.get("geometry"):
+            feature["geometry"]["coordinates"] = _rounded(feature["geometry"]["coordinates"])
+    text = json.dumps(_json_safe(packed), separators=(",", ":"), allow_nan=False)
+    return base64.b64encode(gzip.compress(text.encode())).decode()
+
+
 def choropleth_html(geojson: dict, values: dict[str, float], legend: str, height: int = 480) -> str:
     """A self-contained page with the regions coloured by value over a zoomable basemap."""
     features = copy.deepcopy(geojson)
@@ -48,7 +81,7 @@ def choropleth_html(geojson: dict, values: dict[str, float], legend: str, height
         feature["properties"] = properties
         location = feature_location(feature)
         properties["label"] = properties.get("name") or location or ""
-        if location in values:
+        if location in values and math.isfinite(values[location]):
             properties["value"] = values[location]
     present = [v for v in values.values() if v == v]
     low, high = (min(present), max(present)) if present else (0.0, 1.0)
@@ -60,7 +93,7 @@ def choropleth_html(geojson: dict, values: dict[str, float], legend: str, height
         fill += [stop, color]
     config = {
         "style": BASEMAP_STYLE,
-        "features": features,
+        "features": pack_features(features),
         "bounds": bounding_box(features),
         "fill": ["case", ["has", "value"], fill, NO_DATA_COLOR],
     }
@@ -99,8 +132,12 @@ new ResizeObserver(() => {{
   map.resize();
   if (!fitted && map.getContainer().clientWidth > 0) {{ fitted = true; fit(); }}
 }}).observe(document.getElementById("map"));
-map.on("load", () => {{
-  map.addSource("locations", {{ type: "geojson", data: config.features }});
+// The regions come gzipped (see pack_features), so a detailed map still fits in the page's data: URL.
+const features = new Response(
+  new Blob([Uint8Array.from(atob(config.features), (c) => c.charCodeAt(0))]).stream()
+    .pipeThrough(new DecompressionStream("gzip"))).json();
+map.on("load", async () => {{
+  map.addSource("locations", {{ type: "geojson", data: await features }});
   map.addLayer({{ id: "fill", type: "fill", source: "locations",
     paint: {{ "fill-color": config.fill, "fill-opacity": 0.78 }} }});
   map.addLayer({{ id: "outline", type: "line", source: "locations",

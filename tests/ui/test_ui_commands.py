@@ -2,7 +2,7 @@ import pytest
 
 from chap_core.cli import app
 from chap_core.cli_endpoints.generated_plot_ids import BACKTEST_PLOT_IDS
-from chap_core.ui.catalog import covered_commands
+from chap_core.ui.catalog import covered_commands, page_matches, view_commands
 from chap_core.ui.commands import build_args, command_fields, get_command, list_commands
 
 PLACEHOLDERS = {"int": 1, "float": 1.0, "bool": True, "str": "x", "path": "x.csv", "list": ["x"]}
@@ -79,3 +79,10 @@ def test_numeric_fields_carry_the_cli_minimum():
     assert fields["backtest_params.stride"].minimum == 1
     assert fields["backtest_params.n_splits"].minimum == 1
     assert fields["historical_context_years"].minimum is None
+
+
+def test_a_command_is_found_by_its_page_title_or_its_cli_name():
+    assert page_matches("export", "Export metrics", ["export-metrics"])
+    assert page_matches("plot-backtest", "3 · Results", view_commands("results.py"))
+    assert page_matches("build counterfactual", "Build counterfactual", ["causal build-counterfactual"])
+    assert not page_matches("plot-backtest", "1 · Data", view_commands("data.py"))

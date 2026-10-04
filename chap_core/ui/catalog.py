@@ -73,6 +73,18 @@ CUSTOM_TITLES = {
 }
 
 
+def view_commands(view: str) -> list[str]:
+    """The commands a hand-made view covers, such as plot-backtest for results.py."""
+    return [command for command, file in CUSTOM_VIEWS.items() if file == view]
+
+
+def page_matches(query: str, title: str, commands: list[str]) -> bool:
+    """Whether a search finds a page, by its title or by a CLI name of a command it covers."""
+    query = query.strip().lower()
+    names = [command.replace(" ", "-") for command in commands]
+    return not query or query in title.lower() or any(query.replace(" ", "-") in name for name in names)
+
+
 def command_title(command: str) -> str:
     """Human name of a command, as its page is titled."""
     for pages in COMMAND_PAGES.values():

@@ -173,6 +173,8 @@ def catalog_with_chaps(monkeypatch, tmp_path, rows: list[dict]) -> AppTest:
     monkeypatch.setenv("PATH", f"{fake.parent}:{os.environ['PATH']}")
     monkeypatch.setenv("CHAP_MARKETPLACE_URL", "http://127.0.0.1:9")  # unreachable: no network in the test
     monkeypatch.chdir(tmp_path)
+    # Only what chaps lists: containers running on the test machine must not show up.
+    monkeypatch.setattr("chap_core.ui.models.list_services", lambda images=None: [])
     st.cache_data.clear()  # what other tests asked chaps is cached across AppTests
     at = AppTest.from_file(str(VIEWS / "models.py"), default_timeout=60)
     at.run()
@@ -218,3 +220,20 @@ def test_deleting_data_is_only_offered_for_chap_uis_own_group(workdir, monkeypat
     at = catalog_with_chaps(monkeypatch, tmp_path, rows)
     purge_buttons = [b for b in at.button if b.label == "Stop and delete its data"]
     assert len(purge_buttons) == 1
+
+
+def test_without_chaps_the_panel_shows_containers_started_elsewhere_without_a_stop(workdir, monkeypatch):
+    import streamlit as st
+
+    from chap_core.ui.models import ChapkitService
+
+    elsewhere = ChapkitService("c1", "their-arima", "auto_arima", "img:1", "running", "http://127.0.0.1:9", False)
+    monkeypatch.setattr("chap_core.ui.models.chaps_binary", lambda: None)
+    monkeypatch.setattr("chap_core.ui.models.list_services", lambda images=None: [elsewhere])
+    monkeypatch.setenv("CHAP_MARKETPLACE_URL", "http://127.0.0.1:9")  # unreachable: no network in the test
+    st.cache_data.clear()
+    at = AppTest.from_file(str(VIEWS / "models.py"), default_timeout=60)
+    at.run()
+    assert not at.exception
+    assert any("started outside chap ui" in block.value for block in at.markdown)
+    assert "Stop" not in {b.label for b in at.button}

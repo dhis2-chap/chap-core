@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 import streamlit as st
 
-from chap_core.ui.catalog import command_title
+from chap_core.ui.catalog import command_title, page_matches, view_commands
 from chap_core.ui.commands import build_args, command_fields, command_help
 from chap_core.ui.services import (
     command_name,
@@ -147,7 +147,7 @@ def sidebar(sections: dict[str, list], commands: dict[str, list], current) -> No
     """Navigation: the main sections as links, the remaining commands searchable and grouped, then run options."""
     running = sum(job.status == "running" for job in list_jobs(get_runs_dir()))
     with st.sidebar:
-        st.html('<div class="chap-brand"><b>CHAP</b><span>Modeling workbench</span></div>')
+        st.html('<div class="chap-brand"><b>Chap</b><span>Modeling workbench</span></div>')
         for section, pages in sections.items():
             st.html(f'<div class="chap-nav-label">{section}</div>')
             for page in pages:
@@ -158,13 +158,29 @@ def sidebar(sections: dict[str, list], commands: dict[str, list], current) -> No
             "Find a command", placeholder="Find a command...", label_visibility="collapsed", key="nav-search"
         ).lower()
         st.html(COMMAND_PALETTE_SHORTCUT, unsafe_allow_javascript=True)
+        found = 0
+        if query:
+            views = [
+                page
+                for pages in sections.values()
+                for page in pages
+                if page_matches(query, page.title, view_commands(f"{page.url_path}.py"))
+            ]
+            found += len(views)
+            if views:
+                with st.expander(f"Pages · {len(views)}", expanded=True):
+                    for page in views:
+                        st.page_link(page)
         for group, pages in commands.items():
-            matches = [page for page in pages if query in page.title.lower()]
+            matches = [page for page in pages if page_matches(query, page.title, [page.url_path])]
+            found += len(matches)
             if matches:
                 is_current = current.url_path in {page.url_path for page in pages}
                 with st.expander(f"{group} · {len(matches)}", expanded=bool(query) or is_current):
                     for page in matches:
                         st.page_link(page)
+        if query and not found:
+            st.caption("No command or page matches this. Clear the field to see them all.")
         st.html('<div class="chap-nav-label">Run options</div>')
         options = settings()
         for key, label in GLOBAL_RUN_OPTIONS.items():

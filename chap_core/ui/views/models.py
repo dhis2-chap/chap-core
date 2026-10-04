@@ -324,11 +324,13 @@ def container_row(container: ChapkitService) -> None:
             st.toggle("Logs", key=f"logs:{key}")
             if answering:
                 st.toggle("Metrics", key=f"metrics:{key}")
-            if st.button("Stop", key=f"stop-run:{key}"):
+            # Only a container chap ui started itself; one started elsewhere is its owner's to stop.
+            if container.managed and st.button("Stop", key=f"stop-run:{key}"):
                 stop_service(container.id)
                 st.rerun()
 
-    instance_row(name, f"Docker container `{container.name}`", container.url, status, actions)
+    source = f"Docker container `{container.name}`" + ("" if container.managed else ", started outside chap ui")
+    instance_row(name, source, container.url, status, actions)
     row_details(key, lambda: service_logs(container.id, tail=60), container.url)
 
 
@@ -363,7 +365,11 @@ def show_metrics(url: str) -> None:
     shown = {label: value for label, value in figures.items() if value is not None}
     for col, (label, value) in zip(st.columns(len(shown)), shown.items(), strict=True):
         col.metric(label, value)
-    st.caption(f"From `{url}/metrics`. Trainings and predictions count from when the service started.")
+    counted = "Trainings" in shown or "Predictions" in shown
+    st.caption(
+        f"From `{url}/metrics`."
+        + (" Trainings and predictions count from when the service started." if counted else "")
+    )
 
 
 def uptime(seconds: float) -> str:
@@ -379,6 +385,9 @@ def uptime(seconds: float) -> str:
 def running_panel() -> None:
     # Containers the UI started itself with docker run, when chaps is not installed.
     managed = [c for c in services.values() if c.managed]
+    # Without chaps, running containers of a catalog model that something else started; with chaps they are
+    # among its instances already.
+    others = [] if chaps else [c for c in services.values() if not c.managed and c.status == "running"]
     with st.container(border=True, key="card-running"):
         cols = st.columns([5, 1], vertical_alignment="top")
         cols[0].subheader("Running on this machine")
@@ -393,7 +402,7 @@ def running_panel() -> None:
                 "Each is a Docker container, reachable from this machine only. They keep running after you close "
                 "chap ui, until you stop them here."
             )
-        if not instances and not managed:
+        if not instances and not managed and not others:
             st.markdown(":gray[Nothing is running. Start a chapkit model below to use it in an evaluation.]")
             return
         # Only chap ui's own `chaps run` group: a deployment's models are its operator's to stop.
@@ -418,7 +427,7 @@ def running_panel() -> None:
         for model in instances:
             st.divider()
             chaps_row(model)
-        for container in managed:
+        for container in managed + others:
             st.divider()
             container_row(container)
 
