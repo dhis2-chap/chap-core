@@ -23,7 +23,9 @@ if guide and guide.get("step", 1) > 1 and not guide.get("finished"):
             st.switch_page(pages["guide"])
 
 
-def use_case(key: str, title: str, text: str, steps: str, target: str | None, highlight: bool = False) -> None:
+def use_case(
+    key: str, title: str, text: str, steps: str, target: str | None, highlight: bool = False, why: str = ""
+) -> None:
     """A goal on the Start page. Without a target, chap-core has no command for it yet."""
     with st.container(border=True, key=f"card-usecase-{key}"):
         st.markdown(f"#### {title}")
@@ -35,7 +37,7 @@ def use_case(key: str, title: str, text: str, steps: str, target: str | None, hi
                 key=f"usecase:{key}",
                 type="primary" if highlight else "secondary",
                 disabled=target is None,
-                help=steps,
+                help=why or steps,
             )
             and target
         ):
@@ -44,8 +46,9 @@ def use_case(key: str, title: str, text: str, steps: str, target: str | None, hi
             st.switch_page(pages[target])
 
 
-cols = st.columns(2)
-with cols[0]:
+# Two goals per row, so the cards of a row start and line up together.
+top = st.columns(2)
+with top[0]:
     use_case(
         "compare",
         "Find the best model for my data",
@@ -55,6 +58,18 @@ with cols[0]:
         "guide",
         highlight=True,
     )
+with top[1]:
+    use_case(
+        "forecast",
+        "Forecast the coming months",
+        "Train a model on all your data and forecast ahead, with the uncertainty of each forecast.",
+        "Not in the browser yet; the legacy command is under More commands.",
+        None,
+        why="chap-core has no command yet that forecasts your own data with a marketplace model. The legacy "
+        "forecast command, for its built-in datasets, is under More commands.",
+    )
+bottom = st.columns(2)
+with bottom[0]:
     use_case(
         "check",
         "Check a model I built",
@@ -63,15 +78,7 @@ with cols[0]:
         "Opens the sanity check; a guided version is coming.",
         "sanity-check-model",
     )
-with cols[1]:
-    use_case(
-        "forecast",
-        "Forecast the coming months",
-        "Train a model on all your data and forecast ahead, with the uncertainty of each forecast.",
-        "Not in the browser yet: chap-core has no command that forecasts your own data with a marketplace model. "
-        "The legacy forecast command, for its built-in datasets, is under More commands.",
-        None,
-    )
+with bottom[1]:
     use_case(
         "explore",
         "Look at a dataset",
