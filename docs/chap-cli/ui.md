@@ -4,6 +4,8 @@
 
 The app runs on your own machine and is only reachable from it.
 
+For a step-by-step example with four models, see [Walkthrough: compare models in the browser](ui-walkthrough.md).
+
 ## Install and start
 
 From a chap-core checkout:
@@ -83,7 +85,7 @@ Pick a model, adjust the backtest and run it. This is `chap eval`.
 
 The run continues in the background, so you can leave the page. **Show as CLI command** gives the `chap eval` command it runs.
 
-![The Evaluate page, ready to run Auto-ARIMA on the Laos data](assets/ui/evaluate.png)
+![The Evaluate page, ready to run CHAP-EWARS on the Laos data](assets/ui/evaluate.png)
 
 ### Results
 
@@ -138,7 +140,7 @@ Running models are listed at the top of the catalog, with their state and addres
 - **Test** has the model train and predict on generated data (`chaps models test`).
 - **Stop** stops it. **Stop, keep its data** keeps the model's stored configurations and trained models, so starting it again picks up where it left off. **Stop and delete its data** removes those too.
 
-![A running model with its metrics](assets/ui/running.png)
+![Models running on this machine](assets/ui/running.png)
 
 The list is the same as `chaps ps` in a terminal: models started with `chaps run` there show up here, and the other way round. **Stop all** stops the models `chap ui` started and leaves models in other `chaps run` groups alone.
 

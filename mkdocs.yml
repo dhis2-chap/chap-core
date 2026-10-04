@@ -133,6 +133,7 @@ nav:
       - CLI:
           - Overview: chap-cli/index.md
           - In the browser (chap ui): chap-cli/ui.md
+          - "Walkthrough: compare models in the browser": chap-cli/ui-walkthrough.md
 
           - eval Reference: chap-cli/eval-reference.md
           - report Reference: chap-cli/report-reference.md
