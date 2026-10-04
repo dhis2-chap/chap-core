@@ -11,7 +11,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
@@ -23,6 +23,8 @@ if TYPE_CHECKING:
 # Label on containers chap started itself, so it knows it may stop them.
 SERVICE_LABEL = "org.dhis2.chap.model"
 CHAPKIT_PORT = "8000/tcp"
+# The platform every chapkit image is built for, run under emulation where it is not native.
+AMD64 = "linux/amd64"
 CONFIGURED_MODELS_DIR = REPO_ROOT / "config" / "configured_models"
 
 
@@ -253,13 +255,20 @@ def start_service(image: str, model_id: str) -> ChapkitService:
     for old in client.containers.list(all=True, filters={"name": f"^{name}$", "label": SERVICE_LABEL}):
         if old.status != "running":
             old.remove()
-    container = client.containers.run(
-        image,
-        detach=True,
-        ports={CHAPKIT_PORT: ("127.0.0.1", None)},
-        labels={SERVICE_LABEL: model_id},
-        name=name,
-    )
+    options: dict[str, Any] = {
+        "detach": True,
+        "ports": {CHAPKIT_PORT: ("127.0.0.1", None)},
+        "labels": {SERVICE_LABEL: model_id},
+        "name": name,
+    }
+    try:
+        container = client.containers.run(image, **options)
+    except docker.errors.APIError as e:
+        if "no matching manifest" not in str(e):
+            raise
+        # An image built for amd64 only, on an arm64 machine: Docker runs it under emulation.
+        client.images.pull(image, platform=AMD64)
+        container = client.containers.run(image, platform=AMD64, **options)
     container.reload()
     return _service(container, model_id)
 

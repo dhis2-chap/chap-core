@@ -3,6 +3,7 @@ import pytest
 
 from chap_core.services.model_marketplace import MarketplaceModel
 from chap_core.ui.guide import (
+    answer_text,
     best_model,
     fit_reason,
     horizon_limits,
@@ -65,6 +66,16 @@ def test_horizons_are_limited_by_every_chosen_model(model):
 def test_the_best_model_has_the_lowest_crps():
     metrics = pd.DataFrame({"model": ["A", "B"], "crps": [12.0, 9.5], "mae": [10.0, 11.0]})
     assert best_model(metrics)["model"] == "B"
+
+
+def test_the_answer_says_when_another_model_came_closer_on_average():
+    metrics = pd.DataFrame(
+        {"model": ["A", "B"], "crps": [12.0, 9.5], "mae": [10.0, 11.0], "coverage_10_90": [0.6, 0.75]}
+    )
+    best = best_model(metrics)
+    text = answer_text(best, metrics[metrics["model"] != "B"], "month")
+    assert text.startswith("It has the best overall score, the CRPS: 9.5, against 12.0 for A.")
+    assert "A (10) came closer on average, but B was more right about its uncertainty" in text
 
 
 def test_a_validation_issue_names_where_it_is_and_the_periods():

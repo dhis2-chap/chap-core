@@ -50,10 +50,10 @@ chaps doctor
 A guided comparison in five steps:
 
 1. **Your data:** pick an example, upload a file, or reuse an earlier one. Chap checks it at once and says, in plain words, whether it can use it: how many regions, which periods, and which covariates it has.
-2. **Models:** the marketplace models that fit your data, each with the reason it fits, such as "uses rainfall and mean temperature, all in your data". Models that cannot use your data are listed separately with the reason, such as a covariate your data does not have.
+2. **Models:** the marketplace models that fit your data, each with the reason it fits, such as "uses rainfall and mean temperature, all in your data". Models that cannot use your data are listed separately with the reason, such as a column your data does not have. Models already running on this machine are marked, listed first and picked by default, since they start at once.
 3. **Questions:** how far ahead you need to forecast, and how thorough the test should be. Chap turns the answers into the backtest settings of `chap eval`, shown under **Advanced**, and only offers choices your data is long enough for.
 4. **Run:** Chap starts the models that are not running yet and tests each of them. You can leave the page; **Start** brings you back.
-5. **Answer:** which model forecast best, in words and in a table. "Off by" is the mean absolute error, the overall score is the CRPS, and the likely range is the 10-90% band of the forecasts. From here you can forecast with the winner, open the details in Results, or stop the models the comparison started (their data is kept).
+5. **Answer:** which model forecast best, in words and in a table. The winner has the best overall score, the CRPS, which rewards a model for knowing how uncertain it is as well as for being close; when another model came closer on average, the answer says so. "Off by" is the mean absolute error, and the likely range is the 10-90% band of the forecasts. From here you can forecast with the winner, open the details in Results, or stop the models the comparison started. With chaps their data is kept; without chaps their containers are removed.
 
 ![Choosing the models that fit the data](assets/ui/guide-models.png)
 
@@ -154,7 +154,7 @@ A deployment that includes chap-core may run its models without a port of their 
 
 ### Without chaps
 
-Without chaps, **Start instance** runs the model's image with `docker run`, reachable from this machine only, and **Stop** removes the container. The catalog shows how to install chaps.
+Without chaps, **Start instance** runs the model's image with `docker run`, reachable from this machine only, and **Stop** removes the container. An image built only for amd64 runs under emulation on an arm64 machine, such as a Mac with Apple silicon. Running containers of catalog models that something else started, such as chaps, are listed too, without a Stop button. The catalog shows how to install chaps.
 
 ## Where files go
 

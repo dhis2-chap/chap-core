@@ -112,6 +112,22 @@ def kept_choice(saved, options, preferred):
     return next(iter(options), None)
 
 
+def answer_text(best: pd.Series, others: pd.DataFrame, unit: str) -> str:
+    """Why the best model won, in words: the overall score it won on, and how close it was."""
+    text = f"It has the best overall score, the CRPS: {best['crps']:.1f}"
+    if len(others):
+        text += ", against " + ", ".join(f"{row.crps:.1f} for {row.model}" for row in others.itertuples())
+    text += f". Its forecasts were off by {best['mae']:.0f} cases per region and {unit} on average"
+    closer = others[others["mae"] < best["mae"]]
+    if len(closer):
+        names = ", ".join(f"{row.model} ({row.mae:.0f})" for row in closer.itertuples())
+        text += f"; {names} came closer on average, but {best['model']} was more right about its uncertainty"
+    return text + (
+        f". The real number of cases fell inside its likely range {best['coverage_10_90'] * 100:.0f}% of the "
+        "time; a model that knows how uncertain it is gets close to 80%."
+    )
+
+
 def best_model(metrics: pd.DataFrame) -> pd.Series:
     """The evaluation with the lowest CRPS: the score that also rewards a model for its uncertainty."""
     return metrics.sort_values("crps").iloc[0]

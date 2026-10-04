@@ -13,6 +13,7 @@ import streamlit as st
 from chap_core.ui.guide import (
     HORIZONS,
     THOROUGHNESS,
+    answer_text,
     best_model,
     fit_reason,
     horizon_limits,
@@ -37,6 +38,7 @@ from chap_core.ui.services import (
     PUBLISHED_DATASETS,
     backtest_windows,
     fetch_published_dataset,
+    format_cli_command,
     get_runs_dir,
     get_uploads_dir,
     load_job,
@@ -223,6 +225,8 @@ def step_questions() -> None:
             "How far ahead do you need to forecast?",
             list(horizons),
             default=kept_choice(guide.get("horizon_n"), horizons, 3),
+            # Clicking the chosen answer again would otherwise clear it and hide every thoroughness choice.
+            required=bool(horizons),
             format_func=lambda n: horizons[n],
             key="guide-horizon",
         )
@@ -237,6 +241,7 @@ def step_questions() -> None:
             "How thorough should the test be?",
             list(possible),
             default=kept_choice(guide.get("thoroughness"), possible, "Normal"),
+            required=bool(possible),
             format_func=lambda name: f"{name}: {possible[name]} tests",
             key="guide-thoroughness",
         )
@@ -253,7 +258,7 @@ def step_questions() -> None:
         guide.update(horizon_n=horizon, horizon=horizons[horizon], thoroughness=thoroughness)
         guide["splits"] = possible[thoroughness]
         with st.expander("Advanced: the settings these answers set"):
-            st.code(eval_args("<model>")[1:], "bash", wrap_lines=True)
+            st.code(format_cli_command(eval_args("<model>")), "bash", wrap_lines=True)
     cols = st.columns([1, 1, 4])
     if cols[0].button("Back"):
         go(2)
@@ -402,14 +407,7 @@ def step_answer() -> None:
     with st.container(border=True):
         st.caption(f"Forecasting {guide['horizon']} ahead for {guide['dataset_name']}")
         st.header(f"{best['model']} forecast best" if len(metrics) > 1 else f"{best['model']} was tested")
-        text = f"Its forecasts were off by {best['mae']:.0f} cases per region and {summary.unit} on average"
-        if len(others):
-            text += ", against " + ", ".join(f"{row.mae:.0f} for {row.model}" for row in others.itertuples())
-        text += (
-            f". The real number of cases fell inside its likely range {best['coverage_10_90'] * 100:.0f}% of the "
-            "time; a model that knows how uncertain it is gets close to 80%."
-        )
-        st.markdown(text)
+        st.markdown(answer_text(best, others, summary.unit))
     with st.container(border=True):
         st.markdown("**How each model did**")
         table = metrics[["model", "mae", "crps", "coverage_10_90"]].rename(

@@ -237,3 +237,30 @@ def test_without_chaps_the_panel_shows_containers_started_elsewhere_without_a_st
     assert not at.exception
     assert any("started outside chap ui" in block.value for block in at.markdown)
     assert "Stop" not in {b.label for b in at.button}
+
+
+def test_the_guides_questions_cannot_be_cleared(workdir, monkeypatch, data_path):
+    import streamlit as st
+
+    monkeypatch.setenv("CHAP_MARKETPLACE_URL", "http://127.0.0.1:9")  # unreachable: no network in the test
+    st.cache_data.clear()
+    at = AppTest.from_file(str(UI / "app.py"), default_timeout=60)
+    at.session_state["guide"] = {"step": 3, "dataset_csv": str(data_path / "laos_subset.csv"), "models": []}
+    at.switch_page("views/guide.py")
+    at.run()
+    assert not at.exception
+    assert at.segmented_control(key="guide-horizon").proto.required
+    assert at.segmented_control(key="guide-thoroughness").proto.required
+
+
+def test_the_guide_shows_its_settings_as_a_chap_eval_command(workdir, monkeypatch, data_path):
+    import streamlit as st
+
+    monkeypatch.setenv("CHAP_MARKETPLACE_URL", "http://127.0.0.1:9")  # unreachable: no network in the test
+    st.cache_data.clear()
+    at = AppTest.from_file(str(UI / "app.py"), default_timeout=60)
+    at.session_state["guide"] = {"step": 3, "dataset_csv": str(data_path / "laos_subset.csv"), "models": []}
+    at.switch_page("views/guide.py")
+    at.run()
+    assert not at.exception
+    assert any(code.value.startswith("chap eval --model-name") for code in at.code)

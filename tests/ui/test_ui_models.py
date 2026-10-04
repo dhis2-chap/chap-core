@@ -25,6 +25,7 @@ from chap_core.ui.models import (
     plain_text,
     remember_model,
     saved_models,
+    start_service,
 )
 
 
@@ -294,3 +295,39 @@ def test_request_totals_are_read_under_servicekit_3s_metric_names():
 
 def test_log_text_loses_terminal_colour_codes():
     assert plain_text("\x1b[2m2026-10-04\x1b[0m [\x1b[32m\x1b[1minfo\x1b[0m] ready") == "2026-10-04 [info] ready"
+
+
+def test_an_image_without_a_native_build_starts_under_amd64_emulation(monkeypatch):
+    import docker
+
+    class Container:
+        id, name, status, labels, ports = "c1", "chap-m", "running", {}, {"8000/tcp": [{"HostPort": "5009"}]}
+        image = type("Image", (), {"tags": ["img:1"], "short_id": "i"})()
+
+        def reload(self):
+            pass
+
+    calls = []
+
+    class Client:
+        class containers:
+            @staticmethod
+            def list(**kwargs):
+                return []
+
+            @staticmethod
+            def run(image, **kwargs):
+                calls.append(("run", kwargs.get("platform")))
+                if "platform" not in kwargs:
+                    raise docker.errors.ImageNotFound("no matching manifest for linux/arm64/v8 in the manifest list")
+                return Container()
+
+        class images:
+            @staticmethod
+            def pull(image, platform=None):
+                calls.append(("pull", platform))
+
+    monkeypatch.setattr(docker, "from_env", lambda: Client())
+    service = start_service("img:1", "m")
+    assert calls == [("run", None), ("pull", "linux/amd64"), ("run", "linux/amd64")]
+    assert service.url == "http://localhost:5009"
