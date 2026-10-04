@@ -20,6 +20,7 @@ from chap_core.ui.models import (
     forget_model,
     list_services,
     models_file,
+    newest_first,
     remember_model,
     service_info,
     service_logs,
@@ -177,9 +178,15 @@ def start_dialog(entry: CatalogEntry) -> None:
             with st.expander("Port and network"):
                 cols = st.columns(2)
                 port = cols[0].number_input(
-                    "Port", min_value=1024, max_value=65535, value=None, placeholder="Any free port"
+                    "Port", min_value=1024, max_value=65535, value=None, placeholder="Any free port",
+                    help="A fixed port on this machine for the model. Leave it empty and a free one is picked.",
+                )  # fmt: skip
+                reach = cols[1].selectbox(
+                    "Reachable from",
+                    ["This machine only", "Other machines too"],
+                    help="This machine only keeps the model private. Other machines too lets anyone on your "
+                    "network use it.",
                 )
-                reach = cols[1].selectbox("Reachable from", ["This machine only", "Other machines too"])
                 if reach != "This machine only":
                     st.caption("Anyone who can reach this machine can then use the model; it has no login.")
         else:
@@ -191,13 +198,34 @@ def start_dialog(entry: CatalogEntry) -> None:
             )
             port, reach = None, "This machine only"
         cols = st.columns([3, 1, 1.4])
-        if cols[1].button("Cancel", width="stretch"):
+        if cols[1].button("Cancel", width="stretch", help="Close without starting anything."):
             st.rerun()
-        if cols[2].button("Start instance", type="primary", width="stretch"):
+        if cols[2].button(
+            "Start instance",
+            type="primary",
+            width="stretch",
+            help="Start the model now. It shows under Running on this machine and answers once it is ready.",
+        ):
             with st.spinner("Starting. Downloading the image can take a while."):
                 start_instance(entry, entry.id, int(port) if port else None, reach != "This machine only")
 
     body()
+
+
+USE_HELP = "Make this the model in use: Evaluate and the other commands run it."
+LOGS_HELP = "Show the last lines the model wrote to its log, newest first."
+METRICS_HELP = (
+    "Show what the model reports about itself: trainings and predictions since it started, HTTP requests, "
+    "memory, CPU time and uptime."
+)
+
+# Service ids of the models stopped here with their data kept, so their cards can say a start resumes them.
+KEPT_DATA = "kept-data"
+
+
+def kept_data(service_id: str, kept: bool) -> None:
+    ids = st.session_state.setdefault(KEPT_DATA, set())
+    (ids.add if kept else ids.discard)(service_id)
 
 
 def state(entry: CatalogEntry) -> tuple[str | None, str]:
@@ -219,6 +247,8 @@ def state(entry: CatalogEntry) -> tuple[str | None, str]:
         return None, ":red[Not answering] :gray[· see its logs]"
     if in_chaps or container:
         return None, waiting(two_lines=False)
+    if entry.service_id in st.session_state.get(KEPT_DATA, set()):
+        return None, ":gray[Stopped, its data kept]"
     return None, ":gray[Not running]"
 
 
@@ -251,9 +281,11 @@ def chaps_row(model: ChapsModel) -> None:
     key = f"{model.project_dir}:{model.service_id}"  # the same model may run in several groups
 
     def actions() -> None:
-        with st.container(horizontal=True, horizontal_alignment="right", gap="small"):
+        with st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="center", gap="small"):
             if answering:
-                st.button("Use", key=f"use-run:{key}", type="primary", on_click=use_model, args=(model.url,))
+                st.button(
+                    "Use", key=f"use-run:{key}", type="primary", on_click=use_model, args=(model.url,), help=USE_HELP
+                )
             if model.internal and st.button(
                 "Expose",
                 key=f"expose:{key}",
@@ -267,7 +299,12 @@ def chaps_row(model: ChapsModel) -> None:
                         st.session_state[f"row-failed:{key}"] = (f"Could not expose {name}", e)
                     refresh()
                     st.rerun()
-            if model.state == "not running" and st.button("Start", key=f"start-run:{key}", type="primary"):
+            if model.state == "not running" and st.button(
+                "Start",
+                key=f"start-run:{key}",
+                type="primary",
+                help="Start this model again. Its saved configurations and trained models are still there.",
+            ):
                 st.session_state["last-start"] = time.time()
                 try:
                     chaps_start(model.id, model.project_dir)
@@ -275,33 +312,53 @@ def chaps_row(model: ChapsModel) -> None:
                     st.session_state[f"row-failed:{key}"] = (f"Could not start {name}", e)
                 refresh()
                 st.rerun()
-            st.toggle("Logs", key=f"logs:{key}")
+            st.toggle("Logs", key=f"logs:{key}", help=LOGS_HELP)
             if answering:
-                st.toggle("Metrics", key=f"metrics:{key}")
-            if answering and st.button("Test", key=f"test:{key}"):
+                st.toggle("Metrics", key=f"metrics:{key}", help=METRICS_HELP)
+            if answering and st.button(
+                "Test",
+                key=f"test:{key}",
+                help="Have chaps train and predict with the model on generated data, to check that it works. "
+                "Takes from a few seconds to a minute.",
+            ):
                 with st.spinner("chaps trains and predicts with the model on generated data..."):
                     try:
                         st.session_state[f"test-result:{key}"] = chaps_test(model).strip().splitlines()[-1]
                     except Exception as e:
                         st.session_state[f"test-result:{key}"] = e
-            with st.popover("Stop"):
-                keep = st.button("Stop, keep its data", key=f"stop-run:{key}", width="stretch")
+            with st.popover("Stop", help="Stop this model, keeping or deleting its data."):
+                keep = st.button(
+                    "Stop, keep its data",
+                    key=f"stop-run:{key}",
+                    width="stretch",
+                    help="Stop the container. Starting it again picks up its configurations and trained models.",
+                )
                 st.caption(f"Starting it again picks up its configurations and trained models. `chaps stop {model.id}`")
                 delete = False
                 # Deleting data is only offered for chap ui's own group: a deployment or another group's
                 # data belongs to whoever runs it.
                 if model.group is not None and model.group == OWN_GROUP:
-                    delete = st.button("Stop and delete its data", key=f"stop-purge:{key}", width="stretch")
+                    delete = st.button(
+                        "Stop and delete its data",
+                        key=f"stop-purge:{key}",
+                        width="stretch",
+                        help="Stop the container and delete its data volume: its configurations and trained "
+                        "models are gone.",
+                    )
                     st.caption(f"Removes its data volume too. `chaps stop {model.id} --purge`")
             if keep or delete:
                 try:
                     chaps_stop(model, delete_data=delete)
+                    kept_data(model.service_id, not delete)
                 except Exception as e:
                     st.session_state[f"row-failed:{key}"] = (f"Could not stop {name}", e)
                 refresh()
                 st.rerun()
 
-    source = entry.source if entry else f"In `{model.project_dir}`"
+    # A model chaps runs that the catalog does not know (yet): its group says more than its folder.
+    source = (
+        entry.source if entry else "Chapkit · started with chaps run" if model.group else f"In `{model.project_dir}`"
+    )
     if model.group != OWN_GROUP:
         source += f" · group `{model.group}`" if model.group else f" · `{model.project_dir}`"
     instance_row(name, source, model.url, status, actions)
@@ -318,14 +375,19 @@ def container_row(container: ChapkitService) -> None:
     key = container.id
 
     def actions() -> None:
-        with st.container(horizontal=True, horizontal_alignment="right", gap="small"):
+        with st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="center", gap="small"):
             if answering:
-                st.button("Use", key=f"use-run:{key}", type="primary", on_click=use_model, args=(container.url,))
-            st.toggle("Logs", key=f"logs:{key}")
+                st.button(
+                    "Use", key=f"use-run:{key}", type="primary", on_click=use_model, args=(container.url,),
+                    help=USE_HELP,
+                )  # fmt: skip
+            st.toggle("Logs", key=f"logs:{key}", help=LOGS_HELP)
             if answering:
-                st.toggle("Metrics", key=f"metrics:{key}")
+                st.toggle("Metrics", key=f"metrics:{key}", help=METRICS_HELP)
             # Only a container chap ui started itself; one started elsewhere is its owner's to stop.
-            if container.managed and st.button("Stop", key=f"stop-run:{key}"):
+            if container.managed and st.button(
+                "Stop", key=f"stop-run:{key}", help="Stop and remove this container. A plain container keeps no data."
+            ):
                 stop_service(container.id)
                 st.rerun()
 
@@ -344,7 +406,8 @@ def row_details(key: str, logs, url: str | None) -> None:
     elif result:
         st.success(result)
     if st.session_state.get(f"logs:{key}"):
-        st.code(logs(), "log", height=220)
+        st.code(newest_first(logs()), "log", height=220)
+        st.caption("Newest first, without the routine health and status requests.")
     if url and st.session_state.get(f"metrics:{key}"):
         show_metrics(url)
 
@@ -415,6 +478,7 @@ def running_panel() -> None:
             for model in own:
                 try:
                     chaps_stop(model)
+                    kept_data(model.service_id, True)
                 except Exception as e:
                     st.session_state[f"row-failed:{model.project_dir}:{model.service_id}"] = (
                         f"Could not stop {model.id}",
@@ -437,11 +501,19 @@ def running_panel() -> None:
 with st.expander("Add a model", icon=":material/add:"):
     st.caption(f"Your models are listed in `{saved_path}`. Models you run are added automatically.")
     cols = st.columns([2, 4, 1], vertical_alignment="bottom")
-    new_name = cols[0].text_input("Name", key="add-model-name")
-    new_model = cols[1].text_input(
-        "Model", key="add-model-value", placeholder="Folder, GitHub URL (optionally @commit) or chapkit URL"
+    new_name = cols[0].text_input(
+        "Name", key="add-model-name", help="What to call the model in the catalog. Optional: its own name is used."
     )
-    if cols[2].button("Add", disabled=not new_model, width="stretch"):
+    new_model = cols[1].text_input(
+        "Model",
+        key="add-model-value",
+        placeholder="Folder, GitHub URL (optionally @commit) or chapkit URL",
+        help="A folder with an MLproject file, a GitHub repository URL (optionally @commit), or the URL of a "
+        "running chapkit service.",
+    )
+    if cols[2].button(
+        "Add", disabled=not new_model, width="stretch", help="Add the model to your list. Nothing is started."
+    ):
         remember_model(saved_path, new_model, new_name or None)
         st.rerun()
     st.divider()
@@ -451,13 +523,22 @@ with st.expander("Add a model", icon=":material/add:"):
             "published build) or an image. It runs as an instance like the others; starting it again reuses it."
         )
         cols = st.columns([2, 4, 1.3], vertical_alignment="bottom")
-        new_id = cols[0].text_input("Id (optional)", key="add-chapkit-id")
+        new_id = cols[0].text_input(
+            "Id (optional)", key="add-chapkit-id", help="The id chaps gives the instance. Optional: chaps picks one."
+        )
         new_source = cols[1].text_input(
             "Chapkit model",
             key="add-chapkit-source",
             placeholder="https://github.com/org/repo, ghcr.io/org/image:tag or a local image:tag",
+            help="A chapkit model's GitHub repository, which runs its newest published build, or a Docker image.",
         )
-        if cols[2].button("Start instance", key="add-chapkit", disabled=not new_source, width="stretch"):
+        if cols[2].button(
+            "Start instance",
+            key="add-chapkit",
+            disabled=not new_source,
+            width="stretch",
+            help="Start the model with chaps run. The first start downloads its image.",
+        ):
             with st.spinner("Starting. Downloading the image can take a while."):
                 start_instance(None, new_source.strip(), None, False, new_id.strip() or None)
         if failure := st.session_state.get(f"start-failed:{new_source.strip()}"):
@@ -478,8 +559,9 @@ def card(entry: CatalogEntry) -> None:
     with st.container(border=True, key=f"card-model-{entry.id}"):
         cols = st.columns([3, 2], vertical_alignment="top")
         cols[0].markdown(f"**{entry.name}**  \n:gray[{entry.source}]")
-        with cols[1]:
-            st.badge(entry.status, color=BADGE_COLORS[entry.tone])
+        cols[1].container(horizontal=True, horizontal_alignment="right").badge(
+            entry.status, color=BADGE_COLORS[entry.tone]
+        )
         summary = entry.summary if len(entry.summary) < 180 else entry.summary[:177].rsplit(" ", 1)[0] + "..."
         st.markdown(summary)
         st.markdown(" ".join(f":gray-badge[{tag}]" for tag in entry.tags))
@@ -490,7 +572,7 @@ def card(entry: CatalogEntry) -> None:
                     st.code(failure.output, "log")
         footer = st.columns([3, 2, 2], vertical_alignment="center")
         footer[0].markdown(description)
-        with footer[1].popover("Details", width="stretch"):
+        with footer[1].popover("Details", width="stretch", help="The full description, image and source code."):
             st.markdown(f"**{entry.name}**")
             st.markdown(entry.summary)
             if entry.image:
@@ -498,11 +580,15 @@ def card(entry: CatalogEntry) -> None:
             if entry.model_name:
                 st.caption(f"Model `{entry.model_name}`")
             if entry.repository:
-                st.link_button("Source", entry.repository, icon=":material/code:")
+                st.link_button(
+                    "Source", entry.repository, icon=":material/code:", help="Open the model's source repository."
+                )
             if (
                 entry.kind == "saved"
                 and entry.model_name
-                and st.button("Remove from your models", key=f"forget:{entry.id}")
+                and st.button(
+                    "Remove from your models", key=f"forget:{entry.id}", help="Take it off your list in models.yaml."
+                )
             ):
                 forget_model(saved_path, entry.model_name)
                 st.rerun()
@@ -510,19 +596,21 @@ def card(entry: CatalogEntry) -> None:
             if entry.kind != "chapkit":
                 st.button(
                     "Use", key=f"use:{entry.id}", type="primary", width="stretch", on_click=use_model,
-                    args=(entry.model_name,),
+                    args=(entry.model_name,), help=USE_HELP,
                 )  # fmt: skip
             elif url:
                 st.button(
-                    "Use", key=f"use:{entry.id}", type="primary", width="stretch", on_click=use_model, args=(url,)
-                )
+                    "Use", key=f"use:{entry.id}", type="primary", width="stretch", on_click=use_model, args=(url,),
+                    help=USE_HELP,
+                )  # fmt: skip
             elif not (
                 ((c := services.get(entry.id)) is not None and c.status == "running")
                 or ((m := deployment.get(entry.service_id or "")) is not None and m.state != "not running")
             ) and st.button(
-                "Try again" if failure else "Start instance",
+                "Try again" if failure else "Start",
                 key=f"start:{entry.id}",
                 width="stretch",
+                help="Run this model on this machine. A dialog says what happens before anything starts.",
                 disabled=bool(docker_problem) and not chaps,
             ):
                 start_dialog(entry)
@@ -565,12 +653,27 @@ def page() -> None:
     running_panel()
     with st.container(horizontal=True, vertical_alignment="bottom", gap="medium"):
         source = st.segmented_control(
-            "Show", list(counts), default="All", format_func=lambda k: f"{k} {counts[k]}", key="catalog-source"
+            "Show",
+            list(counts),
+            default="All",
+            format_func=lambda k: f"{k} {counts[k]}",
+            key="catalog-source",
+            help="Which models to list: all, those running now, chapkit services, your own list, GitHub "
+            "repositories or local folders.",
         )
         periods = st.segmented_control(
-            "Period type", ["Monthly", "Weekly"], selection_mode="multi", key="catalog-period"
+            "Period type",
+            ["Monthly", "Weekly"],
+            selection_mode="multi",
+            key="catalog-period",
+            help="Only models that can use monthly or weekly data.",
         )
-        query = st.text_input("Search models", placeholder="Name, covariate or author", key="catalog-search").lower()
+        query = st.text_input(
+            "Search models",
+            placeholder="Name, covariate or author",
+            key="catalog-search",
+            help="Matches the model's name, its covariates such as rainfall, or its author.",
+        ).lower()
     grid(source, periods, query)
 
 

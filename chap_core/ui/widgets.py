@@ -41,6 +41,13 @@ GLOBAL_RUN_OPTIONS = {
     "run_config.track": "Track with MLflow",
 }
 
+RUN_OPTION_HELP = {
+    "run_config.debug": "Write more detail to each run's log, to find out why something fails.",
+    "run_config.ignore_environment": "Run models without setting up their Python or R environment first. Faster, "
+    "if what the model needs is installed already.",
+    "run_config.track": "Record runs in MLflow, for models that log their training there.",
+}
+
 GROUP_TITLES = {
     "backtest-params": "More backtest options",
     "run-config": "Model run",
@@ -95,6 +102,8 @@ CSS = """
 .chap-brand { display: flex; flex-direction: column; padding: 0 0.5rem 0.25rem; line-height: 1.3; }
 .chap-brand b { font-size: 1.15rem; letter-spacing: 0.02em; }
 .chap-brand span, .chap-muted { color: #5B6470; font-size: 0.8rem; }
+/* Rows in a list, such as the running models, need a line between them, not a section break. */
+.st-key-card-running hr { margin: 0.35rem 0; }
 .chap-nav-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
   color: #5B6470; margin: 0.9rem 0 0.15rem 0.5rem; }
 </style>
@@ -155,7 +164,11 @@ def sidebar(sections: dict[str, list], commands: dict[str, list], current) -> No
                 st.page_link(page, label=label)
         st.html('<div class="chap-nav-label">More commands</div>')
         query = st.text_input(
-            "Find a command", placeholder="Find a command...", label_visibility="collapsed", key="nav-search"
+            "Find a command",
+            placeholder="Find a command...",
+            label_visibility="collapsed",
+            key="nav-search",
+            help="Find any command by its title or CLI name, such as plot-backtest.",
         ).lower()
         st.html(COMMAND_PALETTE_SHORTCUT, unsafe_allow_javascript=True)
         found = 0
@@ -184,8 +197,15 @@ def sidebar(sections: dict[str, list], commands: dict[str, list], current) -> No
         st.html('<div class="chap-nav-label">Run options</div>')
         options = settings()
         for key, label in GLOBAL_RUN_OPTIONS.items():
-            options[key] = st.toggle(label, value=options[key], key=f"settings:{key}")
+            options[key] = st.toggle(label, value=options[key], key=f"settings:{key}", help=RUN_OPTION_HELP[key])
         st.caption(f"Runs folder `{get_runs_dir()}`")
+
+
+CHIP_HELP = {
+    "dataset": "The dataset every page starts from. Click to pick another on the Data page.",
+    "model": "The model every page starts from. Click to pick another in the Catalog.",
+    "config": "The model configuration passed to the model. Click to make or change one.",
+}
 
 
 def context_bar() -> None:
@@ -205,7 +225,12 @@ def context_bar() -> None:
             ),
         ]
         for key, label, target in chips:
-            if st.button(label, key=f"chip-{key}", type="secondary" if label[0] != "+" else "tertiary"):
+            if st.button(
+                label,
+                key=f"chip-{key}",
+                type="secondary" if label[0] != "+" else "tertiary",
+                help=CHIP_HELP[key],
+            ):
                 st.switch_page(target)
         if config:
             st.button(
@@ -356,6 +381,7 @@ def run_panel(
             width="stretch",
             disabled=bool(missing) or running,
             key=f"run:{key}",
+            help="Run the command in the background. It keeps going if you leave the page; Runs has its log.",
         ):
             model = values.get("model_name") or values.get("model_url")
             if model:
@@ -384,13 +410,19 @@ def _job_status_body(run_dir: Path) -> None:
     cols = st.columns([3, 2], vertical_alignment="center")
     cols[0].markdown(f"{STATUS[job.status]} :gray[{duration(job)}]")
     if job.status == "running":
-        if cols[1].button("Stop", icon=":material/stop:", key=f"stop:{job.name}", width="stretch"):
+        if cols[1].button(
+            "Stop", icon=":material/stop:", key=f"stop:{job.name}", width="stretch", help="Stop this run."
+        ):
             stop_job(job)
             st.rerun()
     else:
         evaluations = [p for p in job_outputs(job) if p.suffix == ".nc"]
         if evaluations and cols[1].button(
-            "Results", icon=":material/insights:", key=f"res:{job.name}", width="stretch"
+            "Results",
+            icon=":material/insights:",
+            key=f"res:{job.name}",
+            width="stretch",
+            help="Open the evaluation this run wrote on the Results page.",
         ):
             open_in_results(evaluations[0])
 
@@ -420,7 +452,11 @@ def recent_runs(limit: int = 3) -> None:
     with st.container(border=True, key="card-recent"):
         cols = st.columns([3, 2], vertical_alignment="center")
         cols[0].subheader("Recent runs")
-        if cols[1].button("All runs", type="tertiary", key="recent-all"):
+        if (
+            cols[1]
+            .container(horizontal=True, horizontal_alignment="right")
+            .button("All runs", type="tertiary", key="recent-all")
+        ):
             st.switch_page("views/runs.py")
         if not jobs:
             st.markdown(":gray[Nothing has run yet.]")
@@ -467,14 +503,19 @@ def show_outputs(job: Job) -> None:
         rel = path.relative_to(job.run_dir)
         with st.expander(str(rel), expanded=len(outputs) <= 3 or path.suffix in (".html", ".md")):
             _show_file(path)
-            st.download_button("Download", path.read_bytes(), path.name, key=f"dl:{path}", icon=":material/download:")
+            st.download_button(
+                "Download", path.read_bytes(), path.name, key=f"dl:{path}", icon=":material/download:",
+                help="Save this file on your computer.",
+            )  # fmt: skip
 
 
 def _show_file(path: Path) -> None:
     suffix = path.suffix.lower()
     if suffix == ".nc":
         st.caption("Evaluation file")
-        if st.button("Open in Results", key=f"open:{path}", icon=":material/insights:"):
+        if st.button(
+            "Open in Results", key=f"open:{path}", icon=":material/insights:", help="Compare it on the Results page."
+        ):
             open_in_results(path)
     elif suffix == ".html":
         st.iframe(path, height="content")
@@ -593,11 +634,17 @@ def _list_widget(field: Field, widget_key: str, initial, help_text) -> list[str]
 def _path_widget(field: Field, widget_key: str, initial, help_text) -> str | None:
     suffixes = PATH_SUFFIXES.get(field.key)
     _sync_shared(field, widget_key, initial)
-    cols = st.columns([5, 1], vertical_alignment="bottom")
+    # Wide enough for "Browse" next to its icon and arrow on a laptop screen; an output has no Browse.
+    cols = st.columns([4, 1.3], vertical_alignment="bottom") if not field.is_output else [st.container()]
     value = cols[0].text_input(field.label, help=help_text, key=widget_key)
     _publish_shared(field, widget_key, value)
     if not field.is_output:
-        with cols[1].popover("Browse", icon=":material/folder_open:", width="stretch"):
+        with cols[1].popover(
+            "Browse",
+            icon=":material/folder_open:",
+            width="stretch",
+            help="Pick a file from the runs or uploads folder, or upload one.",
+        ):
             files = workspace_files(get_runs_dir(), get_uploads_dir(), suffixes) if suffixes else []
             if files:
                 st.selectbox(
@@ -635,12 +682,17 @@ def _model_widget(field: Field, widget_key: str, initial, help_text) -> str | No
     from chap_core.ui.models import github_models
 
     _sync_shared(field, widget_key, initial)
-    cols = st.columns([5, 1], vertical_alignment="bottom")
+    cols = st.columns([4, 1.3], vertical_alignment="bottom")
     value = cols[0].text_input(
         field.label, help=help_text, key=widget_key, placeholder="Directory, GitHub URL or chapkit URL"
     )
     _publish_shared(field, widget_key, value)
-    with cols[1].popover("Choose", icon=":material/model_training:", width="stretch"):
+    with cols[1].popover(
+        "Choose",
+        icon=":material/model_training:",
+        width="stretch",
+        help="Pick a running model, one from your list, an example, or a GitHub model.",
+    ):
         from chap_core.ui.models import models_file, saved_models
 
         options = _running_service_options()
@@ -655,7 +707,12 @@ def _model_widget(field: Field, widget_key: str, initial, help_text) -> str | No
             on_change=_copy_choice,
             args=(f"{widget_key}:pick", widget_key, options),
         )
-        if st.button("Browse all models", key=f"{widget_key}:browse", icon=":material/arrow_forward:"):
+        if st.button(
+            "Browse all models",
+            key=f"{widget_key}:browse",
+            icon=":material/arrow_forward:",
+            help="Open the Catalog, where models are started and added.",
+        ):
             st.switch_page("views/models.py")
     return value or None
 

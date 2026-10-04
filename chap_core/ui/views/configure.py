@@ -25,6 +25,7 @@ if current:
             "Stop using it",
             icon=":material/close:",
             width="stretch",
+            help="Run models with their defaults again. The file stays.",
             on_click=clear_shared,
             args=("model_configuration_yaml",),
         )
@@ -37,8 +38,18 @@ else:
     st.info("No model configuration is in use; models run with their defaults.", icon=":material/info:")
 
 with st.container(border=True, key="card-configure"):
-    model_name = st.text_input("Model", value=st.session_state.get("model_name", ""), key="config-model")
-    if st.button("Load options", icon=":material/download:", disabled=not model_name):
+    model_name = st.text_input(
+        "Model",
+        value=st.session_state.get("model_name", ""),
+        key="config-model",
+        help="The model to configure: a folder, a GitHub URL or a chapkit service URL.",
+    )
+    if st.button(
+        "Load options",
+        icon=":material/download:",
+        disabled=not model_name,
+        help="Ask the model which options it takes (chap model schema) and build a form from them.",
+    ):
         with st.spinner("Loading model options..."):
             job = run_job(
                 get_runs_dir(),
@@ -94,8 +105,15 @@ with st.container(border=True, key="card-configure"):
         config = {"user_option_values": values, "additional_continuous_covariates": covariates}
         st.code(yaml.safe_dump(config, sort_keys=False), "yaml")
         default_name = re.sub(r"[^A-Za-z0-9]+", "-", model_name.split("@")[0].rstrip("/").split("/")[-1]).strip("-")
-        file_name = st.text_input("File name", value=f"{default_name}.yaml")
-        if st.button("Save configuration", type="primary", icon=":material/save:"):
+        file_name = st.text_input(
+            "File name", value=f"{default_name}.yaml", help="Saved in the configs folder of the runs folder."
+        )
+        if st.button(
+            "Save configuration",
+            type="primary",
+            icon=":material/save:",
+            help="Save the file and make it the configuration in use for Evaluate and the other commands.",
+        ):
             path = get_runs_dir() / "configs" / file_name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(yaml.safe_dump(config, sort_keys=False))

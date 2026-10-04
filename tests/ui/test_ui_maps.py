@@ -11,6 +11,7 @@ from chap_core.ui.maps import (
     choropleth_html,
     choropleth_url,
     feature_location,
+    pack_features,
 )
 from chap_core.ui.services import dataset_geojson, dataset_incidence, evaluation_dataset, metric_by_location
 
@@ -76,6 +77,16 @@ def test_the_map_url_packs_the_regions_well_below_their_geojson_size(data_path):
     geojson = dataset_geojson(data_path / "laos_subset.csv")
     assert geojson is not None
     assert len(choropleth_url(geojson, {}, "Cases")) < len(json.dumps(geojson)) / 2
+
+
+def test_the_same_map_packs_to_the_same_bytes(data_path, monkeypatch):
+    import time
+
+    geojson = dataset_geojson(data_path / "laos_subset.csv")
+    assert geojson is not None
+    first = pack_features(geojson)
+    monkeypatch.setattr(time, "time", lambda: 4_000_000_000.0)  # a later second, as gzip's timestamp sees it
+    assert pack_features(geojson) == first
 
 
 def test_regions_without_a_value_are_packed_as_valid_json(data_path):

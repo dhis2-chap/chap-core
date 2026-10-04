@@ -94,9 +94,20 @@ def choose_dataset() -> Path | None:
     uploads_dir = get_uploads_dir()
     earlier = sorted(uploads_dir.glob("*.csv")) if uploads_dir.exists() else []
     sources = ["Use an example", "Upload my own file"] + (["A file I used before"] if earlier else [])
-    source = st.segmented_control("Where is your data?", sources, default=sources[0], key="guide-source")
+    source = st.segmented_control(
+        "Where is your data?",
+        sources,
+        default=sources[0],
+        key="guide-source",
+        help="A published example to try things out, your own CSV file, or a file you used here before.",
+    )
     if source == "Use an example":
-        name = st.selectbox("Example", list(PUBLISHED_DATASETS), key="guide-example")
+        name = st.selectbox(
+            "Example",
+            list(PUBLISHED_DATASETS),
+            key="guide-example",
+            help="Province-level monthly data from dhis2/climate-health-data, with a map of the regions.",
+        )
         st.caption("Published in dhis2/climate-health-data, with a map of the regions.")
         with st.spinner("Downloading the dataset..."):
             path = fetch_published_dataset(uploads_dir, PUBLISHED_DATASETS[name])
@@ -104,8 +115,17 @@ def choose_dataset() -> Path | None:
         return path
     if source == "Upload my own file":
         cols = st.columns(2)
-        csv_file = cols[0].file_uploader("Your data, as a CSV file", type="csv", key="guide-upload")
-        geojson = cols[1].file_uploader("A map of the regions (optional GeoJSON)", type=["geojson", "json"])
+        csv_file = cols[0].file_uploader(
+            "Your data, as a CSV file",
+            type="csv",
+            key="guide-upload",
+            help="One row per region and month (or week): time_period, location, disease_cases, and any covariates.",
+        )
+        geojson = cols[1].file_uploader(
+            "A map of the regions (optional GeoJSON)",
+            type=["geojson", "json"],
+            help="Lets Chap draw maps, and lets models that use region shapes run.",
+        )
         if csv_file is None:
             return None
         path = save_upload(uploads_dir, csv_file.name, csv_file.getvalue())
@@ -113,7 +133,13 @@ def choose_dataset() -> Path | None:
             save_upload(uploads_dir, path.with_suffix(".geojson").name, geojson.getvalue())
         guide["dataset_name"] = path.name
         return path
-    choice = st.selectbox("Earlier file", earlier, format_func=lambda p: p.name, key="guide-earlier")
+    choice = st.selectbox(
+        "Earlier file",
+        earlier,
+        format_func=lambda p: p.name,
+        key="guide-earlier",
+        help="Files you uploaded or downloaded here before, from the uploads folder.",
+    )
     guide["dataset_name"] = choice.name
     return choice
 
@@ -153,7 +179,12 @@ def step_data() -> None:
             st.markdown("\n".join(f"- {line}" for line in lines))
         st.caption(f"Checked with `chap validate --dataset-csv {path}`.")
     guide["dataset_csv"] = str(path)
-    if st.button("Next: choose models", type="primary", disabled=bool(errors)):
+    if st.button(
+        "Next: choose models",
+        type="primary",
+        disabled=bool(errors),
+        help="Fix the problems above first." if errors else "See which models can use this data.",
+    ):
         go(2)
 
 
@@ -182,7 +213,10 @@ def step_models() -> None:
             cols = st.columns([6, 1], vertical_alignment="top")
             status, tone = ASSESSMENT.get(model.assessed_status or "gray", ASSESSMENT["gray"])
             if cols[0].checkbox(
-                f"**{model.display_name or model.id}**", value=model.id in chosen, key=f"pick:{model.id}"
+                f"**{model.display_name or model.id}**",
+                value=model.id in chosen,
+                key=f"pick:{model.id}",
+                help="Include this model in the comparison.",
             ):
                 picked.append(model.id)
             cols[1].badge(status, color=BADGE_COLORS[tone])
@@ -199,11 +233,11 @@ def step_models() -> None:
         "choose afterwards whether to stop them."
     )
     guide["models"] = picked
-    cols = st.columns([1, 1, 4])
-    if cols[0].button("Back"):
+    nav = st.container(horizontal=True, gap="small")
+    if nav.button("Back", help="Back to your data. Your choices here are kept."):
         go(1)
     label = f"Next: {len(picked)} model{'s' if len(picked) != 1 else ''} chosen"
-    if cols[1].button(label, type="primary", disabled=not picked):
+    if nav.button(label, type="primary", disabled=not picked, help="Pick at least one model." if not picked else None):
         go(3)
 
 
@@ -229,6 +263,8 @@ def step_questions() -> None:
             required=bool(horizons),
             format_func=lambda n: horizons[n],
             key="guide-horizon",
+            help="How many months (or weeks) ahead each test forecast reaches. Only horizons every chosen model "
+            "supports are offered.",
         )
         st.caption("The time you need to act on a warning. Further ahead is harder to get right.")
     possible = {
@@ -244,6 +280,8 @@ def step_questions() -> None:
             required=bool(possible),
             format_func=lambda name: f"{name}: {possible[name]} tests",
             key="guide-thoroughness",
+            help="How many times each model forecasts from an earlier date. More tests give a more reliable "
+            "ranking and take longer.",
         )
         if thoroughness and horizon:
             windows = backtest_windows(summary.periods, horizon, possible[thoroughness], 1)
@@ -259,10 +297,15 @@ def step_questions() -> None:
         guide["splits"] = possible[thoroughness]
         with st.expander("Advanced: the settings these answers set"):
             st.code(format_cli_command(eval_args("<model>")), "bash", wrap_lines=True)
-    cols = st.columns([1, 1, 4])
-    if cols[0].button("Back"):
+    nav = st.container(horizontal=True, gap="small")
+    if nav.button("Back", help="Back to the models. Your answers here are kept."):
         go(2)
-    if cols[1].button("Run the comparison", type="primary", disabled=not (horizon and thoroughness)):
+    if nav.button(
+        "Run the comparison",
+        type="primary",
+        disabled=not (horizon and thoroughness),
+        help="Start the models that are not running yet and test each one. This takes a few minutes.",
+    ):
         guide["progress"] = {i: {"state": "waiting"} for i in guide["models"]}
         guide.setdefault("started", [])
         go(4)
@@ -393,7 +436,7 @@ def step_answer() -> None:
         st.header("No model could be tested")
         for model_id, progress in failed.items():
             st.markdown(f"- **{marketplace[model_id].display_name or model_id}**: {progress.get('error')}")
-        if st.button("Back to the questions"):
+        if st.button("Back to the questions", help="Change the horizon or thoroughness and run again."):
             go(3)
         return
     files = {i: Path(p["run_dir"]) / "evaluation.nc" for i, p in done.items()}
@@ -434,14 +477,18 @@ def step_answer() -> None:
     cols = st.columns(3)
     with cols[0].container(border=True):
         st.markdown(f"**Forecast the coming months**  \n:gray[With {best['model']}, on all your data]")
-        if st.button("Forecast", type="primary", key="guide-forecast"):
+        if st.button(
+            "Forecast", type="primary", key="guide-forecast", help="Open the forecast command with this model."
+        ):
             st.session_state["model_name"] = done[best["model_id"]]["url"]
             st.session_state["dataset_csv"] = guide["dataset_csv"]
             guide["finished"] = True
             st.switch_page(pages["forecast"])
     with cols[1].container(border=True):
         st.markdown("**See the details**  \n:gray[Metrics per region, maps and forecast plots]")
-        if st.button("Open Results", key="guide-results"):
+        if st.button(
+            "Open Results", key="guide-results", help="Metrics per region, maps and forecast plots for every model."
+        ):
             st.session_state["results-selected"] = [str(f) for f in files.values()]
             guide["finished"] = True
             st.switch_page(pages["results"])
@@ -455,11 +502,13 @@ def step_answer() -> None:
             st.markdown(f"**Stopped**  \n:gray[The {guide['stopped']} started for this comparison are stopped]")
         else:
             st.markdown("**Nothing to stop**  \n:gray[The models were already running before]")
-        if started and st.button("Stop them", key="guide-stop"):
+        if started and st.button(
+            "Stop them", key="guide-stop", help="Stop only the models this comparison started. Others keep running."
+        ):
             stop_started(started)
             guide.update(started=[], stopped=len(started))
             st.rerun()
-    if st.button("Start over", key="guide-restart"):
+    if st.button("Start over", key="guide-restart", help="Begin a new comparison. Its results stay under Runs."):
         st.session_state["guide"] = {"step": 1}
         st.rerun()
 

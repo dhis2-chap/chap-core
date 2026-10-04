@@ -22,6 +22,7 @@ from chap_core.ui.models import (
     github_models,
     marketplace_image,
     model_label,
+    newest_first,
     plain_text,
     remember_model,
     saved_models,
@@ -331,3 +332,14 @@ def test_an_image_without_a_native_build_starts_under_amd64_emulation(monkeypatc
     service = start_service("img:1", "m")
     assert calls == [("run", None), ("pull", "linux/amd64"), ("run", "linux/amd64")]
     assert service.url == "http://localhost:5009"
+
+
+def test_logs_show_the_newest_line_first_without_routine_requests():
+    logs = 'starting\n"GET /health HTTP/1.1" 200\ntrained\npath=/api/v1/info status_code=200\npredicted'
+    assert newest_first(logs) == "predicted\ntrained\nstarting"
+
+
+def test_a_github_repository_that_does_not_exist_is_said_in_words():
+    error = ChapsError("HTTP 404 from https://api.github.com/repos/nope-org/no-model", "the full output")
+    assert str(error) == "GitHub has no repository nope-org/no-model, or it is private: check the URL"
+    assert error.output == "the full output"

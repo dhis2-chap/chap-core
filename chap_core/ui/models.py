@@ -309,6 +309,16 @@ def plain_text(text: str) -> str:
     return ANSI_CODES.sub("", text)
 
 
+# Requests a model answers all the time: Docker's health check, and chap ui asking whether it answers.
+ROUTINE_REQUESTS = ("/health", "/api/v1/info")
+
+
+def newest_first(logs: str) -> str:
+    """Log lines with the newest on top, leaving out the routine health and status requests."""
+    lines = [line for line in logs.splitlines() if not any(path in line for path in ROUTINE_REQUESTS)]
+    return "\n".join(reversed(lines))
+
+
 def service_logs(service_id: str, tail: int = 200) -> str:
     import docker
 
@@ -562,11 +572,22 @@ def chaps_logs(model: ChapsModel, tail: int = 200) -> str:
     return str(run_external(command, timeout=60).stdout)
 
 
+# GitHub's answer for a repository that does not exist, or that the caller may not see.
+GITHUB_NOT_FOUND = re.compile(r"HTTP 404 from https://api\.github\.com/repos/([^/\s]+/[^/\s]+)")
+
+
+def readable_error(message: str) -> str:
+    """A chaps error in words a user can act on, where chaps passes on a raw HTTP answer."""
+    if found := GITHUB_NOT_FOUND.search(message):
+        return f"GitHub has no repository {found.group(1)}, or it is private: check the URL"
+    return message
+
+
 class ChapsError(RuntimeError):
     """A chaps command failed; the message is its error, `output` everything it printed."""
 
     def __init__(self, message: str, output: str):
-        super().__init__(message)
+        super().__init__(readable_error(message))
         self.output = output
 
 

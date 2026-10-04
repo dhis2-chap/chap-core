@@ -173,8 +173,6 @@ def catalog_with_chaps(monkeypatch, tmp_path, rows: list[dict]) -> AppTest:
     monkeypatch.setenv("PATH", f"{fake.parent}:{os.environ['PATH']}")
     monkeypatch.setenv("CHAP_MARKETPLACE_URL", "http://127.0.0.1:9")  # unreachable: no network in the test
     monkeypatch.chdir(tmp_path)
-    # Only what chaps lists: containers running on the test machine must not show up.
-    monkeypatch.setattr("chap_core.ui.models.list_services", lambda images=None: [])
     st.cache_data.clear()  # what other tests asked chaps is cached across AppTests
     at = AppTest.from_file(str(VIEWS / "models.py"), default_timeout=60)
     at.run()
@@ -264,3 +262,27 @@ def test_the_guide_shows_its_settings_as_a_chap_eval_command(workdir, monkeypatc
     at.run()
     assert not at.exception
     assert any(code.value.startswith("chap eval --model-name") for code in at.code)
+
+
+def test_a_model_stopped_with_its_data_kept_says_so_on_its_card(workdir, monkeypatch, tmp_path, marketplace_model):
+    from chap_core.services.model_marketplace import MarketplaceModel
+
+    model = MarketplaceModel.model_validate(marketplace_model)
+    monkeypatch.setattr("chap_core.services.model_marketplace.list_models", lambda *a, **k: ([model], {}))
+    at = catalog_with_chaps(monkeypatch, tmp_path, [])
+    at.session_state["kept-data"] = {model.service_id}
+    at.run()
+    assert not at.exception
+    assert any("Stopped, its data kept" in block.value for block in at.markdown)
+    assert "Start" in {b.label for b in at.button}
+
+
+def test_every_control_on_the_catalog_says_what_it_does(workdir, monkeypatch, tmp_path, marketplace_model):
+    from chap_core.services.model_marketplace import MarketplaceModel
+
+    model = MarketplaceModel.model_validate(marketplace_model)
+    monkeypatch.setattr("chap_core.services.model_marketplace.list_models", lambda *a, **k: ([model], {}))
+    at = catalog_with_chaps(monkeypatch, tmp_path, [ps_row("up", "default", tmp_path)])
+    controls = [*at.button, *at.toggle, *at.segmented_control, *at.text_input]
+    assert controls
+    assert [c.label for c in controls if not c.proto.help] == []

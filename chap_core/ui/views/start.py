@@ -19,7 +19,7 @@ if guide and guide.get("step", 1) > 1 and not guide.get("finished"):
             f":gray[Continue where you left off]  \n**Find the best model for {guide['dataset_name']}** · "
             f"step {guide['step']} of 5"
         )
-        if cols[1].button("Continue", type="primary", width="stretch"):
+        if cols[1].button("Continue", type="primary", width="stretch", help="Go back to the comparison you started."):
             st.switch_page(pages["guide"])
 
 
@@ -29,7 +29,10 @@ def use_case(key: str, title: str, text: str, steps: str, target: str, highlight
         st.markdown(text)
         st.caption(steps)
         if st.button(
-            "Start" if highlight else "Open", key=f"usecase:{key}", type="primary" if highlight else "secondary"
+            "Start" if highlight else "Open",
+            key=f"usecase:{key}",
+            type="primary" if highlight else "secondary",
+            help=steps,
         ):
             if key == "compare":
                 st.session_state["guide"] = {"step": 1}

@@ -78,17 +78,22 @@ def details(run_dir: Path, was_running: bool) -> None:
     )
     buttons = st.container(horizontal=True)
     evaluations = [p for p in job_outputs(job) if p.suffix == ".nc"]
-    if evaluations and buttons.button("Open in Results", type="primary", icon=":material/insights:"):
+    if evaluations and buttons.button(
+        "Open in Results",
+        type="primary",
+        icon=":material/insights:",
+        help="Compare the evaluation this run wrote on the Results page.",
+    ):
         open_in_results(evaluations[0])
     if job.status == "running":
-        if buttons.button("Stop", icon=":material/stop:"):
+        if buttons.button("Stop", icon=":material/stop:", help="Stop this run. What it wrote so far stays."):
             stop_job(job)
             st.rerun()
     else:
-        if buttons.button("Run again", icon=":material/replay:"):
+        if buttons.button("Run again", icon=":material/replay:", help="Run the same command again, as a new run."):
             start_job(get_runs_dir(), job.args, job.name.split("_", 1)[-1])
             st.rerun()
-        if buttons.button("Delete", icon=":material/delete:"):
+        if buttons.button("Delete", icon=":material/delete:", help="Delete this run's folder: its log and outputs."):
             shutil.rmtree(job.run_dir)
             st.rerun()
     log = job.log.read_text(errors="replace").splitlines() if job.log.exists() else []

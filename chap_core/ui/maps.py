@@ -70,7 +70,8 @@ def pack_features(geojson: dict) -> str:
         if feature.get("geometry"):
             feature["geometry"]["coordinates"] = _rounded(feature["geometry"]["coordinates"])
     text = json.dumps(_json_safe(packed), separators=(",", ":"), allow_nan=False)
-    return base64.b64encode(gzip.compress(text.encode())).decode()
+    # mtime=0: without it gzip stamps the current time, and the same map would differ from second to second.
+    return base64.b64encode(gzip.compress(text.encode(), mtime=0)).decode()
 
 
 def choropleth_html(geojson: dict, values: dict[str, float], legend: str, height: int = 480) -> str:

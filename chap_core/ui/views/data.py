@@ -54,11 +54,23 @@ with st.container(border=True, key="card-data-source"):
         start = "Path or URL"
     else:
         start = sources[0]
-    source = st.segmented_control("Source", sources, default=start, key="data-source", label_visibility="collapsed")
+    source = st.segmented_control(
+        "Source",
+        sources,
+        default=start,
+        key="data-source",
+        label_visibility="collapsed",
+        help="A published example, a file you added before, a new upload, or a path or URL.",
+    )
     dataset_csv = None
     if source == "Example":
         index = example_names.index(current_example) if current_example else 0
-        choice = st.selectbox("Example dataset", example_names, index=index)
+        choice = st.selectbox(
+            "Example dataset",
+            example_names,
+            index=index,
+            help="Climate and case data published in dhis2/climate-health-data, downloaded with region polygons.",
+        )
         if choice in PUBLISHED_DATASETS:
             st.caption(f"Published in [dhis2/climate-health-data]({examples[choice]}), with region polygons.")
             with st.spinner("Downloading the dataset..."):
@@ -70,18 +82,41 @@ with st.container(border=True, key="card-data-source"):
             dataset_csv = examples[choice]
     elif source == "Uploaded":
         index = upload_names.index(current) if current in upload_names else 0
-        dataset_csv = str(st.selectbox("Uploaded file", uploads, index=index, format_func=lambda p: p.name))
+        dataset_csv = str(
+            st.selectbox(
+                "Uploaded file",
+                uploads,
+                index=index,
+                format_func=lambda p: p.name,
+                help="Files you uploaded or downloaded here before, kept in the uploads folder.",
+            )
+        )
     elif source == "Upload":
         cols = st.columns(2)
-        csv_file = cols[0].file_uploader("CSV file", type="csv")
-        geojson_file = cols[1].file_uploader("Region polygons (optional)", type=["geojson", "json"])
+        csv_file = cols[0].file_uploader(
+            "CSV file",
+            type="csv",
+            help="One row per location and period, with time_period, location and disease_cases.",
+        )
+        geojson_file = cols[1].file_uploader(
+            "Region polygons (optional)",
+            type=["geojson", "json"],
+            help="A GeoJSON of the regions, for maps and for models that use the region shapes.",
+        )
         if csv_file is not None:
             csv_path = save_upload(uploads_dir, csv_file.name, csv_file.getvalue())
             if geojson_file is not None:
                 save_upload(uploads_dir, csv_path.with_suffix(".geojson").name, geojson_file.getvalue())
             dataset_csv = str(csv_path)
     else:
-        dataset_csv = st.text_input("Path or URL to a CSV file", value=st.session_state.get("dataset_csv", "")) or None
+        dataset_csv = (
+            st.text_input(
+                "Path or URL to a CSV file",
+                value=st.session_state.get("dataset_csv", ""),
+                help="A CSV on this machine or on the web. A GeoJSON with the same name next to it is picked up.",
+            )
+            or None
+        )
 
 if dataset_csv is None:
     st.stop()
@@ -116,7 +151,9 @@ if Path(dataset_csv).exists():
             st.dataframe(df.select_dtypes("number").describe().T, width="stretch")
         with plots_tab:
             plots = {plot["id"]: plot for plot in list_dataset_plots()}
-            plot_id = st.selectbox("Plot", list(plots), format_func=lambda i: plots[i]["name"])
+            plot_id = st.selectbox(
+                "Plot", list(plots), format_func=lambda i: plots[i]["name"], help="The plots of chap plot-dataset."
+            )
             st.caption(plots[plot_id]["description"])
             try:
                 st.altair_chart(make_dataset_plot(Path(dataset_csv), plot_id), width="stretch")
@@ -134,7 +171,11 @@ with st.container(border=True, key="card-data-validate"):
         value=st.session_state.get("model_name", ""),
         help="Local model directory or GitHub URL. Leave empty for a general check.",
     )
-    if st.button("Validate dataset", icon=":material/fact_check:"):
+    if st.button(
+        "Validate dataset",
+        icon=":material/fact_check:",
+        help="Check the data with chap validate: missing periods, missing values and, with a model, its covariates.",
+    ):
         issues: list[dict] | None
         with st.spinner("Validating..."):
             try:
@@ -160,5 +201,10 @@ with st.container(border=True, key="card-data-validate"):
         command = f"chap validate --dataset-csv {dataset_csv}" + (f" --model-name {model_name}" if model_name else "")
         st.code(command, "bash", wrap_lines=True)
 
-if st.button("Next: evaluate a model", type="primary", icon=":material/arrow_forward:"):
+if st.button(
+    "Next: evaluate a model",
+    type="primary",
+    icon=":material/arrow_forward:",
+    help="Go to Evaluate with this dataset.",
+):
     st.switch_page("views/evaluate.py")

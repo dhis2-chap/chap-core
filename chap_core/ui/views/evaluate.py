@@ -51,7 +51,9 @@ def period_start(period: str) -> str:
 def card_header(title: str, popover_label: str):
     cols = st.columns([3, 1], vertical_alignment="center")
     cols[0].subheader(title)
-    return cols[1].popover(popover_label, width="stretch")
+    return cols[1].popover(
+        popover_label, width="stretch", help=f"{popover_label}: pick another, or type a path or URL."
+    )
 
 
 page_header(
@@ -98,7 +100,7 @@ with left:
                 if not problems
                 else f":red[{overview['errors']} errors, {overview['warnings']} warnings]",
             }
-            for col, (name, value) in zip(st.columns([3, 1, 3, 2]), facts.items(), strict=True):
+            for col, (name, value) in zip(st.columns([3, 1.5, 2.6, 2]), facts.items(), strict=True):
                 col.markdown(f":gray[{name}]  \n**{value}**")
         elif dataset:
             st.caption(f"`{dataset}`")

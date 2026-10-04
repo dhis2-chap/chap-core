@@ -66,8 +66,18 @@ if "results-selected" not in st.session_state:
 st.session_state["results-selected"] = [p for p in st.session_state["results-selected"] if p in options]
 
 with st.container(horizontal=True, vertical_alignment="bottom"):
-    selected = st.multiselect("Comparing", options, format_func=label, key="results-selected")
-    with st.popover("Add evaluation file", icon=":material/upload:"):
+    selected = st.multiselect(
+        "Comparing",
+        options,
+        format_func=label,
+        key="results-selected",
+        help="The evaluations shown side by side: every evaluation.nc in the runs folder, and files you add.",
+    )
+    with st.popover(
+        "Add evaluation file",
+        icon=":material/upload:",
+        help="Compare an evaluation.nc made elsewhere, such as by chap eval.",
+    ):
         st.file_uploader(
             "Evaluation files (.nc)", type="nc", accept_multiple_files=True, key="results-upload", on_change=add_uploads
         )
@@ -119,7 +129,7 @@ with st.container(border=True, key="card-metrics"):
         st.dataframe(styled, hide_index=True, width="stretch")
         cols = st.columns([3, 1], vertical_alignment="center")
         cols[0].caption("Bold marks the best value in each column; for the 50% interval, the one closest to 50%.")
-        cols[1].download_button(
+        cols[1].container(horizontal=True, horizontal_alignment="right").download_button(
             "Download CSV", metrics.to_csv(index=False), "metrics.csv", "text/csv", icon=":material/download:"
         )
         with st.expander("All metrics"):
@@ -140,9 +150,15 @@ def location_metric(path: str, mtime: float, metric_id: str) -> dict[str, float]
 with st.container(border=True, key="card-map"):
     st.subheader("Map")
     controls = st.container(horizontal=True, vertical_alignment="bottom", gap="medium")
-    map_eval = controls.selectbox("Evaluation", selected, format_func=label, key="results-map-eval")
+    map_eval = controls.selectbox(
+        "Evaluation", selected, format_func=label, key="results-map-eval", help="The evaluation to colour the map by."
+    )
     metric_id = controls.selectbox(
-        "Metric", list(HEADLINE), format_func=lambda m: HEADLINE[m], key="results-map-metric"
+        "Metric",
+        list(HEADLINE),
+        format_func=lambda m: HEADLINE[m],
+        key="results-map-metric",
+        help="What colours each region. For error metrics such as CRPS and MAE, lower is better.",
     )
     dataset = evaluation_dataset(Path(map_eval))
     geojson = dataset_geojson(Path(dataset)) if dataset and Path(dataset).exists() else None
@@ -162,12 +178,22 @@ with st.container(border=True, key="card-map"):
 with st.container(border=True, key="card-plot"):
     plots = {plot["id"]: plot for plot in list_backtest_plots()}
     controls = st.container(horizontal=True, vertical_alignment="bottom", gap="medium")
-    plot_id = controls.selectbox("Plot", list(plots), format_func=lambda i: plots[i]["name"], key="results-plot")
+    plot_id = controls.selectbox(
+        "Plot",
+        list(plots),
+        format_func=lambda i: plots[i]["name"],
+        key="results-plot",
+        help="The plots of chap plot-backtest, drawn for each evaluation in turn.",
+    )
     st.caption(plots[plot_id]["description"])
     facets = facets_for(selected[0], mtime(selected[0]), plot_id)
     coords = {}
     for column, display, values in facets:
-        choice = controls.selectbox(display, values, key=f"results-facet-{column}") if len(values) > 1 else values[0]
+        choice = (
+            controls.selectbox(display, values, key=f"results-facet-{column}", help=f"Which {display.lower()} to show.")
+            if len(values) > 1
+            else values[0]
+        )
         coords[column] = choice
     for path in selected:
         if len(selected) > 1:
