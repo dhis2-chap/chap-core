@@ -23,16 +23,21 @@ if guide and guide.get("step", 1) > 1 and not guide.get("finished"):
             st.switch_page(pages["guide"])
 
 
-def use_case(key: str, title: str, text: str, steps: str, target: str, highlight: bool = False) -> None:
+def use_case(key: str, title: str, text: str, steps: str, target: str | None, highlight: bool = False) -> None:
+    """A goal on the Start page. Without a target, chap-core has no command for it yet."""
     with st.container(border=True, key=f"card-usecase-{key}"):
         st.markdown(f"#### {title}")
         st.markdown(text)
         st.caption(steps)
-        if st.button(
-            "Start" if highlight else "Open",
-            key=f"usecase:{key}",
-            type="primary" if highlight else "secondary",
-            help=steps,
+        if (
+            st.button(
+                "Start" if highlight else "Open" if target else "Not available yet",
+                key=f"usecase:{key}",
+                type="primary" if highlight else "secondary",
+                disabled=target is None,
+                help=steps,
+            )
+            and target
         ):
             if key == "compare":
                 st.session_state["guide"] = {"step": 1}
@@ -63,8 +68,9 @@ with cols[1]:
         "forecast",
         "Forecast the coming months",
         "Train a model on all your data and forecast ahead, with the uncertainty of each forecast.",
-        "Opens the forecast command; a guided version is coming.",
-        "forecast",
+        "Not in the browser yet: chap-core has no command that forecasts your own data with a marketplace model. "
+        "The legacy forecast command, for its built-in datasets, is under More commands.",
+        None,
     )
     use_case(
         "explore",

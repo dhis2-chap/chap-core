@@ -43,7 +43,8 @@ chaps doctor
 `chap ui` opens on **Start**, which asks what you want to do rather than which command to run:
 
 - **Find the best model for my data** walks you through a comparison, step by step (below).
-- **Forecast the coming months**, **Check a model I built** and **Look at a dataset** open the matching page. Guided versions of these will follow.
+- **Check a model I built** and **Look at a dataset** open the matching page. Guided versions of these will follow.
+- **Forecast the coming months** is not available in the browser yet: chap-core has no command that forecasts your own data with a marketplace model. The legacy `chap forecast` command, which works on built-in datasets, is under **More commands**.
 
 ![The Start page](assets/ui/start.png)
 
@@ -55,7 +56,7 @@ A guided comparison in five steps:
 2. **Models:** the marketplace models that fit your data, each with the reason it fits, such as "uses rainfall and mean temperature, all in your data". Models that cannot use your data are listed separately with the reason, such as a column your data does not have. Models already running on this machine are marked, listed first and picked by default, since they start at once.
 3. **Questions:** how far ahead you need to forecast, and how thorough the test should be. Chap turns the answers into the backtest settings of `chap eval`, shown under **Advanced**, and only offers choices your data is long enough for.
 4. **Run:** Chap starts the models that are not running yet and tests each of them. You can leave the page; **Start** brings you back.
-5. **Answer:** which model forecast best, in words and in a table. The winner has the best overall score, the CRPS, which rewards a model for knowing how uncertain it is as well as for being close; when another model came closer on average, the answer says so. "Off by" is the mean absolute error, and the likely range is the 10-90% band of the forecasts. From here you can forecast with the winner, open the details in Results, or stop the models the comparison started. With chaps their data is kept; without chaps their containers are removed.
+5. **Answer:** which model forecast best, in words and in a table. The winner has the best overall score, the CRPS, which rewards a model for knowing how uncertain it is as well as for being close; when another model came closer on average, the answer says so. "Off by" is the mean absolute error, and the likely range is the 10-90% band of the forecasts. From here you can open the details in Results, or stop the models the comparison started. With chaps their data is kept; without chaps their containers are removed.
 
 ![Choosing the models that fit the data](assets/ui/guide-models.png)
 

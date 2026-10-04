@@ -286,3 +286,12 @@ def test_every_control_on_the_catalog_says_what_it_does(workdir, monkeypatch, tm
     controls = [*at.button, *at.toggle, *at.segmented_control, *at.text_input]
     assert controls
     assert [c.label for c in controls if not c.proto.help] == []
+
+
+def test_start_does_not_offer_a_forecast_chap_core_cannot_make_yet(workdir):
+    at = AppTest.from_file(str(UI / "app.py"), default_timeout=60)
+    at.run()
+    assert not at.exception
+    forecast = at.button(key="usecase:forecast")
+    assert forecast.disabled
+    assert forecast.label == "Not available yet"

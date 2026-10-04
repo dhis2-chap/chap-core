@@ -474,17 +474,9 @@ def step_answer() -> None:
                 f":red[{marketplace[model_id].display_name or model_id} could not be tested:] {progress.get('error')}"
             )
 
-    cols = st.columns(3)
+    # No forecast card: chap-core has no command yet that forecasts this data with a chapkit model.
+    cols = st.columns(2)
     with cols[0].container(border=True):
-        st.markdown(f"**Forecast the coming months**  \n:gray[With {best['model']}, on all your data]")
-        if st.button(
-            "Forecast", type="primary", key="guide-forecast", help="Open the forecast command with this model."
-        ):
-            st.session_state["model_name"] = done[best["model_id"]]["url"]
-            st.session_state["dataset_csv"] = guide["dataset_csv"]
-            guide["finished"] = True
-            st.switch_page(pages["forecast"])
-    with cols[1].container(border=True):
         st.markdown("**See the details**  \n:gray[Metrics per region, maps and forecast plots]")
         if st.button(
             "Open Results", key="guide-results", help="Metrics per region, maps and forecast plots for every model."
@@ -492,7 +484,7 @@ def step_answer() -> None:
             st.session_state["results-selected"] = [str(f) for f in files.values()]
             guide["finished"] = True
             st.switch_page(pages["results"])
-    with cols[2].container(border=True):
+    with cols[1].container(border=True):
         started = [i for i in guide.get("started", []) if i in marketplace]
         # chaps keeps a stopped model's data; a plain Docker container is removed with it.
         kept = "their data is kept" if chaps_binary() else "stopping removes their containers"
