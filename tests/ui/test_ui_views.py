@@ -55,6 +55,27 @@ def test_the_guide_says_when_no_model_fits(workdir, monkeypatch, data_path):
     assert any("None of the marketplace models can use this data" in w.value for w in at.warning)
 
 
+def test_the_guide_drops_saved_answers_that_are_no_longer_offered(workdir, monkeypatch, data_path):
+    import streamlit as st
+
+    monkeypatch.setenv("CHAP_MARKETPLACE_URL", "http://127.0.0.1:9")  # unreachable: no network in the test
+    st.cache_data.clear()
+    at = AppTest.from_file(str(UI / "app.py"), default_timeout=60)
+    at.session_state["guide"] = {
+        "step": 3,
+        "dataset_csv": str(data_path / "laos_subset.csv"),
+        "dataset_name": "Laos",
+        "models": [],
+        "horizon_n": 12,
+        "thoroughness": "Exhaustive",
+    }
+    at.switch_page("views/guide.py")
+    at.run()
+    assert not at.exception
+    assert at.session_state["guide-horizon"] == 3
+    assert at.session_state["guide-thoroughness"] == "Normal"
+
+
 def test_results_view_shows_example_evaluation(workdir, data_path):
     at = AppTest.from_file(str(VIEWS / "results.py"), default_timeout=120)
     at.session_state["selected_evals"] = [str(data_path / "example_evaluation.nc")]

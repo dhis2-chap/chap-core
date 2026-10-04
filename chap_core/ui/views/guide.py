@@ -16,6 +16,7 @@ from chap_core.ui.guide import (
     best_model,
     fit_reason,
     horizon_limits,
+    kept_choice,
     model_fit,
     summarize_dataset,
 )
@@ -215,7 +216,7 @@ def step_questions() -> None:
         horizon = st.segmented_control(
             "How far ahead do you need to forecast?",
             list(horizons),
-            default=guide.get("horizon_n", 3 if 3 in horizons else next(iter(horizons), None)),
+            default=kept_choice(guide.get("horizon_n"), horizons, 3),
             format_func=lambda n: horizons[n],
             key="guide-horizon",
         )
@@ -229,7 +230,7 @@ def step_questions() -> None:
         thoroughness = st.segmented_control(
             "How thorough should the test be?",
             list(possible),
-            default=guide.get("thoroughness", "Normal" if "Normal" in possible else next(iter(possible), None)),
+            default=kept_choice(guide.get("thoroughness"), possible, "Normal"),
             format_func=lambda name: f"{name}: {possible[name]} tests",
             key="guide-thoroughness",
         )

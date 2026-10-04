@@ -94,6 +94,14 @@ def horizon_limits(models: list[MarketplaceModel]) -> tuple[int, int]:
     return max(low, 1), high
 
 
+def kept_choice(saved, options, preferred):
+    """The saved answer if it is still offered, else the preferred one, else the first option."""
+    for choice in (saved, preferred):
+        if choice in options:
+            return choice
+    return next(iter(options), None)
+
+
 def best_model(metrics: pd.DataFrame) -> pd.Series:
     """The evaluation with the lowest CRPS: the score that also rewards a model for its uncertainty."""
     return metrics.sort_values("crps").iloc[0]
