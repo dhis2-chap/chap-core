@@ -343,3 +343,27 @@ def test_a_github_repository_that_does_not_exist_is_said_in_words():
     error = ChapsError("HTTP 404 from https://api.github.com/repos/nope-org/no-model", "the full output")
     assert str(error) == "GitHub has no repository nope-org/no-model, or it is private: check the URL"
     assert error.output == "the full output"
+
+
+def test_the_guide_stops_only_the_instance_in_chap_uis_own_group(monkeypatch, tmp_path, marketplace_model):
+    import streamlit as st
+
+    from chap_core.services.model_marketplace import MarketplaceModel
+    from chap_core.ui.guide_run import stop_started
+
+    model = MarketplaceModel.model_validate(marketplace_model)
+    row = ps_row(model.service_id, "up", "http://127.0.0.1:9", tmp_path / "default")
+    # The same model in another group, listed last.
+    listed = {
+        "models": [{**row, "group": "default"}, {**row, "group": "other", "project_dir": str(tmp_path / "other")}]
+    }
+    calls = fake_chaps(
+        tmp_path,
+        monkeypatch,
+        f"""case "$*" in *' ps') echo '{json.dumps(listed)}' ;; *) echo '{{"ok": true}}' ;; esac""",
+    )
+    monkeypatch.chdir(tmp_path)
+    st.cache_data.clear()
+    stop_started([model])
+    (stop,) = [line for line in calls.read_text().splitlines() if " stop " in line]
+    assert stop.split()[:3] == ["--json", "-C", str(tmp_path / "default")]

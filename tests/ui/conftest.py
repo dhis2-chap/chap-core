@@ -17,3 +17,19 @@ def nothing_runs_on_this_machine(monkeypatch, tmp_path_factory):
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setattr("chap_core.ui.models.list_services", lambda images=None: [])
     monkeypatch.setattr("chap_core.services.model_marketplace.list_models", lambda *args, **kwargs: ([], {}))
+
+
+@pytest.fixture
+def typed_options_schema() -> dict:
+    """`chap model schema` output with a list of integers and an optional integer, as pydantic writes them."""
+    return {
+        "properties": {
+            "user_option_values": {
+                "properties": {
+                    "lags": {"type": "array", "items": {"type": "integer"}, "default": [1, 2, 3]},
+                    "max_epochs": {"anyOf": [{"type": "integer"}, {"type": "null"}], "default": None},
+                }
+            },
+            "additional_continuous_covariates": {"maxItems": 0},
+        }
+    }

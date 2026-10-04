@@ -366,7 +366,9 @@ def run_panel(
     missing = [f.label for f in fields if f.required and values.get(f.key) in (None, "", [])]
     args = build_args(command, fields, resolve_paths(fields, values, Path.cwd()))
     job_key = f"job:{key}"
-    current = load_job(st.session_state[job_key]) if job_key in st.session_state else None
+    # The run may have been deleted under Runs since.
+    run_dir = st.session_state.get(job_key)
+    current = load_job(Path(run_dir)) if run_dir and Path(run_dir).exists() else None
     running = current is not None and current.status == "running"
     with st.container(border=True, key=f"card-run-{key}"):
         st.subheader("Ready to run" if not missing else "Missing input")

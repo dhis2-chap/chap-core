@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -52,13 +53,22 @@ def summarize_dataset(csv_path: Path) -> DatasetSummary:
 
 
 def period_type(periods: list[str]) -> str | None:
-    """Monthly (2010-01) or weekly (2010W01, 2010-W01) periods, judged from the first one."""
+    """Monthly (2010-01) or weekly (2010W01, 2010-W01) periods, judged from the first one.
+
+    A period may also be a range of dates, both included: 2003-12-29/2004-01-04 is a week.
+    """
     if not periods:
         return None
     if re.fullmatch(r"\d{4}-?W\d{1,2}", periods[0]):
         return "weekly"
     if re.fullmatch(r"\d{4}-\d{2}", periods[0]):
         return "monthly"
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}/\d{4}-\d{2}-\d{2}", periods[0]):
+        start, end = (date.fromisoformat(day) for day in periods[0].split("/"))
+        if (end - start).days == 6:
+            return "weekly"
+        if start.day == 1 and (end + timedelta(days=1)).day == 1 and (start.year, start.month) == (end.year, end.month):
+            return "monthly"
     return None
 
 

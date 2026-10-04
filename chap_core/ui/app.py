@@ -5,6 +5,7 @@ from pathlib import Path
 import streamlit as st
 
 from chap_core.ui.catalog import COMMAND_PAGES, CommandPage
+from chap_core.ui.guide_run import advance_guide
 from chap_core.ui.widgets import command_page, context_bar, inject_css, sidebar
 
 VIEWS = Path(__file__).parent / "views"
@@ -46,6 +47,17 @@ current = st.navigation(all_pages, position="hidden")
 sidebar(sections, commands, current)
 top = st.container()
 current.run()
+
+
+@st.fragment(run_every=3)
+def guide_comparison() -> None:
+    advance_guide(st.session_state["guide"])
+
+
+# A comparison carries on whichever page is open. After the page, so that a model which takes long
+# to start does not hold the page back.
+if st.session_state.get("guide", {}).get("step") == 4:
+    guide_comparison()
 # Drawn last so it shows choices the page itself just made, but placed above the page.
 with top:
     context_bar()

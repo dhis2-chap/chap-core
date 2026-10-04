@@ -26,7 +26,14 @@ def laos(data_path):
 
 @pytest.mark.parametrize(
     ("first_period", "expected"),
-    [("2010-01", "monthly"), ("2010W01", "weekly"), ("2010-W01", "weekly"), ("2010", None)],
+    [
+        ("2010-01", "monthly"),
+        ("2010W01", "weekly"),
+        ("2010-W01", "weekly"),
+        ("2003-12-29/2004-01-04", "weekly"),
+        ("2010-02-01/2010-02-28", "monthly"),
+        ("2010", None),
+    ],
 )
 def test_period_type_is_read_from_the_periods(first_period, expected):
     assert period_type([first_period]) == expected
@@ -37,6 +44,13 @@ def test_a_dataset_is_summarized_for_the_guide(laos):
     assert laos.locations > 1
     assert {"rainfall", "mean_temperature", "population"} <= set(laos.covariates)
     assert laos.has_polygons
+
+
+def test_weekly_data_written_as_date_ranges_is_weekly(data_path, model):
+    nicaragua = summarize_dataset(data_path / "nicaragua_weekly_subset.csv")
+    assert nicaragua.period_type == "weekly"
+    assert nicaragua.unit == "week"
+    assert model_fit(model, nicaragua) == "needs monthly data, and this data is weekly"
 
 
 def test_a_model_fits_data_with_what_it_needs(model, laos):

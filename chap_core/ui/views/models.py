@@ -12,6 +12,7 @@ from chap_core.ui.models import (
     ChapsModel,
     chaps_binary,
     chaps_expose,
+    chaps_group,
     chaps_logs,
     chaps_project,
     chaps_start,
@@ -118,7 +119,7 @@ def load_instances() -> bool:
 entries, invalid = load_catalog()
 chaps = chaps_binary()
 project = chaps_project()
-OWN_GROUP = None if project else "default"  # where Start puts models: the deployment, or chaps' default group
+OWN_GROUP = chaps_group(project)  # where Start puts models
 services: dict[str, ChapkitService] = {}
 docker_problem: str | None = None
 instances: list[ChapsModel] = []

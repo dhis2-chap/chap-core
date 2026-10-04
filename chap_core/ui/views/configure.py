@@ -76,13 +76,18 @@ with st.container(border=True, key="card-configure"):
                 spec.get("description"),
                 spec.get("default"),
             )
-            kind = spec.get("type")
-            if "enum" in spec:
+            # An optional option lists its type next to null: `type: [integer, "null"]`, or in `anyOf`.
+            variants = spec.get("anyOf", [spec])
+            types = [
+                t for v in variants for t in (v.get("type") if isinstance(v.get("type"), list) else [v.get("type")])
+            ]
+            nullable = "null" in types
+            kind = next((t for t in types if t != "null"), None)
+            enum = next((v["enum"] for v in variants if "enum" in v), None)
+            items: dict = next((v["items"] for v in variants if "items" in v), {})
+            if enum:
                 values[name] = st.selectbox(
-                    label,
-                    spec["enum"],
-                    index=spec["enum"].index(default) if default in spec["enum"] else 0,
-                    help=help_text,
+                    label, enum, index=enum.index(default) if default in enum else 0, help=help_text
                 )
             elif kind == "boolean":
                 values[name] = st.checkbox(label, value=bool(default), help=help_text)
@@ -94,9 +99,18 @@ with st.container(border=True, key="card-configure"):
                 text = st.text_area(
                     label, "\n".join(map(str, default or [])), help=(help_text or "") + " One per line."
                 )
-                values[name] = [line for line in text.splitlines() if line.strip()]
+                lines = [line.strip() for line in text.splitlines() if line.strip()]
+                # Items keep their type: a list of integers stays one.
+                values[name] = lines if items.get("type") == "string" else [yaml.safe_load(line) for line in lines]
+            elif kind == "string":
+                text = st.text_input(label, value=default or "", help=help_text)
+                values[name] = None if nullable and not text else text
             else:
-                values[name] = st.text_input(label, value=default or "", help=help_text)
+                # Objects and options of no simple type are written as YAML.
+                text = st.text_area(
+                    label, "" if default is None else yaml.safe_dump(default), help=(help_text or "") + " In YAML."
+                )
+                values[name] = yaml.safe_load(text) if text.strip() else None
         covariates_spec = schema["additional_continuous_covariates"]
         covariates = []
         if covariates_spec.get("maxItems") != 0:

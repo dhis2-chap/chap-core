@@ -4,7 +4,6 @@ Data, the models that fit it, two plain questions, a run that starts what it nee
 The guide's progress lives in st.session_state["guide"], so leaving the page and coming back resumes it.
 """
 
-import time
 from pathlib import Path
 from typing import Any, Literal
 
@@ -22,34 +21,19 @@ from chap_core.ui.guide import (
     model_fit,
     summarize_dataset,
 )
-from chap_core.ui.models import (
-    ASSESSMENT,
-    chaps_binary,
-    chaps_project,
-    chaps_start,
-    chaps_stop,
-    list_services,
-    marketplace_image,
-    service_info,
-    start_service,
-    stop_service,
-)
+from chap_core.ui.guide_run import eval_args, stop_started
+from chap_core.ui.models import ASSESSMENT, chaps_binary, list_services, marketplace_image
 from chap_core.ui.services import (
     PUBLISHED_DATASETS,
     backtest_windows,
     fetch_published_dataset,
     format_cli_command,
-    get_runs_dir,
     get_uploads_dir,
-    load_job,
     save_upload,
-    start_job,
 )
 from chap_core.ui.widgets import chaps_location, load_chaps_models, load_marketplace
 
 STEPS = ["Your data", "Models", "Questions", "Run", "Answer"]
-# How long a model may take to answer after it is started; a first start downloads its image.
-START_TIMEOUT_SECONDS = 600
 BADGE_COLORS: dict[str, Literal["green", "orange", "red", "gray"]] = {
     "good": "green",
     "warn": "orange",
@@ -296,7 +280,7 @@ def step_questions() -> None:
         guide.update(horizon_n=horizon, horizon=horizons[horizon], thoroughness=thoroughness)
         guide["splits"] = possible[thoroughness]
         with st.expander("Advanced: the settings these answers set"):
-            st.code(format_cli_command(eval_args("<model>")), "bash", wrap_lines=True)
+            st.code(format_cli_command(eval_args(guide, "<model>")), "bash", wrap_lines=True)
     nav = st.container(horizontal=True, gap="small")
     if nav.button("Back", help="Back to the models. Your answers here are kept."):
         go(2)
@@ -311,41 +295,7 @@ def step_questions() -> None:
         go(4)
 
 
-def eval_args(model_url: str) -> list[str]:
-    return [
-        "eval",
-        "--model-name",
-        model_url,
-        "--dataset-csv",
-        guide["dataset_csv"],
-        "--output-file",
-        "evaluation.nc",
-        "--backtest-params.n-periods",
-        str(guide["horizon_n"]),
-        "--backtest-params.n-splits",
-        str(guide["splits"]),
-        "--backtest-params.stride",
-        "1",
-    ]
-
-
 # -- Step 4: run --
-
-
-def running_url(model) -> str | None:
-    """The address of a running instance of the model that answers, from chaps or Docker."""
-    for instance in load_chaps_models(chaps_location()) if chaps_binary() else []:
-        answering = instance.service_id == model.service_id and instance.answering and instance.url
-        if answering and instance.url and service_info(instance.url):
-            return str(instance.url)
-    try:
-        containers = list_services({marketplace_image(model).rsplit(":", 1)[0]: model.id})
-    except Exception:
-        containers = []
-    for container in containers:
-        if container.model_id == model.id and container.url and service_info(container.url):
-            return container.url
-    return None
 
 
 def running_models(models: list) -> set[str]:
@@ -359,39 +309,6 @@ def running_models(models: list) -> set[str]:
     except Exception:
         containers = []
     return running | {c.model_id for c in containers if c.status == "running" and c.url}
-
-
-def advance(model_id: str, progress: dict) -> None:
-    """Move one model a step on: start its instance, then evaluate it once it answers."""
-    model = marketplace[model_id]
-    if progress["state"] in ("waiting", "starting"):
-        url = running_url(model)
-        if url:
-            name = model.display_name or model.id
-            job = start_job(get_runs_dir(), eval_args(url), f"Evaluate · {name}")
-            progress.update(state="evaluating", url=url, run_dir=str(job.run_dir))
-        elif progress["state"] == "starting" and time.time() - progress.get("started_at", 0) > START_TIMEOUT_SECONDS:
-            minutes = START_TIMEOUT_SECONDS // 60
-            progress.update(
-                state="failed", error=f"did not answer within {minutes} minutes; its logs are in the Catalog"
-            )
-        elif progress["state"] == "waiting":
-            try:
-                if chaps_binary():
-                    chaps_start(model.id, chaps_project())
-                else:
-                    start_service(marketplace_image(model), model.id)
-                guide["started"].append(model.id)
-                load_chaps_models.clear()
-                progress.update(state="starting", started_at=time.time())
-            except Exception as e:
-                progress.update(state="failed", error=f"could not start: {e}")
-    elif progress["state"] == "evaluating":
-        job = load_job(Path(progress["run_dir"]))
-        if job.status == "succeeded":
-            progress["state"] = "done"
-        elif job.status in ("failed", "stopped"):
-            progress.update(state="failed", error="the evaluation failed; its log is under Runs")
 
 
 def step_run() -> None:
@@ -415,11 +332,9 @@ def step_run() -> None:
             if progress.get("error"):
                 text += f" :gray[· {progress['error']}]"
             st.markdown(text)
-        if all(p["state"] in ("done", "failed") for p in guide["progress"].values()):
-            guide["step"] = 5
+        # The app moves the comparison on from every page (guide_run.advance_guide); this only shows it.
+        if guide["step"] == 5:
             st.rerun(scope="app")
-        for model_id, progress in guide["progress"].items():
-            advance(model_id, progress)
 
     watch()
 
@@ -497,26 +412,12 @@ def step_answer() -> None:
         if started and st.button(
             "Stop them", key="guide-stop", help="Stop only the models this comparison started. Others keep running."
         ):
-            stop_started(started)
+            stop_started([marketplace[i] for i in started])
             guide.update(started=[], stopped=len(started))
             st.rerun()
     if st.button("Start over", key="guide-restart", help="Begin a new comparison. Its results stay under Runs."):
         st.session_state["guide"] = {"step": 1}
         st.rerun()
-
-
-def stop_started(model_ids: list[str]) -> None:
-    """Stop the instances this comparison started, keeping their data."""
-    services = {m.service_id: m for m in load_chaps_models(chaps_location())} if chaps_binary() else {}
-    for model_id in model_ids:
-        model = marketplace[model_id]
-        if model.service_id in services:
-            chaps_stop(services[model.service_id])
-            continue
-        for container in list_services({marketplace_image(model).rsplit(":", 1)[0]: model.id}):
-            if container.managed:
-                stop_service(container.id)
-    load_chaps_models.clear()
 
 
 {1: step_data, 2: step_models, 3: step_questions, 4: step_run, 5: step_answer}[guide["step"]]()

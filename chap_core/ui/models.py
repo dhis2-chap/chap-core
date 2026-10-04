@@ -472,6 +472,11 @@ def chaps_project() -> Path | None:
     return next((folder for folder in (start, *start.parents) if (folder / ".chaps" / "project.yaml").is_file()), None)
 
 
+def chaps_group(project: Path | None) -> str | None:
+    """The `chaps run` group chap ui starts models in: none in a deployment, else chaps' default group."""
+    return None if project else "default"
+
+
 def chaps_models(project: Path | None) -> list[ChapsModel]:
     """The models chaps runs: those of the deployment, or of every `chaps run` group."""
     if chaps_binary() is None:

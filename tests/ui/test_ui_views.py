@@ -111,6 +111,51 @@ def test_configure_view_starts_from_the_selected_model(workdir):
     assert at.text_input[0].value == "https://github.com/dhis2-chap/chtorch"
 
 
+def test_configure_view_keeps_the_types_of_the_options(workdir, typed_options_schema):
+    import yaml
+
+    at = AppTest.from_file(str(VIEWS / "configure.py"), default_timeout=60)
+    at.session_state["model_name"] = "my_model"
+    at.session_state["config-schema"] = ("my_model", typed_options_schema)
+    at.run()
+    assert not at.exception
+    config = yaml.safe_load(at.code[0].value)
+    assert config["user_option_values"] == {"lags": [1, 2, 3], "max_epochs": None}
+
+
+def test_a_command_page_whose_last_run_was_deleted_still_renders(workdir):
+    at = AppTest.from_function(render_command_page, args=("eval",), default_timeout=60)
+    at.session_state["job:eval"] = str(workdir / "deleted-run")
+    at.run()
+    assert not at.exception
+
+
+def test_a_comparison_carries_on_while_another_page_is_open(workdir):
+    import json
+
+    from chap_core.ui.services import ARGS_NAME, EXIT_CODE_NAME
+
+    finished = workdir / "finished-run"
+    finished.mkdir()
+    (finished / ARGS_NAME).write_text(json.dumps(["eval"]))
+    (finished / EXIT_CODE_NAME).write_text("0")
+    at = AppTest.from_file(str(UI / "app.py"), default_timeout=60)
+    at.session_state["guide"] = {
+        "step": 4,
+        "dataset_name": "Laos",
+        "started": [],
+        "progress": {
+            "a": {"state": "evaluating", "run_dir": str(finished)},
+            "b": {"state": "evaluating", "run_dir": str(workdir / "deleted-run")},
+        },
+    }
+    at.run()  # on Start, not the guide
+    assert not at.exception
+    guide = at.session_state["guide"]
+    assert [p["state"] for p in guide["progress"].values()] == ["done", "failed"]
+    assert guide["step"] == 5
+
+
 def test_configure_view_can_stop_using_the_configuration(workdir, data_path):
     at = AppTest.from_file(str(VIEWS / "configure.py"), default_timeout=60)
     at.session_state["model_configuration_yaml"] = str(data_path / "hpo_config.yaml")
