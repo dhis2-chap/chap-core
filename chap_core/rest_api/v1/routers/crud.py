@@ -310,7 +310,7 @@ def get_backtest_specifications(
     """List backtest specifications: a dataset plus the parameters that make backtests under it comparable.
 
     A specification with several backtests under it is a benchmark. Filter by
-    ``datasetId`` and any of the ``BacktestParams`` fields; the full tuple identifies at
+    ``datasetId``, ``targetColumn`` and any of the ``BacktestParams`` fields; the full tuple identifies at
     most one specification, which is how an external system finds a benchmark again
     without storing the specification id. Rows carry counts only; fetch
     ``/backtest-specifications/{id}`` for the backtests themselves.
@@ -379,7 +379,7 @@ def get_backtest_specification(
 
 
 def _specification_params(specification: BacktestSpecification) -> dict[str, Any]:
-    return {name: getattr(specification, name) for name in BacktestParams.model_fields}
+    return {name: getattr(specification, name) for name in (*BacktestParams.model_fields, "target_column")}
 
 
 @router.get(

@@ -27,7 +27,7 @@ from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet as DataSetTable
 from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
-from chap_core.database.tables import Backtest, BacktestForecast, Prediction
+from chap_core.database.tables import Backtest, BacktestForecast, BacktestSpecification, Prediction
 from chap_core.datatypes import create_tsdataclass
 from chap_core.services.dataset_validation import RESERVED_FIELDS
 from chap_core.spatio_temporal_data.converters import observations_to_dataframe, observations_to_dataset
@@ -260,7 +260,12 @@ def get_compatible_backtests(
     org_units = set(backtest.org_units)
     split_periods = set(backtest.split_periods)
     res = session.exec(
-        select(Backtest.id, Backtest.org_units, Backtest.split_periods).where(Backtest.id != backtest_id)
+        select(Backtest.id, Backtest.org_units, Backtest.split_periods)
+        .join(BacktestSpecification)
+        .where(
+            Backtest.id != backtest_id,
+            BacktestSpecification.target_column == backtest.specification.target_column,
+        )
     ).all()
     ids = [bt_id for bt_id, o, s in res if set(o) & org_units and set(s) & split_periods]
     backtests = session.exec(
@@ -432,10 +437,13 @@ async def create_backtest(
 
     Runs asynchronously; you get a job id and poll ``/v1/jobs/{id}`` (or
     ``/v1/jobs/{id}/evaluation_result`` once finished) to find the resulting backtest.
-    404 if the referenced dataset does not exist.
+    404 if the referenced dataset does not exist; 422 if targetColumn is not a dataset column.
     """
-    if session.get(DataSetTable, request.dataset_id) is None:
+    stored_dataset = session.get(DataSetTable, request.dataset_id)
+    if stored_dataset is None:
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
+    if request.target_column not in stored_dataset.covariates:
+        raise HTTPException(status_code=422, detail=f"Dataset has no target column {request.target_column!r}")
     job = worker.queue_db(
         wf.run_backtest,
         BacktestCreate(name=request.name, dataset_id=request.dataset_id, model_id=request.model_id),
@@ -444,6 +452,7 @@ async def create_backtest(
         stride=request.stride,
         n_retrain=request.n_retrain,
         future_weather_provider=request.future_weather_provider,
+        target_column=request.target_column,
         database_url=database_url,
         **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: request.name},
     )
@@ -470,7 +479,7 @@ def create_backtests(
     which every backtest of the run files, so the results can be fetched from
     ``GET /v1/crud/backtest-specifications/{id}`` without a second lookup, plus one job id
     per model to poll via ``/v1/jobs/{id}``. 404 if the dataset or a model does not exist,
-    422 if no org unit has target data left to train on for these parameters.
+    422 if targetColumn is not a dataset column or no org unit has target data left to train on.
     """
     if session.get(DataSetTable, request.dataset_id) is None:
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
@@ -482,7 +491,9 @@ def create_backtests(
     params = BacktestParams(**request.model_dump(include=set(BacktestParams.model_fields)))
     dataset = DataSetManager(session).to_dataset(request.dataset_id)
     try:
-        _, specification = wf.resolve_backtest_specification(wrapper, dataset, request.dataset_id, params)
+        _, specification = wf.resolve_backtest_specification(
+            wrapper, dataset, request.dataset_id, params, target_column=request.target_column
+        )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     jobs = []
@@ -493,6 +504,7 @@ def create_backtests(
             wf.run_backtest,
             BacktestCreate(name=name, dataset_id=request.dataset_id, model_id=model.id),
             **params.model_dump(),
+            target_column=request.target_column,
             database_url=database_url,
             **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: name},
         )
@@ -615,18 +627,20 @@ async def get_actual_cases(
     if org_units is not None and len(org_units) == 1 and org_units[0] == "adm0":
         # returning sum of forecasts for all regions
         return_summed = True
+    target_column = "disease_cases"
     if not is_dataset_id:
         backtest = session.get(Backtest, backtest_id)
         logger.info(f"Backtest: {backtest}")
         if backtest is None:
             raise HTTPException(status_code=404, detail="Backtest not found")
         dataset_id = backtest.dataset_id
+        target_column = backtest.specification.target_column
     else:
         dataset_id = backtest_id
     observations = DataSetManager(session).observations(
         dataset_id,
         org_units=None if return_summed else org_units,
-        feature_names=["disease_cases"],
+        feature_names=[target_column],
     )
     logger.info(f"Observations: {observations}")
     data_list = [

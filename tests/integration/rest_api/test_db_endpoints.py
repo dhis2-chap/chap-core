@@ -15,7 +15,13 @@ from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import create_tsdataclass
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
-from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo, DataSetWithObservations, ObservationBase
+from chap_core.database.dataset_tables import (
+    DataSet,
+    DataSetCreateInfo,
+    DataSetWithObservations,
+    Observation,
+    ObservationBase,
+)
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.tables import (
     Backtest,
@@ -733,7 +739,11 @@ def test_every_backtest_parameter_is_part_of_the_uniqueness_key():
         for c in BacktestSpecification.__table__.constraints
         if getattr(c, "name", None) == "uq_backtestspecification_params"
     )
-    assert {column.name for column in constraint.columns} == {"dataset_id", *BacktestParams.model_fields}
+    assert {column.name for column in constraint.columns} == {
+        "dataset_id",
+        "target_column",
+        *BacktestParams.model_fields,
+    }
 
 
 def test_differing_parameters_produce_different_specifications(p_seeded_engine):
@@ -744,6 +754,40 @@ def test_differing_parameters_produce_different_specifications(p_seeded_engine):
 
         assert two_splits.specification_id != three_splits.specification_id
         assert (two_splits.n_splits, three_splits.n_splits) == (2, 3)
+
+
+def test_target_column_is_scored_and_separates_specifications(override_session, p_seeded_engine):
+    from chap_core.assessment.evaluation import Evaluation
+
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        for observation in session.session.exec(select(Observation).where(Observation.feature_name == "rainfall")):
+            observation.value = 7.0
+        session.session.commit()
+        params = {"n_periods": 3, "n_splits": 2}
+        default = session.session.get(Backtest, _run(session, "default", dataset_id, **params))
+        rainfall = session.session.get(Backtest, _run(session, "rain", dataset_id, target_column="rainfall", **params))
+
+        assert default.specification_id != rainfall.specification_id
+        assert set(Evaluation.from_backtest(rainfall).to_flat().observations.disease_cases) == {7.0}
+    rows = client.get("/v1/crud/backtest-specifications", params={"targetColumn": "rainfall"}).json()
+    assert [row["id"] for row in rows] == [rainfall.specification_id]
+    actual_cases = DataList.model_validate(client.get(f"/v1/analytics/actual-cases/{rainfall.id}").json())
+    assert {entry.value for entry in actual_cases.data} == {7.0}
+
+
+@pytest.mark.parametrize("endpoint", ["create-backtest", "create-backtests"])
+def test_create_backtest_rejects_unknown_target_column(override_session, seeded_session, monkeypatch, endpoint):
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    dataset_id = seeded_session.exec(select(DataSet.id)).first()
+    payload = {"name": "x", "datasetId": dataset_id, "modelId": "naive_model", "modelIds": ["naive_model"]}
+
+    response = client.post(f"/v1/analytics/{endpoint}", json={**payload, "targetColumn": "missing"})
+    assert response.status_code == 422, response.text
+    assert worker.queued == []
 
 
 def test_differing_weather_providers_produce_different_specifications(p_seeded_engine):
@@ -796,7 +840,11 @@ def test_specification_filter_covers_every_backtest_parameter():
     from chap_core.api_types import BacktestParams
     from chap_core.rest_api.data_models import BacktestSpecificationFilter
 
-    assert set(BacktestSpecificationFilter.model_fields) == {"dataset_id", *BacktestParams.model_fields}
+    assert set(BacktestSpecificationFilter.model_fields) == {
+        "dataset_id",
+        "target_column",
+        *BacktestParams.model_fields,
+    }
     assert all(field.default is None for field in BacktestSpecificationFilter.model_fields.values())
 
 

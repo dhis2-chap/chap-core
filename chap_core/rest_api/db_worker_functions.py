@@ -74,6 +74,23 @@ def validate_and_filter_dataset_for_evaluation(
     return DataSet(new_data, metadata=dataset.metadata, polygons=dataset.polygons)
 
 
+def _use_as_disease_cases(dataset: DataSet, column: str) -> DataSet:
+    """Expose `column` as `disease_cases`, the field the evaluation scores, dropping the original one."""
+    if column == "disease_cases":
+        return dataset
+    fields = {name: name for name in dataset.field_names() if name not in (column, "disease_cases")}
+    fields["disease_cases"] = column
+    data_class = create_tsdataclass(list(fields))
+    return DataSet(
+        {
+            location: data_class(data.time_period, **{new: getattr(data, old) for new, old in fields.items()})
+            for location, data in dataset.items()
+        },
+        polygons=dataset.polygons,
+        metadata=dataset.metadata,
+    )
+
+
 # @convert_dicts_to_models
 def run_backtest(
     info: BacktestCreate,
@@ -83,6 +100,7 @@ def run_backtest(
     n_retrain: int = _DEFAULT_PARAMS.n_retrain,
     session: SessionWrapper | None = None,
     future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
+    target_column: str = "disease_cases",
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     assert session is not None, "session is required"
@@ -116,7 +134,10 @@ def run_backtest(
         n_retrain=n_retrain,
         future_weather_provider=future_weather_provider,
     )
-    dataset, specification = resolve_backtest_specification(session, dataset, info.dataset_id, backtest_params)
+    dataset, specification = resolve_backtest_specification(
+        session, dataset, info.dataset_id, backtest_params, target_column=target_column
+    )
+    dataset = _use_as_disease_cases(dataset, target_column)
 
     status_logger.info(f"Running {n_splits} evaluation splits with prediction length {n_periods}")
     assert configured_model.id is not None, "configured_model.id is required"
@@ -154,7 +175,11 @@ def run_backtest(
 
 
 def resolve_backtest_specification(
-    session: SessionWrapper, dataset: DataSet, dataset_id: int, params: BacktestParams
+    session: SessionWrapper,
+    dataset: DataSet,
+    dataset_id: int,
+    params: BacktestParams,
+    target_column: str = "disease_cases",
 ) -> tuple[DataSet, BacktestSpecification]:
     """Filter the dataset for these parameters and resolve the specification a run of them files under.
 
@@ -163,9 +188,11 @@ def resolve_backtest_specification(
     and the multi-model endpoint, which resolves the specification up front so its id
     can be returned before any job has run.
     """
+    if target_column not in dataset.field_names():
+        raise ValueError(f"Dataset has no target column {target_column!r}")
     dataset = validate_and_filter_dataset_for_evaluation(
         dataset,
-        target_name="disease_cases",
+        target_name=target_column,
         n_periods=params.n_periods,
         n_splits=params.n_splits,
         stride=params.stride,
@@ -177,7 +204,10 @@ def resolve_backtest_specification(
             "covers the whole dataset."
         )
     specification = session.get_or_create_backtest_specification(
-        dataset_id=dataset_id, params=params, org_units=list(dataset.locations())
+        dataset_id=dataset_id,
+        params=params,
+        org_units=list(dataset.locations()),
+        target_column=target_column,
     )
     return dataset, specification
 

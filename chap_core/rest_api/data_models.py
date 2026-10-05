@@ -141,6 +141,8 @@ class BacktestFull(BacktestRead):
 class BacktestSpecificationSummary(BacktestParams):
     """One row of the specification list: the setup plus how much has been run under it, without the backtests."""
 
+    target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
+
     id: int = Field(description="Primary key of the specification.")
     dataset: DataSetMeta = Field(description="Slim summary of the dataset the specification evaluates against.")
     org_unit_count: int = Field(description="Number of org units the evaluation runs over.")
@@ -149,6 +151,8 @@ class BacktestSpecificationSummary(BacktestParams):
 
 class BacktestSpecificationRead(BacktestParams):
     """A specification with every backtest under it: the benchmark leaderboard in one response."""
+
+    target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
 
     id: int = Field(description="Primary key of the specification.")
     dataset: DataSetMeta = Field(description="Slim summary of the dataset the specification evaluates against.")
@@ -167,10 +171,12 @@ if TYPE_CHECKING:
         """Query parameters of the specification list. Dataset id plus the fields of `BacktestParams`."""
 
         dataset_id: int | None
+        target_column: str | None
 
 else:
     _filter_fields: dict[str, Any] = {
-        "dataset_id": (int | None, Field(default=None, description="Only specifications evaluating this dataset."))
+        "dataset_id": (int | None, Field(default=None, description="Only specifications evaluating this dataset.")),
+        "target_column": (str | None, Field(default=None, description="Only specifications evaluating this column.")),
     }
     for _name, _field in BacktestParams.model_fields.items():
         _filter_fields[_name] = (_field.annotation | None, Field(default=None, description=_field.description))
@@ -225,6 +231,8 @@ class MakePredictionRequest(DatasetMakeRequest, PredictionParams):
 class MakeBacktestRequest(BacktestParams):
     """Request to backtest an already-imported dataset against a configured model."""
 
+    target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
+
     name: str = Field(description="Human-friendly name for the resulting backtest row.")
     model_id: int | str = Field(
         description="Configured model to backtest: either the integer primary key or the canonical string name.",
@@ -234,6 +242,8 @@ class MakeBacktestRequest(BacktestParams):
 
 class MakeBacktestsRequest(BacktestParams):
     """Request to run several configured models on one dataset under one set of evaluation parameters."""
+
+    target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
 
     name: str = Field(description="Name of the run; each backtest is named `<name>/<configured model name>`.")
     model_ids: list[int | str] = Field(

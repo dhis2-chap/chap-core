@@ -560,7 +560,7 @@ class SessionWrapper:
         self.session.commit()
 
     def get_or_create_backtest_specification(
-        self, dataset_id: int, params: BacktestParams, org_units: list[str]
+        self, dataset_id: int, params: BacktestParams, org_units: list[str], target_column: str = "disease_cases"
     ) -> BacktestSpecification:
         """Resolve the single specification row for these parameters, creating it if it is new.
 
@@ -569,7 +569,7 @@ class SessionWrapper:
         the unique constraint is expected and re-reads the winner's row rather than
         failing the backtest.
         """
-        params_by_name = params.model_dump()
+        params_by_name = {**params.model_dump(), "target_column": target_column}
 
         def existing() -> BacktestSpecification | None:
             query = select(BacktestSpecification).where(BacktestSpecification.dataset_id == dataset_id)
