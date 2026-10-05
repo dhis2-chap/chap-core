@@ -183,6 +183,7 @@ def convert_backtest_to_flat_forecasts(
 
 def convert_backtest_observations_to_flat_observations(
     observations: list[ObservationBase],
+    target_column: str = "disease_cases",
 ) -> pd.DataFrame:
     """
     Convert a list of ObservationBase objects to a flat DataFrame format
@@ -200,8 +201,7 @@ def convert_backtest_observations_to_flat_observations(
     rows = []
 
     for obs in observations:
-        # Only process disease_cases observations
-        if obs.feature_name == "disease_cases" and obs.value is not None:
+        if obs.feature_name == target_column and obs.value is not None:
             # Calculate horizon distance if reference period is provided
             row = {"location": str(obs.org_unit), "time_period": str(obs.period), "disease_cases": float(obs.value)}
             rows.append(row)

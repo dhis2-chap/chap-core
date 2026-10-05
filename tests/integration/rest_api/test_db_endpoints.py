@@ -733,7 +733,11 @@ def test_every_backtest_parameter_is_part_of_the_uniqueness_key():
         for c in BacktestSpecification.__table__.constraints
         if getattr(c, "name", None) == "uq_backtestspecification_params"
     )
-    assert {column.name for column in constraint.columns} == {"dataset_id", *BacktestParams.model_fields}
+    assert {column.name for column in constraint.columns} == {
+        "dataset_id",
+        "target_column",
+        *BacktestParams.model_fields,
+    }
 
 
 def test_differing_parameters_produce_different_specifications(p_seeded_engine):
@@ -796,7 +800,11 @@ def test_specification_filter_covers_every_backtest_parameter():
     from chap_core.api_types import BacktestParams
     from chap_core.rest_api.data_models import BacktestSpecificationFilter
 
-    assert set(BacktestSpecificationFilter.model_fields) == {"dataset_id", *BacktestParams.model_fields}
+    assert set(BacktestSpecificationFilter.model_fields) == {
+        "dataset_id",
+        "target_column",
+        *BacktestParams.model_fields,
+    }
     assert all(field.default is None for field in BacktestSpecificationFilter.model_fields.values())
 
 

@@ -601,3 +601,57 @@ class TestAlembicMigrations:
 
         heads = list(script.get_heads())
         assert len(heads) == 1, f"Expected 1 head, found {len(heads)}: {heads}"
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("generic_migration_ran_first", [False, True])
+def test_target_column_migration_preserves_and_separates_specifications(engine, generic_migration_ran_first):
+    from alembic import command
+    from chap_core.api_types import BacktestParams
+    from chap_core.database.database import SessionWrapper
+    from sqlmodel import Session
+
+    with engine.begin() as conn:
+        conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+        conn.execute(sa.text("CREATE SCHEMA public"))
+    SQLModel.metadata.create_all(engine)
+    cfg = _make_alembic_cfg(engine)
+    command.stamp(cfg, "head")
+    command.downgrade(cfg, "d6e7f8a3b4c5")
+    with engine.begin() as conn:
+        conn.execute(sa.text("INSERT INTO dataset (id, name) VALUES (1, 'targets')"))
+        conn.execute(
+            sa.text(
+                "INSERT INTO backtestspecification "
+                "(id, dataset_id, n_periods, n_splits, stride, n_retrain, future_weather_provider, org_units) "
+                "VALUES (1, 1, 3, 7, 1, 1, 'climatology', '[\"A\"]')"
+            )
+        )
+        conn.execute(sa.text("SELECT setval(pg_get_serial_sequence('backtestspecification', 'id'), 1)"))
+        if generic_migration_ran_first:
+            conn.execute(sa.text("ALTER TABLE backtestspecification ADD COLUMN target_column VARCHAR"))
+            conn.execute(sa.text("UPDATE backtestspecification SET target_column = ''"))
+    command.upgrade(cfg, "head")
+    with Session(engine) as session:
+        wrapper = SessionWrapper(session=session)
+        default = wrapper.get_or_create_backtest_specification(1, BacktestParams(), ["A"])
+        assert default.id == 1
+        assert default.target_column == "disease_cases"
+        custom = wrapper.get_or_create_backtest_specification(1, BacktestParams(), ["A"], target_column="cases")
+        assert custom.id != default.id
+        duplicate = BacktestSpecification(dataset_id=1, target_column="cases")
+        session.add(duplicate)
+        with pytest.raises(sa.exc.IntegrityError):
+            session.commit()
+        session.rollback()
+        # A downgrade must merge the identities and keep the backtest pointing at a valid row.
+        model = ConfiguredModelDB(name="test", model_template=ModelTemplateDB(name="test", version="1"))
+        session.add(model)
+        session.flush()
+        session.add(Backtest(dataset_id=1, model_id="test", model_db_id=model.id, specification_id=custom.id))
+        session.commit()
+    command.downgrade(cfg, "d6e7f8a3b4c5")
+    with engine.connect() as conn:
+        assert conn.execute(sa.text("SELECT id FROM backtestspecification")).scalars().all() == [1]
+        assert conn.execute(sa.text("SELECT specification_id FROM backtest")).scalar_one() == 1
+    command.upgrade(cfg, "head")

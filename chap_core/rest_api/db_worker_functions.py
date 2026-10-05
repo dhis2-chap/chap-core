@@ -1,7 +1,7 @@
 import inspect
 import logging
 from functools import wraps
-from typing import get_type_hints
+from typing import TYPE_CHECKING, get_type_hints
 
 import numpy as np
 from pydantic import BaseModel
@@ -10,6 +10,7 @@ from chap_core.api_types import BacktestParams
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
+from chap_core.assessment.target import TargetColumnEstimator, rename_target
 from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
@@ -22,6 +23,9 @@ from chap_core.rest_api.data_models import BacktestCreate, FetchRequest, Predict
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month
+
+if TYPE_CHECKING:
+    from chap_core.assessment.prediction_evaluator import Estimator
 
 logger = logging.getLogger(__name__)
 status_logger = get_status_logger()
@@ -83,6 +87,7 @@ def run_backtest(
     n_retrain: int = _DEFAULT_PARAMS.n_retrain,
     session: SessionWrapper | None = None,
     future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
+    target_column: str | None = None,
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     assert session is not None, "session is required"
@@ -116,11 +121,20 @@ def run_backtest(
         n_retrain=n_retrain,
         future_weather_provider=future_weather_provider,
     )
-    dataset, specification = resolve_backtest_specification(session, dataset, info.dataset_id, backtest_params)
+    dataset, specification = resolve_backtest_specification(
+        session, dataset, info.dataset_id, backtest_params, target_column=target_column
+    )
+    if target_column is not None:
+        dataset = rename_target(dataset, target_column, "disease_cases")
+        model_target = configured_model.model_template.target
+        if model_target != "disease_cases" and model_target in dataset.field_names():
+            dataset = dataset.remove_field(model_target)
 
     status_logger.info(f"Running {n_splits} evaluation splits with prediction length {n_periods}")
     assert configured_model.id is not None, "configured_model.id is required"
-    estimator = session.get_configured_model_with_code(configured_model.id, prediction_length=n_periods)
+    estimator: Estimator = session.get_configured_model_with_code(configured_model.id, prediction_length=n_periods)
+    if target_column is not None and model_target != "disease_cases":
+        estimator = TargetColumnEstimator(estimator, model_target)
     # Historical context is for CLI plots; persisted backtests reach it through their dataset.
     evaluation = Evaluation.create(
         configured_model=configured_model,
@@ -154,7 +168,11 @@ def run_backtest(
 
 
 def resolve_backtest_specification(
-    session: SessionWrapper, dataset: DataSet, dataset_id: int, params: BacktestParams
+    session: SessionWrapper,
+    dataset: DataSet,
+    dataset_id: int,
+    params: BacktestParams,
+    target_column: str | None = None,
 ) -> tuple[DataSet, BacktestSpecification]:
     """Filter the dataset for these parameters and resolve the specification a run of them files under.
 
@@ -163,9 +181,11 @@ def resolve_backtest_specification(
     and the multi-model endpoint, which resolves the specification up front so its id
     can be returned before any job has run.
     """
+    if target_column is not None and target_column not in dataset.field_names():
+        raise ValueError(f"Dataset has no target column {target_column!r}")
     dataset = validate_and_filter_dataset_for_evaluation(
         dataset,
-        target_name="disease_cases",
+        target_name=target_column if target_column is not None else "disease_cases",
         n_periods=params.n_periods,
         n_splits=params.n_splits,
         stride=params.stride,
@@ -177,7 +197,10 @@ def resolve_backtest_specification(
             "covers the whole dataset."
         )
     specification = session.get_or_create_backtest_specification(
-        dataset_id=dataset_id, params=params, org_units=list(dataset.locations())
+        dataset_id=dataset_id,
+        params=params,
+        org_units=list(dataset.locations()),
+        target_column=target_column if target_column is not None else "disease_cases",
     )
     return dataset, specification
 

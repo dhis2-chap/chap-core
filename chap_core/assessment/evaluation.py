@@ -660,7 +660,8 @@ class Evaluation(EvaluationBase):
         if self._flat_data_cache is None:
             forecasts_df = convert_backtest_to_flat_forecasts(self._backtest.forecasts)
             observations_df = convert_backtest_observations_to_flat_observations(
-                cast("list[ObservationBase]", self._backtest.dataset.observations)
+                cast("list[ObservationBase]", self._backtest.dataset.observations),
+                target_column=self._backtest.specification.target_column,
             )
 
             # Convert historical observations if present
