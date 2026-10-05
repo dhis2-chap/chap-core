@@ -772,6 +772,8 @@ def test_target_column_is_scored_and_separates_specifications(override_session, 
         assert set(Evaluation.from_backtest(rainfall).to_flat().observations.disease_cases) == {7.0}
     rows = client.get("/v1/crud/backtest-specifications", params={"targetColumn": "rainfall"}).json()
     assert [row["id"] for row in rows] == [rainfall.specification_id]
+    actual_cases = DataList.model_validate(client.get(f"/v1/analytics/actual-cases/{rainfall.id}").json())
+    assert {entry.value for entry in actual_cases.data} == {7.0}
 
 
 @pytest.mark.parametrize("endpoint", ["create-backtest", "create-backtests"])

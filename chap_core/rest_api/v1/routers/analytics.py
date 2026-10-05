@@ -627,18 +627,20 @@ async def get_actual_cases(
     if org_units is not None and len(org_units) == 1 and org_units[0] == "adm0":
         # returning sum of forecasts for all regions
         return_summed = True
+    target_column = "disease_cases"
     if not is_dataset_id:
         backtest = session.get(Backtest, backtest_id)
         logger.info(f"Backtest: {backtest}")
         if backtest is None:
             raise HTTPException(status_code=404, detail="Backtest not found")
         dataset_id = backtest.dataset_id
+        target_column = backtest.specification.target_column
     else:
         dataset_id = backtest_id
     observations = DataSetManager(session).observations(
         dataset_id,
         org_units=None if return_summed else org_units,
-        feature_names=["disease_cases"],
+        feature_names=[target_column],
     )
     logger.info(f"Observations: {observations}")
     data_list = [
