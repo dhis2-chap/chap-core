@@ -442,7 +442,7 @@ async def create_backtest(
     stored_dataset = session.get(DataSetTable, request.dataset_id)
     if stored_dataset is None:
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
-    if request.target_column is not None and request.target_column not in stored_dataset.covariates:
+    if request.target_column not in stored_dataset.covariates:
         raise HTTPException(status_code=422, detail=f"Dataset has no target column {request.target_column!r}")
     job = worker.queue_db(
         wf.run_backtest,
@@ -481,11 +481,8 @@ def create_backtests(
     per model to poll via ``/v1/jobs/{id}``. 404 if the dataset or a model does not exist,
     422 if targetColumn is not a dataset column or no org unit has target data left to train on.
     """
-    stored_dataset = session.get(DataSetTable, request.dataset_id)
-    if stored_dataset is None:
+    if session.get(DataSetTable, request.dataset_id) is None:
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
-    if request.target_column is not None and request.target_column not in stored_dataset.covariates:
-        raise HTTPException(status_code=422, detail=f"Dataset has no target column {request.target_column!r}")
     wrapper = SessionWrapper(session=session)
     try:
         models = [wrapper.get_configured_model_by_id_or_name(model_id) for model_id in request.model_ids]

@@ -109,7 +109,7 @@ def test_evaluation_to_flat_converts_runtime_hpo_to_flat_metadata(
     monkeypatch.setattr(
         evaluation_module,
         "convert_backtest_observations_to_flat_observations",
-        lambda _: observations,
+        lambda *_, **__: observations,
     )
 
     flat = evaluation.to_flat()

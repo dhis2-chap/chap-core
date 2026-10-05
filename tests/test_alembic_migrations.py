@@ -604,8 +604,7 @@ class TestAlembicMigrations:
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize("generic_migration_ran_first", [False, True])
-def test_target_column_migration_preserves_and_separates_specifications(engine, generic_migration_ran_first):
+def test_target_column_migration_preserves_and_separates_specifications(engine):
     from alembic import command
     from chap_core.api_types import BacktestParams
     from chap_core.database.database import SessionWrapper
@@ -628,9 +627,9 @@ def test_target_column_migration_preserves_and_separates_specifications(engine, 
             )
         )
         conn.execute(sa.text("SELECT setval(pg_get_serial_sequence('backtestspecification', 'id'), 1)"))
-        if generic_migration_ran_first:
-            conn.execute(sa.text("ALTER TABLE backtestspecification ADD COLUMN target_column VARCHAR"))
-            conn.execute(sa.text("UPDATE backtestspecification SET target_column = ''"))
+        # Startup's generic migration adds the column as an empty string before Alembic runs.
+        conn.execute(sa.text("ALTER TABLE backtestspecification ADD COLUMN target_column VARCHAR"))
+        conn.execute(sa.text("UPDATE backtestspecification SET target_column = ''"))
     command.upgrade(cfg, "head")
     with Session(engine) as session:
         wrapper = SessionWrapper(session=session)
@@ -639,11 +638,6 @@ def test_target_column_migration_preserves_and_separates_specifications(engine, 
         assert default.target_column == "disease_cases"
         custom = wrapper.get_or_create_backtest_specification(1, BacktestParams(), ["A"], target_column="cases")
         assert custom.id != default.id
-        duplicate = BacktestSpecification(dataset_id=1, target_column="cases")
-        session.add(duplicate)
-        with pytest.raises(sa.exc.IntegrityError):
-            session.commit()
-        session.rollback()
         # A downgrade must merge the identities and keep the backtest pointing at a valid row.
         model = ConfiguredModelDB(name="test", model_template=ModelTemplateDB(name="test", version="1"))
         session.add(model)

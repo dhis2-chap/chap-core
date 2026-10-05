@@ -141,10 +141,7 @@ class BacktestFull(BacktestRead):
 class BacktestSpecificationSummary(BacktestParams):
     """One row of the specification list: the setup plus how much has been run under it, without the backtests."""
 
-    target_column: str = Field(
-        default="disease_cases",
-        description="Dataset column to evaluate as the target. Part of the evaluation specification identity.",
-    )
+    target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
 
     id: int = Field(description="Primary key of the specification.")
     dataset: DataSetMeta = Field(description="Slim summary of the dataset the specification evaluates against.")
@@ -155,10 +152,7 @@ class BacktestSpecificationSummary(BacktestParams):
 class BacktestSpecificationRead(BacktestParams):
     """A specification with every backtest under it: the benchmark leaderboard in one response."""
 
-    target_column: str = Field(
-        default="disease_cases",
-        description="Dataset column to evaluate as the target. Part of the evaluation specification identity.",
-    )
+    target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
 
     id: int = Field(description="Primary key of the specification.")
     dataset: DataSetMeta = Field(description="Slim summary of the dataset the specification evaluates against.")
@@ -237,10 +231,7 @@ class MakePredictionRequest(DatasetMakeRequest, PredictionParams):
 class MakeBacktestRequest(BacktestParams):
     """Request to backtest an already-imported dataset against a configured model."""
 
-    target_column: str | None = Field(
-        default=None,
-        description="Dataset column to evaluate as the target. Omit to use the existing model target.",
-    )
+    target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
 
     name: str = Field(description="Human-friendly name for the resulting backtest row.")
     model_id: int | str = Field(
@@ -252,10 +243,7 @@ class MakeBacktestRequest(BacktestParams):
 class MakeBacktestsRequest(BacktestParams):
     """Request to run several configured models on one dataset under one set of evaluation parameters."""
 
-    target_column: str | None = Field(
-        default=None,
-        description="Dataset column to evaluate as the target. Omit to use the existing model target.",
-    )
+    target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
 
     name: str = Field(description="Name of the run; each backtest is named `<name>/<configured model name>`.")
     model_ids: list[int | str] = Field(
