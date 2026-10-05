@@ -18,6 +18,12 @@ from chap_core.api_types import (
     PredictionEntry,
 )
 from chap_core.assessment.dataset_splitting import train_test_generator
+from chap_core.assessment.flat_representations import DataDimension
+from chap_core.assessment.outbreak_metrics import (
+    OutbreakMetricKind,
+    get_binary_outbreak_metrics,
+    get_categorical_outbreak_metrics,
+)
 from chap_core.assessment.thresholds import get_threshold_strategy, list_threshold_strategies
 from chap_core.assessment.thresholds.params import ThresholdParams
 from chap_core.assessment.weather_providers import list_weather_providers
@@ -1073,3 +1079,144 @@ def compute_thresholds(request: ThresholdRequest, session: Session = Depends(get
         for location, row in zip(locations, per_location, strict=True)
     ]
     return ThresholdResponse(params=request.params, lines=lines, entries=entries)
+
+
+class OutbreakMetricInfo(DBModel):
+    """Catalogue entry for one registered outbreak metric."""
+
+    id: str = Field(description="Metric identifier, the key it is reported under.")
+    display_name: str = Field(description="Human-friendly metric name.")
+    description: str = Field(default="", description="What the metric measures.")
+    kind: OutbreakMetricKind = Field(
+        description="`binary` metrics are reported per alert level; `categorical` metrics judge the policy as a whole."
+    )
+
+
+class LevelOutbreakMetrics(DBModel):
+    """Binary metrics for one alert level."""
+
+    level: str = Field(description="Name of the alert level.")
+    metrics: dict[str, float | None] = Field(
+        description="Value per binary metric id. `null` where undefined, e.g. sensitivity when no cell was an outbreak."
+    )
+
+
+class OutbreakMetricsRow(DBModel):
+    """Outbreak metrics for one group of cells."""
+
+    location: str | None = Field(default=None, description="Location of the group; `null` unless grouped by it.")
+    time_period: str | None = Field(default=None, description="Period of the group; `null` unless grouped by it.")
+    horizon_distance: int | None = Field(default=None, description="Horizon of the group; `null` unless grouped by it.")
+    n_cells: int = Field(description="Number of (location, period, horizon) cells scored.")
+    levels: list[LevelOutbreakMetrics] = Field(description="One entry per policy level, least to most severe.")
+    categorical: dict[str, float | None] = Field(
+        description="Value per categorical metric id, judging the most severe level breached. `null` where undefined."
+    )
+
+
+class OutbreakMetricsResponse(DBModel):
+    """Outbreak-detection metrics of a backtest judged against an alert policy."""
+
+    categories: list[str] = Field(
+        description="Category names in severity order, as the categorical metrics see them: "
+        "`none` followed by the level names."
+    )
+    rows: list[OutbreakMetricsRow] = Field(
+        description="One row per group, in sorted group order; a single row when not grouped."
+    )
+
+
+@router.get(
+    "/outbreak-metrics",
+    response_model=list[OutbreakMetricInfo],
+    tags=["Metrics"],
+    summary="Discover which outbreak metrics are available",
+)
+def list_outbreak_metrics():
+    """List the registered outbreak metrics, binary ones (per alert level) and categorical ones (per policy).
+
+    The ids are the keys the metrics are reported under by
+    `GET /v1/analytics/backtests/{backtestId}/outbreak-metrics`.
+    """
+    specs = [*get_binary_outbreak_metrics().values(), *get_categorical_outbreak_metrics().values()]
+    return [
+        OutbreakMetricInfo(id=spec.id, display_name=spec.name, description=spec.description, kind=spec.kind)
+        for spec in specs
+    ]
+
+
+@router.get(
+    "/backtests/{backtestId}/outbreak-metrics",
+    response_model=OutbreakMetricsResponse,
+    tags=["Metrics"],
+    summary="Score a backtest's outbreak alerts against an alert policy",
+)
+def get_outbreak_metrics(
+    backtest_id: Annotated[int, Path(alias="backtestId")],
+    alert_policy_id: Annotated[int, Query(alias="alertPolicyId")],
+    group_by: Annotated[list[DataDimension] | None, Query(alias="groupBy")] = None,
+    baseline_before_first_split: Annotated[bool, Query(alias="baselineBeforeFirstSplit")] = False,
+    session: Session = Depends(get_session),
+):
+    """Judge how well a backtest's forecasts would have raised the alerts of an alert policy.
+
+    Each level's threshold is computed by its strategy, as in `POST /v1/analytics/thresholds`.
+    A cell (location, period, horizon) is an outbreak at a level when observed cases exceed
+    the threshold, and is alerted when the share of forecast samples above it reaches the
+    level's `exceedanceThreshold`. Every level gets the binary metrics; the levels together
+    get the categorical metrics on the most severe level breached. See
+    `GET /v1/analytics/outbreak-metrics` for the metrics.
+
+    `groupBy` (repeatable: `location`, `time_period`, `horizon_distance`) splits the cells
+    into one row per group; without it every cell is pooled into one row.
+
+    Thresholds are computed from the backtest's whole dataset by default. With
+    `baselineBeforeFirstSplit`, only observations before the first forecast period are used,
+    so the scored periods cannot raise their own threshold. 404 if the backtest or policy
+    is unknown; 400 if the policy has no levels or no threshold can be computed.
+    """
+    from chap_core.assessment.evaluation import Evaluation
+    from chap_core.assessment.outbreak_metrics.scoring import label_cells, score
+    from chap_core.database.alert_tables import AlertPolicy
+
+    backtest = session.get(Backtest, backtest_id)
+    if backtest is None:
+        raise HTTPException(status_code=404, detail="Backtest not found")
+    policy = session.get(AlertPolicy, alert_policy_id)
+    if policy is None:
+        raise HTTPException(status_code=404, detail="Alert policy not found")
+    if not policy.levels:
+        raise HTTPException(status_code=400, detail=f"Alert policy {alert_policy_id} has no levels")
+
+    flat = Evaluation.from_backtest(backtest).to_flat()
+    observations = pd.DataFrame(flat.observations)
+    forecasts = pd.DataFrame(flat.forecasts)
+    history = observations
+    if baseline_before_first_split:
+        first_period = forecasts["time_period"].astype(str).min()
+        history = observations[observations["time_period"].astype(str) < first_period]
+    history = history.dropna(subset=["disease_cases"])
+    if history.empty:
+        raise HTTPException(status_code=400, detail="No observations to compute thresholds from")
+
+    try:
+        labelled = label_cells(history, observations, forecasts, policy.levels)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    dimensions = [str(dim) for dim in dict.fromkeys(group_by or [])]
+    return OutbreakMetricsResponse(
+        categories=["none", *(level.name for level in policy.levels)],
+        rows=[
+            OutbreakMetricsRow(
+                **group.group,
+                n_cells=group.n_cells,
+                levels=[
+                    LevelOutbreakMetrics(level=level.name, metrics=metrics)
+                    for level, metrics in zip(policy.levels, group.levels, strict=True)
+                ],
+                categorical=group.categorical,
+            )
+            for group in score(labelled, len(policy.levels), dimensions)
+        ],
+    )

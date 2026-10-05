@@ -89,7 +89,6 @@ def _discover_metrics():
         crps_norm,
         mae,
         mape,
-        outbreak_detection,
         percentile_coverage,
         rmse,
         winkler_score,
@@ -105,11 +104,6 @@ from chap_core.assessment.metrics.crps import CRPSLog1pMetric, CRPSMetric
 from chap_core.assessment.metrics.crps_norm import CRPSNormMetric
 from chap_core.assessment.metrics.mae import MAEMetric
 from chap_core.assessment.metrics.mape import MAPEMetric
-from chap_core.assessment.metrics.outbreak_detection import (
-    OutbreakAccuracyMetric,
-    SensitivityMetric,
-    SpecificityMetric,
-)
 from chap_core.assessment.metrics.peak_diff import PeakPeriodLagMetric, PeakValueDiffMetric
 from chap_core.assessment.metrics.percentile_coverage import (
     Coverage10_90Metric,
@@ -143,15 +137,12 @@ __all__ = [
     "MAPEMetric",
     "Metric",
     "MetricSpec",
-    "OutbreakAccuracyMetric",
     "PeakPeriodLagMetric",
     "PeakValueDiffMetric",
     "PercentileCoverageMetric",
     "ProbabilisticMetric",
     "RMSEMetric",
     "RatioAboveTruthMetric",
-    "SensitivityMetric",
-    "SpecificityMetric",
     "WinklerScore10_90Log1pMetric",
     "WinklerScore10_90Metric",
     "WinklerScore25_75Log1pMetric",
