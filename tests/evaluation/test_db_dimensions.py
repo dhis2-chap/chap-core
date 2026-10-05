@@ -97,6 +97,19 @@ def test_horizon_filter_matches_full_scan(db_session, backtest):
     assert _records(pd.DataFrame(filtered.forecasts), FORECAST_COLS) == _records(expected, FORECAST_COLS)
 
 
+def test_observations_follow_the_specification_target(db_session, backtest):
+    backtest.specification.target_column = "cases"
+    for observation in backtest.dataset.observations:
+        observation.feature_name = "cases"
+    db_session.commit()
+
+    filtered = load_filtered_flat_data(db_session, backtest, {}, [])
+
+    cols = ["location", "time_period", "disease_cases"]
+    expected = pd.DataFrame(Evaluation.from_backtest(backtest).to_flat().observations)
+    assert _records(pd.DataFrame(filtered.observations), cols) == _records(expected, cols) != set()
+
+
 def test_split_periods_partition_forecasts(db_session, backtest):
     """The split-period filters partition the full forecast set: every row appears in
     exactly one split coordinate's load."""
