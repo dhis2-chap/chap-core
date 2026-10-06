@@ -53,6 +53,7 @@ from chap_core.database.tables import (
     BacktestSpecification,
     Prediction,
     PredictionInfo,
+    PredictionSetupMonitoring,
     PredictionSetupRead,
     PredictionSetupReadWithPredictions,
 )
@@ -72,7 +73,12 @@ from chap_core.rest_api.experimental import api_experimental
 from chap_core.rest_api.services.orchestrator import Orchestrator, ServiceNotFoundError
 from chap_core.rest_api.services.schemas import MLServiceInfo
 from chap_core.rest_api.v2.dependencies import get_orchestrator
-from chap_core.services import alert_policy_service, alert_service, prediction_setup_service
+from chap_core.services import (
+    alert_policy_service,
+    alert_service,
+    prediction_monitoring_service,
+    prediction_setup_service,
+)
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import (
@@ -1312,6 +1318,33 @@ async def get_prediction_setup(
         return prediction_setup_service.get_prediction_setup(session, prediction_setup_id, include_predictions=True)
     except prediction_setup_service.PredictionSetupNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.get(
+    "/prediction-setups/{predictionSetupId}/monitoring",
+    response_model=PredictionSetupMonitoring,
+    tags=["Prediction Setups"],
+    summary="Compare a prediction setup's live performance with its backtest",
+)
+async def get_prediction_setup_monitoring(
+    prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
+    metric: Annotated[str, Query(description="Id of the metric to compute, as listed by the metrics endpoint.")],
+    session: Session = Depends(get_session),
+):
+    """Score the setup's stored predictions against observed cases, period by period, next to the value the same metric had in the setup's backtest.
+
+    Observed cases come from the setup's later runs, so a period is scored once a run
+    after the forecast has uploaded its observed value. Org units and horizons are
+    pooled. Each point has the metric for that period and the running aggregate over
+    all scored periods up to it. 404 if the setup is unknown, 422 if the metric is
+    unknown or cannot be computed for the setup's data.
+    """
+    try:
+        return prediction_monitoring_service.get_prediction_setup_monitoring(session, prediction_setup_id, metric)
+    except prediction_setup_service.PredictionSetupNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except prediction_monitoring_service.InvalidMetricError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 @router.patch(

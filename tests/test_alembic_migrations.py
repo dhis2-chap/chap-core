@@ -56,6 +56,7 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
 # Tables added by alembic migrations (not in the baseline schema).
 # These are dropped after create_all so the migration can re-create them.
 _TABLES_ADDED_BY_MIGRATIONS = [
+    "predictionsetupobservation",
     "predictionsetup",
     "backtestspecification",
 ]

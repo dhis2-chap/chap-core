@@ -1,5 +1,6 @@
 import datetime
 import logging
+import math
 
 # CHeck if CHAP_DATABASE_URL is set in the environment
 import os
@@ -21,6 +22,7 @@ from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
 from ..models.external_chapkit_model import ExternalChapkitModelTemplate
+from .dataset_tables import Observation
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import (
     ConfiguredModelDB,
@@ -30,7 +32,7 @@ from .model_templates_and_config_tables import (
     compute_configuration_digest,
     drifted_template_content_fields,
 )
-from .tables import Backtest, BacktestSpecification, Prediction, PredictionSamplesEntry
+from .tables import Backtest, BacktestSpecification, Prediction, PredictionSamplesEntry, PredictionSetupObservation
 
 logger = logging.getLogger(__name__)
 engine = None
@@ -627,8 +629,43 @@ class SessionWrapper:
             prediction_setup_id=prediction_setup_id,
         )
         self.session.add(prediction)
+        if prediction_setup_id is not None:
+            self._upsert_prediction_setup_observations(prediction_setup_id, dataset_id)
         self.session.commit()
         return prediction.id
+
+    def _upsert_prediction_setup_observations(self, prediction_setup_id: int, dataset_id: int) -> None:
+        """Record the dataset's disease cases against the setup, overwriting values from earlier runs."""
+        existing = {
+            (row.org_unit, row.period): row
+            for row in self.session.exec(
+                select(PredictionSetupObservation).where(
+                    PredictionSetupObservation.prediction_setup_id == prediction_setup_id
+                )
+            )
+        }
+        observations = self.session.exec(
+            select(Observation).where(
+                Observation.dataset_id == dataset_id,
+                Observation.feature_name == "disease_cases",
+                col(Observation.value).is_not(None),
+            )
+        )
+        for obs in observations:
+            value = float(obs.value)  # type: ignore[arg-type]
+            if math.isnan(value):
+                continue
+            row = existing.get((obs.org_unit, obs.period))
+            if row is None:
+                row = PredictionSetupObservation(
+                    prediction_setup_id=prediction_setup_id,
+                    org_unit=obs.org_unit,
+                    period=obs.period,
+                    disease_cases=value,
+                )
+            else:
+                row.disease_cases = value
+            self.session.add(row)
 
 
 def _run_alembic_migrations(engine):
