@@ -33,6 +33,8 @@ names, people) is the same for both.
   component. Names are case-sensitive; the main one is
   `Chap Modeling Platform`. List components in use:
   `project = CLIM AND component is not EMPTY`.
+- **Objective label is required**: every new issue must carry at least one
+  `ch-obj-*` label from the list below. See "Objective labels".
 - **Board**: `686` is the C&H scrum board, the only scrum board for CLIM.
   Epics can be in sprints on it.
 - **Sprint field**: `customfield_10020`. Find the active sprint id from the
@@ -40,6 +42,37 @@ names, people) is the same for both.
   `discover`).
 - **Issue types**: Task, Story, Bug, Epic.
 - **Statuses**: "To Do", "In Progress", "Done".
+
+### Objective labels
+
+Every new CLIM issue must have at least one `ch-obj-*` label. The labels map
+to the objectives in the team roadmap (autumn 2026). The list below is from
+2026-10-06 and is revised when the roadmap is; if an issue fits none of them,
+ask rather than inventing a new label.
+
+Pick every label that applies. More than one is common, for example a
+benchmarking feature is `ch-obj-scientific-evidence` and
+`ch-obj-platform-maturity`. Use the exact spelling; labels are free text in
+Jira and typos create new labels.
+
+| Label | Use for |
+|-------|---------|
+| `ch-obj-early-warning` | Getting CHAP to a functional end-to-end early warning system: alerts, scheduling, notifications, thresholds, monitoring, the modeling app and dashboards, demos, and orchestration or integration with DHIS2 and Caps. |
+| `ch-obj-scientific-evidence` | Showing that what we build works: papers, benchmarks and the leaderboard, continuous evaluation against reality, evaluation correctness, and documenting rationale and evidence for functionality. |
+| `ch-obj-platform-maturity` | Making CHAP something outsiders can install, trust and contribute to: setup and DevOps, the model marketplace, security, documentation, safer formats such as safetensors, and reducing technical debt. |
+| `ch-obj-explainability` | Things built on top of a prediction: why this alert or prediction, surfacing model quality in the modeling app, transparency about what the model does, counterfactual explanations. |
+| `ch-obj-new-domains` | Growing beyond spatiotemporal outbreak forecasting: tabular data support, intervention effects, and other new data types or analysis questions. |
+| `ch-obj-model-quality` | Improving the models themselves: getting a model that is good enough and defining what that means, seasonal forecasts as input, model performance work. |
+
+Work process and team health have no label of their own; tag such work with
+the objective it serves, usually `ch-obj-platform-maturity`.
+
+Find issues missing an objective label:
+`project = CLIM AND created >= 2026-10-06 AND (labels is EMPTY OR labels not in (ch-obj-early-warning, ch-obj-scientific-evidence, ch-obj-platform-maturity, ch-obj-explainability, ch-obj-new-domains, ch-obj-model-quality))`
+
+With the MCP, pass `labels` to `createJiraIssue` or `editJiraIssue`. With
+acli, put `"labels": ["ch-obj-early-warning"]` in the `--from-json` file, or
+check `acli jira workitem create --help` for a label flag.
 
 ### Team members
 
@@ -62,7 +95,8 @@ assignee after assigning.
 
 - **Creating issues**: infer or ask for type, summary, description and
   priority. Use actionable summaries, add acceptance criteria when useful,
-  set a component, and link related issues or a parent epic.
+  set a component, set one or more objective labels, and link related
+  issues or a parent epic.
 - **Querying**: present key, summary, status and assignee in a table, group
   logically (status, epic, priority), and highlight blockers.
 - **Relating code to tickets**: use `git log` and branch names
