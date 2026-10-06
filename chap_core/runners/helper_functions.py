@@ -78,6 +78,11 @@ def get_train_predict_runner_from_model_template_config(
             if model_template_config.entry_points.report is not None
             else None
         )
+        context_command = (
+            model_template_config.entry_points.context.command
+            if model_template_config.entry_points.context is not None
+            else None
+        )
 
         # dump model configuration to a tmp file in working_dir, pass this file to the train and predict command
         # pydantic write to yaml
@@ -92,6 +97,7 @@ def get_train_predict_runner_from_model_template_config(
                 predict_command,
                 model_configuration_filename=yaml_filename,
                 report_command=report_command,
+                context_command=context_command,
             )
         elif runner_type == "uv":
             return UvTrainPredictRunner(
@@ -100,6 +106,7 @@ def get_train_predict_runner_from_model_template_config(
                 predict_command,
                 model_configuration_filename=yaml_filename,
                 report_command=report_command,
+                context_command=context_command,
             )
         elif runner_type == "renv":
             return RenvTrainPredictRunner(
@@ -108,6 +115,7 @@ def get_train_predict_runner_from_model_template_config(
                 predict_command,
                 model_configuration_filename=yaml_filename,
                 report_command=report_command,
+                context_command=context_command,
             )
         elif runner_type == "conda":
             assert model_template_config.conda_env is not None
@@ -117,13 +125,14 @@ def get_train_predict_runner_from_model_template_config(
                 predict_command,
                 model_configuration_filename=yaml_filename,
                 report_command=report_command,
+                context_command=context_command,
             )
         else:
             assert model_template_config.docker_env is not None
             logging.debug(f"Docker image is {model_template_config.docker_env.image}")
             command_runner = DockerRunner(model_template_config.docker_env.image, working_dir, dry_run=dry_run)
             return DockerTrainPredictRunner(
-                command_runner, train_command, predict_command, yaml_filename, report_command
+                command_runner, train_command, predict_command, yaml_filename, report_command, context_command
             )
     else:
         # assert model_configuration is None or model_configuration == {}, "ModelConfiguration (for templates) not supported when runner is mlflow for now"

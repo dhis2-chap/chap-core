@@ -30,8 +30,25 @@ class ConfiguredModel(abc.ABC):
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         pass
 
+    def context(self) -> ContextInfo | None:
+        """Returns a models context length, or None if the model does not specify one"""
+        return None
+
 
 class ModelConfiguration(BaseModel):
     """
     BaseClass used for configuration that a ModelTemplate takes for creating specific Models
     """
+
+
+class ContextInfo(BaseModel):
+    """
+    ContextInfo used for handling the context_length of a configured model
+
+    The context length is an int and represents how many timesteps backwards from the most recent timestep
+    the model uses.
+
+    0 represents the entire context length.
+    """
+
+    context_length: int
