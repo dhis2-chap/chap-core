@@ -5,7 +5,8 @@ knowledge** sections first; they apply regardless of which tool you use.
 
 ## Tooling
 
-Pick the tool based on what is available in the current session:
+Use the Atlassian MCP by default; acli is the fallback when the MCP is not
+available in the current session:
 
 1. **Atlassian MCP** – if tools named `mcp__atlassian__*` are in your tool list
    (for example `searchJiraIssuesUsingJql`, `getJiraIssue`, `createJiraIssue`,
@@ -70,9 +71,9 @@ the objective it serves, usually `ch-obj-platform-maturity`.
 Find issues missing an objective label:
 `project = CLIM AND created >= 2026-10-06 AND (labels is EMPTY OR labels not in (ch-obj-early-warning, ch-obj-scientific-evidence, ch-obj-platform-maturity, ch-obj-explainability, ch-obj-new-domains, ch-obj-model-quality))`
 
-With the MCP, pass `labels` to `createJiraIssue` or `editJiraIssue`. With
-acli, put `"labels": ["ch-obj-early-warning"]` in the `--from-json` file, or
-check `acli jira workitem create --help` for a label flag.
+Set them with the MCP by passing `labels` to `createJiraIssue` or
+`editJiraIssue`. Only if the MCP is unavailable, use acli and put
+`"labels": ["ch-obj-early-warning"]` in the `--from-json` file.
 
 ### Team members
 
