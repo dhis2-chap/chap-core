@@ -187,6 +187,34 @@ When providing a directory path with `--run-config.is-chapkit-model`, Chap autom
 
 The service's own output is forwarded to Chap's debug log (`--run-config.debug`), and the last lines are included in the error message if the service fails to start.
 
+### Running an MLproject as a chapkit service
+
+Use `--run-config.as-chapkit` to serve an MLproject model (a local directory or GitHub URL) with `chapkit mlproject run` instead of running it with Chap's runners. The model is then exercised the same way it is in production: through chapkit's REST API, with its typed user options and adapters.
+
+```console
+chap eval \
+    --model-name https://github.com/dhis2-chap/minimalist_example \
+    --dataset-csv ./data/vietnam.csv \
+    --output-file ./eval.nc \
+    --run-config.as-chapkit
+```
+
+Chap copies the model into the run directory, prepares its environment, starts the service on a free local port, runs the evaluation and stops the service when done. The service never registers with an orchestrator.
+
+| MLproject environment | What Chap does |
+|---|---|
+| none, or `--run-config.ignore-environment` | Runs the commands in the current environment |
+| `uv_env` | Runs `uv sync` in the run directory and starts chapkit through `uv run` |
+| `renv_env` | Runs `renv::restore()` before starting the service |
+| `docker_env`, `conda_env`, `python_env` | Not supported |
+
+For a model with a `docker_env`, start a chapkit image yourself and pass its URL instead:
+
+```console
+docker run -p 8000:8000 -v $(pwd):/work ghcr.io/dhis2-chap/chapkit-r-inla-cli
+chap eval --model-name http://localhost:8000 --dataset-csv ./data/vietnam.csv --output-file ./eval.nc
+```
+
 ## Input Data Format
 
 ### CSV File Requirements

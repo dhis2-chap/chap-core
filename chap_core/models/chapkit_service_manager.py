@@ -10,6 +10,7 @@ import socket
 import subprocess
 import threading
 import time
+from collections.abc import Sequence
 from pathlib import Path
 
 import httpx
@@ -61,6 +62,8 @@ class ChapkitServiceManager:
         port: int | None = None,
         host: str = "127.0.0.1",
         startup_timeout: int = 60,
+        command: Sequence[str] | None = None,
+        env: dict[str, str] | None = None,
     ):
         """
         Initialize the service manager.
@@ -70,11 +73,16 @@ class ChapkitServiceManager:
             port: Specific port to use, or None to auto-detect
             host: Host to bind to (default: 127.0.0.1)
             startup_timeout: Seconds to wait for service to become healthy
+            command: Command that starts the service, without the --port and --host
+                options, which are appended (default: uv run fastapi dev)
+            env: Environment for the service process (default: inherit the current one)
         """
         self.model_directory = Path(model_directory).resolve()
         self.host = host
         self.port = port
         self.startup_timeout = startup_timeout
+        self.command = list(command) if command is not None else ["uv", "run", "fastapi", "dev"]
+        self.env = env
         self._process: subprocess.Popen | None = None
         self._url: str | None = None
         self._output: collections.deque[str] = collections.deque(maxlen=OUTPUT_TAIL_LINES)
@@ -99,22 +107,13 @@ class ChapkitServiceManager:
             raise ChapkitServiceStartupError(f"Model path is not a directory: {self.model_directory}")
 
     def _start_service(self) -> None:
-        """Start the fastapi dev server as a subprocess."""
+        """Start the service as a subprocess."""
         if self.port is None:
             self.port = find_available_port()
 
         self._url = f"http://{self.host}:{self.port}"
 
-        command = [
-            "uv",
-            "run",
-            "fastapi",
-            "dev",
-            "--port",
-            str(self.port),
-            "--host",
-            self.host,
-        ]
+        command = [*self.command, "--port", str(self.port), "--host", self.host]
 
         logger.info(f"Starting chapkit service at {self._url} from {self.model_directory}")
 
@@ -122,6 +121,7 @@ class ChapkitServiceManager:
         self._process = subprocess.Popen(
             command,
             cwd=self.model_directory,
+            env=self.env,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,

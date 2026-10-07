@@ -13,6 +13,7 @@ from chap_core.external.external_model import logger
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.chapkit_service_manager import is_url
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
+from chap_core.models.mlproject_chapkit import chapkit_service_launch
 from chap_core.models.model_template import ModelTemplate
 from chap_core.rest_api.services.schemas import MLServiceInfo
 from chap_core.util import generate_run_name
@@ -132,6 +133,7 @@ def get_model_template_from_directory_or_github_url(
     run_dir_type: str = "timestamp",
     is_chapkit_model: bool = False,
     dry_run: bool = False,
+    as_chapkit: bool = False,
 ) -> ModelTemplateType:
     """
     Note: Preferably use ModelTemplate.from_directory_or_github_url instead of
@@ -152,11 +154,19 @@ def get_model_template_from_directory_or_github_url(
         Type of run directory to create, by default "timestamp", which creates a new directory based on current timestamp for the run.
         "latest" will create a new directory based on the model name, but will remove any existing directory with the same name.
         "use_existing" will use the existing directory specified by the model path if that exists. If that does not exist, "latest" will be used.
+    as_chapkit : bool, optional
+        If True, the MLproject is served with ``chapkit mlproject run`` from the working directory. The service
+        is started and stopped when the returned template is used as a context manager.
     """
 
     # GitHub URLs are git-clone targets, never live chapkit services, so skip the
     # chapkit probe for them to avoid a spurious 404 against github.com/.../api/v1/info.
     is_github_url = is_url(model_template_path) and model_template_path.startswith("https://github.com")
+    if as_chapkit and (is_chapkit_model or (is_url(model_template_path) and not is_github_url)):
+        raise ValueError(
+            "--run-config.as-chapkit runs an MLproject from a local directory or GitHub URL as a chapkit service; "
+            "it cannot be combined with a chapkit service URL or --run-config.is-chapkit-model."
+        )
     detected = (
         not is_chapkit_model
         and is_url(model_template_path)
@@ -191,6 +201,10 @@ def get_model_template_from_directory_or_github_url(
     # assert that a config file exists
     if not (working_dir / "MLproject").exists():
         raise InvalidModelException("No MLproject file found in model directory")
+
+    if as_chapkit:
+        command, env = chapkit_service_launch(working_dir / "MLproject", ignore_env=ignore_env)
+        return ExternalChapkitModelTemplate(str(working_dir), command=command, env=env)
 
     model_template = get_model_template_from_mlproject_file(
         working_dir / "MLproject", ignore_env=ignore_env, dry_run=dry_run

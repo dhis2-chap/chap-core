@@ -1,3 +1,4 @@
+import os
 import time
 from unittest.mock import patch
 
@@ -144,6 +145,16 @@ class TestChapkitServiceManager:
                     time.sleep(0.1)
                 assert "AFTER_INVALID_BYTES" in manager.recent_output()
                 assert httpx.get(manager.url + "/health", timeout=2).status_code == 200
+
+    def test_custom_command_and_env(self, tmp_path, fake_chapkit_service):
+        env = {"PATH": os.environ["PATH"], "MARKER": "1"}
+        with fake_chapkit_service("flood") as popen:
+            with ChapkitServiceManager(str(tmp_path), command=["chapkit", "mlproject", "run", "."], env=env):
+                pass
+        command = popen.call_args.args[0]
+        assert command[:4] == ["chapkit", "mlproject", "run", "."]
+        assert "--port" in command
+        assert popen.call_args.kwargs["env"] == env
 
     def test_death_during_startup_reports_output(self, tmp_path, fake_chapkit_service):
         with fake_chapkit_service("die"):

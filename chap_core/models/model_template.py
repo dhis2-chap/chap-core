@@ -43,6 +43,7 @@ class ModelTemplate:
         run_dir_type="timestamp",
         is_chapkit_model: bool = False,
         dry_run: bool = False,
+        as_chapkit: bool = False,
     ) -> ModelTemplate:
         """
         Gets the model template and initializes a working directory with the code for the model.
@@ -60,6 +61,8 @@ class ModelTemplate:
             Type of run directory to create, by default "timestamp", which creates a new directory based on current timestamp for the run.
             "latest" will create a new directory based on the model name, but will remove any existing directory with the same name.
             "use_existing" will use the existing directory specified by the model path if that exists. If that does not exist, "latest" will be used.
+        as_chapkit : bool, optional
+            If True, serve the MLproject with ``chapkit mlproject run`` instead of running it with chap's runners
         """
         from .utils import CHAP_RUNS_DIR, get_model_template_from_directory_or_github_url
 
@@ -73,6 +76,7 @@ class ModelTemplate:
             run_dir_type=run_dir_type,
             is_chapkit_model=is_chapkit_model,
             dry_run=dry_run,
+            as_chapkit=as_chapkit,
         )
 
     @property
