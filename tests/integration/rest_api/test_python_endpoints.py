@@ -56,6 +56,13 @@ def test_available_metrics_expose_target_behavior():
         assert metrics[entry["id"]].target_behavior == entry["target_behavior"]
 
 
+def test_available_metrics_expose_comparison_op():
+    metrics = {metric.id: metric for metric in get_available_metrics(backtest_id=1)}
+    assert metrics["mae"].comparison_op == "skill_ratio"
+    for entry in list_metrics():
+        assert metrics[entry["id"]].comparison_op == entry["comparison_op"]
+
+
 def all_metric_ids():
     metrics = get_available_metrics(backtest_id=1)
     return [metric.id for metric in metrics]

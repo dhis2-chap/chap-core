@@ -73,6 +73,9 @@ class MetricSpec:
     target: float | None = None
     # How to judge a score against the target. Only meaningful when target is set.
     target_behavior: TargetBehavior = TargetBehavior.CLOSEST
+    # Name of the comparison operator (see comparison.py) used to compare a score with a
+    # reference model's score. None means the metric has no comparison.
+    comparison_op: str | None = None
 
 
 class Metric(ABC):
@@ -231,6 +234,49 @@ class Metric(ABC):
             cols[d.value] = pa.Column(dtype, chk) if chk else pa.Column(dtype)
         cols["metric"] = pa.Column(float, nullable=True)
         return pa.DataFrameSchema(cols, strict=True, coerce=True)
+
+    def compare(self, score: float, reference_score: float) -> float | None:
+        """Compare a score with a reference model's score, positive meaning better than the reference.
+
+        Returns None when the metric has no comparison. Subclasses may override this
+        when none of the registered comparison operators fits.
+        """
+        if self.spec.comparison_op is None:
+            return None
+        from chap_core.assessment.metrics.comparison import get_comparison_op
+
+        return get_comparison_op(self.spec.comparison_op)(score, reference_score, self.spec)
+
+    def get_comparison(
+        self,
+        observations: pa.typing.DataFrame[FlatObserved],
+        forecasts: pa.typing.DataFrame[FlatForecasts],
+        reference_forecasts: pa.typing.DataFrame[FlatForecasts],
+        dimensions: tuple[DataDimension, ...] = (),
+    ) -> pd.DataFrame:
+        """Compare the model with a reference model at the requested level.
+
+        Both are scored only on the forecast cells they have in common, then each
+        is aggregated with the metric's own aggregation before comparing.
+
+        Returns:
+            DataFrame with the dimension columns plus ``metric``, ``reference_metric``
+            and ``comparison`` (NaN when the metric has no comparison).
+        """
+        keys = ["location", "time_period", "horizon_distance"]
+        shared = forecasts[keys].drop_duplicates().merge(reference_forecasts[keys].drop_duplicates(), on=keys)
+        model = self.get_metric(observations, forecasts.merge(shared, on=keys), dimensions)
+        reference = self.get_metric(observations, reference_forecasts.merge(shared, on=keys), dimensions)
+        reference = reference.rename(columns={"metric": "reference_metric"})
+
+        group_cols = [d.value for d in dimensions]
+        if group_cols:
+            result = model.merge(reference, on=group_cols, how="inner")
+        else:
+            result = pd.concat([model, reference], axis=1)
+        comparisons = [self.compare(m, r) for m, r in zip(result["metric"], result["reference_metric"], strict=True)]
+        result["comparison"] = [np.nan if c is None else c for c in comparisons]
+        return result
 
     def is_applicable(self, observations: pa.typing.DataFrame[FlatObserved]) -> bool:
         """Check whether this metric can be computed for the given data.

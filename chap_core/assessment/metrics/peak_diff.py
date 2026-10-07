@@ -71,6 +71,7 @@ class PeakValueDiffMetric(Metric):
         description="Truth peak value minus predicted peak value, per horizon",
         optimization_direction=None,
         target=0.0,
+        comparison_op="target_distance",
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
@@ -133,6 +134,7 @@ class PeakPeriodLagMetric(Metric):
         optimization_direction=None,
         unit="periods",
         target=0.0,
+        comparison_op="target_distance",
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
