@@ -2,7 +2,6 @@ import logging
 from typing import Annotated, Any
 
 import numpy as np
-import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import Field as PydanticField
 from sqlalchemy.orm import selectinload
@@ -18,7 +17,7 @@ from chap_core.api_types import (
     PredictionEntry,
 )
 from chap_core.assessment.dataset_splitting import train_test_generator
-from chap_core.assessment.thresholds import get_threshold_strategy, list_threshold_strategies
+from chap_core.assessment.thresholds import list_threshold_strategies
 from chap_core.assessment.thresholds.params import ThresholdParams
 from chap_core.assessment.weather_providers import list_weather_providers
 from chap_core.database.base_tables import DBModel
@@ -29,8 +28,9 @@ from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 from chap_core.database.tables import Backtest, BacktestForecast, BacktestSpecification, Prediction
 from chap_core.datatypes import create_tsdataclass
+from chap_core.services import threshold_service
 from chap_core.services.dataset_validation import RESERVED_FIELDS
-from chap_core.spatio_temporal_data.converters import observations_to_dataframe, observations_to_dataset
+from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 from ...celery_tasks import JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW, CeleryPool, JobType
@@ -1032,36 +1032,21 @@ def compute_thresholds(request: ThresholdRequest, session: Session = Depends(get
     no `disease_cases` observations. 400 if the requested periods do not match the dataset's
     frequency, or if the dataset has no complete year to compute a baseline from.
     """
-    strategy_cls = get_threshold_strategy(request.params.type)
-    if strategy_cls is None:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Threshold strategy {request.params.type} is in the request schema but not registered",
-        )
-
-    observations = DataSetManager(session).observations(
-        request.dataset_id, org_units=request.locations or None, feature_names=["disease_cases"]
-    )
-    if not observations:
-        raise HTTPException(
-            status_code=404, detail=f"No disease_cases observations found for dataset {request.dataset_id}"
-        )
-
-    df = observations_to_dataframe(observations).rename(columns={"value": "disease_cases"})[
-        ["location", "time_period", "disease_cases"]
-    ]
     try:
-        result = strategy_cls().compute(df, request.period_ids, request.params)
-    except ValueError as e:
+        result = threshold_service.compute_thresholds(
+            session, request.dataset_id, request.period_ids, request.params, request.locations
+        )
+    except threshold_service.NoObservationsError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except LookupError as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    except threshold_service.InvalidThresholdInputError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     lines = request.params.lines
-    locations = request.locations or sorted(df["location"].unique())
-    grid = pd.MultiIndex.from_product(
-        [request.period_ids, locations, range(len(lines))], names=["period_id", "location", "line"]
-    )
-    thresholds = result.set_index(["period_id", "location", "line"])["threshold"].reindex(grid)
-    # reindex keeps the grid's period-major, then location, then line ordering
+    locations = request.locations or list(result["location"].unique())
+    thresholds = result["threshold"]
+    # The service returns rows in period, location, then line order.
     values = thresholds.to_numpy(dtype=float).reshape(len(request.period_ids), len(locations), len(lines))
     entries = [
         ThresholdEntry(

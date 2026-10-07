@@ -254,6 +254,31 @@ def test_compute_thresholds_unknown_dataset(override_session):
     assert response.status_code == 404, response.text
 
 
+def test_compute_thresholds_preserves_order_and_duplicate_locations(override_session):
+    periods = ["2023-02", "2023-01"]
+    locations = ["loc_2", "loc_missing", "loc_1", "loc_2"]
+    response = client.post(
+        "/v1/analytics/thresholds",
+        json={
+            "dataset_id": 1,
+            "period_ids": periods,
+            "locations": locations,
+            "params": {"type": "percentile", "quantile": [0.75, 0.25]},
+        },
+    )
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["lines"] == [0.75, 0.25]
+    assert [(entry["period"], entry["location"]) for entry in result["entries"]] == [
+        (period, location) for period in periods for location in locations
+    ]
+    for entry in result["entries"]:
+        if entry["location"] == "loc_missing":
+            assert entry["values"] == [None, None]
+        else:
+            assert entry["values"][0] >= entry["values"][1]
+
+
 def wrap_vega_spec(vega_spec) -> str:
     html_template = f"""
     <!DOCTYPE html>

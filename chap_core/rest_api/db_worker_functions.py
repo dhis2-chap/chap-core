@@ -20,6 +20,7 @@ from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
 from chap_core.rest_api.data_models import BacktestCreate, FetchRequest, PredictionParams
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
+from chap_core.services.alert_service import raise_alerts_for_prediction
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month
 
@@ -248,6 +249,12 @@ def run_prediction(
     )
     assert db_id is not None
     status_logger.info(f"Prediction completed successfully. Results saved with ID {db_id}")
+    if prediction_setup_id is not None:
+        try:
+            raise_alerts_for_prediction(session.session, db_id)
+        except Exception:
+            session.session.rollback()
+            logger.exception("Failed to raise alerts for prediction %s; the stored prediction is kept", db_id)
     return db_id
 
 

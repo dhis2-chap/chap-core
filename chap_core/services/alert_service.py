@@ -10,10 +10,12 @@ import datetime
 import logging
 from typing import TYPE_CHECKING
 
+import numpy as np
 from sqlmodel import Session, select
 
 from chap_core.database.alert_tables import Alert, AlertApproval, AlertPolicy
 from chap_core.database.tables import Prediction
+from chap_core.services import threshold_service
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -35,6 +37,66 @@ class InvalidAlertError(AlertServiceError):
 
 class AlertApprovedError(AlertServiceError):
     """Raised when deleting an alert that has been cleared for dissemination."""
+
+
+def raise_alerts_for_prediction(session: Session, prediction_id: int) -> list[Alert]:
+    """Create pending alerts for the most severe firing level in each forecast cell.
+
+    Policy order defines severity. Existing alerts are left untouched on retries,
+    including alerts that have already been reviewed.
+    """
+    prediction = session.get(Prediction, prediction_id)
+    if prediction is None or prediction.prediction_setup is None:
+        return []
+    policy = prediction.prediction_setup.alert_policy
+    if policy is None or not policy.levels:
+        return []
+
+    existing = {(alert.org_unit, alert.time_period) for alert in list_alerts(session, prediction_id=prediction_id)}
+    forecasts = [forecast for forecast in prediction.forecasts if (forecast.org_unit, forecast.period) not in existing]
+    if not forecasts:
+        return []
+
+    periods = sorted({forecast.period for forecast in forecasts})
+    locations = sorted({forecast.org_unit for forecast in forecasts})
+    alerts = {}
+    for level in policy.levels:
+        try:
+            thresholds = threshold_service.compute_thresholds(
+                session, prediction.dataset_id, periods, level.threshold_params, locations
+            ).set_index(["location", "period_id"])["threshold"]
+        except Exception:
+            logger.warning(
+                "Skipping alert level %r for prediction %s: threshold computation failed",
+                level.name,
+                prediction_id,
+                exc_info=True,
+            )
+            continue
+
+        for forecast in forecasts:
+            cell = (forecast.org_unit, forecast.period)
+            threshold = thresholds.get(cell, np.nan)
+            if not np.isfinite(threshold):
+                logger.warning(
+                    "Skipping alert level %r for prediction %s, org unit %s, period %s: no threshold",
+                    level.name,
+                    prediction_id,
+                    *cell,
+                )
+                continue
+            if not forecast.values:
+                continue
+            probability = np.mean(np.asarray(forecast.values) > threshold)
+            if probability >= level.exceedance_threshold:
+                alerts[cell] = Alert(
+                    prediction_id=prediction_id,
+                    alert_policy_id=policy.id,
+                    org_unit=forecast.org_unit,
+                    time_period=forecast.period,
+                    level=level.name,
+                )
+    return create_alerts(session, list(alerts.values()))
 
 
 def _validate_level(session: Session, alert_policy_id: int, level: str) -> None:
