@@ -11,7 +11,6 @@ be replaced with imports from a shared chapkit data types package.
 
 import re
 from enum import StrEnum
-from typing import Any
 
 from pydantic import BaseModel, EmailStr, Field, HttpUrl, field_validator
 
@@ -104,8 +103,10 @@ class MLServiceInfo(ServiceInfo):
     requires_geo: bool = Field(
         default=False, description="When True, the model needs a GeoJSON polygon set for spatial features."
     )
-    hpo_search_space: dict[str, Any] | None = Field(
-        default=None, description="Built-in HPO search space declared by the model (chapkit 2.3+)."
+    # Reported by chapkit 2.3 services. Defaulted so older services still validate.
+    target: str = Field(default="disease_cases", description="Name of the variable the model predicts.")
+    hpo_search_space: dict | None = Field(
+        default=None, description="Search space used by HPO when tuning the model's user options."
     )
     # Build provenance reported by chapkit 2.0 services. Optional so 1.x services still validate.
     git_revision: str | None = Field(default=None, description="Commit the service image was built from.")
