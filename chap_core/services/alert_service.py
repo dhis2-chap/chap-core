@@ -42,8 +42,7 @@ class AlertApprovedError(AlertServiceError):
 def raise_alerts_for_prediction(session: Session, prediction_id: int) -> list[Alert]:
     """Create pending alerts for the most severe firing level in each forecast cell.
 
-    Policy order defines severity. Existing alerts are left untouched on retries,
-    including alerts that have already been reviewed.
+    Policy order defines severity.
     """
     prediction = session.get(Prediction, prediction_id)
     if prediction is None or prediction.prediction_setup is None:
@@ -52,20 +51,15 @@ def raise_alerts_for_prediction(session: Session, prediction_id: int) -> list[Al
     if policy is None or not policy.levels:
         return []
 
-    existing = {(alert.org_unit, alert.time_period) for alert in list_alerts(session, prediction_id=prediction_id)}
-    forecasts = [forecast for forecast in prediction.forecasts if (forecast.org_unit, forecast.period) not in existing]
-    if not forecasts:
-        return []
-
-    periods = sorted({forecast.period for forecast in forecasts})
-    locations = sorted({forecast.org_unit for forecast in forecasts})
+    periods = sorted({forecast.period for forecast in prediction.forecasts})
+    locations = sorted({forecast.org_unit for forecast in prediction.forecasts})
     alerts = {}
     for level in policy.levels:
         try:
             thresholds = threshold_service.compute_thresholds(
                 session, prediction.dataset_id, periods, level.threshold_params, locations
             ).set_index(["location", "period_id"])["threshold"]
-        except Exception:
+        except (threshold_service.NoObservationsError, threshold_service.InvalidThresholdInputError):
             logger.warning(
                 "Skipping alert level %r for prediction %s: threshold computation failed",
                 level.name,
@@ -74,7 +68,7 @@ def raise_alerts_for_prediction(session: Session, prediction_id: int) -> list[Al
             )
             continue
 
-        for forecast in forecasts:
+        for forecast in prediction.forecasts:
             cell = (forecast.org_unit, forecast.period)
             threshold = thresholds.get(cell, np.nan)
             if not np.isfinite(threshold):
@@ -84,8 +78,6 @@ def raise_alerts_for_prediction(session: Session, prediction_id: int) -> list[Al
                     prediction_id,
                     *cell,
                 )
-                continue
-            if not forecast.values:
                 continue
             probability = np.mean(np.asarray(forecast.values) > threshold)
             if probability >= level.exceedance_threshold:

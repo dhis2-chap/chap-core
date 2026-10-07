@@ -16,11 +16,15 @@ if TYPE_CHECKING:
     from chap_core.assessment.thresholds.params import ThresholdParams
 
 
+class UnknownStrategyError(Exception):
+    """The params name a threshold strategy that is not registered."""
+
+
 class NoObservationsError(Exception):
     """The dataset has no disease_cases observations for the requested locations."""
 
 
-class InvalidThresholdInputError(ValueError):
+class InvalidThresholdInputError(Exception):
     """The strategy cannot use the supplied history or periods."""
 
 
@@ -35,12 +39,12 @@ def compute_thresholds(
 
     Rows follow the requested period, location and line order. Omitted or empty
     locations select every location with disease cases, in sorted order.
-    Raises NoObservationsError for missing history, LookupError for an unknown
+    Raises NoObservationsError for missing history, UnknownStrategyError for an unknown
     strategy and InvalidThresholdInputError for invalid history or periods.
     """
     strategy_cls = get_threshold_strategy(params.type)
     if strategy_cls is None:
-        raise LookupError(f"Threshold strategy {params.type} is in the request schema but not registered")
+        raise UnknownStrategyError(f"Threshold strategy {params.type} is in the request schema but not registered")
 
     observations = DataSetManager(session).observations(
         dataset_id, org_units=locations or None, feature_names=["disease_cases"]

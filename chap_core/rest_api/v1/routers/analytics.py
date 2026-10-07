@@ -1038,7 +1038,7 @@ def compute_thresholds(request: ThresholdRequest, session: Session = Depends(get
         )
     except threshold_service.NoObservationsError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    except LookupError as e:
+    except threshold_service.UnknownStrategyError as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
     except threshold_service.InvalidThresholdInputError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
