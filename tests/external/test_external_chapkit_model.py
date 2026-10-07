@@ -178,6 +178,27 @@ class TestChapkitServiceManager:
                 assert httpx.get(manager.url + "/health", timeout=2).status_code == 200
         assert popen.call_count == 3
 
+    def test_does_not_accept_another_service_on_the_same_port(self, tmp_path, fake_chapkit_service):
+        # The second launch is handed the first service's port, as when two runs pick the
+        # same free port at once, and only reports the clash after a delay. During that
+        # delay the port answers /health from the first service.
+        with fake_chapkit_service("flood", "slow_port_in_use", "flood"):
+            with ChapkitServiceManager(str(tmp_path), startup_timeout=15) as first:
+                taken_port = first.port
+                assert taken_port is not None
+                with patch(
+                    "chap_core.models.chapkit_service_manager.find_available_port",
+                    side_effect=[taken_port, find_available_port(start_port=taken_port + 1)],
+                ):
+                    with ChapkitServiceManager(str(tmp_path), startup_timeout=15) as second:
+                        assert second.port != taken_port
+
+    def test_healthy_service_that_never_reports_listening_times_out(self, tmp_path, fake_chapkit_service):
+        with fake_chapkit_service("silent"):
+            with pytest.raises(ChapkitServiceStartupError, match="never reported that it was listening"):
+                with ChapkitServiceManager(str(tmp_path), startup_timeout=3):
+                    pass
+
     def test_does_not_retry_when_given_port_is_taken(self, tmp_path, fake_chapkit_service):
         with fake_chapkit_service("port_in_use", "flood") as popen:
             with pytest.raises(ChapkitServiceStartupError, match="already in use"):

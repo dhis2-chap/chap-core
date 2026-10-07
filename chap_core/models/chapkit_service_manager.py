@@ -5,6 +5,7 @@ Manages lifecycle of chapkit model services started from local directories.
 import collections
 import logging
 import os
+import re
 import signal
 import socket
 import subprocess
@@ -54,6 +55,10 @@ class ChapkitServiceManager:
     """
     Manages the lifecycle of a chapkit model service subprocess.
 
+    The service is only accepted once its own output reports that it is listening
+    on the selected port (uvicorn's "Uvicorn running on <url>" line). A healthy
+    response alone could come from another service that bound the same port first.
+
     The service's stdout and stderr are merged into one pipe that is drained
     continuously on a background thread. Without that, a service that logs more
     than the pipe buffer holds (about 64 KiB) blocks on its next write and stops
@@ -97,6 +102,7 @@ class ChapkitServiceManager:
         self._url: str | None = None
         self._output: collections.deque[str] = collections.deque(maxlen=OUTPUT_TAIL_LINES)
         self._reader: threading.Thread | None = None
+        self._listening = threading.Event()
 
     @property
     def url(self) -> str:
@@ -128,6 +134,8 @@ class ChapkitServiceManager:
         logger.info(f"Starting chapkit service at {self._url} from {self.model_directory}")
 
         self._output.clear()
+        # A fresh event per launch, so a previous process's reader cannot mark this one as listening.
+        self._listening = threading.Event()
         self._process = subprocess.Popen(
             command,
             cwd=self.model_directory,
@@ -142,17 +150,23 @@ class ChapkitServiceManager:
         )
         self._reader = threading.Thread(
             target=self._pump_output,
-            args=(self._process.stdout,),
+            # The lookahead keeps port 800 from matching a line about port 8000.
+            args=(self._process.stdout, re.compile(rf"running on {re.escape(self._url)}(?!\d)"), self._listening),
             name=f"chapkit-service-output-{self.port}",
             daemon=True,
         )
         self._reader.start()
 
-    def _pump_output(self, stream) -> None:
-        """Drain the service's merged output until EOF, keeping a bounded tail."""
+    def _pump_output(self, stream, listening_marker: re.Pattern[str], listening: threading.Event) -> None:
+        """Drain the service's merged output until EOF, keeping a bounded tail.
+
+        Sets ``listening`` when the service reports that it is serving on its URL.
+        """
         try:
             for line in stream:
                 line = line.rstrip("\n")
+                if listening_marker.search(line.lower()):
+                    listening.set()
                 self._output.append(line)
                 logger.debug("[chapkit service] %s", line)
         finally:
@@ -178,6 +192,11 @@ class ChapkitServiceManager:
                     f"Recent output:\n{self.recent_output()}"
                 )
 
+            if not self._listening.is_set():
+                logger.debug(f"Waiting for the service to report it is listening on {self._url}...")
+                time.sleep(0.2)
+                continue
+
             try:
                 response = httpx.get(health_url, timeout=2)
                 if response.status_code == 200:
@@ -192,10 +211,15 @@ class ChapkitServiceManager:
             time.sleep(1)
 
         url = self._url
+        listening = self._listening.is_set()
         self._stop_service()
+        reason = (
+            "did not become healthy"
+            if listening
+            else f"never reported that it was listening (no 'Uvicorn running on {url}' line)"
+        )
         raise ChapkitServiceStartupError(
-            f"Service at {url} did not become healthy within {self.startup_timeout} seconds.\n"
-            f"Recent output:\n{self.recent_output()}"
+            f"Service at {url} {reason} within {self.startup_timeout} seconds.\nRecent output:\n{self.recent_output()}"
         )
 
     def _stop_service(self) -> None:
