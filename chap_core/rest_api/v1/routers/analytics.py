@@ -502,10 +502,7 @@ def create_backtests(
     if session.get(DataSetTable, request.dataset_id) is None:
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
     wrapper = SessionWrapper(session=session)
-    try:
-        models = [wrapper.get_configured_model_by_id_or_name(model_id) for model_id in request.model_ids]
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
+    models = [get_job_model(session, model_id) for model_id in request.model_ids]
     params = BacktestParams(**request.model_dump(include=set(BacktestParams.model_fields)))
     dataset = DataSetManager(session).to_dataset(request.dataset_id)
     try:

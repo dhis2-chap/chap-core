@@ -720,7 +720,6 @@ async def create_dataset(
             JOB_REQUEST_KW: original_request,
             JOB_TYPE_KW: JobType.DATASET,
             JOB_NAME_KW: data.name,
-            JOB_METADATA_KW: {"parameters": {}},
         },
     )
     return JobResponse(id=job.id)
