@@ -218,6 +218,15 @@ class TestChapkitServiceManager:
                     pass
         assert popen.call_count == 1
 
+    def test_reentering_picks_and_retries_a_fresh_port(self, tmp_path, fake_chapkit_service):
+        manager = ChapkitServiceManager(str(tmp_path), startup_timeout=15)
+        with fake_chapkit_service("flood", "port_in_use", "flood") as popen:
+            with manager:
+                pass
+            with manager:
+                assert httpx.get(manager.url + "/health", timeout=2).status_code == 200
+        assert popen.call_count == 3
+
     def test_does_not_retry_when_given_port_is_taken(self, tmp_path, fake_chapkit_service):
         with fake_chapkit_service("port_in_use", "flood") as popen:
             with pytest.raises(ChapkitServiceStartupError, match="already in use"):

@@ -104,6 +104,8 @@ class ChapkitServiceManager:
         self.model_directory = Path(model_directory).resolve()
         self.host = host
         self.port = port
+        # The port the caller asked for; None means pick a free one on every start.
+        self._requested_port = port
         self.startup_timeout = startup_timeout
         self.command = list(command) if command is not None else ["uv", "run", "fastapi", "dev"]
         self.env = env
@@ -273,7 +275,8 @@ class ChapkitServiceManager:
         Only a service that exits with that error is retried, never a timeout.
         """
         self._validate_directory()
-        auto_port = self.port is None
+        self.port = self._requested_port
+        auto_port = self._requested_port is None
         for attempt in range(1, PORT_ATTEMPTS + 1):
             self._start_service()
             try:
