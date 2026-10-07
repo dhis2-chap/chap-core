@@ -1,0 +1,71 @@
+"""Tests for persisting and restoring a fitted tabular model."""
+
+import sys
+
+import numpy as np
+import pytest
+
+from chap_core.tabular.cv import evaluate_tabular
+from chap_core.tabular.dataset import load_tabular_dataset
+from chap_core.tabular.model import get_model
+from chap_core.tabular.serialize import format_from_path, load_model, save_model
+
+
+@pytest.fixture
+def fitted_estimator(regression_csv):
+    _, estimator = evaluate_tabular(load_tabular_dataset(regression_csv), get_model("ridge"), holdout=True)
+    return estimator
+
+
+def test_save_joblib_roundtrips(fitted_estimator, regression_frame, tmp_path):
+    joblib = pytest.importorskip("joblib")
+    path = tmp_path / "model.joblib"
+
+    save_model(fitted_estimator, path, "joblib")
+
+    features = regression_frame[["x1", "x2"]]
+    reloaded = joblib.load(path)
+    np.testing.assert_allclose(reloaded.predict(features), fitted_estimator.predict(features))
+
+
+def test_unknown_format_is_rejected(fitted_estimator, tmp_path):
+    with pytest.raises(ValueError, match="Unknown model format"):
+        save_model(fitted_estimator, tmp_path / "model.bin", "pickle")
+
+
+def test_onnx_without_extra_raises_with_install_hint(fitted_estimator, tmp_path, monkeypatch):
+    monkeypatch.setitem(sys.modules, "skl2onnx", None)  # force ImportError on `import skl2onnx`
+    with pytest.raises(RuntimeError, match=r"chap-core\[onnx\]"):
+        save_model(fitted_estimator, tmp_path / "model.onnx", "onnx")
+
+
+def test_onnx_export_writes_valid_graph(fitted_estimator, tmp_path):
+    pytest.importorskip("skl2onnx")
+    onnx = pytest.importorskip("onnx")
+    path = tmp_path / "model.onnx"
+
+    save_model(fitted_estimator, path, "onnx")
+
+    graph = onnx.load(str(path)).graph
+    assert len(graph.node) > 0
+    assert graph.input[0].type.tensor_type.shape.dim[1].dim_value == 2
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [("m.joblib", "joblib"), ("m.pkl", "joblib"), ("m.pickle", "joblib"), ("dir/m.onnx", "onnx")],
+)
+def test_format_from_path(name, expected):
+    assert format_from_path(name) == expected
+
+
+def test_format_from_path_rejects_unknown_extension():
+    with pytest.raises(ValueError, match="infer model format"):
+        format_from_path("model.txt")
+
+
+def test_load_joblib_model_predicts(regressor_joblib, regression_frame):
+    model = load_model(regressor_joblib)
+    assert model.task == "regression"
+    assert model.predict_proba(regression_frame[["x1", "x2"]].to_numpy()) is None
+    assert len(model.predict(regression_frame[["x1", "x2"]].to_numpy())) == 60
