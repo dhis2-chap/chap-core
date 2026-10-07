@@ -7,12 +7,15 @@ then put in front of chapkit (``uv run``), or picked up by the commands
 themselves (renv activates through the project's ``.Rprofile``).
 """
 
+import importlib.metadata
 import logging
 import os
+import shutil
 import sys
 from pathlib import Path
 
 import yaml
+from packaging.version import Version
 
 from chap_core.exceptions import InvalidModelException
 from chap_core.runners.command_line_runner import run_command
@@ -21,6 +24,32 @@ logger = logging.getLogger(__name__)
 
 CHAPKIT_MLPROJECT_RUN = [sys.executable, "-m", "chapkit.cli.cli", "mlproject", "run", "."]
 UNSUPPORTED_ENVS = ("docker_env", "conda_env", "python_env")
+# First chapkit release whose `mlproject run` serves the full MLproject contract.
+MIN_CHAPKIT_VERSION = Version("2.3.1")
+
+
+def check_chapkit_version() -> None:
+    """Fail early when the installed chapkit has no usable `mlproject run`."""
+    try:
+        installed = Version(importlib.metadata.version("chapkit"))
+    except importlib.metadata.PackageNotFoundError:
+        raise InvalidModelException(
+            "chapkit is not installed in the environment running Chap; reinstall chap-core."
+        ) from None
+    if installed < MIN_CHAPKIT_VERSION:
+        raise InvalidModelException(
+            f"--run-config.as-chapkit needs chapkit >= {MIN_CHAPKIT_VERSION}, but {installed} is installed. "
+            "Upgrade it, for example with `uv sync` in a chap-core checkout."
+        )
+    logger.info(f"Serving the model with chapkit {installed} (`chapkit mlproject run`)")
+
+
+def _require_tool(tool: str, env_key: str) -> None:
+    if shutil.which(tool) is None:
+        raise InvalidModelException(
+            f"The MLproject declares {env_key}, which needs `{tool}` on PATH, but it was not found. "
+            "Install it, or use --run-config.ignore-environment to run the commands in the current environment."
+        )
 
 
 def chapkit_service_launch(mlproject_file: Path, ignore_env: bool = False) -> tuple[list[str], dict[str, str]]:
@@ -51,12 +80,14 @@ def chapkit_service_launch(mlproject_file: Path, ignore_env: bool = False) -> tu
         )
 
     if mlproject.get("uv_env") is not None:
+        _require_tool("uv", "uv_env")
         env["UV_PROJECT_ENVIRONMENT"] = str(working_dir / ".venv")
         logger.info(f"Syncing uv environment in {working_dir}")
         run_command("uv sync", working_dir, env=env)
         return ["uv", "run", "--no-sync", *CHAPKIT_MLPROJECT_RUN], env
 
     if mlproject.get("renv_env") is not None:
+        _require_tool("Rscript", "renv_env")
         logger.info(f"Restoring renv environment in {working_dir}")
         run_command('Rscript -e "renv::restore(prompt = FALSE)"', working_dir, env=env)
 

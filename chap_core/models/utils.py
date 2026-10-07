@@ -13,7 +13,7 @@ from chap_core.external.external_model import logger
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.chapkit_service_manager import is_url
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
-from chap_core.models.mlproject_chapkit import chapkit_service_launch
+from chap_core.models.mlproject_chapkit import chapkit_service_launch, check_chapkit_version
 from chap_core.models.model_template import ModelTemplate
 from chap_core.rest_api.services.schemas import MLServiceInfo
 from chap_core.util import generate_run_name
@@ -172,6 +172,8 @@ def get_model_template_from_directory_or_github_url(
             "--dry-run is not supported with --run-config.as-chapkit: a chapkit service runs the model "
             "commands itself, so they cannot be printed instead of executed."
         )
+    if as_chapkit:
+        check_chapkit_version()
     detected = (
         not is_chapkit_model
         and is_url(model_template_path)

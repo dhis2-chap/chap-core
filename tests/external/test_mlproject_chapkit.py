@@ -5,7 +5,7 @@ import pytest
 from chap_core.exceptions import InvalidModelException
 from chap_core.file_io.example_data_set import datasets
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
-from chap_core.models.mlproject_chapkit import CHAPKIT_MLPROJECT_RUN, chapkit_service_launch
+from chap_core.models.mlproject_chapkit import CHAPKIT_MLPROJECT_RUN, chapkit_service_launch, check_chapkit_version
 from chap_core.models.utils import get_model_template_from_directory_or_github_url
 
 
@@ -29,6 +29,26 @@ def test_uv_env_syncs_and_runs_chapkit_through_uv(models_path):
     assert run_command.call_args.args[0] == "uv sync"
     assert command == ["uv", "run", "--no-sync", *CHAPKIT_MLPROJECT_RUN]
     assert env["UV_PROJECT_ENVIRONMENT"] == str(model_dir.resolve() / ".venv")
+
+
+def test_missing_uv_fails_before_syncing(models_path):
+    with (
+        patch("chap_core.models.mlproject_chapkit.shutil.which", return_value=None),
+        patch("chap_core.models.mlproject_chapkit.run_command") as run_command,
+    ):
+        with pytest.raises(InvalidModelException, match="needs `uv` on PATH"):
+            chapkit_service_launch(models_path / "naive_python_model_uv" / "MLproject")
+    run_command.assert_not_called()
+
+
+def test_installed_chapkit_is_recent_enough():
+    check_chapkit_version()
+
+
+def test_old_chapkit_is_rejected():
+    with patch("chap_core.models.mlproject_chapkit.importlib.metadata.version", return_value="2.1.0"):
+        with pytest.raises(InvalidModelException, match="needs chapkit >= 2.3.1, but 2.1.0 is installed"):
+            check_chapkit_version()
 
 
 @pytest.mark.parametrize(
