@@ -1486,6 +1486,98 @@ def test_run_prediction_setup_inherits_the_backtest_provider(
     assert captured["prediction_params"].future_weather_provider == "damped_persistence"
 
 
+@pytest.mark.parametrize(
+    "target_column, include_disease_cases",
+    [("disease_cases", True), ("hospitalisations", False), ("hospitalisations", True)],
+)
+def test_run_prediction_setup_forecasts_the_backtest_target(
+    override_session,
+    seeded_session,
+    p_seeded_engine,
+    example_polygons,
+    monkeypatch,
+    target_column,
+    include_disease_cases,
+):
+    from types import SimpleNamespace
+
+    from chap_core.rest_api.v1.routers import crud
+
+    backtest = seeded_session.exec(select(Backtest)).first()
+    backtest.model_db_id = seeded_session.exec(
+        select(ConfiguredModelDB.id).where(ConfiguredModelDB.name == "naive_model")
+    ).one()
+    if target_column != backtest.specification.target_column:
+        backtest.specification = BacktestSpecification(
+            **backtest.specification.model_dump(exclude={"id"}) | {"target_column": target_column}
+        )
+    seeded_session.commit()
+    setup_id = _create_prediction_setup(backtest.id, "Target forecast").json()["id"]
+
+    features = ["rainfall", target_column]
+    if include_disease_cases and target_column != "disease_cases":
+        features.append("disease_cases")
+    request = create_make_data_request(example_polygons, [], features)
+    for observation in request.provided_data:
+        observation.value = 0.0 if observation.feature_name == target_column else 1000.0
+        if observation.feature_name in (target_column, "disease_cases") and observation.period == "2020-01":
+            observation.value = None  # Missing target values must not reject otherwise valid locations.
+    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources"})
+    payload["nPeriods"] = 3
+
+    def run_inline(func, *args, **kwargs):
+        # Execute the queued pipeline with serialized parameters and real database writes.
+        for key in ("database_url", "__job_type__", "__job_name__", "__job_request__"):
+            kwargs.pop(key)
+        kwargs["prediction_params"] = kwargs["prediction_params"].model_dump()
+        with SessionWrapper(p_seeded_engine) as session:
+            prediction_id = func(*args, session=session, **kwargs)
+        return SimpleNamespace(id=str(prediction_id))
+
+    monkeypatch.setattr(crud.worker, "queue_db", run_inline)
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    assert response.status_code == 200, response.text
+
+    prediction = seeded_session.get(Prediction, int(response.json()["id"]))
+    assert prediction.prediction_setup_id == setup_id
+    assert len(prediction.forecasts) == 3 * len(example_polygons.features)
+    # The naive model's Poisson samples are deterministically zero for this target.
+    assert all(forecast.values and set(forecast.values) == {0.0} for forecast in prediction.forecasts)
+    assert {(o.feature_name, o.period, o.org_unit): o.value for o in prediction.dataset.observations} == {
+        (o.feature_name, TimePeriod.parse(o.period).id, o.org_unit): o.value for o in request.provided_data
+    }
+
+
+@pytest.mark.parametrize("target_column", ["disease_cases", "hospitalisations"])
+def test_run_prediction_setup_rejects_missing_target_before_queueing(
+    override_session,
+    seeded_session,
+    example_polygons,
+    monkeypatch,
+    target_column,
+):
+    from unittest.mock import Mock
+
+    from chap_core.rest_api.v1.routers import crud
+
+    backtest = seeded_session.exec(select(Backtest)).first()
+    if target_column != backtest.specification.target_column:
+        backtest.specification = BacktestSpecification(
+            **backtest.specification.model_dump(exclude={"id"}) | {"target_column": target_column}
+        )
+        seeded_session.commit()
+    setup_id = _create_prediction_setup(backtest.id, "Missing target").json()["id"]
+    request = create_make_data_request(example_polygons, [], ["rainfall"])
+    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources"})
+    queue = Mock()
+    monkeypatch.setattr(crud.worker, "queue_db", queue)
+
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == f"Dataset has no target column {target_column!r}"
+    queue.assert_not_called()
+
+
 def test_run_prediction_setup_rejects_a_look_ahead_provider(override_session, seeded_session, example_polygons):
     """`observed` reads the forecast window's own weather, so it cannot forecast ahead.
     Fail at the endpoint rather than deep inside the worker."""

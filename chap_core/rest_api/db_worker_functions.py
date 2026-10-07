@@ -75,7 +75,9 @@ def validate_and_filter_dataset_for_evaluation(
 
 
 def _use_as_disease_cases(dataset: DataSet, column: str) -> DataSet:
-    """Expose `column` as `disease_cases`, the field the evaluation scores, dropping the original one."""
+    """Expose `column` as `disease_cases` for models and scoring, dropping the original one."""
+    if column not in dataset.field_names():
+        raise ValueError(f"Dataset has no target column {column!r}")
     if column == "disease_cases":
         return dataset
     fields = {name: name for name in dataset.field_names() if name not in (column, "disease_cases")}
@@ -221,11 +223,13 @@ def run_prediction(
     prediction_setup_id: int | None = None,
     configured_model_id: int | None = None,
     future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
+    target_column: str = "disease_cases",
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     status_logger.info(f"Starting prediction for model '{model_id}' on dataset ID {dataset_id}")
 
     dataset = DataSetManager(session.session).to_dataset(int(dataset_id))
+    dataset = _use_as_disease_cases(dataset, target_column)
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
 
@@ -308,6 +312,7 @@ def predict_pipeline_from_composite_dataset(
     worker_config=WorkerConfig(),
     prediction_setup_id: int | None = None,
     configured_model_id: int | None = None,
+    target_column: str = "disease_cases",
 ) -> int:
     """
     This is the main pipeline function to run prediction from a dataset.
@@ -328,6 +333,7 @@ def predict_pipeline_from_composite_dataset(
         prediction_setup_id=prediction_setup_id,
         configured_model_id=configured_model_id,
         future_weather_provider=prediction_params.future_weather_provider,
+        target_column=target_column,
     )
     return result
 
