@@ -1,5 +1,6 @@
-"""Original API bodies are retained for download and removed with job metadata."""
+"""Submitted requests and run metadata remain available after job failure."""
 
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -7,7 +8,9 @@ from celery import Task
 from fastapi.testclient import TestClient
 from sqlmodel import select
 
+from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSet
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import Backtest
 from chap_core.rest_api import celery_tasks
 from chap_core.rest_api.app import app
@@ -27,12 +30,16 @@ from chap_core.rest_api.v1 import jobs
         "/v1/crud/prediction-setups/{setup_id}/run",
     ],
 )
-def test_submission_retains_original_body(
+def test_submission_retains_request_and_metadata_after_failure(
     path, request_store, override_session, seeded_session, example_polygons, dataset_create, monkeypatch
 ):
+    queued = []
+
     def dispatch(self, args, kwargs, **options):
         assert JOB_REQUEST_KW not in kwargs
-        return SimpleNamespace(id="job-1")
+        assert celery_tasks.JOB_METADATA_KW not in kwargs
+        queued.append((args, kwargs))
+        return SimpleNamespace(id=f"job-{len(queued)}")
 
     monkeypatch.setattr(Task, "apply_async", dispatch)
     payload = {
@@ -47,18 +54,21 @@ def test_submission_retains_original_body(
             for polygon in example_polygons.features
         ],
     }
-    payload["modelId"] = "naive_model"
+    model = SessionWrapper(session=seeded_session).get_configured_model_by_name("naive_model")
+    payload["modelId"] = model.name
     if path == "/v1/analytics/create-backtest":
         payload = {
             "name": "Original request",
             "datasetId": seeded_session.exec(select(DataSet.id)).first(),
-            "modelId": "naive_model",
+            "modelId": model.id,
         }
     elif path == "/v1/analytics/create-backtests":
+        second_model = seeded_session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.id != model.id)).first()
+        assert second_model is not None
         payload = {
             "name": "Original request",
             "datasetId": seeded_session.exec(select(DataSet.id)).first(),
-            "modelIds": ["naive_model"],
+            "modelIds": [model.name, second_model.id],
         }
     elif path == "/v1/crud/datasets":
         payload = dataset_create.model_dump(mode="json", by_alias=True, exclude_unset=True)
@@ -76,16 +86,66 @@ def test_submission_retains_original_body(
         payload["nPeriods"] = 3
         payload["type"] = "forecasting"
 
+    if "backtest" in path:
+        payload.update(nSplits=4, stride=2)
+
     # Unknown fields and omitted defaults must survive exactly as submitted.
     if "prediction-setups" not in path:
         payload["clientContext"] = {"note": "reproduce æøå", "optional": None}
     response = TestClient(app).post(path, json=payload)
     assert response.status_code == 200, response.text
 
-    download = TestClient(app).get("/v1/jobs/job-1/request")
-    assert download.status_code == 200, download.text
-    assert download.json() == payload
-    assert 0 < request_store.ttl("job_request:job-1") <= celery_tasks.JOB_REQUEST_TTL_SECONDS
+    assert len(queued) == (2 if path == "/v1/analytics/create-backtests" else 1)
+    is_dataset = path in {"/v1/analytics/make-dataset", "/v1/crud/datasets"}
+    expected_model = None if is_dataset else model
+    if "prediction-setups" in path:
+        expected_model = seeded_session.get(ConfiguredModelDB, backtest.model_db_id)
+    for index, (args, kwargs) in enumerate(queued, start=1):
+        if path == "/v1/analytics/create-backtests" and index == 2:
+            expected_model = second_model
+        expected_version = expected_model.model_template.version if expected_model else None
+        job_id = f"job-{index}"
+        metadata = celery_tasks.get_job_meta(job_id)
+        assert metadata is not None
+        assert metadata["status"] == "PENDING"
+        assert "parameters" in metadata
+        assert "provided_data" not in json.loads(metadata["parameters"])
+        if not is_dataset:
+            assert expected_model is not None
+            assert int(metadata["model_id"]) == expected_model.id
+            assert metadata["model_version"] == expected_version
+            # Pin the worker to the same model version recorded in metadata.
+            if "create-backtest" in path and "with-data" not in path:
+                assert args[1].model_id == expected_model.id
+            elif "with-data" in path:
+                assert kwargs["model_id"] == expected_model.id
+            else:
+                assert kwargs["configured_model_id"] == expected_model.id
+        celery_tasks.TrackedTask().on_failure(
+            RuntimeError("model failed"), job_id, (), {}, SimpleNamespace(traceback="traceback")
+        )
+        job = next(job for job in TestClient(app).get("/v1/jobs").json() if job["id"] == job_id)
+        assert job["status"] == "FAILURE"
+        assert job["model_id"] == (expected_model.id if expected_model else None)
+        assert job["model_version"] == expected_version
+        assert job["dataset_id"] == payload.get("datasetId")
+        assert job["parameters"] == json.loads(metadata["parameters"])
+        if "backtest" in path:
+            assert job["parameters"]["n_splits"] == 4
+            assert job["parameters"]["stride"] == 2
+            assert job["parameters"]["n_periods"] == 3
+            assert job["parameters"]["n_retrain"] == 1
+        elif not is_dataset:
+            assert job["parameters"]["n_periods"] == 3
+            assert job["parameters"]["future_weather_provider"] == "climatology"
+        elif path.endswith("make-dataset"):
+            assert job["parameters"]["type"] == "evaluation"
+        else:
+            assert job["parameters"] == {}
+        download = TestClient(app).get(f"/v1/jobs/{job_id}/request")
+        assert download.status_code == 200, download.text
+        assert download.json() == payload
+        assert 0 < request_store.ttl(f"job_request:{job_id}") <= celery_tasks.JOB_REQUEST_TTL_SECONDS
 
 
 def test_missing_request_returns_404(request_store):

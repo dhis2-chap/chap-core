@@ -337,7 +337,7 @@ def run_backtest_from_dataset(
     feature_names: list[str],
     provided_data_model_dump: dict,
     backtest_name: str,
-    model_id: str,
+    model_id: int | str,
     dataset_info: DataSetCreateInfo,
     backtest_params: BacktestParams,
     session: SessionWrapper,
