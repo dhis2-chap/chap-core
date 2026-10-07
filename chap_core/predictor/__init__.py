@@ -1,6 +1,5 @@
 from typing import Literal, Optional, TypeAlias
 
-# from ..external.models import models as external_models
 from ..external.r_models import models as r_models
 from .naive_predictor import MultiRegionNaivePredictor, MultiRegionPoissonModel
 
@@ -11,7 +10,7 @@ all_model_names = tuple(__all__ + list(r_models.keys()))
 all_models = [d[name] for d in [globals()] for name in d if name in all_model_names]
 type ModelType = Literal["MultiRegionPoissonModel", "MultiRegionNaivePredictor", "ewars_Plus"]
 
-DEFAULT_MODEL = None  # external_models['HierarchicalModel']
+DEFAULT_MODEL = None
 
 
 def get_model(model_name: ModelType | None):

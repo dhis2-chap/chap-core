@@ -83,10 +83,9 @@ additional_continuous_covariates:
 
 ### Examples in the codebase
 
-See the following examples that use `user_options`:
+See the following example that uses `user_options`:
 
-- [naive_python_model_with_mlproject_file_and_docker](https://github.com/dhis2-chap/chap-core/tree/master/external_models/naive_python_model_with_mlproject_file_and_docker)
-- [web_based_model](https://github.com/dhis2-chap/chap-core/tree/master/external_models/web_based_model)
+- [naive_python_model_with_mlproject_file_and_docker](https://github.com/dhis2-chap/chap-core/tree/master/tests/fixture_models/naive_python_model_with_mlproject_file_and_docker)
 
 ## Report Entry Point
 

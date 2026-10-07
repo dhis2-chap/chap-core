@@ -1421,7 +1421,8 @@ async def run_prediction_setup(
     arrived, a model investigation, etc.). Returns a job id; track it via
     ``/v1/jobs/{id}`` or filter the jobs list with ``predictionSetupId`` to see every
     job this setup has launched. Returns 404 if the setup is unknown, 409 if its
-    configured model has been archived, 422 if ``provided_data`` is empty.
+    configured model has been archived, 422 if ``provided_data`` is empty or missing
+    the backtest's target column. Forecasts use the same target as the backtest.
     """
     try:
         setup = prediction_setup_service.get_prediction_setup(session, prediction_setup_id)
@@ -1442,12 +1443,18 @@ async def run_prediction_setup(
     if not request.provided_data:
         raise HTTPException(status_code=422, detail="provided_data cannot be empty")
 
+    target_column = setup.backtest.specification.target_column
     feature_names = list({entry.feature_name for entry in request.provided_data})
+    if target_column not in feature_names:
+        raise HTTPException(status_code=422, detail=f"Dataset has no target column {target_column!r}")
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
-    provided_data, rejections = validate_full_dataset(feature_names, provided_data)
+    # disease_cases is replaced by the selected target before training, so neither
+    # column should be validated as a covariate.
+    covariates = [name for name in feature_names if name not in (target_column, "disease_cases")]
+    provided_data, rejections = validate_full_dataset(covariates, provided_data)
     if rejections:
         logger.warning(
             "%d observations rejected for prediction-setup %d",
@@ -1486,6 +1493,7 @@ async def run_prediction_setup(
         prediction_params=prediction_params,
         prediction_setup_id=prediction_setup_id,
         configured_model_id=setup.configured_model_id,
+        target_column=target_column,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},

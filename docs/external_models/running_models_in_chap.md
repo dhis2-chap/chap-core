@@ -43,5 +43,5 @@ The first way we plan to support this is when evaluating a model using the same 
 This functionality is under development. Below is a minimal working example using the model `naive_python_model_with_mlproject_file_and_docker`. This model has a user_option `some_option`, which we can specify in a yaml file:
 
 ```bash
-chap eval --model-name external_models/naive_python_model_with_mlproject_file_and_docker/ --dataset-csv https://raw.githubusercontent.com/dhis2/climate-health-data/refs/heads/main/lao/chap_LAO_admin1_monthly.csv --output-file eval.nc --plot --backtest-params.n-splits 2 --model-configuration-yaml external_models/naive_python_model_with_mlproject_file_and_docker/example_model_configuration.yaml
+chap eval --model-name tests/fixture_models/naive_python_model_with_mlproject_file_and_docker/ --dataset-csv https://raw.githubusercontent.com/dhis2/climate-health-data/refs/heads/main/lao/chap_LAO_admin1_monthly.csv --output-file eval.nc --plot --backtest-params.n-splits 2 --model-configuration-yaml tests/fixture_models/naive_python_model_with_mlproject_file_and_docker/example_model_configuration.yaml
 ```

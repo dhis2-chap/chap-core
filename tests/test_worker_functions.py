@@ -29,10 +29,9 @@ def test_train_on_json_data_big(big_request_json):
 
 @pytest.mark.slow
 @pytest.mark.skip(reason="Outdated")
-def test_train_on_json_data_new(big_request_json, models_path):
+def test_train_on_json_data_new(big_request_json):
     train_on_json_data(
         big_request_json,
-        # models_path/'naive_python_model_with_mlproject_file_and_docker',
         "https://github.com/sandvelab/chap_auto_ewars",
         None,
     )
