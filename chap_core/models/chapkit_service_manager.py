@@ -22,6 +22,10 @@ logger = logging.getLogger(__name__)
 # Number of most recent service output lines kept for error messages.
 OUTPUT_TAIL_LINES = 200
 
+# Startup attempts when an auto-selected port is taken between selection and bind,
+# which happens when several services are started at the same time.
+PORT_ATTEMPTS = 5
+
 
 def find_available_port(start_port: int = 8001, max_attempts: int = 99) -> int:
     """Find an available port starting from start_port.
@@ -224,11 +228,27 @@ class ChapkitServiceManager:
             self._url = None
 
     def __enter__(self) -> "ChapkitServiceManager":
-        """Start the service when entering context."""
+        """Start the service when entering context.
+
+        An auto-selected port is only probed, not held, so another process can
+        bind it before the service does. In that case the service exits with an
+        "already in use" error and is started again on a newly selected port.
+        """
         self._validate_directory()
-        self._start_service()
-        self._wait_for_healthy()
-        return self
+        auto_port = self.port is None
+        for attempt in range(1, PORT_ATTEMPTS + 1):
+            self._start_service()
+            try:
+                self._wait_for_healthy()
+                return self
+            except ChapkitServiceStartupError:
+                port_taken = "already in use" in self.recent_output().lower()
+                if not (auto_port and port_taken and attempt < PORT_ATTEMPTS):
+                    raise
+                logger.info(f"Port {self.port} was taken before the service could bind it, retrying on another port")
+                self._stop_service()
+                self.port = None
+        raise AssertionError("unreachable")
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Stop the service when exiting context."""

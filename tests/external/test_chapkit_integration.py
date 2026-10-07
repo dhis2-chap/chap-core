@@ -406,6 +406,13 @@ class TestMlServiceInfoToModelTemplateConfig:
         config = ml_service_info_to_model_template_config(info, "http://localhost:8000")
         assert config.requires_geo is True
 
+    @pytest.mark.parametrize("info_class", [MLServiceInfo, LocalMLServiceInfo])
+    def test_maps_hpo_search_space(self, info_class):
+        search_space = {"n_lags": {"low": 1, "high": 6, "type": "int"}}
+        info = info_class.model_validate({**MOCK_INFO_DICT, "hpo_search_space": search_space})
+        config = ml_service_info_to_model_template_config(info, "http://localhost:8000")
+        assert config.hpo_search_space == search_space
+
     def test_requires_geo_defaults_to_false(self):
         config = ml_service_info_to_model_template_config(MOCK_INFO_RESPONSE, "http://localhost:8000")
         assert config.requires_geo is False

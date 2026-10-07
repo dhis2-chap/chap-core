@@ -199,7 +199,7 @@ chap eval \
     --run-config.as-chapkit
 ```
 
-Chap copies the model into the run directory, prepares its environment, starts the service on a free local port, runs the evaluation and stops the service when done. The service never registers with an orchestrator.
+Chap copies the model into the run directory, prepares its environment, starts the service on a free local port, runs the evaluation and stops the service when done. The service never registers with an orchestrator. `--dry-run` is not supported in this mode, since chapkit runs the model commands itself.
 
 | MLproject environment | What Chap does |
 |---|---|

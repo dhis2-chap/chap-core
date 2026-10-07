@@ -172,6 +172,26 @@ class TestChapkitServiceManager:
                     pass
         assert "fake service refused to start" in str(exc_info.value)
 
+    def test_retries_on_another_port_when_auto_port_is_taken(self, tmp_path, fake_chapkit_service):
+        with fake_chapkit_service("port_in_use", "port_in_use", "flood") as popen:
+            with ChapkitServiceManager(str(tmp_path), startup_timeout=15) as manager:
+                assert httpx.get(manager.url + "/health", timeout=2).status_code == 200
+        assert popen.call_count == 3
+
+    def test_does_not_retry_when_given_port_is_taken(self, tmp_path, fake_chapkit_service):
+        with fake_chapkit_service("port_in_use", "flood") as popen:
+            with pytest.raises(ChapkitServiceStartupError, match="already in use"):
+                with ChapkitServiceManager(str(tmp_path), port=find_available_port(), startup_timeout=15):
+                    pass
+        assert popen.call_count == 1
+
+    def test_does_not_retry_other_startup_failures(self, tmp_path, fake_chapkit_service):
+        with fake_chapkit_service("die", "flood") as popen:
+            with pytest.raises(ChapkitServiceStartupError, match="died during startup"):
+                with ChapkitServiceManager(str(tmp_path), startup_timeout=15):
+                    pass
+        assert popen.call_count == 1
+
     def test_startup_timeout_reports_url(self, tmp_path, fake_chapkit_service):
         with fake_chapkit_service("starting"):
             with pytest.raises(ChapkitServiceStartupError, match="did not become healthy") as exc_info:

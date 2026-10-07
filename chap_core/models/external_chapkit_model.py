@@ -81,6 +81,7 @@ def ml_service_info_to_model_template_config(
         "user_options": user_options or {},
         "min_prediction_periods": info.min_prediction_periods,
         "max_prediction_periods": info.max_prediction_periods,
+        "hpo_search_space": getattr(info, "hpo_search_space", None),
         "entry_points": None,
         "docker_env": None,
         "python_env": None,

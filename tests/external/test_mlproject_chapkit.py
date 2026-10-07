@@ -63,6 +63,18 @@ def test_as_chapkit_rejects_is_chapkit_model(models_path):
         )
 
 
+def test_as_chapkit_rejects_dry_run(models_path, tmp_path):
+    with pytest.raises(ValueError, match="dry-run"):
+        get_model_template_from_directory_or_github_url(
+            str(models_path / "naive_python_model_with_mlproject_file"),
+            base_working_dir=tmp_path,
+            ignore_env=True,
+            as_chapkit=True,
+            dry_run=True,
+        )
+    assert not any(tmp_path.iterdir())
+
+
 @pytest.mark.slow
 def test_as_chapkit_starts_trains_and_stops_service(models_path, tmp_path):
     dataset = datasets["ISIMIP_dengue_harmonized"].load()["vietnam"]

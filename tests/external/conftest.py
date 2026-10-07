@@ -57,6 +57,11 @@ if mode == "die":
     sys.stdout.flush()
     sys.exit(3)
 
+if mode == "port_in_use":
+    print(f"Error: Port {port} on 127.0.0.1 is already in use.")
+    sys.stdout.flush()
+    sys.exit(1)
+
 status = "healthy" if mode in ("flood", "invalid_bytes") else "starting"
 
 
@@ -104,17 +109,22 @@ http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
 def fake_chapkit_service(tmp_path):
     """Return a factory that patches Popen in the service manager to launch the fake service.
 
-    ``mode`` is one of ``"flood"`` (healthy, then floods stdout and stderr),
+    Each mode is one of ``"flood"`` (healthy, then floods stdout and stderr),
     ``"invalid_bytes"`` (healthy, writes a byte that is not valid UTF-8, then keeps logging),
-    ``"die"`` (prints a line and exits 3), or ``"starting"`` (never becomes healthy).
+    ``"die"`` (prints a line and exits 3), ``"port_in_use"`` (reports its port as taken and
+    exits 1), or ``"starting"`` (never becomes healthy). Given several modes, successive
+    launches use them in order and the last one repeats.
     """
     script = tmp_path / "fake_chapkit_service.py"
     script.write_text(_FAKE_CHAPKIT_SERVICE)
     real_popen = subprocess.Popen
 
-    def factory(mode: str):
+    def factory(*modes: str):
+        remaining = list(modes)
+
         def launch(command, **kwargs):
             port = command[command.index("--port") + 1]
+            mode = remaining.pop(0) if len(remaining) > 1 else remaining[0]
             return real_popen([sys.executable, str(script), mode, port], **kwargs)
 
         return patch("chap_core.models.chapkit_service_manager.subprocess.Popen", side_effect=launch)

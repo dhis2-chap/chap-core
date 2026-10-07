@@ -167,6 +167,11 @@ def get_model_template_from_directory_or_github_url(
             "--run-config.as-chapkit runs an MLproject from a local directory or GitHub URL as a chapkit service; "
             "it cannot be combined with a chapkit service URL or --run-config.is-chapkit-model."
         )
+    if as_chapkit and dry_run:
+        raise ValueError(
+            "--dry-run is not supported with --run-config.as-chapkit: a chapkit service runs the model "
+            "commands itself, so they cannot be printed instead of executed."
+        )
     detected = (
         not is_chapkit_model
         and is_url(model_template_path)
