@@ -42,7 +42,8 @@ class AlertApprovedError(AlertServiceError):
 def raise_alerts_for_prediction(session: Session, prediction_id: int) -> list[Alert]:
     """Create pending alerts for the most severe firing level in each forecast cell.
 
-    Policy order defines severity.
+    Policy order defines severity. Thresholds come from the history of the
+    backtest's target column, the same column the prediction forecasts.
     """
     prediction = session.get(Prediction, prediction_id)
     if prediction is None or prediction.prediction_setup is None:
@@ -53,11 +54,12 @@ def raise_alerts_for_prediction(session: Session, prediction_id: int) -> list[Al
 
     periods = sorted({forecast.period for forecast in prediction.forecasts})
     locations = sorted({forecast.org_unit for forecast in prediction.forecasts})
+    target_column = prediction.prediction_setup.backtest.specification.target_column
     alerts = {}
     for level in policy.levels:
         try:
             thresholds = threshold_service.compute_thresholds(
-                session, prediction.dataset_id, periods, level.threshold_params, locations
+                session, prediction.dataset_id, periods, level.threshold_params, locations, target_column
             ).set_index(["location", "period_id"])["threshold"]
         except (threshold_service.NoObservationsError, threshold_service.InvalidThresholdInputError):
             logger.warning(

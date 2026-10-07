@@ -479,6 +479,7 @@ def alert_prediction():
         template = ModelTemplateDB(name="alert-model", version="1")
         dataset = DataSet(
             name="alert-history",
+            covariates=["disease_cases"],
             observations=[
                 Observation(period=f"{year}-{month:02d}", org_unit=location, value=value, feature_name="disease_cases")
                 for location in ["A", "B"]

@@ -1,4 +1,4 @@
-"""Threshold lines computed from a stored dataset's historical disease cases."""
+"""Threshold lines computed from a stored dataset's history of a target column."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ class UnknownStrategyError(Exception):
 
 
 class NoObservationsError(Exception):
-    """The dataset has no disease_cases observations for the requested locations."""
+    """The dataset has no target observations for the requested locations."""
 
 
 class InvalidThresholdInputError(Exception):
@@ -34,11 +34,12 @@ def compute_thresholds(
     period_ids: list[str],
     params: ThresholdParams,
     locations: list[str] | None = None,
+    target_column: str = "disease_cases",
 ) -> pd.DataFrame:
     """Return period_id, location, line and threshold, including NaN for missing cells.
 
     Rows follow the requested period, location and line order. Omitted or empty
-    locations select every location with disease cases, in sorted order.
+    locations select every location with target observations, in sorted order.
     Raises NoObservationsError for missing history, UnknownStrategyError for an unknown
     strategy and InvalidThresholdInputError for invalid history or periods.
     """
@@ -47,10 +48,11 @@ def compute_thresholds(
         raise UnknownStrategyError(f"Threshold strategy {params.type} is in the request schema but not registered")
 
     observations = DataSetManager(session).observations(
-        dataset_id, org_units=locations or None, feature_names=["disease_cases"]
+        dataset_id, org_units=locations or None, feature_names=[target_column]
     )
     if not observations:
-        raise NoObservationsError(f"No disease_cases observations found for dataset {dataset_id}")
+        raise NoObservationsError(f"No {target_column} observations found for dataset {dataset_id}")
+    # Strategies read the history from a disease_cases column whatever the target is.
     historical = observations_to_dataframe(observations).rename(columns={"value": "disease_cases"})[
         ["location", "time_period", "disease_cases"]
     ]

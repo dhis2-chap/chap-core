@@ -44,6 +44,19 @@ def test_severity_uses_policy_order(alert_prediction):
     assert [a.level for a in alerts] == ["monitor", "monitor"]
 
 
+def test_thresholds_use_backtest_target_column(alert_prediction):
+    session, prediction = alert_prediction
+    prediction.prediction_setup.backtest.specification.target_column = "hospitalisations"
+    for observation in prediction.dataset.observations:
+        observation.feature_name = "hospitalisations"
+    session.commit()
+    alerts = raise_alerts_for_prediction(session, prediction.id)
+    assert {(a.org_unit, a.time_period, a.level) for a in alerts} == {
+        ("A", "2024-01", "monitor"),
+        ("A", "2024-02", "action"),
+    }
+
+
 @pytest.mark.parametrize("cutoff, fires", [(0.5, True), (0.5001, False)])
 def test_exceedance_cutoff_is_inclusive_but_samples_must_be_above_line(alert_prediction, cutoff, fires):
     session, prediction = alert_prediction
