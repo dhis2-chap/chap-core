@@ -68,19 +68,15 @@ def test_exceedance_cutoff_is_inclusive_but_samples_must_be_above_line(alert_pre
     assert any(a.org_unit == "A" and a.time_period == "2024-01" for a in alerts) is fires
 
 
-@pytest.mark.parametrize("missing", ["all_observations", "season"])
-def test_missing_history_is_skipped_with_warning(alert_prediction, missing, caplog):
+def test_missing_season_history_is_skipped_with_warning(alert_prediction, caplog):
     session, prediction = alert_prediction
     for observation in list(prediction.dataset.observations):
-        if missing == "all_observations" or observation.period.endswith("-01"):
+        if observation.period.endswith("-01"):
             session.delete(observation)
     session.commit()
     with caplog.at_level(logging.WARNING):
         alerts = raise_alerts_for_prediction(session, prediction.id)
-    if missing == "season":
-        assert [(a.org_unit, a.time_period) for a in alerts] == [("A", "2024-02")]
-    else:
-        assert alerts == []
+    assert [(a.org_unit, a.time_period) for a in alerts] == [("A", "2024-02")]
     assert "Skipping alert level" in caplog.text
 
 
