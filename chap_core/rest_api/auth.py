@@ -32,6 +32,11 @@ MIN_TOKEN_LENGTH = 32
 # /system/info is how clients discover that a token is required.
 OPEN_PATHS = frozenset({"/health", "/health/ready", "/system/info"})
 
+# FastAPI's own API reference, at its default URLs. It describes an open-source API, so it is
+# public; the spec declares the bearer scheme (see app.py), which gives /docs its Authorize
+# button for calling the gated endpoints.
+API_REFERENCE_PATHS = frozenset({"/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"})
+
 # servicekit can only send X-Service-Key, never Authorization, so self-registering chapkit
 # services present their secret there instead. Confined to the service registry so a
 # registration key cannot be used as a general-purpose API credential.
@@ -82,8 +87,9 @@ class ApiTokenMiddleware:
     """Reject requests without a valid bearer token when ``CHAP_API_TOKEN`` is set.
 
     Raw ASGI rather than ``BaseHTTPMiddleware`` so the streaming proxy in
-    ``v2/routers/proxy.py`` passes through untouched, and so ``/docs`` and ``/openapi.json``
-    are covered too -- route dependencies never reach those.
+    ``v2/routers/proxy.py`` passes through untouched. A middleware rather than a route
+    dependency so a request is rejected before its body is read, and so a route added later
+    is gated without anyone having to remember to.
     """
 
     def __init__(self, app: ASGIApp):
@@ -95,7 +101,7 @@ class ApiTokenMiddleware:
 
         expected = get_api_token()
         path = self._path(scope)
-        if expected is None or path in OPEN_PATHS:
+        if expected is None or path in OPEN_PATHS or path in API_REFERENCE_PATHS:
             return await self.app(scope, receive, send)
 
         if not self._is_authorized(scope, path, expected):

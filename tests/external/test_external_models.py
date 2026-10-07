@@ -14,8 +14,7 @@ from chap_core.file_io.example_data_set import datasets
 from chap_core.geometry import Polygons
 from chap_core.models.external_model import ExternalModel
 from chap_core.models.utils import get_model_template_from_directory_or_github_url
-from chap_core.testing.external_model import sanity_check_external_model
-from chap_core.util import docker_available, pyenv_available, uv_available
+from chap_core.util import docker_available, uv_available
 
 
 @pytest.mark.skipif(not docker_available(), reason="Requires docker")
@@ -46,23 +45,9 @@ def test_get_model_from_github():
         get_model_template_from_directory_or_github_url(repo_url)
 
 
-@pytest.mark.skip(reason="This model does not have a mlproject file, using old yml spec")
-def test_get_model_template_from_local_directory(models_path):
-    repo_url = models_path / "ewars_Plus"
-    template = get_model_template_from_directory_or_github_url(repo_url)
-    assert template.name == "ewars_Plus"
-
-
-@pytest.mark.skipif(not pyenv_available(), reason="requires pyenv")
-@pytest.mark.slow
-@pytest.mark.skip(reason="Failing")
-def test_external_sanity(models_path):
-    sanity_check_external_model(models_path / "naive_python_model_with_mlproject_file")
-
-
 @pytest.mark.skipif(not docker_available(), reason="requires pyenv")
 @pytest.mark.slow
-def test_external_sanity_deepar(models_path, dataset):
+def test_external_sanity_deepar(dataset):
     folder_path = "https://github.com/dhis2-chap/minimalist_example"
     template = get_model_template_from_directory_or_github_url(folder_path, run_dir_type="latest")
     model = template.get_model()

@@ -20,7 +20,7 @@ from chap_core.database.model_templates_and_config_tables import ConfiguredModel
 class BacktestSpecification(BacktestParams, table=True):
     """The evaluation setup a backtest ran under: a dataset plus the parameters that decide what is scored.
 
-    Rows are deduplicated on the dataset plus every `BacktestParams` field, and are
+    Rows are deduplicated on the dataset, target column and every `BacktestParams` field, and are
     immutable, so two backtests pointing at the same row are comparable by construction.
     Resolve one with `SessionWrapper.get_or_create_backtest_specification` rather than
     constructing it directly, or identical setups end up on separate rows.
@@ -35,6 +35,7 @@ class BacktestSpecification(BacktestParams, table=True):
         ondelete="CASCADE",
         description="Foreign key to the `DataSet` the specification evaluates against.",
     )
+    target_column: str = Field(default="disease_cases", description="Dataset column evaluated as the target.")
     dataset: DataSet = Relationship()
     org_units: list[str] = Field(
         default_factory=list,
@@ -50,7 +51,9 @@ class BacktestSpecification(BacktestParams, table=True):
     # instead of silently letting two different setups share a row. Adding one still
     # needs a migration to widen the constraint in the database.
     __table_args__ = (
-        UniqueConstraint("dataset_id", *BacktestParams.model_fields, name="uq_backtestspecification_params"),
+        UniqueConstraint(
+            "dataset_id", "target_column", *BacktestParams.model_fields, name="uq_backtestspecification_params"
+        ),
     )
 
 

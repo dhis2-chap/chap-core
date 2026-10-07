@@ -125,7 +125,7 @@ To also verify that the dataset has the covariates and period type required by a
 ```bash
 chap validate \
     --dataset-csv example_data/laos_subset.csv \
-    --model-name external_models/naive_python_model_uv
+    --model-name tests/fixture_models/naive_python_model_uv
 ```
 
 #### Mapping custom column names

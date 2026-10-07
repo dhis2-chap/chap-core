@@ -1,6 +1,6 @@
 [project]
 name = "chap_core"
-version = "2.4.0.dev0"
+version = "2.5.0.dev0"
 description = "Climate Health Analysis Platform (CHAP)"
 readme = "README.md"
 requires-python = ">=3.13,<3.15"
@@ -122,7 +122,7 @@ target-version = "py313"
 line-length = 120
 # Let Ruff discover both chap_core and tests for both "check" and "format"
 include = ["chap_core/**/*.py", "tests/**/*.py"]
-exclude = ["external_models/**"]
+exclude = ["tests/fixture_models/**"]
 
 [tool.ruff.lint]
 select = [
@@ -168,7 +168,8 @@ norecursedirs = [
     "runs",
     "dist",
     "target",
-    "external_models",
+    "tests/fixture_models",
+    ".claude",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning:plotly.io._kaleido",
@@ -270,7 +271,8 @@ include = ["chap_core/", "tests/"]
 exclude = [
     "**/.venv",
     "runs",
-    "external_models",
+    "tests/fixture_models",
+    ".claude",
     "tests/.github_cache",
 ]
 typeCheckingMode = "basic"

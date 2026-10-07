@@ -15,7 +15,13 @@ from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import create_tsdataclass
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
-from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo, DataSetWithObservations, ObservationBase
+from chap_core.database.dataset_tables import (
+    DataSet,
+    DataSetCreateInfo,
+    DataSetWithObservations,
+    Observation,
+    ObservationBase,
+)
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.tables import (
     Backtest,
@@ -733,7 +739,11 @@ def test_every_backtest_parameter_is_part_of_the_uniqueness_key():
         for c in BacktestSpecification.__table__.constraints
         if getattr(c, "name", None) == "uq_backtestspecification_params"
     )
-    assert {column.name for column in constraint.columns} == {"dataset_id", *BacktestParams.model_fields}
+    assert {column.name for column in constraint.columns} == {
+        "dataset_id",
+        "target_column",
+        *BacktestParams.model_fields,
+    }
 
 
 def test_differing_parameters_produce_different_specifications(p_seeded_engine):
@@ -744,6 +754,40 @@ def test_differing_parameters_produce_different_specifications(p_seeded_engine):
 
         assert two_splits.specification_id != three_splits.specification_id
         assert (two_splits.n_splits, three_splits.n_splits) == (2, 3)
+
+
+def test_target_column_is_scored_and_separates_specifications(override_session, p_seeded_engine):
+    from chap_core.assessment.evaluation import Evaluation
+
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        for observation in session.session.exec(select(Observation).where(Observation.feature_name == "rainfall")):
+            observation.value = 7.0
+        session.session.commit()
+        params = {"n_periods": 3, "n_splits": 2}
+        default = session.session.get(Backtest, _run(session, "default", dataset_id, **params))
+        rainfall = session.session.get(Backtest, _run(session, "rain", dataset_id, target_column="rainfall", **params))
+
+        assert default.specification_id != rainfall.specification_id
+        assert set(Evaluation.from_backtest(rainfall).to_flat().observations.disease_cases) == {7.0}
+    rows = client.get("/v1/crud/backtest-specifications", params={"targetColumn": "rainfall"}).json()
+    assert [row["id"] for row in rows] == [rainfall.specification_id]
+    actual_cases = DataList.model_validate(client.get(f"/v1/analytics/actual-cases/{rainfall.id}").json())
+    assert {entry.value for entry in actual_cases.data} == {7.0}
+
+
+@pytest.mark.parametrize("endpoint", ["create-backtest", "create-backtests"])
+def test_create_backtest_rejects_unknown_target_column(override_session, seeded_session, monkeypatch, endpoint):
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    dataset_id = seeded_session.exec(select(DataSet.id)).first()
+    payload = {"name": "x", "datasetId": dataset_id, "modelId": "naive_model", "modelIds": ["naive_model"]}
+
+    response = client.post(f"/v1/analytics/{endpoint}", json={**payload, "targetColumn": "missing"})
+    assert response.status_code == 422, response.text
+    assert worker.queued == []
 
 
 def test_differing_weather_providers_produce_different_specifications(p_seeded_engine):
@@ -796,7 +840,11 @@ def test_specification_filter_covers_every_backtest_parameter():
     from chap_core.api_types import BacktestParams
     from chap_core.rest_api.data_models import BacktestSpecificationFilter
 
-    assert set(BacktestSpecificationFilter.model_fields) == {"dataset_id", *BacktestParams.model_fields}
+    assert set(BacktestSpecificationFilter.model_fields) == {
+        "dataset_id",
+        "target_column",
+        *BacktestParams.model_fields,
+    }
     assert all(field.default is None for field in BacktestSpecificationFilter.model_fields.values())
 
 
@@ -1438,6 +1486,60 @@ def test_run_prediction_setup_inherits_the_backtest_provider(
     assert captured["prediction_params"].future_weather_provider == "damped_persistence"
 
 
+def test_run_prediction_setup_forecasts_the_backtest_target(
+    override_session, seeded_session, p_seeded_engine, example_polygons, monkeypatch
+):
+    from types import SimpleNamespace
+
+    from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW
+    from chap_core.rest_api.v1.routers import crud
+
+    backtest = seeded_session.exec(select(Backtest)).first()
+    backtest.model_db_id = seeded_session.exec(
+        select(ConfiguredModelDB.id).where(ConfiguredModelDB.name == "naive_model")
+    ).one()
+    backtest.specification = BacktestSpecification(
+        **backtest.specification.model_dump(exclude={"id"}) | {"target_column": "hospitalisations"}
+    )
+    seeded_session.commit()
+    setup_id = _create_prediction_setup(backtest.id, "Target forecast").json()["id"]
+
+    request = create_make_data_request(example_polygons, [], ["rainfall", "hospitalisations", "disease_cases"])
+    for observation in request.provided_data:
+        observation.value = 0.0 if observation.feature_name == "hospitalisations" else 1000.0
+        if observation.feature_name != "rainfall" and observation.period == "2020-01":
+            observation.value = None  # Target gaps must not reject otherwise valid locations.
+    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources"})
+    payload["nPeriods"] = 3
+
+    def run_inline(func, *args, **kwargs):
+        for key in ("database_url", JOB_TYPE_KW, JOB_NAME_KW, JOB_REQUEST_KW):
+            kwargs.pop(key)
+        kwargs["prediction_params"] = kwargs["prediction_params"].model_dump()
+        with SessionWrapper(p_seeded_engine) as session:
+            prediction_id = func(*args, session=session, **kwargs)
+        return SimpleNamespace(id=str(prediction_id))
+
+    monkeypatch.setattr(crud.worker, "queue_db", run_inline)
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    assert response.status_code == 200, response.text
+
+    prediction = seeded_session.get(Prediction, int(response.json()["id"]))
+    assert len(prediction.forecasts) == 3 * len(example_polygons.features)
+    # Training on hospitalisations (all zero) rather than disease_cases gives all-zero samples.
+    assert all(forecast.values and set(forecast.values) == {0.0} for forecast in prediction.forecasts)
+
+
+def test_run_prediction_setup_rejects_missing_target(override_session, seeded_session, example_polygons):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    setup_id = _create_prediction_setup(backtest.id, "Missing target").json()["id"]
+    request = create_make_data_request(example_polygons, [], ["rainfall"])
+    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources"})
+
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    assert response.status_code == 422, response.text
+
+
 def test_run_prediction_setup_rejects_a_look_ahead_provider(override_session, seeded_session, example_polygons):
     """`observed` reads the forecast window's own weather, so it cannot forecast ahead.
     Fail at the endpoint rather than deep inside the worker."""
@@ -1940,6 +2042,7 @@ def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run
     response = client.get(f"/v1/crud/backtests/{db_id}/info")
     assert response.status_code == 200, response.json()
     backtest_info = BacktestRead.model_validate(response.json())
+    assert backtest_info.stride == request_payload["stride"]
     assert len(backtest_info.dataset.data_sources) > 0, backtest_info.dataset
     assert len(backtest_info.dataset.org_units) > 0, backtest_info.dataset
     assert backtest_info.dataset.last_period is not None, backtest_info.dataset

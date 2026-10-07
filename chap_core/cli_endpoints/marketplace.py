@@ -1,6 +1,6 @@
 """Install and update chapkit model services in a CHAP Compose deployment.
 
-``install``, ``install-all``, ``update`` and ``uninstall`` are the ``chap-admin`` commands.
+``install``, ``install-all``, ``update``, ``update-all`` and ``uninstall`` are the ``chap-admin`` commands.
 They edit the deployment's Compose overlay, start the model service, and register it in
 the running CHAP instance over its REST API once it is up.
 """
@@ -113,6 +113,56 @@ def install_all(
                     failed.append(entry.id)
             if failed:
                 raise ValueError(f"Could not install {', '.join(failed)}.")
+
+    _exit_on_error(run)
+
+
+def update_all(
+    *,
+    compose_file: ComposeArg = (Path("compose.yml"),),
+    accept_risk: RiskArg = False,
+    platform: PlatformArg = None,
+    url: UrlArg = None,
+    token: TokenArg = None,
+) -> None:
+    """Update every installed marketplace model whose verified stable version has changed.
+
+    Runs the same update as ``update`` for each installed model from the marketplace whose
+    stable version differs from the installed one. Custom models, models installed from
+    another registry and models without a verified stable version are left as they are.
+    Fails at the end if any model could not be updated; the others stay updated.
+    """
+    from chap_core.services.chap_api import ChapApi
+    from chap_core.services.model_marketplace import list_models, registry_url, stable_pin
+
+    def run() -> None:
+        with ChapApi(url, token) as api:
+            _check_chap(api)
+            registry = registry_url()
+            entries, invalid = list_models(registry)
+            for model_file, reason in invalid.items():
+                logger.error("Could not read %s from the marketplace: %s", model_file, reason)
+            failed = list(invalid)
+            installed = _load_overlay(compose_file)[1]["services"]
+            for entry in entries:
+                service = installed.get(_service_name(entry.id))
+                if service is None or service.get("x-chap-custom") or service.get("x-chap-registry") != registry:
+                    continue
+                try:
+                    pin = stable_pin(entry)
+                except ValueError as reason:
+                    logger.info("Skipping %s: %s", entry.id, reason)
+                    continue
+                if service.get("x-chap-version") == pin.version:
+                    logger.info("Skipping %s: already on the stable version %s.", entry.id, pin.version)
+                    continue
+                try:
+                    _deploy(api, entry.id, compose_file, None, accept_risk, platform, updating=True)
+                except DEPLOYMENT_ERRORS as error:
+                    logger.error("Could not update %s: %s", entry.id, error)
+                    failed.append(entry.id)
+            if failed:
+                raise ValueError(f"Could not update {', '.join(failed)}.")
 
     _exit_on_error(run)
 

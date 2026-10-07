@@ -197,7 +197,7 @@ Here's a complete workflow using the included example dataset (`example_data/lao
 ```bash
 # Step 1: Evaluate model
 chap eval \
-    --model-name external_models/naive_python_model_uv \
+    --model-name tests/fixture_models/naive_python_model_uv \
     --dataset-csv example_data/laos_subset.csv \
     --output-file ./eval_doctest.nc \
     --backtest-params.n-splits 2 \

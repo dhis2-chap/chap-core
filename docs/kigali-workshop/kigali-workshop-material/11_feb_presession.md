@@ -167,7 +167,7 @@ You can also validate that your dataset has the covariates a specific model requ
 ```bash
 chap validate \
     --dataset-csv example_data/laos_subset.csv \
-    --model-name external_models/naive_python_model_uv
+    --model-name tests/fixture_models/naive_python_model_uv
 ```
 
 This additionally checks that all required covariates for the model are present in the dataset, and that the time period type (weekly/monthly) matches what the model supports.
@@ -194,7 +194,7 @@ Once your dataset is validated, you can evaluate a model on it using `chap eval`
 
 ```bash
 chap eval \
-    --model-name external_models/naive_python_model_uv \
+    --model-name tests/fixture_models/naive_python_model_uv \
     --dataset-csv example_data/laos_subset.csv \
     --output-file ./eval_presession_doctest.nc \
     --backtest-params.n-splits 2 \

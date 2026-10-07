@@ -31,7 +31,7 @@ while remaining_time_periods > 0:
 To verify that `ExtendedPredictor` works correctly, run an evaluation with a prediction length that exceeds the model's native maximum. The `eval` command automatically wraps models with `ExtendedPredictor` when needed:
 
 ```bash
-chap eval --model-name external_models/naive_python_model_uv \
+chap eval --model-name tests/fixture_models/naive_python_model_uv \
     --dataset-csv example_data/laos_subset.csv \
     --output-file ./extended_predictor_test.nc \
     --backtest-params.n-periods 6 \

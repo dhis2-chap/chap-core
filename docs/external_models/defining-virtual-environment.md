@@ -12,7 +12,7 @@ Use `uv_env` to specify a pyproject.toml for uv-managed environments. This is us
 uv_env: pyproject.toml
 ```
 
-Commands will be executed via `uv run`, which automatically handles the virtual environment. Make sure your model directory contains a valid `pyproject.toml` with dependencies specified. See the [example uv model](https://github.com/dhis2-chap/chap-core/tree/master/external_models/naive_python_model_uv) for a complete example.
+Commands will be executed via `uv run`, which automatically handles the virtual environment. Make sure your model directory contains a valid `pyproject.toml` with dependencies specified. See the [example uv model](https://github.com/dhis2-chap/chap-core/tree/master/tests/fixture_models/naive_python_model_uv) for a complete example.
 
 ??? example "Example MLproject file with uv"
 

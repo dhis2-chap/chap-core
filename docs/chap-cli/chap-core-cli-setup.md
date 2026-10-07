@@ -36,6 +36,12 @@ chap-admin update chapkit_simple_multistep_model
 verified stable version, skipping the ones already installed. It is the way to
 get a fresh deployment populated with models.
 
+`chap-admin update-all` updates every installed marketplace model whose verified
+stable version has changed in the marketplace, and leaves the rest running. Custom
+models and models installed from another registry are not touched. Running
+`chap-admin install-all && chap-admin update-all` keeps a deployment in sync with
+the marketplace.
+
 `chap-admin` reaches CHAP at `http://localhost:8000` unless `CHAP_URL` or
 `--url` says otherwise, and sends `CHAP_API_TOKEN` or `--token` when the
 deployment requires a token. It reads both from the environment, not from a

@@ -20,6 +20,7 @@ app = App(name="chap-admin", help="Administer a running CHAP instance: install m
 app.command()(marketplace.install)
 app.command(name="install-all")(marketplace.install_all)
 app.command()(marketplace.update)
+app.command(name="update-all")(marketplace.update_all)
 app.command()(marketplace.uninstall)
 
 
