@@ -22,6 +22,14 @@ def test_ignore_env_runs_chapkit_directly(models_path, orchestrator_url_set):
     assert "SERVICEKIT_ORCHESTRATOR_URL" not in env
 
 
+def test_log_level_above_info_is_lowered(models_path, monkeypatch):
+    monkeypatch.setenv("LOG_LEVEL", "warning")
+    _, env = chapkit_service_launch(
+        models_path / "naive_python_model_with_mlproject_file" / "MLproject", ignore_env=True
+    )
+    assert env["LOG_LEVEL"] == "INFO"
+
+
 def test_uv_env_syncs_and_runs_chapkit_through_uv(models_path):
     model_dir = models_path / "naive_python_model_uv"
     with patch("chap_core.models.mlproject_chapkit.run_command") as run_command:

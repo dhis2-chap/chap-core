@@ -181,6 +181,7 @@ class ExternalChapkitModelTemplate:
         startup_timeout: int = 60,
         command: Sequence[str] | None = None,
         env: dict[str, str] | None = None,
+        require_listening_line: bool = False,
     ):
         """
         Initialize the template.
@@ -194,6 +195,8 @@ class ExternalChapkitModelTemplate:
             command: Command that starts the service (directory mode only,
                      default: uv run fastapi dev)
             env: Environment for the service process (directory mode only)
+            require_listening_line: Only accept the started service after its own output
+                reports that it is listening (directory mode only)
         """
         self._path_or_url = path_or_url
         self._port = port
@@ -216,6 +219,7 @@ class ExternalChapkitModelTemplate:
                 startup_timeout=startup_timeout,
                 command=command,
                 env=env,
+                require_listening_line=require_listening_line,
             )
 
     @property

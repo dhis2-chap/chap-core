@@ -211,7 +211,9 @@ def get_model_template_from_directory_or_github_url(
 
     if as_chapkit:
         command, env = chapkit_service_launch(working_dir / "MLproject", ignore_env=ignore_env)
-        return ExternalChapkitModelTemplate(str(working_dir), command=command, env=env)
+        # chapkit mlproject run logs uvicorn's listening line, so the started service can
+        # be told apart from another one that bound the same port first.
+        return ExternalChapkitModelTemplate(str(working_dir), command=command, env=env, require_listening_line=True)
 
     model_template = get_model_template_from_mlproject_file(
         working_dir / "MLproject", ignore_env=ignore_env, dry_run=dry_run

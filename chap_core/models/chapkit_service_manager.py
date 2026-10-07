@@ -16,12 +16,15 @@ from pathlib import Path
 
 import httpx
 
-from chap_core.exceptions import ChapkitServiceStartupError
+from chap_core.exceptions import ChapkitServicePortInUseError, ChapkitServiceStartupError
 
 logger = logging.getLogger(__name__)
 
 # Number of most recent service output lines kept for error messages.
 OUTPUT_TAIL_LINES = 200
+
+# ANSI colour and style codes, stripped from service output before matching.
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 
 # Startup attempts when an auto-selected port is taken between selection and bind,
 # which happens when several services are started at the same time.
@@ -55,9 +58,12 @@ class ChapkitServiceManager:
     """
     Manages the lifecycle of a chapkit model service subprocess.
 
-    The service is only accepted once its own output reports that it is listening
-    on the selected port (uvicorn's "Uvicorn running on <url>" line). A healthy
-    response alone could come from another service that bound the same port first.
+    With ``require_listening_line``, the service is only accepted once its own
+    output reports that it is listening on the selected port (uvicorn's
+    "Uvicorn running on <url>" line). A healthy response alone could come from
+    another service that bound the same port first. This needs a service whose
+    log output is known, such as ``chapkit mlproject run``; without it, a healthy
+    ``/health`` response is enough.
 
     The service's stdout and stderr are merged into one pipe that is drained
     continuously on a background thread. Without that, a service that logs more
@@ -79,6 +85,7 @@ class ChapkitServiceManager:
         startup_timeout: int = 60,
         command: Sequence[str] | None = None,
         env: dict[str, str] | None = None,
+        require_listening_line: bool = False,
     ):
         """
         Initialize the service manager.
@@ -91,6 +98,8 @@ class ChapkitServiceManager:
             command: Command that starts the service, without the --port and --host
                 options, which are appended (default: uv run fastapi dev)
             env: Environment for the service process (default: inherit the current one)
+            require_listening_line: Only accept the service after its own output reports
+                uvicorn's "Uvicorn running on <url>" line
         """
         self.model_directory = Path(model_directory).resolve()
         self.host = host
@@ -98,6 +107,7 @@ class ChapkitServiceManager:
         self.startup_timeout = startup_timeout
         self.command = list(command) if command is not None else ["uv", "run", "fastapi", "dev"]
         self.env = env
+        self.require_listening_line = require_listening_line
         self._process: subprocess.Popen | None = None
         self._url: str | None = None
         self._output: collections.deque[str] = collections.deque(maxlen=OUTPUT_TAIL_LINES)
@@ -165,7 +175,7 @@ class ChapkitServiceManager:
         try:
             for line in stream:
                 line = line.rstrip("\n")
-                if listening_marker.search(line.lower()):
+                if listening_marker.search(ANSI_ESCAPE.sub("", line).lower()):
                     listening.set()
                 self._output.append(line)
                 logger.debug("[chapkit service] %s", line)
@@ -187,12 +197,15 @@ class ChapkitServiceManager:
             assert self._process is not None
             if self._process.poll() is not None:
                 self._join_reader(timeout=2)
-                raise ChapkitServiceStartupError(
+                message = (
                     f"Service process died during startup with exit code {self._process.returncode}.\n"
                     f"Recent output:\n{self.recent_output()}"
                 )
+                if "already in use" in self.recent_output().lower():
+                    raise ChapkitServicePortInUseError(message)
+                raise ChapkitServiceStartupError(message)
 
-            if not self._listening.is_set():
+            if self.require_listening_line and not self._listening.is_set():
                 logger.debug(f"Waiting for the service to report it is listening on {self._url}...")
                 time.sleep(0.2)
                 continue
@@ -215,7 +228,7 @@ class ChapkitServiceManager:
         self._stop_service()
         reason = (
             "did not become healthy"
-            if listening
+            if listening or not self.require_listening_line
             else f"never reported that it was listening (no 'Uvicorn running on {url}' line)"
         )
         raise ChapkitServiceStartupError(
@@ -257,6 +270,7 @@ class ChapkitServiceManager:
         An auto-selected port is only probed, not held, so another process can
         bind it before the service does. In that case the service exits with an
         "already in use" error and is started again on a newly selected port.
+        Only a service that exits with that error is retried, never a timeout.
         """
         self._validate_directory()
         auto_port = self.port is None
@@ -265,9 +279,8 @@ class ChapkitServiceManager:
             try:
                 self._wait_for_healthy()
                 return self
-            except ChapkitServiceStartupError:
-                port_taken = "already in use" in self.recent_output().lower()
-                if not (auto_port and port_taken and attempt < PORT_ATTEMPTS):
+            except ChapkitServicePortInUseError:
+                if not (auto_port and attempt < PORT_ATTEMPTS):
                     raise
                 logger.info(f"Port {self.port} was taken before the service could bind it, retrying on another port")
                 self._stop_service()

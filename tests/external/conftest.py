@@ -66,7 +66,7 @@ if mode in ("port_in_use", "slow_port_in_use"):
     sys.stdout.flush()
     sys.exit(1)
 
-status = "healthy" if mode in ("flood", "invalid_bytes", "silent") else "starting"
+status = "healthy" if mode in ("flood", "invalid_bytes", "silent", "colored") else "starting"
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -106,9 +106,14 @@ if mode == "invalid_bytes":
     threading.Thread(target=invalid_bytes, daemon=True).start()
 
 server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
-if mode != "silent":
+if mode == "colored":
+    # uvicorn's color_message: the URL in bold.
+    print(f"INFO:     Uvicorn running on \x1b[1mhttp://127.0.0.1:{port}\x1b[0m (Press CTRL+C to quit)")
+elif mode == "noisy_starting":
+    print("a model dependency warns that some resource is already in use")
+elif mode != "silent":
     print(f"INFO:     Uvicorn running on http://127.0.0.1:{port} (Press CTRL+C to quit)")
-    sys.stdout.flush()
+sys.stdout.flush()
 server.serve_forever()
 """
 
@@ -121,7 +126,9 @@ def fake_chapkit_service(tmp_path):
     ``"invalid_bytes"`` (healthy, writes a byte that is not valid UTF-8, then keeps logging),
     ``"die"`` (prints a line and exits 3), ``"port_in_use"`` (reports its port as taken and
     exits 1), ``"slow_port_in_use"`` (the same after two seconds), ``"silent"`` (healthy, but
-    never prints uvicorn's "running on" line), or ``"starting"`` (never becomes healthy). Given several modes, successive
+    never prints uvicorn's "running on" line), ``"colored"`` (healthy, prints that line with a
+    bold URL), ``"noisy_starting"`` (never healthy, and logs the phrase "already in use"), or
+    ``"starting"`` (never becomes healthy). Given several modes, successive
     launches use them in order and the last one repeats.
     """
     script = tmp_path / "fake_chapkit_service.py"

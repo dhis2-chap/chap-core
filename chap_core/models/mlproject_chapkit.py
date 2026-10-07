@@ -65,6 +65,9 @@ def chapkit_service_launch(mlproject_file: Path, ignore_env: bool = False) -> tu
     env = dict(os.environ)
     # A local run must never register itself with an orchestrator.
     env.pop("SERVICEKIT_ORCHESTRATOR_URL", None)
+    # Startup waits for uvicorn's INFO-level "Uvicorn running on" line, which a higher level would hide.
+    if env.get("LOG_LEVEL", "INFO").upper() not in ("DEBUG", "INFO"):
+        env["LOG_LEVEL"] = "INFO"
 
     if ignore_env:
         return list(CHAPKIT_MLPROJECT_RUN), env
