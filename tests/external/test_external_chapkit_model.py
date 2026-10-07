@@ -113,6 +113,15 @@ class TestFindAvailablePort:
             with pytest.raises(ChapkitServiceStartupError):
                 find_available_port(start_port=10000, max_attempts=5)
 
+    def test_default_range_skips_8000(self):
+        with patch("socket.socket") as mock_socket:
+            mock_instance = mock_socket.return_value.__enter__.return_value
+            mock_instance.bind.side_effect = OSError
+            with pytest.raises(ChapkitServiceStartupError, match="8001-8099"):
+                find_available_port()
+        tried = [call.args[0][1] for call in mock_instance.bind.call_args_list]
+        assert tried == list(range(8001, 8100))
+
 
 class TestChapkitServiceManager:
     def test_validates_nonexistent_directory(self, tmp_path):

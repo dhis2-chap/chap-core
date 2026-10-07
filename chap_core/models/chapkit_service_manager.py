@@ -23,8 +23,12 @@ logger = logging.getLogger(__name__)
 OUTPUT_TAIL_LINES = 200
 
 
-def find_available_port(start_port: int = 8000, max_attempts: int = 100) -> int:
-    """Find an available port starting from start_port."""
+def find_available_port(start_port: int = 8001, max_attempts: int = 99) -> int:
+    """Find an available port starting from start_port.
+
+    The default range is 8001-8099; 8000 is skipped because it is often taken
+    (by chap itself, among others).
+    """
     for port in range(start_port, start_port + max_attempts):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             try:
@@ -32,7 +36,9 @@ def find_available_port(start_port: int = 8000, max_attempts: int = 100) -> int:
                 return port
             except OSError:
                 continue
-    raise ChapkitServiceStartupError(f"Could not find available port in range {start_port}-{start_port + max_attempts}")
+    raise ChapkitServiceStartupError(
+        f"Could not find available port in range {start_port}-{start_port + max_attempts - 1}"
+    )
 
 
 def is_url(path_or_url: str | Path) -> bool:
