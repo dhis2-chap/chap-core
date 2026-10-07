@@ -193,7 +193,7 @@ def output_path():
 
 @pytest.fixture
 def models_path():
-    return Path(__file__).parent.parent / "external_models"
+    return Path(__file__).parent / "fixture_models"
 
 
 @pytest.fixture

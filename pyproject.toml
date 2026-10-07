@@ -122,7 +122,7 @@ target-version = "py313"
 line-length = 120
 # Let Ruff discover both chap_core and tests for both "check" and "format"
 include = ["chap_core/**/*.py", "tests/**/*.py"]
-exclude = ["external_models/**"]
+exclude = ["tests/fixture_models/**"]
 
 [tool.ruff.lint]
 select = [
@@ -168,7 +168,7 @@ norecursedirs = [
     "runs",
     "dist",
     "target",
-    "external_models",
+    "tests/fixture_models",
     ".claude",
 ]
 filterwarnings = [
@@ -271,7 +271,7 @@ include = ["chap_core/", "tests/"]
 exclude = [
     "**/.venv",
     "runs",
-    "external_models",
+    "tests/fixture_models",
     ".claude",
     "tests/.github_cache",
 ]
