@@ -1,7 +1,9 @@
 """Tests for seeded cross-validation of the tabular models."""
 
+import pytest
+
 from chap_core.tabular.cv import N_SPLITS, cross_validate, evaluate_tabular
-from chap_core.tabular.dataset import load_tabular_dataset
+from chap_core.tabular.dataset import DatasetAssumptionError, load_tabular_dataset
 from chap_core.tabular.model import get_model
 
 
@@ -81,3 +83,12 @@ def test_evaluate_tabular_holdout_is_deterministic(regression_csv):
     first, _ = evaluate_tabular(dataset, model, holdout=True)
     second, _ = evaluate_tabular(dataset, model, holdout=True)
     assert first.to_dict() == second.to_dict()
+
+
+def test_non_binary_classification_target_is_rejected(classification_frame, tmp_path):
+    classification_frame["target"] = classification_frame["target"] + 1
+    path = tmp_path / "coded_1_2.csv"
+    classification_frame.to_csv(path, index=False)
+
+    with pytest.raises(DatasetAssumptionError, match="binary and coded 0/1"):
+        evaluate_tabular(load_tabular_dataset(path), get_model("logistic_regression"), holdout=False)

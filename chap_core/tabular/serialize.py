@@ -7,10 +7,12 @@ joblib keeps the native scikit-learn object. ONNX is an inference-only format
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Protocol
 
 import numpy as np
+import pandas as pd
 
 if TYPE_CHECKING:
     from sklearn.base import BaseEstimator
@@ -18,6 +20,7 @@ if TYPE_CHECKING:
 ModelFormat = Literal["joblib", "onnx"]
 Task = Literal["classification", "regression"]
 
+_FEATURE_NAMES_KEY = "feature_names"
 _JOBLIB_SUFFIXES = {".joblib", ".pkl", ".pickle"}
 
 
@@ -25,6 +28,8 @@ class PredictModel(Protocol):
     """Minimal inference interface shared by the joblib and ONNX adapters."""
 
     task: Task
+    feature_names: list[str] | None
+    """Training column names in order, or ``None`` if the model does not record them."""
 
     def predict(self, features: np.ndarray) -> np.ndarray: ...
 
@@ -61,7 +66,11 @@ def format_from_path(path: str | Path) -> ModelFormat:
 
 
 def load_model(path: str | Path) -> PredictModel:
-    """Load a model saved by :func:`save_model`, format inferred from the extension."""
+    """Load a model saved by :func:`save_model`, format inferred from the extension.
+
+    joblib files are pickles and can execute arbitrary code on load: only use
+    this on local, trusted paths and never expose it through the REST API.
+    """
     if format_from_path(path) == "joblib":
         import joblib
 
@@ -75,14 +84,19 @@ class _SklearnModel:
 
         self._estimator = estimator
         self.task: Task = "classification" if is_classifier(estimator) else "regression"
+        names = getattr(estimator, "feature_names_in_", None)
+        self.feature_names: list[str] | None = None if names is None else [str(n) for n in names]
+
+    def _frame(self, features: np.ndarray) -> np.ndarray | pd.DataFrame:
+        return features if self.feature_names is None else pd.DataFrame(features, columns=self.feature_names)
 
     def predict(self, features: np.ndarray) -> np.ndarray:
-        return np.asarray(self._estimator.predict(features))
+        return np.asarray(self._estimator.predict(self._frame(features)))
 
     def predict_proba(self, features: np.ndarray) -> np.ndarray | None:
         if self.task != "classification" or not hasattr(self._estimator, "predict_proba"):
             return None
-        return np.asarray(self._estimator.predict_proba(features))[:, 1]
+        return np.asarray(self._estimator.predict_proba(self._frame(features)))[:, 1]
 
 
 class _OnnxModel:
@@ -96,6 +110,8 @@ class _OnnxModel:
 
         self._session = ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
         self._input = self._session.get_inputs()[0].name
+        raw_names = self._session.get_modelmeta().custom_metadata_map.get(_FEATURE_NAMES_KEY)
+        self.feature_names: list[str] | None = json.loads(raw_names) if raw_names else None
         outputs = [out.name for out in self._session.get_outputs()]
         # skl2onnx names a classifier's outputs *_label / *_probability and a
         # regressor's single output "variable".
@@ -134,4 +150,9 @@ def _to_onnx_bytes(estimator: BaseEstimator) -> bytes:
     to_onnx, float_tensor_type = _import_skl2onnx()
     n_features = int(estimator.n_features_in_)
     initial_types = [("input", float_tensor_type([None, n_features]))]
-    return bytes(to_onnx(estimator, initial_types=initial_types).SerializeToString())
+    model = to_onnx(estimator, initial_types=initial_types)
+    names = getattr(estimator, "feature_names_in_", None)
+    if names is not None:
+        entry = model.metadata_props.add()
+        entry.key, entry.value = _FEATURE_NAMES_KEY, json.dumps([str(n) for n in names])
+    return bytes(model.SerializeToString())

@@ -73,6 +73,15 @@ def validate_feature_frame(frame: pd.DataFrame) -> None:
         raise DatasetAssumptionError(f"Non-numeric unencoded columns: {non_numeric}. Encode them first.")
 
 
+def validate_binary_target(target: pd.Series, name: str) -> None:
+    """Require a classification target coded as exactly 0/1."""
+    values = set(target.unique().tolist())
+    if not values <= {0, 1}:
+        raise DatasetAssumptionError(
+            f"Classification target {name!r} must be binary and coded 0/1, found values: {sorted(values)}"
+        )
+
+
 def _check_assumptions(frame: pd.DataFrame, target: str) -> None:
     if target not in frame.columns:
         raise DatasetAssumptionError(f"Target column {target!r} not found. Available columns: {list(frame.columns)}")

@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
-from chap_core.tabular.dataset import validate_feature_frame
+from chap_core.tabular.dataset import DatasetAssumptionError, validate_feature_frame
 from chap_core.tabular.metrics import classification_metrics, regression_metrics
 from chap_core.tabular.serialize import load_model
 
@@ -33,6 +33,19 @@ class PredictionResult:
     target_name: str | None = None
 
 
+def _align_to_model(features: pd.DataFrame, expected: list[str] | None) -> pd.DataFrame:
+    """Select and order ``features`` by the model's training column names."""
+    if expected is None:
+        return features
+    missing = [name for name in expected if name not in features.columns]
+    extra = [name for name in features.columns if name not in expected]
+    if missing or extra:
+        raise DatasetAssumptionError(
+            f"Dataset columns do not match the model. Missing: {missing}. Unexpected: {extra}."
+        )
+    return features[expected]
+
+
 def run_prediction(model_path: str | Path, dataset_csv: str | Path, target: str = "target") -> PredictionResult:
     """Score ``dataset_csv`` with the model at ``model_path``.
 
@@ -46,6 +59,7 @@ def run_prediction(model_path: str | Path, dataset_csv: str | Path, target: str 
     has_target = target in frame.columns
     features = frame.drop(columns=[target]) if has_target else frame
     validate_feature_frame(features)
+    features = _align_to_model(features, model.feature_names)
     matrix = features.to_numpy()
 
     predictions = model.predict(matrix)

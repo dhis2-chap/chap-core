@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from sklearn.model_selection import KFold, StratifiedKFold, train_test_split
 
-from chap_core.tabular.dataset import TabularDataset
+from chap_core.tabular.dataset import TabularDataset, validate_binary_target
 from chap_core.tabular.metrics import (
     CLASSIFICATION_HEADLINE,
     REGRESSION_HEADLINE,
@@ -26,6 +26,7 @@ from chap_core.tabular.metrics import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    import pandas as pd
     from sklearn.base import BaseEstimator
 
     from chap_core.tabular.model import TabularModel
@@ -74,7 +75,7 @@ def _score_fn(task: str) -> Callable[[np.ndarray, np.ndarray], dict[str, float]]
     return classification_metrics if task == "classification" else regression_metrics
 
 
-def _predict(estimator: BaseEstimator, features: np.ndarray, task: str) -> np.ndarray:
+def _predict(estimator: BaseEstimator, features: np.ndarray | pd.DataFrame, task: str) -> np.ndarray:
     if task == "classification":
         return np.asarray(estimator.predict_proba(features))[:, 1]
     return np.asarray(estimator.predict(features))
@@ -145,6 +146,9 @@ def evaluate_tabular(
     training split, a final model is fit on that split and scored once on the
     held-out test split, and that fitted model is returned for saving.
     """
+    if model.task == "classification":
+        validate_binary_target(dataset.target, dataset.target_name)
+
     if not holdout:
         return cross_validate(dataset, model), None
 
@@ -152,8 +156,8 @@ def evaluate_tabular(
     cv_result = cross_validate(train_dataset, model)
 
     estimator = model.build()
-    estimator.fit(train_dataset.features.to_numpy(), train_dataset.target.to_numpy())
-    prediction = _predict(estimator, test_dataset.features.to_numpy(), model.task)
+    estimator.fit(train_dataset.features, train_dataset.target.to_numpy())
+    prediction = _predict(estimator, test_dataset.features, model.task)
     test_metrics = {k: float(v) for k, v in _score_fn(model.task)(test_dataset.target.to_numpy(), prediction).items()}
 
     result = replace(

@@ -75,3 +75,33 @@ def test_onnx_classifier_predictions_match_joblib(classifier_onnx, classifier_jo
     assert onnx_result.task == "classification"
     assert (onnx_result.frame["prediction"].to_numpy() == joblib_result.frame["prediction"].to_numpy()).all()
     assert onnx_result.frame["probability"].between(0.0, 1.0).all()
+
+
+def test_reordered_columns_give_same_predictions(classifier_joblib, classification_csv, tmp_path):
+    features_only = _drop_target(classification_csv, tmp_path)
+    reordered = tmp_path / "reordered.csv"
+    pd.read_csv(features_only)[["x2", "x1"]].to_csv(reordered, index=False)
+
+    expected = run_prediction(classifier_joblib, features_only).frame["prediction"]
+    actual = run_prediction(classifier_joblib, reordered).frame["prediction"]
+
+    assert (expected.to_numpy() == actual.to_numpy()).all()
+
+
+def test_onnx_reordered_columns_give_same_predictions(classifier_onnx, classification_csv, tmp_path):
+    features_only = _drop_target(classification_csv, tmp_path)
+    reordered = tmp_path / "reordered.csv"
+    pd.read_csv(features_only)[["x2", "x1"]].to_csv(reordered, index=False)
+
+    expected = run_prediction(classifier_onnx, features_only).frame["probability"]
+    actual = run_prediction(classifier_onnx, reordered).frame["probability"]
+
+    assert expected.to_numpy() == pytest.approx(actual.to_numpy())
+
+
+def test_mismatched_columns_are_rejected(classifier_joblib, classification_csv, tmp_path):
+    renamed = tmp_path / "renamed.csv"
+    pd.read_csv(classification_csv).rename(columns={"x1": "other"}).to_csv(renamed, index=False)
+
+    with pytest.raises(DatasetAssumptionError, match="do not match the model"):
+        run_prediction(classifier_joblib, renamed)

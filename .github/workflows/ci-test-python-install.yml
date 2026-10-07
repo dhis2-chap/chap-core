@@ -70,7 +70,7 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
       - name: Install the project
         if: needs.changes.outputs.tests == 'true'
-        run: uv sync --dev
+        run: uv sync --dev --extra onnx
       - name: Run pytest
         if: needs.changes.outputs.tests == 'true'
         run: |

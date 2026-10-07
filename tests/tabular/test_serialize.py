@@ -23,7 +23,7 @@ def test_save_joblib_roundtrips(fitted_estimator, regression_frame, tmp_path):
 
     save_model(fitted_estimator, path, "joblib")
 
-    features = regression_frame[["x1", "x2"]].to_numpy()
+    features = regression_frame[["x1", "x2"]]
     reloaded = joblib.load(path)
     np.testing.assert_allclose(reloaded.predict(features), fitted_estimator.predict(features))
 
