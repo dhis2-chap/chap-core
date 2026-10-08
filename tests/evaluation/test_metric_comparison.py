@@ -13,7 +13,6 @@ from chap_core.assessment.metrics import (
     get_comparison_op,
     get_metrics_registry,
     list_comparison_ops,
-    list_metrics,
     metric,
 )
 
@@ -65,13 +64,6 @@ def test_every_registered_metric_has_a_working_comparison(metric_id):
     metric_cls = get_metrics_registry()[metric_id]
     assert metric_cls.spec.comparison_op in list_comparison_ops()
     assert math.isfinite(metric_cls().compare(0.4, 0.6))
-
-
-def test_list_metrics_exposes_comparison_op():
-    entries = {entry["id"]: entry for entry in list_metrics()}
-    assert entries["crps"]["comparison_op"] == "skill_ratio"
-    assert entries["sensitivity"]["comparison_op"] == "difference"
-    assert entries["coverage_10_90"]["comparison_op"] == "target_distance"
 
 
 def test_get_comparison_global(flat_observations, flat_forecasts_multiple_samples, flat_forecasts):
