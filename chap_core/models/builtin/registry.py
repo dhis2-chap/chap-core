@@ -29,13 +29,14 @@ BUILTIN_SOURCE_PREFIX = "builtin:"
 class BuiltinModelSpec:
     """What chap-core stores as the model template of a built-in model.
 
-    A template version is write-once, so bump ``version`` when any of these change.
+    A template version is write-once, so bump ``version`` whenever the model's output
+    or any field here changes.
     """
 
     name: str
     display_name: str
     description: str
-    version: str = "1"
+    version: str
     supported_period_type: PeriodType = PeriodType.any
     required_covariates: tuple[str, ...] = ()
     role: ModelTemplateRole | None = None

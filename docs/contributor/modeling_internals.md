@@ -75,7 +75,8 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
   R-free stand-in. It predicts the per-location mean and draws Poisson samples —
   barely ML (essentially a statistic).
 - **`chap_core/models/builtin/`** — built-in models: Python models that run
-  in-process. A model subclasses `BuiltinModel`, sets a `BuiltinModelSpec` and is
+  in-process. A model subclasses `BuiltinModel`, sets a `BuiltinModelSpec` (whose
+  `version` must change with any change to the model's output or spec) and is
   registered with `@builtin_model()`. `BuiltinModelTemplate` gives it the same
   interface as an MLproject or chapkit template, under the source URL
   `builtin:<name>`, so it runs through `chap eval` and the REST backtest and
