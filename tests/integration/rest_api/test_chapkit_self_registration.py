@@ -115,6 +115,30 @@ def _test_model(client):
     return matching[0]
 
 
+def test_install_sets_the_role_from_the_marketplace_entry(client, register_service):
+    # Registration already stores the template, without a role.
+    register_service()
+    assert _test_model(client)["role"] is None
+
+    response = client.post(
+        "/v1/crud/model-templates/from-service", json={"serviceId": "test-model", "role": "comparison"}
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["role"] == "comparison"
+    assert _test_model(client)["role"] == "comparison"
+
+    # An entry that drops the flag makes it an ordinary model again.
+    assert _install(client, register_service)["role"] is None
+
+
+def test_install_cannot_mark_a_model_as_baseline(client, register_service):
+    register_service()
+    response = client.post(
+        "/v1/crud/model-templates/from-service", json={"serviceId": "test-model", "role": "baseline"}
+    )
+    assert response.status_code == 422
+
+
 def test_registered_service_becomes_a_template_without_configured_models(client, register_service):
     register_service({**MOCK_INFO_DICT, "git_revision": "b" * 40})
 

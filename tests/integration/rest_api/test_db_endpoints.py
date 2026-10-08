@@ -14,7 +14,7 @@ from chap_core.api_types import DataList, EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import create_tsdataclass
 from chap_core.database.dataset_manager import DataSetManager
-from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateRole
 from chap_core.database.dataset_tables import (
     DataSet,
     DataSetCreateInfo,
@@ -917,6 +917,31 @@ def test_list_backtests_filters_by_specification_and_dataset(override_session, p
     by_dataset = client.get("/v1/crud/backtests", params={"datasetId": dataset_id}).json()
     assert {first_id, second_id, other_id} <= {b["id"] for b in by_dataset}
     assert all(b["datasetId"] == dataset_id for b in by_dataset)
+
+
+def test_backtest_listings_hide_baseline_backtests(override_session, p_seeded_engine):
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        params = {"n_periods": 3, "n_splits": 2, "stride": 1, "n_retrain": 1}
+        baseline_id = _run(session, "baseline", dataset_id, **params)
+        backtest = session.session.get(Backtest, baseline_id)
+        specification_id = backtest.specification_id
+        template = backtest.configured_model.model_template
+        template.role = ModelTemplateRole.baseline
+        session.session.add(template)
+        session.session.commit()
+
+    # The backtest is still there, and it carries the role of its template.
+    response = client.get(f"/v1/crud/backtests/{baseline_id}")
+    assert response.status_code == 200, response.text
+    assert response.json()["configuredModel"]["modelTemplate"]["role"] == "baseline"
+
+    assert baseline_id not in {b["id"] for b in client.get("/v1/crud/backtests").json()}
+    specification = client.get(f"/v1/crud/backtest-specifications/{specification_id}").json()
+    assert baseline_id not in {b["id"] for b in specification["backtests"]}
+    summaries = client.get("/v1/crud/backtest-specifications").json()
+    counts = {row["id"]: row["backtestCount"] for row in summaries}
+    assert counts.get(specification_id, 0) == len(specification["backtests"])
 
 
 def test_backtest_read_still_exposes_the_parameters_flat(override_session, p_seeded_engine):

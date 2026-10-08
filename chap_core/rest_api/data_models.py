@@ -11,6 +11,7 @@ from chap_core.database.dataset_tables import DataSetCreateInfo, ObservationBase
 from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateInformation,
     ModelTemplateMetaData,
+    ModelTemplateRole,
 )
 from chap_core.database.tables import (
     BacktestBase,
@@ -320,6 +321,14 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     uses_chapkit: bool = Field(
         default=False, description="When True, the template is served by a chapkit REST endpoint."
     )
+    role: ModelTemplateRole | None = Field(
+        default=None,
+        description=(
+            "'baseline' for models built into chap-core that every model is compared against, "
+            "'comparison' for marketplace models flagged to be compared against on request, "
+            "null for ordinary models."
+        ),
+    )
 
     # The horizon fields were renamed to match chapkit. Both spellings are served so a
     # client can move to `*PredictionPeriods` on its own schedule; drop these once none read them.
@@ -348,6 +357,13 @@ class ModelTemplateFromService(DBModel):
     """Request body for storing a model template from a registered chapkit service."""
 
     service_id: str = Field(description="Id the service registered under in the v2 service registry.")
+    role: Literal[ModelTemplateRole.comparison] | None = Field(
+        default=None,
+        description=(
+            "Role from the model's marketplace entry. 'comparison' flags the template as a comparison model; "
+            "null makes it an ordinary model. Baselines are built into chap-core and cannot be set here."
+        ),
+    )
 
 
 class ConfiguredModelInfoRead(DBModel):
