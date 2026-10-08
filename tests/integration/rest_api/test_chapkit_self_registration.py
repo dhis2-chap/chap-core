@@ -18,7 +18,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, select
 
 import chap_core.database.tables  # noqa: F401 - ensure all table models are registered with SQLModel
-from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB, ModelTemplateRole
 from chap_core.rest_api.app import app
 from chap_core.rest_api.services.orchestrator import Orchestrator
 from chap_core.rest_api.services.schemas import MLServiceInfo, RegistrationRequest
@@ -137,6 +137,23 @@ def test_install_cannot_mark_a_model_as_baseline(client, register_service):
         "/v1/crud/model-templates/from-service", json={"serviceId": "test-model", "role": "baseline"}
     )
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize("version", ["1.0.0", "2.0.0"])
+def test_a_service_cannot_store_or_supersede_a_baseline(client, register_service, db_engine, version):
+    with Session(db_engine) as session:
+        session.add(
+            ModelTemplateDB(name="test-model", version="1.0.0", source_digest="a" * 40, role=ModelTemplateRole.baseline)
+        )
+        session.commit()
+    register_service({**MOCK_INFO_DICT, "version": version})
+
+    response = client.post("/v1/crud/model-templates/from-service", json={"serviceId": "test-model"})
+
+    assert response.status_code == 409
+    with Session(db_engine) as session:
+        templates = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == "test-model")).all()
+        assert [(t.version, t.role) for t in templates] == [("1.0.0", ModelTemplateRole.baseline)]
 
 
 def test_registered_service_becomes_a_template_without_configured_models(client, register_service):
