@@ -171,6 +171,10 @@ class RunConfig(BaseModel):
         default=False,
         description="Set to True when the model is served via chapkit (REST) rather than an MLproject directory.",
     )
+    as_chapkit: bool = Field(
+        default=False,
+        description="When True, serve an MLproject model with `chapkit mlproject run` for the duration of the run.",
+    )
     track: bool = Field(default=False, description="When True, log params/metrics/artifacts to the tracking backend.")
 
 

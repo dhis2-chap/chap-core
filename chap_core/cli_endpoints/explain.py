@@ -137,6 +137,7 @@ def explain_lime(
         ignore_env=run_config.ignore_environment,
         run_dir_type="use_existing",
         is_chapkit_model=run_config.is_chapkit_model,
+        as_chapkit=run_config.as_chapkit,
     )
 
     with template:

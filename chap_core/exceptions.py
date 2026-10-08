@@ -25,6 +25,10 @@ class ChapkitServiceStartupError(Exception):
     """Raised when a chapkit model service fails to start."""
 
 
+class ChapkitServicePortInUseError(ChapkitServiceStartupError):
+    """Raised when a chapkit model service exits at startup because its port is taken."""
+
+
 class DockerUnavailableError(Exception):
     """Raised when the Docker daemon cannot be reached."""
 
