@@ -106,6 +106,7 @@ def explain_lime(
 
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
     from chap_core.log_config import initialize_logging
+    from chap_core.models.builtin import BuiltinModelTemplate
     from chap_core.models.model_template import ModelTemplate
 
     # TODO: Fix too much printing in console when running
@@ -139,6 +140,9 @@ def explain_lime(
         is_chapkit_model=run_config.is_chapkit_model,
         as_chapkit=run_config.as_chapkit,
     )
+
+    if isinstance(template, BuiltinModelTemplate):
+        raise ValueError(f"chap explain does not support built-in models such as {model_name!r}")
 
     with template:
         model = template.get_model(configuration)  # type: ignore[arg-type]

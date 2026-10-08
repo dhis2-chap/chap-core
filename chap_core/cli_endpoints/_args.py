@@ -16,7 +16,7 @@ from chap_core.api_types import BacktestParams, RunConfig
 ModelNameArg = Annotated[
     str,
     Parameter(
-        help="Model path (local directory), GitHub URL, or chapkit service URL. "
+        help="Model path (local directory), GitHub URL, chapkit service URL, or built-in model (builtin:<name>). "
         "Examples: /path/to/model, https://github.com/org/model, http://localhost:8000"
     ),
 ]

@@ -11,6 +11,7 @@ import yaml
 from chap_core.exceptions import InvalidModelException
 from chap_core.external.external_model import logger
 from chap_core.external.model_configuration import ModelTemplateConfigV2
+from chap_core.models.builtin import BUILTIN_SOURCE_PREFIX, BuiltinModelTemplate
 from chap_core.models.chapkit_service_manager import is_url
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.mlproject_chapkit import chapkit_service_launch, check_chapkit_version
@@ -36,7 +37,7 @@ def _is_chapkit_url(url: str) -> bool:
 if TYPE_CHECKING:
     from chap_core.models.external_model import ExternalModel
 
-ModelTemplateType = ModelTemplate | ExternalChapkitModelTemplate
+ModelTemplateType = ModelTemplate | ExternalChapkitModelTemplate | BuiltinModelTemplate
 
 
 def _get_working_dir(model_path, base_working_dir, run_dir_type, model_name):
@@ -158,6 +159,9 @@ def get_model_template_from_directory_or_github_url(
         If True, the MLproject is served with ``chapkit mlproject run`` from the working directory. The service
         is started and stopped when the returned template is used as a context manager.
     """
+
+    if isinstance(model_template_path, str) and model_template_path.startswith(BUILTIN_SOURCE_PREFIX):
+        return BuiltinModelTemplate.from_source_url(model_template_path)
 
     # GitHub URLs are git-clone targets, never live chapkit services, so skip the
     # chapkit probe for them to avoid a spurious 404 against github.com/.../api/v1/info.
