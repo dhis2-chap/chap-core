@@ -114,7 +114,6 @@ from chap_core.assessment.metrics.outbreak_detection import (
     SensitivityMetric,
     SpecificityMetric,
 )
-from chap_core.assessment.metrics.peak_diff import PeakPeriodLagMetric, PeakValueDiffMetric
 from chap_core.assessment.metrics.percentile_coverage import (
     Coverage10_90Metric,
     Coverage25_75Metric,
@@ -148,8 +147,6 @@ __all__ = [
     "Metric",
     "MetricSpec",
     "OutbreakAccuracyMetric",
-    "PeakPeriodLagMetric",
-    "PeakValueDiffMetric",
     "PercentileCoverageMetric",
     "ProbabilisticMetric",
     "RMSEMetric",

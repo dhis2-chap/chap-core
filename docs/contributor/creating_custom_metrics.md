@@ -142,8 +142,8 @@ spec = MetricSpec(
 The metric catalogue API returns `unit`, `target` and `target_behavior` alongside
 the optimization direction. A metric with `optimization_direction=None` should set
 a `target`, and `target_behavior` tells clients how to judge a score against it:
-`CLOSEST` means deviating in either direction is worse (ratio above truth, peak
-difference), while `AT_LEAST` means higher is better up to the target and flat
+`CLOSEST` means deviating in either direction is worse (ratio above truth),
+while `AT_LEAST` means higher is better up to the target and flat
 above it, so only scores below the target should be flagged as bad (coverage
 metrics). Units do not rescale scores: MAPE is already a percentage, while
 coverage targets use fractions such as `0.8`.
