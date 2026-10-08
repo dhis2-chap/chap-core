@@ -924,6 +924,8 @@ def test_backtest_listings_hide_baseline_backtests(override_session, p_seeded_en
         dataset_id = session.session.exec(select(DataSet.id)).first()
         params = {"n_periods": 3, "n_splits": 2, "stride": 1, "n_retrain": 1}
         baseline_id = _run(session, "baseline", dataset_id, **params)
+        # Same regions and splits, so without the filter it would list the baseline as compatible.
+        other_id = _run(session, "other", dataset_id, **params)
         backtest = session.session.get(Backtest, baseline_id)
         specification_id = backtest.specification_id
         template = backtest.configured_model.model_template
@@ -942,6 +944,8 @@ def test_backtest_listings_hide_baseline_backtests(override_session, p_seeded_en
     summaries = client.get("/v1/crud/backtest-specifications").json()
     counts = {row["id"]: row["backtestCount"] for row in summaries}
     assert counts.get(specification_id, 0) == len(specification["backtests"])
+    compatible = client.get(f"/v1/analytics/compatible-backtests/{other_id}").json()
+    assert baseline_id not in {b["id"] for b in compatible}
 
 
 def test_backtest_read_still_exposes_the_parameters_flat(override_session, p_seeded_engine):
