@@ -60,6 +60,7 @@ from chap_core.datatypes import FullData, HealthPopulationData, create_tsdatacla
 from chap_core.exceptions import ModelTemplateRevisionConflict
 from chap_core.geometry import Polygons
 from chap_core.rest_api.celery_tasks import (
+    JOB_METADATA_KW,
     JOB_NAME_KW,
     JOB_REQUEST_KW,
     JOB_TYPE_KW,
@@ -715,7 +716,11 @@ async def create_dataset(
         data.name,
         database_url=datababase_url,
         worker_config=worker_settings,
-        **{JOB_REQUEST_KW: original_request},
+        **{
+            JOB_REQUEST_KW: original_request,
+            JOB_TYPE_KW: JobType.DATASET,
+            JOB_NAME_KW: data.name,
+        },
     )
     return JobResponse(id=job.id)
 
@@ -1496,6 +1501,15 @@ async def run_prediction_setup(
         target_column=target_column,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
+        **{
+            JOB_REQUEST_KW: original_request,
+            JOB_TYPE_KW: JobType.PREDICTION,
+            JOB_NAME_KW: request.name,
+            JOB_METADATA_KW: {
+                "model_id": setup.configured_model_id,
+                "model_version": setup.configured_model.model_template.version,
+                "parameters": prediction_params.model_dump(mode="json", exclude={"model_id"}),
+            },
+        },
     )
     return JobResponse(id=job.id)

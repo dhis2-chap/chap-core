@@ -180,6 +180,10 @@ def test_list_jobs_includes_prediction_setup_id(monkeypatch):
     assert matching_job.prediction_setup_id == 12
     unmatched_job = next(job for job in jobs if job.id == "job-2")
     assert unmatched_job.prediction_setup_id is None
+    assert unmatched_job.model_id is None
+    assert unmatched_job.model_version is None
+    assert unmatched_job.dataset_id is None
+    assert unmatched_job.parameters == {}
 
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
