@@ -11,7 +11,7 @@ def builtin_template_config(spec: BuiltinModelSpec) -> ModelTemplateConfigV2:
     return ModelTemplateConfigV2(
         name=spec.name,
         version=spec.version,
-        source_url=f"{BUILTIN_SOURCE_PREFIX}{spec.name}",
+        source_url=f"{BUILTIN_SOURCE_PREFIX}{spec.name}@{spec.version}",
         supported_period_type=spec.supported_period_type,
         required_covariates=list(spec.required_covariates),
         meta_data=ModelTemplateMetaData(
@@ -51,7 +51,7 @@ class BuiltinConfiguredModel(ConfiguredModel):
 
 
 class BuiltinModelTemplate(ModelTemplate):
-    """Model template for a built-in model, resolved from the source URL ``builtin:<name>``."""
+    """Model template for a built-in model, resolved from the source URL ``builtin:<name>@<version>``."""
 
     def __init__(self, model_class: type[BuiltinModel]):
         super().__init__(builtin_template_config(model_class.spec), working_dir="")
@@ -59,7 +59,19 @@ class BuiltinModelTemplate(ModelTemplate):
 
     @classmethod
     def from_source_url(cls, source_url: str) -> "BuiltinModelTemplate":
-        return cls(get_builtin_model(source_url.removeprefix(BUILTIN_SOURCE_PREFIX)))
+        """Resolve ``builtin:<name>@<version>``, or ``builtin:<name>`` for the registered version.
+
+        Only the registered version's code exists, so a stored template of another
+        version cannot run: its results would be recorded under the wrong version.
+        """
+        name, _, version = source_url.removeprefix(BUILTIN_SOURCE_PREFIX).partition("@")
+        model_class = get_builtin_model(name)
+        if version and version != model_class.spec.version:
+            raise ValueError(
+                f"Built-in model {name!r} is at version {model_class.spec.version!r}, so version {version!r} "
+                "cannot be run. Use the configured model of the current version."
+            )
+        return cls(model_class)
 
     def get_model(  # type: ignore[override]
         self,

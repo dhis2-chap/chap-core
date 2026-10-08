@@ -57,6 +57,12 @@ def test_unknown_builtin_url_fails():
         ModelTemplate.from_directory_or_github_url("builtin:no_such_model")
 
 
+def test_builtin_url_resolves_the_registered_version_only():
+    assert ModelTemplate.from_directory_or_github_url("builtin:global_median@1").name == "global_median"
+    with pytest.raises(ValueError, match="version '0' cannot be run"):
+        ModelTemplate.from_directory_or_github_url("builtin:global_median@0")
+
+
 def test_global_median_samples_observations_of_the_same_location(health_population_data):
     train, test_generator = train_test_generator(health_population_data, prediction_length=3, n_test_sets=1)
     historic, future, _ = next(test_generator)
@@ -78,7 +84,7 @@ def test_global_median_is_seeded_as_baseline(engine):
         seed_builtin_models(session)
         template = session.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == "global_median")).one()
         assert template.role == ModelTemplateRole.baseline
-        assert template.source_url == "builtin:global_median"
+        assert template.source_url == "builtin:global_median@1"
         assert session.get_configured_model_by_name("global_median").model_template_id == template.id
 
 

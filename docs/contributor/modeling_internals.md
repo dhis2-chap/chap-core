@@ -79,7 +79,8 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
   `version` must change with any change to the model's output or spec) and is
   registered with `@builtin_model()`. `BuiltinModelTemplate` gives it the same
   interface as an MLproject or chapkit template, under the source URL
-  `builtin:<name>`, so it runs through `chap eval` and the REST backtest and
+  `builtin:<name>@<version>` (stored templates run only if the version matches
+  the code), so it runs through `chap eval` and the REST backtest and
   prediction paths alike (`chap eval --model-name builtin:global_median ...`).
   Every registered model is seeded at startup with its spec's role, and
   `tests/test_builtin_models.py` runs each one through all of these paths. The
