@@ -43,13 +43,13 @@ def engine_with_dataset(engine, weekly_full_data):
     return engine
 
 
-def _seasonal_median():
-    return ModelTemplate.from_directory_or_github_url("builtin:seasonal_median").get_model()()
+def _global_median():
+    return ModelTemplate.from_directory_or_github_url("builtin:global_median").get_model()()
 
 
 def test_registering_a_name_twice_fails():
-    with pytest.raises(ValueError, match="seasonal_median"):
-        builtin_model()(get_builtin_model("seasonal_median"))
+    with pytest.raises(ValueError, match="global_median"):
+        builtin_model()(get_builtin_model("global_median"))
 
 
 def test_unknown_builtin_url_fails():
@@ -57,40 +57,29 @@ def test_unknown_builtin_url_fails():
         ModelTemplate.from_directory_or_github_url("builtin:no_such_model")
 
 
-def test_seasonal_median_samples_observations_of_the_same_period_of_year(weekly_full_data):
-    train, test_generator = train_test_generator(weekly_full_data, prediction_length=3, n_test_sets=1)
-    historic, future, _ = next(test_generator)
-
-    forecasts = _seasonal_median().train(train).predict(historic, future)
-    repeated = _seasonal_median().train(train).predict(historic, future)
-
-    for location, samples in forecasts.items():
-        assert np.array_equal(samples.samples, repeated[location].samples)
-        assert samples.samples.shape == (3, 100)
-        observed = train[location]
-        weeks = np.array([period.week for period in observed.time_period])
-        for period, period_samples in zip(samples.time_period, samples.samples, strict=True):
-            same_week = observed.disease_cases[(weeks == period.week) & np.isfinite(observed.disease_cases)]
-            assert set(period_samples) <= set(same_week)
-
-
-def test_seasonal_median_fails_without_observations_for_a_period_of_year(health_population_data):
-    # The data starts in week 16 of 2023, so week 7 of 2024 has no earlier observation.
+def test_global_median_samples_observations_of_the_same_location(health_population_data):
     train, test_generator = train_test_generator(health_population_data, prediction_length=3, n_test_sets=1)
     historic, future, _ = next(test_generator)
 
-    with pytest.raises(ValueError, match="No observed disease_cases"):
-        _seasonal_median().train(train).predict(historic, future)
+    forecasts = _global_median().train(train).predict(historic, future)
+    repeated = _global_median().train(train).predict(historic, future)
+
+    assert set(forecasts.keys()) == set(future.keys())
+    for location, samples in forecasts.items():
+        assert np.array_equal(samples.samples, repeated[location].samples)
+        assert samples.samples.shape == (3, 100)
+        observed = train[location].disease_cases
+        assert set(samples.samples.ravel()) <= set(observed[np.isfinite(observed)])
 
 
-def test_seasonal_median_is_seeded_as_baseline(engine):
+def test_global_median_is_seeded_as_baseline(engine):
     with SessionWrapper(engine) as session:
         seed_builtin_models(session)
         seed_builtin_models(session)
-        template = session.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == "seasonal_median")).one()
+        template = session.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == "global_median")).one()
         assert template.role == ModelTemplateRole.baseline
-        assert template.source_url == "builtin:seasonal_median"
-        assert session.get_configured_model_by_name("seasonal_median").model_template_id == template.id
+        assert template.source_url == "builtin:global_median"
+        assert session.get_configured_model_by_name("global_median").model_template_id == template.id
 
 
 def test_unregistered_builtin_template_is_archived(engine):
@@ -168,4 +157,4 @@ def test_chap_report_rejects_builtin_models(tmp_path):
     datasets["hydromet_5_filtered"].load().to_csv(csv_path)
 
     with pytest.raises(ValueError, match="built-in"):
-        report(model_name="builtin:seasonal_median", dataset_csv=csv_path, out_file=tmp_path / "report.pdf")
+        report(model_name="builtin:global_median", dataset_csv=csv_path, out_file=tmp_path / "report.pdf")
