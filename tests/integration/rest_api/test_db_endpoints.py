@@ -1486,6 +1486,60 @@ def test_run_prediction_setup_inherits_the_backtest_provider(
     assert captured["prediction_params"].future_weather_provider == "damped_persistence"
 
 
+def test_run_prediction_setup_forecasts_the_backtest_target(
+    override_session, seeded_session, p_seeded_engine, example_polygons, monkeypatch
+):
+    from types import SimpleNamespace
+
+    from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW
+    from chap_core.rest_api.v1.routers import crud
+
+    backtest = seeded_session.exec(select(Backtest)).first()
+    backtest.model_db_id = seeded_session.exec(
+        select(ConfiguredModelDB.id).where(ConfiguredModelDB.name == "naive_model")
+    ).one()
+    backtest.specification = BacktestSpecification(
+        **backtest.specification.model_dump(exclude={"id"}) | {"target_column": "hospitalisations"}
+    )
+    seeded_session.commit()
+    setup_id = _create_prediction_setup(backtest.id, "Target forecast").json()["id"]
+
+    request = create_make_data_request(example_polygons, [], ["rainfall", "hospitalisations", "disease_cases"])
+    for observation in request.provided_data:
+        observation.value = 0.0 if observation.feature_name == "hospitalisations" else 1000.0
+        if observation.feature_name != "rainfall" and observation.period == "2020-01":
+            observation.value = None  # Target gaps must not reject otherwise valid locations.
+    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources"})
+    payload["nPeriods"] = 3
+
+    def run_inline(func, *args, **kwargs):
+        for key in ("database_url", JOB_TYPE_KW, JOB_NAME_KW, JOB_REQUEST_KW):
+            kwargs.pop(key)
+        kwargs["prediction_params"] = kwargs["prediction_params"].model_dump()
+        with SessionWrapper(p_seeded_engine) as session:
+            prediction_id = func(*args, session=session, **kwargs)
+        return SimpleNamespace(id=str(prediction_id))
+
+    monkeypatch.setattr(crud.worker, "queue_db", run_inline)
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    assert response.status_code == 200, response.text
+
+    prediction = seeded_session.get(Prediction, int(response.json()["id"]))
+    assert len(prediction.forecasts) == 3 * len(example_polygons.features)
+    # Training on hospitalisations (all zero) rather than disease_cases gives all-zero samples.
+    assert all(forecast.values and set(forecast.values) == {0.0} for forecast in prediction.forecasts)
+
+
+def test_run_prediction_setup_rejects_missing_target(override_session, seeded_session, example_polygons):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    setup_id = _create_prediction_setup(backtest.id, "Missing target").json()["id"]
+    request = create_make_data_request(example_polygons, [], ["rainfall"])
+    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources"})
+
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    assert response.status_code == 422, response.text
+
+
 def test_run_prediction_setup_rejects_a_look_ahead_provider(override_session, seeded_session, example_polygons):
     """`observed` reads the forecast window's own weather, so it cannot forecast ahead.
     Fail at the endpoint rather than deep inside the worker."""
