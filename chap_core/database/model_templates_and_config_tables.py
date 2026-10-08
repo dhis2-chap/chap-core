@@ -1,11 +1,12 @@
 import hashlib
 import json
 import logging
-from enum import Enum
+from enum import Enum, StrEnum
 
 import jsonschema
 from pydantic import AliasChoices, ConfigDict
 from sqlalchemy import JSON, Column, UniqueConstraint
+from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, Relationship, SQLModel
 
 from chap_core.database.base_tables import DBModel
@@ -45,6 +46,15 @@ class AuthorAssessedStatus(Enum):
     orange = "orange"  # Orange: Has seen promise on limited data, needs manual configuration and careful evaluation
     yellow = "yellow"  # Yellow: Ready for more rigorous testing
     green = "green"  # Green: Validated, ready for use
+
+
+class ModelTemplateRole(StrEnum):
+    """What a model template is used for as a reference. Ordinary models have no role."""
+
+    # Built into chap-core and run on backtest specifications as the bar any model should beat.
+    baseline = "baseline"
+    # A marketplace model flagged in its marketplace entry, compared against on request.
+    comparison = "comparison"
 
 
 class ModelTemplateMetaData(SQLModel):
@@ -148,11 +158,18 @@ class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, 
         default=False,
         description="When True, the template is served by a chapkit REST endpoint rather than an MLproject directory.",
     )
+    # Stored as a string column so adding a role needs no database enum type.
+    role: ModelTemplateRole | None = Field(
+        default=None,
+        sa_column=Column(SAEnum(ModelTemplateRole, native_enum=False, length=32), nullable=True),
+        description="'baseline' or 'comparison' for reference models, null for ordinary models.",
+    )
 
 
-# Identity and lifecycle fields. CHAP does not compare these fields for drift.
+# Identity and lifecycle fields. CHAP does not compare these fields for drift. The role
+# comes from the marketplace entry, not from the template source.
 _NON_CONTENT_TEMPLATE_FIELDS = frozenset(
-    {"id", "name", "version", "source_digest", "source_url", "is_live", "archived", "uses_chapkit"}
+    {"id", "name", "version", "source_digest", "source_url", "is_live", "archived", "uses_chapkit", "role"}
 )
 
 

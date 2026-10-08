@@ -67,6 +67,8 @@ class MarketplaceModel(BaseModel):
     id: str
     service_id: str
     kind: Literal["model", "template"]
+    # Flags the model as a comparison model that other models are compared against on request.
+    role: Literal["comparison"] | None = None
     display_name: str | None = None
     assessed_status: Literal["gray", "red", "orange", "yellow", "green"] | None = None
     summary: str | None = None

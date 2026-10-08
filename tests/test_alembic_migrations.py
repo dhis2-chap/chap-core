@@ -44,6 +44,7 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("modeltemplatedb", "archived"),
     ("modeltemplatedb", "source_digest"),
     ("modeltemplatedb", "is_live"),
+    ("modeltemplatedb", "role"),
     ("configuredmodeldb", "configuration_digest"),
     ("configuredmodeldb", "is_live"),
     ("prediction", "prediction_setup_id"),
@@ -319,6 +320,8 @@ class TestAlembicMigrations:
                 "UPDATE configuredmodeldb SET configuration_digest = ''",
                 "ALTER TABLE configuredmodeldb ADD COLUMN is_live BOOLEAN",
                 "UPDATE configuredmodeldb SET is_live = true",
+                "ALTER TABLE modeltemplatedb ADD COLUMN role VARCHAR(32)",
+                "UPDATE modeltemplatedb SET role = ''",
             ]:
                 conn.execute(sa.text(statement))
             _insert_legacy_backtest(conn)
@@ -375,11 +378,13 @@ class TestAlembicMigrations:
 
         with engine.connect() as conn:
             row = conn.execute(
-                sa.text("SELECT version, source_digest, is_live FROM modeltemplatedb WHERE name = 'legacy_model'")
+                sa.text("SELECT version, source_digest, is_live, role FROM modeltemplatedb WHERE name = 'legacy_model'")
             ).one()
             assert row.version == "legacy-unversioned"
             assert row.source_digest is None
             assert row.is_live is True
+            # An existing template is an ordinary model, not one with an empty role.
+            assert row.role is None
 
         constraints = {c["name"] for c in sa.inspect(engine).get_unique_constraints("modeltemplatedb")}
         assert "uq_modeltemplatedb_name_version" in constraints

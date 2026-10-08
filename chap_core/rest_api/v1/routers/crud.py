@@ -46,6 +46,7 @@ from chap_core.database.model_templates_and_config_tables import (
     ConfiguredModelDB,
     ModelConfiguration,
     ModelTemplateDB,
+    ModelTemplateRole,
     chapkit_revision_conflict,
 )
 from chap_core.database.tables import (
@@ -55,9 +56,10 @@ from chap_core.database.tables import (
     PredictionInfo,
     PredictionSetupRead,
     PredictionSetupReadWithPredictions,
+    is_not_baseline_backtest,
 )
 from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
-from chap_core.exceptions import ModelTemplateRevisionConflict
+from chap_core.exceptions import BaselineTemplateConflict, ModelTemplateRevisionConflict
 from chap_core.geometry import Polygons
 from chap_core.rest_api.celery_tasks import (
     JOB_NAME_KW,
@@ -177,6 +179,8 @@ def _sync_live_chapkit_services(
             continue
         try:
             add_model_template_from_registered_service(session, service)
+        except BaselineTemplateConflict as conflict:
+            logger.warning(str(conflict))
         except Exception:
             # Roll back so a failed database write does not poison the session for the
             # remaining services. A template version is write-once, so nothing incomplete
@@ -214,6 +218,17 @@ def _stored_template(session: Session, info: MLServiceInfo) -> ModelTemplateDB |
     ).first()
 
 
+def _is_baseline_name(session: Session, name: str) -> bool:
+    return (
+        session.exec(
+            select(ModelTemplateDB.id).where(
+                ModelTemplateDB.name == name, ModelTemplateDB.role == ModelTemplateRole.baseline
+            )
+        ).first()
+        is not None
+    )
+
+
 def _fetch_user_options(service_url: str) -> dict:
     from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
     from chap_core.models.external_chapkit_model import _parse_user_options_from_config_schema
@@ -231,10 +246,13 @@ def add_model_template_from_registered_service(session: Session, service) -> int
     What discovery does for a registered service; also an endpoint, so a service whose
     schema was unreachable when it was discovered can be stored on demand. The service
     must report a git revision, since a template without a digest could never run, and
-    a stored version must be the revision the service reports.
+    a stored version must be the revision the service reports. A service cannot use the
+    name of a built-in baseline, whatever its version.
     """
     from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config
 
+    if _is_baseline_name(session, service.info.id):
+        raise BaselineTemplateConflict(service.info.id)
     conflict = _registered_chapkit_revision_conflict(session, service.info)
     if conflict is not None:
         raise conflict
@@ -277,9 +295,10 @@ async def get_backtests(
     periods, regions) but not the raw forecasts — fetch those via
     ``/backtests/{id}/full`` only when you actually need them. Filter by
     ``specificationId`` to get the backtests that are comparable with each other, or by
-    ``datasetId`` for everything run against one dataset.
+    ``datasetId`` for everything run against one dataset. Backtests of built-in baseline
+    models are reference results and are not listed.
     """
-    query = select(Backtest).options(*_backtest_read_loads())
+    query = select(Backtest).where(is_not_baseline_backtest()).options(*_backtest_read_loads())
     if specification_id is not None:
         query = query.where(Backtest.specification_id == specification_id)
     if dataset_id is not None:
@@ -317,6 +336,7 @@ def get_backtest_specifications(
     """
     backtest_counts = (
         select(Backtest.specification_id, func.count(col(Backtest.id)).label("backtest_count"))
+        .where(is_not_baseline_backtest())
         .group_by(col(Backtest.specification_id))
         .subquery()
     )
@@ -354,7 +374,7 @@ def get_backtest_specification(
     This is the benchmark leaderboard: each backtest row is the ``BacktestRead`` shape
     with aggregate metrics, the configured model and its template, so a client can rank
     models without a request per backtest. Forecasts and per-org-unit metrics are not
-    included. 404 if the id is unknown.
+    included, and neither are backtests of built-in baseline models. 404 if the id is unknown.
     """
     specification = session.exec(
         select(BacktestSpecification)
@@ -365,7 +385,7 @@ def get_backtest_specification(
         raise HTTPException(status_code=404, detail="Backtest specification not found")
     backtests = session.exec(
         select(Backtest)
-        .where(Backtest.specification_id == specification_id)
+        .where(Backtest.specification_id == specification_id, is_not_baseline_backtest())
         .order_by(col(Backtest.created).desc().nulls_last(), col(Backtest.id).desc())
         .options(*_backtest_read_loads())
     ).all()
@@ -864,9 +884,11 @@ def add_model_template_from_service(
     This is how ``chap-admin install`` registers a model once its service is up, and how
     a custom image without a marketplace entry becomes a model in CHAP. A version is
     write-once, so repeating the call returns the stored row (and shows it again if it
-    was retired). The service must be registered in the v2 service registry and
+    was retired). The ``role`` from the model's marketplace entry is set on the stored
+    template on every call. The service must be registered in the v2 service registry and
     reachable. 404 if it is not registered, 409 if it reports no git revision or another
-    revision than the one stored under its version, 502 if it cannot be read.
+    revision than the one stored under its version, or uses the name of a built-in
+    baseline, 502 if it cannot be read.
     """
     try:
         service = orchestrator.get(request.service_id)
@@ -874,11 +896,15 @@ def add_model_template_from_service(
         raise HTTPException(status_code=404, detail=str(error)) from error
     try:
         template_id = add_model_template_from_registered_service(session, service)
-    except ModelTemplateRevisionConflict as conflict:
+    except (ModelTemplateRevisionConflict, BaselineTemplateConflict) as conflict:
         raise HTTPException(status_code=409, detail=str(conflict)) from conflict
     except Exception as error:
         raise HTTPException(status_code=502, detail=f"Could not read the service at {service.url}: {error}") from error
-    return ModelTemplateRead.model_validate(SessionWrapper(session=session).get_model_template(template_id))
+    template = SessionWrapper(session=session).get_model_template(template_id)
+    template.role = request.role
+    session.add(template)
+    session.commit()
+    return ModelTemplateRead.model_validate(template)
 
 
 @router.delete(
