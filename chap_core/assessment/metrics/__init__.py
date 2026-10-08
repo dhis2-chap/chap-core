@@ -25,6 +25,7 @@ from chap_core.assessment.metrics.base import (
     ProbabilisticMetric,
     TargetBehavior,
 )
+from chap_core.assessment.metrics.comparison import comparison_op, get_comparison_op, list_comparison_ops
 from chap_core.database.tables import Backtest
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,8 @@ def metric():
             raise TypeError(f"{cls} must be a class inheriting from Metric")
         if not hasattr(cls, "spec"):
             raise ValueError(f"{cls.__name__} missing 'spec' class attribute")
+        if cls.spec.comparison_op is not None:
+            get_comparison_op(cls.spec.comparison_op)
 
         _metrics_registry[cls.spec.metric_id] = cls
         return cls
@@ -72,6 +75,7 @@ def list_metrics() -> list[dict]:
                 "target": spec.target,
                 "target_behavior": spec.target_behavior.value,
                 "aggregation_op": spec.aggregation_op.value,
+                "comparison_op": spec.comparison_op,
                 "optimization_direction": (
                     spec.optimization_direction.value if spec.optimization_direction is not None else None
                 ),
@@ -110,7 +114,6 @@ from chap_core.assessment.metrics.outbreak_detection import (
     SensitivityMetric,
     SpecificityMetric,
 )
-from chap_core.assessment.metrics.peak_diff import PeakPeriodLagMetric, PeakValueDiffMetric
 from chap_core.assessment.metrics.percentile_coverage import (
     Coverage10_90Metric,
     Coverage25_75Metric,
@@ -144,8 +147,6 @@ __all__ = [
     "Metric",
     "MetricSpec",
     "OutbreakAccuracyMetric",
-    "PeakPeriodLagMetric",
-    "PeakValueDiffMetric",
     "PercentileCoverageMetric",
     "ProbabilisticMetric",
     "RMSEMetric",
@@ -159,8 +160,11 @@ __all__ = [
     "WinklerScoreLog1pMetric",
     "WinklerScoreMetric",
     "available_metrics",
+    "comparison_op",
+    "get_comparison_op",
     "get_metric",
     "get_metrics_registry",
+    "list_comparison_ops",
     "list_metrics",
     "metric",
 ]
