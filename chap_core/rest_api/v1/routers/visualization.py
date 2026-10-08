@@ -85,6 +85,15 @@ class MetricInfo(DBModel):
             "and ``target_behavior`` says how to judge a score against it."
         ),
     )
+    comparison_op: str | None = Field(
+        default=None,
+        description=(
+            "Name of the operator used to compare a score with a baseline or comparison model's score: "
+            "'skill_ratio' (relative improvement, 1 - score / reference for error scores), 'difference' "
+            "(improvement in the metric's own units) or 'target_distance' (how much closer to ``target``). "
+            "Positive always means better than the reference. Null when the metric has no comparison."
+        ),
+    )
 
 
 @router.get(
@@ -110,6 +119,7 @@ def get_available_metrics(backtest_id: int):
             target_behavior=metric_factory.spec.target_behavior,
             unit=metric_factory.spec.unit,
             target=metric_factory.spec.target,
+            comparison_op=metric_factory.spec.comparison_op,
         )
         for metric_id, metric_factory in available_metrics.items()
     ]
