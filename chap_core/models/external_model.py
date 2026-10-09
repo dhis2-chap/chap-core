@@ -352,7 +352,7 @@ class ExternalModel(ExternalModelBase):
         if not np.allclose(merged[f"{target}_x"], merged[f"{target}_y"], equal_nan=False):
             raise ModelFailedException(f"Simulation output changed observed values of '{target}'")
 
-    def simulate(self, covariates: DataSet) -> DataSet:
+    def simulate(self, covariates: DataSet) -> DataSet | None:
         """Simulate the target for every location and period in ``covariates`` using the model's simulate entry point.
 
         Rows that already have a value for the target are treated as observed history: the model must keep them and
@@ -380,10 +380,17 @@ class ExternalModel(ExternalModelBase):
         except CommandLineException as e:
             logger.error("Error simulating with model, command failed")
             raise ModelFailedException(str(e)) from e
+        except NotImplementedError as e:
+            raise InvalidModelException(f"Model '{self._name}' cannot simulate with this runner: {e}") from e
 
         self._runner.teardown()
 
+        if self._dry_run:
+            return None
+
         df = pd.read_csv(Path(self._working_dir) / output_file_name)
+        if self._location_mapping is not None:
+            df["location"] = df["location"].apply(self._location_mapping.index_to_name)
         target = self._model_information.target
         if target not in df.columns:
             raise ModelFailedException(f"Simulation output is missing the target column '{target}'")

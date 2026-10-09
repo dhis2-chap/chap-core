@@ -93,7 +93,25 @@ def test_simulate_cli_continues_from_previous_cases(models_path, covariates_csv,
     assert continued.disease_cases.tolist() == full.disease_cases.tolist()
 
 
-def test_simulate_rejects_output_that_changes_observed_cases(data_path, tmp_path):
+@pytest.fixture
+def mock_simulator(tmp_path):
+    def make(runner, dry_run=False):
+        command = CommandConfig(command="")
+        return ExternalModel(
+            runner,
+            name="mock_simulator",
+            working_dir=str(tmp_path),
+            model_information=ModelTemplateConfigV2(
+                name="mock_simulator",
+                entry_points=EntryPointConfig(train=command, predict=command, simulate=command),
+            ),
+            dry_run=dry_run,
+        )
+
+    return make
+
+
+def test_simulate_rejects_output_that_changes_observed_cases(mock_simulator, data_path, tmp_path):
     def overwrite_cases(covariates, output_file, polygons_file_name):
         df = pd.read_csv(tmp_path / covariates, index_col=0)
         df["disease_cases"] = 0
@@ -101,17 +119,21 @@ def test_simulate_rejects_output_that_changes_observed_cases(data_path, tmp_path
 
     runner = MagicMock()
     runner.simulate.side_effect = overwrite_cases
-    command = CommandConfig(command="")
-    model = ExternalModel(
-        runner,
-        name="overwriting_simulator",
-        working_dir=str(tmp_path),
-        model_information=ModelTemplateConfigV2(
-            name="overwriting_simulator",
-            entry_points=EntryPointConfig(train=command, predict=command, simulate=command),
-        ),
-    )
+    model = mock_simulator(runner)
     df = pd.read_csv(data_path / "laos_subset.csv")
     df.loc[df.time_period >= "2012-07", "disease_cases"] = np.nan
     with pytest.raises(ModelFailedException, match="changed observed values"):
         model.simulate(DataSet.from_pandas(df))
+
+
+def test_simulate_dry_run_returns_none(mock_simulator, covariates_csv):
+    model = mock_simulator(MagicMock(), dry_run=True)
+    assert model.simulate(DataSet.from_csv(covariates_csv)) is None
+
+
+def test_simulate_with_unsupported_runner_raises(mock_simulator, covariates_csv):
+    runner = MagicMock()
+    runner.simulate.side_effect = NotImplementedError("This runner does not support simulation")
+    model = mock_simulator(runner)
+    with pytest.raises(InvalidModelException, match="cannot simulate"):
+        model.simulate(DataSet.from_csv(covariates_csv))

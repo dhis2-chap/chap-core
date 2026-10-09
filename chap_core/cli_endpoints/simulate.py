@@ -51,6 +51,7 @@ def simulate(
     with template:
         model = template.get_model(configuration)  # type: ignore[arg-type]
         simulated = model().simulate(covariates)
+    assert simulated is not None
 
     simulated.to_csv(str(out_file))
     if simulated.polygons is not None:
