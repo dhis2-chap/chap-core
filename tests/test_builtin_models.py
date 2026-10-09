@@ -10,8 +10,8 @@ from chap_core.cli_endpoints.evaluate import eval_cmd
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo
-from chap_core.database.model_template_seed import seed_builtin_models
-from chap_core.database.model_templates_and_config_tables import ModelTemplateDB, ModelTemplateRole
+from chap_core.database.model_template_seed import add_configured_model, seed_builtin_models
+from chap_core.database.model_templates_and_config_tables import ModelConfiguration, ModelTemplateDB, ModelTemplateRole
 from chap_core.database.tables import Backtest
 from chap_core.datatypes import FullData
 from chap_core.external.ExtendedPredictor import ExtendedPredictor
@@ -66,7 +66,7 @@ def test_builtin_url_resolves_the_registered_version_only():
         ModelTemplate.from_directory_or_github_url("builtin:global_median@0")
 
 
-def test_global_median_samples_observations_of_the_same_location(health_population_data):
+def test_global_median_samples_span_observations_of_the_same_location(health_population_data):
     train, test_generator = train_test_generator(health_population_data, prediction_length=3, n_test_sets=1)
     historic, future, _ = next(test_generator)
 
@@ -78,7 +78,8 @@ def test_global_median_samples_observations_of_the_same_location(health_populati
         assert np.array_equal(samples.samples, repeated[location].samples)
         assert samples.samples.shape == (3, 100)
         observed = train[location].disease_cases
-        assert set(samples.samples.ravel()) <= set(observed[np.isfinite(observed)])
+        assert np.nanmin(observed) <= samples.samples.min() <= samples.samples.max() <= np.nanmax(observed)
+        assert np.all(samples.samples[:, 49] == np.nanmedian(observed))
 
 
 def test_global_median_is_seeded_as_baseline(engine):
@@ -189,6 +190,7 @@ def _forecast(name, train, historic, future):
 @pytest.mark.parametrize(
     ("name", "expected"),
     [
+        ("global_median", [[0.0, 18.0, 18.0, 196.303]] * 4),
         (
             "seasonal_median",
             [
@@ -216,7 +218,7 @@ def test_baseline_fixed_output(name, expected, weekly_split):
     np.testing.assert_allclose(samples[:, [0, 49, 50, 99]], expected, atol=1e-4)
 
 
-@pytest.mark.parametrize("name", ["seasonal_median", "persistence"])
+@pytest.mark.parametrize("name", ["global_median", "seasonal_median", "persistence"])
 def test_baseline_median_is_the_middle_sample(name, weekly_split):
     forecasts = _forecast(name, *weekly_split)
     for samples in forecasts.values():
@@ -272,3 +274,34 @@ def test_baselines_are_seeded_with_the_baseline_role(name, engine):
         seed_builtin_models(session)
         template = session.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == name)).one()
         assert template.role == ModelTemplateRole.baseline
+
+
+def test_named_configuration_of_a_builtin_model_runs_the_builtin_model(engine, weekly_split):
+    train, historic, future = weekly_split
+    with SessionWrapper(engine) as session:
+        seed_builtin_models(session)
+        template = session.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == "global_median")).one()
+        configured_model_id = add_configured_model(
+            template.id,
+            ModelConfiguration(additional_continuous_covariates=[], user_option_values={}),
+            "custom",
+            session,
+        )
+        model = session.get_configured_model_with_code(configured_model_id)
+        forecasts = model.train(train).predict(historic, future)
+    assert set(forecasts.keys()) == set(future.keys())
+
+
+def test_configuration_pinned_to_another_builtin_version_is_refused(engine):
+    with SessionWrapper(engine) as session:
+        template_id = session.add_or_update_model_template(
+            ModelTemplateDB(name="global_median", version="0", source_url="builtin:global_median@0")
+        )
+        configured_model_id = add_configured_model(
+            template_id,
+            ModelConfiguration(additional_continuous_covariates=[], user_option_values={}),
+            "default",
+            session,
+        )
+        with pytest.raises(ValueError, match="version '0' cannot be run"):
+            session.get_configured_model_with_code(configured_model_id)

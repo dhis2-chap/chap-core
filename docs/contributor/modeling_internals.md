@@ -92,9 +92,8 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
   - `persistence`: the last observed value, scaled by the changes over the same
     horizon and time of year in earlier years, so the spread widens with horizon.
 
-  `seasonal_median` and `persistence` use deterministic quantile samples whose
-  two middle values are both the median, so the sample median is exactly the
-  point forecast.
+  All three use deterministic quantile samples whose two middle values are both
+  the median, so the sample median is exactly the point forecast.
 - **`chap_core/feature_generators/seasonality_cluster.py`** and
   **`chap_core/plotting/season_plot.py`** — scikit-learn `KMeans` seasonality
   clustering (unsupervised).
