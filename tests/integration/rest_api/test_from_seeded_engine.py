@@ -194,19 +194,19 @@ def test_compute_thresholds_filters_by_locations(override_session):
 
 
 def test_compute_thresholds_fills_missing_combinations_with_null(override_session):
-    """Every requested (period, location) gets an entry, even without data to compute it from."""
+    """Every requested (period, location) gets an entry in request order, even without data."""
     body = {
         "dataset_id": 1,
-        "period_ids": ["2023-01", "2023-02"],
+        "period_ids": ["2023-02", "2023-01"],
         "params": {"type": "seasonal", "stdMultiplier": [1.0, 2.0]},
         "locations": ["loc_1", "loc_missing"],
     }
     response = client.post("/v1/analytics/thresholds", json=body)
     assert response.status_code == 200, response.json()
     entries = response.json()["entries"]
-    assert {(e["period"], e["location"]) for e in entries} == {
-        (period, location) for period in ("2023-01", "2023-02") for location in ("loc_1", "loc_missing")
-    }
+    assert [(e["period"], e["location"]) for e in entries] == [
+        (period, location) for period in ("2023-02", "2023-01") for location in ("loc_1", "loc_missing")
+    ]
     for entry in entries:
         assert len(entry["values"]) == 2
         if entry["location"] == "loc_missing":
