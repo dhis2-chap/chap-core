@@ -55,5 +55,8 @@ class TrainPredictRunner(abc.ABC):
     ):
         raise NotImplementedError("This runner does not support report generation")
 
+    def simulate(self, covariates: str, output_file: str, polygons_file_name: str | None = None):
+        raise NotImplementedError("This runner does not support simulation")
+
     def teardown(self):  # noqa: B027
         ...

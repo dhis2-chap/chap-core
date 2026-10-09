@@ -127,3 +127,21 @@ If the model has user options, declare `model_config: str` in the `report` param
 - `polygons.geojson` is not passed to `report`.
 
 Models without a `report` entry point are still valid — `chap report` will return an error message naming the model.
+
+## Simulate Entry Point
+
+A model may declare an optional `simulate` entry point that generates disease data from covariates alone. Chap passes it a CSV with the covariates for a set of locations and periods, and the script writes the same rows back with the target column (`disease_cases` by default) filled in. Users invoke it via the `chap simulate` CLI command, and the output can be passed straight to `chap eval`.
+
+```yaml
+entry_points:
+  simulate:
+    parameters:
+      covariates: str
+      out_file: str
+      model_config: str
+    command: "python simulator.py simulate {covariates} {out_file} {model_config}"
+```
+
+`model_config` is optional and is forwarded the same way as for `train`/`predict`, so simulation parameters can be declared as `user_options`. `{polygons}` is passed if the dataset has a GeoJSON file.
+
+`train` and `predict` are still required in `MLproject`. A simulation-only model can point them at a command that raises an error. See `tests/fixture_models/climate_simulation_model` for a minimal example.
