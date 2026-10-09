@@ -2,6 +2,7 @@ import logging
 import shutil
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
@@ -341,8 +342,23 @@ class ExternalModel(ExternalModelBase):
 
         self._runner.teardown()
 
+    @staticmethod
+    def _check_observed_values_kept(input_df: pd.DataFrame, output_df: pd.DataFrame, target: str) -> None:
+        if target not in input_df.columns:
+            return
+        keys = ["location", "time_period"]
+        observed = input_df.loc[input_df[target].notna(), [*keys, target]].astype({"time_period": str})
+        merged = observed.merge(output_df[[*keys, target]].astype({"time_period": str}), on=keys, how="left")
+        if not np.allclose(merged[f"{target}_x"], merged[f"{target}_y"], equal_nan=False):
+            raise ModelFailedException(f"Simulation output changed observed values of '{target}'")
+
     def simulate(self, covariates: DataSet) -> DataSet:
-        """Simulate the target for every location and period in ``covariates`` using the model's simulate entry point."""
+        """Simulate the target for every location and period in ``covariates`` using the model's simulate entry point.
+
+        Rows that already have a value for the target are treated as observed history: the model must keep them and
+        only fill in the missing rows. This lets a simulation be continued by passing its previous output with new
+        covariate rows appended.
+        """
         if self._model_information is None or self._model_information.entry_points is None:
             raise InvalidModelException("Model has no entry points configured; cannot simulate")
         if self._model_information.entry_points.simulate is None:
@@ -371,6 +387,9 @@ class ExternalModel(ExternalModelBase):
         target = self._model_information.target
         if target not in df.columns:
             raise ModelFailedException(f"Simulation output is missing the target column '{target}'")
+        if df[target].isna().any():
+            raise ModelFailedException(f"Simulation output has missing values in '{target}'")
+        self._check_observed_values_kept(covariates.to_pandas(), df, target)
         simulated: DataSet = DataSet.from_pandas(df)
         same_periods = [p.id for p in simulated.period_range] == [p.id for p in covariates.period_range]
         if set(simulated.locations()) != set(covariates.locations()) or not same_periods:

@@ -142,6 +142,10 @@ entry_points:
     command: "python simulator.py simulate {covariates} {out_file} {model_config}"
 ```
 
+### Continuing a simulation
+
+The covariate CSV may already contain the target for some rows, for example the output of last week's simulation with new covariate rows appended. Those rows are observed history: the model must leave them unchanged and simulate only the rows where the target is missing. Chap rejects output that changes an observed value or leaves a value missing.
+
 `model_config` is optional and is forwarded the same way as for `train`/`predict`, so simulation parameters can be declared as `user_options`. `{polygons}` is passed if the dataset has a GeoJSON file.
 
 `train` and `predict` are still required in `MLproject`. A simulation-only model can point them at a command that raises an error. See `tests/fixture_models/climate_simulation_model` for a minimal example.

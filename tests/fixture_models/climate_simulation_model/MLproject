@@ -14,12 +14,17 @@ user_options:
     title: rainfall_effect
     type: number
     default: 0.3
-    description: "Change in log expected cases per standard deviation of last period's rainfall"
+    description: "Change in log expected cases per 150 mm of last period's rainfall"
   temperature_effect:
     title: temperature_effect
     type: number
     default: 0.2
-    description: "Change in log expected cases per standard deviation of mean temperature"
+    description: "Change in log expected cases per 3 degrees of mean temperature above 25"
+  autoregressive_effect:
+    title: autoregressive_effect
+    type: number
+    default: 0.5
+    description: "Effect of last period's log cases (relative to the intercept) on log expected cases"
   location_sd:
     title: location_sd
     type: number
