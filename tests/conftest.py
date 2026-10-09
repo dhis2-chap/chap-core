@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+import yaml
 from sqlalchemy import create_engine
 from sqlmodel import SQLModel
 
@@ -182,6 +183,13 @@ def _cache_github_fetches():
 @pytest.fixture
 def data_path():
     return Path(__file__).parent.parent / "example_data"
+
+
+@pytest.fixture
+def marketplace_model():
+    # Registry schema v2 example from dhis2-chap/model-marketplace.
+    path = Path(__file__).parent / "fixtures/marketplace/chapkit_simple_multistep_model.yaml"
+    return yaml.safe_load(path.read_text())
 
 
 @pytest.fixture
