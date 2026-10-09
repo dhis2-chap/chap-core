@@ -91,12 +91,14 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
         predict_command: str,
         model_configuration_filename: str | None = None,
         report_command: str | None = None,
+        simulate_command: str | None = None,
     ):
         self._runner = runner
         self._train_command = train_command
         self._predict_command = predict_command
         self._model_configuration_filename = model_configuration_filename
         self._report_command = report_command
+        self._simulate_command = simulate_command
 
     def _format_command(self, command, keys):
         try:
@@ -154,5 +156,15 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
         keys = self._handle_polygons(self._report_command, keys, polygons_file_name)
         keys = self._handle_config(self._report_command, keys)
         command = self._format_command(self._report_command, keys)
+        logger.debug(f"Running command {command}")
+        return self._runner.run_command(command)
+
+    def simulate(self, covariates, output_file, polygons_file_name=None):
+        if self._simulate_command is None:
+            raise NotImplementedError("This runner does not support simulation")
+        keys = {"covariates": covariates, "out_file": output_file}
+        keys = self._handle_polygons(self._simulate_command, keys, polygons_file_name)
+        keys = self._handle_config(self._simulate_command, keys)
+        command = self._format_command(self._simulate_command, keys)
         logger.debug(f"Running command {command}")
         return self._runner.run_command(command)
