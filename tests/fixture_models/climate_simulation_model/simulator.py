@@ -35,7 +35,7 @@ def simulate_location(df: pd.DataFrame, location: str, params: dict) -> pd.Serie
     location_effect = rng_for(seed, location).normal(0.0, float(params["location_sd"]))
     rainfall = df["rainfall"].to_numpy() / RAINFALL_SCALE
     temperature = (df["mean_temperature"].to_numpy() - TEMPERATURE_REFERENCE) / TEMPERATURE_SCALE
-    cases = df["disease_cases"].to_numpy(dtype=float)
+    cases = np.array(df["disease_cases"], dtype=float)
     for t in range(len(df)):
         if not np.isnan(cases[t]):
             continue
