@@ -38,7 +38,7 @@ def _help_text(annotation) -> str:
 @pytest.mark.parametrize(
     ("alias", "expected_substring"),
     [
-        (ModelNameArg, "Model path (local directory), GitHub URL, or chapkit service URL"),
+        (ModelNameArg, "Model path (local directory), GitHub URL, chapkit service URL, or built-in model"),
         (DatasetCsvArg, "Path or URL to CSV file"),
         (RunConfigArg, "Model execution configuration"),
         (BacktestParamsArg, "Backtest configuration"),
@@ -53,16 +53,16 @@ def test_alias_help_strings(alias, expected_substring):
 @pytest.mark.parametrize(
     ("command", "param_name", "expected_substring"),
     [
-        (eval_cmd, "model_name", "GitHub URL, or chapkit service URL"),
+        (eval_cmd, "model_name", "GitHub URL, chapkit service URL, or built-in model"),
         (eval_cmd, "dataset_csv", "Path or URL to CSV file"),
         (eval_cmd, "run_config", "Model execution configuration"),
         (eval_cmd, "backtest_params", "Backtest configuration"),
-        (causal_cmd, "model_name", "GitHub URL, or chapkit service URL"),
+        (causal_cmd, "model_name", "GitHub URL, chapkit service URL, or built-in model"),
         (causal_cmd, "dataset_csv", "Path or URL to CSV file"),
         (validate_cmd, "dataset_csv", "Path or URL to CSV file"),
-        (explain_lime, "model_name", "GitHub URL, or chapkit service URL"),
+        (explain_lime, "model_name", "GitHub URL, chapkit service URL, or built-in model"),
         (explain_lime, "dataset_csv", "Path or URL to CSV file"),
-        (report, "model_name", "GitHub URL, or chapkit service URL"),
+        (report, "model_name", "GitHub URL, chapkit service URL, or built-in model"),
         (report, "dataset_csv", "Path or URL to CSV file"),
     ],
 )
