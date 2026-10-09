@@ -32,7 +32,7 @@ The output is a regular Chap dataset and can be used with `chap eval`. See [Addi
 
 ```console
 chap simulate \
-    --model-name tests/fixture_models/climate_simulation_model \
+    --model-name https://github.com/chap-models/climate_simulation_model \
     --dataset-csv ./covariates.csv \
     --out-file ./simulated.csv
 ```
