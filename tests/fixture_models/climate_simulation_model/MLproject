@@ -1,0 +1,57 @@
+name: climate_simulation_model
+
+required_covariates:
+  - rainfall
+  - mean_temperature
+
+user_options:
+  intercept:
+    title: intercept
+    type: number
+    default: 2.0
+    description: "Log of the baseline expected cases per period"
+  rainfall_effect:
+    title: rainfall_effect
+    type: number
+    default: 0.3
+    description: "Change in log expected cases per 150 mm of last period's rainfall"
+  temperature_effect:
+    title: temperature_effect
+    type: number
+    default: 0.2
+    description: "Change in log expected cases per 3 degrees of mean temperature above 25"
+  autoregressive_effect:
+    title: autoregressive_effect
+    type: number
+    default: 0.5
+    description: "Effect of last period's log cases (relative to the intercept) on log expected cases"
+  location_sd:
+    title: location_sd
+    type: number
+    default: 0.5
+    description: "Standard deviation of the per-location random effect on log expected cases"
+  seed:
+    title: seed
+    type: integer
+    default: 0
+    description: "Random seed"
+
+entry_points:
+  train:
+    parameters:
+      train_data: str
+      model: str
+    command: "python simulator.py train {train_data} {model}"
+  predict:
+    parameters:
+      historic_data: str
+      future_data: str
+      model: str
+      out_file: str
+    command: "python simulator.py predict {model} {historic_data} {future_data} {out_file}"
+  simulate:
+    parameters:
+      covariates: str
+      out_file: str
+      model_config: str
+    command: "python simulator.py simulate {covariates} {out_file} {model_config}"

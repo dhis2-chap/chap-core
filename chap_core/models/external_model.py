@@ -2,6 +2,7 @@ import logging
 import shutil
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
@@ -340,3 +341,66 @@ class ExternalModel(ExternalModelBase):
         shutil.copyfile(Path(self._working_dir) / report_filename, out_file)
 
         self._runner.teardown()
+
+    @staticmethod
+    def _check_observed_values_kept(input_df: pd.DataFrame, output_df: pd.DataFrame, target: str) -> None:
+        if target not in input_df.columns:
+            return
+        keys = ["location", "time_period"]
+        observed = input_df.loc[input_df[target].notna(), [*keys, target]].astype({"time_period": str})
+        merged = observed.merge(output_df[[*keys, target]].astype({"time_period": str}), on=keys, how="left")
+        if not np.allclose(merged[f"{target}_x"], merged[f"{target}_y"], equal_nan=False):
+            raise ModelFailedException(f"Simulation output changed observed values of '{target}'")
+
+    def simulate(self, covariates: DataSet) -> DataSet | None:
+        """Simulate the target for every location and period in ``covariates`` using the model's simulate entry point.
+
+        Rows that already have a value for the target are treated as observed history: the model must keep them and
+        only fill in the missing rows. This lets a simulation be continued by passing its previous output with new
+        covariate rows appended.
+        """
+        if self._model_information is None or self._model_information.entry_points is None:
+            raise InvalidModelException("Model has no entry points configured; cannot simulate")
+        if self._model_information.entry_points.simulate is None:
+            raise InvalidModelException(f"Model '{self._name}' does not define a 'simulate' entry point")
+
+        covariates = self._apply_generated_features(covariates)
+        polygons_file_name = None
+        if covariates.polygons is not None:
+            polygons_file_name = "polygons.geojson"
+            self._write_polygons_to_geojson(covariates, Path(self._working_dir) / polygons_file_name)
+
+        covariates_file_name = "simulation_covariates.csv"
+        adapted = self._adapt_data(covariates.to_pandas(), frequency=self._get_frequency(covariates))
+        adapted.to_csv(Path(self._working_dir) / covariates_file_name)
+
+        output_file_name = "simulated_data.csv"
+        try:
+            self._runner.simulate(covariates_file_name, output_file_name, polygons_file_name)
+        except CommandLineException as e:
+            logger.error("Error simulating with model, command failed")
+            raise ModelFailedException(str(e)) from e
+        except NotImplementedError as e:
+            raise InvalidModelException(f"Model '{self._name}' cannot simulate with this runner: {e}") from e
+
+        self._runner.teardown()
+
+        if self._dry_run:
+            return None
+
+        df = pd.read_csv(Path(self._working_dir) / output_file_name)
+        if self._location_mapping is not None:
+            df["location"] = df["location"].apply(self._location_mapping.index_to_name)
+        target = self._model_information.target
+        if target not in df.columns:
+            raise ModelFailedException(f"Simulation output is missing the target column '{target}'")
+        if df[target].isna().any():
+            raise ModelFailedException(f"Simulation output has missing values in '{target}'")
+        self._check_observed_values_kept(covariates.to_pandas(), df, target)
+        simulated: DataSet = DataSet.from_pandas(df)
+        same_periods = [p.id for p in simulated.period_range] == [p.id for p in covariates.period_range]
+        if set(simulated.locations()) != set(covariates.locations()) or not same_periods:
+            raise ModelFailedException("Simulation output does not cover the same locations and periods as the input")
+        if covariates.polygons is not None:
+            simulated.set_polygons(covariates.polygons)
+        return simulated
