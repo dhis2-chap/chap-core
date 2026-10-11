@@ -376,7 +376,7 @@ def _register_service(
                 "report the commit they were built from."
             )
         time.sleep(2)
-    template = api.create_model_template_from_service(registered[0]["id"])
+    template = api.create_model_template_from_service(registered[0]["id"], None if pin is None else pin.entry.role)
     if pin is None:
         requests = [{"name": "default", "model_template_id": template["id"], "user_option_values": {}}]
     else:

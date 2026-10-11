@@ -27,7 +27,13 @@ from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet as DataSetTable
 from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
-from chap_core.database.tables import Backtest, BacktestForecast, BacktestSpecification, Prediction
+from chap_core.database.tables import (
+    Backtest,
+    BacktestForecast,
+    BacktestSpecification,
+    Prediction,
+    is_not_baseline_backtest,
+)
 from chap_core.datatypes import create_tsdataclass
 from chap_core.services.dataset_validation import RESERVED_FIELDS
 from chap_core.spatio_temporal_data.converters import observations_to_dataframe, observations_to_dataset
@@ -265,6 +271,7 @@ def get_compatible_backtests(
         .where(
             Backtest.id != backtest_id,
             BacktestSpecification.target_column == backtest.specification.target_column,
+            is_not_baseline_backtest(),
         )
     ).all()
     ids = [bt_id for bt_id, o, s in res if set(o) & org_units and set(s) & split_periods]

@@ -456,3 +456,29 @@ def test_runner_selection_with_conda_env(tmp_path):
     )
     runner = get_train_predict_runner_from_model_template_config(config, tmp_path)
     assert isinstance(runner, CondaTrainPredictRunner)
+
+
+def test_command_line_runner_simulate_formats_command():
+    with patch.object(CommandLineRunner, "run_command") as mock_run:
+        from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner
+
+        runner = CommandLineTrainPredictRunner(
+            CommandLineRunner(Path(".")),
+            train_command="python train.py {train_data} {model}",
+            predict_command="python predict.py {model} {historic_data} {future_data} {out_file}",
+            simulate_command="python simulate.py {covariates} {out_file}",
+        )
+        runner.simulate("covariates.csv", "simulated.csv")
+        mock_run.assert_called_once_with("python simulate.py covariates.csv simulated.csv")
+
+
+def test_command_line_runner_simulate_raises_when_no_command():
+    from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner
+
+    runner = CommandLineTrainPredictRunner(
+        CommandLineRunner(Path(".")),
+        train_command="python train.py {train_data} {model}",
+        predict_command="python predict.py {model} {historic_data} {future_data} {out_file}",
+    )
+    with pytest.raises(NotImplementedError):
+        runner.simulate("covariates.csv", "simulated.csv")

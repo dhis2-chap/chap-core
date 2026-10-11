@@ -135,14 +135,15 @@ spec = MetricSpec(
     unit=None,                          # Display suffix for the raw score, e.g. "%"
     target=None,                        # Ideal raw value when neither direction is better, e.g. 0.8
     target_behavior=TargetBehavior.CLOSEST,  # CLOSEST or AT_LEAST, only used with a target
+    comparison_op=None,                 # "skill_ratio", "difference", "target_distance" or None
 )
 ```
 
 The metric catalogue API returns `unit`, `target` and `target_behavior` alongside
 the optimization direction. A metric with `optimization_direction=None` should set
 a `target`, and `target_behavior` tells clients how to judge a score against it:
-`CLOSEST` means deviating in either direction is worse (ratio above truth, peak
-difference), while `AT_LEAST` means higher is better up to the target and flat
+`CLOSEST` means deviating in either direction is worse (ratio above truth),
+while `AT_LEAST` means higher is better up to the target and flat
 above it, so only scores below the target should be flagged as bad (coverage
 metrics). Units do not rescale scores: MAPE is already a percentage, while
 coverage targets use fractions such as `0.8`.
@@ -156,6 +157,31 @@ proper scoring rules with an explicit direction. The outbreak metrics keep `MAXI
 so clients colour high scores as good, but HPO rejects them, since sensitivity is
 maximised by always alerting and specificity by never alerting. MAPE is rejected for
 the same reason: it is minimised by systematically under-forecasting.
+
+### Comparing with a reference model
+
+`comparison_op` names how a score is compared with the score of a reference model
+(a baseline or comparison model) on the same data. All operators return a positive
+value when the model is better than the reference:
+
+- `skill_ratio`: relative improvement, `1 - score / reference` for error scores such
+  as CRPS, MAE and Winkler scores. NaN when the reference score is 0.
+- `difference`: improvement in the metric's own units, for rates such as sensitivity.
+- `target_distance`: how much closer to `target` the model is, using `target_behavior`.
+  With `AT_LEAST`, scores above the target count as on target.
+
+`skill_ratio` and `difference` need an `optimization_direction`, and `target_distance`
+needs a `target`. Leave `comparison_op=None` if the metric has no meaningful comparison.
+
+`metric.compare(score, reference_score)` applies the operator, and
+`metric.get_comparison(observations, forecasts, reference_forecasts, dimensions)`
+scores both models on the forecast cells they share, aggregates each with the
+metric's own `aggregation_op` and then compares, so a ratio of RMSEs is computed from
+the two aggregated RMSEs rather than averaged per cell.
+
+To add an operator, register a function `fn(score, reference_score, spec) -> float` with
+`@comparison_op("name")` from `chap_core.assessment.metrics.comparison`. A metric whose
+comparison does not fit any operator can instead override `compare()`.
 
 ## Complete Examples
 

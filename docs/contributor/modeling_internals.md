@@ -70,10 +70,22 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
 - **`chap_core/predictor/poisson.py`, `chap_core/predictor/naive_predictor.py`** —
   scikit-learn `PoissonRegressor` baselines (including a per-location, lagged-cases +
   one-hot-season variant). Mostly used in tests and example models.
-- **`chap_core/predictor/naive_estimator.py`** — `NaiveEstimator`, the only built-in
-  model wired into the live system: the database special-cases the configured model
-  named `naive_model` and returns it as a fast, R-free stand-in. It predicts the
-  per-location mean and draws Poisson samples — barely ML (essentially a statistic).
+- **`chap_core/predictor/naive_estimator.py`** — `NaiveEstimator`: the database
+  special-cases the configured model named `naive_model` and returns it as a fast,
+  R-free stand-in. It predicts the per-location mean and draws Poisson samples —
+  barely ML (essentially a statistic).
+- **`chap_core/models/builtin/`** — built-in models: Python models that run
+  in-process. A model subclasses `BuiltinModel`, sets a `BuiltinModelSpec` (whose
+  `version` must change with any change to the model's output or spec) and is
+  registered with `@builtin_model()`. `BuiltinModelTemplate` gives it the same
+  interface as an MLproject or chapkit template, under the source URL
+  `builtin:<name>@<version>` (stored templates run only if the version matches
+  the code), so it runs through `chap eval` and the REST backtest and
+  prediction paths alike (`chap eval --model-name builtin:global_median ...`).
+  Every registered model is seeded at startup with its spec's role, and
+  `tests/test_builtin_models.py` runs each one through all of these paths. The
+  first is `global_median`, a baseline that uses all past observations for the
+  same location as forecast samples for every period.
 - **`chap_core/feature_generators/seasonality_cluster.py`** and
   **`chap_core/plotting/season_plot.py`** — scikit-learn `KMeans` seasonality
   clustering (unsupervised).
@@ -101,7 +113,7 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
 - **`chap_core/assessment/metrics/`** — the scoring metrics, all hand-implemented on
   numpy: a from-scratch order-statistic **CRPS** estimator, Winkler interval scores,
   MAE / RMSE / MAPE, percentile-coverage calibration, outbreak-detection
-  sensitivity/specificity, and peak-timing diff. This is substantive statistical
+  sensitivity/specificity. This is substantive statistical
   code and the busiest ML-adjacent surface (the REST worker, the REST API router, the
   CLI, and HPO all route through it) — but it is *scoring*, not learning. See
   [Evaluation pipeline](evaluation_pipeline.md) and

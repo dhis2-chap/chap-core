@@ -284,6 +284,28 @@ def test_eval_cmd_asks_the_template_for_the_backtest_horizon(tmp_path):
     assert get_estimator_mock.call_args.kwargs["prediction_length"] == 7
 
 
+def test_eval_cmd_forwards_as_chapkit(tmp_path):
+    """--run-config.as-chapkit reaches template resolution."""
+    from chap_core.api_types import BacktestParams, RunConfig
+
+    fake_estimator = _make_fake_estimator(min_prediction_periods=1, max_prediction_periods=12)
+    stack, _ = _patched_eval_chain(fake_estimator)
+    with stack:
+        with patch("chap_core.models.model_template.ModelTemplate") as mt_mock:
+            template_cm = mt_mock.from_directory_or_github_url.return_value
+            template_cm.__enter__.return_value = template_cm
+            template_cm.__exit__.return_value = False
+            eval_cmd(
+                model_name="dummy",
+                dataset_csv="dummy.csv",
+                output_file=tmp_path / "out.nc",
+                backtest_params=BacktestParams(n_periods=3, n_splits=2, stride=1),
+                run_config=RunConfig(as_chapkit=True),
+            )
+
+    assert mt_mock.from_directory_or_github_url.call_args.kwargs["as_chapkit"] is True
+
+
 def _valid_and_nan_region_dataset():
     """A dataset with one region that has usable disease_cases and one whose values are entirely NaN."""
     import numpy as np
