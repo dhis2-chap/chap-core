@@ -139,9 +139,11 @@ def test_install_and_update_register_the_model_and_preserve_settings_and_data(
     assert [(t["name"], t["version"], t["sourceDigest"]) for t in chap.templates] == [
         (marketplace_model["service_id"], "0.1.0", marketplace_model["versions"][0]["commit"])
     ]
-    assert ("POST", "/v1/crud/model-templates/from-service", {"service_id": marketplace_model["service_id"]}) in (
-        chap.requests
-    )
+    assert (
+        "POST",
+        "/v1/crud/model-templates/from-service",
+        {"service_id": marketplace_model["service_id"], "role": None},
+    ) in chap.requests
     assert [(m["name"], m["modelTemplateId"]) for m in chap.configured_models] == [
         ("monthly_climate", 1),
         ("monthly_selfhistory", 1),
@@ -261,6 +263,16 @@ def test_entry_without_configurations_gets_a_default_one(marketplace_model, mark
     ]
     install(marketplace_model["id"])
     assert [m["name"] for m in model_deployment.chap.configured_models] == ["default"]
+
+
+def test_install_passes_the_comparison_role_from_the_entry(marketplace_model, model_deployment):
+    marketplace_model["role"] = "comparison"
+    install(marketplace_model["id"])
+    assert (
+        "POST",
+        "/v1/crud/model-templates/from-service",
+        {"service_id": marketplace_model["service_id"], "role": "comparison"},
+    ) in model_deployment.chap.requests
 
 
 def test_install_uses_the_configured_chap_url_and_token(marketplace_model, model_deployment, monkeypatch):

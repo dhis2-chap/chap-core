@@ -284,13 +284,6 @@ if __name__ == "__main__":
                 plot_type: metric_by_time_location_mean
             - text:
                 value: "Detailed RMSE by time period and location mean."
-        - row:
-            - plot:
-                type: metric
-                metric: peak_value_diff
-                plot_type: metric_by_time_location_mean
-            - text:
-                value: "Peak Value Difference by time period and location mean."
     """
 
     # 🔹 Pass flat_observations and flat_forecasts directly

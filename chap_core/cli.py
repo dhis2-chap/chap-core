@@ -22,6 +22,7 @@ from chap_core.cli_endpoints import (
     model,
     preference_learn,
     report,
+    simulate,
     utils,
     validate,
 )
@@ -44,6 +45,7 @@ forecast.register_commands(app)
 model.register_commands(app)
 preference_learn.register_commands(app)
 report.register_commands(app)
+simulate.register_commands(app)
 utils.register_commands(app)
 validate.register_commands(app)
 generate_modelcard.register_commands(app)

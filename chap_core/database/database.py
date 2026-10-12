@@ -540,7 +540,7 @@ class SessionWrapper:
             logger.info(f"configured_model: {configured_model}")
             return template.get_model(configured_model, prediction_length=prediction_length)  # type: ignore[arg-type, return-value]
         else:
-            logger.info(f"Assuming github model at {configured_model.model_template.source_url}")
+            logger.info(f"Loading model from {configured_model.model_template.source_url}")
             return cast(
                 "ConfiguredModel",
                 ModelTemplate.from_directory_or_github_url(

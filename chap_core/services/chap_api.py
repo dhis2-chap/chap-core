@@ -48,8 +48,10 @@ class ChapApi:
     def model_templates(self) -> list[dict[str, Any]]:
         return cast("list[dict[str, Any]]", self._call("GET", "/v1/crud/model-templates"))
 
-    def create_model_template_from_service(self, service_id: str) -> dict[str, Any]:
-        response = self._call("POST", "/v1/crud/model-templates/from-service", json={"service_id": service_id})
+    def create_model_template_from_service(self, service_id: str, role: str | None = None) -> dict[str, Any]:
+        response = self._call(
+            "POST", "/v1/crud/model-templates/from-service", json={"service_id": service_id, "role": role}
+        )
         return cast("dict[str, Any]", response)
 
     def archive_model_template(self, model_template_id: int, all_versions: bool = False) -> None:
