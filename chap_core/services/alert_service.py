@@ -61,7 +61,11 @@ def raise_alerts_for_prediction(session: Session, prediction_id: int) -> list[Al
             thresholds = threshold_service.compute_thresholds(
                 session, prediction.dataset_id, periods, level.threshold_params, locations, target_column
             ).set_index(["location", "period_id"])["threshold"]
-        except (threshold_service.NoObservationsError, threshold_service.InvalidThresholdInputError):
+        except (
+            threshold_service.NoObservationsError,
+            threshold_service.InvalidThresholdInputError,
+            threshold_service.UnknownStrategyError,
+        ):
             logger.warning(
                 "Skipping alert level %r for prediction %s: threshold computation failed",
                 level.name,

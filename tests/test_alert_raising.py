@@ -6,6 +6,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
+from chap_core.assessment.thresholds import get_threshold_strategy
 from chap_core.assessment.thresholds.params import SeasonalParams
 from chap_core.database.alert_tables import Alert, AlertApproval
 from chap_core.database.database import SessionWrapper
@@ -95,6 +96,23 @@ def test_strategy_failure_does_not_prevent_other_levels(alert_prediction, caplog
             alerts = raise_alerts_for_prediction(session, prediction.id)
     assert [a.level for a in alerts] == ["monitor", "monitor"]
     assert "threshold computation failed" in caplog.text
+
+
+def test_unregistered_strategy_does_not_prevent_other_levels(alert_prediction):
+    session, prediction = alert_prediction
+    policy = prediction.prediction_setup.alert_policy
+    policy.levels = [
+        policy.levels[0],
+        policy.levels[1].model_copy(update={"threshold_params": SeasonalParams(type="seasonal")}),
+    ]
+    session.commit()
+    registered = get_threshold_strategy
+    with patch(
+        "chap_core.services.threshold_service.get_threshold_strategy",
+        side_effect=lambda name: None if name == "seasonal" else registered(name),
+    ):
+        alerts = raise_alerts_for_prediction(session, prediction.id)
+    assert [a.level for a in alerts] == ["monitor", "monitor"]
 
 
 def _run_prediction(session, original):
