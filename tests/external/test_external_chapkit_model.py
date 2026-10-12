@@ -1,3 +1,4 @@
+import os
 import time
 from unittest.mock import patch
 
@@ -112,6 +113,15 @@ class TestFindAvailablePort:
             with pytest.raises(ChapkitServiceStartupError):
                 find_available_port(start_port=10000, max_attempts=5)
 
+    def test_default_range_skips_8000(self):
+        with patch("socket.socket") as mock_socket:
+            mock_instance = mock_socket.return_value.__enter__.return_value
+            mock_instance.bind.side_effect = OSError
+            with pytest.raises(ChapkitServiceStartupError, match="8001-8099"):
+                find_available_port()
+        tried = [call.args[0][1] for call in mock_instance.bind.call_args_list]
+        assert tried == list(range(8001, 8100))
+
 
 class TestChapkitServiceManager:
     def test_validates_nonexistent_directory(self, tmp_path):
@@ -145,12 +155,91 @@ class TestChapkitServiceManager:
                 assert "AFTER_INVALID_BYTES" in manager.recent_output()
                 assert httpx.get(manager.url + "/health", timeout=2).status_code == 200
 
+    def test_custom_command_and_env(self, tmp_path, fake_chapkit_service):
+        env = {"PATH": os.environ["PATH"], "MARKER": "1"}
+        with fake_chapkit_service("flood") as popen:
+            with ChapkitServiceManager(str(tmp_path), command=["chapkit", "mlproject", "run", "."], env=env):
+                pass
+        command = popen.call_args.args[0]
+        assert command[:4] == ["chapkit", "mlproject", "run", "."]
+        assert "--port" in command
+        assert popen.call_args.kwargs["env"] == env
+
     def test_death_during_startup_reports_output(self, tmp_path, fake_chapkit_service):
         with fake_chapkit_service("die"):
             with pytest.raises(ChapkitServiceStartupError, match="died during startup") as exc_info:
                 with ChapkitServiceManager(str(tmp_path), startup_timeout=15):
                     pass
         assert "fake service refused to start" in str(exc_info.value)
+
+    def test_retries_on_another_port_when_auto_port_is_taken(self, tmp_path, fake_chapkit_service):
+        with fake_chapkit_service("port_in_use", "port_in_use", "flood") as popen:
+            with ChapkitServiceManager(str(tmp_path), startup_timeout=15) as manager:
+                assert httpx.get(manager.url + "/health", timeout=2).status_code == 200
+        assert popen.call_count == 3
+
+    def test_does_not_accept_another_service_on_the_same_port(self, tmp_path, fake_chapkit_service):
+        # The second launch is handed the first service's port, as when two runs pick the
+        # same free port at once, and only reports the clash after a delay. During that
+        # delay the port answers /health from the first service.
+        with fake_chapkit_service("flood", "slow_port_in_use", "flood"):
+            with ChapkitServiceManager(str(tmp_path), startup_timeout=15, require_listening_line=True) as first:
+                taken_port = first.port
+                assert taken_port is not None
+                with patch(
+                    "chap_core.models.chapkit_service_manager.find_available_port",
+                    side_effect=[taken_port, find_available_port(start_port=taken_port + 1)],
+                ):
+                    with ChapkitServiceManager(
+                        str(tmp_path), startup_timeout=15, require_listening_line=True
+                    ) as second:
+                        assert second.port != taken_port
+
+    def test_healthy_service_that_never_reports_listening_times_out(self, tmp_path, fake_chapkit_service):
+        with fake_chapkit_service("silent"):
+            with pytest.raises(ChapkitServiceStartupError, match="never reported that it was listening"):
+                with ChapkitServiceManager(str(tmp_path), startup_timeout=3, require_listening_line=True):
+                    pass
+
+    def test_healthy_service_is_enough_without_listening_requirement(self, tmp_path, fake_chapkit_service):
+        with fake_chapkit_service("silent"):
+            with ChapkitServiceManager(str(tmp_path), startup_timeout=15) as manager:
+                assert httpx.get(manager.url + "/health", timeout=2).status_code == 200
+
+    def test_listening_line_with_colour_codes_is_recognised(self, tmp_path, fake_chapkit_service):
+        with fake_chapkit_service("colored"):
+            with ChapkitServiceManager(str(tmp_path), startup_timeout=15, require_listening_line=True) as manager:
+                assert httpx.get(manager.url + "/health", timeout=2).status_code == 200
+
+    def test_timeout_is_not_retried_even_if_output_mentions_port_in_use(self, tmp_path, fake_chapkit_service):
+        with fake_chapkit_service("noisy_starting", "flood") as popen:
+            with pytest.raises(ChapkitServiceStartupError, match="did not become healthy"):
+                with ChapkitServiceManager(str(tmp_path), startup_timeout=2):
+                    pass
+        assert popen.call_count == 1
+
+    def test_reentering_picks_and_retries_a_fresh_port(self, tmp_path, fake_chapkit_service):
+        manager = ChapkitServiceManager(str(tmp_path), startup_timeout=15)
+        with fake_chapkit_service("flood", "port_in_use", "flood") as popen:
+            with manager:
+                pass
+            with manager:
+                assert httpx.get(manager.url + "/health", timeout=2).status_code == 200
+        assert popen.call_count == 3
+
+    def test_does_not_retry_when_given_port_is_taken(self, tmp_path, fake_chapkit_service):
+        with fake_chapkit_service("port_in_use", "flood") as popen:
+            with pytest.raises(ChapkitServiceStartupError, match="already in use"):
+                with ChapkitServiceManager(str(tmp_path), port=find_available_port(), startup_timeout=15):
+                    pass
+        assert popen.call_count == 1
+
+    def test_does_not_retry_other_startup_failures(self, tmp_path, fake_chapkit_service):
+        with fake_chapkit_service("die", "flood") as popen:
+            with pytest.raises(ChapkitServiceStartupError, match="died during startup"):
+                with ChapkitServiceManager(str(tmp_path), startup_timeout=15):
+                    pass
+        assert popen.call_count == 1
 
     def test_startup_timeout_reports_url(self, tmp_path, fake_chapkit_service):
         with fake_chapkit_service("starting"):

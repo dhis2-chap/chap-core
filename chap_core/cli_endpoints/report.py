@@ -17,6 +17,7 @@ from chap_core.cli_endpoints._args import (
 from chap_core.cli_endpoints._common import discover_geojson, load_dataset_from_csv, resolve_csv_path
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.log_config import initialize_logging
+from chap_core.models.builtin import BuiltinModelTemplate
 from chap_core.models.model_template import ModelTemplate
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,9 @@ def report(
         ignore_env=run_config.ignore_environment,
         run_dir_type=run_config.run_directory_type,
     )
+
+    if isinstance(template, BuiltinModelTemplate):
+        raise ValueError(f"chap report does not support built-in models such as {model_name!r}")
 
     with template:
         model = template.get_model(configuration)  # type: ignore[arg-type]
