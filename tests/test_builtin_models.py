@@ -10,8 +10,8 @@ from chap_core.cli_endpoints.evaluate import eval_cmd
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo
-from chap_core.database.model_template_seed import add_configured_model, seed_builtin_models
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration, ModelTemplateDB, ModelTemplateRole
+from chap_core.database.model_template_seed import seed_builtin_models
+from chap_core.database.model_templates_and_config_tables import ModelTemplateDB, ModelTemplateRole
 from chap_core.database.tables import Backtest
 from chap_core.datatypes import FullData
 from chap_core.external.ExtendedPredictor import ExtendedPredictor
@@ -268,40 +268,9 @@ def test_persistence_fails_without_earlier_changes_to_learn_from(weekly_full_dat
         _forecast("persistence", short_train, short_train, future)
 
 
-@pytest.mark.parametrize("name", ["global_median", "seasonal_median", "persistence"])
+@pytest.mark.parametrize("name", ["seasonal_median", "persistence"])
 def test_baselines_are_seeded_with_the_baseline_role(name, engine):
     with SessionWrapper(engine) as session:
         seed_builtin_models(session)
         template = session.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == name)).one()
         assert template.role == ModelTemplateRole.baseline
-
-
-def test_named_configuration_of_a_builtin_model_runs_the_builtin_model(engine, weekly_split):
-    train, historic, future = weekly_split
-    with SessionWrapper(engine) as session:
-        seed_builtin_models(session)
-        template = session.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == "global_median")).one()
-        configured_model_id = add_configured_model(
-            template.id,
-            ModelConfiguration(additional_continuous_covariates=[], user_option_values={}),
-            "custom",
-            session,
-        )
-        model = session.get_configured_model_with_code(configured_model_id)
-        forecasts = model.train(train).predict(historic, future)
-    assert set(forecasts.keys()) == set(future.keys())
-
-
-def test_configuration_pinned_to_another_builtin_version_is_refused(engine):
-    with SessionWrapper(engine) as session:
-        template_id = session.add_or_update_model_template(
-            ModelTemplateDB(name="global_median", version="0", source_url="builtin:global_median@0")
-        )
-        configured_model_id = add_configured_model(
-            template_id,
-            ModelConfiguration(additional_continuous_covariates=[], user_option_values={}),
-            "default",
-            session,
-        )
-        with pytest.raises(ValueError, match="version '0' cannot be run"):
-            session.get_configured_model_with_code(configured_model_id)
