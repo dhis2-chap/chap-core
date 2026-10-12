@@ -5,15 +5,15 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
+from sqlmodel import select
 
-from chap_core.assessment.thresholds import get_threshold_strategy
-from chap_core.assessment.thresholds.params import SeasonalParams
-from chap_core.database.alert_tables import Alert, AlertApproval
+from chap_core.database.alert_tables import AlertApproval
 from chap_core.database.database import SessionWrapper
 from chap_core.database.tables import Prediction
 from chap_core.datatypes import Samples
 from chap_core.rest_api.db_worker_functions import run_prediction
 from chap_core.services.alert_service import list_alerts, raise_alerts_for_prediction
+from chap_core.services.threshold_service import InvalidThresholdInputError
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import PeriodRange
 
@@ -81,38 +81,15 @@ def test_missing_season_history_is_skipped_with_warning(alert_prediction, caplog
     assert "Skipping alert level" in caplog.text
 
 
-def test_strategy_failure_does_not_prevent_other_levels(alert_prediction, caplog):
+def test_level_without_thresholds_fails_alert_raising(alert_prediction):
     session, prediction = alert_prediction
-    policy = prediction.prediction_setup.alert_policy
-    policy.levels = [
-        policy.levels[0],
-        policy.levels[1].model_copy(update={"threshold_params": SeasonalParams(type="seasonal")}),
-    ]
-    session.commit()
     with patch(
-        "chap_core.assessment.thresholds.seasonal.SeasonalThresholdStrategy.compute", side_effect=ValueError("failed")
+        "chap_core.assessment.thresholds.percentile.PercentileThresholdStrategy.compute",
+        side_effect=ValueError("failed"),
     ):
-        with caplog.at_level(logging.WARNING):
-            alerts = raise_alerts_for_prediction(session, prediction.id)
-    assert [a.level for a in alerts] == ["monitor", "monitor"]
-    assert "threshold computation failed" in caplog.text
-
-
-def test_unregistered_strategy_does_not_prevent_other_levels(alert_prediction):
-    session, prediction = alert_prediction
-    policy = prediction.prediction_setup.alert_policy
-    policy.levels = [
-        policy.levels[0],
-        policy.levels[1].model_copy(update={"threshold_params": SeasonalParams(type="seasonal")}),
-    ]
-    session.commit()
-    registered = get_threshold_strategy
-    with patch(
-        "chap_core.services.threshold_service.get_threshold_strategy",
-        side_effect=lambda name: None if name == "seasonal" else registered(name),
-    ):
-        alerts = raise_alerts_for_prediction(session, prediction.id)
-    assert [a.level for a in alerts] == ["monitor", "monitor"]
+        with pytest.raises(InvalidThresholdInputError):
+            raise_alerts_for_prediction(session, prediction.id)
+    assert list_alerts(session) == []
 
 
 def _run_prediction(session, original):
@@ -133,16 +110,10 @@ def test_run_prediction_raises_alerts(alert_prediction):
     assert [a.level for a in list_alerts(session, prediction_id=prediction_id)] == ["action"]
 
 
-def test_run_prediction_keeps_prediction_when_alerts_fail(alert_prediction):
+def test_run_prediction_fails_but_keeps_prediction_when_alerts_fail(alert_prediction):
     session, original = alert_prediction
-
-    def fail_flush(session_arg, _prediction_id):
-        session_arg.add(Alert(prediction_id=-1, alert_policy_id=-1, org_unit="A", time_period="2024-01", level="x"))
-        session_arg.flush()
-
-    with patch("chap_core.rest_api.db_worker_functions.raise_alerts_for_prediction", side_effect=fail_flush):
-        prediction_id = _run_prediction(session, original)
-
-    # The session is rolled back and usable, and the prediction was committed before alerting.
-    assert session.get(Prediction, prediction_id).forecasts[0].values == [21.0, 21.0]
-    assert list_alerts(session, prediction_id=prediction_id) == []
+    with patch("chap_core.rest_api.db_worker_functions.raise_alerts_for_prediction", side_effect=RuntimeError):
+        with pytest.raises(RuntimeError):
+            _run_prediction(session, original)
+    stored = session.exec(select(Prediction).where(Prediction.name == "new")).one()
+    assert stored.forecasts[0].values == [21.0, 21.0]

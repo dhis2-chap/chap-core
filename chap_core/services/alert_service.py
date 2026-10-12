@@ -57,23 +57,9 @@ def raise_alerts_for_prediction(session: Session, prediction_id: int) -> list[Al
     target_column = prediction.prediction_setup.backtest.specification.target_column
     alerts = {}
     for level in policy.levels:
-        try:
-            thresholds = threshold_service.compute_thresholds(
-                session, prediction.dataset_id, periods, level.threshold_params, locations, target_column
-            ).set_index(["location", "period_id"])["threshold"]
-        except (
-            threshold_service.NoObservationsError,
-            threshold_service.InvalidThresholdInputError,
-            threshold_service.UnknownStrategyError,
-        ):
-            logger.warning(
-                "Skipping alert level %r for prediction %s: threshold computation failed",
-                level.name,
-                prediction_id,
-                exc_info=True,
-            )
-            continue
-
+        thresholds = threshold_service.compute_thresholds(
+            session, prediction.dataset_id, periods, level.threshold_params, locations, target_column
+        ).set_index(["location", "period_id"])["threshold"]
         for forecast in prediction.forecasts:
             cell = (forecast.org_unit, forecast.period)
             threshold = thresholds.get(cell, np.nan)

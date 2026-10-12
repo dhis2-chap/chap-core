@@ -254,11 +254,7 @@ def run_prediction(
     assert db_id is not None
     status_logger.info(f"Prediction completed successfully. Results saved with ID {db_id}")
     if prediction_setup_id is not None:
-        try:
-            raise_alerts_for_prediction(session.session, db_id)
-        except Exception:
-            session.session.rollback()
-            logger.exception("Failed to raise alerts for prediction %s; the stored prediction is kept", db_id)
+        raise_alerts_for_prediction(session.session, db_id)
     return db_id
 
 
