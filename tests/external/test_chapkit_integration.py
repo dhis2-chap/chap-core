@@ -428,10 +428,19 @@ class TestIsChapkitUrl:
         with patch("chap_core.models.utils.httpx.get", return_value=mock_response):
             assert _is_chapkit_url("http://localhost:8000") is True
 
-    def test_non_chapkit_service(self):
+    def test_non_chapkit_service(self, caplog):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"status": "ok"}
+
+        with patch("chap_core.models.utils.httpx.get", return_value=mock_response), caplog.at_level(logging.WARNING):
+            assert _is_chapkit_url("http://localhost:8000") is False
+        assert "not a valid chapkit service info" in caplog.text
+
+    def test_non_json_response(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.side_effect = json.JSONDecodeError("Expecting value", "<html>", 0)
 
         with patch("chap_core.models.utils.httpx.get", return_value=mock_response):
             assert _is_chapkit_url("http://localhost:8000") is False
@@ -439,6 +448,11 @@ class TestIsChapkitUrl:
     def test_unreachable_service(self):
         with patch("chap_core.models.utils.httpx.get", side_effect=httpx.ConnectError("Connection refused")):
             assert _is_chapkit_url("http://localhost:9999") is False
+
+    def test_unexpected_error_propagates(self):
+        with patch("chap_core.models.utils.httpx.get", side_effect=RuntimeError("bug")):
+            with pytest.raises(RuntimeError):
+                _is_chapkit_url("http://localhost:8000")
 
 
 def _mock_wrapper(handler, **kwargs) -> CHAPKitRestAPIWrapper:
