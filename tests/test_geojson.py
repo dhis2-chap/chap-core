@@ -1,4 +1,3 @@
-
 import pytest
 from chap_core.geojson import geojson_to_graph
 from . import EXAMPLE_DATA_PATH
@@ -11,5 +10,5 @@ def geojson_example_file():
 
 def test_geojson_to_graph(geojson_example_file, tmp_path):
     filename = tmp_path / "graph.txt"
-    res = geojson_to_graph(geojson_example_file, filename)
-    print(res)
+    geojson_to_graph(geojson_example_file, filename)
+    assert filename.read_text()

@@ -1,4 +1,3 @@
-
 from chap_core.time_period import TimePeriod, Month, Day
 
 

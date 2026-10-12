@@ -8,6 +8,7 @@ from chap_core.datatypes import (
     TimeSeriesData,
 )
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.testing.testing import assert_dataset_equal
 from chap_core.time_period import Month, PeriodRange
 from tempfile import NamedTemporaryFile
 
@@ -20,7 +21,6 @@ def test_to_from_csv(full_data):
 
 
 def test_climate_data_to_from_csv():
-    # just tests that nothing crashes
     future_weather = DataSet(
         {
             "location": ClimateData(
@@ -35,6 +35,7 @@ def test_climate_data_to_from_csv():
     with tempfile.NamedTemporaryFile() as f:
         future_weather.to_csv(f.name)
         future_weather2 = DataSet.from_csv(f.name, ClimateData)
+    assert_dataset_equal(future_weather2, future_weather)
 
 
 def test_join_on_time(train_data_new_period_range):
