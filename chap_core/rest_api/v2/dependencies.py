@@ -14,7 +14,15 @@ _PROXY_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=300.0, pool=10.0)
 
 @lru_cache
 def get_redis():
-    return load_redis(db=3)
+    from redis.backoff import NoBackoff
+    from redis.retry import Retry
+
+    client = load_redis(db=3)
+    # Every registry caller treats an unreachable redis as an unknown registry and
+    # carries on. The default retries with backoff only turn that into a stall of
+    # seconds per request, up to half a minute when the host drops packets.
+    client.set_retry(Retry(NoBackoff(), 0))
+    return client
 
 
 def get_orchestrator():
