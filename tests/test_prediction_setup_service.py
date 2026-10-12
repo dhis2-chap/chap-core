@@ -12,9 +12,16 @@ import pytest
 from sqlalchemy import event
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from chap_core.database.dataset_tables import DataSet
+from chap_core.database.dataset_tables import DataSet, Observation
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
-from chap_core.database.tables import Backtest, BacktestSpecification, Prediction, PredictionSetup, QuantileTarget
+from chap_core.database.tables import (
+    Backtest,
+    BacktestSpecification,
+    Prediction,
+    PredictionSetup,
+    PredictionSetupObservation,
+    QuantileTarget,
+)
 from chap_core.services.prediction_setup_service import (
     BacktestNotFoundError,
     DuplicateSetupError,
@@ -374,3 +381,51 @@ def test_session_wrapper_add_predictions_links_to_setup(engine):
     with Session(engine) as session:
         prediction = session.exec(select(Prediction).where(Prediction.id == prediction_id)).one()
         assert prediction.prediction_setup_id == setup_id
+
+
+def test_session_wrapper_add_predictions_upserts_setup_observations(engine):
+    """Each setup prediction records its dataset's disease cases on the setup; a later run's value wins."""
+    from types import SimpleNamespace
+
+    import numpy as np
+
+    from chap_core.database.database import SessionWrapper
+
+    with Session(engine) as session:
+        backtest_id, configured_model_id, _ = _make_parents(session)
+        setup = _create_default_setup(session, backtest_id)
+        assert setup.id is not None
+        setup_id = setup.id
+        dataset_ids = []
+        for cases in (1.0, 2.0):
+            dataset = DataSet(
+                name=f"run with {cases}",
+                observations=[
+                    Observation(org_unit="loc_1", period="2024-01", feature_name="disease_cases", value=cases),
+                    Observation(org_unit="loc_1", period="2024-01", feature_name="rainfall", value=10.0),
+                ],
+            )
+            session.add(dataset)
+            session.commit()
+            dataset_ids.append(dataset.id)
+
+    class _Forecast:
+        def __init__(self, periods, samples):
+            self.time_period = periods
+            self.samples = samples
+
+        def __len__(self):
+            return len(self.time_period)
+
+    predictions = {"loc_1": _Forecast([SimpleNamespace(id="2024-02")], [np.array([1.0, 2.0, 3.0])])}
+    with SessionWrapper(engine) as wrapper:
+        for dataset_id in dataset_ids:
+            wrapper.add_predictions(
+                predictions, dataset_id, "cfg", "run", configured_model_id, prediction_setup_id=setup_id
+            )
+
+    with Session(engine) as session:
+        rows = session.exec(select(PredictionSetupObservation)).all()
+        assert [(row.prediction_setup_id, row.org_unit, row.period, row.disease_cases) for row in rows] == [
+            (setup_id, "loc_1", "2024-01", 2.0)
+        ]
