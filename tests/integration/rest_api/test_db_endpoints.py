@@ -17,7 +17,6 @@ from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateRole
 from chap_core.database.dataset_tables import (
     DataSet,
-    DataSetCreateInfo,
     DataSetWithObservations,
     Observation,
     ObservationBase,
@@ -33,11 +32,9 @@ from chap_core.database.tables import (
 )
 from chap_core.rest_api.data_models import (
     BacktestCreate,
-    BacktestFull,
     ConfiguredModelInfoRead,
     DatasetCreate,
     DatasetMakeRequest,
-    FetchRequest,
     MakePredictionRequest,
     ModelConfigurationCreate,
     ModelTemplateRead,
@@ -102,55 +99,6 @@ def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_ove
         plot_id = plot_types[0]["id"]
         response = client.get(f"/v1/visualization/dataset-plots/{plot_id}/999999")
         assert response.status_code == 404, response.text
-
-
-# @pytest.mark.slow
-@pytest.mark.parametrize("do_filter", [True, False])
-@pytest.mark.slow
-@pytest.mark.skip(reason="not in use")
-def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, weekly_full_data, do_filter):
-    with SessionWrapper(clean_engine) as session:
-        dataset_id = DataSetManager(session.session).save_dataset(
-            DataSetCreateInfo(name="full_data", type="evaluation"), weekly_full_data, "polygons"
-        )
-    response = client.post(
-        "/v1/analytics/create-backtest", json={"datasetId": dataset_id, "modelId": "naive_model", "name": "x"}
-    )
-    assert response.status_code == 200, response.json()
-    job_id = response.json()["id"]
-    db_id = await_result_id(job_id)
-    response = client.get(f"/v1/crud/backtests/{db_id}")
-
-    # just make sure the datasets are valid
-    dataset_response = client.get("/v1/crud/datasets")
-
-    assert response.status_code == 200, response.json()
-    BacktestFull.model_validate(response.json())
-    split_period, org_units = None, []
-    if do_filter:
-        split_period = "2022W30"
-        org_units = ["granada"]
-
-    params = {"backtestId": db_id, "quantiles": [0.1, 0.5, 0.9]}
-    if do_filter:
-        params |= {"splitPeriod": split_period, "orgUnits": org_units}
-
-    response = client.get("/v1/analytics/evaluation-entry", params=params)
-
-    assert response.status_code == 200, response.json()
-    evaluation_entries = response.json()
-    params = {} if not do_filter else {"orgUnits": org_units}
-    actual_cases_response = client.get(f"/v1/analytics/actualCases/{db_id}", params=params)
-    assert actual_cases_response.status_code == 200, actual_cases_response.json()
-    actual_cases = DataList.model_validate(actual_cases_response.json())
-    for entry in evaluation_entries:
-        assert "splitPeriod" in entry, f"splitPeriod not in entry: {entry.keys()}"
-        entry = EvaluationEntry.model_validate(entry)
-        if do_filter:
-            assert entry.splitPeriod == split_period, (entry.split_period, split_period)
-            assert entry.orgUnit in org_units, (entry.org_unit, org_units)
-    if do_filter:
-        assert {entry["orgUnit"] for entry in evaluation_entries} == set(org_units), (evaluation_entries, org_units)
 
 
 def test_add_non_full_dataset(celery_session_worker, clean_engine, dependency_overrides, local_data_path):

@@ -1,7 +1,6 @@
 import tempfile
 
 import numpy as np
-import pytest
 
 from chap_core.datatypes import (
     ClimateHealthTimeSeries,
@@ -36,14 +35,6 @@ def test_climate_data_to_from_csv():
     with tempfile.NamedTemporaryFile() as f:
         future_weather.to_csv(f.name)
         future_weather2 = DataSet.from_csv(f.name, ClimateData)
-
-
-@pytest.mark.skip
-def test_restrict_on_time_period(train_data_new_period_range):
-    period = slice(Month(2012, 1), Month(2012, 4))
-    data = train_data_new_period_range.get_location("oslo")
-    new_data = data.restrict_time_period(period)
-    assert len(new_data.data()) == 4
 
 
 def test_join_on_time(train_data_new_period_range):

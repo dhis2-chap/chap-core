@@ -4,11 +4,6 @@ import pytest
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
-@pytest.mark.skip
-def test_from_samples():
-    assert False
-
-
 def test_from_pandas():
     df = pd.DataFrame(
         {

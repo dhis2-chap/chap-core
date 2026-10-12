@@ -21,13 +21,10 @@ from chap_core.assessment.metrics import (
     compute_all_detailed_metrics,
 )
 from chap_core.assessment.evaluation import Evaluation
-from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
+from chap_core.assessment.flat_representations import FlatObserved
 import pytest
 import pandas as pd
 
-from chap_core.database.database import SessionWrapper
-from chap_core.database.tables import Backtest
-from chap_core.datatypes import SamplesWithTruth
 from chap_core.assessment.metrics.crps import crps_matrix
 
 
@@ -311,13 +308,6 @@ def test_mae_aggregate_uses_median_of_samples(flat_forecasts_multiple_samples, f
     # MAE = (1+1+2+2)/4 = 1.5
     expected_mae = 1.5
     np.testing.assert_almost_equal(result["metric"].iloc[0], expected_mae, decimal=5)
-
-
-@pytest.mark.skip(reason="Only for testing")
-def test_read_example_weekly_predictions(data_path):
-    data = pd.read_csv(data_path / "example_weekly_predictions.csv")
-    samples = SamplesWithTruth.from_pandas(data)
-    print(type(samples.time_period))
 
 
 def test_mape_uses_median_of_samples(flat_forecasts_multiple_samples, flat_observations):
