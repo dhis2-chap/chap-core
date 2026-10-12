@@ -56,9 +56,6 @@ PYTEST_WORKERS ?= 4
 test: ## run tests in parallel with PYTEST_WORKERS workers (default 4) at lowered CPU priority
 	nice -n 10 uv run pytest -q -n $(PYTEST_WORKERS) --dist worksteal
 
-test-parallel: ## run tests across all cores via pytest-xdist (faster wall time, slow startup)
-	uv run pytest -q -n auto --dist loadfile
-
 test-docs: ## run fast documentation code block tests
 	uv run pytest tests/test_documentation.py -v
 
