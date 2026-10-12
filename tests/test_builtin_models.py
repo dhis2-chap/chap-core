@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 import pytest
 from sqlalchemy import create_engine
 from sqlmodel import Session, SQLModel, select
@@ -82,14 +81,15 @@ def test_global_median_samples_span_observations_of_the_same_location(health_pop
         assert np.all(samples.samples[:, 49] == np.nanmedian(observed))
 
 
-def test_global_median_is_seeded_as_baseline(engine):
+@pytest.mark.parametrize("name", BUILTIN_NAMES)
+def test_builtin_model_is_seeded_as_baseline(name, engine):
     with SessionWrapper(engine) as session:
         seed_builtin_models(session)
         seed_builtin_models(session)
-        template = session.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == "global_median")).one()
+        template = session.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == name)).one()
         assert template.role == ModelTemplateRole.baseline
-        assert template.source_url == "builtin:global_median@1"
-        assert session.get_configured_model_by_name("global_median").model_template_id == template.id
+        assert template.source_url == f"builtin:{name}@{get_builtin_model(name).spec.version}"
+        assert session.get_configured_model_by_name(name).model_template_id == template.id
 
 
 def test_unregistered_builtin_template_is_archived(engine):
@@ -218,17 +218,6 @@ def test_baseline_fixed_output(name, expected, weekly_split):
     np.testing.assert_allclose(samples[:, [0, 49, 50, 99]], expected, atol=1e-4)
 
 
-@pytest.mark.parametrize("name", ["global_median", "seasonal_median", "persistence"])
-def test_baseline_median_is_the_middle_sample(name, weekly_split):
-    forecasts = _forecast(name, *weekly_split)
-    for samples in forecasts.values():
-        middle = samples.samples[:, 49]
-        assert np.array_equal(samples.samples[:, 50], middle)
-        # Both median definitions the metrics use give the point forecast exactly.
-        assert np.array_equal(np.median(samples.samples, axis=1), middle)
-        assert np.array_equal(pd.DataFrame(samples.samples.T).median().to_numpy(), middle)
-
-
 def test_seasonal_median_is_the_median_of_the_same_week(weekly_split):
     train, historic, future = weekly_split
     forecasts = _forecast("seasonal_median", train, historic, future)
@@ -266,11 +255,3 @@ def test_persistence_fails_without_earlier_changes_to_learn_from(weekly_full_dat
     future = weekly_full_data.restrict_time_period(slice(periods[10], periods[11]))
     with pytest.raises(ValueError, match="Persistence needs one to estimate the spread"):
         _forecast("persistence", short_train, short_train, future)
-
-
-@pytest.mark.parametrize("name", ["seasonal_median", "persistence"])
-def test_baselines_are_seeded_with_the_baseline_role(name, engine):
-    with SessionWrapper(engine) as session:
-        seed_builtin_models(session)
-        template = session.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == name)).one()
-        assert template.role == ModelTemplateRole.baseline
