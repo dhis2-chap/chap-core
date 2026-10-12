@@ -74,7 +74,7 @@ from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.experimental import api_experimental
 from chap_core.rest_api.services.orchestrator import Orchestrator, ServiceNotFoundError
 from chap_core.rest_api.services.schemas import MLServiceInfo
-from chap_core.rest_api.v2.dependencies import get_orchestrator
+from chap_core.rest_api.v2.dependencies import get_orchestrator, get_registry_reader
 from chap_core.services import alert_policy_service, alert_service, prediction_setup_service
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
@@ -159,9 +159,9 @@ def _sync_live_chapkit_services(
     """
     try:
         if orchestrator is None:
-            from chap_core.rest_api.v2.dependencies import get_orchestrator
+            from chap_core.rest_api.v2.dependencies import get_registry_reader
 
-            orchestrator = get_orchestrator()
+            orchestrator = get_registry_reader()
         service_list = orchestrator.get_all()
     except RedisError:
         logger.debug("Could not reach service registry, skipping chapkit sync")
@@ -946,7 +946,7 @@ def delete_model_template(
     summary="Browse configured (ready-to-run) models",
 )
 def list_configured_models(
-    session: Session = Depends(get_session), orchestrator: Orchestrator = Depends(get_orchestrator)
+    session: Session = Depends(get_session), orchestrator: Orchestrator = Depends(get_registry_reader)
 ):
     """List every configured model — a template + user-chosen options bundled into something you can actually run.
 

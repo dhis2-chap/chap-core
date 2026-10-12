@@ -27,7 +27,7 @@ from chap_core.rest_api.app import app
 from chap_core.rest_api.services.orchestrator import KEY_PREFIX, Orchestrator
 from chap_core.rest_api.services.schemas import MLServiceInfo, RegistrationRequest
 from chap_core.rest_api.v1.routers.dependencies import get_session
-from chap_core.rest_api.v2.dependencies import get_orchestrator, get_redis
+from chap_core.rest_api.v2.dependencies import get_orchestrator, get_registry_read_redis, get_registry_reader
 
 MOCK_INFO_DICT = {
     "id": "test-model",
@@ -81,12 +81,14 @@ def client(db_engine, fake_orchestrator, mock_wrapper_cls):
             yield session
 
     app.dependency_overrides[get_session] = get_test_session
-    # The v2 register endpoint takes the orchestrator through Depends, while the lazy
-    # v1 template sync calls the factory directly, so both need the fake.
+    # The v2 register endpoint and the configured model listing take the orchestrator
+    # through Depends, while the lazy v1 template sync calls the factory directly, so
+    # all of them need the fake.
     app.dependency_overrides[get_orchestrator] = lambda: fake_orchestrator
+    app.dependency_overrides[get_registry_reader] = lambda: fake_orchestrator
 
     with (
-        patch("chap_core.rest_api.v2.dependencies.get_orchestrator", return_value=fake_orchestrator),
+        patch("chap_core.rest_api.v2.dependencies.get_registry_reader", return_value=fake_orchestrator),
         patch("chap_core.models.chapkit_rest_api_wrapper.CHAPKitRestAPIWrapper", mock_wrapper_cls),
     ):
         yield TestClient(app, raise_server_exceptions=False)
@@ -524,8 +526,8 @@ def test_non_chapkit_template_has_null_health_status(client, db_engine):
 
 def test_returns_200_when_redis_unavailable(client):
     with patch(
-        "chap_core.rest_api.v2.dependencies.get_orchestrator",
-        side_effect=ConnectionError("Redis unavailable"),
+        "chap_core.rest_api.v2.dependencies.get_registry_reader",
+        side_effect=redis.exceptions.ConnectionError("Redis unavailable"),
     ):
         response = client.get("/v1/crud/model-templates")
 
@@ -569,11 +571,11 @@ def test_registry_client_does_not_retry_a_refused_connection(monkeypatch):
         port = unused.getsockname()[1]
     monkeypatch.setenv("REDIS_HOST", "127.0.0.1")
     monkeypatch.setenv("REDIS_PORT", str(port))
-    get_redis.cache_clear()
+    get_registry_read_redis.cache_clear()
     try:
         start = time.monotonic()
         with pytest.raises(redis.exceptions.ConnectionError):
-            Orchestrator(redis_client=get_redis()).get_all()
+            Orchestrator(redis_client=get_registry_read_redis()).get_all()
         assert time.monotonic() - start < 1.0
     finally:
-        get_redis.cache_clear()
+        get_registry_read_redis.cache_clear()
