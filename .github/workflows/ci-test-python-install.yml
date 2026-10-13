@@ -2,9 +2,9 @@ name: Build and test
 
 on:
   push:
-    branches: ["master"]
+    branches: ["master", "dev/CLIM-958-tabular"]
   pull_request:
-    branches: ["master"]
+    branches: ["master", "dev/CLIM-958-tabular"]
 
 permissions:
   contents: read
