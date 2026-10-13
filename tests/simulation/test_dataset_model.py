@@ -21,7 +21,7 @@ def dims():
 def test_additive_simulator(dims):
     simulator = AdditiveSimulator()
     dataset = simulator.simulate(dims)
-    print(dataset.observations)
+    assert len(dataset.observations) == len(dims.locations) * len(dims.time_periods)
 
 
 def test_forecast_simulator(dims):

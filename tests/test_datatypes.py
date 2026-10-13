@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import pytest
-from bionumpy.util.testing import assert_bnpdataclass_equal
 from chap_core.datatypes import (
     ClimateHealthTimeSeries,
     HealthData,
@@ -96,6 +95,7 @@ def climate_data():
 def test_serialize_round_trip(climate_data):
     s = climate_data.model_dump()
     climate_data2 = SimpleClimateData.from_dict(s)
+    assert climate_data2.model_dump() == s
 
 
 def test_merge(health_population_data, climate_data):

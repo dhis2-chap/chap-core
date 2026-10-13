@@ -85,6 +85,7 @@ def test_generate_template_app(dumped_weekly_data_paths, tmp_path, model_config_
     model_path = tmp_path / "model"
     train(training_path, model_path, model_config_path)
     predict(model_path, historic_path, future_path, tmp_path / "predictions.csv", model_config_path)
+    assert (tmp_path / "predictions.csv").exists()
 
 
 def test_generate_template_app_yaml(model_config_path):
