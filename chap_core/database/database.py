@@ -26,6 +26,7 @@ from .model_templates_and_config_tables import (
     ConfiguredModelDB,
     ModelConfiguration,
     ModelTemplateDB,
+    ModelTemplateRole,
     chapkit_revision_conflict,
     compute_configuration_digest,
     drifted_template_content_fields,
@@ -321,6 +322,18 @@ class SessionWrapper:
             select(ConfiguredModelDB)
             .join(ModelTemplateDB)
             .where(ConfiguredModelDB.is_live == True, ModelTemplateDB.is_live == True)
+        )
+
+    def get_baseline_models(self) -> list[ConfiguredModelDB]:
+        """The live configured models of baseline templates, one per baseline at its current version."""
+        return list(
+            self.session.exec(
+                self._select_live_configured_models().where(
+                    ModelTemplateDB.role == ModelTemplateRole.baseline,
+                    col(ModelTemplateDB.archived).is_(False),
+                    col(ConfiguredModelDB.archived).is_(False),
+                )
+            ).all()
         )
 
     def get_configured_models(

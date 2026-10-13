@@ -247,6 +247,7 @@ The `JobType` enum defines the canonical job types:
 - `EVALUATION` ("create_backtest_from_data") -- backtest with inline data
 - `PREDICTION` ("create_prediction") -- prediction
 - `DATASET` ("create_dataset") -- dataset import
+- `BASELINE` ("run_baseline") -- a baseline model run on a backtest specification, queued by CHAP itself
 
 These string values are the contract with the Modeling App frontend.
 

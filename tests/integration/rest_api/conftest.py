@@ -18,7 +18,7 @@ from chap_core.database.tables import (
     BacktestSpecification,
     PredictionSamplesEntry,
 )
-from chap_core.rest_api import celery_tasks
+from chap_core.rest_api import baseline_runs, celery_tasks
 from chap_core.rest_api.app import app
 from chap_core.rest_api.v1 import jobs
 from chap_core.rest_api.v1.routers import crud
@@ -35,6 +35,29 @@ def request_store(monkeypatch):
     monkeypatch.setattr(crud, "redis", store)
     monkeypatch.delenv("CHAP_API_TOKEN", raising=False)
     return store
+
+
+class RecordingWorker:
+    """Records queued jobs instead of sending them to Celery."""
+
+    def __init__(self):
+        self.queued: list[tuple] = []
+
+    def queue_db(self, func, *args, **kwargs):
+        self.queued.append((func, args, kwargs))
+
+        class _Job:
+            id = f"job-{len(self.queued)}"
+
+        return _Job()
+
+
+@pytest.fixture(autouse=True)
+def baseline_worker(monkeypatch):
+    """Baseline runs queued by any endpoint or backtest are recorded here, never sent to Celery."""
+    worker = RecordingWorker()
+    monkeypatch.setattr(baseline_runs, "worker", worker)
+    return worker
 
 
 @pytest.fixture
