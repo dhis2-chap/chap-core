@@ -91,10 +91,9 @@ critical paths and drift from the documented architecture.
 
 Each report starts with at most five suggested next actions, followed by new
 findings, findings that persist from the previous report, and findings
-resolved since then. Every action and finding names one owner, tagged with
-their GitHub login. The owner is picked from the people who committed most to
-the files involved in the last 12 months, counting only people with a commit
-in the last 90 days.
+resolved since then. Each next action tags one owner by GitHub login: the
+active team member who wrote or most substantially changed the code involved,
+found with git blame and git log, with a short reason.
 Go through it in the Friday meeting or whenever convenient, turn the actions
 worth doing into Jira issues, and close the GitHub issue. The report is
 advisory and nothing is blocked by it. It can be run by hand from the Actions

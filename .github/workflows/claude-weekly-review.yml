@@ -52,44 +52,34 @@ jobs:
           } > week-changes.md
           wc -l previous-report.md week-changes.md
 
-      - name: Collect who has worked on each file
+      - name: Map git authors to GitHub logins
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Map commits from the last 12 months to GitHub logins, then count
-          # commits per file and login. Only people with a commit in the last
-          # 90 days are listed, so findings are not assigned to people who
+          # Git author emails do not map cleanly to GitHub logins, so collect
+          # the mapping from the commits API. Only people with a commit in the
+          # last 90 days are listed, so actions are not tagged to people who
           # have left.
           gh api --paginate \
             "repos/$GITHUB_REPOSITORY/commits?since=$(date -d '12 months ago' --iso-8601=seconds)&per_page=100" \
-            --jq '.[] | select(.author.login != null) | [.sha, .author.login, .commit.author.date] | @tsv' \
-            > commit-logins.tsv
-          git log --since="12 months ago" --no-merges --format='@%H' --name-only \
-            -- chap_core tests > commit-files.txt
-          python3 - <<'PY' > file-owners.md
+            --jq '.[] | select(.author.login != null) | [.author.login, .commit.author.name, .commit.author.email, .commit.author.date] | @tsv' \
+            > commit-authors.tsv
+          python3 - <<'PY' > team.md
           import collections, datetime
-          logins, active = {}, set()
           cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=90)).isoformat()
-          for line in open("commit-logins.tsv"):
-              sha, login, date = line.rstrip("\n").split("\t")
+          authors, active = collections.defaultdict(set), set()
+          for line in open("commit-authors.tsv"):
+              login, name, email, date = line.rstrip("\n").split("\t")
               if login.endswith("[bot]"):
                   continue
-              logins[sha] = login
+              authors[login].add(f"{name} <{email}>")
               if date >= cutoff:
                   active.add(login)
-          counts = collections.defaultdict(collections.Counter)
-          login = None
-          for line in open("commit-files.txt"):
-              line = line.strip()
-              if line.startswith("@"):
-                  login = logins.get(line[1:])
-              elif line and login in active:
-                  counts[line][login] += 1
-          print("# Commits per file in the last 12 months, by active team member\n")
-          for path in sorted(counts):
-              print(path, " ".join(f"{l}:{n}" for l, n in counts[path].most_common(3)))
+          print("# Active team members: GitHub login and git author identities\n")
+          for login in sorted(active):
+              print(f"- {login}: {', '.join(sorted(authors[login]))}")
           PY
-          wc -l file-owners.md
+          cat team.md
 
       - uses: anthropics/claude-code-action@v1
         with:
@@ -107,9 +97,8 @@ jobs:
             findings. Then read previous-report.md (last week's report, or
             "No previous report.") and week-changes.md (commits and files
             changed since that report, or in the last 7 days).
-            file-owners.md lists, for each file under chap_core/ and tests/,
-            the active team members who committed to it most in the last 12
-            months, as login:commit_count.
+            team.md lists the active team members with their GitHub login and
+            the git author names and emails they commit under.
 
             Review in this order and spend most of your effort on the first two:
             1. Code changed since the previous report, read with its surrounding code:
@@ -134,36 +123,40 @@ jobs:
             # Weekly codebase review
             ## Suggested next actions
             At most five, each concrete and small enough for one PR, each
-            ending with its owner.
+            ending with "Owner: @login" and a few words on why.
             ## Summary
             Three to five sentences on the state of the codebase and this week's
             most important point.
             ## New findings
             ## Persisting findings
-            Findings from last week that are still present, one line each,
-            ending with its owner.
+            Findings from last week that are still present, one line each.
             ## Resolved since last week
 
             Order findings by impact. Each finding is a short paragraph that
             names the file and line range, states the failure scenario or cost
-            in one or two sentences, says how sure you are, and ends with its
-            owner.
+            in one or two sentences, and says how sure you are.
 
-            Give every next action and finding one owner, written as
-            "Owner: @login", chosen from file-owners.md: the person with most
-            commits to the files the point is about, or, if none of them is
-            listed, to other files in the same directory. Keep the owner of a
-            persisting finding from last week's report if that person is still
-            in file-owners.md. Spread points across people when the counts are
-            close. Never use a login that is not in file-owners.md; write
-            "Owner: unassigned" if there is no match. Keep the whole
+            When the findings are written, find an owner for each next action:
+            the team member best placed to fix it because they wrote or changed
+            the code involved. Use git blame on the lines in question, git log
+            on the files and functions (including git log -L), and git show on
+            the commits, whose messages carry the PR number, to see who introduced the
+            behaviour and who has since worked on that code or closely related
+            code. Weigh recent and substantial changes over old or trivial
+            ones such as renames, formatting or dependency bumps. Map git
+            authors to logins with team.md, never tag a login that is not
+            listed there, and write "Owner: unassigned" if no listed member has
+            worked on the code. Spread actions across people when more than one
+            fits. The reason after the owner names the change that makes them
+            the owner, for example "wrote the target column threading in #702".
+            Do not tag anyone outside the next actions. Keep the whole
             report under 1500 words. Write the report file and nothing else; do
             not modify any other file and do not create branches or comments.
           claude_args: |
             --model claude-fable-5-1
-            --max-turns 80
+            --max-turns 120
             --disallowedTools "Agent,Task,Skill"
-            --allowedTools "Write"
+            --allowedTools "Write,Bash(git log:*),Bash(git blame:*),Bash(git show:*)"
 
       - name: Open issue with the report
         env:
