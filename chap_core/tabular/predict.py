@@ -1,6 +1,6 @@
 """Apply a saved tabular model to a new dataset.
 
-Loads a model (joblib or ONNX), scores every row, and appends the predictions
+Loads a model (joblib), scores every row, and appends the predictions
 to the input frame. When the dataset carries the target column, the same fixed
 metric sets used by ``evaluate`` are computed on it - these are external test
 numbers, not cross-validation.

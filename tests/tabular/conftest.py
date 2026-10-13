@@ -61,7 +61,7 @@ def classifier_joblib(classification_csv, tmp_path):
     from chap_core.tabular.serialize import save_model
 
     path = tmp_path / "classifier.joblib"
-    save_model(_train(classification_csv, "logistic_regression"), path, "joblib")
+    save_model(_train(classification_csv, "logistic_regression"), path)
     return path
 
 
@@ -70,16 +70,5 @@ def regressor_joblib(regression_csv, tmp_path):
     from chap_core.tabular.serialize import save_model
 
     path = tmp_path / "regressor.joblib"
-    save_model(_train(regression_csv, "ridge"), path, "joblib")
-    return path
-
-
-@pytest.fixture
-def classifier_onnx(classification_csv, tmp_path):
-    pytest.importorskip("skl2onnx")
-    pytest.importorskip("onnxruntime")
-    from chap_core.tabular.serialize import save_model
-
-    path = tmp_path / "classifier.onnx"
-    save_model(_train(classification_csv, "logistic_regression"), path, "onnx")
+    save_model(_train(regression_csv, "ridge"), path)
     return path

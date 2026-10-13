@@ -35,7 +35,6 @@ carry both the cross-validation and the test numbers.
 | `--output` | Results JSON filename | `results.json` |
 | `--report` | HTML report filename | `report.html` |
 | `--model-output` | If set, save the trained model here (enables the held-out split) | none |
-| `--model-format` | `joblib` or `onnx` (`onnx` needs `pip install 'chap-core[onnx]'`) | `joblib` |
 | `--target` | Name of the target column in the CSV | `target` |
 
 ### Example
@@ -55,7 +54,7 @@ This writes `tabular_run/results.json`, `tabular_run/report.html`, and
 
 ## `chap tabular predict`
 
-Loads a saved model (format inferred from the extension: `.joblib` or `.onnx`),
+Loads a saved joblib model,
 scores every row, and writes `predictions.csv` - the input rows with a
 `prediction` column appended, plus a `probability` column for a classifier that
 exposes one.

@@ -66,22 +66,6 @@ def test_evaluate_with_model_output_saves_model_and_test_metrics(classification_
     assert "not cross-validation" in html
 
 
-def test_evaluate_model_format_onnx(classification_csv, tmp_path):
-    pytest.importorskip("skl2onnx")
-    folder = tmp_path / "runs"
-
-    evaluate(
-        "logistic_regression",
-        classification_csv,
-        output_folder=folder,
-        model_output=Path("model.onnx"),
-        model_format="onnx",
-    )
-
-    assert (folder / "model.onnx").stat().st_size > 0
-    assert "test" in json.loads((folder / "results.json").read_text())
-
-
 def test_evaluate_without_model_output_has_no_test_section(regression_csv, tmp_path):
     folder = tmp_path / "runs"
     evaluate("ridge", regression_csv, output_folder=folder)
