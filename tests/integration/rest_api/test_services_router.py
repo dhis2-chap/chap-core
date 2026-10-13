@@ -344,7 +344,7 @@ class TestRegistrationUsesInjectedOrchestrator:
             calls.append(1)
             raise RuntimeError("no registry here")
 
-        monkeypatch.setattr("chap_core.rest_api.v2.dependencies.get_orchestrator", spy)
+        monkeypatch.setattr("chap_core.rest_api.v2.dependencies.get_registry_reader", spy)
 
         response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
 

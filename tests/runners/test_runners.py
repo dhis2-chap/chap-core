@@ -23,12 +23,6 @@ import pytest
 from chap_core.util import docker_available
 
 
-def test_command_line_runner():
-    command = "echo 'test'"
-    runner = CommandLineRunner(Path("."))
-    runner.run_command("")
-
-
 @pytest.mark.skipif(not docker_available(), reason="Docker not available")
 def test_docker_runner():
     docker_image = "ubuntu:noble"

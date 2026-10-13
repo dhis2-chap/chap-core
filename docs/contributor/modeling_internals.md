@@ -84,8 +84,16 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
   prediction paths alike (`chap eval --model-name builtin:global_median ...`).
   Every registered model is seeded at startup with its spec's role, and
   `tests/test_builtin_models.py` runs each one through all of these paths. The
-  first is `global_median`, a baseline that uses all past observations for the
-  same location as forecast samples for every period.
+  baselines, all with role `baseline` and all per location:
+  - `global_median`: all past observations as forecast samples for every period.
+  - `seasonal_median`: all past observations of the same month or week of the
+    year (week 53 pooled with week 52). Fails if a forecast period of the year was
+    never observed.
+  - `persistence`: the last observed value, scaled by the changes over the same
+    horizon and time of year in earlier years, so the spread widens with horizon.
+
+  All three use deterministic quantile samples whose two middle values are both
+  the median, so the sample median is exactly the point forecast.
 - **`chap_core/feature_generators/seasonality_cluster.py`** and
   **`chap_core/plotting/season_plot.py`** — scikit-learn `KMeans` seasonality
   clustering (unsupervised).
