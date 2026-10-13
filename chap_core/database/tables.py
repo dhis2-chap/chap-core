@@ -3,11 +3,13 @@ todo: comment this file, make it clear which classes are central and being used
 """
 
 import datetime
+from enum import StrEnum
 from typing import Optional
 
 import numpy as np
 from pydantic import computed_field
 from sqlalchemy import JSON, Column, UniqueConstraint
+from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, Relationship, col, select
 
 from chap_core.api_types import BacktestParams
@@ -186,6 +188,49 @@ def is_not_baseline_backtest():
         select(ConfiguredModelDB.id).join(ModelTemplateDB).where(ModelTemplateDB.role == ModelTemplateRole.baseline)
     )
     return col(Backtest.model_db_id).not_in(baseline_models)
+
+
+class SpecificationBaselineStatus(StrEnum):
+    pending = "pending"
+    done = "done"
+    not_applicable = "not_applicable"
+
+
+class SpecificationBaseline(DBModel, table=True):
+    """The run of one baseline model version on one backtest specification.
+
+    The row claims the run, so a baseline is queued once per specification however many
+    triggers ask for it. A new baseline version is a new configured model and gets its
+    own row. A baseline that fails on a specification, for example on too little
+    history, is marked not applicable instead of being retried.
+    """
+
+    id: int | None = Field(primary_key=True, default=None, description="Primary key.")
+    specification_id: int = Field(
+        foreign_key="backtestspecification.id",
+        ondelete="CASCADE",
+        description="Foreign key to the `BacktestSpecification` the baseline runs on.",
+    )
+    specification: BacktestSpecification = Relationship()
+    configured_model_id: int = Field(
+        foreign_key="configuredmodeldb.id", description="Foreign key to the baseline's `ConfiguredModelDB` row."
+    )
+    status: SpecificationBaselineStatus = Field(
+        default=SpecificationBaselineStatus.pending,
+        sa_column=Column(SAEnum(SpecificationBaselineStatus, native_enum=False, length=32), nullable=False),
+        description="`pending` until the run finishes, then `done` or `not_applicable`.",
+    )
+    # Deleting the baseline's backtest deletes this row, so the next trigger runs it again.
+    backtest_id: int | None = Field(
+        default=None,
+        foreign_key="backtest.id",
+        ondelete="CASCADE",
+        description="Foreign key to the baseline's `Backtest` once it is done.",
+    )
+    message: str | None = Field(default=None, description="Why the baseline is not applicable, when it is not.")
+    __table_args__ = (
+        UniqueConstraint("specification_id", "configured_model_id", name="uq_specificationbaseline_model"),
+    )
 
 
 class ConfiguredModelRead(ModelConfiguration, DBModel):

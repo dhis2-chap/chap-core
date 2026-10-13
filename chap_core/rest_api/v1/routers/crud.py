@@ -62,6 +62,7 @@ from chap_core.database.tables import (
 from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
 from chap_core.exceptions import BaselineTemplateConflict, ModelTemplateRevisionConflict
 from chap_core.geometry import Polygons
+from chap_core.rest_api.baseline_runs import request_baselines
 from chap_core.rest_api.celery_tasks import (
     JOB_NAME_KW,
     JOB_REQUEST_KW,
@@ -371,14 +372,17 @@ def get_backtest_specifications(
     summary="Fetch a specification with every backtest under it",
 )
 def get_backtest_specification(
-    specification_id: Annotated[int, Path(alias="specificationId")], session: Session = Depends(get_session)
+    specification_id: Annotated[int, Path(alias="specificationId")],
+    session: Session = Depends(get_session),
+    database_url: str = Depends(get_database_url),
 ):
     """Read one specification together with every backtest that ran under it, newest first, in a single response.
 
     This is the benchmark leaderboard: each backtest row is the ``BacktestRead`` shape
     with aggregate metrics, the configured model and its template, so a client can rank
     models without a request per backtest. Forecasts and per-org-unit metrics are not
-    included, and neither are backtests of built-in baseline models. 404 if the id is unknown.
+    included, and neither are backtests of built-in baseline models. Baselines that have not
+    run on the specification yet are queued in the background. 404 if the id is unknown.
     """
     specification = session.exec(
         select(BacktestSpecification)
@@ -387,6 +391,7 @@ def get_backtest_specification(
     ).first()
     if specification is None:
         raise HTTPException(status_code=404, detail="Backtest specification not found")
+    request_baselines(SessionWrapper(session=session), specification_id, database_url)
     backtests = session.exec(
         select(Backtest)
         .where(Backtest.specification_id == specification_id, is_not_baseline_backtest())

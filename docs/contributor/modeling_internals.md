@@ -94,6 +94,15 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
 
   All three use deterministic quantile samples whose two middle values are both
   the median, so the sample median is exactly the point forecast.
+
+  The REST API runs every live baseline once on each backtest specification
+  (`chap_core/rest_api/baseline_runs.py`). A backtest queued through the API asks
+  for them as soon as its specification is resolved, and reading a specification
+  (`GET /v1/crud/backtest-specifications/{id}`) asks for any that are still
+  missing, such as a new baseline version. Each run is a background job with a
+  `SpecificationBaseline` row recording `pending`, `done` or `not_applicable`; a
+  baseline that fails on a specification is not applicable there and is not
+  retried.
 - **`chap_core/feature_generators/seasonality_cluster.py`** and
   **`chap_core/plotting/season_plot.py`** — scikit-learn `KMeans` seasonality
   clustering (unsupervised).
