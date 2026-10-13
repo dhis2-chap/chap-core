@@ -21,6 +21,7 @@ from typing import Annotated, Any, Final, Literal
 
 import numpy as np
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
+from redis.exceptions import RedisError
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, col, select
@@ -73,7 +74,7 @@ from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.experimental import api_experimental
 from chap_core.rest_api.services.orchestrator import Orchestrator, ServiceNotFoundError
 from chap_core.rest_api.services.schemas import MLServiceInfo
-from chap_core.rest_api.v2.dependencies import get_orchestrator
+from chap_core.rest_api.v2.dependencies import get_orchestrator, get_registry_reader
 from chap_core.services import alert_policy_service, alert_service, prediction_setup_service
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
@@ -158,12 +159,15 @@ def _sync_live_chapkit_services(
     """
     try:
         if orchestrator is None:
-            from chap_core.rest_api.v2.dependencies import get_orchestrator
+            from chap_core.rest_api.v2.dependencies import get_registry_reader
 
-            orchestrator = get_orchestrator()
+            orchestrator = get_registry_reader()
         service_list = orchestrator.get_all()
-    except Exception:
+    except RedisError:
         logger.debug("Could not reach service registry, skipping chapkit sync")
+        return {}
+    except Exception:
+        logger.warning("Could not read service registry, skipping chapkit sync", exc_info=True)
         return {}
 
     conflicts: dict[tuple[str, str], ModelTemplateRevisionConflict | None] = {}
@@ -845,7 +849,7 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], se
     tags=["Models"],
     summary="Browse available model templates",
 )
-async def list_model_templates(session: Session = Depends(get_session)):
+def list_model_templates(session: Session = Depends(get_session)):
     """List every live model template that can be configured into a runnable model — one per template name; superseded versions keep their rows but are not listed.
 
     Acts as the discovery endpoint: registered CHAPKit services without a stored
@@ -942,7 +946,7 @@ def delete_model_template(
     summary="Browse configured (ready-to-run) models",
 )
 def list_configured_models(
-    session: Session = Depends(get_session), orchestrator: Orchestrator = Depends(get_orchestrator)
+    session: Session = Depends(get_session), orchestrator: Orchestrator = Depends(get_registry_reader)
 ):
     """List every configured model — a template + user-chosen options bundled into something you can actually run.
 
@@ -954,8 +958,10 @@ def list_configured_models(
     template_health: dict[tuple[str, str | None], Literal["live", "revision_mismatch"]] = {}
     try:
         services = orchestrator.get_all().services
-    except Exception:
+    except RedisError:
         logger.debug("Could not reach service registry, configured model health is unknown")
+    except Exception:
+        logger.warning("Could not read service registry, configured model health is unknown", exc_info=True)
     else:
         for service in services:
             conflict = _registered_chapkit_revision_conflict(session, service.info)
