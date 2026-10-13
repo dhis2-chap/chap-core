@@ -95,6 +95,26 @@ def test_a_failing_baseline_is_not_applicable_and_the_others_still_run(
         assert request_baselines(session, specification_id, "db-url") == []
 
 
+def test_a_baseline_failing_for_another_reason_fails_its_job_and_is_retried(
+    p_seeded_engine, specification_id, baseline_worker, monkeypatch
+):
+    def fail(*args, **kwargs):
+        raise RuntimeError("worker lost")
+
+    monkeypatch.setattr(get_builtin_model("persistence"), "predict", fail)
+    with SessionWrapper(p_seeded_engine) as session:
+        request_baselines(session, specification_id, "db-url")
+    with pytest.raises(RuntimeError, match="worker lost"):
+        _run_queued(p_seeded_engine, baseline_worker)
+
+    assert "persistence" not in _rows(p_seeded_engine, specification_id)
+    with SessionWrapper(p_seeded_engine) as session:
+        retried = request_baselines(session, specification_id, "db-url")
+        assert [session.session.get(SpecificationBaseline, id).configured_model_id for id in retried] == [
+            session.get_configured_model_by_id_or_name("persistence").id
+        ]
+
+
 def test_a_new_baseline_version_is_queued_on_an_existing_specification(
     p_seeded_engine, specification_id, baseline_worker
 ):

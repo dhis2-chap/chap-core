@@ -1,7 +1,7 @@
 """Running the baseline models once per backtest specification.
 
 `request_baselines` is the one entry point every trigger calls: a backtest resolving its
-specification, and a read of a specification's results. It claims each missing baseline
+specification, and, after the response is sent, a read of a specification's results. It claims each missing baseline
 with a `SpecificationBaseline` row and queues one job per claimed baseline, so it returns
 without running any model and is safe to call as often as triggers fire.
 """
@@ -10,6 +10,7 @@ import logging
 from typing import Any
 
 import sqlalchemy
+from sqlalchemy.engine import Connection, Engine
 from sqlmodel import select
 
 from chap_core.api_types import BacktestParams
@@ -70,11 +71,22 @@ def request_baselines(session: SessionWrapper, specification_id: int, database_u
     return queued
 
 
+def request_baselines_after_response(bind: Engine | Connection, specification_id: int, database_url: str) -> None:
+    """`request_baselines` for a read endpoint's background tasks, so the response never waits on the broker.
+
+    It runs after the response is sent, when the request's session is closed, so it opens its own.
+    """
+    with SessionWrapper(bind) as session:
+        request_baselines(session, specification_id, database_url)
+
+
 def run_baseline(specification_baseline_id: int, session: SessionWrapper) -> int | None:
     """Run one claimed baseline as a backtest on its specification, and return the backtest id.
 
-    A baseline that fails is marked not applicable and returns None, so one baseline that
-    cannot handle a dataset does not fail the job or affect the other baselines.
+    A baseline that raises `ValueError`, which is how a model rejects data it cannot
+    handle, is marked not applicable and returns None, so it does not fail the job.
+    Any other error may be transient, so the claim is removed and the job fails,
+    letting a later trigger run the baseline again.
     """
     baseline = session.session.get(SpecificationBaseline, specification_baseline_id)
     assert baseline is not None, f"Specification baseline {specification_baseline_id} not found"
@@ -87,13 +99,18 @@ def run_baseline(specification_baseline_id: int, session: SessionWrapper) -> int
             target_column=specification.target_column,
             session=session,
         )
-    except Exception as e:
+    except ValueError as e:
         logger.warning(f"Baseline run {specification_baseline_id} is not applicable: {e}")
         session.session.rollback()
         baseline.status = SpecificationBaselineStatus.not_applicable
         baseline.message = str(e)
         session.session.commit()
         return None
+    except Exception:
+        session.session.rollback()
+        session.session.delete(baseline)
+        session.session.commit()
+        raise
     baseline.status = SpecificationBaselineStatus.done
     baseline.backtest_id = backtest_id
     session.session.commit()

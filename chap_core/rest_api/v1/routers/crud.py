@@ -20,7 +20,7 @@ import logging
 from typing import Annotated, Any, Final, Literal
 
 import numpy as np
-from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Path, Query, UploadFile
 from redis.exceptions import RedisError
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
@@ -62,7 +62,7 @@ from chap_core.database.tables import (
 from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
 from chap_core.exceptions import BaselineTemplateConflict, ModelTemplateRevisionConflict
 from chap_core.geometry import Polygons
-from chap_core.rest_api.baseline_runs import request_baselines
+from chap_core.rest_api.baseline_runs import request_baselines_after_response
 from chap_core.rest_api.celery_tasks import (
     JOB_NAME_KW,
     JOB_REQUEST_KW,
@@ -373,6 +373,7 @@ def get_backtest_specifications(
 )
 def get_backtest_specification(
     specification_id: Annotated[int, Path(alias="specificationId")],
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
     database_url: str = Depends(get_database_url),
 ):
@@ -382,7 +383,7 @@ def get_backtest_specification(
     with aggregate metrics, the configured model and its template, so a client can rank
     models without a request per backtest. Forecasts and per-org-unit metrics are not
     included, and neither are backtests of built-in baseline models. Baselines that have not
-    run on the specification yet are queued in the background. 404 if the id is unknown.
+    run on the specification yet are queued after the response is sent. 404 if the id is unknown.
     """
     specification = session.exec(
         select(BacktestSpecification)
@@ -391,7 +392,7 @@ def get_backtest_specification(
     ).first()
     if specification is None:
         raise HTTPException(status_code=404, detail="Backtest specification not found")
-    request_baselines(SessionWrapper(session=session), specification_id, database_url)
+    background_tasks.add_task(request_baselines_after_response, session.get_bind(), specification_id, database_url)
     backtests = session.exec(
         select(Backtest)
         .where(Backtest.specification_id == specification_id, is_not_baseline_backtest())
