@@ -66,17 +66,6 @@ def test_missing_feature_values_are_rejected(classifier_joblib, classification_f
         run_prediction(classifier_joblib, path)
 
 
-def test_onnx_classifier_predictions_match_joblib(classifier_onnx, classifier_joblib, classification_csv, tmp_path):
-    features_only = _drop_target(classification_csv, tmp_path)
-
-    onnx_result = run_prediction(classifier_onnx, features_only)
-    joblib_result = run_prediction(classifier_joblib, features_only)
-
-    assert onnx_result.task == "classification"
-    assert (onnx_result.frame["prediction"].to_numpy() == joblib_result.frame["prediction"].to_numpy()).all()
-    assert onnx_result.frame["probability"].between(0.0, 1.0).all()
-
-
 def test_reordered_columns_give_same_predictions(classifier_joblib, classification_csv, tmp_path):
     features_only = _drop_target(classification_csv, tmp_path)
     reordered = tmp_path / "reordered.csv"
@@ -86,17 +75,6 @@ def test_reordered_columns_give_same_predictions(classifier_joblib, classificati
     actual = run_prediction(classifier_joblib, reordered).frame["prediction"]
 
     assert (expected.to_numpy() == actual.to_numpy()).all()
-
-
-def test_onnx_reordered_columns_give_same_predictions(classifier_onnx, classification_csv, tmp_path):
-    features_only = _drop_target(classification_csv, tmp_path)
-    reordered = tmp_path / "reordered.csv"
-    pd.read_csv(features_only)[["x2", "x1"]].to_csv(reordered, index=False)
-
-    expected = run_prediction(classifier_onnx, features_only).frame["probability"]
-    actual = run_prediction(classifier_onnx, reordered).frame["probability"]
-
-    assert expected.to_numpy() == pytest.approx(actual.to_numpy())
 
 
 def test_mismatched_columns_are_rejected(classifier_joblib, classification_csv, tmp_path):

@@ -1,31 +1,22 @@
-"""Persist and restore a fitted tabular model as joblib or ONNX.
-
-joblib keeps the native scikit-learn object. ONNX is an inference-only format
-(scoring, and class probabilities for the classifier) and needs the optional
-``onnx`` extra: ``pip install 'chap-core[onnx]'``.
-"""
+"""Persist and restore a fitted tabular model with joblib."""
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Protocol
 
 import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from sklearn.base import BaseEstimator
 
-ModelFormat = Literal["joblib", "onnx"]
 Task = Literal["classification", "regression"]
-
-_FEATURE_NAMES_KEY = "feature_names"
-_JOBLIB_SUFFIXES = {".joblib", ".pkl", ".pickle"}
 
 
 class PredictModel(Protocol):
-    """Minimal inference interface shared by the joblib and ONNX adapters."""
+    """Minimal inference interface implemented by the loaded model."""
 
     task: Task
     feature_names: list[str] | None
@@ -38,44 +29,21 @@ class PredictModel(Protocol):
         ...
 
 
-def ensure_format_available(model_format: ModelFormat) -> None:
-    """Fail fast (before a long evaluation) if the format's dependency is missing."""
-    if model_format == "onnx":
-        _import_skl2onnx()
+def save_model(estimator: BaseEstimator, path: str | Path) -> None:
+    import joblib
 
-
-def save_model(estimator: BaseEstimator, path: str | Path, model_format: ModelFormat) -> None:
-    if model_format == "joblib":
-        import joblib
-
-        joblib.dump(estimator, path)
-    elif model_format == "onnx":
-        Path(path).write_bytes(_to_onnx_bytes(estimator))
-    else:
-        raise ValueError(f"Unknown model format {model_format!r}. Choose from: joblib, onnx")
-
-
-def format_from_path(path: str | Path) -> ModelFormat:
-    """Infer the model format from a file extension."""
-    suffix = Path(path).suffix.lower()
-    if suffix in _JOBLIB_SUFFIXES:
-        return "joblib"
-    if suffix == ".onnx":
-        return "onnx"
-    raise ValueError(f"Cannot infer model format from {Path(path).name!r}; expected .joblib or .onnx")
+    joblib.dump(estimator, path)
 
 
 def load_model(path: str | Path) -> PredictModel:
-    """Load a model saved by :func:`save_model`, format inferred from the extension.
+    """Load a model saved by :func:`save_model`.
 
     joblib files are pickles and can execute arbitrary code on load: only use
     this on local, trusted paths and never expose it through the REST API.
     """
-    if format_from_path(path) == "joblib":
-        import joblib
+    import joblib
 
-        return _SklearnModel(joblib.load(path))
-    return _OnnxModel(path)
+    return _SklearnModel(joblib.load(path))
 
 
 class _SklearnModel:
@@ -97,62 +65,3 @@ class _SklearnModel:
         if self.task != "classification" or not hasattr(self._estimator, "predict_proba"):
             return None
         return np.asarray(self._estimator.predict_proba(self._frame(features)))[:, 1]
-
-
-class _OnnxModel:
-    def __init__(self, path: str | Path) -> None:
-        try:
-            import onnxruntime as ort
-        except ImportError as exc:
-            raise RuntimeError(
-                "Loading an ONNX model requires the 'onnx' extra. Install it with: pip install 'chap-core[onnx]'"
-            ) from exc
-
-        self._session = ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
-        self._input = self._session.get_inputs()[0].name
-        raw_names = self._session.get_modelmeta().custom_metadata_map.get(_FEATURE_NAMES_KEY)
-        self.feature_names: list[str] | None = json.loads(raw_names) if raw_names else None
-        outputs = [out.name for out in self._session.get_outputs()]
-        # skl2onnx names a classifier's outputs *_label / *_probability and a
-        # regressor's single output "variable".
-        self._proba_output = next((name for name in outputs if "prob" in name), None)
-        label_output = next((name for name in outputs if "label" in name), None)
-        self.task: Task = "classification" if (label_output or self._proba_output) else "regression"
-        self._label_output = label_output or outputs[0]
-
-    def predict(self, features: np.ndarray) -> np.ndarray:
-        raw = self._session.run([self._label_output], {self._input: features.astype(np.float32)})[0]
-        return np.asarray(raw).ravel()
-
-    def predict_proba(self, features: np.ndarray) -> np.ndarray | None:
-        if self._proba_output is None:
-            return None
-        raw = self._session.run([self._proba_output], {self._input: features.astype(np.float32)})[0]
-        rows = list(raw)
-        if rows and isinstance(rows[0], dict):  # skl2onnx ZipMap output: one {class: prob} per row
-            return np.array([row[max(row)] for row in rows], dtype=float)
-        array = np.asarray(raw, dtype=float)
-        return array[:, -1] if array.ndim == 2 else array
-
-
-def _import_skl2onnx():
-    try:
-        from skl2onnx import to_onnx
-        from skl2onnx.common.data_types import FloatTensorType
-    except ImportError as exc:
-        raise RuntimeError(
-            "ONNX export requires the 'onnx' extra. Install it with: pip install 'chap-core[onnx]'"
-        ) from exc
-    return to_onnx, FloatTensorType
-
-
-def _to_onnx_bytes(estimator: BaseEstimator) -> bytes:
-    to_onnx, float_tensor_type = _import_skl2onnx()
-    n_features = int(estimator.n_features_in_)
-    initial_types = [("input", float_tensor_type([None, n_features]))]
-    model = to_onnx(estimator, initial_types=initial_types)
-    names = getattr(estimator, "feature_names_in_", None)
-    if names is not None:
-        entry = model.metadata_props.add()
-        entry.key, entry.value = _FEATURE_NAMES_KEY, json.dumps([str(n) for n in names])
-    return bytes(model.SerializeToString())

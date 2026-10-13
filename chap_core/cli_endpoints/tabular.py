@@ -39,10 +39,6 @@ def evaluate(
             "--output-folder."
         ),
     ] = None,
-    model_format: Annotated[
-        Literal["joblib", "onnx"],
-        Parameter(help="Format for --model-output. 'onnx' needs the 'onnx' extra: pip install 'chap-core[onnx]'."),
-    ] = "joblib",
     target: Annotated[str, Parameter(help="Name of the target column in the CSV.")] = "target",
 ):
     """Evaluate a tabular model with seeded 5-fold cross-validation.
@@ -71,16 +67,12 @@ def evaluate(
         chap tabular evaluate logistic_regression ./data.csv
         chap tabular evaluate ridge ./data.csv --output-folder ./runs/ridge
         chap tabular evaluate logistic_regression ./data.csv --model-output model.joblib
-        chap tabular evaluate ridge ./data.csv --model-output model.onnx --model-format onnx
     """
     from chap_core.tabular.cv import evaluate_tabular
     from chap_core.tabular.dataset import load_tabular_dataset
     from chap_core.tabular.model import get_model
     from chap_core.tabular.report import write_report
-    from chap_core.tabular.serialize import ensure_format_available, save_model
-
-    if model_output is not None:
-        ensure_format_available(model_format)
+    from chap_core.tabular.serialize import save_model
 
     dataset = load_tabular_dataset(dataset_csv, target=target)
     result, estimator = evaluate_tabular(dataset, get_model(model), holdout=model_output is not None)
@@ -103,13 +95,13 @@ def evaluate(
 
     if estimator is not None and model_output is not None and result.test is not None:
         model_path = _resolve(model_output)
-        save_model(estimator, model_path, model_format)
-        logger.info(f"Wrote trained model ({model_format}) to {model_path}")
+        save_model(estimator, model_path)
+        logger.info(f"Wrote trained model to {model_path}")
         logger.info(f"{headline} (test): {result.test['metrics'][headline]:.4f}")
 
 
 def predict(
-    model_path: Annotated[Path, Parameter(help="Path to a saved model (.joblib or .onnx).")],
+    model_path: Annotated[Path, Parameter(help="Path to a saved model (joblib).")],
     dataset_csv: Annotated[Path, Parameter(help="Path to the prediction dataset CSV.")],
     *,
     output_folder: Annotated[
@@ -126,8 +118,7 @@ def predict(
 ):
     """Score a dataset with a saved tabular model.
 
-    Loads the model (format inferred from the extension: .joblib or .onnx),
-    predicts every row, and writes the input rows with a ``prediction`` column
+    Loads the model, predicts every row, and writes the input rows with a ``prediction`` column
     appended - plus a ``probability`` column for a classifier that exposes one.
 
     If the dataset contains the ``--target`` column, a ``<output>.performance.json``
@@ -142,7 +133,7 @@ def predict(
 
     Examples:
         chap tabular predict model.joblib ./new_data.csv
-        chap tabular predict model.onnx ./new_data.csv --output-folder ./runs
+        chap tabular predict model.joblib ./new_data.csv --output-folder ./runs
     """
     from chap_core.tabular.predict import run_prediction
     from chap_core.tabular.predict_report import write_prediction_report
