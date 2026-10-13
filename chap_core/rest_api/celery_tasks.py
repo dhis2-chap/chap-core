@@ -6,7 +6,7 @@ from collections.abc import Callable
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import TypeVar, cast
+from typing import Any, TypeVar, cast
 
 import celery
 from celery import Celery, Task, shared_task
@@ -71,6 +71,13 @@ class JobDescription(BaseModel):
     prediction_setup_id: int | None = Field(
         default=None, description="`PredictionSetup.id` this job belongs to, when applicable."
     )
+
+    model_id: int | None = Field(default=None, description="Configured model primary key captured at enqueue time.")
+    model_version: str | None = Field(default=None, description="Model template version captured at enqueue time.")
+    dataset_id: int | None = Field(
+        default=None, description="Input dataset primary key; None when the job creates its dataset."
+    )
+    parameters: dict[str, Any] = Field(default_factory=dict, description="Run parameters, including defaults.")
 
 
 def read_environment_variables():
@@ -174,6 +181,7 @@ class TrackedTask(Task):
         # Read (don't pop) — the worker function also needs prediction_setup_id when present.
         prediction_setup_id = kwargs.get(PREDICTION_SETUP_ID_JOB_META_KEY)
         original_request = kwargs.pop(JOB_REQUEST_KW, None)
+        metadata = kwargs.pop(JOB_METADATA_KW, {})
         result = super().apply_async(args=args, kwargs=kwargs, **options)
 
         job_meta: dict[str, str] = {
@@ -184,6 +192,10 @@ class TrackedTask(Task):
         }
         if prediction_setup_id is not None:
             job_meta[PREDICTION_SETUP_ID_JOB_META_KEY] = str(prediction_setup_id)
+
+        for key, value in metadata.items():
+            if value is not None:
+                job_meta[key] = json.dumps(value) if isinstance(value, dict) else str(value)
 
         r.hset(
             f"job_meta:{result.id}",
@@ -301,6 +313,7 @@ def celery_run_with_session(func, *args, **kwargs):
 
 JOB_TYPE_KW = "__job_type__"
 JOB_NAME_KW = "__job_name__"
+JOB_METADATA_KW = "__job_metadata__"
 JOB_REQUEST_KW = "__job_request__"
 # Request bodies can be several MB of inline data, so they expire instead of living as long as job_meta.
 JOB_REQUEST_TTL_SECONDS = 7 * 24 * 60 * 60
@@ -447,6 +460,10 @@ class CeleryPool[ReturnType]:
                 end_time=meta.get("end_time", None),
                 result=meta.get("result", None),
                 error=meta.get("error", None),
+                model_id=int(meta["model_id"]) if "model_id" in meta else None,
+                model_version=meta.get("model_version"),
+                dataset_id=int(meta["dataset_id"]) if "dataset_id" in meta else None,
+                parameters=json.loads(meta.get("parameters", "{}")),
                 prediction_setup_id=_parse_prediction_setup_id(meta.get(PREDICTION_SETUP_ID_JOB_META_KEY, None)),
             )
             for meta in sorted(jobs, key=lambda x: x.get("start_time", datetime(1900, 1, 1).isoformat()), reverse=True)
