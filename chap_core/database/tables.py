@@ -201,7 +201,7 @@ class SpecificationBaseline(DBModel, table=True):
 
     The row claims the run, so a baseline is queued once per specification however many
     triggers ask for it. A new baseline version is a new configured model and gets its
-    own row. A baseline that fails on a specification, for example on too little
+    own row. A baseline that rejects a specification's data, for example for too little
     history, is marked not applicable instead of being retried.
     """
 
@@ -228,6 +228,10 @@ class SpecificationBaseline(DBModel, table=True):
         description="Foreign key to the baseline's `Backtest` once it is done.",
     )
     message: str | None = Field(default=None, description="Why the baseline is not applicable, when it is not.")
+    claimed_at: datetime.datetime = Field(
+        default_factory=datetime.datetime.now,
+        description="When the run was last queued. A run still pending long after this is queued again.",
+    )
     __table_args__ = (
         UniqueConstraint("specification_id", "configured_model_id", name="uq_specificationbaseline_model"),
     )

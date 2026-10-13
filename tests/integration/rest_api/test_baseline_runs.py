@@ -1,4 +1,5 @@
 import dataclasses
+import datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,7 +11,7 @@ from chap_core.database.model_templates_and_config_tables import ModelConfigurat
 from chap_core.database.tables import Backtest, SpecificationBaseline, SpecificationBaselineStatus
 from chap_core.models.builtin import builtin_template_config, get_builtin_model
 from chap_core.rest_api.app import app
-from chap_core.rest_api.baseline_runs import request_baselines, run_baseline
+from chap_core.rest_api.baseline_runs import STALE_CLAIM_AFTER, request_baselines, run_baseline
 from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.rest_api.db_worker_functions import run_backtest
 
@@ -113,6 +114,18 @@ def test_a_baseline_failing_for_another_reason_fails_its_job_and_is_retried(
         assert [session.session.get(SpecificationBaseline, id).configured_model_id for id in retried] == [
             session.get_configured_model_by_id_or_name("persistence").id
         ]
+
+
+def test_a_baseline_still_pending_after_a_day_is_queued_again(p_seeded_engine, specification_id, baseline_worker):
+    with SessionWrapper(p_seeded_engine) as session:
+        first = request_baselines(session, specification_id, "db-url")
+        lost = session.session.get(SpecificationBaseline, first[0])
+        lost.claimed_at = datetime.datetime.now() - STALE_CLAIM_AFTER - datetime.timedelta(minutes=1)
+        session.session.commit()
+
+        assert request_baselines(session, specification_id, "db-url") == [lost.id]
+        assert request_baselines(session, specification_id, "db-url") == []
+    assert [args for _, args, _ in baseline_worker.queued[len(first) :]] == [(lost.id,)]
 
 
 def test_a_new_baseline_version_is_queued_on_an_existing_specification(

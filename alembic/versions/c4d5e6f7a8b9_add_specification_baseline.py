@@ -35,6 +35,7 @@ def upgrade() -> None:
         sa.Column("status", sa.String(length=32), nullable=False),
         sa.Column("backtest_id", sa.Integer(), nullable=True),
         sa.Column("message", sa.String(), nullable=True),
+        sa.Column("claimed_at", sa.DateTime(), nullable=False),
         sa.ForeignKeyConstraint(["specification_id"], ["backtestspecification.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["configured_model_id"], ["configuredmodeldb.id"]),
         sa.ForeignKeyConstraint(["backtest_id"], ["backtest.id"], ondelete="CASCADE"),

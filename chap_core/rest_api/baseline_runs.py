@@ -6,12 +6,14 @@ with a `SpecificationBaseline` row and queues one job per claimed baseline, so i
 without running any model and is safe to call as often as triggers fire.
 """
 
+import datetime
 import logging
-from typing import Any
+from typing import Any, cast
 
 import sqlalchemy
+from sqlalchemy import CursorResult, update
 from sqlalchemy.engine import Connection, Engine
-from sqlmodel import select
+from sqlmodel import col, select
 
 from chap_core.api_types import BacktestParams
 from chap_core.database.database import SessionWrapper
@@ -24,33 +26,39 @@ logger = logging.getLogger(__name__)
 
 worker: CeleryPool[Any] = CeleryPool()
 
+# A baseline runs in seconds, but its job waits in the queue shared with model backtests,
+# which can take hours. A claim older than this is taken to be lost and queued again.
+STALE_CLAIM_AFTER = datetime.timedelta(hours=24)
+
 
 def request_baselines(session: SessionWrapper, specification_id: int, database_url: str) -> list[int]:
-    """Queue every baseline that has no run on this specification yet, and return the ids of the new runs.
+    """Queue every baseline that has no run on this specification yet, and return the ids of the queued runs.
 
     A baseline's run is looked up by its configured model, so a new baseline version is
-    queued too. Queueing failures are logged rather than raised, so a trigger never fails
-    because of them. The claim is then removed, so the next trigger tries again.
+    queued too. A run still pending after `STALE_CLAIM_AFTER` is taken to be lost, for
+    example to a killed worker, and is queued again. Queueing failures are logged rather
+    than raised, so a trigger never fails because of them. The claim is then removed, so
+    the next trigger tries again.
     """
-    existing = set(
-        session.session.exec(
-            select(SpecificationBaseline.configured_model_id).where(
-                SpecificationBaseline.specification_id == specification_id
-            )
+    now = datetime.datetime.now()
+    stale_before = now - STALE_CLAIM_AFTER
+    claims = {
+        baseline.configured_model_id: baseline
+        for baseline in session.session.exec(
+            select(SpecificationBaseline).where(SpecificationBaseline.specification_id == specification_id)
         ).all()
-    )
+    }
     queued = []
     for model in session.get_baseline_models():
-        if model.id in existing:
-            continue
         assert model.id is not None
-        baseline = SpecificationBaseline(specification_id=specification_id, configured_model_id=model.id)
-        session.session.add(baseline)
-        try:
-            session.session.commit()
-        except sqlalchemy.exc.IntegrityError:
-            # Another trigger claimed this baseline between the lookup and the commit.
-            session.session.rollback()
+        claim = claims.get(model.id)
+        if claim is None:
+            baseline = _claim(session, specification_id, model.id, now)
+        elif claim.status == SpecificationBaselineStatus.pending and claim.claimed_at < stale_before:
+            baseline = _reclaim(session, claim, now, stale_before)
+        else:
+            continue
+        if baseline is None:
             continue
         assert baseline.id is not None
         try:
@@ -69,6 +77,43 @@ def request_baselines(session: SessionWrapper, specification_id: int, database_u
             continue
         queued.append(baseline.id)
     return queued
+
+
+def _claim(
+    session: SessionWrapper, specification_id: int, configured_model_id: int, now: datetime.datetime
+) -> SpecificationBaseline | None:
+    baseline = SpecificationBaseline(
+        specification_id=specification_id, configured_model_id=configured_model_id, claimed_at=now
+    )
+    session.session.add(baseline)
+    try:
+        session.session.commit()
+    except sqlalchemy.exc.IntegrityError:
+        # Another trigger claimed this baseline between the lookup and the commit.
+        session.session.rollback()
+        return None
+    return baseline
+
+
+def _reclaim(
+    session: SessionWrapper, claim: SpecificationBaseline, now: datetime.datetime, stale_before: datetime.datetime
+) -> SpecificationBaseline | None:
+    # Conditional, so when two triggers find the same stale claim only one of them requeues it.
+    result = session.session.execute(
+        update(SpecificationBaseline)
+        .where(
+            col(SpecificationBaseline.id) == claim.id,
+            col(SpecificationBaseline.status) == SpecificationBaselineStatus.pending,
+            col(SpecificationBaseline.claimed_at) < stale_before,
+        )
+        .values(claimed_at=now)
+    )
+    session.session.commit()
+    if cast("CursorResult", result).rowcount != 1:
+        return None
+    logger.warning(f"Baseline run {claim.id} was still pending after {STALE_CLAIM_AFTER}, queueing it again")
+    session.session.refresh(claim)
+    return claim
 
 
 def request_baselines_after_response(bind: Engine | Connection, specification_id: int, database_url: str) -> None:
