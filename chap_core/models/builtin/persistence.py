@@ -3,7 +3,7 @@ import numpy as np
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.datatypes import Samples
 from chap_core.models.builtin.empirical import period_of_year, quantile_samples
-from chap_core.models.builtin.registry import BuiltinModel, BuiltinModelSpec, builtin_model
+from chap_core.models.builtin.registry import BaselineNotApplicable, BuiltinModel, BuiltinModelSpec, builtin_model
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
@@ -40,12 +40,12 @@ class Persistence(BuiltinModel):
 
     def _ratios(self, location: str, season: int, horizon: int) -> np.ndarray:
         if location not in self._history:
-            raise ValueError(f"No training data for location {location!r}")
+            raise BaselineNotApplicable(f"No training data for location {location!r}")
         cases, seasons = self._history[location]
         ratios = (cases[horizon:] + 1) / (cases[:-horizon] + 1)
         ratios = ratios[(seasons[horizon:] == season) & np.isfinite(ratios)]
         if len(ratios) == 0:
-            raise ValueError(
+            raise BaselineNotApplicable(
                 f"No pair of observations {horizon} periods apart ending in period of year {season} for location "
                 f"{location!r} in the training data. Persistence needs one to estimate the spread."
             )
@@ -57,7 +57,7 @@ class Persistence(BuiltinModel):
             cases = np.asarray(historic_data[location].disease_cases, dtype=float)
             observed = np.flatnonzero(np.isfinite(cases))
             if len(observed) == 0:
-                raise ValueError(f"No observed disease_cases for location {location!r} in the historic data")
+                raise BaselineNotApplicable(f"No observed disease_cases for location {location!r} in the historic data")
             last_value = cases[observed[-1]]
             periods_since_last = len(cases) - observed[-1]
             rows = [

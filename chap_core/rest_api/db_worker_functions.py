@@ -152,7 +152,12 @@ def run_backtest(
         from chap_core.rest_api.baseline_runs import request_baselines
 
         assert specification.id is not None
-        request_baselines(session, specification.id, baseline_database_url)
+        # The baselines must never cost the user their own backtest.
+        try:
+            request_baselines(session, specification.id, baseline_database_url)
+        except Exception:
+            logger.warning(f"Could not request baselines for specification {specification.id}", exc_info=True)
+            session.session.rollback()
     dataset = _use_as_disease_cases(dataset, target_column)
 
     status_logger.info(f"Running {n_splits} evaluation splits with prediction length {n_periods}")

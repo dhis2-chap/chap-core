@@ -18,6 +18,7 @@ from sqlmodel import col, select
 from chap_core.api_types import BacktestParams
 from chap_core.database.database import SessionWrapper
 from chap_core.database.tables import SpecificationBaseline, SpecificationBaselineStatus
+from chap_core.models.builtin import BaselineNotApplicable
 from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
 from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.rest_api.db_worker_functions import run_backtest
@@ -27,8 +28,12 @@ logger = logging.getLogger(__name__)
 worker: CeleryPool[Any] = CeleryPool()
 
 # A baseline runs in seconds, but its job waits in the queue shared with model backtests,
-# which can take hours. A claim older than this is taken to be lost and queued again.
+# which can take hours. A run still pending this long after its claim is taken to be lost,
+# and a failed run waits this long before it is tried again, so a baseline that always
+# fails costs one job a day per specification.
 STALE_CLAIM_AFTER = datetime.timedelta(hours=24)
+
+RETRIED_STATUSES = (SpecificationBaselineStatus.pending, SpecificationBaselineStatus.failed)
 
 
 def request_baselines(session: SessionWrapper, specification_id: int, database_url: str) -> list[int]:
@@ -36,7 +41,7 @@ def request_baselines(session: SessionWrapper, specification_id: int, database_u
 
     A baseline's run is looked up by its configured model, so a new baseline version is
     queued too. A run still pending after `STALE_CLAIM_AFTER` is taken to be lost, for
-    example to a killed worker, and is queued again. Queueing failures are logged rather
+    example to a killed worker, and is queued again, as is a failed run. Queueing failures are logged rather
     than raised, so a trigger never fails because of them. The claim is then removed, so
     the next trigger tries again.
     """
@@ -54,7 +59,7 @@ def request_baselines(session: SessionWrapper, specification_id: int, database_u
         claim = claims.get(model.id)
         if claim is None:
             baseline = _claim(session, specification_id, model.id, now)
-        elif claim.status == SpecificationBaselineStatus.pending and claim.claimed_at < stale_before:
+        elif claim.status in RETRIED_STATUSES and claim.claimed_at < stale_before:
             baseline = _reclaim(session, claim, now, stale_before)
         else:
             continue
@@ -103,15 +108,15 @@ def _reclaim(
         update(SpecificationBaseline)
         .where(
             col(SpecificationBaseline.id) == claim.id,
-            col(SpecificationBaseline.status) == SpecificationBaselineStatus.pending,
+            col(SpecificationBaseline.status).in_(RETRIED_STATUSES),
             col(SpecificationBaseline.claimed_at) < stale_before,
         )
-        .values(claimed_at=now)
+        .values(status=SpecificationBaselineStatus.pending, claimed_at=now)
     )
     session.session.commit()
     if cast("CursorResult", result).rowcount != 1:
         return None
-    logger.warning(f"Baseline run {claim.id} was still pending after {STALE_CLAIM_AFTER}, queueing it again")
+    logger.warning(f"Baseline run {claim.id} was {claim.status} for {STALE_CLAIM_AFTER}, queueing it again")
     session.session.refresh(claim)
     return claim
 
@@ -128,10 +133,10 @@ def request_baselines_after_response(bind: Engine | Connection, specification_id
 def run_baseline(specification_baseline_id: int, session: SessionWrapper) -> int | None:
     """Run one claimed baseline as a backtest on its specification, and return the backtest id.
 
-    A baseline that raises `ValueError`, which is how a model rejects data it cannot
-    handle, is marked not applicable and returns None, so it does not fail the job.
-    Any other error may be transient, so the claim is removed and the job fails,
-    letting a later trigger run the baseline again.
+    A baseline that raises `BaselineNotApplicable` for data it cannot handle is marked
+    not applicable and returns None, so it does not fail the job. Any other error may be
+    transient, so the run is marked failed and the job fails. A trigger at least
+    `STALE_CLAIM_AFTER` later runs it again.
     """
     baseline = session.session.get(SpecificationBaseline, specification_baseline_id)
     assert baseline is not None, f"Specification baseline {specification_baseline_id} not found"
@@ -144,16 +149,18 @@ def run_baseline(specification_baseline_id: int, session: SessionWrapper) -> int
             target_column=specification.target_column,
             session=session,
         )
-    except ValueError as e:
+    except BaselineNotApplicable as e:
         logger.warning(f"Baseline run {specification_baseline_id} is not applicable: {e}")
         session.session.rollback()
         baseline.status = SpecificationBaselineStatus.not_applicable
         baseline.message = str(e)
         session.session.commit()
         return None
-    except Exception:
+    except Exception as e:
         session.session.rollback()
-        session.session.delete(baseline)
+        baseline.status = SpecificationBaselineStatus.failed
+        baseline.message = str(e)
+        baseline.claimed_at = datetime.datetime.now()
         session.session.commit()
         raise
     baseline.status = SpecificationBaselineStatus.done

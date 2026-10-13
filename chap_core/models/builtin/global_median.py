@@ -3,7 +3,7 @@ import numpy as np
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.datatypes import Samples
 from chap_core.models.builtin.empirical import quantile_samples
-from chap_core.models.builtin.registry import BuiltinModel, BuiltinModelSpec, builtin_model
+from chap_core.models.builtin.registry import BaselineNotApplicable, BuiltinModel, BuiltinModelSpec, builtin_model
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
@@ -40,7 +40,7 @@ class GlobalMedian(BuiltinModel):
         forecasts = {}
         for location, location_data in future_data.items():
             if location not in self._samples:
-                raise ValueError(f"No observed disease_cases for location {location!r} in the training data")
+                raise BaselineNotApplicable(f"No observed disease_cases for location {location!r} in the training data")
             samples = np.tile(self._samples[location], (len(location_data.time_period), 1))
             forecasts[location] = Samples(location_data.time_period, samples)  # type: ignore[call-arg]
         return DataSet(forecasts)

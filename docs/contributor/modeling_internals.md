@@ -100,10 +100,11 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
   for them as soon as its specification is resolved, and reading a specification
   (`GET /v1/crud/backtest-specifications/{id}`) asks for any that are still
   missing, such as a new baseline version. Each run is a background job with a
-  `SpecificationBaseline` row recording `pending`, `done` or `not_applicable`. A
-  baseline that raises `ValueError` on a specification is not applicable there and
-  is not retried; any other failure, or a run still pending after 24 hours, is
-  queued again by the next trigger.
+  `SpecificationBaseline` row recording `pending`, `done`, `not_applicable` or
+  `failed`. A baseline that raises `BaselineNotApplicable` for a specification's
+  data is not applicable there and is not retried. A failed run, or one still
+  pending 24 hours after it was queued, is queued again by the next trigger after
+  those 24 hours.
 - **`chap_core/feature_generators/seasonality_cluster.py`** and
   **`chap_core/plotting/season_plot.py`** — scikit-learn `KMeans` seasonality
   clustering (unsupervised).

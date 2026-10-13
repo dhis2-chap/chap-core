@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from chap_core.models.builtin.registry import BaselineNotApplicable
 from chap_core.time_period import Month, PeriodRange, Week
 
 N_SAMPLES = 100
@@ -22,4 +23,4 @@ def period_of_year(time_period: PeriodRange) -> np.ndarray:
         return np.asarray(time_period.month)
     if isinstance(time_period[0], Week):
         return np.asarray(np.minimum(time_period.week, 52))
-    raise ValueError(f"Seasonal baselines need monthly or weekly data, got {type(time_period[0]).__name__}")
+    raise BaselineNotApplicable(f"Seasonal baselines need monthly or weekly data, got {type(time_period[0]).__name__}")

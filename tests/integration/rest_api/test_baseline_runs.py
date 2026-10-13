@@ -9,7 +9,7 @@ from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.database.tables import Backtest, SpecificationBaseline, SpecificationBaselineStatus
-from chap_core.models.builtin import builtin_template_config, get_builtin_model
+from chap_core.models.builtin import BaselineNotApplicable, builtin_template_config, get_builtin_model
 from chap_core.rest_api.app import app
 from chap_core.rest_api.baseline_runs import STALE_CLAIM_AFTER, request_baselines, run_baseline
 from chap_core.rest_api.data_models import BacktestCreate
@@ -77,7 +77,7 @@ def test_a_failing_baseline_is_not_applicable_and_the_others_still_run(
     p_seeded_engine, specification_id, baseline_worker, monkeypatch
 ):
     def fail(*args, **kwargs):
-        raise ValueError("too little history")
+        raise BaselineNotApplicable("too little history")
 
     monkeypatch.setattr(get_builtin_model("persistence"), "predict", fail)
     with SessionWrapper(p_seeded_engine) as session:
@@ -96,24 +96,29 @@ def test_a_failing_baseline_is_not_applicable_and_the_others_still_run(
         assert request_baselines(session, specification_id, "db-url") == []
 
 
-def test_a_baseline_failing_for_another_reason_fails_its_job_and_is_retried(
+def test_a_baseline_failing_for_another_reason_fails_its_job_and_is_retried_a_day_later(
     p_seeded_engine, specification_id, baseline_worker, monkeypatch
 ):
+    # A plain ValueError may come from the shared backtest path, so it is not taken as "not applicable".
     def fail(*args, **kwargs):
-        raise RuntimeError("worker lost")
+        raise ValueError("bug in a shared path")
 
     monkeypatch.setattr(get_builtin_model("persistence"), "predict", fail)
     with SessionWrapper(p_seeded_engine) as session:
         request_baselines(session, specification_id, "db-url")
-    with pytest.raises(RuntimeError, match="worker lost"):
+    with pytest.raises(ValueError, match="bug in a shared path"):
         _run_queued(p_seeded_engine, baseline_worker)
 
-    assert "persistence" not in _rows(p_seeded_engine, specification_id)
+    failed = _rows(p_seeded_engine, specification_id)["persistence"]
+    assert (failed.status, failed.message) == (SpecificationBaselineStatus.failed, "bug in a shared path")
     with SessionWrapper(p_seeded_engine) as session:
-        retried = request_baselines(session, specification_id, "db-url")
-        assert [session.session.get(SpecificationBaseline, id).configured_model_id for id in retried] == [
-            session.get_configured_model_by_id_or_name("persistence").id
-        ]
+        # A failure that repeats must not queue a job on every trigger.
+        assert request_baselines(session, specification_id, "db-url") == []
+        row = session.session.get(SpecificationBaseline, failed.id)
+        row.claimed_at = datetime.datetime.now() - STALE_CLAIM_AFTER - datetime.timedelta(minutes=1)
+        session.session.commit()
+        assert request_baselines(session, specification_id, "db-url") == [failed.id]
+        assert session.session.get(SpecificationBaseline, failed.id).status == SpecificationBaselineStatus.pending
 
 
 def test_a_baseline_still_pending_after_a_day_is_queued_again(p_seeded_engine, specification_id, baseline_worker):
@@ -169,6 +174,24 @@ def test_a_backtest_from_the_api_queues_the_baselines_of_its_specification(p_see
         specification_id = session.session.get(Backtest, backtest_id).specification_id
 
     assert len(baseline_worker.queued) == len(_rows(p_seeded_engine, specification_id)) == 3
+
+
+def test_a_backtest_from_the_api_runs_even_when_requesting_baselines_fails(p_seeded_engine, monkeypatch):
+    from chap_core.rest_api import baseline_runs
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("database hiccup")
+
+    monkeypatch.setattr(baseline_runs, "request_baselines", fail)
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        backtest_id = run_backtest(
+            BacktestCreate(name="model", dataset_id=dataset_id, model_id="naive_model"),
+            session=session,
+            baseline_database_url="db-url",
+            **PARAMS,
+        )
+        assert session.session.get(Backtest, backtest_id).forecasts
 
 
 def test_reading_a_specification_queues_its_missing_baselines(override_session, specification_id, baseline_worker):

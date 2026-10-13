@@ -194,6 +194,7 @@ class SpecificationBaselineStatus(StrEnum):
     pending = "pending"
     done = "done"
     not_applicable = "not_applicable"
+    failed = "failed"
 
 
 class SpecificationBaseline(DBModel, table=True):
@@ -202,7 +203,8 @@ class SpecificationBaseline(DBModel, table=True):
     The row claims the run, so a baseline is queued once per specification however many
     triggers ask for it. A new baseline version is a new configured model and gets its
     own row. A baseline that rejects a specification's data, for example for too little
-    history, is marked not applicable instead of being retried.
+    history, is marked not applicable and not run again. A run that fails for another
+    reason, or is lost, is run again a day after it was claimed.
     """
 
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
@@ -218,7 +220,7 @@ class SpecificationBaseline(DBModel, table=True):
     status: SpecificationBaselineStatus = Field(
         default=SpecificationBaselineStatus.pending,
         sa_column=Column(SAEnum(SpecificationBaselineStatus, native_enum=False, length=32), nullable=False),
-        description="`pending` until the run finishes, then `done` or `not_applicable`.",
+        description="`pending` until the run finishes, then `done`, `not_applicable` or `failed`.",
     )
     # Deleting the baseline's backtest deletes this row, so the next trigger runs it again.
     backtest_id: int | None = Field(
@@ -230,7 +232,7 @@ class SpecificationBaseline(DBModel, table=True):
     message: str | None = Field(default=None, description="Why the baseline is not applicable, when it is not.")
     claimed_at: datetime.datetime = Field(
         default_factory=datetime.datetime.now,
-        description="When the run was last queued. A run still pending long after this is queued again.",
+        description="When the run was last queued, or when it failed. A pending or failed run is queued again a day after this.",
     )
     __table_args__ = (
         UniqueConstraint("specification_id", "configured_model_id", name="uq_specificationbaseline_model"),
