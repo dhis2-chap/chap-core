@@ -2,20 +2,10 @@ from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from chap_core.api import forecast
 import pytest
-from chap_core.util import docker_available
 from chap_core.cli_endpoints.evaluate import eval_cmd
 from chap_core.external.ExtendedPredictor import ExtendedPredictor
-from chap_core.cli_endpoints.utils import sanity_check_model
 from chap_core.cli_endpoints.utils import test as run_chap_test
-
-
-@pytest.mark.skipif(not docker_available(), reason="Docker not available")
-@pytest.mark.skip(reason="Failing on CI")
-def test_forecast_github_model():
-    repo_url = "https://github.com/knutdrand/external_rmodel_example.git"
-    results = forecast("external", "hydromet_5_filtered", 12, repo_url)
 
 
 def test_eval_cmd(tmp_path):

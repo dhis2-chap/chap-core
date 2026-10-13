@@ -48,25 +48,25 @@ def just_too_small_weeks():
     return zero_data(period_range)
 
 
-def test_validate_training_data(small_training_data_months):
+def test_validate_training_data_rejects_two_months(small_training_data_months):
     with pytest.raises(ValueError):
         validate_training_data(small_training_data_months, None)
 
 
-def test_validate_training_data(small_training_data_weeks):
+def test_validate_training_data_rejects_two_weeks(small_training_data_weeks):
     with pytest.raises(ValueError):
         validate_training_data(small_training_data_weeks, None)
 
 
-def test_validate_training_data(just_too_small_months):
+def test_validate_training_data_rejects_23_months(just_too_small_months):
     with pytest.raises(ValueError):
         validate_training_data(just_too_small_months, None)
 
 
-def test_validate_training_data(just_too_small_weeks):
+def test_validate_training_data_rejects_103_weeks(just_too_small_weeks):
     with pytest.raises(ValueError):
         validate_training_data(just_too_small_weeks, None)
 
 
-def test_validate_training_data(big_training_data_months):
+def test_validate_training_data_accepts_24_months(big_training_data_months):
     validate_training_data(big_training_data_months, None)

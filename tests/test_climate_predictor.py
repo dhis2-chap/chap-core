@@ -40,6 +40,8 @@ def test_climate_predictor(climate_data):
     predictor.train(climate_data)
     time_period = PeriodRange.from_time_periods(Month.parse("2021-01"), Month.parse("2021-12"))
     prediction = predictor.predict(time_period)
+    assert set(prediction.locations()) == {"oslo", "stockholm"}
+    assert len(prediction.period_range) == 12
 
 
 def test_predict_preserves_training_location_order(climate_data):
@@ -58,6 +60,8 @@ def test_weekly_climate_predictor(weekly_climate_data):
     predictor.train(weekly_climate_data)
     time_period = PeriodRange.from_time_periods(Week(2021, 1), Week(2021, 52))
     prediction = predictor.predict(time_period)
+    assert set(prediction.locations()) == {"oslo", "stockholm"}
+    assert len(prediction.period_range) == 52
 
 
 @pytest.mark.parametrize("fixture_name", ["climate_data", "weekly_climate_data"])

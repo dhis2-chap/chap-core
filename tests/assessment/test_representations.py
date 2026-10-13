@@ -14,4 +14,4 @@ def test_forecast_schema_acceptance():
     )
 
     forecasts = FlatForecasts(data)
-    print(forecasts)
+    assert len(forecasts) == 4

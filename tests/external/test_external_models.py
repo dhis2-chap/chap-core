@@ -11,7 +11,6 @@ from chap_core.external.model_configuration import (
     ModelTemplateConfigV2,
 )
 from chap_core.file_io.example_data_set import datasets
-from chap_core.geometry import Polygons
 from chap_core.models.external_model import ExternalModel
 from chap_core.models.utils import get_model_template_from_directory_or_github_url
 from chap_core.util import docker_available, uv_available
@@ -66,14 +65,6 @@ def test_uv_model_from_folder(models_path):
     template = get_model_template_from_directory_or_github_url(path)
     assert template.name == "naive_python_uv"
 
-
-@pytest.mark.skip(reason="Under development")
-def test_that_polygons_are_sent_to_runners_through_external_model(data_path, dataset):
-    # todo: implement with dataset/polygons that are compatible
-    # init external model with a runner (create a dummy command line model)
-    # check that commands get polygons correctly by fetching the runner and
-    # inspect the commands
-    polygons = Polygons.from_file(data_path / "example_polygons.geojson").data
     # dataset.set_polygons(polygons)
 
 
