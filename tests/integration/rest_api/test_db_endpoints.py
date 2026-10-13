@@ -529,6 +529,7 @@ def test_create_backtests_resolves_the_specification_and_queues_one_job_per_mode
     for func, _, kwargs in worker.queued:
         assert func is run_backtest
         assert (kwargs["n_periods"], kwargs["n_splits"], kwargs["stride"], kwargs["n_retrain"]) == (3, 4, 1, 2)
+        assert kwargs["baseline_database_url"] == kwargs["database_url"]
 
     specification = client.get(f"/v1/crud/backtest-specifications/{data['specificationId']}").json()
     assert (specification["dataset"]["id"], specification["nSplits"], specification["nRetrain"]) == (dataset_id, 4, 2)
