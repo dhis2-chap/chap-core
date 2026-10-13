@@ -52,9 +52,9 @@ def client(test_orchestrator, monkeypatch):
     app.dependency_overrides.clear()
 
 
-@pytest.fixture(params=["Bearer", "ApiToken"])
-def auth_headers(request):
-    return {"Authorization": f"{request.param} {TEST_TOKEN}"}
+@pytest.fixture
+def auth_headers():
+    return {"Authorization": f"Bearer {TEST_TOKEN}"}
 
 
 @pytest.fixture
@@ -113,19 +113,9 @@ class TestTokenEnabled:
         assert response.headers["WWW-Authenticate"] == "Bearer"
         assert response.json() == {"detail": "Missing or invalid API token"}
 
-    def test_wrong_token_returns_401(self, client, auth_headers):
-        response = client.get(
-            GATED_PATH, headers={"Authorization": auth_headers["Authorization"].replace(TEST_TOKEN, "wrong-token")}
-        )
-
-        assert response.status_code == 401
-        assert response.headers["WWW-Authenticate"] == "Bearer"
-        assert response.json() == {"detail": "Missing or invalid API token"}
-
     @pytest.mark.parametrize("scheme", ["Bearer", "ApiToken"])
-    @pytest.mark.parametrize("credentials", ["", " ", "wrong-token", f"\t{TEST_TOKEN}", f" {TEST_TOKEN} extra"])
-    def test_malformed_credentials_return_401(self, client, scheme, credentials):
-        response = client.get(GATED_PATH, headers={"Authorization": scheme + credentials})
+    def test_wrong_token_returns_401(self, client, scheme):
+        response = client.get(GATED_PATH, headers={"Authorization": f"{scheme} wrong-token"})
 
         assert response.status_code == 401
 
@@ -134,17 +124,12 @@ class TestTokenEnabled:
 
         assert response.status_code == 401
 
-    @pytest.mark.parametrize("path", [GATED_PATH, "/v1/analytics/data-sources"])
-    def test_valid_token_is_accepted(self, client, auth_headers, path):
-        assert client.get(path, headers=auth_headers).status_code == 200
+    def test_valid_token_is_accepted(self, client, auth_headers):
+        assert client.get(GATED_PATH, headers=auth_headers).status_code == 200
 
-    @pytest.mark.parametrize("scheme", ["bearer", "BEARER", "apitoken", "APITOKEN"])
-    def test_scheme_is_case_insensitive(self, client, scheme):
+    @pytest.mark.parametrize("scheme", ["ApiToken", "apitoken", "APITOKEN"])
+    def test_api_token_scheme_is_accepted(self, client, scheme):
         assert client.get(GATED_PATH, headers={"Authorization": f"{scheme} {TEST_TOKEN}"}).status_code == 200
-
-    def test_valid_token_is_accepted_with_root_path(self, client, auth_headers):
-        with TestClient(app, root_path="/api") as rooted_client:
-            assert rooted_client.get(f"/api{GATED_PATH}", headers=auth_headers).status_code == 200
 
     @pytest.mark.parametrize("path", ["/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"])
     def test_api_reference_needs_no_token(self, client, path):

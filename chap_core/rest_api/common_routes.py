@@ -59,8 +59,9 @@ class SystemInfoResponse(BaseModel):
     revision: str = Field(description="Git revision the running image was built from (empty if unknown).")
     auth_required: bool = Field(
         description=(
-            "Whether this server requires an API token. Protected endpoints accept "
-            "`Authorization: Bearer <token>` or `Authorization: ApiToken <token>`."
+            "Whether this server requires an API token. When `true`, every endpoint except "
+            "`/health`, `/health/ready` and `/system/info` needs an `Authorization: Bearer <token>` "
+            "or `Authorization: ApiToken <token>` header."
         ),
         examples=[False],
     )
