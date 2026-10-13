@@ -998,23 +998,34 @@ class TestConfigPayload:
         assert "chapkit >=" not in str(error.value)
 
     def test_model_reports_the_covariates_the_service_stored(self):
-        from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-
         service_default = ["rainfall", "mean_temperature"]
         _, model = self._build(
-            ModelConfiguration(),
+            {"max_epochs": 2},
             store=lambda data: {**data, "additional_continuous_covariates": service_default},
         )
 
         assert model.additional_continuous_covariates == service_default
 
-    def test_empty_configuration_sends_no_data(self):
+    def test_empty_configuration_sends_no_additional_covariates(self):
         from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 
         created = self._created_config(ModelConfiguration())
 
-        assert created["data"] == {}
+        assert created["data"] == {"additional_continuous_covariates": []}
         assert created["name"].startswith("test-model_config_")
+
+    def test_configured_model_row_without_covariates_sends_an_empty_list(self):
+        row = ConfiguredModelDB(
+            name="test-model",
+            model_template_id=1,
+            user_option_values={"max_epochs": 2},
+            additional_continuous_covariates=[],
+            uses_chapkit=True,
+        )
+
+        created = self._created_config(row)
+
+        assert created["data"] == {"max_epochs": 2, "additional_continuous_covariates": []}
 
     def test_raw_service_configuration_is_passed_through(self):
         created = self._created_config({"max_epochs": 2, "model_template": "ignored"})
