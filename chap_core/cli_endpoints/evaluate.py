@@ -222,6 +222,7 @@ def _run_eval(
         ignore_env=run_config.ignore_environment,
         run_dir_type=run_config.run_directory_type,
         is_chapkit_model=run_config.is_chapkit_model,
+        as_chapkit=run_config.as_chapkit,
         dry_run=dry_run,
     )
 
@@ -278,18 +279,14 @@ def _run_eval(
         )
         logger.debug(f"Including {historical_context_years} years of historical context for plotting")
 
+        if estimator_options.mode == EstimatorMode.NORMAL:
+            estimator = ExtendedPredictor.extend_to_horizon(estimator, backtest_params.n_periods)
+
         if dry_run:
             from chap_core.assessment.dataset_splitting import train_test_generator
             from chap_core.assessment.prediction_evaluator import backtest
 
             assert not isinstance(estimator, MetaLearner)
-
-            max_periods = estimator.model_information.max_prediction_periods
-            if max_periods is not None and max_periods < backtest_params.n_periods:
-                logger.warning(
-                    f"Wrapping model to extend prediction length from {max_periods} to {backtest_params.n_periods}. This is done iteratively, and may worsen model performance"
-                )
-                estimator = ExtendedPredictor(estimator, backtest_params.n_periods)
 
             train_set, test_generator = train_test_generator(
                 dataset=dataset,

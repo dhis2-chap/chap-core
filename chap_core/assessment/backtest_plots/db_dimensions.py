@@ -152,14 +152,17 @@ def load_filtered_flat_data(
     # Observations narrow only by org unit (any location coordinate); other dimensions
     # filter the forecasts and rely on the plot's in-memory filter for observations.
     org_units = [value for name, value in coords.items() if isinstance(dim_by_name.get(name), LocationDimension)]
+    target_column = backtest.specification.target_column
     observations = DataSetManager(session).observations(
         backtest.dataset_id,
         org_units=org_units or None,
-        feature_names=["disease_cases"],
+        feature_names=[target_column],
     )
 
     forecasts_df = convert_backtest_to_flat_forecasts(list(forecasts))
-    observations_df = convert_backtest_observations_to_flat_observations(list(observations))
+    observations_df = convert_backtest_observations_to_flat_observations(
+        list(observations), target_column=target_column
+    )
 
     return FlatEvaluationData(
         forecasts=FlatForecasts.validate(forecasts_df),

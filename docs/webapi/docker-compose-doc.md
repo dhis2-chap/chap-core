@@ -27,8 +27,9 @@ The repository ships several compose files. `compose.yml` and `compose.ghcr.yml`
 |------|------|---------|
 | `compose.yml` | base | Builds `chap` and `worker` from local source. The default for development and for the documented server install. |
 | `compose.ghcr.yml` | base | Same services pulled as pre-built images from GHCR. Use *instead of* `compose.yml`. Self-contained: download this one file and run it without a checkout or an `.env`. |
-| `compose.chapkit.yml` | overlay | Umbrella overlay pulling in every bundled chapkit model service via the `include:` directive. Requires Compose v2.20+. |
-| `compose.ewars.yml` | overlay | The EWARS chapkit model service on its own. Already included by `compose.chapkit.yml`. |
+| `compose.marketplace.yml` | overlay | Written by `chap-admin` in the deployment directory. Holds the marketplace model services it installed. Not in the repository. |
+| `compose.chapkit.yml` | overlay | Includes `compose.ewars.yml`. Kept for development only; see below. |
+| `compose.ewars.yml` | overlay | Starts the EWARS chapkit service directly. The service registers a model template but gets no configurations, so it cannot be run. Deployments install EWARS with `chap-admin` instead, and must not use both. |
 | `compose.override.yml.example` | overlay template | Optional extra services (`chtorch`, `ewars_plus`). Copy to `compose.override.yml`. Compose merges that file automatically **only** when no `-f` flag is used; with any `-f` flag you must list it explicitly, last. |
 | `compose.dev.yml` | overlay | Bind-mounts local source into `chap`, builds the worker from `Dockerfile.inla`, and exposes the postgres port on the host. |
 | `compose.test.yml` | overlay | One-shot pytest container. |
@@ -41,8 +42,8 @@ Common combinations:
 # Base only (plus compose.override.yml, if one exists)
 docker compose up -d
 
-# With all bundled model services (what the installation guide uses)
-docker compose -f compose.yml -f compose.chapkit.yml up -d
+# With the marketplace models installed by chap-admin (what the installation guide uses)
+docker compose -f compose.yml -f compose.marketplace.yml up -d
 
 # Development, with local source bind-mounted
 docker compose -f compose.yml -f compose.dev.yml up -d
@@ -94,6 +95,8 @@ docker compose -f compose.ghcr.yml up -d
 Pass the same `-f compose.ghcr.yml` flag to every later `down`, `pull` and
 `logs` command in that stack.
 
-Docker Compose does not remember which overlays you used, so pass the same `-f` flags to every subsequent `down`, `build` and `logs` command in that stack. The `make restart`, `make force-restart` and `make chap-version` targets already carry the `compose.yml` + `compose.chapkit.yml` pair.
+Docker Compose does not remember which overlays you used, so pass the same `-f` flags to every subsequent `down`, `build` and `logs` command in that stack. The `make restart`, `make force-restart` and `make chap-version` targets carry the `compose.yml` + `compose.chapkit.yml` pair for development, so EWARS runs there without configurations.
+
+Marketplace models are not started by an overlay in the repository. After the first `docker compose up`, run `chap-admin install-all` from the deployment directory; it starts the model services, registers them with their verified configurations, and writes `compose.marketplace.yml`. See [Running marketplace models](../chap-cli/chap-core-cli-setup.md#running-marketplace-models).
 
 To add a model service of your own, see [Running Your Own Model](../modeling-app/running-your-own-model.md).

@@ -135,6 +135,7 @@ nav:
 
           - eval Reference: chap-cli/eval-reference.md
           - report Reference: chap-cli/report-reference.md
+          - simulate Reference: chap-cli/simulate-reference.md
           - explain-lime Reference: chap-cli/explain-lime-reference.md
 
   #- Modeling App:

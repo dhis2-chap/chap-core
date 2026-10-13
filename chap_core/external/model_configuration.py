@@ -17,6 +17,7 @@ class EntryPointConfig(BaseModel):
     predict: CommandConfig
     report: CommandConfig | None = None
     context: CommandConfig | None = None
+    simulate: CommandConfig | None = None
 
 
 class RunnerConfig(BaseModel, extra="forbid"):  # pydantic-specific config to forbid extra fields):

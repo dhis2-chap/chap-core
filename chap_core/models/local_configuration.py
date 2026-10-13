@@ -50,7 +50,7 @@ def parse_local_model_config_file(file_name) -> Configurations:
     with open(file_name) as file:
         content = yaml.safe_load(file)
     try:
-        return TypeAdapter(list[LocalModelTemplateWithConfigurations]).validate_python(content)
+        return TypeAdapter(Configurations).validate_python(content)
     except ValidationError as e:
         raise ValueError(f"Invalid model configuration file {file_name}: {e}") from e
 

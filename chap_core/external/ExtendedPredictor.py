@@ -1,4 +1,5 @@
 import copy
+import logging
 
 import pandas as pd
 
@@ -6,11 +7,26 @@ from chap_core.datatypes import Samples
 from chap_core.models.configured_model import ConfiguredModel
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
+logger = logging.getLogger(__name__)
+
 
 class ExtendedPredictor(ConfiguredModel):
     def __init__(self, configured_model: ConfiguredModel, desired_scope):
         self._config_model = configured_model
         self._desired_scope = desired_scope
+
+    @staticmethod
+    def extend_to_horizon(estimator, n_periods: int):
+        """Wrap ``estimator`` in an ExtendedPredictor when its declared max_prediction_periods
+        is below ``n_periods``, otherwise return it unchanged."""
+        model_information = getattr(estimator, "model_information", None)
+        max_periods = model_information.max_prediction_periods if model_information is not None else None
+        if max_periods is None or max_periods >= n_periods:
+            return estimator
+        logger.warning(
+            f"Wrapping model to extend prediction length from {max_periods} to {n_periods}. This is done iteratively, and may worsen model performance"
+        )
+        return ExtendedPredictor(estimator, n_periods)
 
     @property
     def model_information(self):

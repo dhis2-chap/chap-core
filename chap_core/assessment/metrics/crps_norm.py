@@ -37,6 +37,7 @@ class CRPSNormMetric(ProbabilisticMetric):
         description="Normalized CRPS - CRPS divided by the range of observed values",
         optimization_direction=OptimizationDirection.MINIMIZE,
         proper_scoring_rule=True,
+        comparison_op="skill_ratio",
     )
 
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:

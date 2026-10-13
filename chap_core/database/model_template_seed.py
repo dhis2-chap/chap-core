@@ -1,9 +1,12 @@
 import logging
+from typing import cast
 
 from sqlalchemy.exc import SQLAlchemyError
+from sqlmodel import col, select
 
 from chap_core.exceptions import ModelTemplateRevisionConflict
 from chap_core.model_spec import PeriodType
+from chap_core.models.builtin import BUILTIN_SOURCE_PREFIX, builtin_template_config, get_builtin_models
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.local_configuration import parse_local_model_config_from_directory
 
@@ -105,6 +108,37 @@ def get_naive_model_template():
     return model_template
 
 
+def seed_builtin_models(wrapper: SessionWrapper) -> None:
+    """Store a template and a default configured model for every registered built-in model.
+
+    Built-in templates that are no longer registered are archived. Their rows stay, so
+    backtests that reference them still resolve.
+    """
+    registered = get_builtin_models()
+    for model_class in registered.values():
+        spec = model_class.spec
+        template_id = wrapper.add_model_template_from_yaml_config(builtin_template_config(spec))
+        # The role is not content of the version, so the stored row follows the code.
+        wrapper.get_model_template(template_id).role = spec.role
+        add_configured_model(
+            template_id,
+            ModelConfiguration(additional_continuous_covariates=[], user_option_values={}),
+            "default",
+            wrapper,
+        )
+    retired = wrapper.session.exec(
+        select(ModelTemplateDB).where(
+            col(ModelTemplateDB.archived).is_(False),
+            col(ModelTemplateDB.source_url).startswith(BUILTIN_SOURCE_PREFIX),
+            col(ModelTemplateDB.name).not_in(list(registered)),
+        )
+    ).all()
+    for template in retired:
+        if not template.archived:
+            wrapper.archive_model_template(cast("int", template.id), all_versions=True)
+    wrapper.session.commit()
+
+
 def seed_configured_models_from_config_dir(
     session, directory=get_config_path() / "configured_models", skip_chapkit_models=False
 ):
@@ -196,3 +230,12 @@ def seed_configured_models_from_config_dir(
         if isinstance(e, SQLAlchemyError):
             raise
         logger.error(f"Could not seed the naive model: {e}")
+
+    try:
+        seed_builtin_models(wrapper)
+    except Exception as e:
+        # Startup must continue without the built-in models rather than abort the API.
+        session.rollback()
+        if isinstance(e, SQLAlchemyError):
+            raise
+        logger.error(f"Could not seed the built-in models: {e}")

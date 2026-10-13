@@ -47,6 +47,7 @@ class Coverage10_90Metric(PercentileCoverageMetric):
         optimization_direction=None,
         target=0.8,
         target_behavior=TargetBehavior.AT_LEAST,
+        comparison_op="target_distance",
     )
     low_percentile = 10
     high_percentile = 90
@@ -64,6 +65,7 @@ class Coverage25_75Metric(PercentileCoverageMetric):
         optimization_direction=None,
         target=0.5,
         target_behavior=TargetBehavior.AT_LEAST,
+        comparison_op="target_distance",
     )
     low_percentile = 25
     high_percentile = 75

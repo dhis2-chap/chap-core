@@ -6,6 +6,7 @@ from chap_core.api import forecast
 import pytest
 from chap_core.util import docker_available
 from chap_core.cli_endpoints.evaluate import eval_cmd
+from chap_core.external.ExtendedPredictor import ExtendedPredictor
 from chap_core.cli_endpoints.utils import sanity_check_model
 from chap_core.cli_endpoints.utils import test as run_chap_test
 
@@ -160,12 +161,9 @@ def test_eval_cmd_raises_when_n_periods_below_min_prediction_periods(tmp_path):
             )
 
 
-def test_eval_cmd_forwards_estimator_when_n_periods_above_max(tmp_path):
-    """The CLI forwards the estimator unchanged to Evaluation.create.
-
-    Extending an estimator whose declared max_prediction_periods is below the
-    requested horizon is handled by Evaluation.create.
-    """
+def test_eval_cmd_extends_estimator_when_n_periods_above_max(tmp_path):
+    """The CLI wraps an estimator whose declared max_prediction_periods is below the
+    requested horizon in an ExtendedPredictor before handing it to Evaluation.create."""
     from chap_core.api_types import BacktestParams, RunConfig
 
     fake_estimator = _make_fake_estimator(
@@ -185,16 +183,12 @@ def test_eval_cmd_forwards_estimator_when_n_periods_above_max(tmp_path):
         )
 
     eval_mock.create.assert_called_once()
-    assert eval_mock.create.call_args.kwargs["estimator"] is fake_estimator
+    assert isinstance(eval_mock.create.call_args.kwargs["estimator"], ExtendedPredictor)
     assert eval_mock.create.call_args.kwargs["backtest_params"] == backtest_params
 
 
-def test_eval_cmd_forwards_estimator_when_only_max_is_set(tmp_path):
-    """The CLI does not handle max_prediction_periods itself when min is unset.
-
-    Horizon extension based on max_prediction_periods is delegated to
-    Evaluation.create.
-    """
+def test_eval_cmd_extends_estimator_when_only_max_is_set(tmp_path):
+    """The CLI honours max_prediction_periods even when min is unset."""
     from chap_core.api_types import BacktestParams, RunConfig
 
     fake_estimator = _make_fake_estimator(
@@ -214,7 +208,7 @@ def test_eval_cmd_forwards_estimator_when_only_max_is_set(tmp_path):
         )
 
     eval_mock.create.assert_called_once()
-    assert eval_mock.create.call_args.kwargs["estimator"] is fake_estimator
+    assert isinstance(eval_mock.create.call_args.kwargs["estimator"], ExtendedPredictor)
     assert eval_mock.create.call_args.kwargs["backtest_params"] == backtest_params
 
 
@@ -288,6 +282,28 @@ def test_eval_cmd_asks_the_template_for_the_backtest_horizon(tmp_path):
             )
 
     assert get_estimator_mock.call_args.kwargs["prediction_length"] == 7
+
+
+def test_eval_cmd_forwards_as_chapkit(tmp_path):
+    """--run-config.as-chapkit reaches template resolution."""
+    from chap_core.api_types import BacktestParams, RunConfig
+
+    fake_estimator = _make_fake_estimator(min_prediction_periods=1, max_prediction_periods=12)
+    stack, _ = _patched_eval_chain(fake_estimator)
+    with stack:
+        with patch("chap_core.models.model_template.ModelTemplate") as mt_mock:
+            template_cm = mt_mock.from_directory_or_github_url.return_value
+            template_cm.__enter__.return_value = template_cm
+            template_cm.__exit__.return_value = False
+            eval_cmd(
+                model_name="dummy",
+                dataset_csv="dummy.csv",
+                output_file=tmp_path / "out.nc",
+                backtest_params=BacktestParams(n_periods=3, n_splits=2, stride=1),
+                run_config=RunConfig(as_chapkit=True),
+            )
+
+    assert mt_mock.from_directory_or_github_url.call_args.kwargs["as_chapkit"] is True
 
 
 def _valid_and_nan_region_dataset():

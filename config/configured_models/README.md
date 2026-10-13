@@ -62,7 +62,7 @@ describing the code they ran.
 - **versions** (required): Named versions mapping to full commit shas, optionally prefixed with `@`. Branches and tags are not allowed. Only the last entry is seeded, in every file -- earlier entries serve as historical documentation.
 - **configurations** (optional): Named configurations for the model template. Each configuration can set `user_option_values` (model-specific parameters) and `additional_continuous_covariates`. If omitted, a single "default" configuration with empty values is created.
 
-Chapkit model services do **not** belong in these files. They register themselves with Chap on startup via `SERVICEKIT_ORCHESTRATOR_URL`, which needs no entry here and no image rebuild -- see [Running Your Own Model](../../docs/modeling-app/running-your-own-model.md).
+Chapkit model services do **not** belong in these files. They register themselves with Chap on startup via `SERVICEKIT_ORCHESTRATOR_URL`, which needs no entry here and no image rebuild. Marketplace models are installed with `chap-admin install`, which starts the service and adds its verified configurations -- see [Running Your Own Model](../../docs/modeling-app/running-your-own-model.md).
 
 ## Adding models
 

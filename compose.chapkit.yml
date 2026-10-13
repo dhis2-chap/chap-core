@@ -1,6 +1,6 @@
-# Umbrella overlay for all chapkit-converted model services.
-# Includes every per-model overlay so a single -f flag pulls them all in.
-# Add new chapkit-based models here as they are converted.
+# Development only: includes the per-model chapkit overlays, used by `make restart`.
+# Services started this way get no configurations. Deployments install marketplace
+# models with `chap-admin install-all` instead.
 # Requires Docker Compose v2.20+ for the `include` directive.
 
 include:

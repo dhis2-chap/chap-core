@@ -47,11 +47,6 @@ def test_git_version_must_be_a_full_commit_sha_under_every_label(tmp_path, ref):
 
 
 def test_git_version_accepts_full_commit_sha_with_or_without_at(tmp_path):
-    configurations = parse_local_model_config_file(_git_model_config(tmp_path, "c" * 40))
-    assert list(configurations[0].versions.values()) == ["@" + "a" * 40, "c" * 40, "@" + "b" * 40]
-
-
-def test_chapkit_versions_are_not_required_to_be_commit_shas(tmp_path):
-    config_file = tmp_path / "models.yaml"
-    config_file.write_text('- url: http://model:8000\n  uses_chapkit: true\n  versions:\n    v1: "/v1"\n')
-    assert parse_local_model_config_file(config_file)[0].uses_chapkit is True
+    configuration = parse_local_model_config_file(_git_model_config(tmp_path, "c" * 40))[0]
+    assert isinstance(configuration, LocalModelTemplateWithConfigurations)
+    assert list(configuration.versions.values()) == ["@" + "a" * 40, "c" * 40, "@" + "b" * 40]

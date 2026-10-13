@@ -59,16 +59,18 @@ curl -H "Authorization: Bearer your-generated-token" \
 
 ## Which endpoints require the token
 
-When `CHAP_API_TOKEN` is set, **every** endpoint requires it except the three below. Note
-that this includes the interactive documentation, so `/docs`, `/redoc` and `/openapi.json`
-are not browsable on a token-protected instance.
+When `CHAP_API_TOKEN` is set, **every** API endpoint requires it except the ones below.
 
 | Path | Auth | Why |
 |------|------|-----|
 | `/health` | Public | Liveness probe. Called without headers by the container healthcheck and Kubernetes. |
 | `/health/ready` | Public | Readiness probe, same reason. |
 | `/system/info` | Public | Lets clients discover whether a token is required before authenticating. |
-| Everything else | Required | Includes `/v1/**`, `/v2/**`, `/docs`, `/redoc` and `/openapi.json`. |
+| `/docs`, `/redoc`, `/openapi.json` | Public | The API reference. It describes an open-source API, so it discloses nothing. |
+| Everything else | Required | Includes `/v1/**` and `/v2/**`. |
+
+To call the API from `/docs`, click **Authorize**, paste the token, and "Try it out" then
+sends it as `Authorization: Bearer <token>`.
 
 Service registration is covered too, with one accommodation for chapkit -- see
 [Relation to the service registration key](#relation-to-the-service-registration-key).
