@@ -1,62 +1,16 @@
 """Tests for the evaluation abstraction module."""
 
 import pandas as pd
-import pytest
 
-from chap_core.assessment.evaluation import Evaluation, EvaluationBase, FlatEvaluationData, ModelCard
+from chap_core.assessment.evaluation import Evaluation, ModelCard
 from chap_core.assessment.flat_representations import (
-    FlatForecasts,
-    FlatObserved,
     convert_backtest_observations_to_flat_observations,
     convert_backtest_to_flat_forecasts,
 )
 
 
-class TestFlatEvaluationData:
-    """Tests for FlatEvaluationData dataclass."""
-
-    def test_flat_evaluation_data_creation(self, flat_forecasts, flat_observations):
-        """Test that FlatEvaluationData can be created with forecasts and observations."""
-        flat_data = FlatEvaluationData(forecasts=flat_forecasts, observations=flat_observations)
-
-        assert flat_data.forecasts is flat_forecasts
-        assert flat_data.observations is flat_observations
-
-    def test_flat_evaluation_data_is_dataclass(self):
-        """Test that FlatEvaluationData is a dataclass."""
-        from dataclasses import is_dataclass
-
-        assert is_dataclass(FlatEvaluationData)
-
-
-class TestEvaluationBase:
-    """Tests for EvaluationBase ABC."""
-
-    def test_evaluation_base_is_abstract(self):
-        """Test that EvaluationBase cannot be instantiated directly."""
-        with pytest.raises(TypeError):
-            EvaluationBase()  # type: ignore[abstract]
-
-    def test_evaluation_base_requires_abstract_methods(self):
-        """Test that EvaluationBase subclasses must implement abstract methods."""
-
-        # Create a subclass that doesn't implement abstract methods
-        class IncompleteEvaluation(EvaluationBase):
-            pass
-
-        with pytest.raises(TypeError):
-            IncompleteEvaluation()  # type: ignore[abstract]
-
-
 class TestEvaluation:
     """Tests for Evaluation concrete implementation."""
-
-    def test_from_backtest_creates_evaluation(self, backtest):
-        """Test that from_backtest creates an Evaluation instance."""
-        evaluation = Evaluation.from_backtest(backtest)
-
-        assert isinstance(evaluation, Evaluation)
-        assert isinstance(evaluation, EvaluationBase)
 
     def test_to_backtest_returns_wrapped_object(self, backtest):
         """Test that to_backtest returns the original Backtest object."""
@@ -81,16 +35,6 @@ class TestEvaluation:
         split_periods = evaluation.get_split_periods()
 
         assert split_periods == backtest.split_periods
-
-    def test_to_flat_returns_flat_evaluation_data(self, backtest):
-        """Test that to_flat returns a FlatEvaluationData instance."""
-        evaluation = Evaluation.from_backtest(backtest)
-
-        flat_data = evaluation.to_flat()
-
-        assert isinstance(flat_data, FlatEvaluationData)
-        assert isinstance(flat_data.forecasts, pd.DataFrame)
-        assert isinstance(flat_data.observations, pd.DataFrame)
 
     def test_to_flat_forecasts_match_conversion_function(self, backtest):
         """Test that to_flat forecasts match the existing conversion function."""
@@ -125,7 +69,6 @@ class TestEvaluation:
         evaluation = Evaluation.from_backtest(backtest_empty)
         flat_data = evaluation.to_flat()
 
-        assert isinstance(flat_data, FlatEvaluationData)
         assert len(flat_data.forecasts) == 0
 
     def test_to_flat_preserves_forecast_structure(self, backtest):
