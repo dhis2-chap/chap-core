@@ -105,6 +105,12 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
   data is not applicable there and is not retried. A failed run, or one still
   pending 24 hours after it was queued, is queued again by the next trigger after
   those 24 hours.
+
+  The same read returns the baselines with their status and aggregate metrics,
+  and compares each backtest's aggregate metrics with every baseline that is
+  done, using the metric's comparison operator. With `includeComparisonModels`,
+  the newest backtest of each `comparison` model on the specification is listed
+  and compared with the same way.
 - **`chap_core/feature_generators/seasonality_cluster.py`** and
   **`chap_core/plotting/season_plot.py`** — scikit-learn `KMeans` seasonality
   clustering (unsupervised).

@@ -18,8 +18,10 @@ from chap_core.database.tables import (
     BacktestForecast,
     BacktestMetric,
     BacktestRead,
+    ConfiguredModelRead,
     DataSetMeta,
     QuantileTarget,
+    SpecificationBaselineStatus,
 )
 
 
@@ -150,6 +152,39 @@ class BacktestSpecificationSummary(BacktestParams):
     backtest_count: int = Field(description="Number of backtests that ran under this specification.")
 
 
+class ReferenceModelResult(DBModel):
+    """A baseline or comparison model's result on a specification, the reference other backtests are compared with."""
+
+    configured_model: ConfiguredModelRead = Field(description="The reference model.")
+    status: SpecificationBaselineStatus = Field(
+        description="`done` once the model's backtest is stored. A baseline is `pending` until it has run, "
+        "`not_applicable` if it rejects the specification's data, and `failed` if its run failed."
+    )
+    message: str | None = Field(default=None, description="Why the baseline is not applicable or failed.")
+    backtest_id: int | None = Field(default=None, description="Id of the model's backtest once it is done.")
+    aggregate_metrics: dict[str, float] = Field(
+        default_factory=dict, description="Map of metric id to aggregated score; empty until the model is done."
+    )
+
+
+class ReferenceComparison(DBModel):
+    """A backtest's aggregated metrics compared with one reference model's."""
+
+    configured_model_id: int = Field(description="Id of the reference model's configured model.")
+    values: dict[str, float | None] = Field(
+        description="Map of metric id to the metric's comparison value, positive meaning better than the reference. "
+        "Only metrics with a comparison operator are included; null when the comparison is undefined."
+    )
+
+
+class LeaderboardBacktestRead(BacktestRead):
+    """A backtest row of the leaderboard: `BacktestRead` plus its comparisons with the reference models."""
+
+    comparisons: list[ReferenceComparison] = Field(
+        default_factory=list, description="One entry per reference model that is done, in the order they are listed."
+    )
+
+
 class BacktestSpecificationRead(BacktestParams):
     """A specification with every backtest under it: the benchmark leaderboard in one response."""
 
@@ -158,8 +193,16 @@ class BacktestSpecificationRead(BacktestParams):
     id: int = Field(description="Primary key of the specification.")
     dataset: DataSetMeta = Field(description="Slim summary of the dataset the specification evaluates against.")
     org_units: list[str] = Field(description="Org units the evaluation runs over, resolved from the dataset.")
-    backtests: list[BacktestRead] = Field(
+    backtests: list[LeaderboardBacktestRead] = Field(
         description="Every backtest that ran under this specification, newest first. Comparable by construction."
+    )
+    baselines: list[ReferenceModelResult] = Field(
+        default_factory=list, description="The current version of each built-in baseline model on this specification."
+    )
+    comparison_models: list[ReferenceModelResult] | None = Field(
+        default=None,
+        description="The newest backtest of each comparison model on this specification; "
+        "null unless `includeComparisonModels` is set.",
     )
 
 

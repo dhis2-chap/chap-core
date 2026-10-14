@@ -10,6 +10,7 @@ from chap_core.assessment.metrics import (
     MetricSpec,
     RatioAboveTruthMetric,
     SensitivityMetric,
+    compare_aggregated_metrics,
     get_comparison_op,
     get_metrics_registry,
     list_comparison_ops,
@@ -24,6 +25,13 @@ def test_skill_ratio_for_error_score():
 
 def test_skill_ratio_is_nan_when_reference_is_zero():
     assert math.isnan(CRPSMetric().compare(1.0, 0.0))
+
+
+def test_compare_aggregated_metrics_covers_shared_metrics_and_nulls_undefined_values():
+    comparisons = compare_aggregated_metrics(
+        {"crps": 0.8, "mae": 1.0, "rmse": 2.0, "not_a_metric": 1.0}, {"crps": 1.0, "mae": 0.0, "not_a_metric": 2.0}
+    )
+    assert comparisons == {"crps": pytest.approx(0.2), "mae": None}
 
 
 def test_difference_for_rate():

@@ -7,7 +7,7 @@ from sqlmodel import select
 
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSet
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+from chap_core.database.model_templates_and_config_tables import ModelConfiguration, ModelTemplateRole
 from chap_core.database.tables import Backtest, SpecificationBaseline, SpecificationBaselineStatus
 from chap_core.models.builtin import BaselineNotApplicable, builtin_template_config, get_builtin_model
 from chap_core.rest_api.app import app
@@ -199,3 +199,83 @@ def test_reading_a_specification_queues_its_missing_baselines(override_session, 
     assert len(baseline_worker.queued) == 3
     assert client.get(f"/v1/crud/backtest-specifications/{specification_id}").status_code == 200
     assert len(baseline_worker.queued) == 3
+
+
+def _leaderboard(specification_id, **params):
+    response = client.get(f"/v1/crud/backtest-specifications/{specification_id}", params=params)
+    assert response.status_code == 200
+    return response.json()
+
+
+def test_the_leaderboard_lists_baselines_as_pending_until_they_have_run(
+    override_session, specification_id, baseline_worker
+):
+    leaderboard = _leaderboard(specification_id)
+
+    assert {b["configuredModel"]["name"]: b["status"] for b in leaderboard["baselines"]} == {
+        "global_median": "pending",
+        "seasonal_median": "pending",
+        "persistence": "pending",
+    }
+    assert leaderboard["comparisonModels"] is None
+    assert all(backtest["comparisons"] == [] for backtest in leaderboard["backtests"])
+
+
+def test_the_leaderboard_compares_each_backtest_with_the_baselines(
+    override_session, p_seeded_engine, specification_id, baseline_worker, monkeypatch
+):
+    def fail(*args, **kwargs):
+        raise BaselineNotApplicable("too little history")
+
+    monkeypatch.setattr(get_builtin_model("persistence"), "predict", fail)
+    with SessionWrapper(p_seeded_engine) as session:
+        request_baselines(session, specification_id, "db-url")
+    _run_queued(p_seeded_engine, baseline_worker)
+    # The seeded dataset is too small to score, so the scores are set here.
+    with SessionWrapper(p_seeded_engine) as session:
+        for row in _rows(p_seeded_engine, specification_id).values():
+            if row.backtest_id is not None:
+                session.session.get(Backtest, row.backtest_id).aggregate_metrics = {"mae": 4.0}
+        model_backtest = session.session.exec(
+            select(Backtest).where(Backtest.specification_id == specification_id, Backtest.model_id == "naive_model")
+        ).first()
+        model_backtest.aggregate_metrics = {"mae": 3.0}
+        session.session.commit()
+        model_backtest_id = model_backtest.id
+
+    leaderboard = _leaderboard(specification_id)
+    baselines = {b["configuredModel"]["name"]: b for b in leaderboard["baselines"]}
+    assert (baselines["persistence"]["status"], baselines["persistence"]["message"]) == (
+        "not_applicable",
+        "too little history",
+    )
+    assert baselines["persistence"]["aggregateMetrics"] == {}
+    done_ids = {b["configuredModel"]["id"] for b in baselines.values() if b["status"] == "done"}
+    assert len(done_ids) == 2
+    backtest = next(b for b in leaderboard["backtests"] if b["id"] == model_backtest_id)
+    assert {c["configuredModelId"]: c["values"] for c in backtest["comparisons"]} == {
+        model_id: {"mae": pytest.approx(0.25)} for model_id in done_ids
+    }
+
+
+def test_the_leaderboard_lists_comparison_models_on_request(override_session, p_seeded_engine, specification_id):
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        newest_id = run_backtest(
+            BacktestCreate(name="again", dataset_id=dataset_id, model_id="naive_model"), session=session, **PARAMS
+        )
+        newest = session.session.get(Backtest, newest_id)
+        newest.configured_model.model_template.role = ModelTemplateRole.comparison
+        session.session.commit()
+
+    assert _leaderboard(specification_id)["comparisonModels"] is None
+    leaderboard = _leaderboard(specification_id, includeComparisonModels=True)
+    (comparison_model,) = leaderboard["comparisonModels"]
+    assert (comparison_model["status"], comparison_model["backtestId"]) == ("done", newest_id)
+    comparisons = {b["id"]: b["comparisons"] for b in leaderboard["backtests"]}
+    # A backtest is not compared with itself.
+    assert comparisons[newest_id] == []
+    older = [c for backtest_id, c in comparisons.items() if backtest_id != newest_id]
+    assert older
+    for backtest_comparisons in older:
+        assert [c["configuredModelId"] for c in backtest_comparisons] == [comparison_model["configuredModel"]["id"]]
