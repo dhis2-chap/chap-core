@@ -5,8 +5,9 @@ unset. ``CHAP_API_TOKEN`` gates the whole API, and ``SERVICEKIT_REGISTRATION_KEY
 chapkit service registration. When both are configured, the registration endpoints
 require both.
 
-The API token is normally presented as ``Authorization: Bearer <token>``, but it is also
-accepted in ``X-Service-Key`` because servicekit can only send that header. On the service
+The API token is presented as ``Authorization: Bearer <token>`` or
+``Authorization: ApiToken <token>`` (DHIS2 route authentication). It is also accepted in
+``X-Service-Key`` because servicekit can only send that header. On the service
 registry paths the registration key is accepted there as well, so a chapkit service holding
 either secret can register without needing to send an ``Authorization`` header.
 """
@@ -74,17 +75,17 @@ def secret_matches(presented: str | None, expected: str) -> bool:
     return secrets.compare_digest(presented.encode(), expected.encode())
 
 
-def _bearer_matches(header: str | None, expected: str) -> bool:
+def _authorization_matches(header: str | None, expected: str) -> bool:
     if not header:
         return False
     scheme, _, token = header.partition(" ")
-    if scheme.lower() != "bearer":
+    if scheme.lower() not in {"bearer", "apitoken"}:
         return False
     return secret_matches(token, expected)
 
 
 class ApiTokenMiddleware:
-    """Reject requests without a valid bearer token when ``CHAP_API_TOKEN`` is set.
+    """Reject requests without a valid API token when ``CHAP_API_TOKEN`` is set.
 
     Raw ASGI rather than ``BaseHTTPMiddleware`` so the streaming proxy in
     ``v2/routers/proxy.py`` passes through untouched. A middleware rather than a route
@@ -116,7 +117,7 @@ class ApiTokenMiddleware:
 
     @classmethod
     def _is_authorized(cls, scope: Scope, path: str, api_token: str) -> bool:
-        if _bearer_matches(cls._header(scope, b"authorization"), api_token):
+        if _authorization_matches(cls._header(scope, b"authorization"), api_token):
             return True
 
         service_key = cls._header(scope, b"x-service-key")
