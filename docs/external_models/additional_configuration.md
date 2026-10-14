@@ -65,6 +65,8 @@ The configuration YAML is a `ModelConfiguration` document with two top-level key
 - `user_option_values` — a mapping whose keys must match the parameter names declared in your MLproject `user_options`
 - `additional_continuous_covariates` — an optional list of extra continuous covariates (only meaningful when the template sets `allow_free_additional_continuous_covariates: true`)
 
+Chap does not use `additional_continuous_covariates` to select columns. The CSV files passed to the model contain every column of the dataset, listed or not, so the model itself must pick the columns it uses. The list records which extra covariates the model is configured to use: `chap eval` warns about dataset columns that are neither required nor listed, and for chapkit models the list is sent to the model service.
+
 ```yaml
 user_option_values:
   n_lag_periods: 5
