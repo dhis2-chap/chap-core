@@ -44,6 +44,8 @@ The `time_period` column uses:
 
 All time periods in a dataset must use the same frequency (do not mix monthly and weekly).
 
+Weekly periods can also be given as a Monday-to-Sunday date range, e.g. `2023-01-02/2023-01-08`. This matters for model authors: whichever form the input dataset uses, the CSV files Chap passes to a model's `train` and `predict` commands write weekly periods as a date range (`2023-01-02/2023-01-08`), not as `YYYY-Wnn`. A model handling weekly data should parse that form. Monthly periods are passed as `YYYY-MM`.
+
 ### Missing values
 
 Different columns have different rules for missing (NaN) values:
