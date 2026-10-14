@@ -392,7 +392,8 @@ def get_backtest_specification(
     under ``baselines`` with their status and scores instead, and each backtest row
     carries the comparison of its scores with every baseline that is done. With
     ``includeComparisonModels``, the newest backtest of each comparison model on the
-    specification is listed and compared with the same way. Baselines that have not run on
+    specification is listed and compared with the same way, except that a
+    backtest is never compared with a run of its own model. Baselines that have not run on
     the specification yet are queued after the response is sent. 404 if the id is unknown.
     """
     specification = session.exec(
@@ -462,12 +463,17 @@ def _baseline_results(session: Session, specification_id: int) -> list[Reference
 
 
 def _comparison_model_results(session: Session, specification_id: int) -> list[ReferenceModelResult]:
-    """The newest backtest of each comparison model on the specification."""
+    """The newest backtest of each comparison model on the specification. Archived models are left out."""
     backtests = session.exec(
         select(Backtest)
         .join(ConfiguredModelDB, col(ConfiguredModelDB.id) == Backtest.model_db_id)
         .join(ModelTemplateDB)
-        .where(Backtest.specification_id == specification_id, ModelTemplateDB.role == ModelTemplateRole.comparison)
+        .where(
+            Backtest.specification_id == specification_id,
+            ModelTemplateDB.role == ModelTemplateRole.comparison,
+            col(ModelTemplateDB.archived).is_(False),
+            col(ConfiguredModelDB.archived).is_(False),
+        )
         .order_by(col(Backtest.created).desc().nulls_last(), col(Backtest.id).desc())
         .options(selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template))  # type: ignore[arg-type]
     ).all()
@@ -486,13 +492,14 @@ def _comparison_model_results(session: Session, specification_id: int) -> list[R
 
 
 def _reference_comparisons(backtest: Backtest, references: list[ReferenceModelResult]) -> list[ReferenceComparison]:
+    """Compare a backtest with each reference, except a run of its own model."""
     return [
         ReferenceComparison(
             configured_model_id=reference.configured_model.id,
             values=compare_aggregated_metrics(backtest.aggregate_metrics, reference.aggregate_metrics),
         )
         for reference in references
-        if reference.backtest_id != backtest.id
+        if reference.configured_model.id != backtest.model_db_id
     ]
 
 

@@ -272,10 +272,20 @@ def test_the_leaderboard_lists_comparison_models_on_request(override_session, p_
     leaderboard = _leaderboard(specification_id, includeComparisonModels=True)
     (comparison_model,) = leaderboard["comparisonModels"]
     assert (comparison_model["status"], comparison_model["backtestId"]) == ("done", newest_id)
-    comparisons = {b["id"]: b["comparisons"] for b in leaderboard["backtests"]}
-    # A backtest is not compared with itself.
-    assert comparisons[newest_id] == []
-    older = [c for backtest_id, c in comparisons.items() if backtest_id != newest_id]
-    assert older
-    for backtest_comparisons in older:
-        assert [c["configuredModelId"] for c in backtest_comparisons] == [comparison_model["configuredModel"]["id"]]
+    comparison_model_id = comparison_model["configuredModel"]["id"]
+    # A backtest is never compared with a run of its own model, including an older one.
+    own_runs = [b for b in leaderboard["backtests"] if b["configuredModel"]["id"] == comparison_model_id]
+    others = [b for b in leaderboard["backtests"] if b["configuredModel"]["id"] != comparison_model_id]
+    assert len(own_runs) == 2 and others
+    assert all(b["comparisons"] == [] for b in own_runs)
+    assert all([c["configuredModelId"] for c in b["comparisons"]] == [comparison_model_id] for b in others)
+
+
+def test_the_leaderboard_leaves_out_archived_comparison_models(override_session, p_seeded_engine, specification_id):
+    with SessionWrapper(p_seeded_engine) as session:
+        backtest = session.session.exec(select(Backtest).where(Backtest.specification_id == specification_id)).first()
+        backtest.configured_model.model_template.role = ModelTemplateRole.comparison
+        backtest.configured_model.archived = True
+        session.session.commit()
+
+    assert _leaderboard(specification_id, includeComparisonModels=True)["comparisonModels"] == []
