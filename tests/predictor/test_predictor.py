@@ -20,3 +20,4 @@ def test_predictor():
 
     poisson.train(sample_x, sample_y)
     prediction = poisson.predict(sample_x)
+    assert len(prediction) == len(sample_x)

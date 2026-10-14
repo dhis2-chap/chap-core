@@ -20,6 +20,7 @@ from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
 from chap_core.rest_api.data_models import BacktestCreate, FetchRequest, PredictionParams
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
+from chap_core.services.alert_service import raise_alerts_for_prediction
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month
 
@@ -103,7 +104,14 @@ def run_backtest(
     session: SessionWrapper | None = None,
     future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
     target_column: str = "disease_cases",
+    baseline_database_url: str | None = None,
 ):
+    """Run and store a backtest, and return its id.
+
+    With `baseline_database_url`, the baselines missing on the backtest's specification
+    are queued as soon as it is resolved. The REST endpoints pass it. Baseline runs do
+    not, so they never trigger more baseline runs.
+    """
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     assert session is not None, "session is required"
     status_logger.info(f"Starting backtest for model '{info.model_id}' on dataset ID {info.dataset_id}")
@@ -139,6 +147,17 @@ def run_backtest(
     dataset, specification = resolve_backtest_specification(
         session, dataset, info.dataset_id, backtest_params, target_column=target_column
     )
+    if baseline_database_url is not None:
+        # Imported here because baseline_runs imports this module for its jobs.
+        from chap_core.rest_api.baseline_runs import request_baselines
+
+        assert specification.id is not None
+        # The baselines must never cost the user their own backtest.
+        try:
+            request_baselines(session, specification.id, baseline_database_url)
+        except Exception:
+            logger.warning(f"Could not request baselines for specification {specification.id}", exc_info=True)
+            session.session.rollback()
     dataset = _use_as_disease_cases(dataset, target_column)
 
     status_logger.info(f"Running {n_splits} evaluation splits with prediction length {n_periods}")
@@ -252,6 +271,8 @@ def run_prediction(
     )
     assert db_id is not None
     status_logger.info(f"Prediction completed successfully. Results saved with ID {db_id}")
+    if prediction_setup_id is not None:
+        raise_alerts_for_prediction(session.session, db_id)
     return db_id
 
 
@@ -348,6 +369,7 @@ def run_backtest_from_dataset(
     backtest_params: BacktestParams,
     session: SessionWrapper,
     worker_config=WorkerConfig(),
+    baseline_database_url: str | None = None,
 ) -> int:
     ds = InMemoryDataSet.from_dict(provided_data_model_dump, create_tsdataclass(feature_names))
     dataset_id = DataSetManager(session.session).save_dataset(
@@ -362,5 +384,6 @@ def run_backtest_from_dataset(
         n_retrain=backtest_params.n_retrain,
         session=session,
         future_weather_provider=backtest_params.future_weather_provider,
+        baseline_database_url=baseline_database_url,
     )
     return result

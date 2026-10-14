@@ -20,7 +20,8 @@ import logging
 from typing import Annotated, Any, Final, Literal
 
 import numpy as np
-from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Path, Query, UploadFile
+from redis.exceptions import RedisError
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, col, select
@@ -61,6 +62,7 @@ from chap_core.database.tables import (
 from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
 from chap_core.exceptions import BaselineTemplateConflict, ModelTemplateRevisionConflict
 from chap_core.geometry import Polygons
+from chap_core.rest_api.baseline_runs import request_baselines_after_response
 from chap_core.rest_api.celery_tasks import (
     JOB_NAME_KW,
     JOB_REQUEST_KW,
@@ -73,7 +75,7 @@ from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.experimental import api_experimental
 from chap_core.rest_api.services.orchestrator import Orchestrator, ServiceNotFoundError
 from chap_core.rest_api.services.schemas import MLServiceInfo
-from chap_core.rest_api.v2.dependencies import get_orchestrator
+from chap_core.rest_api.v2.dependencies import get_orchestrator, get_registry_reader
 from chap_core.services import alert_policy_service, alert_service, prediction_setup_service
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
@@ -158,12 +160,15 @@ def _sync_live_chapkit_services(
     """
     try:
         if orchestrator is None:
-            from chap_core.rest_api.v2.dependencies import get_orchestrator
+            from chap_core.rest_api.v2.dependencies import get_registry_reader
 
-            orchestrator = get_orchestrator()
+            orchestrator = get_registry_reader()
         service_list = orchestrator.get_all()
-    except Exception:
+    except RedisError:
         logger.debug("Could not reach service registry, skipping chapkit sync")
+        return {}
+    except Exception:
+        logger.warning("Could not read service registry, skipping chapkit sync", exc_info=True)
         return {}
 
     conflicts: dict[tuple[str, str], ModelTemplateRevisionConflict | None] = {}
@@ -367,14 +372,18 @@ def get_backtest_specifications(
     summary="Fetch a specification with every backtest under it",
 )
 def get_backtest_specification(
-    specification_id: Annotated[int, Path(alias="specificationId")], session: Session = Depends(get_session)
+    specification_id: Annotated[int, Path(alias="specificationId")],
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    database_url: str = Depends(get_database_url),
 ):
     """Read one specification together with every backtest that ran under it, newest first, in a single response.
 
     This is the benchmark leaderboard: each backtest row is the ``BacktestRead`` shape
     with aggregate metrics, the configured model and its template, so a client can rank
     models without a request per backtest. Forecasts and per-org-unit metrics are not
-    included, and neither are backtests of built-in baseline models. 404 if the id is unknown.
+    included, and neither are backtests of built-in baseline models. Baselines that have not
+    run on the specification yet are queued after the response is sent. 404 if the id is unknown.
     """
     specification = session.exec(
         select(BacktestSpecification)
@@ -383,6 +392,7 @@ def get_backtest_specification(
     ).first()
     if specification is None:
         raise HTTPException(status_code=404, detail="Backtest specification not found")
+    background_tasks.add_task(request_baselines_after_response, session.get_bind(), specification_id, database_url)
     backtests = session.exec(
         select(Backtest)
         .where(Backtest.specification_id == specification_id, is_not_baseline_backtest())
@@ -845,7 +855,7 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], se
     tags=["Models"],
     summary="Browse available model templates",
 )
-async def list_model_templates(session: Session = Depends(get_session)):
+def list_model_templates(session: Session = Depends(get_session)):
     """List every live model template that can be configured into a runnable model — one per template name; superseded versions keep their rows but are not listed.
 
     Acts as the discovery endpoint: registered CHAPKit services without a stored
@@ -942,7 +952,7 @@ def delete_model_template(
     summary="Browse configured (ready-to-run) models",
 )
 def list_configured_models(
-    session: Session = Depends(get_session), orchestrator: Orchestrator = Depends(get_orchestrator)
+    session: Session = Depends(get_session), orchestrator: Orchestrator = Depends(get_registry_reader)
 ):
     """List every configured model — a template + user-chosen options bundled into something you can actually run.
 
@@ -954,8 +964,10 @@ def list_configured_models(
     template_health: dict[tuple[str, str | None], Literal["live", "revision_mismatch"]] = {}
     try:
         services = orchestrator.get_all().services
-    except Exception:
+    except RedisError:
         logger.debug("Could not reach service registry, configured model health is unknown")
+    except Exception:
+        logger.warning("Could not read service registry, configured model health is unknown", exc_info=True)
     else:
         for service in services:
             conflict = _registered_chapkit_revision_conflict(session, service.info)

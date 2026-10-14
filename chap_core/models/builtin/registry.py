@@ -12,6 +12,8 @@ Rules for built-in models:
   every sample is finite.
 - No state is shared between instances, and no files are written.
 - Any randomness uses a fixed seed.
+- Data the model cannot handle, such as too little history, raises
+  ``BaselineNotApplicable``.
 """
 
 import abc
@@ -54,6 +56,14 @@ class BuiltinModel(abc.ABC):
     @abc.abstractmethod
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         """Return a ``DataSet[Samples]`` covering the periods and locations of ``future_data``."""
+
+
+class BaselineNotApplicable(ValueError):
+    """A built-in model cannot forecast this data, for example because it has too little history.
+
+    It is a property of the data, not a failure, so a baseline that raises it on a backtest
+    specification is not run there again.
+    """
 
 
 _builtin_model_registry: dict[str, type[BuiltinModel]] = {}

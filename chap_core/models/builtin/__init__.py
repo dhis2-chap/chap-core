@@ -1,6 +1,7 @@
-from chap_core.models.builtin import global_median
+from chap_core.models.builtin import global_median, persistence, seasonal_median
 from chap_core.models.builtin.registry import (
     BUILTIN_SOURCE_PREFIX,
+    BaselineNotApplicable,
     BuiltinModel,
     BuiltinModelSpec,
     builtin_model,
@@ -11,6 +12,7 @@ from chap_core.models.builtin.template import BuiltinConfiguredModel, BuiltinMod
 
 __all__ = [
     "BUILTIN_SOURCE_PREFIX",
+    "BaselineNotApplicable",
     "BuiltinConfiguredModel",
     "BuiltinModel",
     "BuiltinModelSpec",
@@ -20,4 +22,6 @@ __all__ = [
     "get_builtin_model",
     "get_builtin_models",
     "global_median",
+    "persistence",
+    "seasonal_median",
 ]

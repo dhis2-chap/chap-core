@@ -110,7 +110,7 @@ chap = "chap_core.cli:main"
 chap-admin = "chap_core.admin_cli:main"
 
 [build-system]
-requires = ["uv_build>=0.10,<0.12"]
+requires = ["uv_build>=0.10,<0.14"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]

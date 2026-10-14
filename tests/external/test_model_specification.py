@@ -4,23 +4,6 @@ from chap_core.external.model_configuration import ModelTemplateConfigV2
 
 
 @pytest.fixture
-def example_specification(data_path):
-    return data_path / "Mlproject_example"
-
-
-@pytest.mark.skip("outdated")
-def test_parse_model_template_specification(example_specification):
-    with open(example_specification, "r") as file:
-        config = yaml.load(file, Loader=yaml.FullLoader)
-
-    parsed = ModelTemplateConfigV2.model_validate(config)
-
-    assert parsed.entry_points.train.command != ""  # type: ignore[union-attr]
-    assert parsed.allow_free_additional_continuous_covariates == True
-    print(parsed)
-
-
-@pytest.fixture
 def example_config():
     return """name: Weekly AR RNN Model
 python_env: python_env.yml
