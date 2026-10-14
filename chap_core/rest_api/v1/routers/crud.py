@@ -88,23 +88,26 @@ from ...data_models import (
     AlertsCreate,
     BacktestRead,
     BacktestSpecificationFilter,
-    BacktestSpecificationRead,
     BacktestSpecificationSummary,
     BacktestUpdate,
     ConfiguredModelInfoRead,
     DataBaseResponse,
     DatasetCreate,
     JobResponse,
-    LeaderboardBacktestRead,
     ModelConfigurationCreate,
     ModelTemplateFromService,
     ModelTemplateRead,
     PredictionParams,
     PredictionSetupCreate,
     PredictionSetupUpdate,
+    RunPredictionSetupRequest,
+)
+from ...leaderboard_models import (
+    BacktestSpecificationRead,
+    LeaderboardBacktestRead,
     ReferenceComparison,
     ReferenceModelResult,
-    RunPredictionSetupRequest,
+    list_metric_info,
 )
 from .analytics import validate_full_dataset
 from .dependencies import get_database_url, get_job_request, get_session, get_settings
@@ -394,7 +397,9 @@ def get_backtest_specification(
     ``includeComparisonModels``, the newest backtest of each comparison model on the
     specification is listed and compared with the same way, except that a
     backtest is never compared with a run of its own model. Baselines that have not run on
-    the specification yet are queued after the response is sent. 404 if the id is unknown.
+    the specification yet are queued after the response is sent. ``metrics`` describes every
+    metric the scores and comparisons are keyed by, including what its comparison value means.
+    404 if the id is unknown.
     """
     specification = session.exec(
         select(BacktestSpecification)
@@ -429,6 +434,7 @@ def get_backtest_specification(
         ],
         baselines=baselines,
         comparison_models=comparison_models,
+        metrics=list_metric_info(),
         **_specification_params(specification),
     )
 

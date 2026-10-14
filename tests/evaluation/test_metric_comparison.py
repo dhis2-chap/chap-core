@@ -11,6 +11,7 @@ from chap_core.assessment.metrics import (
     RatioAboveTruthMetric,
     SensitivityMetric,
     compare_aggregated_metrics,
+    get_comparison_description,
     get_comparison_op,
     get_metrics_registry,
     list_comparison_ops,
@@ -32,6 +33,12 @@ def test_compare_aggregated_metrics_covers_shared_metrics_and_nulls_undefined_va
         {"crps": 0.8, "mae": 1.0, "rmse": 2.0, "not_a_metric": 1.0}, {"crps": 1.0, "mae": 0.0, "not_a_metric": 2.0}
     )
     assert comparisons == {"crps": pytest.approx(0.2), "mae": None}
+
+
+def test_every_comparison_op_has_a_description():
+    assert all(get_comparison_description(name) for name in list_comparison_ops())
+    with pytest.raises(ValueError, match="Unknown comparison operator"):
+        get_comparison_description("not_an_op")
 
 
 def test_difference_for_rate():

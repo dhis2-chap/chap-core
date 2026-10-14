@@ -26,7 +26,12 @@ from chap_core.assessment.metrics.base import (
     ProbabilisticMetric,
     TargetBehavior,
 )
-from chap_core.assessment.metrics.comparison import comparison_op, get_comparison_op, list_comparison_ops
+from chap_core.assessment.metrics.comparison import (
+    comparison_op,
+    get_comparison_description,
+    get_comparison_op,
+    list_comparison_ops,
+)
 from chap_core.database.tables import Backtest
 
 logger = logging.getLogger(__name__)
@@ -163,6 +168,7 @@ __all__ = [
     "available_metrics",
     "compare_aggregated_metrics",
     "comparison_op",
+    "get_comparison_description",
     "get_comparison_op",
     "get_metric",
     "get_metrics_registry",

@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import select
 
+from chap_core.assessment.metrics import get_comparison_description
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration, ModelTemplateRole
@@ -219,6 +220,11 @@ def test_the_leaderboard_lists_baselines_as_pending_until_they_have_run(
     }
     assert leaderboard["comparisonModels"] is None
     assert all(backtest["comparisons"] == [] for backtest in leaderboard["backtests"])
+    metrics = {metric["id"]: metric for metric in leaderboard["metrics"]}
+    assert (metrics["mae"]["comparisonOp"], metrics["mae"]["comparisonDescription"]) == (
+        "skill_ratio",
+        get_comparison_description("skill_ratio"),
+    )
 
 
 def test_the_leaderboard_compares_each_backtest_with_the_baselines(

@@ -6,7 +6,8 @@ example a baseline) into one number. All operators are oriented so that a
 positive value means the model is better than the reference and zero means
 they are equal.
 
-Operators are registered by name with ``@comparison_op(name)``, and a metric
+Operators are registered by name with ``@comparison_op(name, description)``, where
+the one-line description is what API clients show next to a comparison value, and a metric
 selects one through ``MetricSpec.comparison_op``.
 """
 
@@ -22,15 +23,17 @@ if TYPE_CHECKING:
 ComparisonFn = Callable[[float, float, "MetricSpec"], float]
 
 _comparison_registry: dict[str, ComparisonFn] = {}
+_comparison_descriptions: dict[str, str] = {}
 
 
-def comparison_op(name: str):
-    """Decorator to register a comparison operator under a name."""
+def comparison_op(name: str, description: str):
+    """Decorator to register a comparison operator under a name, with a one-line description of its value."""
 
     def decorator(fn: ComparisonFn) -> ComparisonFn:
         if name in _comparison_registry:
             raise ValueError(f"Comparison operator {name!r} is already registered")
         _comparison_registry[name] = fn
+        _comparison_descriptions[name] = description
         return fn
 
     return decorator
@@ -41,6 +44,12 @@ def get_comparison_op(name: str) -> ComparisonFn:
     if name not in _comparison_registry:
         raise ValueError(f"Unknown comparison operator {name!r}. Available: {sorted(_comparison_registry)}")
     return _comparison_registry[name]
+
+
+def get_comparison_description(name: str) -> str:
+    """Get the one-line description of a comparison operator's value."""
+    get_comparison_op(name)
+    return _comparison_descriptions[name]
 
 
 def list_comparison_ops() -> list[str]:
@@ -54,7 +63,7 @@ def _require_direction(spec: "MetricSpec") -> OptimizationDirection:
     return spec.optimization_direction
 
 
-@comparison_op("skill_ratio")
+@comparison_op("skill_ratio", "Relative improvement over the reference: 0.2 means 20% better, -0.5 means 50% worse.")
 def skill_ratio(score: float, reference_score: float, spec: "MetricSpec") -> float:
     """Relative improvement over the reference: 0.2 means 20% better.
 
@@ -69,7 +78,7 @@ def skill_ratio(score: float, reference_score: float, spec: "MetricSpec") -> flo
     return score / reference_score - 1
 
 
-@comparison_op("difference")
+@comparison_op("difference", "Improvement over the reference in the metric's own units.")
 def difference(score: float, reference_score: float, spec: "MetricSpec") -> float:
     """Absolute improvement over the reference in the metric's own units."""
     direction = _require_direction(spec)
@@ -84,7 +93,10 @@ def _distance_to_target(value: float, target: float, behavior: TargetBehavior) -
     return abs(value - target)
 
 
-@comparison_op("target_distance")
+@comparison_op(
+    "target_distance",
+    "How much closer to the metric's target the score is than the reference's, in the metric's units.",
+)
 def target_distance(score: float, reference_score: float, spec: "MetricSpec") -> float:
     """How much closer to the target the model is than the reference.
 
