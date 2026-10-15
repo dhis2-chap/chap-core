@@ -201,6 +201,8 @@ chap eval \
 
 Chap copies the model into the run directory, prepares its environment, starts the service on a free local port, runs the evaluation and stops the service when done. The service never registers with an orchestrator. `--dry-run` is not supported in this mode, since chapkit runs the model commands itself.
 
+The model's scripts read `config.yml` in chap-core's layout, with the user options under `user_option_values`. A model whose scripts expect every option at the top level declares `config_format: flat` under `meta_data` in its MLproject (chapkit 2.4.0 or newer).
+
 | MLproject environment | What Chap does |
 |---|---|
 | none, or `--run-config.ignore-environment` | Runs the commands in the current environment |

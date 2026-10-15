@@ -24,8 +24,9 @@ logger = logging.getLogger(__name__)
 
 CHAPKIT_MLPROJECT_RUN = [sys.executable, "-m", "chapkit.cli.cli", "mlproject", "run", "."]
 UNSUPPORTED_ENVS = ("docker_env", "conda_env", "python_env")
-# First chapkit release whose `mlproject run` serves the full MLproject contract.
-MIN_CHAPKIT_VERSION = Version("2.3.1")
+# First chapkit release whose `mlproject run` serves the full MLproject contract,
+# including the config.yml layout an MLproject declares in meta_data.config_format.
+MIN_CHAPKIT_VERSION = Version("2.4.0")
 
 
 def check_chapkit_version() -> None:
