@@ -23,7 +23,31 @@ from chap_core.rest_api.app import app
 from chap_core.rest_api.v1 import jobs
 from chap_core.rest_api.v1.routers import crud
 from chap_core.rest_api.v1.routers.analytics import BacktestParams
+from chap_core.rest_api.services.orchestrator import Orchestrator
 from chap_core.rest_api.v1.routers.dependencies import get_session
+
+
+@pytest.fixture
+def fake_redis():
+    return fakeredis.FakeRedis()
+
+
+@pytest.fixture
+def test_orchestrator(fake_redis):
+    return Orchestrator(redis_client=fake_redis)
+
+
+@pytest.fixture
+def sample_registration():
+    return {
+        "url": "http://model-service:8080",
+        "info": {
+            "id": "test-model",
+            "display_name": "Test Model",
+            "model_metadata": {"author": "Test Author"},
+            "period_type": "monthly",
+        },
+    }
 
 
 @pytest.fixture

@@ -7,7 +7,6 @@ import pytest
 
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.exceptions import ChapkitServiceStartupError
-from chap_core.file_io.example_data_set import datasets
 from chap_core.models.chapkit_service_manager import (
     ChapkitServiceManager,
     find_available_port,
@@ -17,14 +16,6 @@ from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.utils import get_model_template_from_directory_or_github_url
 
 model_url = "http://localhost:8003"
-
-
-@pytest.fixture
-def dataset():
-    dataset_name = "ISIMIP_dengue_harmonized"
-    example_dataset = datasets[dataset_name]
-    loaded_dataset = example_dataset.load()
-    return loaded_dataset["brazil"]
 
 
 @pytest.fixture
