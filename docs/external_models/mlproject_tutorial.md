@@ -1,6 +1,6 @@
 # Build a model from an MLproject file
 
-This tutorial takes you from a train and a predict script on your own machine to a model that runs in Chap. You write the scripts and a short `MLproject` file that describes them. Chap runs the model as a [chapkit](chapkit.md) service, the same way models run in production, but you do not write any service code: no `main.py`, Makefile or compose file.
+This tutorial takes you from a train and a predict script on your own machine to a model that runs in Chap. You write the scripts and a short `MLproject` file that describes them. The model runs as a [chapkit](chapkit.md) service, but you do not write any service code: no `main.py`, Makefile or compose file.
 
 The tutorial starts from one of two template repositories:
 
@@ -9,8 +9,19 @@ The tutorial starts from one of two template repositories:
 
 Both contain the same model: a linear regression from rainfall and temperature to disease cases in the same month. The model is not meant to be good. It only shows the steps.
 
-!!! note
-    The older tutorials, where Chap runs the MLproject itself (see [Run a model through chap](../chap-cli/minimalist-example.md)), still work. This tutorial uses the same `MLproject` format, and adds evaluation as a chapkit service and deployment as a Docker image.
+## How this differs from other ways to make a model
+
+There are three ways to make a model that Chap can run. This tutorial covers the second.
+
+| | MLproject, built-in Chap runner | MLproject served by chapkit (this tutorial) | chapkit service |
+|---|---|---|---|
+| **You write** | Train and predict scripts, and an `MLproject` file | The same files | Train and predict code, a `main.py` that defines the service, and a Dockerfile |
+| **How Chap runs it** | Chap reads the `MLproject` and runs the train and predict commands itself | chapkit reads the `MLproject` and serves the model as a REST service. Chap sends it data over HTTP | Your service runs on its own. Chap sends it data over HTTP |
+| **Evaluate with** | `chap eval --model-name <directory or GitHub URL>` | `chap eval --model-name <directory or GitHub URL> --run-config.as-chapkit` | `chap eval --model-name <service URL> --run-config.is-chapkit-model` |
+| **Add to a Chap installation** | Chap fetches the model from GitHub, see [Getting new models into the modeling app](../modeling-app/managing-model-templates.md) | Run a Docker image built from a chapkit base image. It registers itself with Chap | Run the service's Docker image. It registers itself with Chap |
+| **Where to start** | [Connect your model to the Chap standard](describe_model.md) | This page | The [chapkit documentation](https://dhis2-chap.github.io/chapkit/) |
+
+The first two use the same `MLproject` format, so a model written for one usually runs with the other. The exception is the environment: chapkit sets up `uv_env` and `renv_env`, but not `docker_env`, `conda_env` or `python_env`. What differs is who runs the model: Chap itself, or chapkit as a separate service. The second and third run the same way in Chap. The difference is whether chapkit builds the service from your `MLproject`, or you write the service code. A model can move from the second to the third with `chapkit mlproject migrate`, see [Next steps](#next-steps).
 
 ## Requirements
 
