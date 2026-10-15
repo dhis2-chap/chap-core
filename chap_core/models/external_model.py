@@ -4,13 +4,14 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from pydantic_core import ValidationError
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import HealthData, Samples
 from chap_core.exceptions import CommandLineException, InvalidModelException, ModelFailedException, NoPredictionsError
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.geometry import Polygons
-from chap_core.models.configured_model import ConfiguredModel
+from chap_core.models.configured_model import ConfiguredModel, ContextInfo
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period.date_util_wrapper import Month, TimePeriod
 
@@ -404,3 +405,38 @@ class ExternalModel(ExternalModelBase):
         if covariates.polygons is not None:
             simulated.set_polygons(covariates.polygons)
         return simulated
+
+    def context(self) -> ContextInfo | None:
+        """Finds the context window of a model"""
+        if self._model_information is None or self._model_information.entry_points is None:
+            return None
+        if self._model_information.entry_points.context is None:
+            return None
+
+        file_name = "context.json"
+        file_path = Path(self._working_dir) / file_name
+
+        with open(file_path, "w") as _:
+            pass
+
+        try:
+            self._runner.context(
+                file_name,
+            )
+        except CommandLineException as e:
+            logger.error("Error getting context, command failed")
+            raise ModelFailedException(str(e)) from e
+
+        if self._dry_run:
+            return None
+
+        file_content = file_path.read_text()
+
+        self._runner.teardown()
+
+        try:
+            context = ContextInfo.model_validate_json(file_content)
+        except ValidationError as e:
+            raise ModelFailedException(str(e)) from e
+
+        return context

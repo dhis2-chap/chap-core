@@ -104,3 +104,29 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
         except mlflow.exceptions.ExecutionException as e:
             logger.error("Execution of model failed for some reason. Check the logs for more information")
             raise ModelFailedException(str(e)) from e
+
+    def context(self, output_file):
+        logger.debug(f"Running context with output to {output_file}")
+
+        params = {
+            "out_file": str(output_file),
+        }
+        extra_params = {
+            "model_config": str(self.model_configuration_filename) if self.model_configuration_filename else None,
+        }
+
+        params.update({key: val for key, val in extra_params.items() if key in self.extra_params and val is not None})
+
+        try:
+            return mlflow.projects.run(
+                str(self.model_path),
+                entry_point="context",
+                parameters=params,
+            )
+
+        except ShellCommandException as e:
+            logger.error("Error running mlflow project")
+            raise ModelFailedException(str(e)) from e
+        except mlflow.exceptions.ExecutionException as e:
+            logger.error("Execution of model failed for some reason. Check the logs for more information")
+            raise ModelFailedException(str(e)) from e

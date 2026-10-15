@@ -16,6 +16,7 @@ class EntryPointConfig(BaseModel):
     train: CommandConfig
     predict: CommandConfig
     report: CommandConfig | None = None
+    context: CommandConfig | None = None
     simulate: CommandConfig | None = None
 
 
