@@ -113,8 +113,9 @@ class TestTokenEnabled:
         assert response.headers["WWW-Authenticate"] == "Bearer"
         assert response.json() == {"detail": "Missing or invalid API token"}
 
-    def test_wrong_token_returns_401(self, client):
-        response = client.get(GATED_PATH, headers={"Authorization": "Bearer wrong-token"})
+    @pytest.mark.parametrize("scheme", ["Bearer", "ApiToken"])
+    def test_wrong_token_returns_401(self, client, scheme):
+        response = client.get(GATED_PATH, headers={"Authorization": f"{scheme} wrong-token"})
 
         assert response.status_code == 401
 
@@ -125,6 +126,10 @@ class TestTokenEnabled:
 
     def test_valid_token_is_accepted(self, client, auth_headers):
         assert client.get(GATED_PATH, headers=auth_headers).status_code == 200
+
+    @pytest.mark.parametrize("scheme", ["ApiToken", "apitoken", "APITOKEN"])
+    def test_api_token_scheme_is_accepted(self, client, scheme):
+        assert client.get(GATED_PATH, headers={"Authorization": f"{scheme} {TEST_TOKEN}"}).status_code == 200
 
     @pytest.mark.parametrize("path", ["/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"])
     def test_api_reference_needs_no_token(self, client, path):

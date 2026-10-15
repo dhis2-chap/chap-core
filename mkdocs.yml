@@ -101,6 +101,7 @@ nav:
       - Overview: external_models/index.md
       - Getting Started:
           - For Experienced Modellers: external_models/experienced_modeller.md
+          - Build a Model from an MLproject File: external_models/mlproject_tutorial.md
 
       - Installing Chap Core:
           - Prepare for installation: external_models/prepare-for-installation.md
