@@ -28,7 +28,6 @@ from chap_core.database.tables import (
     BacktestSpecification,
     Prediction,
     PredictionInfo,
-    PredictionRead,
 )
 from chap_core.rest_api.data_models import (
     BacktestCreate,
