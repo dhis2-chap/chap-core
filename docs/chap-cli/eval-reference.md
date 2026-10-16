@@ -42,13 +42,17 @@ Control how the evaluation splits and processes data:
 ### Understanding Backtest Parameters
 
 - **n-periods**: How far ahead the model forecasts. For monthly data, `n-periods=3` means 3-month forecasts.
-- **n-splits**: How many times to train and evaluate. More splits = more robust evaluation but longer runtime.
+- **n-splits**: How many test windows to evaluate. More splits = more robust evaluation but longer runtime.
 - **stride**: How much to advance between splits. `stride=1` means every period gets a forecast; `stride=2` skips every other period.
+- **n-retrain**: How many times the model is trained. The default is 1: the model is trained once on the data before the first test window, and later splits only receive more historic data.
 
-Example: With 36 months of data, `n-periods=3`, `n-splits=7`, `stride=1`:
-- Split 1: Train on months 1-26, test on months 27-29
-- Split 2: Train on months 1-27, test on months 28-30
-- ... and so on for 7 splits
+Splits are counted back from the end of the dataset, so the last test window ends at the final period. Example: With 36 months of data, `n-periods=3`, `n-splits=7`, `stride=1`:
+- Train once on months 1-27
+- Split 1: historic data months 1-27, test on months 28-30
+- Split 2: historic data months 1-28, test on months 29-31
+- ... and so on until split 7, which tests on months 34-36
+
+See [How Split Indices Are Calculated](../contributor/evaluation_pipeline.md#how-split-indices-are-calculated) for the formula.
 
 ## Run Configuration
 
