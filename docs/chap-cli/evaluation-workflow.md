@@ -131,7 +131,7 @@ Run the same process with a different model for comparison:
 
 ```console
 chap eval \
-    --model-name https://github.com/dhis2-chap/chap_auto_ewars_weekly \
+    --model-name https://github.com/chap-models/chap_auto_ewars_weekly \
     --dataset-csv ./data/vietnam_data.csv \
     --output-file ./results/model_b_eval.nc \
     --backtest-params.n-periods 3 \

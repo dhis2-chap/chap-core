@@ -60,8 +60,8 @@ See more about our guidelines for testing in the [testing guide](testing.md).
 Before making commits, run the linters and formatters, and then the same checks that CI runs:
 
 ```bash
-$ make lint   # fixes what ruff can fix
-$ make check  # what CI runs: ruff, mypy, pyright and alembic head check
+$ make lint   # ruff --fix, ruff format, mypy, pyright
+$ make check  # what CI runs: the same checks without fixing, plus the alembic head check
 ```
 
 ### Docstring style guide

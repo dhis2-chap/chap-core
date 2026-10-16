@@ -305,7 +305,8 @@ chap preference-learn \
     --search-space-yaml ./search_space.yaml \
     --state-file ./preference_state.json \
     --learning-params.decision-mode metric \
-    --learning-params.decision-metrics mae rmse \
+    --learning-params.decision-metrics mae \
+    --learning-params.decision-metrics rmse \
     --learning-params.max-iterations 10
 ```
 

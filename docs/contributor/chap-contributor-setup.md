@@ -11,10 +11,10 @@ If you are an external contributor without write-access to the chap-core reposit
     $ cd chap-core
     ```
 
-2.  If you need to work with and test a specific stable version of Chap Core codebase, these are stored as version tags. Writing `git tag` on the commandline will give you a list of the available version. To switch to a desired version, for instance v1.0.3, you can write:
+2.  If you need to work with and test a specific stable version of Chap Core codebase, these are stored as version tags. Writing `git tag` on the commandline will give you a list of the available version. To switch to a desired version, for instance v2.4.0, you can write:
 
     ```bash
-    git switch --detach v1.0.3
+    git switch --detach v2.4.0
     ```
 
 3.  If you're a Windows user, [read this note about how to simulate a Linux environment using Windows WSL](windows_contributors.md). Before proceeding to the next steps, initiate a wsl session from the commandline:

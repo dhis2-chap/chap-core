@@ -27,7 +27,7 @@ As an example, the following command runs the chap_auto_ewars model (this does n
 a docker container based on the specifications in the MLproject file of the model):
 
 ```bash
-$ chap eval --model-name https://github.com/dhis2-chap/chap_auto_ewars --dataset-csv https://raw.githubusercontent.com/dhis2/climate-health-data/refs/heads/main/lao/chap_LAO_admin1_monthly.csv --output-file eval.nc --plot
+$ chap eval --model-name https://github.com/chap-models/chap_auto_ewars --dataset-csv https://raw.githubusercontent.com/dhis2/climate-health-data/refs/heads/main/lao/chap_LAO_admin1_monthly.csv --output-file eval.nc --plot
 ```
 
 If the above command runs without any error messages, you have successfully evaluated the model through Chap, and an `eval.nc` file should have been generated along with an HTML plot with predictions for various regions.

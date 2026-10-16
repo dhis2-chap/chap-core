@@ -269,7 +269,7 @@ Use `plot-backtest` to visualize and `export-metrics` to extract metrics from th
 
 ```console
 chap eval \
-    --model-name https://github.com/dhis2-chap/chap_auto_ewars \
+    --model-name https://github.com/chap-models/chap_auto_ewars \
     --dataset-csv ./example_data/laos_subset.csv \
     --output-file ./eval_ewars.nc
 ```
@@ -322,7 +322,7 @@ chap eval \
 ```console
 # Step 1: Evaluate the model
 chap eval \
-    --model-name https://github.com/dhis2-chap/chap_auto_ewars \
+    --model-name https://github.com/chap-models/chap_auto_ewars \
     --dataset-csv ./data/vietnam.csv \
     --output-file ./results/ewars_eval.nc \
     --backtest-params.n-splits 10

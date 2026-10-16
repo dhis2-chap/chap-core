@@ -63,7 +63,7 @@ Chap maintains a list of approved model templates via remote YAML whitelists. Th
 Remote whitelists use this format:
 
 ```yaml
-- url: https://github.com/dhis2-chap/chap_auto_ewars
+- url: https://github.com/chap-models/chap_auto_ewars
   versions:
     stable: "@209759add6e13778f7061b8add8fbe814799a6cb"
 

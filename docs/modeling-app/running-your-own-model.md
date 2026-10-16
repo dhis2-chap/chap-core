@@ -66,7 +66,7 @@ The important parts:
 docker compose -f compose.yml -f compose.marketplace.yml -f compose.override.yml up -d
 ```
 
-Your service starts along with everything else. Use whichever base and overlays you normally use (`compose.marketplace.yml` holds the models installed with `chap-admin`), with `compose.override.yml` last — see the [overlay reference](../webapi/docker-compose-doc.md#compose-file-reference). Pass the same `-f` flags to every later `down`, `build` and `logs` command in this stack.
+Your service starts along with everything else. Use whichever base and overlays you normally use, with `compose.override.yml` last. `compose.marketplace.yml` holds the models installed with `chap-admin`; leave it out if you have not installed any, since the file does not exist until then — see the [overlay reference](../webapi/docker-compose-doc.md#compose-file-reference). Pass the same `-f` flags to every later `down`, `build` and `logs` command in this stack.
 
 ### 4. Verify
 
