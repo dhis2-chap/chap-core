@@ -21,7 +21,7 @@ We strongly recommend using Chap Core with a container framework such as LXC, wh
 
 To run Chap Core on a server that is using LXC, you need to create a new LXC container dedicated to Chap Core. Within this LXC container, you then need to install Docker. Ubuntu has documentation on how to install Docker within an LXC container located at [https://ubuntu.com/tutorials/how-to-run-docker-inside-lxd-containers#1-overview](https://ubuntu.com/tutorials/how-to-run-docker-inside-lxd-containers#1-overview)
 
-The Chap Core team has an example of a Chap Core LXC setup, which can be found at [https://github.com/dhis2-chap/infrastructure](https://github.com/dhis2-chap/infrastructure). Handle this code with care. The code is used to deploy Chap Core on a server for conducting integration testing. We recommend everyone only use this as an example and create their own bash script for deploying Chap Core within an LXC container.
+The Chap Core team has an example of a Chap Core LXC setup, which can be found at [https://github.com/dhis2-chap/chap-core-infrastructure-example](https://github.com/dhis2-chap/chap-core-infrastructure-example). Handle this code with care. The code is used to deploy Chap Core on a server for conducting integration testing. We recommend everyone only use this as an example and create their own bash script for deploying Chap Core within an LXC container.
 
 ## Clone the Chap Core repo into your LXC container
 
@@ -43,7 +43,7 @@ Go into **App Management** in your DHIS2 instance, and install the [Modeling App
 
 The newer version of DHIS2 supports a built-in reverse proxy named [Routes API](https://docs.dhis2.org/en/develop/using-the-api/dhis-core-version-242/route.html). This means you could use the DHIS2 backend to forward a request (typically sent from a frontend application) to another IP address (in our case the Chap Core). To use the Route API (the reverse proxy), we need to configure a "route" in the DHIS2 backend that forwards requests sent from the Modeling App to the Chap Core. First, we create a Route in DHIS2, which means a resource in DHIS2 that holds information about which IP our "route" in DHIS2 should forward requests to.
 
-The Modeling App supports a user interface for creating the needed route, where you only need to specify which IP the request should be forwarded to by the route. To create a new route, it requires you to have the DHIS2 System Administrator Role. In the form where you create the route, you need to speficy the IP adress (for instance `http://192.168.0.174/**`) you located (and verified that was accessible from the DHIS2 container) in the step above.
+The Modeling App supports a user interface for creating the needed route, where you only need to specify which IP the request should be forwarded to by the route. To create a new route, it requires you to have the DHIS2 System Administrator Role. In the form where you create the route, you need to speficy the IP adress (for instance `http://192.168.0.174:8000/**`) you located (and verified that was accessible from the DHIS2 container) in the step above.
 
 **IMPORTANT:** You need to configure the route as a "wildcard route", by ending the IP with `/**` More information about Wildcard routes could be found [here](https://docs.dhis2.org/en/develop/using-the-api/dhis-core-version-242/route.html#wildcard-routes).
 

@@ -12,7 +12,7 @@ Chap seeds the database with model templates and configured models every time th
 ### How seeding works
 
 1. `default.yaml` is parsed first. For each model entry, only the **last listed version** is used -- earlier versions are kept as historical documentation.
-2. All other `*.yaml` files in the directory (e.g. `local.yaml`, `benchmark_models.yaml`) are parsed next, with all versions available.
+2. All other `*.yaml` files in the directory (e.g. `local.yaml`, `benchmark_models.yaml`) are parsed next. Here too, only the last listed version of each model is seeded.
 3. For each model, the seeding logic fetches `MLProject.yaml` from the GitHub repository at the specified commit to retrieve model metadata (name, description, required covariates, user options, etc.).
 4. A model template is inserted (or updated) in the database, along with any named configurations that specify user option values and additional covariates.
 

@@ -24,7 +24,7 @@ The model must declare a `report` entry point in its `MLproject` file. See [Addi
 
 | Parameter | Description |
 |-----------|-------------|
-| `model_path` | Path to an MLProject directory or a GitHub URL pointing to one |
+| `model_name` (`--model-name`) | Path to an MLProject directory or a GitHub URL pointing to one |
 | `dataset_csv` | Path to a CSV file with historic data in the standard Chap format |
 | `out_file` | Output path for the generated PDF report |
 

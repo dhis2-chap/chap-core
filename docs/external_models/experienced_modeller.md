@@ -8,7 +8,7 @@ The following are required to develop or integrate an existing model with Chap:
 
 To get started, we recommend to follow our simple tutorial:
 
-1. Clone or download our [minimalist example](https://github.com/dhis2-chap/minimalist_example) and make sure you can run the minimalist code used in the tutorial (as an isolated run and through Chap)
+1. Clone or download our [minimalist example](https://github.com/dhis2-chap/minimalist_example_uv) (or the [R version](https://github.com/dhis2-chap/minimalist_example_r)) and make sure you can run the minimalist code used in the tutorial (as an isolated run and through Chap)
 2. Replace the code in the train and predict functions with the code of your own model, doing any necessary data format conversion to make your model compatible with the Chap setup
 
 If you are more comfortable with R than Python, you can alterantive clone/download our [R-based minimalist example](https://github.com/dhis2-chap/minimalist_example_r)

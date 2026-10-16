@@ -14,7 +14,7 @@ If you are an external contributor without write-access to the chap-core reposit
 2.  If you need to work with and test a specific stable version of Chap Core codebase, these are stored as version tags. Writing `git tag` on the commandline will give you a list of the available version. To switch to a desired version, for instance v1.0.3, you can write:
 
     ```bash
-    git switch tags/v1.0.3
+    git switch --detach v1.0.3
     ```
 
 3.  If you're a Windows user, [read this note about how to simulate a Linux environment using Windows WSL](windows_contributors.md). Before proceeding to the next steps, initiate a wsl session from the commandline:
@@ -63,10 +63,10 @@ If you are an external contributor without write-access to the chap-core reposit
 It is also good to see if you can run chap evaluation on an external model. The recommended command is `chap eval`:
 
 ```bash
-chap eval --model-name https://github.com/dhis2-chap/chap_auto_ewars --dataset-csv https://raw.githubusercontent.com/dhis2/climate-health-data/refs/heads/main/lao/chap_LAO_admin1_monthly.csv --output-file eval.nc --plot --backtest-params.n-splits 2
+chap eval --model-name https://github.com/dhis2-chap/minimalist_example_uv --dataset-csv https://raw.githubusercontent.com/dhis2/climate-health-data/refs/heads/main/lao/chap_LAO_admin1_monthly.csv --output-file eval.nc --plot --backtest-params.n-splits 2
 ```
 
 If the above command runs successfully, an `eval.nc` file will be generated with the results.
 
 You have now successfully setup a development version of the chap-cli tool and you are ready to start developing.
-If you have any problems installing or setting up the environment, feel free to [contact us](https://github.com/dhis2-chap/chap-core/wiki>).
+If you have any problems installing or setting up the environment, feel free to [contact us](https://github.com/dhis2-chap/chap-core/wiki).

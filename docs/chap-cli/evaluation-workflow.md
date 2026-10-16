@@ -111,6 +111,7 @@ chap plot-backtest \
 | `evaluation_plot` | Evaluation summary plot with forecasts vs observations and uncertainty bands |
 | `horizon_location_grid` | Grid of forecast intervals and metrics across locations and forecast horizons |
 | `predicted_vs_actual` | Scatter of predicted (median) vs actual values, faceted by horizon |
+| `predicted_vs_actual_linear` | Predicted (median) vs actual values on linear axes, faceted by horizon |
 | `sample_bias_by_horizon` | Ratio of forecast samples above truth per forecast horizon |
 | `sample_bias_by_time_period` | Ratio of forecast samples above truth over time periods, one line per location |
 

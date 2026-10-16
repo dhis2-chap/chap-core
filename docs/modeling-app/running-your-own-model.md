@@ -92,7 +92,7 @@ curl -X POST http://localhost:8000/v1/crud/configured-models \
   -d '{"name": "default", "modelTemplateId": <id>, "userOptionValues": {}}'
 ```
 
-Add `-H 'Authorization: Bearer $CHAP_API_TOKEN'` when the deployment requires a token. An identical configuration is not stored twice, so the call can be repeated. The template is stored under the version the service reports, from the commit it reports; a rebuilt image under the same version is refused, so bump the service version when the model changes.
+Add `-H "Authorization: Bearer $CHAP_API_TOKEN"` when the deployment requires a token. An identical configuration is not stored twice, so the call can be repeated. The template is stored under the version the service reports, from the commit it reports; a rebuilt image under the same version is refused, so bump the service version when the model changes.
 
 `chap-admin install my_model --image ghcr.io/my-org/my-model:v1.0.0 --accept-risk` does the same after writing and starting the service itself, if you would rather not hand-write the Compose service.
 

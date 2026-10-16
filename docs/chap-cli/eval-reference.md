@@ -193,7 +193,7 @@ Use `--run-config.as-chapkit` to serve an MLproject model (a local directory or 
 
 ```console
 chap eval \
-    --model-name https://github.com/dhis2-chap/minimalist_example \
+    --model-name https://github.com/dhis2-chap/minimalist_example_uv \
     --dataset-csv ./data/vietnam.csv \
     --output-file ./eval.nc \
     --run-config.as-chapkit
