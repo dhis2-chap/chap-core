@@ -123,27 +123,10 @@ A ping only refreshes the expiry. It never changes the registered URL or service
 
 ## Integration with Servicekit
 
-[Servicekit](https://github.com/winterop-com/servicekit) handles registration automatically. Configure your service with the registration URL and key:
-
-```console
-from servicekit import Service, ServiceInfo
-
-service = Service(
-    info=ServiceInfo(
-        id="my-model",
-        display_name="My Model",
-        description="Disease prediction model",
-    ),
-    chap_url="http://chap-server",
-)
-
-# Registration and keepalive are handled automatically
-service.run()
-```
-
-Set the environment variable for authentication:
+[Servicekit](https://github.com/winterop-com/servicekit) handles registration and keepalive automatically once the service builder enables it with `.with_registration()`. The Chap URL and the key are not set in code but through environment variables:
 
 ```bash
+export SERVICEKIT_ORCHESTRATOR_URL="http://chap:8000/v2/services/\$register"
 export SERVICEKIT_REGISTRATION_KEY="your-secret-key"
 ```
 
@@ -151,25 +134,6 @@ See the [servicekit documentation](https://github.com/winterop-com/servicekit) f
 
 ## Integration with Chapkit
 
-[Chapkit](https://github.com/dhis2-chap/chapkit) extends servicekit with ML-specific functionality. The `MLServiceInfo` schema includes additional fields for model metadata:
+[Chapkit](https://github.com/dhis2-chap/chapkit) extends servicekit with ML-specific functionality. A chapkit service is built with `MLServiceBuilder` and enables registration with `.with_registration()`; the Chap URL is not set in code but through `SERVICEKIT_ORCHESTRATOR_URL`, as shown in [Running Your Own Model](../modeling-app/running-your-own-model.md).
 
-```console
-from chapkit import MLService, MLServiceInfo, ModelMetadata
-
-service = MLService(
-    info=MLServiceInfo(
-        id="dengue-predictor",
-        display_name="Dengue Predictor",
-        model_metadata=ModelMetadata(
-            author="Research Team",
-            organization="Health Institute",
-        ),
-        period_type="monthly",
-    ),
-    chap_url="http://chap-server",
-)
-
-service.run()
-```
-
-See the [chapkit documentation](https://github.com/dhis2-chap/chapkit) for building ML prediction services.
+See the [chapkit deployment guide](https://dhis2-chap.github.io/chapkit/guides/deploying-to-chap-core/) for the service code.

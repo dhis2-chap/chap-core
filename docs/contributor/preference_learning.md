@@ -304,9 +304,10 @@ chap preference-learn \
     --dataset-csv ./data.csv \
     --search-space-yaml ./search_space.yaml \
     --state-file ./preference_state.json \
-    --decision-mode metric \
-    --decision-metrics mae rmse \
-    --max-iterations 10
+    --learning-params.decision-mode metric \
+    --learning-params.decision-metrics mae \
+    --learning-params.decision-metrics rmse \
+    --learning-params.max-iterations 10
 ```
 
 ## Testing Your Implementation

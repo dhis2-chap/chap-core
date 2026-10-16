@@ -14,7 +14,7 @@ $ chap eval --model-name /path/to/your/model/directory --dataset-csv https://raw
 - By specifying a github URL to a git repo (the url needs to start with https://github.com/):
 
 ```bash
-$ chap eval --model-name https://github.com/dhis2-chap/minimalist_example --dataset-csv https://raw.githubusercontent.com/dhis2/climate-health-data/refs/heads/main/lao/chap_LAO_admin1_monthly.csv --output-file eval.nc --plot --run-config.ignore-environment --run-config.debug
+$ chap eval --model-name https://github.com/dhis2-chap/minimalist_example_uv --dataset-csv https://raw.githubusercontent.com/dhis2/climate-health-data/refs/heads/main/lao/chap_LAO_admin1_monthly.csv --output-file eval.nc --plot --run-config.ignore-environment --run-config.debug
 ```
 
 Note the `--run-config.ignore-environment` in the above commands.
@@ -27,12 +27,12 @@ As an example, the following command runs the chap_auto_ewars model (this does n
 a docker container based on the specifications in the MLproject file of the model):
 
 ```bash
-$ chap eval --model-name https://github.com/dhis2-chap/chap_auto_ewars --dataset-csv https://raw.githubusercontent.com/dhis2/climate-health-data/refs/heads/main/lao/chap_LAO_admin1_monthly.csv --output-file eval.nc --plot
+$ chap eval --model-name https://github.com/chap-models/chap_auto_ewars --dataset-csv https://raw.githubusercontent.com/dhis2/climate-health-data/refs/heads/main/lao/chap_LAO_admin1_monthly.csv --output-file eval.nc --plot
 ```
 
 If the above command runs without any error messages, you have successfully evaluated the model through Chap, and an `eval.nc` file should have been generated along with an HTML plot with predictions for various regions.
 
-A folder `runs/model_name/latest` should also have been generated that contains copy of your model directory along with data files used. This can be useful to inspect if something goes wrong.
+A folder `runs/<model_name>/<timestamp>/` should also have been generated (pass `--run-config.run-directory-type latest` to reuse a fixed `latest` folder instead) that contains copy of your model directory along with data files used. This can be useful to inspect if something goes wrong.
 
 ### (Experimental:) Passing model-specific options to the model
 

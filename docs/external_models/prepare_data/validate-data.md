@@ -5,7 +5,7 @@ Use the `chap validate` command to check that your CSV is Chap-compatible before
 ### Basic validation
 
 ```console
-chap validate --dataset-csv [YOUR-FOLDR-PATH].csv
+chap validate --dataset-csv [YOUR-FOLDER-PATH].csv
 ```
 *e.g chap validate --dataset-csv example_data/laos_subset.csv*
 
@@ -17,11 +17,4 @@ This checks for:
 
 ### Validate GeoJSON (if applicable)
 
-If you have a GeoJSON file alongside your CSV, validate it with the `--dataset-geo` flag:
-
-```console
-chap validate --dataset-csv [YOUR-FOLDR-PATH].csv --dataset-geo [YOUR-FOLDR-PATH].geojson
-```
-*e.g. chap validate --dataset-csv example_data/laos_subset.csv --dataset-geo example_data/laos_subset.geojson*
-
-This additionally checks that all `location` values in the CSV have a matching feature in the GeoJSON.
+If a GeoJSON file with the same base name sits next to your CSV (for example `laos_subset.csv` and `laos_subset.geojson`), it is discovered and validated automatically by the same command. This additionally checks that all `location` values in the CSV have a matching feature in the GeoJSON.

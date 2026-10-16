@@ -63,10 +63,10 @@ The important parts:
 ### 3. Start the stack
 
 ```console
-docker compose -f compose.yml -f compose.override.yml up -d
+docker compose -f compose.yml -f compose.marketplace.yml -f compose.override.yml up -d
 ```
 
-Your service starts along with everything else. Use whichever base and overlays you normally use, with `compose.override.yml` last — see the [overlay reference](../webapi/docker-compose-doc.md#compose-file-reference). Pass the same `-f` flags to every later `down`, `build` and `logs` command in this stack.
+Your service starts along with everything else. Use whichever base and overlays you normally use, with `compose.override.yml` last. `compose.marketplace.yml` holds the models installed with `chap-admin`; leave it out if you have not installed any, since the file does not exist until then — see the [overlay reference](../webapi/docker-compose-doc.md#compose-file-reference). Pass the same `-f` flags to every later `down`, `build` and `logs` command in this stack.
 
 ### 4. Verify
 
@@ -92,7 +92,7 @@ curl -X POST http://localhost:8000/v1/crud/configured-models \
   -d '{"name": "default", "modelTemplateId": <id>, "userOptionValues": {}}'
 ```
 
-Add `-H 'Authorization: Bearer $CHAP_API_TOKEN'` when the deployment requires a token. An identical configuration is not stored twice, so the call can be repeated. The template is stored under the version the service reports, from the commit it reports; a rebuilt image under the same version is refused, so bump the service version when the model changes.
+Add `-H "Authorization: Bearer $CHAP_API_TOKEN"` when the deployment requires a token. An identical configuration is not stored twice, so the call can be repeated. The template is stored under the version the service reports, from the commit it reports; a rebuilt image under the same version is refused, so bump the service version when the model changes.
 
 `chap-admin install my_model --image ghcr.io/my-org/my-model:v1.0.0 --accept-risk` does the same after writing and starting the service itself, if you would rather not hand-write the Compose service.
 
@@ -125,8 +125,8 @@ services:
 Rebuild after changing the model with:
 
 ```console
-docker compose -f compose.yml -f compose.override.yml build my-model
-docker compose -f compose.yml -f compose.override.yml up -d my-model
+docker compose -f compose.yml -f compose.marketplace.yml -f compose.override.yml build my-model
+docker compose -f compose.yml -f compose.marketplace.yml -f compose.override.yml up -d my-model
 ```
 
 Note that the build context must be reachable from the Chap repository directory, and that a relative path like `../my-model` ties the deployment to your directory layout. For a server deployment, publishing an image to a registry is more robust.

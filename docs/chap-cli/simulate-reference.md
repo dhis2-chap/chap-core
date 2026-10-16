@@ -5,7 +5,7 @@ The `simulate` command runs a model's optional `simulate` entry point to generat
 ## Synopsis
 
 ```console
-chap simulate <MODEL_PATH> <DATASET_CSV> <OUT_FILE> [OPTIONS]
+chap simulate <MODEL_NAME> <DATASET_CSV> <OUT_FILE> [OPTIONS]
 ```
 
 ## Description
