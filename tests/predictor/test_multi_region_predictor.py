@@ -4,7 +4,6 @@ import pytest
 
 from chap_core.assessment.dataset_splitting import train_test_split
 from chap_core.time_period import Month
-from ..data_fixtures import full_data
 
 
 def test_naive_predictor(full_data):

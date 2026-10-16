@@ -1,6 +1,4 @@
 import numpy as np
-from sqlalchemy import create_engine
-from sqlmodel import SQLModel
 
 from chap_core.assessment.metrics import (
     RMSEMetric,
@@ -208,13 +206,6 @@ def test_compute_all_detailed_metrics(backtest_weeks):
     assert len(df) > 0
     assert "crps" in set(df["metric_id"])
     assert not {"sample_count", "example_metric"} & set(df["metric_id"])
-
-
-@pytest.fixture
-def engine():
-    engine = create_engine("sqlite://")
-    SQLModel.metadata.create_all(engine)
-    return engine
 
 
 def test_rmse_uses_median_of_samples(flat_forecasts_multiple_samples, flat_observations):
