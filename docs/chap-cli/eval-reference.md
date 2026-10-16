@@ -15,7 +15,7 @@ This command evaluates a single model by:
 1. Loading disease and climate data from a CSV file
 2. Auto-discovering GeoJSON polygon boundaries (same name as CSV with `.geojson` extension)
 3. Splitting historical data into multiple train/test sets using rolling-origin backtesting
-4. Training the model on each training set and generating probabilistic forecasts
+4. Training the model (once by default, see `n-retrain`) and generating probabilistic forecasts for each split
 5. Comparing forecasts against actual observations
 6. Exporting results (predictions, observations, metrics) to NetCDF format
 
@@ -38,6 +38,7 @@ Control how the evaluation splits and processes data:
 | `--backtest-params.n-periods` | Forecast horizon (number of periods to predict ahead) | 3 |
 | `--backtest-params.n-splits` | Number of train/test splits for cross-validation | 7 |
 | `--backtest-params.stride` | Step size (in periods) between consecutive splits | 1 |
+| `--backtest-params.n-retrain` | Number of times the model is trained, evenly spaced across the splits | 1 |
 
 ### Understanding Backtest Parameters
 

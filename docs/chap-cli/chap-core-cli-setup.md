@@ -80,7 +80,7 @@ overlays, in the same order as when starting CHAP. `compose.yml` and
 chap-admin install chapkit_simple_multistep_model --compose-file compose.ghcr.yml
 ```
 
-Because the commands name the base files explicitly, Docker Compose does not load
+Because the commands name the base file explicitly, Docker Compose does not load
 `compose.override.yml` on its own. List it with `--compose-file` as well if your
 deployment uses one.
 

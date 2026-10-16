@@ -123,27 +123,10 @@ A ping only refreshes the expiry. It never changes the registered URL or service
 
 ## Integration with Servicekit
 
-[Servicekit](https://github.com/winterop-com/servicekit) handles registration automatically. Configure your service with the registration URL and key:
-
-```console
-from servicekit import Service, ServiceInfo
-
-service = Service(
-    info=ServiceInfo(
-        id="my-model",
-        display_name="My Model",
-        description="Disease prediction model",
-    ),
-    chap_url="http://chap-server",
-)
-
-# Registration and keepalive are handled automatically
-service.run()
-```
-
-Set the environment variable for authentication:
+[Servicekit](https://github.com/winterop-com/servicekit) handles registration and keepalive automatically once the service builder enables it with `.with_registration()`. The Chap URL and the key are not set in code but through environment variables:
 
 ```bash
+export SERVICEKIT_ORCHESTRATOR_URL="http://chap:8000/v2/services/\$register"
 export SERVICEKIT_REGISTRATION_KEY="your-secret-key"
 ```
 
