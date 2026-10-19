@@ -18,7 +18,7 @@ chap simulate <MODEL_NAME> <DATASET_CSV> <OUT_FILE> [OPTIONS]
 4. Checks that the output covers the same locations and periods, has the target for every row, and keeps the observed values unchanged.
 5. Writes the result to `out_file`, plus a `.geojson` next to it if the input had polygons.
 
-The output is a regular Chap dataset and can be used with `chap eval`. See [Additional Configuration → Simulate Entry Point](../external_models/additional_configuration.md#simulate-entry-point) for how to define the entry point.
+Each parameter can also be passed as a keyword flag (`--model-name`, `--dataset-csv`, `--out-file`). The output is a regular Chap dataset and can be used with `chap eval`. See [Additional Configuration → Simulate Entry Point](../external_models/additional_configuration.md#simulate-entry-point) for how to define the entry point.
 
 ## Options
 

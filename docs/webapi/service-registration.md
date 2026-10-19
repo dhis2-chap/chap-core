@@ -123,7 +123,7 @@ A ping only refreshes the expiry. It never changes the registered URL or service
 
 ## Integration with Servicekit
 
-[Servicekit](https://github.com/winterop-com/servicekit) handles registration and keepalive automatically once the service builder enables it with `.with_registration()`. The Chap URL and the key are not set in code but through environment variables:
+[Servicekit](https://github.com/winterop-com/servicekit) handles registration and keepalive automatically once the service builder enables it with `.with_registration()`. The Chap URL and the key are read from environment variables unless passed to `.with_registration()`:
 
 ```bash
 export SERVICEKIT_ORCHESTRATOR_URL="http://chap:8000/v2/services/\$register"
@@ -134,6 +134,6 @@ See the [servicekit documentation](https://github.com/winterop-com/servicekit) f
 
 ## Integration with Chapkit
 
-[Chapkit](https://github.com/dhis2-chap/chapkit) extends servicekit with ML-specific functionality. A chapkit service is built with `MLServiceBuilder` and enables registration with `.with_registration()`; the Chap URL is not set in code but through `SERVICEKIT_ORCHESTRATOR_URL`, as shown in [Running Your Own Model](../modeling-app/running-your-own-model.md).
+[Chapkit](https://github.com/dhis2-chap/chapkit) extends servicekit with ML-specific functionality. A chapkit service is built with `MLServiceBuilder` and enables registration with `.with_registration()`; the Chap URL is read from `SERVICEKIT_ORCHESTRATOR_URL`, as shown in [Running Your Own Model](../modeling-app/running-your-own-model.md).
 
 See the [chapkit deployment guide](https://dhis2-chap.github.io/chapkit/guides/deploying-to-chap-core/) for the service code.

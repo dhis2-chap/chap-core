@@ -17,4 +17,4 @@ This checks for:
 
 ### Validate GeoJSON (if applicable)
 
-If a GeoJSON file with the same base name sits next to your CSV (for example `laos_subset.csv` and `laos_subset.geojson`), it is discovered and validated automatically by the same command. This additionally checks that all `location` values in the CSV have a matching feature in the GeoJSON.
+If a GeoJSON file with the same base name sits next to your CSV (for example `laos_subset.csv` and `laos_subset.geojson`), it is discovered and loaded by the same command. Locations in the CSV without a matching feature in the GeoJSON are logged as a warning and dropped from the loaded dataset; validation does not fail on them, so check the output for that warning.

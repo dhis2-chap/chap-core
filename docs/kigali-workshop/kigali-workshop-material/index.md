@@ -1,6 +1,6 @@
 # Workshop Material
 
-Material from the Chap modelling workshop in Kigali, 23 to 27 February 2026, in the order the sessions ran. Start with the pre-session setup, then follow the day-by-day pages. The four pages after Tuesday afternoon belong to that session and can also be read on their own.
+Material from the Chap modelling workshop in Kigali, 23 to 27 February 2026, in the order the sessions ran. Start with the pre-session setup, then follow the day-by-day pages. The four walkthrough pages after Tuesday afternoon were prepared for that session and can be read on their own.
 
 - [Pre-session 11 Feb](11_feb_presession.md) - install the tools and get the example model running
 - [Monday Afternoon 23 Feb](monday-afternoon.md)
