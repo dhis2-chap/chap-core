@@ -10,9 +10,9 @@ from __future__ import annotations
 import datetime
 
 import pytest
-from sqlalchemy import event, inspect
+from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel
 
 from chap_core.assessment.thresholds.params import SeasonalParams
 from chap_core.database.alert_tables import Alert, AlertApproval, AlertLevel
@@ -30,20 +30,6 @@ from chap_core.services.alert_service import (
     list_alerts,
     set_approval,
 )
-
-
-@pytest.fixture
-def engine():
-    eng = create_engine("sqlite://")
-
-    @event.listens_for(eng, "connect")
-    def _enable_fk(dbapi_connection, _connection_record):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
-
-    SQLModel.metadata.create_all(eng)
-    return eng
 
 
 @pytest.fixture

@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
-from sqlalchemy import create_engine
-from sqlmodel import Session, SQLModel, select
+from sqlmodel import Session, select
 
 from chap_core.api_types import BacktestParams, RunConfig
 from chap_core.assessment.dataset_splitting import train_test_generator
@@ -28,13 +27,6 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet as SpatioT
 from chap_core.testing.estimators import sanity_check_estimator
 
 BUILTIN_NAMES = sorted(get_builtin_models())
-
-
-@pytest.fixture
-def engine():
-    engine = create_engine("sqlite://")
-    SQLModel.metadata.create_all(engine)
-    return engine
 
 
 @pytest.fixture

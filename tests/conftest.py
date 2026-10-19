@@ -410,6 +410,22 @@ def clean_engine(database_url):
 
 
 @pytest.fixture
+def engine():
+    from sqlalchemy import event
+
+    eng = create_engine("sqlite://")
+
+    @event.listens_for(eng, "connect")
+    def _enable_fk(dbapi_connection, _connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    SQLModel.metadata.create_all(eng)
+    return eng
+
+
+@pytest.fixture
 def test_config():
     return WorkerConfig(is_test=True)
 
