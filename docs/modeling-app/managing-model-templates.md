@@ -67,7 +67,7 @@ Remote whitelists use this format:
   versions:
     stable: "@209759add6e13778f7061b8add8fbe814799a6cb"
 
-- url: https://github.com/dhis2-chap/ewars_template
+- url: https://github.com/chap-models/ewars_template
   versions:
     v3: "@e4520a2123a3228c10947f2b25029c3f7190e320"
 ```

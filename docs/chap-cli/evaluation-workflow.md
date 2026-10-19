@@ -77,7 +77,7 @@ chap eval \
 | `--dataset-csv` | Path to CSV with disease data | Required |
 | `--output-file` | Path for output NetCDF file | Required |
 | `--backtest-params.n-periods` | Forecast horizon (periods ahead) | 3 |
-| `--backtest-params.n-splits` | Number of train/test splits | 7 |
+| `--backtest-params.n-splits` | Number of test windows to evaluate | 7 |
 | `--backtest-params.stride` | Step size between splits | 1 |
 | `--model-configuration-yaml` | Optional YAML with model config | None |
 | `--run-config.ignore-environment` | Skip environment setup | false |

@@ -73,7 +73,8 @@ dropped so the new one is what gets registered; when the deployment sets
 A failed update restores the previous container and the previous template version.
 
 If your deployment uses a different base file, supply it, followed by any
-overlays, in the same order as when starting CHAP. `compose.yml` and
+overlays other than `compose.marketplace.yml` (which chap-admin adds itself), in
+the same order as when starting CHAP. `compose.yml` and
 `compose.ghcr.yml` are alternatives, so pass only one of them:
 
 ```bash

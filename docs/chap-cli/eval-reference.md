@@ -36,7 +36,7 @@ Control how the evaluation splits and processes data:
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `--backtest-params.n-periods` | Forecast horizon (number of periods to predict ahead) | 3 |
-| `--backtest-params.n-splits` | Number of train/test splits for cross-validation | 7 |
+| `--backtest-params.n-splits` | Number of test windows to evaluate | 7 |
 | `--backtest-params.stride` | Step size (in periods) between consecutive splits | 1 |
 | `--backtest-params.n-retrain` | Number of times the model is trained, evenly spaced across the splits | 1 |
 

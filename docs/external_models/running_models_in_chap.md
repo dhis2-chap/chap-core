@@ -32,7 +32,7 @@ $ chap eval --model-name https://github.com/chap-models/chap_auto_ewars --datase
 
 If the above command runs without any error messages, you have successfully evaluated the model through Chap, and an `eval.nc` file should have been generated along with an HTML plot with predictions for various regions.
 
-A folder `runs/<model_name>/<timestamp>/` should also have been generated (pass `--run-config.run-directory-type latest` to reuse a fixed `latest` folder instead) that contains copy of your model directory along with data files used. This can be useful to inspect if something goes wrong.
+A folder `runs/<model_name>/<timestamp>_<hash>/` should also have been generated (pass `--run-config.run-directory-type latest` to reuse a fixed `latest` folder instead) that contains copy of your model directory along with data files used. This can be useful to inspect if something goes wrong.
 
 ### (Experimental:) Passing model-specific options to the model
 

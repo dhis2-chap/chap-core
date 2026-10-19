@@ -48,7 +48,7 @@ import httpx
 headers = {"X-Service-Key": "your-secret-key"}
 
 response = httpx.post(
-    "http://chap-server/v2/services/$register",
+    "http://chap:8000/v2/services/$register",
     json=payload,
     headers=headers,
 )
@@ -112,7 +112,7 @@ Services must send periodic pings to maintain their registration:
 
 ```console
 response = httpx.put(
-    "http://chap-server/v2/services/my-model/$ping",
+    "http://chap:8000/v2/services/my-model/$ping",
     headers={"X-Service-Key": "your-secret-key"},
 )
 ```
