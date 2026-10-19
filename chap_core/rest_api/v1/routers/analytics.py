@@ -29,6 +29,7 @@ from chap_core.database.model_templates_and_config_tables import ConfiguredModel
 from chap_core.database.tables import (
     Backtest,
     BacktestForecast,
+    BacktestRead,
     BacktestSpecification,
     Prediction,
     is_not_baseline_backtest,
@@ -44,7 +45,6 @@ from ...data_models import (
     BacktestCreate,
     BacktestDomain,
     BacktestJob,
-    BacktestRead,
     ChapDataSource,
     CovariateNameSuggestion,
     DatasetMakeRequest,

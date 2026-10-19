@@ -5,11 +5,6 @@ import geopandas as gpd
 from libpysal.weights import Queen
 
 
-def geojson_to_shape(geojson_filename: str, shape_filename: str | Path):
-    gdf = gpd.read_file(geojson_filename)
-    gdf.to_file(shape_filename)
-
-
 def geojson_to_graph(geojson_filename: str | IO, graph_filename: str | Path):  # , graph_filename: str|Path):
     NeighbourGraph.from_geojson_file(geojson_filename).to_graph_file(graph_filename)  # type: ignore[arg-type]
 

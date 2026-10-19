@@ -73,42 +73,9 @@ class WeeklyClimatePredictor(MonthlyClimatePredictor):
         return t
 
 
-class FutureWeatherFetcher:
-    def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
-        raise NotImplementedError
-
-
-class SeasonalForecastFetcher:
-    def __init__(self, folder_path):
-        self.folder_path = folder_path
-
-    def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
-        raise NotImplementedError
-
-
 class QuickForecastFetcher:
     def __init__(self, historical_data: DataSet[SimpleClimateData]):
         self._climate_predictor = get_climate_predictor(historical_data)  # type: ignore[arg-type]
 
     def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
         return self._climate_predictor.predict(period_range)  # type: ignore[no-any-return]
-
-
-class FetcherNd:
-    def __init__(self, historical_data: DataSet[SimpleClimateData]):
-        self.historical_data = historical_data
-        self._cls = next(iter(historical_data.values())).__class__
-
-    def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
-        prediction_dict = {}
-        for location, data in self.historical_data.items():
-            prediction_dict[location] = self._cls(  # type: ignore[call-arg]
-                period_range,
-                **{
-                    field.name: getattr(data, field.name)[-len(period_range) :]
-                    for field in dataclasses.fields(data)  # type: ignore[arg-type]
-                    if field.name != "time_period"
-                },
-            )
-
-        return DataSet(prediction_dict)

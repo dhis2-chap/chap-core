@@ -52,10 +52,6 @@ def threshold(strategy_id: str, name: str, params_model: type[BaseModel], descri
     return decorator
 
 
-def get_threshold_strategies_registry() -> dict[str, type[ThresholdStrategyBase]]:
-    return _threshold_strategies_registry.copy()
-
-
 def get_threshold_strategy(strategy_id: str) -> type[ThresholdStrategyBase] | None:
     return _threshold_strategies_registry.get(strategy_id)
 

@@ -2,47 +2,18 @@ import dataclasses
 import logging
 
 from .assessment.forecast import forecast as do_forecast
-from .datatypes import (
-    ClimateData,
-    HealthData,
-    HealthPopulationData,
-)
 from .file_io.example_data_set import DataSetType, datasets
 from .models.utils import get_model_from_directory_or_github_url
 from .plotting.prediction_plot import plot_forecast_from_summaries
 from .predictor import get_model
-from .spatio_temporal_data.temporal_dataclass import DataSet
 from .time_period.date_util_wrapper import delta_month
 
 logger = logging.getLogger(__name__)
 
 
-class DummyControl:
-    def set_status(self, status):
-        pass
-
-    @property
-    def current_control(self):
-        return None
-
-
 @dataclasses.dataclass
 class AreaPolygons:
     shape_file: str
-
-
-@dataclasses.dataclass
-class PredictionData:
-    area_polygons: AreaPolygons | None = None
-    health_data: DataSet[HealthData] | None = None
-    climate_data: DataSet[ClimateData] | None = None
-    population_data: DataSet[HealthPopulationData] | None = None
-    disease_id: str | None = None
-    features: list[object] | None = None
-
-
-def extract_disease_name(health_data: dict) -> str:
-    return str(health_data["rows"][0][0])
 
 
 def forecast(
