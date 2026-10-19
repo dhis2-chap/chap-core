@@ -150,19 +150,6 @@ class BacktestSpecificationSummary(BacktestParams):
     backtest_count: int = Field(description="Number of backtests that ran under this specification.")
 
 
-class BacktestSpecificationRead(BacktestParams):
-    """A specification with every backtest under it: the benchmark leaderboard in one response."""
-
-    target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
-
-    id: int = Field(description="Primary key of the specification.")
-    dataset: DataSetMeta = Field(description="Slim summary of the dataset the specification evaluates against.")
-    org_units: list[str] = Field(description="Org units the evaluation runs over, resolved from the dataset.")
-    backtests: list[BacktestRead] = Field(
-        description="Every backtest that ran under this specification, newest first. Comparable by construction."
-    )
-
-
 # Derived from BacktestParams so a parameter added there is filterable without touching this
 # module, the same way the specification's uniqueness key is derived. Every field is optional
 # and has no default: an omitted parameter means "any value", never the parameter's default.
