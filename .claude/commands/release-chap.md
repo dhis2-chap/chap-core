@@ -73,7 +73,14 @@ gh run list --workflow="Upload to PyPI" --limit=1
 
 Provide the GitHub Actions URL so they can monitor progress.
 
-## 8. Announce on the Community of Practice
+## 8. Bump to the next dev version
+
+Set the version in `pyproject.toml` to the next minor dev version (e.g. `2.5.0`
+-> `2.6.0.dev0`), run `uv lock`, and open a draft PR on a `chore/` branch titled
+`chore: bump version to <dev-version>`. The PyPI workflow builds the commit it was
+dispatched on, so this does not affect the upload.
+
+## 9. Announce on the Community of Practice
 
 Ask the user whether to post a release announcement on the DHIS2 Community of
 Practice (https://community.dhis2.org, Chap category). If they decline, stop here.
