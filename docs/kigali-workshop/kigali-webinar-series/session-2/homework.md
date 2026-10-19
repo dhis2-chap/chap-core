@@ -11,7 +11,7 @@ Perform all the verification steps to ensure that you are up to speed with the w
 
 - Read [Git and GitHub](git-github.md)
 - Complete the exercises (both GitHub and Git sections)
-- Verification: You have forked and cloned an existing public repository of choice (e.g. [minimalist-example](https://github.com/dhis2-chap/minimalist_example))
+- Verification: You have forked and cloned an existing public repository of choice (e.g. [minimalist-example](https://github.com/dhis2-chap/minimalist_example_uv))
 
 ### 3. Installation and Virtual Environments
 

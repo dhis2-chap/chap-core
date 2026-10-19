@@ -72,14 +72,16 @@ dropped so the new one is what gets registered; when the deployment sets
 `SERVICEKIT_REGISTRATION_KEY`, export it in the shell running `chap-admin` too.
 A failed update restores the previous container and the previous template version.
 
-If your deployment uses different base files, supply them in the same order as
-when starting CHAP:
+If your deployment uses a different base file, supply it, followed by any
+overlays other than `compose.marketplace.yml` (which chap-admin adds itself), in
+the same order as when starting CHAP. `compose.yml` and
+`compose.ghcr.yml` are alternatives, so pass only one of them:
 
 ```bash
-chap-admin install chapkit_simple_multistep_model --compose-file compose.yml --compose-file compose.ghcr.yml
+chap-admin install chapkit_simple_multistep_model --compose-file compose.ghcr.yml
 ```
 
-Because the commands name the base files explicitly, Docker Compose does not load
+Because the commands name the base file explicitly, Docker Compose does not load
 `compose.override.yml` on its own. List it with `--compose-file` as well if your
 deployment uses one.
 
