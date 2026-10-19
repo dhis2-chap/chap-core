@@ -21,7 +21,6 @@ dependencies = [
     "geopy>=2.4.1",
     "gitpython>=3.1.50",
     "gluonts>=0.16.2",
-    "libpysal>=4.14.1",
     "matplotlib>=3.10.9",
     "mlflow-skinny>=3.11.1",
     "pandas>=2.1.4",
@@ -239,10 +238,6 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "topojson.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "libpysal.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
