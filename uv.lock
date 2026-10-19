@@ -506,7 +506,7 @@ requires-dist = [
     { name = "starlette", specifier = ">=1.0.1" },
     { name = "statsmodels", specifier = ">=0.14.6" },
     { name = "stumpy", specifier = ">=1.14.1" },
-    { name = "topojson", specifier = ">=1.10" },
+    { name = "topojson", specifier = ">=2.2" },
     { name = "unidecode", specifier = ">=1.4.0" },
     { name = "urllib3", specifier = ">=2.7.0" },
     { name = "uvicorn", specifier = ">=0.48.0" },
@@ -3947,16 +3947,15 @@ wheels = [
 
 [[package]]
 name = "topojson"
-version = "1.10"
+version = "2.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
-    { name = "packaging" },
     { name = "shapely" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/79/f3/74330050d8f7e05e140e6043302f71524e159f9a83bbee9681c86282f8fd/topojson-1.10.tar.gz", hash = "sha256:a7f53406324061a0310bec46740a6609147c24daeb354596c68345b9527b38c1", size = 25444042, upload-time = "2025-07-22T20:27:31.638Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4b/2e/ce0e8c236b933970a155dfb38a8c0c3d82b88589694c9ebfb73dfa02bee1/topojson-2.2.tar.gz", hash = "sha256:82ba0f40c24c302fa866b04d453b0318518c93dd01eb21eb07ee3e4a7f8fabb0", size = 102084, upload-time = "2026-10-14T21:20:09.122Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6f/7a/2a8ea3b2b6e50cbec74c53082b69617d71f31e1247e35e65bf9a6edc44cf/topojson-1.10-py3-none-any.whl", hash = "sha256:0879d727c7798939e3268e8969fa87c2cd23274189fe3d8038a0fb11ff263925", size = 83318, upload-time = "2025-07-22T20:27:28.374Z" },
+    { url = "https://files.pythonhosted.org/packages/c5/4d/6dd7eb3b78ded112efd8762aba834a99e9f8cad67e395290af34182f6c3c/topojson-2.2-py3-none-any.whl", hash = "sha256:2ddc017f88d8ee2e8b3deff3d34a03b78146a2227f94a498c0f0ed62f1df839c", size = 106619, upload-time = "2026-10-14T21:20:07.505Z" },
 ]
 
 [[package]]
