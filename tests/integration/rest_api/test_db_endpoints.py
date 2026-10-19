@@ -28,7 +28,6 @@ from chap_core.database.tables import (
     BacktestSpecification,
     Prediction,
     PredictionInfo,
-    PredictionRead,
 )
 from chap_core.rest_api.data_models import (
     BacktestCreate,
@@ -238,35 +237,6 @@ def test_get_covariate_names(dependency_overrides):
         assert model_name in by_name[covariate]["requiredBy"], by_name[covariate]
 
 
-@pytest.fixture
-def make_prediction_request(make_dataset_request):
-    return MakePredictionRequest(
-        model_id="naive_model", meta_data={"test": "test"}, **make_dataset_request.model_dump()
-    )
-
-
-def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_prediction_request):
-    data = make_prediction_request.model_dump_json()
-    response = client.post("/v1/analytics/make-prediction", content=data)
-    assert response.status_code == 200, response.json()
-    db_id = await_result_id(response.json()["id"])
-    response = client.get(f"/v1/crud/predictions/{db_id}")
-    assert response.status_code == 200, response.json()
-    ds = PredictionRead.model_validate(response.json())
-    assert ds.meta_data == make_prediction_request.meta_data
-    assert len(ds.forecasts) > 0
-    assert all(len(f.values) for f in ds.forecasts)
-
-
-@pytest.fixture()
-def make_dataset_request(example_polygons) -> DatasetMakeRequest:
-    pytest.skip("We don it support fetching from gee anymore")
-    # fetch_request = [FetchRequest(feature_name="mean_temperature", data_source_name="mean_2m_air_temperature")]
-    fetch_request = []  # we don't support fetch request anymore
-    proivided_features = ["rainfall", "disease_cases", "population"]
-    return create_make_data_request(example_polygons, fetch_request, proivided_features)
-
-
 def create_make_data_request(example_polygons, fetch_request, proivided_features):
     locations = [f.id for f in example_polygons.features]
     periods = [f"{year}-{month:02d}" for year in range(2020, 2024) for month in range(1, 13)]
@@ -282,62 +252,6 @@ def create_make_data_request(example_polygons, fetch_request, proivided_features
     )
 
     return request
-
-
-@pytest.fixture()
-def anonymous_make_dataset_request(data_path):
-    pytest.skip("We don't support requests with fetching from gee anymore")
-    with open(data_path / "anonymous_make_dataset_request.json", "r") as f:
-        request = DatasetMakeRequest.model_validate_json(f.read())
-        request.data_to_be_fetched = []
-        return request
-
-
-def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_request):
-    _make_dataset(make_dataset_request)
-
-
-def test_make_dataset_return_rejection_summary(celery_session_worker, dependency_overrides, make_dataset_request):
-    first_rainfall_idx = next(
-        i for i, o in enumerate(make_dataset_request.provided_data) if o.feature_name == "rainfall"
-    )
-    r = make_dataset_request.provided_data.pop(first_rainfall_idx)
-    assert r.feature_name == "rainfall"
-    # with pytest.raises(AssertionError) as excinfo:
-    _make_dataset(make_dataset_request, expected_rejections=["LGNjeakKI1q"])
-    # print(excinfo)
-
-
-def test_make_dataset_anonymous(celery_session_worker, dependency_overrides, anonymous_make_dataset_request):
-    _make_dataset(anonymous_make_dataset_request)
-
-
-def test_backtest_flow_from_request(
-    celery_session_worker, clean_engine, dependency_overrides, anonymous_make_dataset_request
-):
-    db_id = _make_dataset(anonymous_make_dataset_request)
-    response = client.post(
-        "/v1/analytics/create-backtest",
-        json={"datasetId": db_id, "name": "testing", "modelId": "naive_model", "nSplits": 2, "nRetrain": 2},
-    )
-    assert response.status_code == 200, response.json()
-    job_id = response.json()["id"]
-    db_id = await_result_id(job_id, timeout=120)
-    backtests = client.get("/v1/crud/backtests").json()
-    assert len(backtests) > 0
-    for backtest in backtests:
-        assert "dataset" in backtest, backtest
-        assert "configuredModel" in backtest, backtest
-        assert backtest["dataset"]["id"] is not None, backtest
-        assert backtest["configuredModel"]["name"] is not None, backtest
-        assert "modelTemplate" in backtest["configuredModel"], backtest["configuredModel"]
-    response = client.get(f"/v1/crud/backtests/{db_id}")
-    assert response.status_code == 200, response.json()
-    data = response.json()
-    assert data["name"] == "testing"
-    assert data["created"] is not None
-    # The row records the resolved evaluation parameters.
-    assert (data["nPeriods"], data["nSplits"], data["stride"], data["nRetrain"]) == (3, 2, 1, 2)
 
 
 def test_compatible_backtests(clean_engine, dependency_overrides):
@@ -1991,7 +1905,6 @@ def local_backtest_request(local_data_path):
     return json.load(open(local_data_path / "create-backtest-from-data.json", "r"))
 
 
-# @pytest.mark.skip(reason="This ends up with an empty dataset")
 def test_local_backtest_with_data(
     local_backtest_request, celery_session_worker, dependency_overrides, example_polygons
 ):

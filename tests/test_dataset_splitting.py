@@ -13,7 +13,6 @@ from chap_core.assessment.weather_providers import (
     get_future_weather,
     resolve_weather_provider,
 )
-from .data_fixtures import full_data
 
 
 def test_train_test_split(full_data):
