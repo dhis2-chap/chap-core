@@ -29,8 +29,10 @@ Keep the notes concise.
 
 Link entries to the public docs at https://chap.dhis2.org/chap-modeling-platform/
 where a page covers the feature (CLI references, tutorials, setup guides). Find the
-page under `docs/` and map `docs/<path>.md` to `<base>/<path>/` (add `#<heading-id>`
-for a specific section). Only link pages listed in the `mkdocs.yml` nav, and check
+page under `docs/` and map `docs/<path>.md` to `<base>/<path>/`, and
+`docs/<dir>/index.md` to `<base>/<dir>/` (add `#<heading-id>` for a specific
+section). The public portal uses directory URLs even though `mkdocs.yml` in this repo
+sets `use_directory_urls: false`. Only link pages listed in the `mkdocs.yml` nav, and check
 that each URL returns 200 with `curl -sL -o /dev/null -w '%{http_code}' <url>`; a
 page added in this release may not be published yet. Do not link
 dhis2-chap.github.io/chap-core, which only hosts the README.
