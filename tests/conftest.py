@@ -197,14 +197,6 @@ def models_path():
 
 
 @pytest.fixture
-def local_data_path():
-    path = Path("/home/knut/Data/ch_data/")
-    if not path.exists():
-        pytest.skip("Data path does not exist")
-    return path
-
-
-@pytest.fixture
 def tests_path():
     return Path(__file__).parent
 
@@ -286,36 +278,6 @@ def big_request_json(data_path):
         pytest.skip()
     with open(filepath, "r") as f:
         return f.read()
-
-
-@pytest.fixture
-def laos_request(local_data_path):
-    filepath = local_data_path / "laos_requet.json"
-    with open(filepath, "r") as f:
-        text = f.read()
-    dicts = json.loads(text)
-    dicts["estimator_id"] = "naive_model"
-    return json.dumps(dicts)
-
-
-@pytest.fixture
-def laos_request_2(local_data_path):
-    filepath = local_data_path / "laos_request_2.json"
-    with open(filepath, "r") as f:
-        text = f.read()
-    dicts = json.loads(text)
-    dicts["estimator_id"] = "naive_model"
-    return json.dumps(dicts)
-
-
-@pytest.fixture
-def laos_request_3(local_data_path):
-    filepath = local_data_path / "laos_request_3.json"
-    with open(filepath, "r") as f:
-        text = f.read()
-    dicts = json.loads(text)
-    dicts["estimator_id"] = "naive_model"
-    return json.dumps(dicts)
 
 
 @pytest.fixture
