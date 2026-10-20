@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "dhis2-chap": {
+      "source": {
+        "source": "github",
+        "repo": "dhis2-chap/claude-plugins"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "write-issue@dhis2-chap": true
+  }
+}
