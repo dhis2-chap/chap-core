@@ -60,10 +60,6 @@ def resolve_period_arg(value: str, available_periods: Any, arg_name: str) -> Tim
     return resolved
 
 
-def append_to_csv(file_object, data_frame: pd.DataFrame):
-    data_frame.to_csv(file_object, mode="a", header=False)
-
-
 def get_model(
     configuration: str | None,
     ignore_environment: bool,

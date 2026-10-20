@@ -7,11 +7,15 @@ which is what chap-admin install calls after storing the template of the service
 started through POST /v1/crud/model-templates/from-service.
 """
 
+import json
 import logging
+import socket
+import time
 from unittest.mock import MagicMock, patch
 
 import fakeredis
 import pytest
+import redis
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import StaticPool
@@ -20,10 +24,10 @@ from sqlmodel import Session, SQLModel, select
 import chap_core.database.tables  # noqa: F401 - ensure all table models are registered with SQLModel
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB, ModelTemplateRole
 from chap_core.rest_api.app import app
-from chap_core.rest_api.services.orchestrator import Orchestrator
+from chap_core.rest_api.services.orchestrator import KEY_PREFIX, Orchestrator
 from chap_core.rest_api.services.schemas import MLServiceInfo, RegistrationRequest
 from chap_core.rest_api.v1.routers.dependencies import get_session
-from chap_core.rest_api.v2.dependencies import get_orchestrator
+from chap_core.rest_api.v2.dependencies import get_orchestrator, get_registry_read_redis, get_registry_reader
 
 MOCK_INFO_DICT = {
     "id": "test-model",
@@ -77,12 +81,14 @@ def client(db_engine, fake_orchestrator, mock_wrapper_cls):
             yield session
 
     app.dependency_overrides[get_session] = get_test_session
-    # The v2 register endpoint takes the orchestrator through Depends, while the lazy
-    # v1 template sync calls the factory directly, so both need the fake.
+    # The v2 register endpoint and the configured model listing take the orchestrator
+    # through Depends, while the lazy v1 template sync calls the factory directly, so
+    # all of them need the fake.
     app.dependency_overrides[get_orchestrator] = lambda: fake_orchestrator
+    app.dependency_overrides[get_registry_reader] = lambda: fake_orchestrator
 
     with (
-        patch("chap_core.rest_api.v2.dependencies.get_orchestrator", return_value=fake_orchestrator),
+        patch("chap_core.rest_api.v2.dependencies.get_registry_reader", return_value=fake_orchestrator),
         patch("chap_core.models.chapkit_rest_api_wrapper.CHAPKitRestAPIWrapper", mock_wrapper_cls),
     ):
         yield TestClient(app, raise_server_exceptions=False)
@@ -520,8 +526,8 @@ def test_non_chapkit_template_has_null_health_status(client, db_engine):
 
 def test_returns_200_when_redis_unavailable(client):
     with patch(
-        "chap_core.rest_api.v2.dependencies.get_orchestrator",
-        side_effect=ConnectionError("Redis unavailable"),
+        "chap_core.rest_api.v2.dependencies.get_registry_reader",
+        side_effect=redis.exceptions.ConnectionError("Redis unavailable"),
     ):
         response = client.get("/v1/crud/model-templates")
 
@@ -544,3 +550,32 @@ def test_failed_database_write_for_one_service_does_not_break_the_sync(client, r
     names = {t["name"] for t in response.json()}
     assert "other-model" in names
     assert "test-model" not in names
+
+
+def test_unreadable_registry_entry_is_logged_as_a_warning(client, register_service, fake_orchestrator, caplog):
+    """A registry that answers but cannot be parsed is not a network problem, so it must be visible."""
+    register_service()
+    fake_orchestrator.redis.set(f"{KEY_PREFIX}broken", json.dumps({"id": "broken"}))
+
+    with caplog.at_level(logging.WARNING):
+        assert client.get("/v1/crud/model-templates").status_code == 200
+        assert client.get("/v1/crud/configured-models").status_code == 200
+
+    assert caplog.text.count("Could not read service registry") == 2
+
+
+def test_registry_client_does_not_retry_a_refused_connection(monkeypatch):
+    """Without a running redis, registry reads fail at once instead of retrying with backoff."""
+    with socket.socket() as unused:
+        unused.bind(("127.0.0.1", 0))
+        port = unused.getsockname()[1]
+    monkeypatch.setenv("REDIS_HOST", "127.0.0.1")
+    monkeypatch.setenv("REDIS_PORT", str(port))
+    get_registry_read_redis.cache_clear()
+    try:
+        start = time.monotonic()
+        with pytest.raises(redis.exceptions.ConnectionError):
+            Orchestrator(redis_client=get_registry_read_redis()).get_all()
+        assert time.monotonic() - start < 1.0
+    finally:
+        get_registry_read_redis.cache_clear()

@@ -58,6 +58,7 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
 # These are dropped after create_all so the migration can re-create them.
 _TABLES_ADDED_BY_MIGRATIONS = [
     "predictionsetup",
+    "specificationbaseline",
     "backtestspecification",
 ]
 

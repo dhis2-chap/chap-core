@@ -217,8 +217,7 @@ def _discover_plots():
 
 ### Where to Place Your Plot File
 
-Create your plot file in `chap_core/assessment/backtest_plots/`. For example:
-- `chap_core/assessment/backtest_plots/error_by_location_plot.py`
+Create your plot file in `chap_core/assessment/backtest_plots/`, for example `chap_core/assessment/backtest_plots/error_by_location_plot.py` for the plot above. See `chap_core/assessment/backtest_plots/sample_bias_plot.py` for an existing plot.
 
 ## Testing Your Plot
 

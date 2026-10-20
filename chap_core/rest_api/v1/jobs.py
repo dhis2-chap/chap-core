@@ -307,11 +307,3 @@ class NaiveJob:
     def get_logs(self, n_lines: int | None):
         """Retrives logs from the current job"""
         return ""
-
-
-class NaiveWorker:
-    job_class = NaiveJob
-
-    def queue(self, func, *args, **kwargs):
-        # return self.job_class(func(*args, **kwargs))
-        return self.job_class(func, *args, **kwargs)

@@ -6,7 +6,7 @@ This document provides an overview of existing and planned functionality and fea
 * This is based on a scheme where a model provides functionality to train a model and predict ahead in time, defining its entry points in an MLFlow-based format.
 * Any model adhering to this can be used in the platform by having the model available as a github repository and providing the url for this repo to the Chap platform. 
 * Chap can run the model either in its own python environment or in a docker container (where the model points to a docker image that it can be run within).
-* Model developers are offered a template (in [Python](https://github.com/dhis2-chap/chap_model_template) or [R](https://github.com/dhis2-chap/chap_model_template_r)) or minimalist example of a working model codebase to start from (in [Python](https://github.com/dhis2-chap/minimalist_example) or [R](https://github.com/dhis2-chap/minimalist_example_r)).
+* Model developers are offered a template (in [Python](https://github.com/dhis2-chap/chap_model_template) or [R](https://github.com/dhis2-chap/chap_model_template_r)) or minimalist example of a working model codebase to start from (in [Python](https://github.com/dhis2-chap/minimalist_example_uv) or [R](https://github.com/dhis2-chap/minimalist_example_r)).
 * There is ongoing work to change from the current minimalist examples to a more sophisticated starting point based on an SDK in [Python]() and [R](). 
 * There is also ongoing work to change from the current scheme of each model being run as a subprocess (possibly within a Docker container) to instead having the models provide a REST API for communication with the Chap Platform (the [chapkit project](https://github.com/dhis2-chap/chapkit)  
 

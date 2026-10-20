@@ -1,6 +1,8 @@
 """Unit tests for chap_core.util helpers."""
 
 import re
+import socket
+import time
 
 import redis
 
@@ -27,6 +29,18 @@ def test_redis_available_is_false_when_the_connect_times_out(monkeypatch):
 
     monkeypatch.setattr(redis.Redis, "ping", ping)
     assert redis_available() is False
+
+
+def test_redis_available_does_not_retry_a_refused_connection(monkeypatch):
+    """Without a running redis the probe should fail at once, not retry with backoff."""
+    with socket.socket() as unused:
+        unused.bind(("127.0.0.1", 0))
+        port = unused.getsockname()[1]
+    monkeypatch.setenv("REDIS_HOST", "127.0.0.1")
+    monkeypatch.setenv("REDIS_PORT", str(port))
+    start = time.monotonic()
+    assert redis_available() is False
+    assert time.monotonic() - start < 1.0
 
 
 def test_generate_short_id_default_is_8_hex_chars():

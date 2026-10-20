@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Literal
 import git
 import httpx
 import yaml
+from pydantic import ValidationError
 
 from chap_core.exceptions import InvalidModelException
 from chap_core.external.external_model import logger
@@ -29,8 +30,12 @@ def _is_chapkit_url(url: str) -> bool:
         if response.status_code == 200:
             MLServiceInfo.model_validate(response.json())
             return True
-    except Exception:
-        pass
+    except (httpx.HTTPError, httpx.InvalidURL) as e:
+        logger.debug("Chapkit probe of %s failed: %s", url, e)
+    except ValidationError as e:
+        logger.warning("%s answered /api/v1/info, but the response is not a valid chapkit service info: %s", url, e)
+    except ValueError as e:
+        logger.debug("Chapkit probe of %s returned a non-JSON response: %s", url, e)
     return False
 
 

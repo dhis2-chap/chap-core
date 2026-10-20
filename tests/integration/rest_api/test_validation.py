@@ -18,9 +18,6 @@ from chap_core.time_period import PeriodRange
 client = TestClient(app)
 
 
-def test_(): ...
-
-
 def test_validate_full_dataset_error_uses_camel_case():
     dataclass = create_tsdataclass(["disease_cases", "rainfall"])
     period_range = PeriodRange.from_strings(["2020-01", "2020-02", "2020-03"])

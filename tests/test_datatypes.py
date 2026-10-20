@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import pytest
-from bionumpy.util.testing import assert_bnpdataclass_equal
 from chap_core.datatypes import (
     ClimateHealthTimeSeries,
     HealthData,
@@ -58,7 +57,6 @@ def dataset_with_missing(data_path):
     return pd.read_csv(data_path / "laos_pulled_data.csv")
 
 
-# @pytest.mark.skip('Must be fixed!!!!!!')
 def test_dataset_with_missing(dataset_with_missing):
     health_data = DataSet.from_pandas(dataset_with_missing, dataclass=HealthData, fill_missing=True)
     start = health_data.start_timestamp
@@ -96,6 +94,7 @@ def climate_data():
 def test_serialize_round_trip(climate_data):
     s = climate_data.model_dump()
     climate_data2 = SimpleClimateData.from_dict(s)
+    assert climate_data2.model_dump() == s
 
 
 def test_merge(health_population_data, climate_data):

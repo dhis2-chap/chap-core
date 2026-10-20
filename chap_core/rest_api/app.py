@@ -2,6 +2,10 @@ import logging
 import os
 import traceback
 
+# pandera imports geopandas, and with it pyproj, the first time a schema is built. In a
+# sync route that happens on a threadpool thread, and once pyproj has been imported off
+# the main thread every later fork() child segfaults on macOS. Import it here instead.
+import pyproj  # noqa: F401
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware

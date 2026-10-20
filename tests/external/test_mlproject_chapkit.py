@@ -54,8 +54,8 @@ def test_installed_chapkit_is_recent_enough():
 
 
 def test_old_chapkit_is_rejected():
-    with patch("chap_core.models.mlproject_chapkit.importlib.metadata.version", return_value="2.1.0"):
-        with pytest.raises(InvalidModelException, match="needs chapkit >= 2.3.1, but 2.1.0 is installed"):
+    with patch("chap_core.models.mlproject_chapkit.importlib.metadata.version", return_value="2.3.1"):
+        with pytest.raises(InvalidModelException, match="needs chapkit >= 2.4.0, but 2.3.1 is installed"):
             check_chapkit_version()
 
 

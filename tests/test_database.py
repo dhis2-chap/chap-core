@@ -10,7 +10,7 @@ from sqlmodel import Session, SQLModel, select
 import chap_core.database.database as database_module
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
-from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo
+from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.database.datasets_seed import seed_example_datasets
 from chap_core.database.model_template_seed import (
     add_configured_model,
@@ -25,7 +25,6 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateDB,
     ModelTemplateMetaData,
 )
-from chap_core.database.tables import Backtest
 from chap_core.datatypes import HealthPopulationData
 from chap_core.exceptions import ModelTemplateRevisionConflict
 from chap_core.external.model_configuration import (
@@ -35,8 +34,7 @@ from chap_core.external.model_configuration import (
     ModelTemplateConfigV2,
 )
 from chap_core.models.external_model import ExternalModel
-from chap_core.rest_api.data_models import BacktestCreate, ModelTemplateRead
-from chap_core.rest_api.db_worker_functions import run_backtest, run_prediction
+from chap_core.rest_api.data_models import ModelTemplateRead
 from chap_core.testing.testing import assert_dataset_equal
 
 logger = logging.getLogger(__name__)
@@ -48,13 +46,6 @@ template_urls = [
     "https://github.com/dhis2-chap/chap_auto_ewars@0c41b1d9bd187521e62c58d581e6f5bd5127f7b5",
     "https://github.com/dhis2-chap/chap_auto_ewars_weekly@51c63a8581bc29bdb40e788a83f701ed30cca83f",
 ]
-
-
-@pytest.fixture
-def engine():
-    engine = create_engine("sqlite://")
-    SQLModel.metadata.create_all(engine)
-    return engine
 
 
 @pytest.fixture
@@ -70,26 +61,6 @@ def test_dataset_roundrip(health_population_data, engine):
         dataset_id = DataSetManager(session.session).save_dataset(info, health_population_data, None)
         dataset = DataSetManager(session.session).to_dataset(dataset_id, HealthPopulationData)
         assert_dataset_equal(dataset, health_population_data)
-
-
-@pytest.mark.skip("Needs to seed models for this test to work")
-def test_backtest(engine_with_dataset):
-    with Session(engine_with_dataset) as session:
-        dataset_id = session.exec(select(DataSet.id)).first()
-    with SessionWrapper(engine_with_dataset) as session:
-        res = run_backtest(BacktestCreate(model_id="naive_model", dataset_id=dataset_id), 12, 2, 1, session=session)
-    with Session(engine_with_dataset) as session:
-        backtests = session.exec(select(Backtest)).all()
-        assert len(backtests) == 1
-        backtest = backtests[0]
-        assert backtest.dataset_id == dataset_id
-        assert len(backtest.forecasts) == 12 * 2 * 10
-
-
-@pytest.mark.skip("Needs to seed models for this test to work")
-def test_add_predictions(engine_with_dataset):
-    with SessionWrapper(engine_with_dataset) as session:
-        run_prediction("naive_model", 1, 3, name="testing", session=session)
 
 
 @pytest.fixture

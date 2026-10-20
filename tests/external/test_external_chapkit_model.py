@@ -7,7 +7,6 @@ import pytest
 
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.exceptions import ChapkitServiceStartupError
-from chap_core.file_io.example_data_set import datasets
 from chap_core.models.chapkit_service_manager import (
     ChapkitServiceManager,
     find_available_port,
@@ -17,14 +16,6 @@ from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.utils import get_model_template_from_directory_or_github_url
 
 model_url = "http://localhost:8003"
-
-
-@pytest.fixture
-def dataset():
-    dataset_name = "ISIMIP_dengue_harmonized"
-    example_dataset = datasets[dataset_name]
-    loaded_dataset = example_dataset.load()
-    return loaded_dataset["brazil"]
 
 
 @pytest.fixture
@@ -39,7 +30,6 @@ def service_available():
     return model_url
 
 
-@pytest.mark.skip(reason="Needs a running chapkit model service")
 def test_external_chapkit_model_basic(service_available, dataset):
     train, test = train_test_generator(dataset, 3, 2)
     historic, future, truth = next(test)  # type: ignore[reportArgumentType]
@@ -49,20 +39,15 @@ def test_external_chapkit_model_basic(service_available, dataset):
     model = template.get_model({})
     id = model.train(historic)
     prediction = model.predict(historic, future)
-    print("PREDICTION")
-    print(prediction)
     prediction_df = prediction.to_pandas()
-
-    print(prediction_df)
     assert len(prediction_df) == len(future.to_pandas())
 
 
-@pytest.mark.skip(reason="Needs a running chapkit model service")
 def test_chapkit_model_wrapping(service_available):
     # just test that we can wrap the info in the old object
     template = ExternalChapkitModelTemplate(service_available)
     config = template.get_model_template_config()
-    print(config)
+    assert config.name
 
 
 class TestUrlModelNameFallback:
