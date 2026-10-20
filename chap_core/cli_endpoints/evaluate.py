@@ -247,6 +247,13 @@ def _run_eval(
                 "Ensemble mode is not implemented for `chap evaluate`; use the `chap evaluate-ensemble` command"
             )
 
+        from chap_core.services.dataset_validation import require_model_covariates
+
+        require_model_covariates(
+            dataset,
+            template.model_template_config.required_covariates,
+            configuration.additional_continuous_covariates if configuration is not None else [],
+        )
         warn_unused_covariates(dataset, template.model_template_config, configuration, estimator)
 
         model_info = estimator.model_information

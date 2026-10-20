@@ -24,6 +24,7 @@ def make_template(search_space: dict | None) -> MagicMock:
     template.model_template_config = SimpleNamespace(
         name="demo-template",
         version="1.0",
+        required_covariates=[],
         hpo_search_space=search_space,
         min_prediction_periods=None,
         max_prediction_periods=None,
