@@ -60,6 +60,7 @@ from chap_core.database.tables import (
     PredictionSetupReadWithPredictions,
     SpecificationBaseline,
     SpecificationBaselineStatus,
+    is_not_archived_model_backtest,
     is_not_baseline_backtest,
 )
 from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
@@ -345,11 +346,12 @@ def get_backtest_specifications(
     ``datasetId``, ``targetColumn`` and any of the ``BacktestParams`` fields; the full tuple identifies at
     most one specification, which is how an external system finds a benchmark again
     without storing the specification id. Rows carry counts only; fetch
-    ``/backtest-specifications/{id}`` for the backtests themselves.
+    ``/backtest-specifications/{id}`` for the backtests themselves. The counts leave out
+    backtests of baseline models and of archived models, like the leaderboard.
     """
     backtest_counts = (
         select(Backtest.specification_id, func.count(col(Backtest.id)).label("backtest_count"))
-        .where(is_not_baseline_backtest())
+        .where(is_not_baseline_backtest(), is_not_archived_model_backtest())
         .group_by(col(Backtest.specification_id))
         .subquery()
     )
@@ -391,8 +393,9 @@ def get_backtest_specification(
     This is the benchmark leaderboard: each backtest row is the ``BacktestRead`` shape
     with aggregate metrics, the configured model and its template, so a client can rank
     models without a request per backtest. Forecasts and per-org-unit metrics are not
-    included, and neither are backtests of built-in baseline models. Those are listed
-    under ``baselines`` with their status and scores instead, and each backtest row
+    included, and neither are backtests of archived models or of built-in baseline
+    models. Baselines are listed under ``baselines`` with their status and scores
+    instead, and each backtest row
     carries the comparison of its scores with every baseline that is done. With
     ``includeComparisonModels``, the newest backtest of each comparison model on the
     specification is listed and compared with the same way, except that a
@@ -411,7 +414,11 @@ def get_backtest_specification(
     background_tasks.add_task(request_baselines_after_response, session.get_bind(), specification_id, database_url)
     backtests = session.exec(
         select(Backtest)
-        .where(Backtest.specification_id == specification_id, is_not_baseline_backtest())
+        .where(
+            Backtest.specification_id == specification_id,
+            is_not_baseline_backtest(),
+            is_not_archived_model_backtest(),
+        )
         .order_by(col(Backtest.created).desc().nulls_last(), col(Backtest.id).desc())
         .options(*_backtest_read_loads())
     ).all()
