@@ -174,4 +174,24 @@ def test_external_model_without_context_entry_point_returns_none(tmp_path):
     )
 
     assert model.context() == None
-    runner.report.assert_not_called()
+    runner.context.assert_not_called()
+
+
+def test_external_model_context_rejects_zero(tmp_path):
+    working_dir = tmp_path / "workdir"
+    working_dir.mkdir()
+
+    def _fake_context(out_filename):
+        (working_dir / out_filename).write_text('{"context_length" : 0}')
+
+    runner = Mock()
+    runner.context.side_effect = _fake_context
+    model = ExternalModel(
+        runner=runner,
+        name="test_context_model",
+        working_dir=str(working_dir),
+        model_information=_context_model_template_config(),
+    )
+
+    with pytest.raises(ModelFailedException):
+        model.context()

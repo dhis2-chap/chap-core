@@ -3,7 +3,7 @@ from __future__ import annotations
 import abc
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation
@@ -31,7 +31,7 @@ class ConfiguredModel(abc.ABC):
         pass
 
     def context(self) -> ContextInfo | None:
-        """Returns a models context length, or None if the model does not specify one"""
+        """Returns the models ContextInfo, or None if the model does not specify one"""
         return None
 
 
@@ -45,10 +45,11 @@ class ContextInfo(BaseModel):
     """
     ContextInfo used for handling the context_length of a configured model
 
-    The context length is an int and represents how many timesteps backwards from the most recent timestep
-    the model uses.
+    The context length is an int or None, and represents how many timesteps backwards from the most recent timestep
+    the model uses. None (null or missing value in context.json) represents
+    all available history in the given dataset
 
-    0 represents the entire context length.
+    Values that are <= 0 are not allowed.
     """
 
-    context_length: int
+    context_length: int | None = Field(default=None, gt=0)
