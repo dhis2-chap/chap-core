@@ -56,7 +56,7 @@ $ chap plot-backtest minimalist_eval.nc minimalist_evaluation_plot.png --plot-ty
 Now evaluate a more sophisticated model. The EWARS model is fetched directly from GitHub:
 
 ```console
-$ chap eval https://github.com/dhis2-chap/chap_auto_ewars \
+$ chap eval https://github.com/chap-models/chap_auto_ewars \
     chap_LAO_admin1_monthly.csv \
     ewars_eval.nc \
     --backtest-params.n-splits 2 \

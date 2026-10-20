@@ -1,7 +1,6 @@
 import dataclasses
 import logging
 from collections.abc import Iterable
-from pathlib import Path
 from typing import TypeVar
 
 import numpy as np
@@ -104,22 +103,15 @@ class DataSetAdaptor:
 
 
 def get_dataset(name, with_metadata=False):
-    if name == "full":
-        dataset = MultiCountryDataSet.from_folder(Path("/home/knut/Data/ch_data/full_data"))
-        ds = DataSetAdaptor.to_gluonts(dataset)
-    else:
-        dataset = datasets[name].load()
-        ds = DataSetAdaptor.to_gluonts(dataset)
+    dataset = datasets[name].load()
+    ds = DataSetAdaptor.to_gluonts(dataset)
     if with_metadata:
         return ds, DataSetAdaptor.get_metadata(dataset)
     return ds
 
 
 def get_split_dataset(name, n_periods=6) -> tuple[GlunTSDataSet, GlunTSDataSet]:
-    if name == "full":
-        data_set = MultiCountryDataSet.from_folder(Path("/home/knut/Data/ch_data/full_data"))
-    else:
-        data_set = datasets[name].load()
+    data_set = datasets[name].load()
 
     prediction_start = data_set.period_range[-n_periods]
     train, test = train_test_split(data_set, prediction_start, restrict_test=False)

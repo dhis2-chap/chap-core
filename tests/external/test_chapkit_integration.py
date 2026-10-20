@@ -428,10 +428,19 @@ class TestIsChapkitUrl:
         with patch("chap_core.models.utils.httpx.get", return_value=mock_response):
             assert _is_chapkit_url("http://localhost:8000") is True
 
-    def test_non_chapkit_service(self):
+    def test_non_chapkit_service(self, caplog):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"status": "ok"}
+
+        with patch("chap_core.models.utils.httpx.get", return_value=mock_response), caplog.at_level(logging.WARNING):
+            assert _is_chapkit_url("http://localhost:8000") is False
+        assert "not a valid chapkit service info" in caplog.text
+
+    def test_non_json_response(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.side_effect = json.JSONDecodeError("Expecting value", "<html>", 0)
 
         with patch("chap_core.models.utils.httpx.get", return_value=mock_response):
             assert _is_chapkit_url("http://localhost:8000") is False
@@ -439,6 +448,11 @@ class TestIsChapkitUrl:
     def test_unreachable_service(self):
         with patch("chap_core.models.utils.httpx.get", side_effect=httpx.ConnectError("Connection refused")):
             assert _is_chapkit_url("http://localhost:9999") is False
+
+    def test_unexpected_error_propagates(self):
+        with patch("chap_core.models.utils.httpx.get", side_effect=RuntimeError("bug")):
+            with pytest.raises(RuntimeError):
+                _is_chapkit_url("http://localhost:8000")
 
 
 def _mock_wrapper(handler, **kwargs) -> CHAPKitRestAPIWrapper:
@@ -983,24 +997,47 @@ class TestConfigPayload:
             self._created_config(row, store=lambda data: {**data, "max_epochs": True})
         assert "chapkit >=" not in str(error.value)
 
-    def test_model_reports_the_covariates_the_service_stored(self):
-        from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+    def test_configuration_value_stored_as_an_equal_float_passes(self):
+        row = ConfiguredModelDB(
+            name="test-model",
+            model_template_id=1,
+            user_option_values={"max_epochs": 2},
+            uses_chapkit=True,
+        )
 
+        created = self._created_config(row, store=lambda data: {**data, "max_epochs": 2.0})
+
+        assert created["data"]["max_epochs"] == 2
+
+    def test_model_reports_the_covariates_the_service_stored(self):
         service_default = ["rainfall", "mean_temperature"]
         _, model = self._build(
-            ModelConfiguration(),
+            {"max_epochs": 2},
             store=lambda data: {**data, "additional_continuous_covariates": service_default},
         )
 
         assert model.additional_continuous_covariates == service_default
 
-    def test_empty_configuration_sends_no_data(self):
+    def test_empty_configuration_sends_no_additional_covariates(self):
         from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 
         created = self._created_config(ModelConfiguration())
 
-        assert created["data"] == {}
+        assert created["data"] == {"additional_continuous_covariates": []}
         assert created["name"].startswith("test-model_config_")
+
+    def test_configured_model_row_without_covariates_sends_an_empty_list(self):
+        row = ConfiguredModelDB(
+            name="test-model",
+            model_template_id=1,
+            user_option_values={"max_epochs": 2},
+            additional_continuous_covariates=[],
+            uses_chapkit=True,
+        )
+
+        created = self._created_config(row)
+
+        assert created["data"] == {"max_epochs": 2, "additional_continuous_covariates": []}
 
     def test_raw_service_configuration_is_passed_through(self):
         created = self._created_config({"max_epochs": 2, "model_template": "ignored"})

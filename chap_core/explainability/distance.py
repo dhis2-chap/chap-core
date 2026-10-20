@@ -19,30 +19,10 @@ two representations to hand to :meth:`get_weights` (see
 ``produce_lime_dataset`` in ``lime.py``).
 """
 
-from typing import Protocol
-
 import numpy as np
 from fastdtw import fastdtw
 from scipy.spatial.distance import euclidean
 from sklearn.metrics import pairwise_distances
-
-
-class WeighterModel(Protocol):
-    """Contract for a LIME weighter: turn perturbations into locality weights.
-
-    Attributes
-    ----------
-    takes_mask:
-        Selects which representation the pipeline feeds to ``get_weights``.
-        ``True`` -> the binary perturbation masks (one 0/1 vector per
-        perturbation, as used by :class:`Pairwise`). ``False`` -> the
-        materialised perturbed sequences (the actual feature values, as
-        used by :class:`DTW`).
-    """
-
-    takes_mask: bool
-
-    def get_weights(self, X: np.ndarray, x0_row: np.ndarray) -> list[float]: ...
 
 
 class Pairwise:

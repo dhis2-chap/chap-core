@@ -240,6 +240,7 @@ def causal_cmd(
         ignore_env=run_config.ignore_environment,
         run_dir_type=run_config.run_directory_type,
         is_chapkit_model=run_config.is_chapkit_model,
+        as_chapkit=run_config.as_chapkit,
     )
 
     with template:

@@ -14,4 +14,6 @@ def test_validate_json(request_json):
 
 
 def test_convert_pydantic(request_model):
-    st = v1_conversion(request_model.features[0].data)
+    data = request_model.features[0].data
+    dataset = v1_conversion(data)
+    assert set(dataset.locations()) == {d.ou for d in data}

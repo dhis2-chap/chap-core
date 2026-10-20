@@ -105,13 +105,11 @@ def faceted_base():
 # --- Base class shape ----------------------------------------------------
 
 
-# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_faceted_base_class_is_a_subclass_of_backtest_plot_base(faceted_base):
     assert issubclass(faceted_base, BacktestPlotBase)
     assert faceted_base is not BacktestPlotBase
 
 
-# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_base_class_does_not_know_specific_facet_dimensions():
     """``BacktestPlotBase`` itself must not reference any specific facet
     dimension name (``location``, ``split_period``, ``horizon_distance``)
@@ -131,13 +129,11 @@ def test_base_class_does_not_know_specific_facet_dimensions():
 # --- Per-plot shape ------------------------------------------------------
 
 
-# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 @pytest.mark.parametrize("plot_cls,expected_fields", PLOT_CASES)
 def test_plot_inherits_from_faceted_base(plot_cls, expected_fields, faceted_base):
     assert issubclass(plot_cls, faceted_base)
 
 
-# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 @pytest.mark.parametrize("plot_cls,expected_fields", PLOT_CASES)
 def test_facet_dimensions_use_type_marker_shorthand(plot_cls, expected_fields):
     dims = plot_cls.facet_dimensions
@@ -184,7 +180,6 @@ def test_facet_coords_returns_values_per_dimension(plot_cls, expected_fields, ob
         assert len(set(values)) == len(values), f"duplicate coords for {field}"
 
 
-# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 @pytest.mark.parametrize("plot_cls,expected_fields", PLOT_CASES)
 def test_get_subplot_returns_chart_for_single_coord(plot_cls, expected_fields, observations_df, forecasts_df):
     """A subplot is a single cell, not a facet wrapper -- today's
@@ -266,7 +261,6 @@ def test_horizon_grid_subplot_handles_empty_forecasts(observations_df, forecasts
 # --- Registry-level invariant -------------------------------------------
 
 
-# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_every_faceted_plot_in_registry_passes_shape_checks(faceted_base):
     """In time every backtest plot should be a FacetedBacktestPlot. For now
     this test just asserts that at least one plot has been migrated and that

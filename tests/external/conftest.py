@@ -7,11 +7,17 @@ import pytest
 
 from chap_core.assessment.dataset_splitting import train_test_split_with_weather
 from chap_core.datatypes import ClimateHealthTimeSeries
+from chap_core.file_io.example_data_set import datasets
 
 # from chap_core.external.models.jax_models.model_spec import NutsParams
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month
 from chap_core.datatypes import FullData
+
+
+@pytest.fixture
+def dataset():
+    return datasets["ISIMIP_dengue_harmonized"].load()["brazil"]
 
 
 @pytest.fixture()
@@ -49,6 +55,7 @@ import http.server
 import json
 import sys
 import threading
+import time
 
 mode, port = sys.argv[1], int(sys.argv[2])
 
@@ -57,7 +64,15 @@ if mode == "die":
     sys.stdout.flush()
     sys.exit(3)
 
-status = "healthy" if mode in ("flood", "invalid_bytes") else "starting"
+if mode == "slow_port_in_use":
+    time.sleep(2)
+
+if mode in ("port_in_use", "slow_port_in_use"):
+    print(f"Error: Port {port} on 127.0.0.1 is already in use.")
+    sys.stdout.flush()
+    sys.exit(1)
+
+status = "healthy" if mode in ("flood", "invalid_bytes", "silent", "colored") else "starting"
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -96,7 +111,16 @@ if mode == "flood":
 if mode == "invalid_bytes":
     threading.Thread(target=invalid_bytes, daemon=True).start()
 
-http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
+if mode == "colored":
+    # uvicorn's color_message: the URL in bold.
+    print(f"INFO:     Uvicorn running on \x1b[1mhttp://127.0.0.1:{port}\x1b[0m (Press CTRL+C to quit)")
+elif mode == "noisy_starting":
+    print("a model dependency warns that some resource is already in use")
+elif mode != "silent":
+    print(f"INFO:     Uvicorn running on http://127.0.0.1:{port} (Press CTRL+C to quit)")
+sys.stdout.flush()
+server.serve_forever()
 """
 
 
@@ -104,17 +128,25 @@ http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
 def fake_chapkit_service(tmp_path):
     """Return a factory that patches Popen in the service manager to launch the fake service.
 
-    ``mode`` is one of ``"flood"`` (healthy, then floods stdout and stderr),
+    Each mode is one of ``"flood"`` (healthy, then floods stdout and stderr),
     ``"invalid_bytes"`` (healthy, writes a byte that is not valid UTF-8, then keeps logging),
-    ``"die"`` (prints a line and exits 3), or ``"starting"`` (never becomes healthy).
+    ``"die"`` (prints a line and exits 3), ``"port_in_use"`` (reports its port as taken and
+    exits 1), ``"slow_port_in_use"`` (the same after two seconds), ``"silent"`` (healthy, but
+    never prints uvicorn's "running on" line), ``"colored"`` (healthy, prints that line with a
+    bold URL), ``"noisy_starting"`` (never healthy, and logs the phrase "already in use"), or
+    ``"starting"`` (never becomes healthy). Given several modes, successive
+    launches use them in order and the last one repeats.
     """
     script = tmp_path / "fake_chapkit_service.py"
     script.write_text(_FAKE_CHAPKIT_SERVICE)
     real_popen = subprocess.Popen
 
-    def factory(mode: str):
+    def factory(*modes: str):
+        remaining = list(modes)
+
         def launch(command, **kwargs):
             port = command[command.index("--port") + 1]
+            mode = remaining.pop(0) if len(remaining) > 1 else remaining[0]
             return real_popen([sys.executable, str(script), mode, port], **kwargs)
 
         return patch("chap_core.models.chapkit_service_manager.subprocess.Popen", side_effect=launch)

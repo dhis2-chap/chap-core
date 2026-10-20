@@ -33,6 +33,7 @@ class RMSEMetric(DeterministicMetric):
         description="Root Mean Squared Error - measures average prediction error magnitude",
         optimization_direction=OptimizationDirection.MINIMIZE,
         proper_scoring_rule=True,
+        comparison_op="skill_ratio",
     )
 
     def compute_point_metric(self, forecast: float, observed: float) -> float:

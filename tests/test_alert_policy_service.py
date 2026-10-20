@@ -8,8 +8,7 @@ isolation; the HTTP-layer wiring is verified by the FastAPI integration tests.
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import event
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session
 
 from chap_core.assessment.thresholds.params import PercentileParams, SeasonalParams
 from chap_core.database.alert_tables import AlertLevel
@@ -26,20 +25,6 @@ from chap_core.services.alert_policy_service import (
     list_alert_policies,
 )
 from chap_core.services.prediction_setup_service import create_prediction_setup
-
-
-@pytest.fixture
-def engine():
-    eng = create_engine("sqlite://")
-
-    @event.listens_for(eng, "connect")
-    def _enable_fk(dbapi_connection, _connection_record):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
-
-    SQLModel.metadata.create_all(eng)
-    return eng
 
 
 @pytest.fixture

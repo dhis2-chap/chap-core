@@ -1,23 +1,11 @@
-import fakeredis
 import pytest
 from fastapi.testclient import TestClient
 
 from chap_core.rest_api.auth import SERVICE_KEY_ENV_VAR
-from chap_core.rest_api.services.orchestrator import Orchestrator
 from chap_core.rest_api.v2.dependencies import get_orchestrator
 from chap_core.rest_api.app import app
 
 TEST_SERVICE_KEY = "test-service-key"
-
-
-@pytest.fixture
-def fake_redis():
-    return fakeredis.FakeRedis()
-
-
-@pytest.fixture
-def test_orchestrator(fake_redis):
-    return Orchestrator(redis_client=fake_redis)
 
 
 @pytest.fixture
@@ -35,19 +23,6 @@ def client(test_orchestrator, monkeypatch):
 @pytest.fixture
 def auth_headers():
     return {"X-Service-Key": TEST_SERVICE_KEY}
-
-
-@pytest.fixture
-def sample_registration():
-    return {
-        "url": "http://model-service:8080",
-        "info": {
-            "id": "test-model",
-            "display_name": "Test Model",
-            "model_metadata": {"author": "Test Author"},
-            "period_type": "monthly",
-        },
-    }
 
 
 class TestRegisterEndpoint:
@@ -344,7 +319,7 @@ class TestRegistrationUsesInjectedOrchestrator:
             calls.append(1)
             raise RuntimeError("no registry here")
 
-        monkeypatch.setattr("chap_core.rest_api.v2.dependencies.get_orchestrator", spy)
+        monkeypatch.setattr("chap_core.rest_api.v2.dependencies.get_registry_reader", spy)
 
         response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
 

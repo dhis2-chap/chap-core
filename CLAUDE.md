@@ -19,3 +19,4 @@
 17. Unless told otherwise, always open pull requests in draft mode (`gh pr create --draft`). Mark a PR ready for review only when asked to.
 18. PR reviews follow `docs/contributor/pr_review.md`. When asked to review a PR, use the `pr-review` skill.
 19. PR descriptions follow `.github/PULL_REQUEST_TEMPLATE.md` and must include a `Review needed:` line with `quick-merge`, `check: <what>` or `full`. CI flags PRs without it. Ask the user which one applies if it is not clear.
+20. Built-in models under `chap_core/models/builtin/` are versioned through `BuiltinModelSpec.version`. Any change to a built-in model's output or spec needs a new version, because stored template versions are write-once and backtests reference them.

@@ -39,6 +39,7 @@ class JobType(StrEnum):
     EVALUATION = "create_backtest_from_data"  # /v1/analytics/create-backtest-with-data/
     PREDICTION = "create_prediction"  # /v1/analytics/make-prediction
     DATASET = "create_dataset"  # /v1/analytics/make-dataset
+    BASELINE = "run_baseline"  # queued by chap_core.rest_api.baseline_runs, not by a request
 
 
 # We use get_task_logger to ensure we get the Celery-friendly logger
