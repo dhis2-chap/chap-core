@@ -50,19 +50,6 @@ def plot_forecast_from_summaries(
     return plot_forecasts_from_data_frame(df, true_df, transform)
 
 
-def plot_forecast(quantiles: np.ndarray, true_data: HealthData, x_pred=None) -> Figure:
-    x_true = [str(p) for p in true_data.time_period.topandas()]
-
-    if x_pred is None:
-        x_pred = x_true
-    else:
-        x_pred = [str(p) for p in x_pred]
-    df = pd.DataFrame({"x": x_pred, "10th": quantiles[0], "50th": quantiles[1], "90th": quantiles[2]})
-    true_df = pd.DataFrame({"x": x_true, "real": true_data.disease_cases})
-    true_df.x = true_df.x.astype(str)  # type: ignore[attr-defined]
-    return plot_forecasts_from_data_frame(df, true_df)
-
-
 def plot_forecasts_from_data_frame(
     prediction_df: pd.DataFrame | list[pd.DataFrame], true_df, transform=lambda x: x
 ) -> Figure:

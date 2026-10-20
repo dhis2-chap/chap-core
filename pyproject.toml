@@ -21,7 +21,6 @@ dependencies = [
     "geopy>=2.4.1",
     "gitpython>=3.1.50",
     "gluonts>=0.16.2",
-    "libpysal>=4.14.1",
     "matplotlib>=3.10.9",
     "mlflow-skinny>=3.11.1",
     "pandas>=2.1.4",
@@ -29,6 +28,7 @@ dependencies = [
     "pooch>=1.9.0",
     "pycountry>=24.6.1",
     "pydantic>=2.13.4",
+    "pyproj>=3.7.2",               # imported in rest_api/app.py; transitive via geopandas
     "python-dateutil>=2.9.0.post0",
     "python-dotenv>=1.2.2",
     "python-multipart>=0.0.29",
@@ -239,10 +239,6 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "topojson.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "libpysal.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

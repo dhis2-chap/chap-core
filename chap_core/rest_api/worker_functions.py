@@ -1,9 +1,6 @@
 import dataclasses
-import json
 import logging
-import os
 from collections.abc import Sequence
-from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -15,11 +12,8 @@ from chap_core.api_types import (
     DataList,
     EvaluationEntry,
     EvaluationResponse,
-    PredictionRequest,
     RequestV1,
 )
-from chap_core.assessment.forecast import forecast_with_predicted_weather
-from chap_core.climate_data.seasonal_forecasts import SeasonalForecast
 from chap_core.datatypes import FullData, HealthData, HealthPopulationData, Samples, TimeSeriesArray, create_tsdataclass
 from chap_core.rest_api.data_models import FetchRequest
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -91,29 +85,6 @@ def samples_to_evaluation_response(predictions_list, quantiles, real_data: DataL
                     evaluation_entries.append(entry)
     real_data = __clean_actual_cases(real_data)
     return EvaluationResponse(actualCases=real_data, predictions=evaluation_entries)  # .model_dump()
-
-
-def train_on_json_data(json_data: str | bytes, model_name: str, model_path: str, control: Any = None):
-    model_path = model_name
-    request = PredictionRequest.model_validate_json(json_data)
-    target_name = "diseases"
-    target_id = get_target_id(request, target_name)
-    train_data = dataset_from_request_v1(request)
-
-    from chap_core.models.utils import get_model_from_directory_or_github_url
-
-    model = get_model_from_directory_or_github_url(model_path)
-    if hasattr(model, "set_graph"):
-        logger.warning(f"Not setting graph on {model}")
-
-    predictor = model.train(train_data)  # , extra_args=data.area_polygons)
-    predictions = forecast_with_predicted_weather(predictor, train_data, 3)
-    summaries = DataSet({location: samples.summaries() for location, samples in predictions.items()})
-    attrs = ["median", "quantile_high", "quantile_low"]
-    data_values = predictions_to_datavalue(summaries, attribute_mapping=dict(zip(attrs, attrs, strict=False)))
-    json_body = [dataclasses.asdict(element) for element in data_values]
-
-    return {"diseaseId": target_id, "dataValues": json_body}
 
 
 def get_target_id(json_data, target_names):
@@ -191,16 +162,6 @@ def get_combined_dataset(json_data: RequestV1):
     """Get a dataset of potentially multiple data types from a RequestV1 object."""
     dataclass = create_tsdataclass([d.featureId for d in json_data.features])
     return get_health_dataset(json_data, dataclass)
-
-
-def load_forecasts(data_path):
-    climate_forecasts = SeasonalForecast()
-    for file_name in os.listdir(data_path):
-        variable_type = file_name.split(".")[0]
-        if file_name.endswith(".json"):
-            with open(data_path / file_name) as f:
-                climate_forecasts.add_json(variable_type, json.load(f))
-    return climate_forecasts
 
 
 def predictions_to_datavalue(dataset: DataSet[HealthData], attribute_mapping: dict[str, str]) -> list[DataValue]:
