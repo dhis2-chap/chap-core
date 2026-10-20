@@ -17,8 +17,29 @@ def get_redis():
     return load_redis(db=3)
 
 
+@lru_cache
+def get_registry_read_redis():
+    """Redis client for registry reads whose callers carry on without the registry.
+
+    The default retries with backoff turn an unreachable redis into a stall of seconds
+    per request, up to half a minute when the host drops packets. Registration,
+    heartbeats and the proxy keep ``get_redis``, whose retries ride out a redis restart.
+    """
+    from redis.backoff import NoBackoff
+    from redis.retry import Retry
+
+    client = load_redis(db=3)
+    client.set_retry(Retry(NoBackoff(), 0))
+    return client
+
+
 def get_orchestrator():
     return Orchestrator(redis_client=get_redis())
+
+
+def get_registry_reader():
+    """Orchestrator for read-only registry lookups that must not stall when redis is down."""
+    return Orchestrator(redis_client=get_registry_read_redis())
 
 
 @lru_cache

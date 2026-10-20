@@ -74,3 +74,20 @@ def test_service_info_period_type_any_maps_to_chap_any():
     config = ml_service_info_to_model_template_config(info, "http://ewars:8000")
 
     assert config.supported_period_type == PeriodType.any
+
+
+def test_service_info_target_and_hpo_search_space_reach_the_template():
+    search_space = {"n_lags": {"low": 1, "high": 6, "type": "int"}}
+    info = MLServiceInfo.model_validate({**CHAPKIT_2_INFO, "target": "Cases", "hpo_search_space": search_space})
+    config = ml_service_info_to_model_template_config(info, "http://ewars:8000")
+
+    assert config.target == "Cases"
+    assert config.hpo_search_space == search_space
+
+
+def test_service_info_without_target_defaults_to_disease_cases():
+    info = MLServiceInfo.model_validate(CHAPKIT_2_INFO)
+    config = ml_service_info_to_model_template_config(info, "http://ewars:8000")
+
+    assert config.target == "disease_cases"
+    assert config.hpo_search_space is None

@@ -9,19 +9,25 @@ from typing import Optional
 import numpy as np
 from pydantic import computed_field
 from sqlalchemy import JSON, Column, UniqueConstraint
-from sqlmodel import Field, Relationship
+from sqlalchemy import Enum as SAEnum
+from sqlmodel import Field, Relationship, col, select
 
 from chap_core.api_types import BacktestParams
 from chap_core.database.alert_tables import AlertPolicy, AlertPolicyRead
 from chap_core.database.base_tables import DBModel, PeriodID
 from chap_core.database.dataset_tables import DataSet, DataSetInfo, DataSource, PydanticListType
-from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
+from chap_core.database.model_templates_and_config_tables import (
+    ConfiguredModelDB,
+    ModelConfiguration,
+    ModelTemplateDB,
+    ModelTemplateRole,
+)
 
 
 class BacktestSpecification(BacktestParams, table=True):
     """The evaluation setup a backtest ran under: a dataset plus the parameters that decide what is scored.
 
-    Rows are deduplicated on the dataset plus every `BacktestParams` field, and are
+    Rows are deduplicated on the dataset, target column and every `BacktestParams` field, and are
     immutable, so two backtests pointing at the same row are comparable by construction.
     Resolve one with `SessionWrapper.get_or_create_backtest_specification` rather than
     constructing it directly, or identical setups end up on separate rows.
@@ -36,6 +42,7 @@ class BacktestSpecification(BacktestParams, table=True):
         ondelete="CASCADE",
         description="Foreign key to the `DataSet` the specification evaluates against.",
     )
+    target_column: str = Field(default="disease_cases", description="Dataset column evaluated as the target.")
     dataset: DataSet = Relationship()
     org_units: list[str] = Field(
         default_factory=list,
@@ -51,7 +58,9 @@ class BacktestSpecification(BacktestParams, table=True):
     # instead of silently letting two different setups share a row. Adding one still
     # needs a migration to widen the constraint in the database.
     __table_args__ = (
-        UniqueConstraint("dataset_id", *BacktestParams.model_fields, name="uq_backtestspecification_params"),
+        UniqueConstraint(
+            "dataset_id", "target_column", *BacktestParams.model_fields, name="uq_backtestspecification_params"
+        ),
     )
 
 
@@ -167,6 +176,67 @@ class Backtest(_BacktestRead, table=True):
         # the caller (selectinload(Backtest.prediction_setup)) to avoid a lazy-load fail
         # in detached-session contexts.
         return self.prediction_setup.id if self.prediction_setup is not None else None
+
+
+def is_not_baseline_backtest():
+    """Where clause that leaves out backtests of built-in baseline models.
+
+    A backtest has the role of its model template. Baseline backtests are reference
+    results, so normal backtest listings hide them.
+    """
+    baseline_models = (
+        select(ConfiguredModelDB.id).join(ModelTemplateDB).where(ModelTemplateDB.role == ModelTemplateRole.baseline)
+    )
+    return col(Backtest.model_db_id).not_in(baseline_models)
+
+
+class SpecificationBaselineStatus(StrEnum):
+    pending = "pending"
+    done = "done"
+    not_applicable = "not_applicable"
+    failed = "failed"
+
+
+class SpecificationBaseline(DBModel, table=True):
+    """The run of one baseline model version on one backtest specification.
+
+    The row claims the run, so a baseline is queued once per specification however many
+    triggers ask for it. A new baseline version is a new configured model and gets its
+    own row. A baseline that rejects a specification's data, for example for too little
+    history, is marked not applicable and not run again. A run that fails for another
+    reason, or is lost, is run again a day after it was claimed.
+    """
+
+    id: int | None = Field(primary_key=True, default=None, description="Primary key.")
+    specification_id: int = Field(
+        foreign_key="backtestspecification.id",
+        ondelete="CASCADE",
+        description="Foreign key to the `BacktestSpecification` the baseline runs on.",
+    )
+    specification: BacktestSpecification = Relationship()
+    configured_model_id: int = Field(
+        foreign_key="configuredmodeldb.id", description="Foreign key to the baseline's `ConfiguredModelDB` row."
+    )
+    status: SpecificationBaselineStatus = Field(
+        default=SpecificationBaselineStatus.pending,
+        sa_column=Column(SAEnum(SpecificationBaselineStatus, native_enum=False, length=32), nullable=False),
+        description="`pending` until the run finishes, then `done`, `not_applicable` or `failed`.",
+    )
+    # Deleting the baseline's backtest deletes this row, so the next trigger runs it again.
+    backtest_id: int | None = Field(
+        default=None,
+        foreign_key="backtest.id",
+        ondelete="CASCADE",
+        description="Foreign key to the baseline's `Backtest` once it is done.",
+    )
+    message: str | None = Field(default=None, description="Why the baseline is not applicable, when it is not.")
+    claimed_at: datetime.datetime = Field(
+        default_factory=datetime.datetime.now,
+        description="When the run was last queued, or when it failed. A pending or failed run is queued again a day after this.",
+    )
+    __table_args__ = (
+        UniqueConstraint("specification_id", "configured_model_id", name="uq_specificationbaseline_model"),
+    )
 
 
 class ConfiguredModelRead(ModelConfiguration, DBModel):
@@ -438,12 +508,6 @@ class PredictionInfo(PredictionBase):
 
 
 # PredictionInfo = PredictionBase.get_read_class()
-
-
-class PredictionRead(PredictionInfo):
-    """Full prediction read view: summary fields plus every per-period forecast."""
-
-    forecasts: list[ForecastRead] = Field(description="Per-(period, org_unit) forecast rows for this prediction.")
 
 
 class PredictionSetupReadWithPredictions(PredictionSetupRead):

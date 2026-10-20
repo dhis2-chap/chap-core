@@ -2,7 +2,6 @@
 
 import re
 
-import fakeredis
 import pytest
 from fastapi.testclient import TestClient
 
@@ -14,7 +13,6 @@ from chap_core.rest_api.auth import (
     SERVICE_KEY_ENV_VAR,
     warn_on_weak_token,
 )
-from chap_core.rest_api.services.orchestrator import Orchestrator
 from chap_core.rest_api.v1.routers.dependencies import get_settings
 from chap_core.rest_api.v2.dependencies import get_orchestrator
 from chap_core.rest_api.worker_functions import WorkerConfig
@@ -27,11 +25,6 @@ GATED_PATH = "/v2/services"
 # A gated route outside the service registry. The token check runs before the handler, so a
 # rejected request never reaches celery.
 NON_REGISTRY_PATH = "/health/probe"
-
-
-@pytest.fixture
-def test_orchestrator():
-    return Orchestrator(redis_client=fakeredis.FakeRedis())
 
 
 @pytest.fixture
@@ -55,19 +48,6 @@ def client(test_orchestrator, monkeypatch):
 @pytest.fixture
 def auth_headers():
     return {"Authorization": f"Bearer {TEST_TOKEN}"}
-
-
-@pytest.fixture
-def sample_registration():
-    return {
-        "url": "http://model-service:8080",
-        "info": {
-            "id": "test-model",
-            "display_name": "Test Model",
-            "model_metadata": {"author": "Test Author"},
-            "period_type": "monthly",
-        },
-    }
 
 
 OPEN_PATHS = {"/health", "/health/ready", "/system/info"}
@@ -113,8 +93,9 @@ class TestTokenEnabled:
         assert response.headers["WWW-Authenticate"] == "Bearer"
         assert response.json() == {"detail": "Missing or invalid API token"}
 
-    def test_wrong_token_returns_401(self, client):
-        response = client.get(GATED_PATH, headers={"Authorization": "Bearer wrong-token"})
+    @pytest.mark.parametrize("scheme", ["Bearer", "ApiToken"])
+    def test_wrong_token_returns_401(self, client, scheme):
+        response = client.get(GATED_PATH, headers={"Authorization": f"{scheme} wrong-token"})
 
         assert response.status_code == 401
 
@@ -125,6 +106,10 @@ class TestTokenEnabled:
 
     def test_valid_token_is_accepted(self, client, auth_headers):
         assert client.get(GATED_PATH, headers=auth_headers).status_code == 200
+
+    @pytest.mark.parametrize("scheme", ["ApiToken", "apitoken", "APITOKEN"])
+    def test_api_token_scheme_is_accepted(self, client, scheme):
+        assert client.get(GATED_PATH, headers={"Authorization": f"{scheme} {TEST_TOKEN}"}).status_code == 200
 
     @pytest.mark.parametrize("path", ["/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"])
     def test_api_reference_needs_no_token(self, client, path):

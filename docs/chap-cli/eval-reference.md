@@ -15,7 +15,7 @@ This command evaluates a single model by:
 1. Loading disease and climate data from a CSV file
 2. Auto-discovering GeoJSON polygon boundaries (same name as CSV with `.geojson` extension)
 3. Splitting historical data into multiple train/test sets using rolling-origin backtesting
-4. Training the model on each training set and generating probabilistic forecasts
+4. Training the model (once by default, see `n-retrain`) and generating probabilistic forecasts for each split
 5. Comparing forecasts against actual observations
 6. Exporting results (predictions, observations, metrics) to NetCDF format
 
@@ -36,19 +36,24 @@ Control how the evaluation splits and processes data:
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `--backtest-params.n-periods` | Forecast horizon (number of periods to predict ahead) | 3 |
-| `--backtest-params.n-splits` | Number of train/test splits for cross-validation | 7 |
+| `--backtest-params.n-splits` | Number of test windows to evaluate | 7 |
 | `--backtest-params.stride` | Step size (in periods) between consecutive splits | 1 |
+| `--backtest-params.n-retrain` | Number of times the model is trained, evenly spaced across the splits | 1 |
 
 ### Understanding Backtest Parameters
 
 - **n-periods**: How far ahead the model forecasts. For monthly data, `n-periods=3` means 3-month forecasts.
-- **n-splits**: How many times to train and evaluate. More splits = more robust evaluation but longer runtime.
+- **n-splits**: How many test windows to evaluate. More splits = more robust evaluation but longer runtime.
 - **stride**: How much to advance between splits. `stride=1` means every period gets a forecast; `stride=2` skips every other period.
+- **n-retrain**: How many times the model is trained. The default is 1: the model is trained once on the data before the first test window, and later splits only receive more historic data.
 
-Example: With 36 months of data, `n-periods=3`, `n-splits=7`, `stride=1`:
-- Split 1: Train on months 1-26, test on months 27-29
-- Split 2: Train on months 1-27, test on months 28-30
-- ... and so on for 7 splits
+Splits are counted back from the end of the dataset, so the last test window ends at the final period. Example: With 36 months of data, `n-periods=3`, `n-splits=7`, `stride=1`:
+- Train once on months 1-27
+- Split 1: historic data months 1-27, test on months 28-30
+- Split 2: historic data months 1-28, test on months 29-31
+- ... and so on until split 7, which tests on months 34-36
+
+See [How Split Indices Are Calculated](../contributor/evaluation_pipeline.md#how-split-indices-are-calculated) for the formula.
 
 ## Run Configuration
 
@@ -187,6 +192,36 @@ When providing a directory path with `--run-config.is-chapkit-model`, Chap autom
 
 The service's own output is forwarded to Chap's debug log (`--run-config.debug`), and the last lines are included in the error message if the service fails to start.
 
+### Running an MLproject as a chapkit service
+
+Use `--run-config.as-chapkit` to serve an MLproject model (a local directory or GitHub URL) with `chapkit mlproject run` instead of running it with Chap's runners. The model is then exercised the same way it is in production: through chapkit's REST API, with its typed user options and adapters.
+
+```console
+chap eval \
+    --model-name https://github.com/dhis2-chap/minimalist_example_uv \
+    --dataset-csv ./data/vietnam.csv \
+    --output-file ./eval.nc \
+    --run-config.as-chapkit
+```
+
+Chap copies the model into the run directory, prepares its environment, starts the service on a free local port, runs the evaluation and stops the service when done. The service never registers with an orchestrator. `--dry-run` is not supported in this mode, since chapkit runs the model commands itself.
+
+The model's scripts read `config.yml` in chap-core's layout, with the user options under `user_option_values`. A model whose scripts expect every option at the top level declares `config_format: flat` under `meta_data` in its MLproject (chapkit 2.4.0 or newer).
+
+| MLproject environment | What Chap does |
+|---|---|
+| none, or `--run-config.ignore-environment` | Runs the commands in the current environment |
+| `uv_env` | Runs `uv sync` in the run directory and starts chapkit through `uv run` |
+| `renv_env` | Runs `renv::restore()` before starting the service |
+| `docker_env`, `conda_env`, `python_env` | Not supported |
+
+For a model with a `docker_env`, start a chapkit image yourself and pass its URL instead:
+
+```console
+docker run -p 8000:8000 -v $(pwd):/work ghcr.io/dhis2-chap/chapkit-r-inla-cli
+chap eval --model-name http://localhost:8000 --dataset-csv ./data/vietnam.csv --output-file ./eval.nc
+```
+
 ## Input Data Format
 
 ### CSV File Requirements
@@ -235,7 +270,7 @@ Use `plot-backtest` to visualize and `export-metrics` to extract metrics from th
 
 ```console
 chap eval \
-    --model-name https://github.com/dhis2-chap/chap_auto_ewars \
+    --model-name https://github.com/chap-models/chap_auto_ewars \
     --dataset-csv ./example_data/laos_subset.csv \
     --output-file ./eval_ewars.nc
 ```
@@ -288,7 +323,7 @@ chap eval \
 ```console
 # Step 1: Evaluate the model
 chap eval \
-    --model-name https://github.com/dhis2-chap/chap_auto_ewars \
+    --model-name https://github.com/chap-models/chap_auto_ewars \
     --dataset-csv ./data/vietnam.csv \
     --output-file ./results/ewars_eval.nc \
     --backtest-params.n-splits 10

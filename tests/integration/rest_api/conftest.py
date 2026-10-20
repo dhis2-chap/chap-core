@@ -18,12 +18,36 @@ from chap_core.database.tables import (
     BacktestSpecification,
     PredictionSamplesEntry,
 )
-from chap_core.rest_api import celery_tasks
+from chap_core.rest_api import baseline_runs, celery_tasks
 from chap_core.rest_api.app import app
 from chap_core.rest_api.v1 import jobs
 from chap_core.rest_api.v1.routers import crud
 from chap_core.rest_api.v1.routers.analytics import BacktestParams
+from chap_core.rest_api.services.orchestrator import Orchestrator
 from chap_core.rest_api.v1.routers.dependencies import get_session
+
+
+@pytest.fixture
+def fake_redis():
+    return fakeredis.FakeRedis()
+
+
+@pytest.fixture
+def test_orchestrator(fake_redis):
+    return Orchestrator(redis_client=fake_redis)
+
+
+@pytest.fixture
+def sample_registration():
+    return {
+        "url": "http://model-service:8080",
+        "info": {
+            "id": "test-model",
+            "display_name": "Test Model",
+            "model_metadata": {"author": "Test Author"},
+            "period_type": "monthly",
+        },
+    }
 
 
 @pytest.fixture
@@ -35,6 +59,29 @@ def request_store(monkeypatch):
     monkeypatch.setattr(crud, "redis", store)
     monkeypatch.delenv("CHAP_API_TOKEN", raising=False)
     return store
+
+
+class RecordingWorker:
+    """Records queued jobs instead of sending them to Celery."""
+
+    def __init__(self):
+        self.queued: list[tuple] = []
+
+    def queue_db(self, func, *args, **kwargs):
+        self.queued.append((func, args, kwargs))
+
+        class _Job:
+            id = f"job-{len(self.queued)}"
+
+        return _Job()
+
+
+@pytest.fixture(autouse=True)
+def baseline_worker(monkeypatch):
+    """Baseline runs queued by any endpoint or backtest are recorded here, never sent to Celery."""
+    worker = RecordingWorker()
+    monkeypatch.setattr(baseline_runs, "worker", worker)
+    return worker
 
 
 @pytest.fixture

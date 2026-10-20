@@ -4,8 +4,7 @@ import dataclasses
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine
-from sqlmodel import Session, SQLModel
+from sqlmodel import Session
 
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo, Observation
@@ -13,13 +12,6 @@ from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.converters import observations_to_dataframe, observations_to_dataset
 
 EXAMPLE_DATA = Path(__file__).parent.parent / "example_data"
-
-
-@pytest.fixture
-def engine():
-    engine = create_engine("sqlite://")
-    SQLModel.metadata.create_all(engine)
-    return engine
 
 
 @pytest.fixture

@@ -2,20 +2,10 @@ from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from chap_core.api import forecast
 import pytest
-from chap_core.util import docker_available
 from chap_core.cli_endpoints.evaluate import eval_cmd
 from chap_core.external.ExtendedPredictor import ExtendedPredictor
-from chap_core.cli_endpoints.utils import sanity_check_model
 from chap_core.cli_endpoints.utils import test as run_chap_test
-
-
-@pytest.mark.skipif(not docker_available(), reason="Docker not available")
-@pytest.mark.skip(reason="Failing on CI")
-def test_forecast_github_model():
-    repo_url = "https://github.com/knutdrand/external_rmodel_example.git"
-    results = forecast("external", "hydromet_5_filtered", 12, repo_url)
 
 
 def test_eval_cmd(tmp_path):
@@ -282,6 +272,28 @@ def test_eval_cmd_asks_the_template_for_the_backtest_horizon(tmp_path):
             )
 
     assert get_estimator_mock.call_args.kwargs["prediction_length"] == 7
+
+
+def test_eval_cmd_forwards_as_chapkit(tmp_path):
+    """--run-config.as-chapkit reaches template resolution."""
+    from chap_core.api_types import BacktestParams, RunConfig
+
+    fake_estimator = _make_fake_estimator(min_prediction_periods=1, max_prediction_periods=12)
+    stack, _ = _patched_eval_chain(fake_estimator)
+    with stack:
+        with patch("chap_core.models.model_template.ModelTemplate") as mt_mock:
+            template_cm = mt_mock.from_directory_or_github_url.return_value
+            template_cm.__enter__.return_value = template_cm
+            template_cm.__exit__.return_value = False
+            eval_cmd(
+                model_name="dummy",
+                dataset_csv="dummy.csv",
+                output_file=tmp_path / "out.nc",
+                backtest_params=BacktestParams(n_periods=3, n_splits=2, stride=1),
+                run_config=RunConfig(as_chapkit=True),
+            )
+
+    assert mt_mock.from_directory_or_github_url.call_args.kwargs["as_chapkit"] is True
 
 
 def _valid_and_nan_region_dataset():

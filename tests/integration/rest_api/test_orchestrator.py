@@ -96,6 +96,11 @@ class TestRegister:
         key = f"service:{response.id}"
         assert fake_redis.exists(key)
 
+    def test_register_sets_key_expiry(self, orchestrator, sample_payload, fake_redis):
+        response = orchestrator.register(sample_payload)
+
+        assert 0 < fake_redis.ttl(f"service:{response.id}") <= DEFAULT_TTL_SECONDS
+
     def test_reregister_updates_data(self, orchestrator, sample_payload):
         response1 = orchestrator.register(sample_payload)
         response2 = orchestrator.register(sample_payload)
@@ -135,6 +140,15 @@ class TestPing:
 
         assert ping_response.status == "alive"
         assert ping_response.id == reg.id
+
+    def test_ping_refreshes_key_expiry(self, orchestrator, sample_payload, fake_redis):
+        reg = orchestrator.register(sample_payload)
+        key = f"service:{reg.id}"
+        fake_redis.expire(key, 1)
+
+        orchestrator.ping(reg.id)
+
+        assert 1 < fake_redis.ttl(key) <= DEFAULT_TTL_SECONDS
 
     def test_ping_nonexistent_service_raises_error(self, orchestrator):
         with pytest.raises(ServiceNotFoundError):

@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Sequence
 from typing import Any
 
 from chap_core.datatypes import Samples
@@ -80,6 +81,8 @@ def ml_service_info_to_model_template_config(
         "user_options": user_options or {},
         "min_prediction_periods": info.min_prediction_periods,
         "max_prediction_periods": info.max_prediction_periods,
+        "target": getattr(info, "target", None) or "disease_cases",
+        "hpo_search_space": getattr(info, "hpo_search_space", None),
         "entry_points": None,
         "docker_env": None,
         "python_env": None,
@@ -101,18 +104,15 @@ def _chapkit_config_payload(model_configuration: dict) -> dict:
     authored against the service's own config schema, and is passed through minus
     the ``model_template`` key chap-core attaches.
 
-    An empty ``additional_continuous_covariates`` is dropped rather than sent: the
-    row defaults it to an empty list, which would override whatever default the
-    service's own schema declares (ewars, for instance, defaults to rainfall and
-    mean_temperature).
+    The configuration's ``additional_continuous_covariates`` is always sent, also
+    when it is empty: an empty list means no additional covariates, not the default
+    list the service's own schema declares.
     """
+    if "user_option_values" not in model_configuration:
+        return {key: value for key, value in model_configuration.items() if key != "model_template"}
+    payload = dict(model_configuration.get("user_option_values") or {})
     covariates = model_configuration.get("additional_continuous_covariates")
-    if "user_option_values" in model_configuration:
-        payload = dict(model_configuration.get("user_option_values") or {})
-    else:
-        payload = {key: value for key, value in model_configuration.items() if key != "model_template"}
-        payload.pop("additional_continuous_covariates", None)
-    if covariates:
+    if covariates is not None:
         payload["additional_continuous_covariates"] = covariates
     return payload
 
@@ -176,6 +176,9 @@ class ExternalChapkitModelTemplate:
         port: int | None = None,
         host: str = "127.0.0.1",
         startup_timeout: int = 60,
+        command: Sequence[str] | None = None,
+        env: dict[str, str] | None = None,
+        require_listening_line: bool = False,
     ):
         """
         Initialize the template.
@@ -186,6 +189,11 @@ class ExternalChapkitModelTemplate:
             port: Port to use when auto-starting (directory mode only)
             host: Host to bind to when auto-starting (default: 127.0.0.1)
             startup_timeout: Seconds to wait for service startup
+            command: Command that starts the service (directory mode only,
+                     default: uv run fastapi dev)
+            env: Environment for the service process (directory mode only)
+            require_listening_line: Only accept the started service after its own output
+                reports that it is listening (directory mode only)
         """
         self._path_or_url = path_or_url
         self._port = port
@@ -206,6 +214,9 @@ class ExternalChapkitModelTemplate:
                 port=port,
                 host=host,
                 startup_timeout=startup_timeout,
+                command=command,
+                env=env,
+                require_listening_line=require_listening_line,
             )
 
     @property

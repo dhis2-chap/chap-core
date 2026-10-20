@@ -50,10 +50,6 @@ def interpolate_nans(y):
     return y
 
 
-def conda_available():
-    return which("conda") is not None
-
-
 def docker_available():
     if which("docker") is None:
         return False
@@ -69,10 +65,6 @@ def docker_available():
         return False
 
 
-def pyenv_available():
-    return which("pyenv") is not None
-
-
 REDIS_CONNECT_TIMEOUT_SECONDS = 2.0
 
 
@@ -82,7 +74,13 @@ def uv_available():
 
 def redis_available():
     try:
+        from redis.backoff import NoBackoff
+        from redis.retry import Retry
+
         r = load_redis()
+        # The client retries a refused connect with backoff by default, which
+        # makes every probe without a running redis take seconds.
+        r.set_retry(Retry(NoBackoff(), 0))
         r.ping()
         return True
     except Exception as e:

@@ -20,7 +20,8 @@ import logging
 from typing import Annotated, Any, Final, Literal
 
 import numpy as np
-from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Path, Query, UploadFile
+from redis.exceptions import RedisError
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, col, select
@@ -29,7 +30,7 @@ from starlette.responses import StreamingResponse
 import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import BacktestParams, FeatureCollectionModel
 from chap_core.assessment.evaluation import Evaluation
-from chap_core.assessment.metrics import compute_all_detailed_metrics
+from chap_core.assessment.metrics import compare_aggregated_metrics, compute_all_detailed_metrics
 from chap_core.assessment.weather_providers import resolve_weather_provider
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.alert_tables import Alert, AlertApproval, AlertPolicyRead, AlertRead
@@ -46,20 +47,26 @@ from chap_core.database.model_templates_and_config_tables import (
     ConfiguredModelDB,
     ModelConfiguration,
     ModelTemplateDB,
+    ModelTemplateRole,
     chapkit_revision_conflict,
 )
 from chap_core.database.tables import (
     Backtest,
+    BacktestRead,
     BacktestSpecification,
     Prediction,
     PredictionInfo,
     PredictionSetupMonitoring,
     PredictionSetupRead,
     PredictionSetupReadWithPredictions,
+    SpecificationBaseline,
+    SpecificationBaselineStatus,
+    is_not_baseline_backtest,
 )
 from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
-from chap_core.exceptions import ModelTemplateRevisionConflict
+from chap_core.exceptions import BaselineTemplateConflict, ModelTemplateRevisionConflict
 from chap_core.geometry import Polygons
+from chap_core.rest_api.baseline_runs import request_baselines_after_response
 from chap_core.rest_api.celery_tasks import (
     JOB_NAME_KW,
     JOB_REQUEST_KW,
@@ -72,7 +79,7 @@ from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.experimental import api_experimental
 from chap_core.rest_api.services.orchestrator import Orchestrator, ServiceNotFoundError
 from chap_core.rest_api.services.schemas import MLServiceInfo
-from chap_core.rest_api.v2.dependencies import get_orchestrator
+from chap_core.rest_api.v2.dependencies import get_orchestrator, get_registry_reader
 from chap_core.services import (
     alert_policy_service,
     alert_service,
@@ -86,9 +93,7 @@ from ...data_models import (
     AlertIdsResponse,
     AlertPolicyCreate,
     AlertsCreate,
-    BacktestRead,
     BacktestSpecificationFilter,
-    BacktestSpecificationRead,
     BacktestSpecificationSummary,
     BacktestUpdate,
     ConfiguredModelInfoRead,
@@ -102,6 +107,13 @@ from ...data_models import (
     PredictionSetupCreate,
     PredictionSetupUpdate,
     RunPredictionSetupRequest,
+)
+from ...leaderboard_models import (
+    BacktestSpecificationRead,
+    LeaderboardBacktestRead,
+    ReferenceComparison,
+    ReferenceModelResult,
+    list_metric_info,
 )
 from .analytics import validate_full_dataset
 from .dependencies import get_database_url, get_job_request, get_session, get_settings
@@ -162,12 +174,15 @@ def _sync_live_chapkit_services(
     """
     try:
         if orchestrator is None:
-            from chap_core.rest_api.v2.dependencies import get_orchestrator
+            from chap_core.rest_api.v2.dependencies import get_registry_reader
 
-            orchestrator = get_orchestrator()
+            orchestrator = get_registry_reader()
         service_list = orchestrator.get_all()
-    except Exception:
+    except RedisError:
         logger.debug("Could not reach service registry, skipping chapkit sync")
+        return {}
+    except Exception:
+        logger.warning("Could not read service registry, skipping chapkit sync", exc_info=True)
         return {}
 
     conflicts: dict[tuple[str, str], ModelTemplateRevisionConflict | None] = {}
@@ -183,6 +198,8 @@ def _sync_live_chapkit_services(
             continue
         try:
             add_model_template_from_registered_service(session, service)
+        except BaselineTemplateConflict as conflict:
+            logger.warning(str(conflict))
         except Exception:
             # Roll back so a failed database write does not poison the session for the
             # remaining services. A template version is write-once, so nothing incomplete
@@ -220,6 +237,17 @@ def _stored_template(session: Session, info: MLServiceInfo) -> ModelTemplateDB |
     ).first()
 
 
+def _is_baseline_name(session: Session, name: str) -> bool:
+    return (
+        session.exec(
+            select(ModelTemplateDB.id).where(
+                ModelTemplateDB.name == name, ModelTemplateDB.role == ModelTemplateRole.baseline
+            )
+        ).first()
+        is not None
+    )
+
+
 def _fetch_user_options(service_url: str) -> dict:
     from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
     from chap_core.models.external_chapkit_model import _parse_user_options_from_config_schema
@@ -237,10 +265,13 @@ def add_model_template_from_registered_service(session: Session, service) -> int
     What discovery does for a registered service; also an endpoint, so a service whose
     schema was unreachable when it was discovered can be stored on demand. The service
     must report a git revision, since a template without a digest could never run, and
-    a stored version must be the revision the service reports.
+    a stored version must be the revision the service reports. A service cannot use the
+    name of a built-in baseline, whatever its version.
     """
     from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config
 
+    if _is_baseline_name(session, service.info.id):
+        raise BaselineTemplateConflict(service.info.id)
     conflict = _registered_chapkit_revision_conflict(session, service.info)
     if conflict is not None:
         raise conflict
@@ -283,9 +314,10 @@ async def get_backtests(
     periods, regions) but not the raw forecasts — fetch those via
     ``/backtests/{id}/full`` only when you actually need them. Filter by
     ``specificationId`` to get the backtests that are comparable with each other, or by
-    ``datasetId`` for everything run against one dataset.
+    ``datasetId`` for everything run against one dataset. Backtests of built-in baseline
+    models are reference results and are not listed.
     """
-    query = select(Backtest).options(*_backtest_read_loads())
+    query = select(Backtest).where(is_not_baseline_backtest()).options(*_backtest_read_loads())
     if specification_id is not None:
         query = query.where(Backtest.specification_id == specification_id)
     if dataset_id is not None:
@@ -316,13 +348,14 @@ def get_backtest_specifications(
     """List backtest specifications: a dataset plus the parameters that make backtests under it comparable.
 
     A specification with several backtests under it is a benchmark. Filter by
-    ``datasetId`` and any of the ``BacktestParams`` fields; the full tuple identifies at
+    ``datasetId``, ``targetColumn`` and any of the ``BacktestParams`` fields; the full tuple identifies at
     most one specification, which is how an external system finds a benchmark again
     without storing the specification id. Rows carry counts only; fetch
     ``/backtest-specifications/{id}`` for the backtests themselves.
     """
     backtest_counts = (
         select(Backtest.specification_id, func.count(col(Backtest.id)).label("backtest_count"))
+        .where(is_not_baseline_backtest())
         .group_by(col(Backtest.specification_id))
         .subquery()
     )
@@ -353,14 +386,26 @@ def get_backtest_specifications(
     summary="Fetch a specification with every backtest under it",
 )
 def get_backtest_specification(
-    specification_id: Annotated[int, Path(alias="specificationId")], session: Session = Depends(get_session)
+    specification_id: Annotated[int, Path(alias="specificationId")],
+    background_tasks: BackgroundTasks,
+    include_comparison_models: Annotated[bool, Query(alias="includeComparisonModels")] = False,
+    session: Session = Depends(get_session),
+    database_url: str = Depends(get_database_url),
 ):
     """Read one specification together with every backtest that ran under it, newest first, in a single response.
 
     This is the benchmark leaderboard: each backtest row is the ``BacktestRead`` shape
     with aggregate metrics, the configured model and its template, so a client can rank
     models without a request per backtest. Forecasts and per-org-unit metrics are not
-    included. 404 if the id is unknown.
+    included, and neither are backtests of built-in baseline models. Those are listed
+    under ``baselines`` with their status and scores instead, and each backtest row
+    carries the comparison of its scores with every baseline that is done. With
+    ``includeComparisonModels``, the newest backtest of each comparison model on the
+    specification is listed and compared with the same way, except that a
+    backtest is never compared with a run of its own model. Baselines that have not run on
+    the specification yet are queued after the response is sent. ``metrics`` describes every
+    metric the scores and comparisons are keyed by, including what its comparison value means.
+    404 if the id is unknown.
     """
     specification = session.exec(
         select(BacktestSpecification)
@@ -369,23 +414,109 @@ def get_backtest_specification(
     ).first()
     if specification is None:
         raise HTTPException(status_code=404, detail="Backtest specification not found")
+    background_tasks.add_task(request_baselines_after_response, session.get_bind(), specification_id, database_url)
     backtests = session.exec(
         select(Backtest)
-        .where(Backtest.specification_id == specification_id)
+        .where(Backtest.specification_id == specification_id, is_not_baseline_backtest())
         .order_by(col(Backtest.created).desc().nulls_last(), col(Backtest.id).desc())
         .options(*_backtest_read_loads())
     ).all()
+    baselines = _baseline_results(session, specification_id)
+    comparison_models = _comparison_model_results(session, specification_id) if include_comparison_models else None
+    references = [
+        reference
+        for reference in baselines + (comparison_models or [])
+        if reference.status == SpecificationBaselineStatus.done
+    ]
     return BacktestSpecificationRead(
         id=specification_id,
         dataset=specification.dataset,
         org_units=specification.org_units,
-        backtests=backtests,
+        backtests=[
+            LeaderboardBacktestRead.model_validate(
+                backtest, update={"comparisons": _reference_comparisons(backtest, references)}
+            )
+            for backtest in backtests
+        ],
+        baselines=baselines,
+        comparison_models=comparison_models,
+        metrics=list_metric_info(),
         **_specification_params(specification),
     )
 
 
+def _baseline_results(session: Session, specification_id: int) -> list[ReferenceModelResult]:
+    """The current version of each baseline on the specification. One that has no run yet is pending."""
+    runs: dict[int, tuple[SpecificationBaseline, Backtest | None]] = {
+        run.configured_model_id: (run, backtest)
+        for run, backtest in session.exec(
+            select(SpecificationBaseline, Backtest)
+            .outerjoin(Backtest, col(Backtest.id) == SpecificationBaseline.backtest_id)
+            .where(SpecificationBaseline.specification_id == specification_id)
+        ).all()
+    }
+    results = []
+    for model in SessionWrapper(session=session).get_baseline_models():
+        assert model.id is not None
+        if model.id not in runs:
+            results.append(ReferenceModelResult(configured_model=model, status=SpecificationBaselineStatus.pending))
+            continue
+        run, backtest = runs[model.id]
+        results.append(
+            ReferenceModelResult(
+                configured_model=model,
+                status=run.status,
+                message=run.message,
+                backtest_id=backtest.id if backtest else None,
+                aggregate_metrics=backtest.aggregate_metrics if backtest else {},
+            )
+        )
+    return results
+
+
+def _comparison_model_results(session: Session, specification_id: int) -> list[ReferenceModelResult]:
+    """The newest backtest of each comparison model on the specification. Archived models are left out."""
+    backtests = session.exec(
+        select(Backtest)
+        .join(ConfiguredModelDB, col(ConfiguredModelDB.id) == Backtest.model_db_id)
+        .join(ModelTemplateDB)
+        .where(
+            Backtest.specification_id == specification_id,
+            ModelTemplateDB.role == ModelTemplateRole.comparison,
+            col(ModelTemplateDB.archived).is_(False),
+            col(ConfiguredModelDB.archived).is_(False),
+        )
+        .order_by(col(Backtest.created).desc().nulls_last(), col(Backtest.id).desc())
+        .options(selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template))  # type: ignore[arg-type]
+    ).all()
+    newest: dict[int, Backtest] = {}
+    for backtest in backtests:
+        newest.setdefault(backtest.model_db_id, backtest)
+    return [
+        ReferenceModelResult(
+            configured_model=backtest.configured_model,
+            status=SpecificationBaselineStatus.done,
+            backtest_id=backtest.id,
+            aggregate_metrics=backtest.aggregate_metrics,
+        )
+        for backtest in newest.values()
+    ]
+
+
+def _reference_comparisons(backtest: Backtest, references: list[ReferenceModelResult]) -> list[ReferenceComparison]:
+    """Compare a backtest with each reference, except a run of its own model."""
+    return [
+        ReferenceComparison(
+            configured_model_id=reference.configured_model.id,
+            values=compare_aggregated_metrics(backtest.aggregate_metrics, reference.aggregate_metrics),
+        )
+        for reference in references
+        if reference.configured_model.id != backtest.model_db_id
+    ]
+
+
 def _specification_params(specification: BacktestSpecification) -> dict[str, Any]:
-    return {name: getattr(specification, name) for name in BacktestParams.model_fields}
+    return {name: getattr(specification, name) for name in (*BacktestParams.model_fields, "target_column")}
 
 
 @router.get(
@@ -831,7 +962,7 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], se
     tags=["Models"],
     summary="Browse available model templates",
 )
-async def list_model_templates(session: Session = Depends(get_session)):
+def list_model_templates(session: Session = Depends(get_session)):
     """List every live model template that can be configured into a runnable model — one per template name; superseded versions keep their rows but are not listed.
 
     Acts as the discovery endpoint: registered CHAPKit services without a stored
@@ -870,9 +1001,11 @@ def add_model_template_from_service(
     This is how ``chap-admin install`` registers a model once its service is up, and how
     a custom image without a marketplace entry becomes a model in CHAP. A version is
     write-once, so repeating the call returns the stored row (and shows it again if it
-    was retired). The service must be registered in the v2 service registry and
+    was retired). The ``role`` from the model's marketplace entry is set on the stored
+    template on every call. The service must be registered in the v2 service registry and
     reachable. 404 if it is not registered, 409 if it reports no git revision or another
-    revision than the one stored under its version, 502 if it cannot be read.
+    revision than the one stored under its version, or uses the name of a built-in
+    baseline, 502 if it cannot be read.
     """
     try:
         service = orchestrator.get(request.service_id)
@@ -880,11 +1013,15 @@ def add_model_template_from_service(
         raise HTTPException(status_code=404, detail=str(error)) from error
     try:
         template_id = add_model_template_from_registered_service(session, service)
-    except ModelTemplateRevisionConflict as conflict:
+    except (ModelTemplateRevisionConflict, BaselineTemplateConflict) as conflict:
         raise HTTPException(status_code=409, detail=str(conflict)) from conflict
     except Exception as error:
         raise HTTPException(status_code=502, detail=f"Could not read the service at {service.url}: {error}") from error
-    return ModelTemplateRead.model_validate(SessionWrapper(session=session).get_model_template(template_id))
+    template = SessionWrapper(session=session).get_model_template(template_id)
+    template.role = request.role
+    session.add(template)
+    session.commit()
+    return ModelTemplateRead.model_validate(template)
 
 
 @router.delete(
@@ -922,7 +1059,7 @@ def delete_model_template(
     summary="Browse configured (ready-to-run) models",
 )
 def list_configured_models(
-    session: Session = Depends(get_session), orchestrator: Orchestrator = Depends(get_orchestrator)
+    session: Session = Depends(get_session), orchestrator: Orchestrator = Depends(get_registry_reader)
 ):
     """List every configured model — a template + user-chosen options bundled into something you can actually run.
 
@@ -934,8 +1071,10 @@ def list_configured_models(
     template_health: dict[tuple[str, str | None], Literal["live", "revision_mismatch"]] = {}
     try:
         services = orchestrator.get_all().services
-    except Exception:
+    except RedisError:
         logger.debug("Could not reach service registry, configured model health is unknown")
+    except Exception:
+        logger.warning("Could not read service registry, configured model health is unknown", exc_info=True)
     else:
         for service in services:
             conflict = _registered_chapkit_revision_conflict(session, service.info)
@@ -1454,7 +1593,8 @@ async def run_prediction_setup(
     arrived, a model investigation, etc.). Returns a job id; track it via
     ``/v1/jobs/{id}`` or filter the jobs list with ``predictionSetupId`` to see every
     job this setup has launched. Returns 404 if the setup is unknown, 409 if its
-    configured model has been archived, 422 if ``provided_data`` is empty.
+    configured model has been archived, 422 if ``provided_data`` is empty or missing
+    the backtest's target column. Forecasts use the same target as the backtest.
     """
     try:
         setup = prediction_setup_service.get_prediction_setup(session, prediction_setup_id)
@@ -1475,12 +1615,18 @@ async def run_prediction_setup(
     if not request.provided_data:
         raise HTTPException(status_code=422, detail="provided_data cannot be empty")
 
+    target_column = setup.backtest.specification.target_column
     feature_names = list({entry.feature_name for entry in request.provided_data})
+    if target_column not in feature_names:
+        raise HTTPException(status_code=422, detail=f"Dataset has no target column {target_column!r}")
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
-    provided_data, rejections = validate_full_dataset(feature_names, provided_data)
+    # disease_cases is replaced by the selected target before training, so neither
+    # column should be validated as a covariate.
+    covariates = [name for name in feature_names if name not in (target_column, "disease_cases")]
+    provided_data, rejections = validate_full_dataset(covariates, provided_data)
     if rejections:
         logger.warning(
             "%d observations rejected for prediction-setup %d",
@@ -1519,6 +1665,7 @@ async def run_prediction_setup(
         prediction_params=prediction_params,
         prediction_setup_id=prediction_setup_id,
         configured_model_id=setup.configured_model_id,
+        target_column=target_column,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},

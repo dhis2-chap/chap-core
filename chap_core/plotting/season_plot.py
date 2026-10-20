@@ -189,25 +189,3 @@ class SeasonalityComparisonPlot(DatasetPlot):
         return alt.vconcat(line_chart).properties(  # type: ignore[return-value]
             title="Seasonality Comparison Across Regions"
         )
-
-
-def test_season_plot(df: pd.DataFrame):
-    plot = SeasonPlot(df)
-    data = plot.data()
-
-    print(data)
-    assert "seasonal_month" in data.columns
-    chart = plot.plot()
-    chart.save("season_plot.html")
-    chart.save("season_plot.png")
-
-
-def test_season_correlation_bar_plot(df: pd.DataFrame):
-    plot = SeasonCorrelationBarPlot(df)
-    data = plot.data()
-    print(data)
-    assert "correlation" in data.columns
-    assert "location" in data.columns
-    chart = plot.plot()
-    chart.save("season_correlation_bar_plot.html")
-    chart.save("season_correlation_bar_plot.png")
