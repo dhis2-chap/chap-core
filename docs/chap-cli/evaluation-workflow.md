@@ -77,7 +77,7 @@ chap eval \
 | `--dataset-csv` | Path to CSV with disease data | Required |
 | `--output-file` | Path for output NetCDF file | Required |
 | `--backtest-params.n-periods` | Forecast horizon (periods ahead) | 3 |
-| `--backtest-params.n-splits` | Number of train/test splits | 7 |
+| `--backtest-params.n-splits` | Number of test windows to evaluate | 7 |
 | `--backtest-params.stride` | Step size between splits | 1 |
 | `--model-configuration-yaml` | Optional YAML with model config | None |
 | `--run-config.ignore-environment` | Skip environment setup | false |
@@ -111,6 +111,7 @@ chap plot-backtest \
 | `evaluation_plot` | Evaluation summary plot with forecasts vs observations and uncertainty bands |
 | `horizon_location_grid` | Grid of forecast intervals and metrics across locations and forecast horizons |
 | `predicted_vs_actual` | Scatter of predicted (median) vs actual values, faceted by horizon |
+| `predicted_vs_actual_linear` | Predicted (median) vs actual values on linear axes, faceted by horizon |
 | `sample_bias_by_horizon` | Ratio of forecast samples above truth per forecast horizon |
 | `sample_bias_by_time_period` | Ratio of forecast samples above truth over time periods, one line per location |
 
@@ -130,7 +131,7 @@ Run the same process with a different model for comparison:
 
 ```console
 chap eval \
-    --model-name https://github.com/dhis2-chap/chap_auto_ewars_weekly \
+    --model-name https://github.com/chap-models/chap_auto_ewars_weekly \
     --dataset-csv ./data/vietnam_data.csv \
     --output-file ./results/model_b_eval.nc \
     --backtest-params.n-periods 3 \

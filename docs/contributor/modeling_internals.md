@@ -94,6 +94,25 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
 
   All three use deterministic quantile samples whose two middle values are both
   the median, so the sample median is exactly the point forecast.
+
+  The REST API runs every live baseline once on each backtest specification
+  (`chap_core/rest_api/baseline_runs.py`). A backtest queued through the API asks
+  for them as soon as its specification is resolved, and reading a specification
+  (`GET /v1/crud/backtest-specifications/{id}`) asks for any that are still
+  missing, such as a new baseline version. Each run is a background job with a
+  `SpecificationBaseline` row recording `pending`, `done`, `not_applicable` or
+  `failed`. A baseline that raises `BaselineNotApplicable` for a specification's
+  data is not applicable there and is not retried. A failed run, or one still
+  pending 24 hours after it was queued, is queued again by the next trigger after
+  those 24 hours.
+
+  The same read returns the baselines with their status and aggregate metrics,
+  and compares each backtest's aggregate metrics with every baseline that is
+  done, using the metric's comparison operator. With `includeComparisonModels`,
+  the newest backtest of each `comparison` model on the specification is listed
+  and compared with the same way. The response also lists every metric with its
+  comparison operator and that operator's one-line description, registered with
+  `@comparison_op(name, description)`, so a client needs no second call.
 - **`chap_core/feature_generators/seasonality_cluster.py`** and
   **`chap_core/plotting/season_plot.py`** — scikit-learn `KMeans` seasonality
   clustering (unsupervised).

@@ -49,13 +49,6 @@ template_urls = [
 
 
 @pytest.fixture
-def engine():
-    engine = create_engine("sqlite://")
-    SQLModel.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture
 def engine_with_dataset(engine, weekly_full_data):
     with SessionWrapper(engine) as session:
         DataSetManager(session.session).save_dataset(DataSetCreateInfo(name="full_data"), weekly_full_data, None)

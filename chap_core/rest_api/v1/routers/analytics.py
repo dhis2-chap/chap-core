@@ -460,6 +460,7 @@ async def create_backtest(
         n_retrain=request.n_retrain,
         future_weather_provider=request.future_weather_provider,
         target_column=request.target_column,
+        baseline_database_url=database_url,
         database_url=database_url,
         **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: request.name},
     )
@@ -512,6 +513,7 @@ def create_backtests(
             BacktestCreate(name=name, dataset_id=request.dataset_id, model_id=model.id),
             **params.model_dump(),
             target_column=request.target_column,
+            baseline_database_url=database_url,
             database_url=database_url,
             **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: name},
         )
@@ -876,6 +878,7 @@ async def create_backtest_with_data(
         backtest_params=bt_params,
         database_url=database_url,
         worker_config=worker_settings,
+        baseline_database_url=database_url,
         **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.EVALUATION, JOB_NAME_KW: request.name},
     )
     job_id = job.id

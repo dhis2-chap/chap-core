@@ -170,12 +170,15 @@ def test_connection_nominated_request_header_dropped(client):
     assert "x-keep" in seen
 
 
-def test_credential_headers_not_forwarded(client):
+@pytest.mark.parametrize("scheme", ["Bearer", "ApiToken"])
+def test_credential_headers_not_forwarded(client, monkeypatch, scheme):
+    monkeypatch.setenv("CHAP_API_TOKEN", "chap-api-token")
     response = client.get(
         f"/v2/services/{SERVICE_ID}/run/api/v1/seen-headers",
-        headers={"Authorization": "Bearer chap-api-token", "X-Service-Key": "chap-api-token"},
+        headers={"Authorization": f"{scheme} chap-api-token", "X-Service-Key": "chap-api-token"},
     )
 
+    assert response.status_code == 200
     # Both headers can carry the caller's CHAP API token; neither must reach the service.
     seen = response.json()["headers"]
     assert "authorization" not in seen

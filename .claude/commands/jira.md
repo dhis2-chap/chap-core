@@ -95,7 +95,8 @@ assignee after assigning.
 ## Working conventions
 
 - **Creating issues**: write the description by following the `write-issue`
-  skill (ask, do not guess, draft before creating). Use actionable
+  skill from the `write-issue` plugin in the dhis2-chap marketplace (ask, do
+  not guess, draft before creating). This file supplies the filing details. Use actionable
   summaries, set a component, set one or more objective labels, and link
   related issues or a parent epic.
 - **Querying**: present key, summary, status and assignee in a table, group

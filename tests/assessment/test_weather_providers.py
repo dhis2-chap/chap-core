@@ -12,8 +12,6 @@ from chap_core.assessment.weather_providers.base import FutureWeatherProviderBas
 from chap_core.api_types import BacktestParams
 from chap_core.rest_api.data_models import PredictionParams
 
-from ..data_fixtures import full_data, full_data_with_gap, full_data_with_parent, train_data_pop  # noqa: F401
-
 
 def test_builtin_providers_are_registered():
     ids = {p["id"] for p in list_weather_providers()}

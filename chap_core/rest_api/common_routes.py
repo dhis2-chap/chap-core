@@ -60,7 +60,8 @@ class SystemInfoResponse(BaseModel):
     auth_required: bool = Field(
         description=(
             "Whether this server requires an API token. When `true`, every endpoint except "
-            "`/health`, `/health/ready` and `/system/info` needs an `Authorization: Bearer <token>` header."
+            "`/health`, `/health/ready` and `/system/info` needs an `Authorization: Bearer <token>` "
+            "or `Authorization: ApiToken <token>` header."
         ),
         examples=[False],
     )

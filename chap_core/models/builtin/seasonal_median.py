@@ -3,7 +3,7 @@ import numpy as np
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.datatypes import Samples
 from chap_core.models.builtin.empirical import period_of_year, quantile_samples
-from chap_core.models.builtin.registry import BuiltinModel, BuiltinModelSpec, builtin_model
+from chap_core.models.builtin.registry import BaselineNotApplicable, BuiltinModel, BuiltinModelSpec, builtin_model
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
@@ -47,7 +47,7 @@ class SeasonalMedian(BuiltinModel):
             rows = []
             for season in period_of_year(location_data.time_period):
                 if season not in by_season:
-                    raise ValueError(
+                    raise BaselineNotApplicable(
                         f"No observed disease_cases for location {location!r} in period of year {season} in the "
                         "training data. The seasonal median needs every forecast period of the year observed."
                     )

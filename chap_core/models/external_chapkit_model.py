@@ -104,18 +104,15 @@ def _chapkit_config_payload(model_configuration: dict) -> dict:
     authored against the service's own config schema, and is passed through minus
     the ``model_template`` key chap-core attaches.
 
-    An empty ``additional_continuous_covariates`` is dropped rather than sent: the
-    row defaults it to an empty list, which would override whatever default the
-    service's own schema declares (ewars, for instance, defaults to rainfall and
-    mean_temperature).
+    The configuration's ``additional_continuous_covariates`` is always sent, also
+    when it is empty: an empty list means no additional covariates, not the default
+    list the service's own schema declares.
     """
+    if "user_option_values" not in model_configuration:
+        return {key: value for key, value in model_configuration.items() if key != "model_template"}
+    payload = dict(model_configuration.get("user_option_values") or {})
     covariates = model_configuration.get("additional_continuous_covariates")
-    if "user_option_values" in model_configuration:
-        payload = dict(model_configuration.get("user_option_values") or {})
-    else:
-        payload = {key: value for key, value in model_configuration.items() if key != "model_template"}
-        payload.pop("additional_continuous_covariates", None)
-    if covariates:
+    if covariates is not None:
         payload["additional_continuous_covariates"] = covariates
     return payload
 

@@ -10,7 +10,6 @@ from chap_core.external.model_configuration import (
     EntryPointConfig,
     ModelTemplateConfigV2,
 )
-from chap_core.file_io.example_data_set import datasets
 from chap_core.models.external_model import ExternalModel
 from chap_core.models.utils import get_model_template_from_directory_or_github_url
 from chap_core.util import docker_available, uv_available
@@ -20,14 +19,6 @@ from chap_core.util import docker_available, uv_available
 def test_python_model_from_folder_with_mlproject_file(models_path):
     path = models_path / "naive_python_model_with_mlproject_file"
     get_model_template_from_directory_or_github_url(path)
-
-
-@pytest.fixture
-def dataset():
-    dataset_name = "ISIMIP_dengue_harmonized"
-    example_dataset = datasets[dataset_name]
-    loaded_dataset = example_dataset.load()
-    return loaded_dataset["brazil"]
 
 
 def test_python_model_from_folder_with_mlproject_file_that_fails(models_path, dataset):
