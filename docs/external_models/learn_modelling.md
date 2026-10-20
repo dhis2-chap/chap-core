@@ -181,7 +181,6 @@ With this evaluation setup in place, you should be ready to start looking at mor
 ## Multiple regions
 While it may in some settings be useful to forecast disease at a national level, it is often more operationally relevant to create forecasts for smaller regions within the country, for instance at district level. Therefore, a disease forecasting approach needs to relate to multiple districts in the code, to create forecasts per district. 
 If a single model is trained across district data (ignoring the fact that there are different districts) and used to directly forecast disease without taking into account differences between districts in any way, it would forecast similar levels of disease across districts regardless of disease prevalence in each particular district. 
-To see this more concretely please follow this [tutorial to see the errors](https://github.com/dhis2-chap/Assessment_example_multiregion) that the minimalist_example model (which ignores districts) makes for the two districts D1 and D2 with respectively high and low prevalence.
 
 The simplest approach to creating meaningful region-level forecast is to simply train and forecast based on a separate model per region. Please follow the tutorial below (in Python or R version) to see an easy way of doing this in code: 
 

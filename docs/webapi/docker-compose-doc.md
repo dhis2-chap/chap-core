@@ -10,18 +10,20 @@ This is a short example for how to setup Chap-core locally as a service using do
 
 1. Clone the Chap core repo by running `git clone https://github.com/dhis2-chap/chap-core.git`
 
-2. Run the docker compose file with `docker compose -f compose.yml up`. The first time you do this, it can take a few minutes to finish. Once it's completed, it should have created the following docker services:
+2. Create the environment file with `cp .env.example .env`. The services read the database credentials from it.
+
+3. Run the docker compose file with `docker compose -f compose.yml up`. The first time you do this, it can take a few minutes to finish. Once it's completed, it should have created the following docker services:
 
    - `redis` for receiving and queueing job requests
    - `worker` for executing the incoming work requests from queue
    - `chap` containing the main functionality and the rest-api
    - `postgres` for storing chap-related data
 
-3. Check that the chap rest api works by going to http://localhost:8000/docs
+4. Check that the chap rest api works by going to http://localhost:8000/docs
 
 ## Compose file reference
 
-The repository ships several compose files. `compose.yml` and `compose.ghcr.yml` are **base** files and are alternatives to each other — never stack them, because Compose appends list fields on overlay and you get duplicate `security_opt` / `cap_drop` entries that fail validation. Everything else is an overlay layered on top of a base with additional `-f` flags. Both base files keep `redis` and `postgres` on a separate `backend` network; `chap` and `worker` join it alongside the default network, so model services on the default network cannot reach the broker or the database.
+The repository ships several compose files. `compose.yml` and `compose.ghcr.yml` are **base** files and are alternatives to each other — never stack them, because both define the `chap` and `worker` services, so the merged file carries both `build` and `image` settings for them and, on older Compose versions, duplicate `security_opt` / `cap_drop` entries that fail validation. Everything else is an overlay layered on top of a base with additional `-f` flags. Both base files keep `redis` and `postgres` on a separate `backend` network; `chap` and `worker` join it alongside the default network, so model services on the default network cannot reach the broker or the database.
 
 | File | Kind | Purpose |
 |------|------|---------|

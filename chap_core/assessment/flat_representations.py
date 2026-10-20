@@ -71,56 +71,6 @@ def max_horizon_distance(backtest_forecasts: list[BacktestForecast]) -> int | No
     return max(horizon_diff(str(fc.period), str(fc.last_seen_period)) for fc in backtest_forecasts)
 
 
-def _convert_backtest_to_flat_forecasts(backtest_forecasts: list[BacktestForecast]) -> pd.DataFrame:
-    """
-    Convert a list of BacktestForecast objects to a flat DataFrame format
-    conforming to ForecastFlatDataSchema.
-
-    Args:
-        backtest_forecasts: List of BacktestForecast objects containing forecasts
-
-    Returns:
-        pd.DataFrame with columns: location, time_period, horizon_distance, sample, forecast
-    """
-    dfs = []
-
-    for forecast in backtest_forecasts:
-        # Calculate horizon distance using the horizon_diff function
-        # horizon_distance represents how many time periods ahead this forecast is
-        # from the last period we had data for
-        horizon_distance = horizon_diff(str(forecast.period), str(forecast.last_seen_period))
-
-        # Each BacktestForecast contains multiple sample values
-        # We need to create one row per sample
-
-        df = _create_df(forecast, horizon_distance)
-        dfs.append(df)
-        """
-        for sample_idx, sample_value in enumerate(forecast.values):
-            assert not np.isnan(sample_value), ("Sample values should not be NaN. "
-                                                "Potentially something wrong with forecasts given by model")
-            row = {
-                "location": str(forecast.org_unit),
-                "time_period": str(forecast.period),
-                "horizon_distance": horizon_distance,
-                "sample": sample_idx,
-                "forecast": float(sample_value),  # Convert to int as per schema
-            }
-            rows.append(row)
-        """
-
-    # Create DataFrame from rows
-    # df = pd.DataFrame(rows)
-    df = pd.concat(dfs, ignore_index=True)
-
-    assert len(df) > 0, "No forecast data found in backtest forecasts. Something wrong in model?"
-
-    # Validate against schema
-    # FlatForecasts.validate(df)
-
-    return pd.DataFrame(df)
-
-
 def _create_df(forecast: BacktestForecast, horizon_distance: int):
     df = pd.DataFrame(
         {
@@ -214,27 +164,6 @@ def convert_backtest_observations_to_flat_observations(
         FlatObserved.validate(df)
 
     return df
-
-
-def group_flat_forecast_by_horizon(flat_forecast_df: pd.DataFrame, aggregate_samples: bool = True) -> pd.DataFrame:
-    """
-    Group flat forecast data by horizon distance for analysis.
-
-    Args:
-        flat_forecast_df: DataFrame conforming to ForecastFlatDataSchema
-        aggregate_samples: If True, average across samples to get mean forecast
-
-    Returns:
-        pd.DataFrame grouped by location and horizon_distance
-    """
-    if aggregate_samples:
-        # Average across samples to get mean forecast per location/time_period/horizon
-        grouped = flat_forecast_df.groupby(["location", "time_period", "horizon_distance"], as_index=False)[
-            "forecast"
-        ].mean()
-        return pd.DataFrame(grouped)
-    else:
-        return flat_forecast_df
 
 
 class DataDimension(StrEnum):

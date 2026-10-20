@@ -70,14 +70,6 @@ class DataElementV2(BaseModel):
     value: float | None = Field(description="Observed value; `None` is allowed for known-missing observations.")
 
 
-class DataListV2(BaseModel):
-    """Time-series of v2-format `DataElementV2`s for one feature on one data element."""
-
-    featureId: str = Field(description="Canonical feature identifier (matching a `FeatureType.name`).")
-    dataElement: str = Field(description="External data element id the values came from.")
-    data: list[DataElementV2] = Field(..., min_length=1, description="At least one (period, org-unit, value) row.")
-
-
 class RequestV1(BaseModel):
     """V1 request body: GeoJSON polygons plus a list of feature time-series."""
 
