@@ -52,6 +52,7 @@ from chap_core.database.model_templates_and_config_tables import (
 )
 from chap_core.database.tables import (
     Backtest,
+    BacktestRead,
     BacktestSpecification,
     Prediction,
     PredictionInfo,
@@ -86,7 +87,6 @@ from ...data_models import (
     AlertIdsResponse,
     AlertPolicyCreate,
     AlertsCreate,
-    BacktestRead,
     BacktestSpecificationFilter,
     BacktestSpecificationSummary,
     BacktestUpdate,

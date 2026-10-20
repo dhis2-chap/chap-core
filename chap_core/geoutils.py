@@ -115,29 +115,6 @@ def buffer_point_features(collection: FeatureCollectionModel, distance: float):
     return collection_buffered
 
 
-def inspect_feature_collection(collection):
-    """
-    Inspect and return statistics of the contents of a FeatureModelCollection object.
-
-    Parameters
-    ----------
-    collection : FeatureModelCollection
-        A `FeatureModelCollection` object representing a feature collection.
-
-    Returns
-    -------
-    dict
-        A `dict` object with basic count statistics of the different geometry types contained in the FeatureModelCollection.
-    """
-    stats = {}
-    stats["count"] = len(collection.features)
-    stats["count_has_geometry"] = sum([1 for feat in collection.features if feat.geometry])
-    stats["count_point"] = sum([1 for feat in collection.features if feat.geometry and "Point" in feat.geometry.type])
-    stats["count_lines"] = sum([1 for feat in collection.features if feat.geometry and "Line" in feat.geometry.type])
-    stats["count_poly"] = sum([1 for feat in collection.features if feat.geometry and "Polygon" in feat.geometry.type])
-    return stats
-
-
 def render(polygons: Polygons):
     """
     Simple utility to render a `Polygons` object on a map for inspecting and debugging purposes.
