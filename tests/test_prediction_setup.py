@@ -10,27 +10,12 @@ from __future__ import annotations
 import datetime
 
 import pytest
-from sqlalchemy import event
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, select
 
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 from chap_core.database.tables import Backtest, BacktestSpecification, Prediction, PredictionSetup
-
-
-@pytest.fixture
-def engine():
-    eng = create_engine("sqlite://")
-
-    @event.listens_for(eng, "connect")
-    def _enable_fk(dbapi_connection, _connection_record):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
-
-    SQLModel.metadata.create_all(eng)
-    return eng
 
 
 def _make_parents(session: Session) -> tuple[int, int, int]:

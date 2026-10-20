@@ -10,7 +10,6 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 if __name__ == '__main__':
     #model_name = 'https://github.com/sandvelab/chap_auto_ewars'
     model_url = '/home/knut/Sources/chap_auto_ewars_weekly'
-    #model_name = models_path / 'naive_python_model_with_mlproject_file'
     estimator = get_model_from_directory_or_github_url(model_url)
     #dataset = ISIMIP_dengue_harmonized['vietnam']
     dataset = DataSet.from_csv('/home/knut/Data/ch_data/weekly_laos_data.csv', FullData)

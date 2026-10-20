@@ -5,7 +5,7 @@ The `report` command trains a model on a dataset and runs the model's optional `
 ## Synopsis
 
 ```console
-chap report <MODEL_PATH> <DATASET_CSV> <OUT_FILE> [OPTIONS]
+chap report <MODEL_NAME> <DATASET_CSV> <OUT_FILE> [OPTIONS]
 ```
 
 ## Description
@@ -24,11 +24,11 @@ The model must declare a `report` entry point in its `MLproject` file. See [Addi
 
 | Parameter | Description |
 |-----------|-------------|
-| `model_path` | Path to an MLProject directory or a GitHub URL pointing to one |
+| `model_name` | Path to an MLProject directory or a GitHub URL pointing to one |
 | `dataset_csv` | Path to a CSV file with historic data in the standard Chap format |
 | `out_file` | Output path for the generated PDF report |
 
-A GeoJSON file with the same base name as `dataset_csv` is auto-discovered if present.
+Each parameter can also be passed as a keyword flag (`--model-name`, `--dataset-csv`, `--out-file`). A GeoJSON file with the same base name as `dataset_csv` is auto-discovered if present.
 
 ## Run Configuration
 

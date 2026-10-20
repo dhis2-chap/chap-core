@@ -247,6 +247,7 @@ The `JobType` enum defines the canonical job types:
 - `EVALUATION` ("create_backtest_from_data") -- backtest with inline data
 - `PREDICTION` ("create_prediction") -- prediction
 - `DATASET` ("create_dataset") -- dataset import
+- `BASELINE` ("run_baseline") -- a baseline model run on a backtest specification, queued by CHAP itself
 
 These string values are the contract with the Modeling App frontend.
 
@@ -268,7 +269,8 @@ Chapkit is an external model service framework. The integration works as follows
 4. Once the service is registered with the pinned commit, `chap-admin install` stores
    its template through `POST /v1/crud/model-templates/from-service` (from the service's
    info and config schema) and adds the marketplace entry's verified configurations
-   through `POST /v1/crud/configured-models`.
+   through `POST /v1/crud/configured-models`. It also passes the entry's `role`, so a
+   model flagged `role: comparison` in the marketplace is stored as a comparison model.
 5. When `GET /v1/crud/model-templates` is called, `_sync_live_chapkit_services()`
    queries the orchestrator, stores a template for every registered service that has
    none under its version yet, and reports each stored template's `health_status`. It

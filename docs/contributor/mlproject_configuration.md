@@ -23,7 +23,7 @@ Note that defining rest_api_url is experimental, and is used for using MLproject
 
 ### Example
 
-From `external_models/naive_python_model_with_mlproject_file_and_docker/MLproject`:
+From `tests/fixture_models/naive_python_model_with_mlproject_file_and_docker/MLproject`:
 
 ```yaml
 name: naive_python

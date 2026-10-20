@@ -24,7 +24,7 @@ The MLproject file need to contain:
 
 ### Example MLproject file
 
-Taken from our minimalist_example
+Taken from our minimalist_example_uv
 
 ```yaml
 name: minimalist_example_uv

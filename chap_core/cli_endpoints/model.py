@@ -99,8 +99,8 @@ def schema_cmd(
 
     Examples:
         chap model schema https://github.com/dhis2-chap/minimalist_example_lag
-        chap model schema ./external_models/my_model --output-file schema.yaml
-        chap model schema ./external_models/my_model --example
+        chap model schema ./my_model --output-file schema.yaml
+        chap model schema ./my_model --example
     """
     import yaml
 

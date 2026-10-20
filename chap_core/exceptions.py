@@ -25,6 +25,10 @@ class ChapkitServiceStartupError(Exception):
     """Raised when a chapkit model service fails to start."""
 
 
+class ChapkitServicePortInUseError(ChapkitServiceStartupError):
+    """Raised when a chapkit model service exits at startup because its port is taken."""
+
+
 class DockerUnavailableError(Exception):
     """Raised when the Docker daemon cannot be reached."""
 
@@ -47,4 +51,18 @@ class ModelTemplateRevisionConflict(ValueError):
             f"Model template {name!r} version {version!r} is stored from revision {stored_digest!r}, "
             f"but its source now reports revision {reported_digest!r}. A version is write-once, so "
             f"the new revision needs a new version label: {how_to_fix}"
+        )
+
+
+class BaselineTemplateConflict(ValueError):
+    """A registered service uses the name of a built-in baseline model template.
+
+    Baselines are built into chap-core, so a service cannot store, update or supersede them.
+    """
+
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(
+            f"Model template {name!r} is a built-in baseline and cannot be stored from a service. "
+            "Register the service under another model id."
         )

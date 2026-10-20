@@ -9,6 +9,7 @@ adds them to the registry based on their spec.metric_id.
 """
 
 import logging
+import math
 from typing import cast
 
 import pandas as pd
@@ -24,6 +25,12 @@ from chap_core.assessment.metrics.base import (
     OptimizationDirection,
     ProbabilisticMetric,
     TargetBehavior,
+)
+from chap_core.assessment.metrics.comparison import (
+    comparison_op,
+    get_comparison_description,
+    get_comparison_op,
+    list_comparison_ops,
 )
 from chap_core.database.tables import Backtest
 
@@ -41,6 +48,8 @@ def metric():
             raise TypeError(f"{cls} must be a class inheriting from Metric")
         if not hasattr(cls, "spec"):
             raise ValueError(f"{cls.__name__} missing 'spec' class attribute")
+        if cls.spec.comparison_op is not None:
+            get_comparison_op(cls.spec.comparison_op)
 
         _metrics_registry[cls.spec.metric_id] = cls
         return cls
@@ -72,6 +81,7 @@ def list_metrics() -> list[dict]:
                 "target": spec.target,
                 "target_behavior": spec.target_behavior.value,
                 "aggregation_op": spec.aggregation_op.value,
+                "comparison_op": spec.comparison_op,
                 "optimization_direction": (
                     spec.optimization_direction.value if spec.optimization_direction is not None else None
                 ),
@@ -104,7 +114,6 @@ from chap_core.assessment.metrics.crps import CRPSLog1pMetric, CRPSMetric
 from chap_core.assessment.metrics.crps_norm import CRPSNormMetric
 from chap_core.assessment.metrics.mae import MAEMetric
 from chap_core.assessment.metrics.mape import MAPEMetric
-from chap_core.assessment.metrics.peak_diff import PeakPeriodLagMetric, PeakValueDiffMetric
 from chap_core.assessment.metrics.percentile_coverage import (
     Coverage10_90Metric,
     Coverage25_75Metric,
@@ -137,8 +146,6 @@ __all__ = [
     "MAPEMetric",
     "Metric",
     "MetricSpec",
-    "PeakPeriodLagMetric",
-    "PeakValueDiffMetric",
     "PercentileCoverageMetric",
     "ProbabilisticMetric",
     "RMSEMetric",
@@ -150,8 +157,13 @@ __all__ = [
     "WinklerScoreLog1pMetric",
     "WinklerScoreMetric",
     "available_metrics",
+    "compare_aggregated_metrics",
+    "comparison_op",
+    "get_comparison_description",
+    "get_comparison_op",
     "get_metric",
     "get_metrics_registry",
+    "list_comparison_ops",
     "list_metrics",
     "metric",
 ]
@@ -192,6 +204,23 @@ def compute_all_aggregated_metrics_from_backtest(backtest: Backtest) -> dict[str
 
     logger.info(f"Computed metrics: {list(results.keys())}")
     return results
+
+
+def compare_aggregated_metrics(scores: dict[str, float], reference_scores: dict[str, float]) -> dict[str, float | None]:
+    """Compare aggregated metrics with a reference model's, positive meaning better than the reference.
+
+    Covers each metric both have that has a comparison operator. A comparison that is
+    undefined, for example a skill ratio against a reference score of 0, is None.
+    """
+    comparisons: dict[str, float | None] = {}
+    for metric_id, score in scores.items():
+        metric_cls = _metrics_registry.get(metric_id)
+        if metric_cls is None or metric_id not in reference_scores:
+            continue
+        value = metric_cls().compare(score, reference_scores[metric_id])
+        if value is not None:
+            comparisons[metric_id] = None if math.isnan(value) else value
+    return comparisons
 
 
 def compute_all_detailed_metrics(evaluation: Evaluation) -> pd.DataFrame:

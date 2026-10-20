@@ -16,7 +16,7 @@ Follow these steps if you already have Chap Core installed and want to update to
 
 ```console
 # Create a backup of the PostgreSQL database
-docker compose exec -T postgres pg_dump -U ${POSTGRES_USER} chap_core > backup_$(date +%Y%m%d_%H%M%S).sql
+docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > backup_$(date +%Y%m%d_%H%M%S).sql
 ```
 
 ## 2. Update the Repository
@@ -32,7 +32,7 @@ git fetch --tags
 git tag -l
 
 # Checkout the new version you want to upgrade to
-git checkout [VERSION] #Replace with your desired version, e.g. v1.0.18
+git checkout [VERSION] #Replace with your desired version, e.g. v2.4.0
 ```
 
 For latest release go to: [https://github.com/dhis2-chap/chap-core/releases](https://github.com/dhis2-chap/chap-core/releases)
@@ -69,10 +69,11 @@ For latest release go to: [https://github.com/dhis2-chap/chap-core/releases](htt
     ```console
     docker compose -f compose.yml -f compose.chapkit.yml down
     docker compose up --build -d
+    uv tool install chap-core==[VERSION] --python 3.13
     chap-admin install-all
     ```
 
-    Install uv first if you do not have it, as described in the [prerequisites](fresh-installation.md#prerequisites). Use only `compose.yml` and `compose.marketplace.yml` from then on. Running both overlays starts two EWARS services under the same id, and Chap sends work to whichever registered last. Backtests made with the old EWARS model are kept.
+    Install uv first if you do not have it, as described in the [prerequisites](fresh-installation.md#prerequisites). `chap-admin` ships with chap-core 2.4.0 and later. Use only `compose.yml` and `compose.marketplace.yml` from then on. Running both overlays starts two EWARS services under the same id, and Chap sends work to whichever registered last. Backtests made with the old EWARS model are kept.
 
 ```console
 # Stop all containers first
@@ -91,7 +92,7 @@ docker compose -f compose.yml -f compose.marketplace.yml up -d
 
 Docker compose up will:
 
-- Pull any updated Docker images
+- Build the chap and worker images from the checked-out source (the first build after an upgrade takes several minutes) and pull the other images
 - **Automatically migrate your database** to the new schema
 - Start all services with the new version
 
@@ -127,7 +128,7 @@ docker compose -f compose.yml -f compose.marketplace.yml up -d postgres
 
 # Wait for postgres to initialize, then restore the backup
 
-cat backup_20241023_120000.sql | docker compose exec -T postgres psql -U ${POSTGRES_USER} chap_core
+cat backup_20241023_120000.sql | docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" "$POSTGRES_DB"'
 
 # Start all services
 docker compose -f compose.yml -f compose.marketplace.yml up --build

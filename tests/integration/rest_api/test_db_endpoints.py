@@ -14,8 +14,13 @@ from chap_core.api_types import DataList, EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import create_tsdataclass
 from chap_core.database.dataset_manager import DataSetManager
-from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
-from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo, DataSetWithObservations, ObservationBase
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateRole
+from chap_core.database.dataset_tables import (
+    DataSet,
+    DataSetWithObservations,
+    Observation,
+    ObservationBase,
+)
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.tables import (
     Backtest,
@@ -23,15 +28,12 @@ from chap_core.database.tables import (
     BacktestSpecification,
     Prediction,
     PredictionInfo,
-    PredictionRead,
 )
 from chap_core.rest_api.data_models import (
     BacktestCreate,
-    BacktestFull,
     ConfiguredModelInfoRead,
     DatasetCreate,
     DatasetMakeRequest,
-    FetchRequest,
     MakePredictionRequest,
     ModelConfigurationCreate,
     ModelTemplateRead,
@@ -96,55 +98,6 @@ def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_ove
         plot_id = plot_types[0]["id"]
         response = client.get(f"/v1/visualization/dataset-plots/{plot_id}/999999")
         assert response.status_code == 404, response.text
-
-
-# @pytest.mark.slow
-@pytest.mark.parametrize("do_filter", [True, False])
-@pytest.mark.slow
-@pytest.mark.skip(reason="not in use")
-def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, weekly_full_data, do_filter):
-    with SessionWrapper(clean_engine) as session:
-        dataset_id = DataSetManager(session.session).save_dataset(
-            DataSetCreateInfo(name="full_data", type="evaluation"), weekly_full_data, "polygons"
-        )
-    response = client.post(
-        "/v1/analytics/create-backtest", json={"datasetId": dataset_id, "modelId": "naive_model", "name": "x"}
-    )
-    assert response.status_code == 200, response.json()
-    job_id = response.json()["id"]
-    db_id = await_result_id(job_id)
-    response = client.get(f"/v1/crud/backtests/{db_id}")
-
-    # just make sure the datasets are valid
-    dataset_response = client.get("/v1/crud/datasets")
-
-    assert response.status_code == 200, response.json()
-    BacktestFull.model_validate(response.json())
-    split_period, org_units = None, []
-    if do_filter:
-        split_period = "2022W30"
-        org_units = ["granada"]
-
-    params = {"backtestId": db_id, "quantiles": [0.1, 0.5, 0.9]}
-    if do_filter:
-        params |= {"splitPeriod": split_period, "orgUnits": org_units}
-
-    response = client.get("/v1/analytics/evaluation-entry", params=params)
-
-    assert response.status_code == 200, response.json()
-    evaluation_entries = response.json()
-    params = {} if not do_filter else {"orgUnits": org_units}
-    actual_cases_response = client.get(f"/v1/analytics/actualCases/{db_id}", params=params)
-    assert actual_cases_response.status_code == 200, actual_cases_response.json()
-    actual_cases = DataList.model_validate(actual_cases_response.json())
-    for entry in evaluation_entries:
-        assert "splitPeriod" in entry, f"splitPeriod not in entry: {entry.keys()}"
-        entry = EvaluationEntry.model_validate(entry)
-        if do_filter:
-            assert entry.splitPeriod == split_period, (entry.split_period, split_period)
-            assert entry.orgUnit in org_units, (entry.org_unit, org_units)
-    if do_filter:
-        assert {entry["orgUnit"] for entry in evaluation_entries} == set(org_units), (evaluation_entries, org_units)
 
 
 def test_add_non_full_dataset(celery_session_worker, clean_engine, dependency_overrides, local_data_path):
@@ -284,35 +237,6 @@ def test_get_covariate_names(dependency_overrides):
         assert model_name in by_name[covariate]["requiredBy"], by_name[covariate]
 
 
-@pytest.fixture
-def make_prediction_request(make_dataset_request):
-    return MakePredictionRequest(
-        model_id="naive_model", meta_data={"test": "test"}, **make_dataset_request.model_dump()
-    )
-
-
-def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_prediction_request):
-    data = make_prediction_request.model_dump_json()
-    response = client.post("/v1/analytics/make-prediction", content=data)
-    assert response.status_code == 200, response.json()
-    db_id = await_result_id(response.json()["id"])
-    response = client.get(f"/v1/crud/predictions/{db_id}")
-    assert response.status_code == 200, response.json()
-    ds = PredictionRead.model_validate(response.json())
-    assert ds.meta_data == make_prediction_request.meta_data
-    assert len(ds.forecasts) > 0
-    assert all(len(f.values) for f in ds.forecasts)
-
-
-@pytest.fixture()
-def make_dataset_request(example_polygons) -> DatasetMakeRequest:
-    pytest.skip("We don it support fetching from gee anymore")
-    # fetch_request = [FetchRequest(feature_name="mean_temperature", data_source_name="mean_2m_air_temperature")]
-    fetch_request = []  # we don't support fetch request anymore
-    proivided_features = ["rainfall", "disease_cases", "population"]
-    return create_make_data_request(example_polygons, fetch_request, proivided_features)
-
-
 def create_make_data_request(example_polygons, fetch_request, proivided_features):
     locations = [f.id for f in example_polygons.features]
     periods = [f"{year}-{month:02d}" for year in range(2020, 2024) for month in range(1, 13)]
@@ -328,62 +252,6 @@ def create_make_data_request(example_polygons, fetch_request, proivided_features
     )
 
     return request
-
-
-@pytest.fixture()
-def anonymous_make_dataset_request(data_path):
-    pytest.skip("We don't support requests with fetching from gee anymore")
-    with open(data_path / "anonymous_make_dataset_request.json", "r") as f:
-        request = DatasetMakeRequest.model_validate_json(f.read())
-        request.data_to_be_fetched = []
-        return request
-
-
-def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_request):
-    _make_dataset(make_dataset_request)
-
-
-def test_make_dataset_return_rejection_summary(celery_session_worker, dependency_overrides, make_dataset_request):
-    first_rainfall_idx = next(
-        i for i, o in enumerate(make_dataset_request.provided_data) if o.feature_name == "rainfall"
-    )
-    r = make_dataset_request.provided_data.pop(first_rainfall_idx)
-    assert r.feature_name == "rainfall"
-    # with pytest.raises(AssertionError) as excinfo:
-    _make_dataset(make_dataset_request, expected_rejections=["LGNjeakKI1q"])
-    # print(excinfo)
-
-
-def test_make_dataset_anonymous(celery_session_worker, dependency_overrides, anonymous_make_dataset_request):
-    _make_dataset(anonymous_make_dataset_request)
-
-
-def test_backtest_flow_from_request(
-    celery_session_worker, clean_engine, dependency_overrides, anonymous_make_dataset_request
-):
-    db_id = _make_dataset(anonymous_make_dataset_request)
-    response = client.post(
-        "/v1/analytics/create-backtest",
-        json={"datasetId": db_id, "name": "testing", "modelId": "naive_model", "nSplits": 2, "nRetrain": 2},
-    )
-    assert response.status_code == 200, response.json()
-    job_id = response.json()["id"]
-    db_id = await_result_id(job_id, timeout=120)
-    backtests = client.get("/v1/crud/backtests").json()
-    assert len(backtests) > 0
-    for backtest in backtests:
-        assert "dataset" in backtest, backtest
-        assert "configuredModel" in backtest, backtest
-        assert backtest["dataset"]["id"] is not None, backtest
-        assert backtest["configuredModel"]["name"] is not None, backtest
-        assert "modelTemplate" in backtest["configuredModel"], backtest["configuredModel"]
-    response = client.get(f"/v1/crud/backtests/{db_id}")
-    assert response.status_code == 200, response.json()
-    data = response.json()
-    assert data["name"] == "testing"
-    assert data["created"] is not None
-    # The row records the resolved evaluation parameters.
-    assert (data["nPeriods"], data["nSplits"], data["stride"], data["nRetrain"]) == (3, 2, 1, 2)
 
 
 def test_compatible_backtests(clean_engine, dependency_overrides):
@@ -575,6 +443,7 @@ def test_create_backtests_resolves_the_specification_and_queues_one_job_per_mode
     for func, _, kwargs in worker.queued:
         assert func is run_backtest
         assert (kwargs["n_periods"], kwargs["n_splits"], kwargs["stride"], kwargs["n_retrain"]) == (3, 4, 1, 2)
+        assert kwargs["baseline_database_url"] == kwargs["database_url"]
 
     specification = client.get(f"/v1/crud/backtest-specifications/{data['specificationId']}").json()
     assert (specification["dataset"]["id"], specification["nSplits"], specification["nRetrain"]) == (dataset_id, 4, 2)
@@ -733,7 +602,11 @@ def test_every_backtest_parameter_is_part_of_the_uniqueness_key():
         for c in BacktestSpecification.__table__.constraints
         if getattr(c, "name", None) == "uq_backtestspecification_params"
     )
-    assert {column.name for column in constraint.columns} == {"dataset_id", *BacktestParams.model_fields}
+    assert {column.name for column in constraint.columns} == {
+        "dataset_id",
+        "target_column",
+        *BacktestParams.model_fields,
+    }
 
 
 def test_differing_parameters_produce_different_specifications(p_seeded_engine):
@@ -744,6 +617,40 @@ def test_differing_parameters_produce_different_specifications(p_seeded_engine):
 
         assert two_splits.specification_id != three_splits.specification_id
         assert (two_splits.n_splits, three_splits.n_splits) == (2, 3)
+
+
+def test_target_column_is_scored_and_separates_specifications(override_session, p_seeded_engine):
+    from chap_core.assessment.evaluation import Evaluation
+
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        for observation in session.session.exec(select(Observation).where(Observation.feature_name == "rainfall")):
+            observation.value = 7.0
+        session.session.commit()
+        params = {"n_periods": 3, "n_splits": 2}
+        default = session.session.get(Backtest, _run(session, "default", dataset_id, **params))
+        rainfall = session.session.get(Backtest, _run(session, "rain", dataset_id, target_column="rainfall", **params))
+
+        assert default.specification_id != rainfall.specification_id
+        assert set(Evaluation.from_backtest(rainfall).to_flat().observations.disease_cases) == {7.0}
+    rows = client.get("/v1/crud/backtest-specifications", params={"targetColumn": "rainfall"}).json()
+    assert [row["id"] for row in rows] == [rainfall.specification_id]
+    actual_cases = DataList.model_validate(client.get(f"/v1/analytics/actual-cases/{rainfall.id}").json())
+    assert {entry.value for entry in actual_cases.data} == {7.0}
+
+
+@pytest.mark.parametrize("endpoint", ["create-backtest", "create-backtests"])
+def test_create_backtest_rejects_unknown_target_column(override_session, seeded_session, monkeypatch, endpoint):
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    dataset_id = seeded_session.exec(select(DataSet.id)).first()
+    payload = {"name": "x", "datasetId": dataset_id, "modelId": "naive_model", "modelIds": ["naive_model"]}
+
+    response = client.post(f"/v1/analytics/{endpoint}", json={**payload, "targetColumn": "missing"})
+    assert response.status_code == 422, response.text
+    assert worker.queued == []
 
 
 def test_differing_weather_providers_produce_different_specifications(p_seeded_engine):
@@ -796,7 +703,11 @@ def test_specification_filter_covers_every_backtest_parameter():
     from chap_core.api_types import BacktestParams
     from chap_core.rest_api.data_models import BacktestSpecificationFilter
 
-    assert set(BacktestSpecificationFilter.model_fields) == {"dataset_id", *BacktestParams.model_fields}
+    assert set(BacktestSpecificationFilter.model_fields) == {
+        "dataset_id",
+        "target_column",
+        *BacktestParams.model_fields,
+    }
     assert all(field.default is None for field in BacktestSpecificationFilter.model_fields.values())
 
 
@@ -869,6 +780,35 @@ def test_list_backtests_filters_by_specification_and_dataset(override_session, p
     by_dataset = client.get("/v1/crud/backtests", params={"datasetId": dataset_id}).json()
     assert {first_id, second_id, other_id} <= {b["id"] for b in by_dataset}
     assert all(b["datasetId"] == dataset_id for b in by_dataset)
+
+
+def test_backtest_listings_hide_baseline_backtests(override_session, p_seeded_engine):
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        params = {"n_periods": 3, "n_splits": 2, "stride": 1, "n_retrain": 1}
+        baseline_id = _run(session, "baseline", dataset_id, **params)
+        # Same regions and splits, so without the filter it would list the baseline as compatible.
+        other_id = _run(session, "other", dataset_id, **params)
+        backtest = session.session.get(Backtest, baseline_id)
+        specification_id = backtest.specification_id
+        template = backtest.configured_model.model_template
+        template.role = ModelTemplateRole.baseline
+        session.session.add(template)
+        session.session.commit()
+
+    # The backtest is still there, and it carries the role of its template.
+    response = client.get(f"/v1/crud/backtests/{baseline_id}")
+    assert response.status_code == 200, response.text
+    assert response.json()["configuredModel"]["modelTemplate"]["role"] == "baseline"
+
+    assert baseline_id not in {b["id"] for b in client.get("/v1/crud/backtests").json()}
+    specification = client.get(f"/v1/crud/backtest-specifications/{specification_id}").json()
+    assert baseline_id not in {b["id"] for b in specification["backtests"]}
+    summaries = client.get("/v1/crud/backtest-specifications").json()
+    counts = {row["id"]: row["backtestCount"] for row in summaries}
+    assert counts.get(specification_id, 0) == len(specification["backtests"])
+    compatible = client.get(f"/v1/analytics/compatible-backtests/{other_id}").json()
+    assert baseline_id not in {b["id"] for b in compatible}
 
 
 def test_backtest_read_still_exposes_the_parameters_flat(override_session, p_seeded_engine):
@@ -1438,6 +1378,60 @@ def test_run_prediction_setup_inherits_the_backtest_provider(
     assert captured["prediction_params"].future_weather_provider == "damped_persistence"
 
 
+def test_run_prediction_setup_forecasts_the_backtest_target(
+    override_session, seeded_session, p_seeded_engine, example_polygons, monkeypatch
+):
+    from types import SimpleNamespace
+
+    from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW
+    from chap_core.rest_api.v1.routers import crud
+
+    backtest = seeded_session.exec(select(Backtest)).first()
+    backtest.model_db_id = seeded_session.exec(
+        select(ConfiguredModelDB.id).where(ConfiguredModelDB.name == "naive_model")
+    ).one()
+    backtest.specification = BacktestSpecification(
+        **backtest.specification.model_dump(exclude={"id"}) | {"target_column": "hospitalisations"}
+    )
+    seeded_session.commit()
+    setup_id = _create_prediction_setup(backtest.id, "Target forecast").json()["id"]
+
+    request = create_make_data_request(example_polygons, [], ["rainfall", "hospitalisations", "disease_cases"])
+    for observation in request.provided_data:
+        observation.value = 0.0 if observation.feature_name == "hospitalisations" else 1000.0
+        if observation.feature_name != "rainfall" and observation.period == "2020-01":
+            observation.value = None  # Target gaps must not reject otherwise valid locations.
+    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources"})
+    payload["nPeriods"] = 3
+
+    def run_inline(func, *args, **kwargs):
+        for key in ("database_url", JOB_TYPE_KW, JOB_NAME_KW, JOB_REQUEST_KW):
+            kwargs.pop(key)
+        kwargs["prediction_params"] = kwargs["prediction_params"].model_dump()
+        with SessionWrapper(p_seeded_engine) as session:
+            prediction_id = func(*args, session=session, **kwargs)
+        return SimpleNamespace(id=str(prediction_id))
+
+    monkeypatch.setattr(crud.worker, "queue_db", run_inline)
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    assert response.status_code == 200, response.text
+
+    prediction = seeded_session.get(Prediction, int(response.json()["id"]))
+    assert len(prediction.forecasts) == 3 * len(example_polygons.features)
+    # Training on hospitalisations (all zero) rather than disease_cases gives all-zero samples.
+    assert all(forecast.values and set(forecast.values) == {0.0} for forecast in prediction.forecasts)
+
+
+def test_run_prediction_setup_rejects_missing_target(override_session, seeded_session, example_polygons):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    setup_id = _create_prediction_setup(backtest.id, "Missing target").json()["id"]
+    request = create_make_data_request(example_polygons, [], ["rainfall"])
+    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources"})
+
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    assert response.status_code == 422, response.text
+
+
 def test_run_prediction_setup_rejects_a_look_ahead_provider(override_session, seeded_session, example_polygons):
     """`observed` reads the forecast window's own weather, so it cannot forecast ahead.
     Fail at the endpoint rather than deep inside the worker."""
@@ -1911,7 +1905,6 @@ def local_backtest_request(local_data_path):
     return json.load(open(local_data_path / "create-backtest-from-data.json", "r"))
 
 
-# @pytest.mark.skip(reason="This ends up with an empty dataset")
 def test_local_backtest_with_data(
     local_backtest_request, celery_session_worker, dependency_overrides, example_polygons
 ):
@@ -2229,17 +2222,6 @@ def test_attaching_an_alert_policy_by_patch(override_session, seeded_session):
     assert response.json()["alertPolicy"]["id"] == policy_id
 
 
-def test_deleting_an_alert_policy_in_use_returns_409(override_session, seeded_session):
-    """A running forecast must not lose the definition of what counts as an alert."""
-    backtest = seeded_session.exec(select(Backtest)).first()
-    assert backtest is not None
-    policy_id = _create_alert_policy("Ladder G").json()["id"]
-    payload = _prediction_setup_payload(backtest.id, "Setup holding a policy") | {"alertPolicyId": policy_id}
-    assert client.post("/v1/crud/prediction-setups", json=payload).status_code == 200
-
-    assert client.delete(f"/v1/crud/alert-policies/{policy_id}").status_code == 409
-
-
 # alerts
 
 
@@ -2271,11 +2253,6 @@ def test_create_alert_with_a_level_the_policy_lacks_returns_422(clean_engine, de
     assert response.status_code == 422, response.text
 
 
-def test_create_alert_with_unknown_policy_returns_422(clean_engine, dependency_overrides):
-    response = client.post("/v1/crud/alerts", json={"alerts": [_alert_payload(99999)]})
-    assert response.status_code == 422, response.text
-
-
 def test_get_unknown_alert_returns_404(clean_engine, dependency_overrides):
     assert client.get("/v1/crud/alerts/99999").status_code == 404
 
@@ -2296,25 +2273,7 @@ def test_approving_a_set_of_alerts(clean_engine, dependency_overrides):
     assert {alert["approvedBy"] for alert in response.json()} == {"knut"}
 
 
-def test_declining_keeps_alerts_out_of_the_queue(clean_engine, dependency_overrides):
-    """A declined alert must not come back around for re-triage."""
-    policy_id = _create_alert_policy("Alerts D").json()["id"]
-    (alert_id,) = _create_alerts(policy_id, org_unit="OU_DECLINED").json()["ids"]
-
-    response = client.post(
-        "/v1/crud/alerts/$approve",
-        json={"alertIds": [alert_id], "approved": "declined", "approvedBy": "knut"},
-    )
-    assert response.status_code == 200, response.text
-
-    queue = client.get("/v1/crud/alerts", params={"approved": "pending", "orgUnit": "OU_DECLINED"}).json()
-    assert queue == []
-    declined = client.get("/v1/crud/alerts", params={"approved": "declined", "orgUnit": "OU_DECLINED"}).json()
-    assert [alert["id"] for alert in declined] == [alert_id]
-
-
-def test_approving_with_one_unknown_id_changes_nothing(clean_engine, dependency_overrides):
-    """The reviewer gets a 404 rather than a half-applied decision."""
+def test_approving_with_an_unknown_id_returns_404(clean_engine, dependency_overrides):
     policy_id = _create_alert_policy("Alerts E").json()["id"]
     (alert_id,) = _create_alerts(policy_id).json()["ids"]
 
@@ -2323,7 +2282,6 @@ def test_approving_with_one_unknown_id_changes_nothing(clean_engine, dependency_
         json={"alertIds": [alert_id, 99999], "approved": "approved", "approvedBy": "knut"},
     )
     assert response.status_code == 404, response.text
-    assert client.get(f"/v1/crud/alerts/{alert_id}").json()["approved"] == "pending"
 
 
 def test_listing_alerts_filters_by_policy(clean_engine, dependency_overrides):

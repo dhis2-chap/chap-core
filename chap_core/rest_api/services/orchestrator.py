@@ -115,7 +115,7 @@ class Orchestrator:
             }
 
             pipe.multi()
-            pipe.setex(key, self.ttl_seconds, json.dumps(service_data))
+            pipe.set(key, json.dumps(service_data), ex=self.ttl_seconds)
 
         # WATCH/MULTI/EXEC: a concurrent write to the key between the read and the
         # write makes EXEC fail and redis-py retries against the new state.
@@ -165,7 +165,7 @@ class Orchestrator:
             service_data["expires_at"] = expires_at
 
             pipe.multi()
-            pipe.setex(key, self.ttl_seconds, json.dumps(service_data))
+            pipe.set(key, json.dumps(service_data), ex=self.ttl_seconds)
 
         # The read and the write run as one WATCH/MULTI/EXEC transaction, so a ping
         # can neither recreate a registration deleted in between nor overwrite a

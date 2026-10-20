@@ -5,8 +5,6 @@ import pytest
 
 from chap_core.assessment.weather_providers import get_future_weather, resolve_weather_provider
 
-from ..data_fixtures import full_data, multi_year_climate_health_data  # noqa: F401
-
 
 def test_provider_is_registered_and_does_not_leak():
     assert resolve_weather_provider("damped_persistence").leaks_future_data is False

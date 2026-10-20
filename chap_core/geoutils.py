@@ -194,7 +194,7 @@ def simplify_topology(polygons: Polygons, threshold=None) -> Polygons:
     Polygons
         A simplified `Polygons` object with preserved topology.
     """
-    import topojson as tp
+    from topojson.core.topology import Topology
 
     # auto calc threshold if not given
     if not threshold:
@@ -215,7 +215,7 @@ def simplify_topology(polygons: Polygons, threshold=None) -> Polygons:
         "prevent_oversimplify": True,
         #'simplify_with': 'simplification',
     }
-    topo = tp.Topology(polygons.__geo_interface__, **kwargs)
+    topo = Topology(polygons.__geo_interface__, **kwargs)
 
     # convert back to geojson
     geoj = topo.__geo_interface__

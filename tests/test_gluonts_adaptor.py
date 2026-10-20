@@ -13,7 +13,6 @@ from chap_core.file_io.example_data_set import datasets
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import PeriodRange
 from chap_core.data.datasets import ISIMIP_dengue_harmonized
-from .data_fixtures import train_data_pop, full_data
 
 
 @pytest.fixture
@@ -36,8 +35,8 @@ def test_to_dataset(gluonts_vietnam_dataset):
 
 def test_to_testinstances(train_data_pop: DataSet):
     train, test = train_test_split(train_data_pop, prediction_start_period=train_data_pop.period_range[-3])  # type: ignore[reportArgumentType]
-    ds = DataSetAdaptor().to_gluonts_testinstances(train, test.remove_field("disease_cases"), 3)
-    print(list(ds))
+    instances = list(DataSetAdaptor().to_gluonts_testinstances(train, test.remove_field("disease_cases"), 3))
+    assert len(instances) == len(list(train_data_pop.locations()))
 
 
 def test_to_gluonts(train_data_pop):
@@ -60,8 +59,7 @@ def laos_full_data():
 
 def test_get_dataset(laos_full_data):
     dataset = list(get_dataset(laos_full_data))
-    for data in dataset:
-        print(data)
+    assert len(dataset) > 0
 
 
 def test_get_split_dataset(laos_full_data):
@@ -75,7 +73,7 @@ def test_get_split_dataset(laos_full_data):
 
 @pytest.mark.slow
 def test_full_data(full_dataset):
-    print(list(DataSetAdaptor.to_gluonts_multicountry(full_dataset)))
+    assert list(DataSetAdaptor.to_gluonts_multicountry(full_dataset))
 
 
 def test_forecast_adaptor():

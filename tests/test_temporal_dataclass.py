@@ -1,5 +1,3 @@
-import pickle
-
 import pytest
 import numpy as np
 from chap_core.api_types import PeriodObservation
@@ -46,8 +44,9 @@ def test_aggregate_to_parent(vietnam_dataset):
             for location, data in vietnam_dataset.items()
         }
     )
-    a = samples_with_truth.aggregate_to_parent(field_name="samples")
-    print(a)
+    aggregated = samples_with_truth.aggregate_to_parent(field_name="samples")
+    (parent,) = aggregated.values()
+    assert parent.samples.max() == len(vietnam_dataset.keys())
 
 
 def test_from_csv_autodiscovers_geojson_with_id_in_properties(csv_with_sibling_geojson_id_in_properties):

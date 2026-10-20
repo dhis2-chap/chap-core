@@ -57,10 +57,11 @@ See more about our guidelines for testing in the [testing guide](testing.md).
 
 ### Code formatting
 
-To ensure consistent and standardized code formatting we recommend running the `ruff` tool available from the development environment before making commits which will automatically check and report any formatting issues:
+Before making commits, run the linters and formatters, and then the same checks that CI runs:
 
 ```bash
-$ ruff check
+$ make lint   # ruff --fix, ruff format, mypy, pyright
+$ make check  # what CI runs: the same checks without fixing, plus the alembic head check
 ```
 
 ### Docstring style guide
@@ -71,21 +72,18 @@ Ensure that function and class docstrings include appropriate sections such as '
 
 ### Documentation
 
-Changes to the Chap Core documentation is done inside the `docs` folder, and can be built by writing:
+Changes to the Chap Core documentation are done inside the `docs` folder. Build the site from the project root with:
 
 ```bash
-$ cd docs
-$ make html
+$ make docs
 ```
 
 More detailed guidelines for how to write and build the documentation [can be found here](writing_building_documentation.md).
 
 ### Contributing code
 
-Code contributions should always be made to the `dev` branch first. When the `dev` branch has been used and tested for some time, the Chap team will merge this into the `master` branch.
+Code contributions are made on a new branch and submitted as a [Pull Request](https://github.com/dhis2-chap/chap-core/pulls) targeting the `master` branch of the chap-core repository.
 
 Before making your contribution, always [run the quick test suite](testing.md) to make sure everything works.
 
-Most of the time, contributions should be made on a new branch, and creating a [Pull Request](https://github.com/dhis2-chap/chap-core/pulls) targeting the `dev` branch of the chap-core repository.
-
-If you're an internal developer and only making small changes it's sometimes fine to push directly to the `dev` branch. However, for major changes or code refactoring, internal developers should still consider creating and submitting a PR for more systematic review of the code.
+Fill in the PR template, including the `Review needed:` line, which tells reviewers how much scrutiny the change needs. CI fails PRs that leave it out. See [Pull Request Review](pr_review.md) for the options and how reviews work.

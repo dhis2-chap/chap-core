@@ -8,25 +8,10 @@ database-level ON DELETE action rather than anything the ORM does in Python.
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import event
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, select
 
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.tables import BacktestSpecification
-
-
-@pytest.fixture
-def engine():
-    eng = create_engine("sqlite://")
-
-    @event.listens_for(eng, "connect")
-    def _enable_fk(dbapi_connection, _connection_record):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
-
-    SQLModel.metadata.create_all(eng)
-    return eng
 
 
 def test_deleting_dataset_removes_specifications_that_outlived_their_backtests(engine):

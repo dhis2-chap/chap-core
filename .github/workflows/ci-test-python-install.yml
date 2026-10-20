@@ -14,8 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Keep this block identical to the one in ci-test-external-models.yml;
-  # tests/test_ci_workflows.py checks that they do not drift apart.
+  # Keep this block identical to the one in ci-test-external-models.yml.
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -64,7 +63,7 @@ jobs:
           echo "Service Account Private Key is set"
       - name: Install uv
         if: needs.changes.outputs.tests == 'true'
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.0
       - name: Set up Python ${{ matrix.python-version }}
         if: needs.changes.outputs.tests == 'true'
         run: uv python install ${{ matrix.python-version }}

@@ -15,7 +15,7 @@ This document describes very briefly how to make a model compatible with chapkit
 
 ## How to make a model compatible with chapkit
 
-This guide is not written yet, for now we refer to the chapkit documentation: [https://dhis2-chap.github.io/chapkit/](https://dhis2-chap.github.io/chapkit/).
+The simplest way is to describe the model in an `MLproject` file and let chapkit serve it, with no service code. See [Build a model from an MLproject file](mlproject_tutorial.md). For writing a chapkit service directly, see the chapkit documentation: [https://dhis2-chap.github.io/chapkit/](https://dhis2-chap.github.io/chapkit/).
 
 
 ## Data format sent to chapkit models
@@ -150,11 +150,12 @@ chap eval --model-name http://localhost:5001 --dataset-csv https://raw.githubuse
 
 ## How to use chapkit models in chap with the modeling app
 
-The bundled chapkit model services ship as compose overlays and register
-themselves with chap on startup. Start chap with the overlay and they appear in
-the modeling app automatically — see
-[First-time Setup](../modeling-app/fresh-installation.md) for the run command.
+Model services from the marketplace are installed with `chap-admin install-all`,
+which starts the services and registers their templates and configurations with
+chap, so they appear in the modeling app. See
+[Install the Models](../modeling-app/fresh-installation.md#5-install-the-models)
+for the commands.
 
-To add a model service that is not bundled, see
-[Enabling Optional Model Services](../modeling-app/enabling-optional-model-services.md).
+To add a model service that is not in the marketplace, see
+[Running Your Own Model](../modeling-app/running-your-own-model.md).
 

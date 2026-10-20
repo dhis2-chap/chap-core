@@ -12,30 +12,8 @@ from chap_core.api_types import (
 from chap_core.rest_api.worker_functions import (
     get_combined_dataset,
     get_health_dataset,
-    train_on_json_data,
 )
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-
-
-@pytest.mark.skip("Missing valid data")
-def test_train_on_json_data(request_json):
-    train_on_json_data(request_json, "HierarchicalModel", "test_model_path")
-
-
-@pytest.mark.skip("Missing valid data")
-def test_train_on_json_data_big(big_request_json):
-    train_on_json_data(big_request_json, "ProbabilisticFlaxModel", "test_model_path")
-
-
-@pytest.mark.slow
-@pytest.mark.skip(reason="Outdated")
-def test_train_on_json_data_new(big_request_json, models_path):
-    train_on_json_data(
-        big_request_json,
-        # models_path/'naive_python_model_with_mlproject_file_and_docker',
-        "https://github.com/sandvelab/chap_auto_ewars",
-        None,
-    )
 
 
 def test_get_health_dataset():

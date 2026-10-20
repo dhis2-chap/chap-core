@@ -11,6 +11,7 @@ from chap_core.database.dataset_tables import DataSetCreateInfo, ObservationBase
 from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateInformation,
     ModelTemplateMetaData,
+    ModelTemplateRole,
 )
 from chap_core.database.tables import (
     BacktestBase,
@@ -141,21 +142,12 @@ class BacktestFull(BacktestRead):
 class BacktestSpecificationSummary(BacktestParams):
     """One row of the specification list: the setup plus how much has been run under it, without the backtests."""
 
+    target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
+
     id: int = Field(description="Primary key of the specification.")
     dataset: DataSetMeta = Field(description="Slim summary of the dataset the specification evaluates against.")
     org_unit_count: int = Field(description="Number of org units the evaluation runs over.")
     backtest_count: int = Field(description="Number of backtests that ran under this specification.")
-
-
-class BacktestSpecificationRead(BacktestParams):
-    """A specification with every backtest under it: the benchmark leaderboard in one response."""
-
-    id: int = Field(description="Primary key of the specification.")
-    dataset: DataSetMeta = Field(description="Slim summary of the dataset the specification evaluates against.")
-    org_units: list[str] = Field(description="Org units the evaluation runs over, resolved from the dataset.")
-    backtests: list[BacktestRead] = Field(
-        description="Every backtest that ran under this specification, newest first. Comparable by construction."
-    )
 
 
 # Derived from BacktestParams so a parameter added there is filterable without touching this
@@ -167,10 +159,12 @@ if TYPE_CHECKING:
         """Query parameters of the specification list. Dataset id plus the fields of `BacktestParams`."""
 
         dataset_id: int | None
+        target_column: str | None
 
 else:
     _filter_fields: dict[str, Any] = {
-        "dataset_id": (int | None, Field(default=None, description="Only specifications evaluating this dataset."))
+        "dataset_id": (int | None, Field(default=None, description="Only specifications evaluating this dataset.")),
+        "target_column": (str | None, Field(default=None, description="Only specifications evaluating this column.")),
     }
     for _name, _field in BacktestParams.model_fields.items():
         _filter_fields[_name] = (_field.annotation | None, Field(default=None, description=_field.description))
@@ -225,6 +219,8 @@ class MakePredictionRequest(DatasetMakeRequest, PredictionParams):
 class MakeBacktestRequest(BacktestParams):
     """Request to backtest an already-imported dataset against a configured model."""
 
+    target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
+
     name: str = Field(description="Human-friendly name for the resulting backtest row.")
     model_id: int | str = Field(
         description="Configured model to backtest: either the integer primary key or the canonical string name.",
@@ -234,6 +230,8 @@ class MakeBacktestRequest(BacktestParams):
 
 class MakeBacktestsRequest(BacktestParams):
     """Request to run several configured models on one dataset under one set of evaluation parameters."""
+
+    target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
 
     name: str = Field(description="Name of the run; each backtest is named `<name>/<configured model name>`.")
     model_ids: list[int | str] = Field(
@@ -310,6 +308,14 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     uses_chapkit: bool = Field(
         default=False, description="When True, the template is served by a chapkit REST endpoint."
     )
+    role: ModelTemplateRole | None = Field(
+        default=None,
+        description=(
+            "'baseline' for models built into chap-core that every model is compared against, "
+            "'comparison' for marketplace models flagged to be compared against on request, "
+            "null for ordinary models."
+        ),
+    )
 
     # The horizon fields were renamed to match chapkit. Both spellings are served so a
     # client can move to `*PredictionPeriods` on its own schedule; drop these once none read them.
@@ -338,6 +344,13 @@ class ModelTemplateFromService(DBModel):
     """Request body for storing a model template from a registered chapkit service."""
 
     service_id: str = Field(description="Id the service registered under in the v2 service registry.")
+    role: Literal[ModelTemplateRole.comparison] | None = Field(
+        default=None,
+        description=(
+            "Role from the model's marketplace entry. 'comparison' flags the template as a comparison model; "
+            "null makes it an ordinary model. Baselines are built into chap-core and cannot be set here."
+        ),
+    )
 
 
 class ConfiguredModelInfoRead(DBModel):

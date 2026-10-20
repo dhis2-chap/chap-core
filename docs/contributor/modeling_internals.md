@@ -70,10 +70,49 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
 - **`chap_core/predictor/poisson.py`, `chap_core/predictor/naive_predictor.py`** —
   scikit-learn `PoissonRegressor` baselines (including a per-location, lagged-cases +
   one-hot-season variant). Mostly used in tests and example models.
-- **`chap_core/predictor/naive_estimator.py`** — `NaiveEstimator`, the only built-in
-  model wired into the live system: the database special-cases the configured model
-  named `naive_model` and returns it as a fast, R-free stand-in. It predicts the
-  per-location mean and draws Poisson samples — barely ML (essentially a statistic).
+- **`chap_core/predictor/naive_estimator.py`** — `NaiveEstimator`: the database
+  special-cases the configured model named `naive_model` and returns it as a fast,
+  R-free stand-in. It predicts the per-location mean and draws Poisson samples —
+  barely ML (essentially a statistic).
+- **`chap_core/models/builtin/`** — built-in models: Python models that run
+  in-process. A model subclasses `BuiltinModel`, sets a `BuiltinModelSpec` (whose
+  `version` must change with any change to the model's output or spec) and is
+  registered with `@builtin_model()`. `BuiltinModelTemplate` gives it the same
+  interface as an MLproject or chapkit template, under the source URL
+  `builtin:<name>@<version>` (stored templates run only if the version matches
+  the code), so it runs through `chap eval` and the REST backtest and
+  prediction paths alike (`chap eval --model-name builtin:global_median ...`).
+  Every registered model is seeded at startup with its spec's role, and
+  `tests/test_builtin_models.py` runs each one through all of these paths. The
+  baselines, all with role `baseline` and all per location:
+  - `global_median`: all past observations as forecast samples for every period.
+  - `seasonal_median`: all past observations of the same month or week of the
+    year (week 53 pooled with week 52). Fails if a forecast period of the year was
+    never observed.
+  - `persistence`: the last observed value, scaled by the changes over the same
+    horizon and time of year in earlier years, so the spread widens with horizon.
+
+  All three use deterministic quantile samples whose two middle values are both
+  the median, so the sample median is exactly the point forecast.
+
+  The REST API runs every live baseline once on each backtest specification
+  (`chap_core/rest_api/baseline_runs.py`). A backtest queued through the API asks
+  for them as soon as its specification is resolved, and reading a specification
+  (`GET /v1/crud/backtest-specifications/{id}`) asks for any that are still
+  missing, such as a new baseline version. Each run is a background job with a
+  `SpecificationBaseline` row recording `pending`, `done`, `not_applicable` or
+  `failed`. A baseline that raises `BaselineNotApplicable` for a specification's
+  data is not applicable there and is not retried. A failed run, or one still
+  pending 24 hours after it was queued, is queued again by the next trigger after
+  those 24 hours.
+
+  The same read returns the baselines with their status and aggregate metrics,
+  and compares each backtest's aggregate metrics with every baseline that is
+  done, using the metric's comparison operator. With `includeComparisonModels`,
+  the newest backtest of each `comparison` model on the specification is listed
+  and compared with the same way. The response also lists every metric with its
+  comparison operator and that operator's one-line description, registered with
+  `@comparison_op(name, description)`, so a client needs no second call.
 - **`chap_core/feature_generators/seasonality_cluster.py`** and
   **`chap_core/plotting/season_plot.py`** — scikit-learn `KMeans` seasonality
   clustering (unsupervised).
@@ -100,7 +139,7 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
 
 - **`chap_core/assessment/metrics/`** — the scoring metrics, all hand-implemented on
   numpy: a from-scratch order-statistic **CRPS** estimator, Winkler interval scores,
-  MAE / RMSE / MAPE, percentile-coverage calibration, and peak-timing diff, plus the
+  MAE / RMSE / MAPE and percentile-coverage calibration, plus the
   alert-policy outbreak metrics in `chap_core/assessment/outbreak_metrics/`. This is substantive statistical
   code and the busiest ML-adjacent surface (the REST worker, the REST API router, the
   CLI, and HPO all route through it) — but it is *scoring*, not learning. See

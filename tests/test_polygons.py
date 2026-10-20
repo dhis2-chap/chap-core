@@ -1,8 +1,6 @@
-import pytest
 import tempfile
 import json
 import pathlib
-import logging
 from chap_core.geometry import Polygons
 from chap_core.geoutils import simplify_topology, render
 
@@ -43,6 +41,7 @@ def test_simplify_polygons(data_path, output_path):
 
 def test_laos_polygons(data_path):
     polygons = Polygons.from_file(data_path / "small_laos_data_with_polygons.geojson").data
+    assert len(polygons.features) == 18
     # polygons = Polygons.from_file(data_path / "small_laos_data_with_polygons.geojson", id_property='district').data
 
 

@@ -52,6 +52,35 @@ jobs:
           } > week-changes.md
           wc -l previous-report.md week-changes.md
 
+      - name: Map git authors to GitHub logins
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Git author emails do not map cleanly to GitHub logins, so collect
+          # the mapping from the commits API. Only people with a commit in the
+          # last 90 days are listed, so actions are not tagged to people who
+          # have left.
+          gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/commits?since=$(date -d '12 months ago' --iso-8601=seconds)&per_page=100" \
+            --jq '.[] | select(.author.login != null) | [.author.login, .commit.author.name, .commit.author.email, .commit.author.date] | @tsv' \
+            > commit-authors.tsv
+          python3 - <<'PY' > team.md
+          import collections, datetime
+          cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=90)).isoformat()
+          authors, active = collections.defaultdict(set), set()
+          for line in open("commit-authors.tsv"):
+              login, name, email, date = line.rstrip("\n").split("\t")
+              if login.endswith("[bot]"):
+                  continue
+              authors[login].add(f"{name} <{email}>")
+              if date >= cutoff:
+                  active.add(login)
+          print("# Active team members: GitHub login and git author identities\n")
+          for login in sorted(active):
+              print(f"- {login}: {', '.join(sorted(authors[login]))}")
+          PY
+          cat team.md
+
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -68,6 +97,8 @@ jobs:
             findings. Then read previous-report.md (last week's report, or
             "No previous report.") and week-changes.md (commits and files
             changed since that report, or in the last 7 days).
+            team.md lists the active team members with their GitHub login and
+            the git author names and emails they commit under.
 
             Review in this order and spend most of your effort on the first two:
             1. Code changed since the previous report, read with its surrounding code:
@@ -90,6 +121,9 @@ jobs:
             Write the report to review-report.md in exactly this structure:
 
             # Weekly codebase review
+            ## Suggested next actions
+            At most five, each concrete and small enough for one PR, each
+            ending with "Owner: @login" and a few words on why.
             ## Summary
             Three to five sentences on the state of the codebase and this week's
             most important point.
@@ -97,19 +131,32 @@ jobs:
             ## Persisting findings
             Findings from last week that are still present, one line each.
             ## Resolved since last week
-            ## Suggested next actions
-            At most five, each concrete and small enough for one PR.
 
             Order findings by impact. Each finding is a short paragraph that
             names the file and line range, states the failure scenario or cost
-            in one or two sentences, and says how sure you are. Keep the whole
+            in one or two sentences, and says how sure you are.
+
+            When the findings are written, find an owner for each next action:
+            the team member best placed to fix it because they wrote or changed
+            the code involved. Use git blame on the lines in question, git log
+            on the files and functions (including git log -L), and git show on
+            the commits, whose messages carry the PR number, to see who introduced the
+            behaviour and who has since worked on that code or closely related
+            code. Weigh recent and substantial changes over old or trivial
+            ones such as renames, formatting or dependency bumps. Map git
+            authors to logins with team.md, never tag a login that is not
+            listed there, and write "Owner: unassigned" if no listed member has
+            worked on the code. Spread actions across people when more than one
+            fits. The reason after the owner names the change that makes them
+            the owner, for example "wrote the target column threading in #702".
+            Do not tag anyone outside the next actions. Keep the whole
             report under 1500 words. Write the report file and nothing else; do
             not modify any other file and do not create branches or comments.
           claude_args: |
             --model claude-fable-5-1
-            --max-turns 80
+            --max-turns 120
             --disallowedTools "Agent,Task,Skill"
-            --allowedTools "Write"
+            --allowedTools "Write,Bash(git log:*),Bash(git blame:*),Bash(git show:*)"
 
       - name: Open issue with the report
         env:

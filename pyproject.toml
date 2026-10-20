@@ -1,6 +1,6 @@
 [project]
 name = "chap_core"
-version = "2.4.0.dev0"
+version = "2.6.0.dev0"
 description = "Climate Health Analysis Platform (CHAP)"
 readme = "README.md"
 requires-python = ">=3.13,<3.15"
@@ -38,7 +38,7 @@ dependencies = [
     "rq>=2.9.0",
     "scikit-learn>=1.9.0",
     "statsmodels>=0.14.6",
-    "topojson>=1.10",
+    "topojson>=2.2",
     "unidecode>=1.4.0",
     "uvicorn>=0.48.0",
     "xarray>=2026.4.0",
@@ -58,7 +58,7 @@ dependencies = [
     "optuna>=4.9.0",
     "httpx>=0.28.1",
     "alembic>=1.18.4",
-    "chapkit>=2.1.0,<3",
+    "chapkit>=2.4.0,<3",
     "cryptography>=46.0.7",
     "croniter>=6.2.2",
     "stumpy>=1.14.1",
@@ -110,7 +110,7 @@ chap = "chap_core.cli:main"
 chap-admin = "chap_core.admin_cli:main"
 
 [build-system]
-requires = ["uv_build>=0.10,<0.12"]
+requires = ["uv_build>=0.10,<0.14"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
@@ -122,7 +122,7 @@ target-version = "py313"
 line-length = 120
 # Let Ruff discover both chap_core and tests for both "check" and "format"
 include = ["chap_core/**/*.py", "tests/**/*.py"]
-exclude = ["external_models/**"]
+exclude = ["tests/fixture_models/**"]
 
 [tool.ruff.lint]
 select = [
@@ -168,7 +168,7 @@ norecursedirs = [
     "runs",
     "dist",
     "target",
-    "external_models",
+    "tests/fixture_models",
     ".claude",
 ]
 filterwarnings = [
@@ -271,7 +271,7 @@ include = ["chap_core/", "tests/"]
 exclude = [
     "**/.venv",
     "runs",
-    "external_models",
+    "tests/fixture_models",
     ".claude",
     "tests/.github_cache",
 ]
