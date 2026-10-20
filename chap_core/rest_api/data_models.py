@@ -15,9 +15,6 @@ from chap_core.database.model_templates_and_config_tables import (
 )
 from chap_core.database.tables import (
     BacktestBase,
-    BacktestForecast,
-    BacktestMetric,
-    BacktestRead,
     DataSetMeta,
     QuantileTarget,
 )
@@ -35,19 +32,6 @@ class PredictionResponse(PredictionBase):
     """`PredictionBase` plus a single scalar value (used for non-sample-based predictions)."""
 
     value: float = Field(description="Predicted value.")
-
-
-class PredictionSamplResponse(PredictionBase):
-    """`PredictionBase` plus the posterior sample values (caller derives quantiles client-side)."""
-
-    values: list[float] = Field(description="Posterior sample values for this (org-unit, period, element).")
-
-
-class FullPredictionResponse(BaseModel):
-    """Aggregate response carrying every predicted value for one disease."""
-
-    diseaseId: str = Field(description="Identifier of the disease the predictions are for.")
-    dataValues: list[PredictionResponse] = Field(description="One row per (org-unit, period, element).")
 
 
 class FetchRequest(DBModel):
@@ -130,13 +114,6 @@ class BacktestCreate(BacktestParams, BacktestBase):
     model_id: int | str = Field(  # type: ignore[assignment]
         description="Configured model to backtest: either the integer primary key or the canonical string name.",
     )
-
-
-class BacktestFull(BacktestRead):
-    """Full backtest read view: `BacktestRead` plus every per-(period, org-unit) metric and forecast."""
-
-    metrics: list[BacktestMetric] = Field(description="Per-(period, org-unit) metric values for this backtest.")
-    forecasts: list[BacktestForecast] = Field(description="Per-(period, org-unit) forecast rows for this backtest.")
 
 
 class BacktestSpecificationSummary(BacktestParams):
@@ -394,14 +371,6 @@ class ModelConfigurationCreate(DBModel):
     additional_continuous_covariates: list[str] = Field(
         default=[], description="Extra continuous covariates beyond the template's required set."
     )
-
-
-class PredictionCreate(DBModel):
-    """Request body for creating a prediction row directly (DB-level)."""
-
-    dataset_id: int = Field(description="Foreign key to the dataset the prediction was run against.")
-    estimator_id: str = Field(description="Canonical name of the configured model used to produce the prediction.")
-    n_periods: int = Field(description="Number of periods the model was asked to forecast.")
 
 
 class BacktestUpdate(DBModel):

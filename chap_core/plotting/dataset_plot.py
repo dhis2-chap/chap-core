@@ -305,43 +305,6 @@ class StandardizedFeaturePlot(DatasetPlot):
         )
 
 
-def test_standardized_feature_plot(df: pd.DataFrame):
-    df["ideal_temperature"] = (df["mean_temperature"] > 25) & (
-        df["mean_temperature"] <= 30
-    )  # Assuming mean_temperature is the predictor
-    df["ideal_temperature"] = df["ideal_temperature"].astype(int)
-    # Convert boolean to int for plotting
-    plotter = StandardizedFeaturePlot(df)
-
-    data = plotter.data()
-    print(data.head())
-    print(f"Data shape: {data.shape}")
-    print(f"Features: {data['feature'].unique()}")
-    assert "value" in data.columns
-    assert "feature" in data.columns
-    assert "location" in data.columns
-    assert "time_period" in data.columns
-
-    chart = plotter.plot()
-    chart.save("standardized_feature_plot.html")
-    chart.save("standardized_feature_plot.png")
-    print("Chart saved to standardized_feature_plot.html and standardized_feature_plot.png")
-
-
-def test_temperature_transform():
-    temps = np.arange(35)
-    transformed = temperature_transform(temps)
-    df = pd.DataFrame({"mean_temperature": temps, "ideal_temperature": transformed})
-    chart = (
-        alt.Chart(df)
-        .mark_line()
-        .encode(x="mean_temperature", y="ideal_temperature")
-        .properties(title="Temperature Transformation")
-    )
-    chart.save("temperature_transform.html")
-    chart.save("temperature_transform.png")
-
-
 def _discover_plots():
     """Import plot modules to trigger decorator registration."""
     from chap_core.plotting import season_plot  # noqa: F401

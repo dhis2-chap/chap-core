@@ -450,12 +450,6 @@ class PredictionInfo(PredictionBase):
 # PredictionInfo = PredictionBase.get_read_class()
 
 
-class PredictionRead(PredictionInfo):
-    """Full prediction read view: summary fields plus every per-period forecast."""
-
-    forecasts: list[ForecastRead] = Field(description="Per-(period, org_unit) forecast rows for this prediction.")
-
-
 class PredictionSetupReadWithPredictions(PredictionSetupRead):
     """`PredictionSetupRead` augmented with the list of predictions the setup has produced so far."""
 

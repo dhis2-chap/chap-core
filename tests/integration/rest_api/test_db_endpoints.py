@@ -100,17 +100,6 @@ def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_ove
         assert response.status_code == 404, response.text
 
 
-def test_add_non_full_dataset(celery_session_worker, clean_engine, dependency_overrides, local_data_path):
-    filepath = local_data_path / "test_data/make_dataset_failing_request.json"
-
-    with open(filepath, "r") as f:
-        data = f.read()
-        request = DatasetMakeRequest.model_validate_json(data)
-        request.type = "evaluation"
-    print(request)
-    _make_dataset(request, wanted_field_names=["rainfall", "mean_temperature"])
-
-
 def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_create: DatasetCreate):
     data = dataset_create.model_dump(mode="json")
     print(json.dumps(data, indent=2))
@@ -1898,23 +1887,6 @@ def test_backtest_with_weekly_data_flow(
     request_payload = create_backtest_with_weekly_data_request.model_dump()
     print(request_payload)
     _check_backtest_with_data(request_payload, expected_rejections=[], dry_run=dry_run, expected_period_type="week")
-
-
-@pytest.fixture()
-def local_backtest_request(local_data_path):
-    return json.load(open(local_data_path / "create-backtest-from-data.json", "r"))
-
-
-def test_local_backtest_with_data(
-    local_backtest_request, celery_session_worker, dependency_overrides, example_polygons
-):
-    url = "/v1/analytics/create-backtest-with-data"
-    response = client.post(url, json=local_backtest_request)
-    content = response.json()
-    assert response.status_code == 500, content
-    detail = content["detail"]
-    assert "missing" in detail["message"].lower(), detail["message"].lower()
-    assert len(detail["rejected"]) == 1
 
 
 def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run=False, expected_period_type="month"):

@@ -50,10 +50,6 @@ def interpolate_nans(y):
     return y
 
 
-def conda_available():
-    return which("conda") is not None
-
-
 def docker_available():
     if which("docker") is None:
         return False
@@ -67,10 +63,6 @@ def docker_available():
         return result.returncode == 0
     except Exception:
         return False
-
-
-def pyenv_available():
-    return which("pyenv") is not None
 
 
 REDIS_CONNECT_TIMEOUT_SECONDS = 2.0

@@ -155,10 +155,6 @@ def get_country_data(country, admin_level) -> PFeatureCollectionModel:
     # return DFeatureCollectionModel.model_validate_json(open(filaname).read())
 
 
-def get_all_data():
-    return ((country, get_country_data(country, admin_level=1)) for country in country_codes)
-
-
 class Polygons:
     def __init__(self, polygons):
         self._polygons = polygons
