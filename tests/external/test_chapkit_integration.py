@@ -997,6 +997,18 @@ class TestConfigPayload:
             self._created_config(row, store=lambda data: {**data, "max_epochs": True})
         assert "chapkit >=" not in str(error.value)
 
+    def test_configuration_value_stored_as_an_equal_float_passes(self):
+        row = ConfiguredModelDB(
+            name="test-model",
+            model_template_id=1,
+            user_option_values={"max_epochs": 2},
+            uses_chapkit=True,
+        )
+
+        created = self._created_config(row, store=lambda data: {**data, "max_epochs": 2.0})
+
+        assert created["data"]["max_epochs"] == 2
+
     def test_model_reports_the_covariates_the_service_stored(self):
         service_default = ["rainfall", "mean_temperature"]
         _, model = self._build(
