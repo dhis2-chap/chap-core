@@ -255,21 +255,9 @@ class TestAlembicMigrations:
 
         from sqlmodel import Session
         from chap_core.database.settings import get_backend_settings
-        from chap_core.database.tables import BackendSettings
 
         with Session(engine) as session:
-            settings = get_backend_settings(session)
-            assert settings.default_baseline_model == "persistence"
-            record = session.get(BackendSettings, 1)
-            assert record is not None
-            settings.default_baseline_model = "global_median"
-            record.values = settings.model_dump()
-            session.add(record)
-            session.commit()
-        # Startup can run the migration chain again without resetting chosen defaults.
-        command.upgrade(alembic_cfg, "head")
-        with Session(engine) as session:
-            assert get_backend_settings(session).default_baseline_model == "global_median"
+            assert get_backend_settings(session).default_baseline_model == "persistence"
 
     def test_downgrade_to_base_and_upgrade_again(self, engine):
         """

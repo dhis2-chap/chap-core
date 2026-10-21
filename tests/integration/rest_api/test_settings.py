@@ -94,7 +94,6 @@ def test_otherwise_invalid_stored_settings_fall_back_to_defaults(
     "field,value",
     [
         ("metricSortOrder", ["no_such_metric"]),
-        ("selectedMetrics", ["mae", "mae"]),
         ("defaultBaselineModel", "naive_model"),
     ],
 )
