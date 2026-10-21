@@ -111,7 +111,7 @@ from ...leaderboard_models import (
     list_metric_info,
 )
 from .analytics import validate_full_dataset
-from .dependencies import get_database_url, get_job_request, get_session, get_settings
+from .dependencies import get_database_url, get_job_request, get_session, get_settings, model_job_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -1640,11 +1640,9 @@ async def run_prediction_setup(
             JOB_REQUEST_KW: original_request,
             JOB_TYPE_KW: JobType.PREDICTION,
             JOB_NAME_KW: request.name,
-            JOB_METADATA_KW: {
-                "model_id": setup.configured_model_id,
-                "model_version": setup.configured_model.model_template.version,
-                "parameters": prediction_params.model_dump(mode="json", exclude={"model_id"}),
-            },
+            JOB_METADATA_KW: model_job_metadata(
+                setup.configured_model, prediction_params.model_dump(mode="json", exclude={"model_id"})
+            ),
         },
     )
     return JobResponse(id=job.id)

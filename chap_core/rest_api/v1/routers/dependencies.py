@@ -44,3 +44,13 @@ def get_job_model(session: Session, model_id: int | str) -> ConfiguredModelDB:
         return SessionWrapper(session=session).get_configured_model_by_id_or_name(model_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+def model_job_metadata(model: ConfiguredModelDB, parameters: dict, dataset_id: int | None = None) -> dict[str, Any]:
+    """Job metadata recorded for a run of a configured model."""
+    return {
+        "model_id": model.id,
+        "model_version": model.model_template.version,
+        "dataset_id": dataset_id,
+        "parameters": parameters,
+    }

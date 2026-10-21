@@ -58,7 +58,14 @@ from ...data_models import (
     PredictionParams,
     ValidationError,
 )
-from .dependencies import get_database_url, get_job_model, get_job_request, get_session, get_settings
+from .dependencies import (
+    get_database_url,
+    get_job_model,
+    get_job_request,
+    get_session,
+    get_settings,
+    model_job_metadata,
+)
 
 router = APIRouter(prefix="/analytics")
 
@@ -480,12 +487,11 @@ async def create_backtest(
             JOB_REQUEST_KW: original_request,
             JOB_TYPE_KW: JobType.EVALUATION_LEGACY,
             JOB_NAME_KW: request.name,
-            JOB_METADATA_KW: {
-                "model_id": model.id,
-                "model_version": model.model_template.version,
-                "dataset_id": request.dataset_id,
-                "parameters": request.model_dump(mode="json", exclude={"name", "model_id", "dataset_id"}),
-            },
+            JOB_METADATA_KW: model_job_metadata(
+                model,
+                request.model_dump(mode="json", exclude={"name", "model_id", "dataset_id"}),
+                request.dataset_id,
+            ),
         },
     )
 
@@ -540,12 +546,11 @@ def create_backtests(
                 JOB_REQUEST_KW: original_request,
                 JOB_TYPE_KW: JobType.EVALUATION_LEGACY,
                 JOB_NAME_KW: name,
-                JOB_METADATA_KW: {
-                    "model_id": model.id,
-                    "model_version": model.model_template.version,
-                    "dataset_id": request.dataset_id,
-                    "parameters": {**params.model_dump(mode="json"), "target_column": request.target_column},
-                },
+                JOB_METADATA_KW: model_job_metadata(
+                    model,
+                    {**params.model_dump(mode="json"), "target_column": request.target_column},
+                    request.dataset_id,
+                ),
             },
         )
         jobs.append(BacktestJob(configured_model_id=model.id, job_id=job.id))
@@ -605,11 +610,7 @@ async def make_prediction(
             JOB_REQUEST_KW: original_request,
             JOB_TYPE_KW: JobType.PREDICTION,
             JOB_NAME_KW: request.name,
-            JOB_METADATA_KW: {
-                "model_id": model.id,
-                "model_version": model.model_template.version,
-                "parameters": prediction_params.model_dump(mode="json", exclude={"model_id"}),
-            },
+            JOB_METADATA_KW: model_job_metadata(model, prediction_params.model_dump(mode="json", exclude={"model_id"})),
         },
     )
     return JobResponse(id=job.id)
@@ -922,11 +923,7 @@ async def create_backtest_with_data(
             JOB_REQUEST_KW: original_request,
             JOB_TYPE_KW: JobType.EVALUATION,
             JOB_NAME_KW: request.name,
-            JOB_METADATA_KW: {
-                "model_id": model.id,
-                "model_version": model.model_template.version,
-                "parameters": bt_params,
-            },
+            JOB_METADATA_KW: model_job_metadata(model, bt_params),
         },
     )
     job_id = job.id
