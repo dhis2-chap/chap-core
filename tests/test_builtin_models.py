@@ -9,7 +9,11 @@ from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo
 from chap_core.database.model_template_seed import seed_builtin_models
-from chap_core.database.model_templates_and_config_tables import ModelTemplateDB, ModelTemplateRole
+from chap_core.database.model_templates_and_config_tables import (
+    ModelConfiguration,
+    ModelTemplateDB,
+    ModelTemplateRole,
+)
 from chap_core.database.tables import Backtest
 from chap_core.datatypes import FullData
 from chap_core.external.ExtendedPredictor import ExtendedPredictor
@@ -150,6 +154,27 @@ def test_builtin_model_runs_backtest_and_prediction(name, engine_with_dataset):
         backtest = session.get(Backtest, backtest_id)
         assert backtest is not None and backtest.forecasts
         assert prediction_id is not None
+
+
+def test_backtest_and_prediction_fail_on_a_configured_covariate_missing_from_the_dataset(engine_with_dataset):
+    with SessionWrapper(engine_with_dataset) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        template_id = session.session.exec(
+            select(ModelTemplateDB.id).where(ModelTemplateDB.name == "global_median")
+        ).one()
+        session.add_configured_model(
+            template_id, ModelConfiguration(additional_continuous_covariates=["RH"]), "with_rh"
+        )
+        with pytest.raises(ValueError, match="RH"):
+            run_backtest(
+                BacktestCreate(name="missing", dataset_id=dataset_id, model_id="global_median:with_rh"),
+                n_periods=3,
+                n_splits=2,
+                stride=1,
+                session=session,
+            )
+        with pytest.raises(ValueError, match="RH"):
+            run_prediction("global_median:with_rh", dataset_id, 3, name="missing", session=session)
 
 
 def test_chap_report_rejects_builtin_models(tmp_path):

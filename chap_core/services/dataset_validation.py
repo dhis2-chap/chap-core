@@ -146,6 +146,25 @@ def _check_required_covariates(dataset: DataSet, config: ModelTemplateConfigV2) 
     return issues
 
 
+def require_model_covariates(
+    dataset: DataSet, required_covariates: list[str], additional_continuous_covariates: list[str]
+) -> None:
+    """Raise if a covariate the model is configured to use is not a column in the dataset.
+
+    Generated (``gen:``-prefixed) covariates are skipped, since they are computed from the data.
+    """
+    from chap_core.feature_generators import GEN_PREFIX
+
+    dataset_fields = set(dataset.field_names())
+    expected = dict.fromkeys(required_covariates + additional_continuous_covariates)
+    missing = [c for c in expected if not c.startswith(GEN_PREFIX) and c not in dataset_fields]
+    if missing:
+        raise ValueError(
+            f"Dataset is missing covariate(s) {missing} that the model is configured to use. "
+            f"Available fields: {sorted(dataset_fields)}"
+        )
+
+
 def _check_generated_features(config: ModelTemplateConfigV2) -> list[ValidationIssue]:
     """Verify that gen:-prefixed covariates reference registered generators."""
     from chap_core.feature_generators import GEN_PREFIX, get_feature_generator
