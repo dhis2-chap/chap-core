@@ -460,3 +460,55 @@ def crps_example_data():
         dtype=float,
     )
     return observations, forecasts
+
+
+@pytest.fixture
+def alert_history():
+    """June history for location A: mean 100, std ~7.9, so a seasonal threshold of 100 + k * 7.9."""
+    values = [90.0, 95.0, 100.0, 105.0, 110.0]
+    return pd.DataFrame(
+        {"location": "A", "time_period": [f"{year}-06" for year in range(2018, 2023)], "disease_cases": values}
+    )
+
+
+@pytest.fixture
+def alert_levels():
+    """Two-level ladder on the seasonal channel: monitor above the mean, action above mean + 1 std."""
+    from chap_core.assessment.thresholds.params import SeasonalParams
+    from chap_core.database.alert_tables import AlertLevel
+
+    return [
+        AlertLevel(
+            name="monitor",
+            threshold_params=SeasonalParams(type="seasonal", std_multiplier=0.0),
+            exceedance_threshold=0.5,
+        ),
+        AlertLevel(
+            name="action",
+            threshold_params=SeasonalParams(type="seasonal", std_multiplier=1.0),
+            exceedance_threshold=0.5,
+        ),
+    ]
+
+
+@pytest.fixture
+def alert_observations():
+    """2023-06 breaches monitor only; 2024-06 breaches nothing."""
+    return pd.DataFrame({"location": "A", "time_period": ["2023-06", "2024-06"], "disease_cases": [104.0, 99.0]})
+
+
+@pytest.fixture
+def alert_forecasts():
+    """Samples predicting monitor for 2023-06 at horizon 1, nothing at horizon 2, and action for 2024-06."""
+    cells = [
+        ("2023-06", 1, [101.0, 102.0, 103.0]),
+        ("2023-06", 2, [95.0, 96.0, 97.0]),
+        ("2024-06", 1, [110.0, 111.0, 112.0]),
+    ]
+    return pd.DataFrame(
+        [
+            {"location": "A", "time_period": period, "horizon_distance": horizon, "sample": i, "forecast": value}
+            for period, horizon, samples in cells
+            for i, value in enumerate(samples)
+        ]
+    )
