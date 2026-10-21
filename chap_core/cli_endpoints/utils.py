@@ -31,10 +31,9 @@ def sanity_check_model(
     Check that a model can be loaded, trained and used to make predictions
     """
     import numpy as np
-    import yaml
 
     from chap_core.assessment.dataset_splitting import train_test_generator
-    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+    from chap_core.cli_endpoints._common import get_configuration
     from chap_core.datatypes import FullData
     from chap_core.file_io.example_data_set import datasets
     from chap_core.models.utils import get_model_template_from_directory_or_github_url
@@ -47,10 +46,7 @@ def sanity_check_model(
     train, tests = train_test_generator(dataset, 3, n_test_sets=2)
     context, future, _truth = next(tests)
 
-    if model_config_path is not None:
-        model_config = ModelConfiguration.model_validate(yaml.safe_load(open(model_config_path)))
-    else:
-        model_config = None
+    model_config = get_configuration(Path(model_config_path) if model_config_path is not None else None)
     try:
         model_template = get_model_template_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
         model = model_template.get_model(model_config)  # type: ignore[arg-type]
