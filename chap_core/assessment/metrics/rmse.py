@@ -28,8 +28,6 @@ class RMSEMetric(DeterministicMetric):
 
     spec = MetricSpec(
         metric_id="rmse",
-        sort_order=40,
-        default_selected=True,
         metric_name="RMSE",
         aggregation_op=AggregationOp.ROOT_MEAN_SQUARE,
         description="Root Mean Squared Error - measures average prediction error magnitude",

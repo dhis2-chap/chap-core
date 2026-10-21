@@ -113,10 +113,10 @@ Generates plots and metrics charts from backtest results.
 
 `GET /v1/settings` reads the installation-wide defaults; `PUT /v1/settings` replaces
 the complete record. The `backendsettings` table holds one validated JSON record,
-seeded at startup (or first use), without overwriting later changes:
+seeded on first use, without overwriting later changes:
 
 - `metricSortOrder`: metric ids in display and ranking order. Metrics omitted from
-  this list remain available after the listed metrics, in their seeded order.
+  this list are appended in their default order.
 - `selectedMetrics`: the subset shown by default, returned in `metricSortOrder` order.
 - `defaultBaselineModel`: the built-in baseline's name, initially `persistence`.
   A name follows new model versions without changing the settings.
@@ -124,9 +124,11 @@ seeded at startup (or first use), without overwriting later changes:
   Initially both use 7 splits, stride 1, one training run and `climatology` for future
   weather. The forecast horizon is 12 periods for weekly data and 3 for monthly data.
 
-Metric specs seed the order and selection. The first six selected metrics are CRPS
-(log1p), Winkler 25–75 (log1p), MAE, RMSE, MAPE and Coverage 10–90. The leaderboard
-and metric catalogue return every metric in the saved order with `sortOrder` and
+`DEFAULT_METRIC_ORDER` in `database/settings.py` seeds the order. The first six,
+selected by default, are CRPS (log1p), Winkler 25–75 (log1p), MAE, RMSE, MAPE and
+Coverage 10–90. Reads drop metric ids that no longer exist and fall back to
+`persistence` for a missing baseline, so renaming either never breaks the API. The
+leaderboard and metric catalogue return every metric in the saved order with `sortOrder` and
 `isSelected`. The leaderboard also returns `defaultBaselineModel` so clients can
 choose that baseline's comparison values. Its backtest rows remain newest first;
 the frontend uses the selected metrics in order to rank them, respecting each

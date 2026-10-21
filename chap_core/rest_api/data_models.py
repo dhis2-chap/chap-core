@@ -194,7 +194,10 @@ class MakePredictionRequest(DatasetMakeRequest, PredictionParams):
 
 
 class MakeBacktestRequest(BacktestParamsBase):
-    """Request to backtest an already-imported dataset against a configured model."""
+    """Request to backtest an already-imported dataset against a configured model.
+
+    Omitted backtest parameters use the stored defaults for the dataset's period type, not the schema defaults.
+    """
 
     target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
 
@@ -206,7 +209,10 @@ class MakeBacktestRequest(BacktestParamsBase):
 
 
 class MakeBacktestsRequest(BacktestParamsBase):
-    """Request to run several configured models on one dataset under one set of evaluation parameters."""
+    """Request to run several configured models on one dataset under one set of evaluation parameters.
+
+    Omitted backtest parameters use the stored defaults for the dataset's period type, not the schema defaults.
+    """
 
     target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
 
@@ -236,7 +242,10 @@ class MakeBacktestsResponse(DBModel):
 
 
 class MakeBacktestWithDataRequest(DatasetMakeRequest, BacktestParamsBase):
-    """Long-path request: build the dataset, then immediately backtest the configured model against it."""
+    """Long-path request: build the dataset, then immediately backtest the configured model against it.
+
+    Omitted backtest parameters use the stored defaults for the dataset's period type, not the schema defaults.
+    """
 
     name: str = Field(description="Human-friendly name for the resulting backtest row.")
     model_id: str = Field(description="Canonical name of the configured model to backtest.")

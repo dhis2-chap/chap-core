@@ -20,7 +20,7 @@ from chap_core.assessment.metric_plots import get_metric_plots_registry, list_me
 from chap_core.assessment.metrics import available_metrics
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSet
-from chap_core.database.settings import get_settings as get_backend_settings
+from chap_core.database.settings import get_backend_settings
 from chap_core.database.tables import Backtest
 from chap_core.plotting.dataset_plot import create_plot_from_dataset, get_dataset_plots_registry, list_dataset_plots
 from chap_core.plotting.evaluation_plot import (

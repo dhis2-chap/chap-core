@@ -11,14 +11,36 @@ from chap_core.assessment.metrics import available_metrics
 from chap_core.database.base_tables import DBModel
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.database.tables import BackendSettings
-from chap_core.models.builtin import get_builtin_model
+from chap_core.models.builtin import get_builtin_models
+
+DEFAULT_METRIC_ORDER = [
+    "crps_log1p",
+    "winkler_score_25_75_log1p",
+    "mae",
+    "rmse",
+    "mape",
+    "coverage_10_90",
+    "coverage_25_75",
+    "crps",
+    "crps_norm",
+    "ratio_above_truth",
+    "winkler_score_10_90",
+    "winkler_score_10_90_log1p",
+    "winkler_score_25_75",
+]
+DEFAULT_BASELINE_MODEL = "persistence"
+
+
+def is_builtin_baseline(name: str) -> bool:
+    model = get_builtin_models().get(name)
+    return model is not None and model.spec.role == ModelTemplateRole.baseline
 
 
 class Settings(DBModel):
     """Installation-wide defaults. PUT replaces the complete settings record."""
 
     metric_sort_order: list[str] = Field(
-        description="Metric ids in display and ranking order. Unlisted metrics follow in their seeded order."
+        description="Metric ids in display and ranking order. Unlisted metrics are appended in their default order."
     )
     selected_metrics: list[str] = Field(description="Metric ids shown by default, ordered by metricSortOrder.")
     default_baseline_model: str = Field(
@@ -40,14 +62,16 @@ class Settings(DBModel):
     @field_validator("default_baseline_model")
     @classmethod
     def validate_baseline(cls, value: str) -> str:
-        if get_builtin_model(value).spec.role != ModelTemplateRole.baseline:
+        if not is_builtin_baseline(value):
             raise ValueError("The default model must be a built-in baseline.")
         return value
 
     @model_validator(mode="after")
-    def order_selected_metrics(self) -> Self:
-        if not set(self.selected_metrics) <= set(self.metric_sort_order):
-            raise ValueError("Selected metrics must be included in metricSortOrder.")
+    def complete_metric_order(self) -> Self:
+        default_order = DEFAULT_METRIC_ORDER + [m for m in available_metrics if m not in DEFAULT_METRIC_ORDER]
+        self.metric_sort_order = self.metric_sort_order + [
+            metric_id for metric_id in default_order if metric_id not in self.metric_sort_order
+        ]
         self.selected_metrics = [
             metric_id for metric_id in self.metric_sort_order if metric_id in self.selected_metrics
         ]
@@ -61,23 +85,18 @@ class Settings(DBModel):
         return BacktestParams()
 
 
-def default_metric_order() -> list[str]:
-    return sorted(available_metrics, key=lambda metric_id: (available_metrics[metric_id].spec.sort_order, metric_id))
-
-
 def default_settings() -> Settings:
-    order = default_metric_order()
     return Settings(
-        metric_sort_order=order,
-        selected_metrics=[metric_id for metric_id in order if available_metrics[metric_id].spec.default_selected],
-        default_baseline_model="persistence",
+        metric_sort_order=DEFAULT_METRIC_ORDER,
+        selected_metrics=DEFAULT_METRIC_ORDER[:6],
+        default_baseline_model=DEFAULT_BASELINE_MODEL,
         weekly_backtest_params=BacktestParams(n_periods=12),
         monthly_backtest_params=BacktestParams(),
     )
 
 
 def get_settings_record(session: Session) -> BackendSettings:
-    """Seed once, including when two API workers start against a fresh database."""
+    """Seed on first use, including when two API workers start against a fresh database."""
     record = session.get(BackendSettings, 1)
     if record is None:
         record = BackendSettings(values=default_settings().model_dump())
@@ -92,5 +111,11 @@ def get_settings_record(session: Session) -> BackendSettings:
     return record
 
 
-def get_settings(session: Session) -> Settings:
-    return Settings.model_validate(get_settings_record(session).values)
+def get_backend_settings(session: Session) -> Settings:
+    """Read the stored settings, dropping metrics and baselines that no longer exist."""
+    values = dict(get_settings_record(session).values)
+    for key in ("metric_sort_order", "selected_metrics"):
+        values[key] = [metric_id for metric_id in values[key] if metric_id in available_metrics]
+    if not is_builtin_baseline(values["default_baseline_model"]):
+        values["default_baseline_model"] = DEFAULT_BASELINE_MODEL
+    return Settings.model_validate(values)

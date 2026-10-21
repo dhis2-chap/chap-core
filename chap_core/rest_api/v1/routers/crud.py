@@ -50,7 +50,7 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateRole,
     chapkit_revision_conflict,
 )
-from chap_core.database.settings import get_settings as get_backend_settings
+from chap_core.database.settings import get_backend_settings
 from chap_core.database.tables import (
     Backtest,
     BacktestRead,

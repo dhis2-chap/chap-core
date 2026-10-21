@@ -78,7 +78,6 @@ class CRPSMetric(ProbabilisticMetric):
 
     spec = MetricSpec(
         metric_id="crps",
-        sort_order=80,
         metric_name="CRPS",
         aggregation_op=AggregationOp.MEAN,
         description="Continuous Ranked Probability Score - measures calibration and sharpness",
@@ -104,8 +103,6 @@ class CRPSLog1pMetric(ProbabilisticMetric):
 
     spec = MetricSpec(
         metric_id="crps_log1p",
-        sort_order=10,
-        default_selected=True,
         metric_name="CRPS (log1p)",
         aggregation_op=AggregationOp.MEAN,
         description="CRPS computed on log(1+x)-transformed forecasts and observations",

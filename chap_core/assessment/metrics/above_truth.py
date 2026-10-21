@@ -30,7 +30,6 @@ class RatioAboveTruthMetric(ProbabilisticMetric):
 
     spec = MetricSpec(
         metric_id="ratio_above_truth",
-        sort_order=100,
         metric_name="Ratio Above Truth",
         aggregation_op=AggregationOp.MEAN,
         description="Proportion of forecast samples exceeding the observed value (0.5 = unbiased)",

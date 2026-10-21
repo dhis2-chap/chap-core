@@ -479,11 +479,9 @@ def analytics_worker(monkeypatch):
 
 
 @pytest.fixture
-def settings_dataset_id(
-    request, seeded_session, dataset_observations_weekly, feature_names, geojson, org_units, seen_periods_weekly
+def weekly_dataset_id(
+    seeded_session, dataset_observations_weekly, feature_names, geojson, org_units, seen_periods_weekly
 ):
-    if request.param == "month":
-        return seeded_session.exec(select(DataSet.id).where(DataSet.name == "testing dataset")).one()
     dataset = _make_dataset(
         dataset_observations_weekly, feature_names, geojson, org_units, seen_periods_weekly, name="weekly settings test"
     )

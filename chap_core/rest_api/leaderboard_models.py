@@ -10,7 +10,7 @@ from chap_core.api_types import BacktestParams
 from chap_core.assessment.metrics import available_metrics, get_comparison_description
 from chap_core.assessment.metrics.base import OptimizationDirection, TargetBehavior
 from chap_core.database.base_tables import DBModel
-from chap_core.database.settings import Settings, default_metric_order
+from chap_core.database.settings import Settings
 from chap_core.database.tables import BacktestRead, ConfiguredModelRead, DataSetMeta, SpecificationBaselineStatus
 
 
@@ -61,11 +61,8 @@ class MetricInfo(DBModel):
 
 def list_metric_info(settings: Settings) -> list[MetricInfo]:
     """Describe every metric in the configured order, retaining unselected metrics."""
-    order = settings.metric_sort_order + [
-        metric_id for metric_id in default_metric_order() if metric_id not in settings.metric_sort_order
-    ]
     metrics = []
-    for rank, metric_id in enumerate(order):
+    for rank, metric_id in enumerate(settings.metric_sort_order):
         metric_cls = available_metrics[metric_id]
         metrics.append(
             MetricInfo(

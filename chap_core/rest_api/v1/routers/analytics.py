@@ -28,7 +28,7 @@ from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet as DataSetTable
 from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
-from chap_core.database.settings import get_settings as get_backend_settings
+from chap_core.database.settings import get_backend_settings
 from chap_core.database.tables import (
     Backtest,
     BacktestForecast,
