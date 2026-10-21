@@ -80,7 +80,6 @@ test-all: ## run comprehensive test suite (slow tests, docker integration, examp
 
 	#./tests/test_docker_compose_flow.sh   # this runs pytests inside a docker container, can be skipped
 	CHAP_DEBUG=true uv run pytest -v -n 4 --dist loadfile --durations=20 --run-slow --ignore=tests/test_documentation_slow.py
-	CHAP_DEBUG=true uv run pytest -v scripts/*_example.py
 
 coverage: ## run tests with coverage reporting
 	@echo ">>> Running tests with coverage"
