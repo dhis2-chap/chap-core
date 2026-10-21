@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 
 from chap_core.api_types import BacktestParams
 from chap_core.assessment.metrics import available_metrics
-from chap_core.database.settings import get_backend_settings
+from chap_core.database.settings import default_settings, get_backend_settings
 from chap_core.database.tables import BackendSettings, BacktestSpecification
 from chap_core.rest_api.app import app
 
@@ -76,6 +76,18 @@ def test_stored_settings_with_removed_metric_and_baseline_still_load(
     assert "removed_metric" not in settings["metricSortOrder"]
     assert settings["selectedMetrics"] == ["mae"]
     assert settings["defaultBaselineModel"] == "persistence"
+
+
+def test_otherwise_invalid_stored_settings_fall_back_to_defaults(
+    override_session, seeded_session, backend_settings_payload
+):
+    values = default_settings().model_dump()
+    values["weekly_backtest_params"]["future_weather_provider"] = "removed_provider"
+    seeded_session.add(BackendSettings(values=values))
+    seeded_session.commit()
+    response = client.get("/v1/settings")
+    assert response.status_code == 200, response.text
+    assert response.json() == backend_settings_payload
 
 
 @pytest.mark.parametrize(

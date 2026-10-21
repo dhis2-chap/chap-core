@@ -1,8 +1,9 @@
 """Stored defaults shared by the benchmark leaderboard and API backtest requests."""
 
+import logging
 from typing import Self
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
@@ -12,6 +13,8 @@ from chap_core.database.base_tables import DBModel
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.database.tables import BackendSettings
 from chap_core.models.builtin import get_builtin_models
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_METRIC_ORDER = [
     "crps_log1p",
@@ -112,10 +115,18 @@ def get_settings_record(session: Session) -> BackendSettings:
 
 
 def get_backend_settings(session: Session) -> Settings:
-    """Read the stored settings, dropping metrics and baselines that no longer exist."""
+    """Read the stored settings, dropping metrics and baselines that no longer exist.
+
+    Falls back to the defaults if the stored record is otherwise invalid, for example after
+    a weather provider is removed, so stale settings never break the API.
+    """
     values = dict(get_settings_record(session).values)
     for key in ("metric_sort_order", "selected_metrics"):
-        values[key] = [metric_id for metric_id in values[key] if metric_id in available_metrics]
-    if not is_builtin_baseline(values["default_baseline_model"]):
+        values[key] = [metric_id for metric_id in values.get(key, []) if metric_id in available_metrics]
+    if not is_builtin_baseline(values.get("default_baseline_model", "")):
         values["default_baseline_model"] = DEFAULT_BASELINE_MODEL
-    return Settings.model_validate(values)
+    try:
+        return Settings.model_validate(values)
+    except ValidationError:
+        logger.warning("Stored backend settings are invalid; using defaults", exc_info=True)
+        return default_settings()

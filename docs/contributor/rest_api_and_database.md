@@ -127,7 +127,8 @@ seeded on first use, without overwriting later changes:
 `DEFAULT_METRIC_ORDER` in `database/settings.py` seeds the order. The first six,
 selected by default, are CRPS (log1p), Winkler 25–75 (log1p), MAE, RMSE, MAPE and
 Coverage 10–90. Reads drop metric ids that no longer exist and fall back to
-`persistence` for a missing baseline, so renaming either never breaks the API. The
+`persistence` for a missing baseline, so renaming either never breaks the API. A record
+that is invalid for any other reason is logged and replaced by the defaults. The
 leaderboard and metric catalogue return every metric in the saved order with `sortOrder` and
 `isSelected`. The leaderboard also returns `defaultBaselineModel` so clients can
 choose that baseline's comparison values. Its backtest rows remain newest first;
