@@ -93,7 +93,7 @@ def default_settings() -> Settings:
         metric_sort_order=DEFAULT_METRIC_ORDER,
         selected_metrics=DEFAULT_METRIC_ORDER[:6],
         default_baseline_model=DEFAULT_BASELINE_MODEL,
-        weekly_backtest_params=BacktestParams(n_periods=12),
+        weekly_backtest_params=BacktestParams(n_periods=12, stride=4),
         monthly_backtest_params=BacktestParams(),
     )
 

@@ -22,7 +22,7 @@ def test_fresh_settings_are_seeded_once(override_session, seeded_session):
     assert settings["selectedMetrics"] == selected
     assert settings["defaultBaselineModel"] == "persistence"
     assert settings["monthlyBacktestParams"] == BacktestParams().model_dump(by_alias=True)
-    assert settings["weeklyBacktestParams"] == BacktestParams(n_periods=12).model_dump(by_alias=True)
+    assert settings["weeklyBacktestParams"] == BacktestParams(n_periods=12, stride=4).model_dump(by_alias=True)
     assert client.get("/v1/settings").json() == settings
     assert len(seeded_session.exec(select(BackendSettings)).all()) == 1
 

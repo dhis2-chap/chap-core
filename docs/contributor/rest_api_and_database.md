@@ -121,8 +121,8 @@ seeded on first use, without overwriting later changes:
 - `defaultBaselineModel`: the built-in baseline's name, initially `persistence`.
   A name follows new model versions without changing the settings.
 - `weeklyBacktestParams` and `monthlyBacktestParams`: the `BacktestParams` fields.
-  Initially both use 7 splits, stride 1, one training run and `climatology` for future
-  weather. The forecast horizon is 12 periods for weekly data and 3 for monthly data.
+  Initially both use 7 splits, one training run and `climatology` for future weather.
+  Weekly data forecasts 12 periods with stride 4; monthly data forecasts 3 with stride 1.
 
 `DEFAULT_METRIC_ORDER` in `database/settings.py` seeds the order. The first six,
 selected by default, are CRPS (log1p), Winkler 25–75 (log1p), MAE, RMSE, MAPE and
