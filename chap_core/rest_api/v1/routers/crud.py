@@ -847,11 +847,7 @@ async def create_dataset(
         data.name,
         database_url=datababase_url,
         worker_config=worker_settings,
-        **{
-            JOB_REQUEST_KW: original_request,
-            JOB_TYPE_KW: JobType.DATASET,
-            JOB_NAME_KW: data.name,
-        },
+        **{JOB_REQUEST_KW: original_request},
     )
     return JobResponse(id=job.id)
 
