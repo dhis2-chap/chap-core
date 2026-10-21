@@ -8,7 +8,7 @@ from typing import Optional
 
 import numpy as np
 from pydantic import computed_field
-from sqlalchemy import JSON, Column, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, Column, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, Relationship, col, select
 
@@ -22,6 +22,15 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateDB,
     ModelTemplateRole,
 )
+
+
+class BackendSettings(DBModel, table=True):
+    """One installation-wide record, validated through `Settings` before writing."""
+
+    id: int = Field(default=1, primary_key=True)
+    values: dict = Field(sa_column=Column(JSON, nullable=False))
+
+    __table_args__ = (CheckConstraint("id = 1", name="ck_backendsettings_singleton"),)
 
 
 class BacktestSpecification(BacktestParams, table=True):

@@ -20,6 +20,7 @@ from chap_core.assessment.metric_plots import get_metric_plots_registry, list_me
 from chap_core.assessment.metrics import available_metrics
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSet
+from chap_core.database.settings import get_settings as get_backend_settings
 from chap_core.database.tables import Backtest
 from chap_core.plotting.dataset_plot import create_plot_from_dataset, get_dataset_plots_registry, list_dataset_plots
 from chap_core.plotting.evaluation_plot import (
@@ -62,7 +63,7 @@ class VisualizationParams(DBModel):
     response_model=list[MetricInfo],
     summary="Discover which scoring metrics are available",
 )
-def get_available_metrics(backtest_id: int):
+def get_available_metrics(backtest_id: int, session: Session = Depends(get_session)):
     """List the metrics you can score a backtest with (CRPS, MAE, ...), with a human-friendly name, description, optimization direction, unit and target for each.
 
     Use this to populate a metric picker in a UI before requesting a specific plot. The
@@ -71,7 +72,7 @@ def get_available_metrics(backtest_id: int):
     """
     logger.info(f"Getting available metrics for backtest {backtest_id}")
     logger.info(f"Available metrics: {available_metrics.keys()}")
-    return list_metric_info()
+    return list_metric_info(get_backend_settings(session))
 
 
 @router.get(

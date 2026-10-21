@@ -50,6 +50,7 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateRole,
     chapkit_revision_conflict,
 )
+from chap_core.database.settings import get_settings as get_backend_settings
 from chap_core.database.tables import (
     Backtest,
     BacktestRead,
@@ -416,6 +417,7 @@ def get_backtest_specification(
         .options(*_backtest_read_loads())
     ).all()
     baselines = _baseline_results(session, specification_id)
+    settings = get_backend_settings(session)
     comparison_models = _comparison_model_results(session, specification_id) if include_comparison_models else None
     references = [
         reference
@@ -434,7 +436,8 @@ def get_backtest_specification(
         ],
         baselines=baselines,
         comparison_models=comparison_models,
-        metrics=list_metric_info(),
+        metrics=list_metric_info(settings),
+        default_baseline_model=settings.default_baseline_model,
         **_specification_params(specification),
     )
 

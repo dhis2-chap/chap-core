@@ -733,8 +733,10 @@ def create_db_and_tables():
                     raise e
         with SessionWrapper(engine) as session:
             from .model_template_seed import seed_configured_models_from_config_dir
+            from .settings import get_settings
 
             seed_configured_models_from_config_dir(session.session)
+            get_settings(session.session)
             # seed_example_datasets(session)
     else:
         logger.warning("Engine not set. Tables not created")

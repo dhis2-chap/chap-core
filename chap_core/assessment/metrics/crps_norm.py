@@ -32,6 +32,7 @@ class CRPSNormMetric(ProbabilisticMetric):
 
     spec = MetricSpec(
         metric_id="crps_norm",
+        sort_order=90,
         metric_name="CRPS Normalized",
         aggregation_op=AggregationOp.MEAN,
         description="Normalized CRPS - CRPS divided by the range of observed values",

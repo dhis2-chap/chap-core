@@ -76,6 +76,9 @@ class MetricSpec:
     # Name of the comparison operator (see comparison.py) used to compare a score with a
     # reference model's score. None means the metric has no comparison.
     comparison_op: str | None = None
+    # Seeded display/ranking priority and selection. Stored settings can override these.
+    sort_order: int = 1000
+    default_selected: bool = False
 
 
 class Metric(ABC):
