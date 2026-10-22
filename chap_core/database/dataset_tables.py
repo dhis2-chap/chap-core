@@ -1,3 +1,4 @@
+import itertools
 from datetime import datetime
 
 from geojson_pydantic import (
@@ -6,12 +7,13 @@ from geojson_pydantic import (
 from geojson_pydantic import (
     FeatureCollection as _FeatureCollection,
 )
-from pydantic import ConfigDict
+from pydantic import ConfigDict, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 from sqlalchemy import JSON, Column, TypeDecorator, false
 from sqlmodel import Field, Relationship
 
 from chap_core.database.base_tables import DBModel, PeriodID
+from chap_core.time_period.date_util_wrapper import Month, TimePeriod, Week
 
 
 class FeatureCollectionModel(_FeatureCollection):
@@ -73,11 +75,75 @@ class DataSource(DBModel):
     data_element_id: str = Field(description="External identifier of the data element to pull values from.")
 
 
-class MaskedRange(DBModel):
-    """An inclusive range of periods in which `disease_cases` is hidden from models (CLIM-1300)."""
+def period_kind(period: TimePeriod) -> str:
+    """Name the period type a masked range must share with its dataset.
 
-    start: PeriodID = Field(description="First masked period, in the dataset's period type (e.g. `2021-06`).")
-    end: PeriodID = Field(description="Last masked period, inclusive, in the dataset's period type.")
+    Monday and Sunday weeks are different kinds: their ids (`2021W01`, `2021SunW01`) never match.
+    """
+    if isinstance(period, Month):
+        return "month"
+    if isinstance(period, Week):
+        return "sunday week" if "SunW" in period.id else "week"
+    return type(period).__name__.lower()
+
+
+def parse_masked_period(value: str) -> TimePeriod:
+    """Parse a month or week period id the same way observation periods are parsed on import."""
+    try:
+        period = TimePeriod.parse(value)
+    except Exception as e:  # TimePeriod.parse raises several unrelated error types for bad input
+        raise ValueError(f"'{value}' is not a month or week period id") from e
+    if not isinstance(period, Month | Week):
+        raise ValueError(f"'{value}' is a {period_kind(period)}; masked ranges take month or week periods only")
+    return period
+
+
+class MaskedRange(DBModel):
+    """An inclusive range of periods in which `disease_cases` is hidden from models (CLIM-1300).
+
+    Both bounds are normalised to canonical period ids on creation, so `2021-6` and `202106` are stored
+    as `202106`, and `2021W1` as `2021W01`.
+    """
+
+    start: PeriodID = Field(description="First masked period, a month or week id (e.g. `202106` or `2021W01`).")
+    end: PeriodID = Field(description="Last masked period, inclusive, of the same period type as `start`.")
+
+    @model_validator(mode="after")
+    def _normalise_bounds(self) -> "MaskedRange":
+        start, end = parse_masked_period(self.start), parse_masked_period(self.end)
+        if period_kind(start) != period_kind(end):
+            raise ValueError(f"Range {self.start} to {self.end} mixes a {period_kind(start)} and a {period_kind(end)}")
+        if start > end:
+            raise ValueError(f"Range {self.start} to {self.end} ends before it starts")
+        self.start, self.end = start.id, end.id
+        return self
+
+
+def check_masked_ranges(masked_ranges: list[MaskedRange] | None) -> list[MaskedRange] | None:
+    """Reject ranges of different period types or that overlap each other."""
+    if not masked_ranges:
+        return masked_ranges
+    parsed = sorted(
+        ((parse_masked_period(r.start), parse_masked_period(r.end)) for r in masked_ranges),
+        key=lambda bounds: bounds[0].start_timestamp,
+    )
+    if len({period_kind(start) for start, _ in parsed}) > 1:
+        raise ValueError("Masked ranges must all use the same period type")
+    for (_, previous_end), (start, _) in itertools.pairwise(parsed):
+        if start <= previous_end:
+            raise ValueError(f"Masked ranges overlap at {start.id}")
+    return masked_ranges
+
+
+def check_masked_ranges_match_dataset(masked_ranges: list[MaskedRange] | None, first_period: TimePeriod) -> None:
+    """Raise if the ranges use a different period type than the dataset (weeks on a monthly dataset)."""
+    for masked_range in masked_ranges or []:
+        kind = period_kind(parse_masked_period(masked_range.start))
+        if kind != period_kind(first_period):
+            raise ValueError(
+                f"Masked range {masked_range.start} to {masked_range.end} is a {kind} range, "
+                f"but the dataset has {period_kind(first_period)} periods"
+            )
 
 
 class DataConfiguration(DBModel):
@@ -88,6 +154,11 @@ class DataConfiguration(DBModel):
     masked_ranges: list[MaskedRange] = Field(
         default_factory=list, description="Ranges in which `disease_cases` is masked for every run on the data."
     )
+
+    @field_validator("masked_ranges")
+    @classmethod
+    def _check_masked_ranges(cls, value: list[MaskedRange] | None) -> list[MaskedRange] | None:
+        return check_masked_ranges(value)
 
 
 class DataSetCreateInfo(DBModel):
@@ -106,6 +177,11 @@ class DataSetCreateInfo(DBModel):
         sa_column=Column(PydanticListType(MaskedRange)),
         description="Inclusive period ranges in which `disease_cases` is masked. Set at creation and never changed.",
     )
+
+    @field_validator("masked_ranges")
+    @classmethod
+    def _check_masked_ranges(cls, value: list[MaskedRange] | None) -> list[MaskedRange] | None:
+        return check_masked_ranges(value)
 
 
 class DataSetInfo(DataSetCreateInfo):

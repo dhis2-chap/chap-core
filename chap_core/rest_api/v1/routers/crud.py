@@ -41,6 +41,7 @@ from chap_core.database.dataset_tables import (
     DataSetCreateInfo,
     DataSetInfo,
     DataSetWithObservations,
+    check_masked_ranges_match_dataset,
 )
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.model_templates_and_config_tables import (
@@ -840,6 +841,11 @@ async def create_dataset(
     """
     health_data = observations_to_dataset(HealthPopulationData, data.observations, fill_missing=True)
     health_data.set_polygons(FeatureCollectionModel.model_validate(data.geojson))
+    if data.masked_ranges and len(health_data.period_range):
+        try:
+            check_masked_ranges_match_dataset(data.masked_ranges, health_data.period_range[0])
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
     job = worker.queue_db(
         wf.harmonize_and_add_health_dataset,
         health_data.model_dump(),

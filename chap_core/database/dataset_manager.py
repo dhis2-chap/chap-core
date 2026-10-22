@@ -20,7 +20,7 @@ from chap_core.time_period import Month, Week
 
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
-from .dataset_tables import DataSet, DataSetCreateInfo, DataSetInfo, Observation
+from .dataset_tables import DataSet, DataSetCreateInfo, DataSetInfo, Observation, check_masked_ranges_match_dataset
 from .manager import DbManager
 
 logger = logging.getLogger(__name__)
@@ -87,6 +87,7 @@ class DataSetManager(DbManager[DataSet]):
         else:
             assert isinstance(orig_dataset.period_range[0], Week), orig_dataset.period_range[0]
             period_type = "week"
+        check_masked_ranges_match_dataset(dataset_info.masked_ranges, orig_dataset.period_range[0])
         full_info = DataSetInfo(
             first_period=orig_dataset.period_range[0].id,
             last_period=orig_dataset.period_range[-1].id,

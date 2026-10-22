@@ -24,7 +24,7 @@ from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet as DataSetTable
-from chap_core.database.dataset_tables import DataSetCreateInfo
+from chap_core.database.dataset_tables import DataSetCreateInfo, MaskedRange, check_masked_ranges_match_dataset
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 from chap_core.database.tables import (
     Backtest,
@@ -143,6 +143,7 @@ def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataS
         # either helper changes its detail shape, this branch must be updated.
         rejected: list = exc.detail.get("rejected", []) if isinstance(exc.detail, dict) else []
         return [], DataSet({}), [ValidationError.model_validate(r) for r in rejected]
+    _check_masked_ranges_match(request.masked_ranges, provided_data)
     polygon_rejected = provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     rejections.extend(
         ValidationError(reason="Missing polygon in geojson", orgUnit=location, feature_name="polygon", time_periods=[])
@@ -151,6 +152,16 @@ def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataS
     if not dry_run and not provided_data.locations():
         raise _all_regions_rejected(rejections)
     return feature_names, provided_data, rejections
+
+
+def _check_masked_ranges_match(masked_ranges: list[MaskedRange] | None, dataset: DataSet) -> None:
+    """Reject masked ranges whose period type differs from the dataset's, before anything is queued."""
+    if not masked_ranges or not len(dataset.period_range):
+        return
+    try:
+        check_masked_ranges_match_dataset(masked_ranges, dataset.period_range[0])
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 def _read_dataset(request):
