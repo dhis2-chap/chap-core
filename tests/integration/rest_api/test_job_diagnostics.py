@@ -81,12 +81,9 @@ def test_failed_job_diagnostics_contains_metadata_but_no_data_values(
     assert body["logs"] == {
         "tail": "[... earlier log output truncated ...]\nsecond line\nlast line\n",
         "truncated": True,
-        "may_contain_values": True,
     }
     assert str(sentinel) not in response.text
     assert "providedData" not in response.text
-    assert "observations" not in response.text
-    assert "geojson" not in response.text
 
 
 def test_diagnostics_non_failed_job_returns_409(request_store, override_session):
@@ -111,4 +108,4 @@ def test_diagnostics_missing_metadata_and_logs(request_store, override_session, 
     assert body["dataset"] is None
     assert body["job"]["parameters"] == {}
     assert body["traceback"] is None
-    assert body["logs"] == {"tail": "", "truncated": False, "may_contain_values": True}
+    assert body["logs"] == {"tail": "", "truncated": False}

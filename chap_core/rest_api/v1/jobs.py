@@ -43,11 +43,11 @@ class DatasetDiagnostics(BaseModel):
 
 
 class DiagnosticLogs(BaseModel):
-    tail: str = Field(description="Last 256 KiB of captured output, plus a truncation marker when needed.")
-    truncated: bool
-    may_contain_values: bool = Field(
-        default=True, description="Model output may contain data values; it is not sanitized."
+    tail: str = Field(
+        description="Last 256 KiB of captured output, plus a truncation marker when needed. "
+        "Model output may contain data values; it is not sanitized."
     )
+    truncated: bool
 
 
 class JobDiagnostics(BaseModel):
@@ -73,7 +73,7 @@ def get_job_diagnostics(job_id: str, session: Session = Depends(get_session)) ->
     dataset metadata and environment versions in one JSON bundle.
 
     Dataset observations, geometry and the submitted request are never included.
-    Logs are bounded and explicitly labelled as possibly containing data values.
+    Logs are bounded and may contain data values.
     Error messages and tracebacks can also contain model output and are not sanitized.
     Missing model/dataset references (including older jobs and jobs that create their
     dataset in the worker) are returned as null. Only FAILURE jobs are supported.
@@ -81,7 +81,7 @@ def get_job_diagnostics(job_id: str, session: Session = Depends(get_session)) ->
     meta = get_job_meta(job_id)
     if not meta:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
-    if meta["status"].upper() != "FAILURE":
+    if meta["status"] != "FAILURE":
         raise HTTPException(status_code=409, detail="Diagnostics are only available for failed jobs")
 
     job = job_description(job_id, meta)
