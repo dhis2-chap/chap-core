@@ -1,8 +1,9 @@
 """Masking `disease_cases` in a dataset's masked ranges for a run (CLIM-1300).
 
-Masking only ever happens on the in-memory dataset a run works on; the stored observations
-keep their values. Inside a range `disease_cases` is NaN and `disease_cases_masked` is 1, so a
-model can tell a masked period from a genuinely missing one (NaN with indicator 0).
+A dataset with masked ranges is masked when it is saved: `disease_cases` inside the ranges is
+stored as NaN and the original values are not kept. Each run adds `disease_cases_masked` to its
+in-memory copy when it loads the data: 1 inside a range and 0 elsewhere, so a model can tell a
+masked period from a genuinely missing one (NaN with indicator 0). The CLI masks only the loaded copy.
 
 Future data of a masked run carries the indicator as all 0: a forecast period is never masked,
 and models that stack history and future, or fit on every column, need the same columns in both.
@@ -40,6 +41,8 @@ def apply_target_mask(dataset: DataSet, masked_ranges: list[MaskedRange] | None)
 
     if not masked_ranges:
         return dataset
+    if TARGET_FIELD not in dataset.field_names():
+        raise ValueError(f"Masked ranges mask {TARGET_FIELD!r}, but the dataset has no {TARGET_FIELD!r} column")
     check_masked_ranges_match_dataset(masked_ranges, dataset.period_range[0])
     bounds = [(parse_masked_period(r.start), parse_masked_period(r.end)) for r in masked_ranges]
     names = [name for name in dataset.field_names() if name != MASK_INDICATOR_FIELD]

@@ -808,6 +808,15 @@ def test_run_prediction_trains_on_a_masked_dataset(override_session, p_seeded_en
     assert all(np.all(np.isnan(data.disease_cases[17:20])) for data in trained_on.values())
 
 
+def test_make_dataset_rejects_masked_ranges_without_disease_cases(dependency_overrides, dataset_make_request):
+    payload = dataset_make_request.model_dump(mode="json")
+    payload["provided_data"] = [o for o in payload["provided_data"] if o["feature_name"] != "disease_cases"]
+    payload["masked_ranges"] = [{"start": "2021-06", "end": "2021-08"}]
+    response = client.post("/v1/analytics/make-dataset?dryRun=true", json=payload)
+    assert response.status_code == 422, response.text
+    assert "has no 'disease_cases' column" in response.text
+
+
 def test_make_dataset_rejects_input_carrying_the_mask_indicator(dependency_overrides, dataset_make_request):
     payload = dataset_make_request.model_dump(mode="json")
     first = payload["provided_data"][0]

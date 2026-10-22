@@ -121,3 +121,9 @@ def test_dataset_apply_masked_ranges_matches_apply_target_mask(health_population
         assert np.array_equal(via_method[location].disease_cases, via_function[location].disease_cases, equal_nan=True)
         assert np.array_equal(via_method[location].disease_cases_masked, via_function[location].disease_cases_masked)
     assert health_population_data.apply_masked_ranges([]) is health_population_data
+
+
+def test_mask_rejects_a_dataset_without_disease_cases(health_population_data):
+    ranges = _range(health_population_data, 10, 12)
+    with pytest.raises(ValueError, match="has no 'disease_cases' column"):
+        apply_target_mask(health_population_data.remove_field("disease_cases"), ranges)

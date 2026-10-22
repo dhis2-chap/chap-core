@@ -159,6 +159,10 @@ def _check_masked_ranges_match(masked_ranges: list[MaskedRange] | None, dataset:
     """Reject masked ranges whose period type differs from the dataset's, before anything is queued."""
     if not masked_ranges or not list(dataset.locations()):
         return
+    if "disease_cases" not in dataset.field_names():
+        raise HTTPException(
+            status_code=422, detail="Masked ranges mask 'disease_cases', but the data has no 'disease_cases' column"
+        )
     try:
         check_masked_ranges_match_dataset(masked_ranges, dataset.period_range[0])
     except ValueError as e:
