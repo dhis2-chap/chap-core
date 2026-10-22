@@ -17,6 +17,7 @@ from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateRole
 from chap_core.database.dataset_tables import (
     DataSet,
+    DataSetCreateInfo,
     DataSetWithObservations,
     FeatureCollectionModel,
     MaskedRange,
@@ -39,12 +40,14 @@ from chap_core.rest_api.data_models import (
     MakePredictionRequest,
     ModelConfigurationCreate,
     ModelTemplateRead,
+    PredictionParams,
 )
 from chap_core.rest_api.app import app
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.rest_api.db_worker_functions import (
     harmonize_and_add_dataset,
     harmonize_and_add_health_dataset,
+    predict_pipeline_from_composite_dataset,
     run_backtest,
     run_prediction,
 )
@@ -1553,6 +1556,113 @@ def test_run_prediction_setup_inherits_the_backtest_provider(
 
     assert response.status_code == 200, response.json()
     assert captured["prediction_params"].future_weather_provider == "damped_persistence"
+
+
+def _run_setup_capturing_the_job(setup_id, example_polygons, monkeypatch):
+    """Post a monthly 2020-01..2023-12 run to a prediction setup and return the response and the queued kwargs."""
+    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources", "masked_ranges"})
+    payload["nPeriods"] = 3
+
+    from chap_core.rest_api.v1.routers import crud as crud_router
+
+    captured: dict = {}
+
+    class _FakeJob:
+        id = "captured-job"
+
+    class _CapturingWorker:
+        def queue_db(self, func, *args, **kwargs):
+            captured.update(kwargs)
+            return _FakeJob()
+
+    monkeypatch.setattr(crud_router, "worker", _CapturingWorker())
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    return response, captured
+
+
+def test_run_prediction_setup_copies_the_backtest_dataset_masked_ranges(
+    override_session, seeded_session, example_polygons, monkeypatch
+):
+    """A promoted backtest must predict under the mask it was scored with: the run's new dataset gets its ranges."""
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    backtest.dataset.masked_ranges = [MaskedRange(start="2021-06", end="2021-08", name="covid")]
+    seeded_session.add(backtest.dataset)
+    seeded_session.commit()
+    setup_id = _create_prediction_setup(backtest.id, "Inherit mask").json()["id"]
+
+    response, captured = _run_setup_capturing_the_job(setup_id, example_polygons, monkeypatch)
+
+    assert response.status_code == 200, response.json()
+    assert captured["dataset_create_info"]["masked_ranges"] == [{"start": "202106", "end": "202108", "name": "covid"}]
+
+
+def test_run_prediction_setup_without_backtest_ranges_creates_an_unmasked_dataset(
+    override_session, seeded_session, example_polygons, monkeypatch
+):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    setup_id = _create_prediction_setup(backtest.id, "No mask").json()["id"]
+
+    response, captured = _run_setup_capturing_the_job(setup_id, example_polygons, monkeypatch)
+
+    assert response.status_code == 200, response.json()
+    assert captured["dataset_create_info"]["masked_ranges"] == []
+
+
+def test_run_prediction_setup_rejects_data_of_another_period_type_than_the_ranges(
+    override_session, seeded_session, example_polygons, monkeypatch
+):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    backtest.dataset.masked_ranges = [MaskedRange(start="2021W1", end="2021W3")]
+    seeded_session.add(backtest.dataset)
+    seeded_session.commit()
+    setup_id = _create_prediction_setup(backtest.id, "Week mask").json()["id"]
+
+    response, captured = _run_setup_capturing_the_job(setup_id, example_polygons, monkeypatch)
+
+    assert response.status_code == 422, response.text
+    assert "is a week range, but the dataset has month periods" in response.text
+    assert captured == {}
+
+
+def test_prediction_pipeline_stores_the_ranges_and_trains_masked(
+    override_session, p_seeded_engine, example_polygons, monkeypatch
+):
+    """What a setup run queues: the new prediction dataset keeps the ranges and the model trains on masked data."""
+    from chap_core.rest_api import db_worker_functions
+
+    seen = []
+    forecast_ahead = db_worker_functions.forecast_ahead
+
+    def recording_forecast_ahead(estimator, dataset, *args, **kwargs):
+        seen.append(dataset)
+        return forecast_ahead(estimator, dataset, *args, **kwargs)
+
+    monkeypatch.setattr(db_worker_functions, "forecast_ahead", recording_forecast_ahead)
+    features = ["rainfall", "disease_cases", "population"]
+    request = create_make_data_request(example_polygons, [], features)
+    provided = observations_to_dataset(create_tsdataclass(features), request.provided_data, fill_missing=True)
+    provided.set_polygons(request.geojson)
+    ranges = [MaskedRange(start="2021-06", end="2021-08", name="covid")]
+
+    with SessionWrapper(p_seeded_engine) as session:
+        prediction_id = predict_pipeline_from_composite_dataset(
+            features,
+            provided.model_dump(),
+            "masked-run",
+            dataset_create_info=DataSetCreateInfo(name="masked-run", type="prediction", masked_ranges=ranges),
+            prediction_params=PredictionParams(model_id="naive_model", n_periods=3),
+            session=session,
+        )
+        prediction = session.session.get(Prediction, prediction_id)
+        assert session.session.get(DataSet, prediction.dataset_id).masked_ranges == ranges
+
+    trained_on = seen[0]
+    flags = next(iter(trained_on.values())).disease_cases_masked
+    assert [period.id for period, flag in zip(trained_on.period_range, flags) if flag] == ["202106", "202107", "202108"]
 
 
 def test_run_prediction_setup_forecasts_the_backtest_target(
