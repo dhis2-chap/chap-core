@@ -44,7 +44,7 @@ from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month
 
-from ...celery_tasks import JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW, CeleryPool, JobType
+from ...celery_tasks import JOB_METADATA_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW, CeleryPool, JobType
 from ...data_models import (
     BacktestCreate,
     BacktestDomain,
@@ -62,7 +62,14 @@ from ...data_models import (
     PredictionParams,
     ValidationError,
 )
-from .dependencies import get_database_url, get_job_request, get_session, get_settings
+from .dependencies import (
+    get_database_url,
+    get_job_model,
+    get_job_request,
+    get_session,
+    get_settings,
+    model_job_metadata,
+)
 
 router = APIRouter(prefix="/analytics")
 
@@ -110,10 +117,29 @@ def make_dataset(
         data_sources=request.data_sources,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.DATASET, JOB_NAME_KW: request.name},
+        **{
+            JOB_REQUEST_KW: original_request,
+            JOB_TYPE_KW: JobType.DATASET,
+            JOB_NAME_KW: request.name,
+            JOB_METADATA_KW: {
+                "parameters": request.model_dump(mode="json", exclude={"name", "geojson", "provided_data"})
+            },
+        },
     )
 
     return ImportSummaryResponse(id=job.id, imported_count=imported_count, rejected=rejections)
+
+
+def _all_regions_rejected(rejections: list[ValidationError]) -> HTTPException:
+    """A 400 in the same shape as `validate_full_dataset`'s, so clients can show the rejections."""
+    return HTTPException(
+        status_code=400,
+        detail={
+            "message": "All regions rejected. No data was imported.",
+            "imported_count": 0,
+            "rejected": [r.model_dump(by_alias=True) for r in rejections],
+        },
+    )
 
 
 def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataSet, list[ValidationError]]:
@@ -140,13 +166,7 @@ def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataS
         for location in polygon_rejected
     )
     if not dry_run and not provided_data.locations():
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "message": "Missing values. No data was imported.",
-                "rejected": [r.model_dump(by_alias=True) for r in rejections],
-            },
-        )
+        raise _all_regions_rejected(rejections)
     return feature_names, provided_data, rejections
 
 
@@ -455,15 +475,25 @@ async def create_backtest(
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
     if request.target_column not in stored_dataset.covariates:
         raise HTTPException(status_code=422, detail=f"Dataset has no target column {request.target_column!r}")
+    model = get_job_model(session, request.model_id)
     params = _resolve_backtest_params(session, request, stored_dataset.period_type)
     job = worker.queue_db(
         wf.run_backtest,
-        BacktestCreate(name=request.name, dataset_id=request.dataset_id, model_id=request.model_id),
+        BacktestCreate(name=request.name, dataset_id=request.dataset_id, model_id=model.id),
         **params.model_dump(),
         target_column=request.target_column,
         baseline_database_url=database_url,
         database_url=database_url,
-        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: request.name},
+        **{
+            JOB_REQUEST_KW: original_request,
+            JOB_TYPE_KW: JobType.EVALUATION_LEGACY,
+            JOB_NAME_KW: request.name,
+            JOB_METADATA_KW: model_job_metadata(
+                model,
+                request.model_dump(mode="json", exclude={"name", "model_id", "dataset_id"}),
+                request.dataset_id,
+            ),
+        },
     )
 
     return JobResponse(id=job.id)
@@ -494,10 +524,7 @@ def create_backtests(
     if stored_dataset is None:
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
     wrapper = SessionWrapper(session=session)
-    try:
-        models = [wrapper.get_configured_model_by_id_or_name(model_id) for model_id in request.model_ids]
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
+    models = [get_job_model(session, model_id) for model_id in request.model_ids]
     params = _resolve_backtest_params(session, request, stored_dataset.period_type)
     dataset = DataSetManager(session).to_dataset(request.dataset_id)
     try:
@@ -517,7 +544,16 @@ def create_backtests(
             target_column=request.target_column,
             baseline_database_url=database_url,
             database_url=database_url,
-            **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: name},
+            **{
+                JOB_REQUEST_KW: original_request,
+                JOB_TYPE_KW: JobType.EVALUATION_LEGACY,
+                JOB_NAME_KW: name,
+                JOB_METADATA_KW: model_job_metadata(
+                    model,
+                    {**params.model_dump(mode="json"), "target_column": request.target_column},
+                    request.dataset_id,
+                ),
+            },
         )
         jobs.append(BacktestJob(configured_model_id=model.id, job_id=job.id))
     assert specification.id is not None
@@ -536,6 +572,7 @@ async def make_prediction(
     original_request: dict = Depends(get_job_request),
     database_url=Depends(get_database_url),
     worker_settings=Depends(get_settings),
+    session: Session = Depends(get_session),
 ):
     """Run a forecast against observations supplied directly in the request body — no stored dataset needed.
 
@@ -560,6 +597,7 @@ async def make_prediction(
     dump = request.model_dump()
     dataset_info = DataSetCreateInfo(**dump).model_dump()
     prediction_params = PredictionParams(**dump)
+    model = get_job_model(session, request.model_id)
     job = worker.queue_db(
         wf.predict_pipeline_from_composite_dataset,
         feature_names,
@@ -567,9 +605,15 @@ async def make_prediction(
         request.name,
         dataset_create_info=dataset_info,
         prediction_params=prediction_params,
+        configured_model_id=model.id,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
+        **{
+            JOB_REQUEST_KW: original_request,
+            JOB_TYPE_KW: JobType.PREDICTION,
+            JOB_NAME_KW: request.name,
+            JOB_METADATA_KW: model_job_metadata(model, prediction_params.model_dump(mode="json", exclude={"model_id"})),
+        },
     )
     return JobResponse(id=job.id)
 
@@ -853,13 +897,7 @@ async def create_backtest_with_data(
         return ImportSummaryResponse(id=None, imported_count=imported_count, rejected=rejections)
 
     if imported_count == 0:
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "message": "Missing values. No data was imported.",
-                "rejected": [r.model_dump(by_alias=True) for r in rejections],
-            },
-        )
+        raise _all_regions_rejected(rejections)
 
     logger.info(
         f"Creating backtest with data: {request.name}, model_id: {request.model_id} on {len(list(provided_data_processed.locations()))} locations"
@@ -869,6 +907,7 @@ async def create_backtest_with_data(
             status_code=400, detail="data_to_be_fetched is not supported when providing data for backtest"
         )
 
+    model = get_job_model(session, request.model_id)
     bt_params = backtest_params.model_dump()
     dataset_create_info = DataSetCreateInfo(**request.model_dump()).model_dump()
     dataset_create_info["type"] = "evaluation"
@@ -878,12 +917,17 @@ async def create_backtest_with_data(
         provided_data_model_dump=provided_data_processed.model_dump(),
         dataset_info=dataset_create_info,
         backtest_name=request.name,
-        model_id=request.model_id,
+        model_id=model.id,
         backtest_params=bt_params,
         database_url=database_url,
         worker_config=worker_settings,
         baseline_database_url=database_url,
-        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.EVALUATION, JOB_NAME_KW: request.name},
+        **{
+            JOB_REQUEST_KW: original_request,
+            JOB_TYPE_KW: JobType.EVALUATION,
+            JOB_NAME_KW: request.name,
+            JOB_METADATA_KW: model_job_metadata(model, bt_params),
+        },
     )
     job_id = job.id
     return ImportSummaryResponse(id=job_id, imported_count=imported_count, rejected=rejections)
