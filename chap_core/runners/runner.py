@@ -46,6 +46,12 @@ class TrainPredictRunner(abc.ABC):
         polygons_file_name: str | None,
     ): ...
 
+    def context(
+        self,
+        output_file: str,
+    ):
+        raise NotImplementedError("This runner does not support context window")
+
     def report(
         self,
         model_file_name: str,
