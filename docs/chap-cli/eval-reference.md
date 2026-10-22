@@ -80,6 +80,7 @@ Control model execution environment:
 | `--model-configuration-yaml` | Path to YAML file with model-specific parameters | None |
 | `--historical-context-years` | Years of historical data to include for plotting context | 6 |
 | `--data-source-mapping` | Path to JSON file for column name mapping | None |
+| `--data-configuration` | Path to JSON or YAML file with data settings, such as masked ranges | None |
 | `--dry-run` | Write data files and print commands without executing the model | false |
 
 ## Dry Run
@@ -145,6 +146,45 @@ chap eval \
 - Adapting DHIS2 exports with different column naming conventions
 - Using the same model with datasets from different sources
 - Renaming columns without modifying the original CSV
+
+## Data Configuration
+
+Use `--data-configuration` to mask `disease_cases` in periods that should not be used for training, such as COVID years or a reporting outage. The values are not deleted from the CSV: inside a masked range the model receives `disease_cases` as empty (NaN) and an extra column `disease_cases_masked` set to 1. Everywhere else `disease_cases_masked` is 0, so a model can tell a masked period from a genuinely missing value.
+
+### Format
+
+The file is JSON or YAML, in the same shape as the `maskedRanges` field of the REST dataset payload. Both bounds are inclusive and use the dataset's period type: months as `2021-06` or `202106`, weeks as `2021W01` or `2021-W1`.
+
+**data.json:**
+```json
+{"maskedRanges": [{"start": "2021-06", "end": "2021-08"}]}
+```
+
+**data.yaml:**
+```yaml
+maskedRanges:
+  - start: "2021-06"
+    end: "2021-08"
+```
+
+**Usage:**
+```console
+chap eval \
+    --model-name ./my_model \
+    --dataset-csv ./data.csv \
+    --output-file ./eval.nc \
+    --data-configuration ./data.json
+```
+
+The same option is available on `chap evaluate-ensemble` (with `--dataset-csv`) and `chap validate`.
+
+### Rules
+
+- A range must use the same period type as the dataset: week ranges on monthly data are rejected.
+- Ranges may not overlap, and `start` may not be after `end`.
+- A masked period may not fall in the evaluation window, the last `n_periods + (n_splits - 1) * stride` periods. The backtest is rejected before any model runs.
+- The CSV may not contain a `disease_cases_masked` column of its own; that name is reserved.
+- Future data passed to the model never contains `disease_cases` or `disease_cases_masked`.
 
 ## Model Types
 

@@ -16,9 +16,11 @@ import yaml
 from cyclopts import Parameter
 
 from chap_core.api_types import BacktestParams, RunConfig
+from chap_core.cli_endpoints._args import DataConfigurationArg  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
 from chap_core.cli_endpoints._common import (
     create_model_lists,
     discover_geojson,
+    load_data_configuration,
     load_dataset,
     load_dataset_from_csv,
     resolve_csv_path,
@@ -54,8 +56,11 @@ def _load_dataset(
     polygons_json: Path | None,
     polygons_id_field: str,
     data_source_mapping: Path | None,
+    data_configuration: Path | None = None,
 ) -> DataSet[Any]:
     if dataset_name:
+        if data_configuration is not None:
+            raise ValueError("--data-configuration needs --dataset-csv; it cannot be combined with --dataset-name")
         return load_dataset(
             dataset_country=dataset_country,
             dataset_csv=None,
@@ -76,7 +81,7 @@ def _load_dataset(
     # and any companion .geojson, matching how `chap evaluate` loads its dataset.
     csv_path, url_geojson_path = resolve_csv_path(dataset_csv)
     geojson = polygons_json or url_geojson_path or discover_geojson(csv_path)
-    return load_dataset_from_csv(csv_path, geojson, column_mapping)
+    return load_dataset_from_csv(csv_path, geojson, column_mapping, load_data_configuration(data_configuration))
 
 
 def _compute_metrics(flat: Any, ensemble_method: str) -> tuple[str, dict[str, float | str], pd.DataFrame]:
@@ -190,6 +195,7 @@ def _evaluate_ensemble_core(
     n_samples: int,
     data_source_mapping: Path | None,
     historical_context_years: int,
+    data_configuration: Path | None = None,
     model_template_id: str,
     configured_model_id: str,
     backtest_name: str,
@@ -210,10 +216,16 @@ def _evaluate_ensemble_core(
         polygons_json=polygons_json,
         polygons_id_field=polygons_id_field,
         data_source_mapping=data_source_mapping,
+        data_configuration=data_configuration,
     )
 
     # Imported lazily, as in evaluate.py, to keep the REST stack off the CLI startup path.
+    from chap_core.assessment.target_mask import check_mask_outside_evaluation_window
     from chap_core.rest_api.db_worker_functions import validate_and_filter_dataset_for_evaluation
+
+    check_mask_outside_evaluation_window(
+        dataset, backtest_params.n_periods, backtest_params.n_splits, backtest_params.stride
+    )
 
     dataset = validate_and_filter_dataset_for_evaluation(
         dataset,
@@ -373,6 +385,7 @@ def evaluate_ensemble(
         ),
     ] = 100,
     data_source_mapping: Annotated[Path | None, Parameter(help="Optional JSON column mapping.")] = None,
+    data_configuration: DataConfigurationArg = None,
     historical_context_years: Annotated[
         int,
         Parameter(help="Historical context (years)."),
@@ -406,6 +419,7 @@ def evaluate_ensemble(
         inner_val_periods=inner_val_periods,
         n_samples=n_samples,
         data_source_mapping=data_source_mapping,
+        data_configuration=data_configuration,
         historical_context_years=historical_context_years,
         model_template_id="ensemble_model",
         configured_model_id="cli_eval_ensemble",
