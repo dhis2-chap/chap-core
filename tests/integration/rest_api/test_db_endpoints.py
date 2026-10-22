@@ -1372,7 +1372,7 @@ def test_run_prediction_setup_forecasts_the_backtest_target(
 ):
     from types import SimpleNamespace
 
-    from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW
+    from chap_core.rest_api.celery_tasks import JOB_METADATA_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW
     from chap_core.rest_api.v1.routers import crud
 
     backtest = seeded_session.exec(select(Backtest)).first()
@@ -1394,7 +1394,7 @@ def test_run_prediction_setup_forecasts_the_backtest_target(
     payload["nPeriods"] = 3
 
     def run_inline(func, *args, **kwargs):
-        for key in ("database_url", JOB_TYPE_KW, JOB_NAME_KW, JOB_REQUEST_KW):
+        for key in ("database_url", JOB_TYPE_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_METADATA_KW):
             kwargs.pop(key)
         kwargs["prediction_params"] = kwargs["prediction_params"].model_dump()
         with SessionWrapper(p_seeded_engine) as session:
