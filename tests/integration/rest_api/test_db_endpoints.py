@@ -109,7 +109,7 @@ def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_ove
 
 def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_create: DatasetCreate):
     data = dataset_create.model_dump(mode="json")
-    data["masked_ranges"] = [{"start": "2021-06", "end": "2021-08"}]
+    data["masked_ranges"] = [{"start": "2021-06", "end": "2021-08", "name": "outage"}]
     print(json.dumps(data, indent=2))
     response = client.post("/v1/crud/datasets", json=data)
     assert response.status_code == 200, response.json()
@@ -117,7 +117,7 @@ def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_c
     response = client.get(f"/v1/crud/datasets/{db_id}")
     assert response.status_code == 200, response.json()
     ds = DataSetWithObservations.model_validate(response.json())
-    assert response.json()["maskedRanges"] == [{"start": "202106", "end": "202108"}]
+    assert response.json()["maskedRanges"] == [{"start": "202106", "end": "202108", "name": "outage"}]
 
     assert len(ds.observations) > 0
     assert ds.created_manually
