@@ -193,8 +193,10 @@ def is_not_baseline_backtest():
 def is_not_archived_model_backtest():
     """Where clause that leaves out backtests of archived configured models or templates.
 
-    Archiving retires a model, so benchmark leaderboards hide its backtests. The rows are
-    kept, and the backtest listing still shows them.
+    Archiving retires a model, so benchmark leaderboards hide its backtests. That includes
+    templates CHAP archives itself: built-in models no longer registered at startup, and
+    marketplace services that are undeployed or rolled back. The rows are kept, the
+    backtest listing still shows them, and the leaderboard shows them on request.
     """
     archived_models = (
         select(ConfiguredModelDB.id)
