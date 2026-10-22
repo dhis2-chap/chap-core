@@ -193,7 +193,7 @@ class ExternalModel(ExternalModelBase):
         historic_df = historic_data.to_pandas()
         future_df = future_data.to_pandas()
         # For each generated feature, extract per-location values from historic data
-        # The mask indicator is historic-only by design and must not be copied into future data.
+        # Future data has its own all-0 mask indicator; the historic values must never be copied into it.
         generated_fields = set(historic_df.columns) - set(future_df.columns) - {MASK_INDICATOR_FIELD}
         if not generated_fields:
             return future_data

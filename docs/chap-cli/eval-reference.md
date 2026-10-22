@@ -187,11 +187,11 @@ The same option is available on `chap evaluate-ensemble` (with `--dataset-csv`) 
 - Ranges may not overlap, and `start` may not be after `end`.
 - A masked period may not fall in the evaluation window, the last `n_periods + (n_splits - 1) * stride` periods. The backtest is rejected before any model runs.
 - The CSV may not contain a `disease_cases_masked` column of its own; that name is reserved.
-- Future data passed to the model never contains `disease_cases` or `disease_cases_masked`.
+- Future data passed to the model has no `disease_cases`. It does have `disease_cases_masked`, always 0, because a forecast period is never masked.
 
 ### Model compatibility
 
-On a masked dataset the training and historic data have one extra column, `disease_cases_masked`, that the future data does not have. A model that uses every column it receives, such as an R formula `y ~ .` or a machine-learning model fitted on all columns, will learn the indicator as a covariate and may fail or misbehave when it is missing at prediction time. Such models should drop `disease_cases_masked` before fitting, or use it only to handle the masked periods.
+On a masked dataset the training, historic and future data all have one extra column, `disease_cases_masked`. It is 1 in masked periods and 0 elsewhere, and always 0 in future data. Because the column is in both history and future, models that stack the two tables or fit on every column keep working. A model that uses every column will pick the indicator up as a covariate. That is harmless, but a model can also use it explicitly, for example to drop masked rows before fitting.
 
 ## Model Types
 

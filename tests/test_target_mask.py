@@ -6,6 +6,7 @@ from chap_core.assessment.target_mask import (
     MASK_INDICATOR_FIELD,
     apply_target_mask,
     check_mask_outside_evaluation_window,
+    as_future_data,
     check_target_column_allows_masking,
     without_target,
 )
@@ -84,13 +85,26 @@ def test_without_target_removes_target_and_indicator(health_population_data):
 
 
 @pytest.mark.parametrize("provider", ["climatology", "observed"])
-def test_future_data_carries_no_indicator(weekly_full_data, provider):
+def test_future_data_carries_an_all_zero_indicator(weekly_full_data, provider):
     masked = apply_target_mask(weekly_full_data, _range(weekly_full_data, 5, 7))
     _, splits = train_test_generator(masked, prediction_length=3, n_test_sets=1, future_weather_provider=provider)
     historic, future, _ = next(iter(splits))
-    assert MASK_INDICATOR_FIELD in historic.field_names()
+    assert set(historic.field_names()) - {"disease_cases"} == set(future.field_names())
+    assert all(not np.any(data.disease_cases_masked) for data in future.values())
+
+
+def test_unmasked_future_data_has_no_indicator(weekly_full_data):
+    _, splits = train_test_generator(weekly_full_data, prediction_length=3, n_test_sets=1)
+    _, future, _ = next(iter(splits))
     assert MASK_INDICATOR_FIELD not in future.field_names()
-    assert "disease_cases" not in future.field_names()
+
+
+def test_as_future_data_drops_the_target_and_zeroes_the_indicator(health_population_data):
+    masked = apply_target_mask(health_population_data, _range(health_population_data, 10, 12))
+    future = as_future_data(masked)
+    assert future.field_names() == ["population", MASK_INDICATOR_FIELD]
+    assert all(not np.any(data.disease_cases_masked) for data in future.values())
+    assert as_future_data(health_population_data).field_names() == ["population"]
 
 
 def test_a_masked_dataset_is_never_stored(health_population_data, engine):

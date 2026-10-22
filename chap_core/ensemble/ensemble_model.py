@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 import pandas as pd
 
-from chap_core.assessment.target_mask import without_target
+from chap_core.assessment.target_mask import as_future_data
 from chap_core.ensemble._meta_models import NonNegativeMetaModel, ProbabilisticMetaModel
 from chap_core.ensemble._predictor import EnsemblePredictor
 from chap_core.ensemble._sample_extractor import SampleExtractor as _SampleExtractor
@@ -143,7 +143,7 @@ class EnsembleModel(ConfiguredModel):
         # The target must never reach the base models: ExternalModel writes future_data
         # verbatim to the CSV it hands the model, so leaving disease_cases in place would
         # let a base model read the very values the meta-weights are fitted against.
-        masked_windows = [(historic, without_target(future, self.target_col)) for historic, future in windows]
+        masked_windows = [(historic, as_future_data(future, self.target_col)) for historic, future in windows]
 
         meta_list: list[np.ndarray] | None = None
         meta_mat: np.ndarray | None = None

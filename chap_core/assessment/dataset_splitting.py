@@ -10,7 +10,7 @@ slides forward.
 from collections.abc import Iterable, Iterator
 from typing import Protocol
 
-from chap_core.assessment.target_mask import without_target
+from chap_core.assessment.target_mask import as_future_data
 from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID, get_future_weather
 from chap_core.datatypes import ClimateData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -188,7 +188,7 @@ def train_test_split_with_weather(
     future_weather_class: type[ClimateData] = ClimateData,
 ):
     train_set, test_set = train_test_split(data_set, prediction_start_period, extension)
-    future_weather = without_target(test_set)
+    future_weather = as_future_data(test_set)
     train_periods = {str(period) for data in train_set.data() for period in data.data().time_period}
     future_periods = {str(period) for data in future_weather.data() for period in data.data().time_period}
     assert train_periods & future_periods == set(), (

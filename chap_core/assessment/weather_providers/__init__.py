@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from chap_core.assessment.target_mask import without_mask_indicator
+from chap_core.assessment.target_mask import MASK_INDICATOR_FIELD, with_unmasked_indicator, without_mask_indicator
 from chap_core.assessment.weather_providers.base import FutureWeatherProviderBase
 
 if TYPE_CHECKING:
@@ -118,10 +118,25 @@ def get_future_weather(
     """
     provider_cls = resolve_weather_provider(provider_id)
     provider = provider_cls()
-    # The mask indicator describes observed history only: it is never forecast and never passed on.
+    # The mask indicator is never forecast. A masked run gets it back as all 0, since no forecast
+    # period is masked and models need the same columns in history and future.
+    masked_run = MASK_INDICATOR_FIELD in historical_data.field_names()
     historical_data = without_mask_indicator(historical_data)
     if future_data is not None:
         future_data = without_mask_indicator(future_data)
+    future = _future_weather(provider, provider_cls, historical_data, period_range, future_data, params)
+    return with_unmasked_indicator(future) if masked_run else future
+
+
+def _future_weather(
+    provider: FutureWeatherProviderBase,
+    provider_cls: type[FutureWeatherProviderBase],
+    historical_data: DataSet,
+    period_range: PeriodRange,
+    future_data: DataSet | None,
+    params: dict | None,
+) -> DataSet:
+    """Future weather from the provider, without the target, for data that has no mask indicator."""
     if provider_cls.leaks_future_data:
         return provider.get_future_weather(historical_data, period_range, future_data=future_data, params=params)
 

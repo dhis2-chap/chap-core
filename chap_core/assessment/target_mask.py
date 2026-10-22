@@ -3,6 +3,9 @@
 Masking only ever happens on the in-memory dataset a run works on; the stored observations
 keep their values. Inside a range `disease_cases` is NaN and `disease_cases_masked` is 1, so a
 model can tell a masked period from a genuinely missing one (NaN with indicator 0).
+
+Future data of a masked run carries the indicator as all 0: a forecast period is never masked,
+and models that stack history and future, or fit on every column, need the same columns in both.
 """
 
 from __future__ import annotations
@@ -86,6 +89,32 @@ def check_target_column_allows_masking(masked_ranges: list[MaskedRange] | None, 
         )
 
 
+def with_unmasked_indicator(dataset: DataSet) -> DataSet:
+    """Return a copy of `dataset` whose mask indicator is 0 everywhere, adding the column if it is missing."""
+    from chap_core.datatypes import create_tsdataclass
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+
+    names = [name for name in dataset.field_names() if name != MASK_INDICATOR_FIELD]
+    data_class = create_tsdataclass([*names, MASK_INDICATOR_FIELD])
+    unmasked = {
+        location: data_class(
+            data.time_period,
+            **{name: getattr(data, name) for name in names},
+            **{MASK_INDICATOR_FIELD: np.zeros(len(data.time_period))},
+        )
+        for location, data in dataset.items()
+    }
+    return DataSet(unmasked, polygons=dataset.polygons, metadata=dataset.metadata)
+
+
+def as_future_data(dataset: DataSet, target: str = TARGET_FIELD) -> DataSet:
+    """Turn observed data into future data for a model: drop the target, and set the mask indicator to 0."""
+    future: DataSet = dataset.remove_field(target)
+    if MASK_INDICATOR_FIELD in future.field_names():
+        return with_unmasked_indicator(future)
+    return future
+
+
 def without_mask_indicator(dataset: DataSet) -> DataSet:
     """Remove the mask indicator if the dataset has one."""
     if MASK_INDICATOR_FIELD in dataset.field_names():
@@ -95,6 +124,6 @@ def without_mask_indicator(dataset: DataSet) -> DataSet:
 
 
 def without_target(dataset: DataSet, target: str = TARGET_FIELD) -> DataSet:
-    """Remove the target and the mask indicator, the two columns future data must never carry."""
+    """Remove the target and the mask indicator, leaving only covariates (for fitting a weather model)."""
     stripped: DataSet = without_mask_indicator(dataset).remove_field(target)
     return stripped
