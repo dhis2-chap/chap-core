@@ -1854,6 +1854,21 @@ def test_backtest_with_all_regions_rejected_dry_run(dependency_overrides, create
     )
 
 
+def test_backtest_with_no_target_data_in_any_region_returns_400_with_rejections(
+    dependency_overrides, create_backtest_with_data_request
+):
+    request_payload = create_backtest_with_data_request.model_dump()
+    for observation in request_payload["provided_data"]:
+        if observation["feature_name"] == "disease_cases":
+            observation["value"] = None
+    response = client.post("/v1/analytics/create-backtest-with-data", json=request_payload)
+    assert response.status_code == 400, response.json()
+    detail = response.json()["detail"]
+    assert detail["imported_count"] == 0
+    assert detail["rejected"]
+    assert all(r["featureName"] == "disease_cases" for r in detail["rejected"])
+
+
 def test_make_dataset_dry_run(dependency_overrides, dataset_make_request, org_units):
     response = client.post("/v1/analytics/make-dataset?dryRun=true", json=dataset_make_request.model_dump())
     assert response.status_code == 200, response.json()
@@ -1867,15 +1882,15 @@ def test_make_dataset_all_regions_rejected_dry_run(dependency_overrides, dataset
     _check_all_regions_rejected_dry_run("/v1/analytics/make-dataset", dataset_make_request.model_dump())
 
 
-def test_make_dataset_all_polygons_missing_returns_500_with_rejections(
+def test_make_dataset_all_polygons_missing_returns_400_with_rejections(
     dependency_overrides, dataset_make_request, org_units
 ):
     request_payload = dataset_make_request.model_dump()
     request_payload["geojson"]["features"] = []
     response = client.post("/v1/analytics/make-dataset", json=request_payload)
-    assert response.status_code == 500, response.json()
+    assert response.status_code == 400, response.json()
     detail = response.json()["detail"]
-    assert detail["message"] == "Missing values. No data was imported."
+    assert detail["imported_count"] == 0
     assert {r["orgUnit"] for r in detail["rejected"]} == set(org_units)
     assert all(r["featureName"] == "polygon" for r in detail["rejected"])
 

@@ -112,6 +112,18 @@ def make_dataset(
     return ImportSummaryResponse(id=job.id, imported_count=imported_count, rejected=rejections)
 
 
+def _all_regions_rejected(rejections: list[ValidationError]) -> HTTPException:
+    """A 400 in the same shape as `validate_full_dataset`'s, so clients can show the rejections."""
+    return HTTPException(
+        status_code=400,
+        detail={
+            "message": "All regions rejected. No data was imported.",
+            "imported_count": 0,
+            "rejected": [r.model_dump(by_alias=True) for r in rejections],
+        },
+    )
+
+
 def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataSet, list[ValidationError]]:
     """Read the observations, drop locations with incomplete covariates, then drop locations without a polygon.
 
@@ -136,13 +148,7 @@ def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataS
         for location in polygon_rejected
     )
     if not dry_run and not provided_data.locations():
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "message": "Missing values. No data was imported.",
-                "rejected": [r.model_dump(by_alias=True) for r in rejections],
-            },
-        )
+        raise _all_regions_rejected(rejections)
     return feature_names, provided_data, rejections
 
 
@@ -849,13 +855,7 @@ async def create_backtest_with_data(
         return ImportSummaryResponse(id=None, imported_count=imported_count, rejected=rejections)
 
     if imported_count == 0:
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "message": "Missing values. No data was imported.",
-                "rejected": [r.model_dump(by_alias=True) for r in rejections],
-            },
-        )
+        raise _all_regions_rejected(rejections)
 
     logger.info(
         f"Creating backtest with data: {request.name}, model_id: {request.model_id} on {len(list(provided_data_processed.locations()))} locations"
