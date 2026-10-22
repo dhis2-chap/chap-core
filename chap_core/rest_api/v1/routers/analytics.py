@@ -104,6 +104,7 @@ def make_dataset(
         request.name,
         request.type,
         data_sources=request.data_sources,
+        masked_ranges=request.masked_ranges,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.DATASET, JOB_NAME_KW: request.name},

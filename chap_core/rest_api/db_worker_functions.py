@@ -14,7 +14,7 @@ from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
-from chap_core.database.dataset_tables import DataSetCreateInfo, DataSource
+from chap_core.database.dataset_tables import DataSetCreateInfo, DataSource, MaskedRange
 from chap_core.database.tables import BacktestSpecification
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
@@ -277,13 +277,20 @@ def run_prediction(
 
 
 def harmonize_and_add_health_dataset(
-    health_dataset: dict, name: str, session: SessionWrapper, worker_config: WorkerConfig = WorkerConfig()
+    health_dataset: dict,
+    name: str,
+    session: SessionWrapper,
+    worker_config: WorkerConfig = WorkerConfig(),
+    masked_ranges: list[MaskedRange] | None = None,
 ) -> int:
     status_logger.info(f"Processing and adding dataset '{name}'")
     dataset_obj = InMemoryDataSet.from_dict(health_dataset, HealthPopulationData)  # type: ignore[arg-type]
     dataset = harmonize_health_dataset(dataset_obj, usecwd_for_credentials=False, worker_config=worker_config)
     db_id: int = DataSetManager(session.session).save_dataset(
-        DataSetCreateInfo(name=name), dataset, polygons=dataset_obj.polygons.model_dump_json(), created_manually=True
+        DataSetCreateInfo(name=name, masked_ranges=masked_ranges or []),
+        dataset,
+        polygons=dataset_obj.polygons.model_dump_json(),
+        created_manually=True,
     )
     status_logger.info(f"Dataset '{name}' added successfully with ID {db_id}")
     return db_id
@@ -298,6 +305,7 @@ def harmonize_and_add_dataset(
     session: SessionWrapper,
     worker_config: WorkerConfig = WorkerConfig(),
     data_sources: list[DataSource] | None = None,
+    masked_ranges: list[MaskedRange] | None = None,
 ) -> int:
     status_logger.info(f"Processing and adding dataset '{name}' of type '{ds_type}'")
     provided_dataclass = create_tsdataclass(provided_field_names)
@@ -308,7 +316,9 @@ def harmonize_and_add_dataset(
         )
     else:
         full_dataset = dataset_obj
-    info = DataSetCreateInfo(name=name, type=ds_type, data_sources=data_sources or [])
+    info = DataSetCreateInfo(
+        name=name, type=ds_type, data_sources=data_sources or [], masked_ranges=masked_ranges or []
+    )
     db_id: int = DataSetManager(session.session).save_dataset(
         info, full_dataset, polygons=dataset_obj.polygons.model_dump_json(), created_manually=True
     )

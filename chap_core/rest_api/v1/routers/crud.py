@@ -844,6 +844,7 @@ async def create_dataset(
         wf.harmonize_and_add_health_dataset,
         health_data.model_dump(),
         data.name,
+        masked_ranges=data.masked_ranges,
         database_url=datababase_url,
         worker_config=worker_settings,
         **{JOB_REQUEST_KW: original_request},

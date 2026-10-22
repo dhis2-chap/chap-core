@@ -12,12 +12,14 @@ from sqlmodel import Session, select
 import chap_core
 from chap_core.api_types import DataList, EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
-from chap_core.datatypes import create_tsdataclass
+from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateRole
 from chap_core.database.dataset_tables import (
     DataSet,
     DataSetWithObservations,
+    FeatureCollectionModel,
+    MaskedRange,
     Observation,
     ObservationBase,
 )
@@ -40,7 +42,11 @@ from chap_core.rest_api.data_models import (
 )
 from chap_core.rest_api.app import app
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
-from chap_core.rest_api.db_worker_functions import harmonize_and_add_dataset, run_backtest
+from chap_core.rest_api.db_worker_functions import (
+    harmonize_and_add_dataset,
+    harmonize_and_add_health_dataset,
+    run_backtest,
+)
 from chap_core.time_period import TimePeriod
 
 logger = logging.getLogger(__name__)
@@ -102,6 +108,7 @@ def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_ove
 
 def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_create: DatasetCreate):
     data = dataset_create.model_dump(mode="json")
+    data["masked_ranges"] = [{"start": "2021-06", "end": "2021-08"}]
     print(json.dumps(data, indent=2))
     response = client.post("/v1/crud/datasets", json=data)
     assert response.status_code == 200, response.json()
@@ -109,6 +116,7 @@ def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_c
     response = client.get(f"/v1/crud/datasets/{db_id}")
     assert response.status_code == 200, response.json()
     ds = DataSetWithObservations.model_validate(response.json())
+    assert response.json()["maskedRanges"] == [{"start": "2021-06", "end": "2021-08"}]
 
     assert len(ds.observations) > 0
     assert ds.created_manually
@@ -190,6 +198,44 @@ def test_make_dataset_import_persists_data_sources(clean_engine, dataset_make_re
         assert stored is not None
         assert stored.data_sources == request.data_sources
         assert stored.created_manually
+
+
+def test_make_dataset_import_persists_masked_ranges(clean_engine, dataset_make_request):
+    """Masked ranges sent to make-dataset must survive the import (CLIM-1300)."""
+    request = dataset_make_request
+    feature_names = list({obs.feature_name for obs in request.provided_data})
+    provided_data = observations_to_dataset(create_tsdataclass(feature_names), request.provided_data, fill_missing=True)
+    provided_data.set_polygons(request.geojson)
+    masked_ranges = [MaskedRange(start="2021-06", end="2021-08")]
+
+    with SessionWrapper(clean_engine) as session:
+        dataset_id = harmonize_and_add_dataset(
+            feature_names,
+            request.data_to_be_fetched,
+            provided_data.model_dump(),
+            request.name,
+            request.type,
+            session=session,
+            masked_ranges=masked_ranges,
+        )
+        stored = session.session.get(DataSet, dataset_id)
+        assert stored is not None
+        assert stored.masked_ranges == masked_ranges
+
+
+def test_health_dataset_import_persists_masked_ranges(clean_engine, dataset_create):
+    """Masked ranges sent to POST /v1/crud/datasets must survive the import (CLIM-1300)."""
+    health_data = observations_to_dataset(HealthPopulationData, dataset_create.observations, fill_missing=True)
+    health_data.set_polygons(FeatureCollectionModel.model_validate(dataset_create.geojson.model_dump()))
+    masked_ranges = [MaskedRange(start="2021-06", end="2021-08")]
+
+    with SessionWrapper(clean_engine) as session:
+        dataset_id = harmonize_and_add_health_dataset(
+            health_data.model_dump(), dataset_create.name, session=session, masked_ranges=masked_ranges
+        )
+        stored = session.session.get(DataSet, dataset_id)
+        assert stored is not None
+        assert stored.masked_ranges == masked_ranges
 
 
 def test_get_data_sources():
