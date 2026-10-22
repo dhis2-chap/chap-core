@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 from pydantic import ValidationError
 
@@ -97,3 +98,29 @@ def test_data_configuration_parses_masked_ranges():
 def test_data_configuration_rejects_unknown_keys():
     with pytest.raises(ValidationError):
         DataConfiguration.model_validate({"maskedRanges": [], "columnMapping": {}})
+
+
+def test_disease_cases_are_masked_when_the_dataset_is_saved(health_population_data, engine):
+    """By design, the stored observations are masked: NaN inside the ranges, unchanged elsewhere."""
+    periods = health_population_data.period_range
+    info = DataSetCreateInfo(name="masked", masked_ranges=[MaskedRange(start=periods[10].id, end=periods[12].id)])
+    with SessionWrapper(engine) as session:
+        manager = DataSetManager(session.session)
+        dataset_id = manager.save_dataset(info, health_population_data, None)
+        stored = manager.to_dataset(dataset_id)
+        assert "disease_cases_masked" not in stored.field_names()
+        for location, data in stored.items():
+            original = health_population_data[location].disease_cases
+            assert np.all(np.isnan(data.disease_cases[10:13]))
+            assert np.array_equal(data.disease_cases[:10], original[:10], equal_nan=True)
+            assert np.array_equal(data.disease_cases[13:], original[13:], equal_nan=True)
+
+
+def test_saving_does_not_change_the_input_dataset(health_population_data, engine):
+    periods = health_population_data.period_range
+    location = next(iter(health_population_data.keys()))
+    before = health_population_data[location].disease_cases.copy()
+    info = DataSetCreateInfo(name="masked", masked_ranges=[MaskedRange(start=periods[10].id, end=periods[12].id)])
+    with SessionWrapper(engine) as session:
+        DataSetManager(session.session).save_dataset(info, health_population_data, None)
+    assert np.array_equal(health_population_data[location].disease_cases, before, equal_nan=True)

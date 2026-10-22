@@ -14,7 +14,7 @@ from typing import cast
 
 from sqlmodel import select
 
-from chap_core.assessment.target_mask import MASK_INDICATOR_FIELD
+from chap_core.assessment.target_mask import MASK_INDICATOR_FIELD, apply_target_mask, without_mask_indicator
 from chap_core.datatypes import FullData, create_tsdataclass
 from chap_core.geometry import Polygons
 from chap_core.time_period import Month, Week
@@ -91,6 +91,11 @@ class DataSetManager(DbManager[DataSet]):
             assert isinstance(orig_dataset.period_range[0], Week), orig_dataset.period_range[0]
             period_type = "week"
         check_masked_ranges_match_dataset(dataset_info.masked_ranges, orig_dataset.period_range[0])
+        if dataset_info.masked_ranges:
+            # Masked on save by design: `disease_cases` is stored as NaN inside the ranges and the
+            # original values are not kept. The indicator is not stored; it is derived from the
+            # stored ranges whenever the dataset is loaded for a run.
+            orig_dataset = without_mask_indicator(apply_target_mask(orig_dataset, dataset_info.masked_ranges))
         full_info = DataSetInfo(
             first_period=orig_dataset.period_range[0].id,
             last_period=orig_dataset.period_range[-1].id,

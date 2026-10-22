@@ -749,7 +749,9 @@ def test_create_backtest_rejects_an_alternate_target_on_a_masked_dataset(
     assert worker.queued == []
 
 
-def test_run_backtest_masks_the_history_and_keeps_stored_values(override_session, p_seeded_engine, seeded_session):
+def test_run_backtest_masks_the_history_without_writing_to_the_dataset(
+    override_session, p_seeded_engine, seeded_session
+):
     dataset_id = _mask_seeded_dataset(seeded_session, "2021-06", "2021-08")
     with SessionWrapper(p_seeded_engine) as session:
         before = DataSetManager(session.session).to_dataset(dataset_id)

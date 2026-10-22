@@ -63,7 +63,7 @@ Every `(location, time_period)` combination in the dataset must be present as a 
 
 ### Masked periods
 
-A dataset can have masked periods: stretches such as COVID years or a reporting outage that should not be used for training. The stored values are kept, but when Chap runs a model on such a dataset it changes what the model receives:
+A dataset can have masked periods: stretches such as COVID years or a reporting outage that should not be used for training. When such a dataset is created through the API, `disease_cases` inside the masked periods is stored as empty, and the original values are not kept. With `--data-configuration` on the command line the CSV file is left as it is and only the loaded copy is masked. Either way, this is what the model receives:
 
 | Data the model receives | `disease_cases` | `disease_cases_masked` |
 |-------------------------|-----------------|------------------------|
