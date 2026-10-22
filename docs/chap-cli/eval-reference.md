@@ -157,7 +157,7 @@ The file is JSON or YAML, in the same shape as the `maskedRanges` field of the R
 
 **data.json:**
 ```json
-{"maskedRanges": [{"start": "2021-06", "end": "2021-08"}]}
+{"maskedRanges": [{"start": "2021-06", "end": "2021-08", "name": "reporting outage"}]}
 ```
 
 **data.yaml:**
@@ -165,7 +165,10 @@ The file is JSON or YAML, in the same shape as the `maskedRanges` field of the R
 maskedRanges:
   - start: "2021-06"
     end: "2021-08"
+    name: reporting outage
 ```
+
+`name` is optional and only labels the range.
 
 **Usage:**
 ```console
@@ -185,6 +188,10 @@ The same option is available on `chap evaluate-ensemble` (with `--dataset-csv`) 
 - A masked period may not fall in the evaluation window, the last `n_periods + (n_splits - 1) * stride` periods. The backtest is rejected before any model runs.
 - The CSV may not contain a `disease_cases_masked` column of its own; that name is reserved.
 - Future data passed to the model never contains `disease_cases` or `disease_cases_masked`.
+
+### Model compatibility
+
+On a masked dataset the training and historic data have one extra column, `disease_cases_masked`, that the future data does not have. A model that uses every column it receives, such as an R formula `y ~ .` or a machine-learning model fitted on all columns, will learn the indicator as a covariate and may fail or misbehave when it is missing at prediction time. Such models should drop `disease_cases_masked` before fitting, or use it only to handle the masked periods.
 
 ## Model Types
 

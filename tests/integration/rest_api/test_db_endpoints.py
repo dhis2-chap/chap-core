@@ -812,17 +812,20 @@ def test_make_dataset_rejects_input_carrying_the_mask_indicator(dependency_overr
     assert "is reserved" in response.text
 
 
-def test_create_backtest_with_data_rejects_a_mask_in_the_evaluation_window(dependency_overrides, dataset_make_request):
-    payload = dataset_make_request.model_dump(mode="json") | {
-        "model_id": "naive_model",
-        "n_periods": 3,
-        "n_splits": 2,
-        "stride": 1,
-        "masked_ranges": [{"start": "2022-11", "end": "2022-12"}],
-    }
-    response = client.post("/v1/analytics/create-backtest-with-data/?dryRun=true", json=payload)
+@pytest.mark.parametrize(
+    "endpoint, extra",
+    [
+        ("create-backtest-with-data/", {"n_periods": 3, "n_splits": 2, "stride": 1}),
+        ("make-prediction", {"n_periods": 3}),
+    ],
+)
+def test_inline_data_routes_reject_masked_ranges(dependency_overrides, dataset_make_request, endpoint, extra):
+    """Masked ranges belong to a dataset: they are set with make-dataset or POST /v1/crud/datasets only."""
+    payload = dataset_make_request.model_dump(mode="json") | {"model_id": "naive_model", **extra}
+    payload["masked_ranges"] = [{"start": "2021-06", "end": "2021-08"}]
+    response = client.post(f"/v1/analytics/{endpoint}?dryRun=true", json=payload)
     assert response.status_code == 422, response.text
-    assert "falls in the evaluation window" in response.text
+    assert "maskedRanges can only be set when a dataset is created" in response.text
 
 
 def test_differing_weather_providers_produce_different_specifications(p_seeded_engine):

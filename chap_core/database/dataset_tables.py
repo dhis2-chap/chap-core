@@ -107,6 +107,7 @@ class MaskedRange(DBModel):
 
     start: PeriodID = Field(description="First masked period, a month or week id (e.g. `202106` or `2021W01`).")
     end: PeriodID = Field(description="Last masked period, inclusive, of the same period type as `start`.")
+    name: str | None = Field(default=None, description="Optional label for the range, such as `covid`.")
 
     @model_validator(mode="after")
     def _normalise_bounds(self) -> "MaskedRange":
@@ -161,8 +162,8 @@ class DataConfiguration(DBModel):
         return check_masked_ranges(value)
 
 
-class DataSetCreateInfo(DBModel):
-    """Metadata fields required when registering a new dataset."""
+class DataSetCreateInfoBase(DBModel):
+    """Dataset metadata shared by every request that creates a dataset, including the inline-data ones."""
 
     name: str = Field(description="Name of dataset")
 
@@ -172,6 +173,14 @@ class DataSetCreateInfo(DBModel):
         description="A mapping of covariate names to data element IDs from which to source the data",
     )
     type: str | None = Field(None, description="Purpose of dataset, e.g., 'forecasting' or 'backtesting'")
+
+
+class DataSetCreateInfo(DataSetCreateInfoBase):
+    """Metadata fields required when registering a new dataset.
+
+    Masked ranges are set here, when a dataset is created, and never changed afterwards.
+    """
+
     masked_ranges: list[MaskedRange] | None = Field(
         default_factory=list,
         sa_column=Column(PydanticListType(MaskedRange)),

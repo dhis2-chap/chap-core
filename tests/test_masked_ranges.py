@@ -14,6 +14,17 @@ def test_masked_ranges_are_stored_and_read_back(health_population_data, engine):
         assert stored.masked_ranges == [MaskedRange(start="2021W01", end="2021W03")]
 
 
+def test_masked_range_name_is_optional_and_stored(health_population_data, engine):
+    ranges = [MaskedRange(start="2021W1", end="2021W3", name="outage"), MaskedRange(start="2021W10", end="2021W12")]
+    with SessionWrapper(engine) as session:
+        dataset_id = DataSetManager(session.session).save_dataset(
+            DataSetCreateInfo(name="named", masked_ranges=ranges), health_population_data, None
+        )
+        stored = session.session.get(DataSet, dataset_id).masked_ranges
+        assert stored is not None
+        assert [(r.name, r.start) for r in stored] == [("outage", "2021W01"), (None, "2021W10")]
+
+
 def test_dataset_without_masked_ranges_reads_back_empty(health_population_data, engine):
     with SessionWrapper(engine) as session:
         dataset_id = DataSetManager(session.session).save_dataset(

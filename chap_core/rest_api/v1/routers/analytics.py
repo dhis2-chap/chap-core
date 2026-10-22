@@ -17,11 +17,7 @@ from chap_core.api_types import (
     PredictionEntry,
 )
 from chap_core.assessment.dataset_splitting import train_test_generator
-from chap_core.assessment.target_mask import (
-    MASK_INDICATOR_FIELD,
-    apply_target_mask,
-    check_mask_outside_evaluation_window,
-)
+from chap_core.assessment.target_mask import MASK_INDICATOR_FIELD
 from chap_core.assessment.thresholds import list_threshold_strategies
 from chap_core.assessment.thresholds.params import ThresholdParams
 from chap_core.assessment.weather_providers import list_weather_providers
@@ -96,6 +92,7 @@ def make_dataset(
     validation only and get the rejection summary without queuing an import.
     """
     feature_names, provided_data, rejections = _read_and_validate_dataset(request, dry_run)
+    _check_masked_ranges_match(request.masked_ranges, provided_data)
     imported_count = len(list(provided_data.locations()))
     if dry_run:
         return ImportSummaryResponse(id=None, imported_count=imported_count, rejected=rejections)
@@ -148,7 +145,6 @@ def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataS
         # either helper changes its detail shape, this branch must be updated.
         rejected: list = exc.detail.get("rejected", []) if isinstance(exc.detail, dict) else []
         return [], DataSet({}), [ValidationError.model_validate(r) for r in rejected]
-    _check_masked_ranges_match(request.masked_ranges, provided_data)
     polygon_rejected = provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     rejections.extend(
         ValidationError(reason="Missing polygon in geojson", orgUnit=location, feature_name="polygon", time_periods=[])
@@ -161,7 +157,7 @@ def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataS
 
 def _check_masked_ranges_match(masked_ranges: list[MaskedRange] | None, dataset: DataSet) -> None:
     """Reject masked ranges whose period type differs from the dataset's, before anything is queued."""
-    if not masked_ranges or not len(dataset.period_range):
+    if not masked_ranges or not list(dataset.locations()):
         return
     try:
         check_masked_ranges_match_dataset(masked_ranges, dataset.period_range[0])
@@ -595,7 +591,6 @@ async def make_prediction(
     _reject_mask_indicator_input(feature_names)
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
-    _check_masked_ranges_match(request.masked_ranges, provided_data)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
     provided_data, _rejections = validate_full_dataset(feature_names, provided_data)
@@ -885,16 +880,8 @@ async def create_backtest_with_data(
     if dry_run and not provided_data_processed.locations():
         return ImportSummaryResponse(id=None, imported_count=0, rejected=rejections)
     backtest_params = BacktestParams(**request.model_dump())
-    # Check and filter on a masked copy; the original values are what gets queued and stored.
-    try:
-        masked_data = apply_target_mask(provided_data_processed, request.masked_ranges)
-        check_mask_outside_evaluation_window(
-            masked_data, backtest_params.n_periods, backtest_params.n_splits, backtest_params.stride
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
     train_set, _ = train_test_generator(
-        masked_data, backtest_params.n_periods, backtest_params.n_splits, stride=backtest_params.stride
+        provided_data_processed, backtest_params.n_periods, backtest_params.n_splits, stride=backtest_params.stride
     )
     locations_to_keep, target_rejections = _find_locations_with_target_data(train_set)
     provided_data_processed = _filter_dataset_by_locations(provided_data_processed, locations_to_keep)
