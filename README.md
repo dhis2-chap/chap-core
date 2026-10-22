@@ -60,8 +60,8 @@ chap-admin install-all
 
 It starts every model service with a verified stable version, registers it in
 chap from what the running service reports, and adds the model's verified
-configurations. `chap-admin install chapkit_ewars_model` does the same for one
-model. Include the overlay it writes in later Compose commands:
+configurations. `chap-admin install chapkit_simple_multistep_model` does the same
+for one model. Include the overlay it writes in later Compose commands:
 `docker compose -f compose.yml -f compose.marketplace.yml up -d`. See the
 [CLI setup guide](docs/chap-cli/chap-core-cli-setup.md) for the details.
 
