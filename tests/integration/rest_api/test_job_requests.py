@@ -1,4 +1,4 @@
-"""Original API bodies are retained for download and removed with job metadata."""
+"""Original API bodies and run metadata are retained for jobs."""
 
 from types import SimpleNamespace
 
@@ -7,6 +7,7 @@ from celery import Task
 from fastapi.testclient import TestClient
 from sqlmodel import select
 
+from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.tables import Backtest
 from chap_core.rest_api import celery_tasks
@@ -86,6 +87,23 @@ def test_submission_retains_original_body(
     assert download.status_code == 200, download.text
     assert download.json() == payload
     assert 0 < request_store.ttl("job_request:job-1") <= celery_tasks.JOB_REQUEST_TTL_SECONDS
+
+
+def test_failed_job_keeps_run_metadata(request_store, override_session, seeded_session, monkeypatch):
+    monkeypatch.setattr(Task, "apply_async", lambda self, args, kwargs, **options: SimpleNamespace(id="job-1"))
+    model = SessionWrapper(session=seeded_session).get_configured_model_by_name("naive_model")
+    dataset_id = seeded_session.exec(select(DataSet.id)).first()
+    payload = {"name": "Original request", "datasetId": dataset_id, "modelId": model.name, "nSplits": 4}
+    assert TestClient(app).post("/v1/analytics/create-backtest", json=payload).status_code == 200
+
+    celery_tasks.TrackedTask().on_failure(RuntimeError("failed"), "job-1", (), {}, SimpleNamespace(traceback=""))
+    job = next(job for job in TestClient(app).get("/v1/jobs").json() if job["id"] == "job-1")
+    assert job["status"] == "FAILURE"
+    assert job["model_id"] == model.id
+    assert job["model_version"] == model.model_template.version
+    assert job["dataset_id"] == dataset_id
+    assert job["parameters"]["n_splits"] == 4
+    assert job["parameters"]["n_periods"] == 3
 
 
 def test_missing_request_returns_404(request_store):
