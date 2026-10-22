@@ -372,6 +372,13 @@ class CeleryJob[ReturnType]:
     def exception_info(self) -> str:
         return str(self._result.traceback or "")
 
+    def get_log_tail(self) -> tuple[str, bool]:
+        """Read captured output and its truncation flag, without appending a traceback."""
+        log_file = CHAP_LOGS_DIR / f"task_{self.id}.debug.txt"
+        if not log_file.exists():
+            return "", False
+        return _read_tail(log_file, LOG_TAIL_BYTES)
+
     def get_logs(self) -> str:
         """Get the tail of the complete log for this job.
 
@@ -383,23 +390,23 @@ class CeleryJob[ReturnType]:
         if not log_file.exists():
             logger.warning("Log file %s not found, falling back to traceback", log_file)
             return self.exception_info
-        logs = _read_tail(log_file, LOG_TAIL_BYTES)
+        logs, _ = self.get_log_tail()
         job_meta = get_job_meta(self.id)
         if job_meta and job_meta.get("status") == "FAILURE":
             logs += "\n" + str(job_meta.get("traceback", ""))
         return logs
 
 
-def _read_tail(path: Path, max_bytes: int) -> str:
+def _read_tail(path: Path, max_bytes: int) -> tuple[str, bool]:
     """Return the last max_bytes of path, cut to a line boundary and marked when truncated."""
     size = path.stat().st_size
     if size <= max_bytes:
-        return path.read_text()
+        return path.read_text(), False
     with path.open("rb") as f:
         f.seek(size - max_bytes)
         tail = f.read().decode("utf-8", errors="replace")
     _, _, tail = tail.partition("\n")
-    return f"[... earlier log output truncated ...]\n{tail}"
+    return f"[... earlier log output truncated ...]\n{tail}", True
 
 
 class CeleryPool[ReturnType]:
