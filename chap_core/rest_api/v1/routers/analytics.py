@@ -17,6 +17,11 @@ from chap_core.api_types import (
     PredictionEntry,
 )
 from chap_core.assessment.dataset_splitting import train_test_generator
+from chap_core.assessment.target_mask import (
+    MASK_INDICATOR_FIELD,
+    apply_target_mask,
+    check_mask_outside_evaluation_window,
+)
 from chap_core.assessment.thresholds import list_threshold_strategies
 from chap_core.assessment.thresholds.params import ThresholdParams
 from chap_core.assessment.weather_providers import list_weather_providers
@@ -164,10 +169,20 @@ def _check_masked_ranges_match(masked_ranges: list[MaskedRange] | None, dataset:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
 
+def _reject_mask_indicator_input(feature_names: list[str] | list[str | None]) -> None:
+    """Reject input data that carries the column masking adds itself."""
+    if MASK_INDICATOR_FIELD in feature_names:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{MASK_INDICATOR_FIELD!r} is reserved: it is added by masking. Send maskedRanges instead.",
+        )
+
+
 def _read_dataset(request):
     if not request.provided_data:
         raise HTTPException(status_code=400, detail="No observation data provided.")
     feature_names = list({entry.feature_name for entry in request.provided_data})
+    _reject_mask_indicator_input(feature_names)
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
@@ -469,6 +484,18 @@ async def create_backtest(
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
     if request.target_column not in stored_dataset.covariates:
         raise HTTPException(status_code=422, detail=f"Dataset has no target column {request.target_column!r}")
+    if stored_dataset.masked_ranges:
+        try:
+            wf.check_backtest_on_masked_dataset(
+                session,
+                request.dataset_id,
+                request.n_periods,
+                request.n_splits,
+                request.stride,
+                target_column=request.target_column,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
     job = worker.queue_db(
         wf.run_backtest,
         BacktestCreate(name=request.name, dataset_id=request.dataset_id, model_id=request.model_id),
@@ -515,8 +542,8 @@ def create_backtests(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     params = BacktestParams(**request.model_dump(include=set(BacktestParams.model_fields)))
-    dataset = DataSetManager(session).to_dataset(request.dataset_id)
     try:
+        dataset = wf.load_masked_dataset(session, request.dataset_id, request.target_column)
         _, specification = wf.resolve_backtest_specification(
             wrapper, dataset, request.dataset_id, params, target_column=request.target_column
         )
@@ -565,8 +592,10 @@ async def make_prediction(
     """
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
+    _reject_mask_indicator_input(feature_names)
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
+    _check_masked_ranges_match(request.masked_ranges, provided_data)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
     provided_data, _rejections = validate_full_dataset(feature_names, provided_data)
@@ -856,8 +885,16 @@ async def create_backtest_with_data(
     if dry_run and not provided_data_processed.locations():
         return ImportSummaryResponse(id=None, imported_count=0, rejected=rejections)
     backtest_params = BacktestParams(**request.model_dump())
+    # Check and filter on a masked copy; the original values are what gets queued and stored.
+    try:
+        masked_data = apply_target_mask(provided_data_processed, request.masked_ranges)
+        check_mask_outside_evaluation_window(
+            masked_data, backtest_params.n_periods, backtest_params.n_splits, backtest_params.stride
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     train_set, _ = train_test_generator(
-        provided_data_processed, backtest_params.n_periods, backtest_params.n_splits, stride=backtest_params.stride
+        masked_data, backtest_params.n_periods, backtest_params.n_splits, stride=backtest_params.stride
     )
     locations_to_keep, target_rejections = _find_locations_with_target_data(train_set)
     provided_data_processed = _filter_dataset_by_locations(provided_data_processed, locations_to_keep)

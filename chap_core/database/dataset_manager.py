@@ -14,6 +14,7 @@ from typing import cast
 
 from sqlmodel import select
 
+from chap_core.assessment.target_mask import MASK_INDICATOR_FIELD
 from chap_core.datatypes import FullData, create_tsdataclass
 from chap_core.geometry import Polygons
 from chap_core.time_period import Month, Week
@@ -82,6 +83,8 @@ class DataSetManager(DbManager[DataSet]):
             if field.name not in ["time_period", "location"]
         ]
         logger.info(f"Field names in dataset: {field_names}")
+        if MASK_INDICATOR_FIELD in field_names:
+            raise ValueError(f"{MASK_INDICATOR_FIELD!r} is added by masking for a run and is never stored")
         if isinstance(orig_dataset.period_range[0], Month):
             period_type = "month"
         else:

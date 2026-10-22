@@ -5,11 +5,17 @@ from typing import get_type_hints
 
 import numpy as np
 from pydantic import BaseModel
+from sqlmodel import Session
 
 from chap_core.api_types import BacktestParams
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
+from chap_core.assessment.target_mask import (
+    apply_target_mask,
+    check_mask_outside_evaluation_window,
+    check_target_column_allows_masking,
+)
 from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
@@ -94,6 +100,34 @@ def _use_as_disease_cases(dataset: DataSet, column: str) -> DataSet:
     )
 
 
+def load_masked_dataset(session: Session, dataset_id: int, target_column: str = "disease_cases") -> DataSet:
+    """Load a stored dataset for a run, with `disease_cases` masked in the dataset's masked ranges."""
+    manager = DataSetManager(session)
+    stored = manager.find_by_id(dataset_id)
+    if stored is None:
+        raise ValueError(f"Dataset with id {dataset_id} not found")
+    check_target_column_allows_masking(stored.masked_ranges, target_column)
+    return apply_target_mask(manager.to_dataset(dataset_id), stored.masked_ranges)
+
+
+def check_backtest_on_masked_dataset(
+    session: Session,
+    dataset_id: int,
+    n_periods: int | None,
+    n_splits: int,
+    stride: int,
+    target_column: str = "disease_cases",
+) -> None:
+    """Raise before queueing if a backtest on a masked dataset cannot run.
+
+    Without `n_periods`, the default `run_backtest` would pick is used.
+    """
+    dataset = load_masked_dataset(session, dataset_id, target_column)
+    if n_periods is None:
+        n_periods = _get_n_periods(dataset)
+    check_mask_outside_evaluation_window(dataset, n_periods, n_splits, stride)
+
+
 # @convert_dicts_to_models
 def run_backtest(
     info: BacktestCreate,
@@ -116,7 +150,7 @@ def run_backtest(
     assert session is not None, "session is required"
     status_logger.info(f"Starting backtest for model '{info.model_id}' on dataset ID {info.dataset_id}")
 
-    dataset = DataSetManager(session.session).to_dataset(info.dataset_id)
+    dataset = load_masked_dataset(session.session, info.dataset_id, target_column)
 
     configured_model = session.get_configured_model_by_id_or_name(info.model_id)
     # Normalise back to the name string so any downstream code that still
@@ -211,6 +245,7 @@ def resolve_backtest_specification(
     """
     if target_column not in dataset.field_names():
         raise ValueError(f"Dataset has no target column {target_column!r}")
+    check_mask_outside_evaluation_window(dataset, params.n_periods, params.n_splits, params.stride)
     dataset = validate_and_filter_dataset_for_evaluation(
         dataset,
         target_name=target_column,
@@ -247,7 +282,7 @@ def run_prediction(
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     status_logger.info(f"Starting prediction for model '{model_id}' on dataset ID {dataset_id}")
 
-    dataset = DataSetManager(session.session).to_dataset(int(dataset_id))
+    dataset = load_masked_dataset(session.session, int(dataset_id), target_column)
     dataset = _use_as_disease_cases(dataset, target_column)
     if n_periods is None:
         n_periods = _get_n_periods(dataset)

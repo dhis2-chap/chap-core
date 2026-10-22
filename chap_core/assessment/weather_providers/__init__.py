@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from chap_core.assessment.target_mask import without_mask_indicator
 from chap_core.assessment.weather_providers.base import FutureWeatherProviderBase
 
 if TYPE_CHECKING:
@@ -117,6 +118,10 @@ def get_future_weather(
     """
     provider_cls = resolve_weather_provider(provider_id)
     provider = provider_cls()
+    # The mask indicator describes observed history only: it is never forecast and never passed on.
+    historical_data = without_mask_indicator(historical_data)
+    if future_data is not None:
+        future_data = without_mask_indicator(future_data)
     if provider_cls.leaks_future_data:
         return provider.get_future_weather(historical_data, period_range, future_data=future_data, params=params)
 

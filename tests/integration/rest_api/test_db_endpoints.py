@@ -46,6 +46,7 @@ from chap_core.rest_api.db_worker_functions import (
     harmonize_and_add_dataset,
     harmonize_and_add_health_dataset,
     run_backtest,
+    run_prediction,
 )
 from chap_core.time_period import TimePeriod
 
@@ -686,6 +687,142 @@ def test_create_backtest_rejects_unknown_target_column(override_session, seeded_
     response = client.post(f"/v1/analytics/{endpoint}", json={**payload, "targetColumn": "missing"})
     assert response.status_code == 422, response.text
     assert worker.queued == []
+
+
+def _mask_seeded_dataset(seeded_session, start: str, end: str) -> int:
+    """Give the seeded monthly dataset (2020-01 to 2022-12) one masked range and return its id."""
+    stored = seeded_session.exec(select(DataSet)).first()
+    stored.masked_ranges = [MaskedRange(start=start, end=end)]
+    seeded_session.add(stored)
+    seeded_session.commit()
+    return stored.id
+
+
+@pytest.mark.parametrize("endpoint", ["create-backtest", "create-backtests"])
+def test_create_backtest_rejects_a_mask_in_the_evaluation_window(
+    override_session, seeded_session, monkeypatch, endpoint
+):
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    dataset_id = _mask_seeded_dataset(seeded_session, "2022-11", "2022-12")
+    payload = {"name": "x", "datasetId": dataset_id, "modelId": "naive_model", "modelIds": ["naive_model"]}
+
+    response = client.post(f"/v1/analytics/{endpoint}", json={**payload, "nPeriods": 3, "nSplits": 2, "stride": 1})
+    assert response.status_code == 422, response.text
+    assert "falls in the evaluation window" in response.text
+    assert worker.queued == []
+
+
+@pytest.mark.parametrize("endpoint", ["create-backtest", "create-backtests"])
+def test_create_backtest_accepts_a_mask_in_the_history(override_session, seeded_session, monkeypatch, endpoint):
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    dataset_id = _mask_seeded_dataset(seeded_session, "2021-06", "2021-08")
+    payload = {"name": "x", "datasetId": dataset_id, "modelId": "naive_model", "modelIds": ["naive_model"]}
+
+    response = client.post(f"/v1/analytics/{endpoint}", json={**payload, "nPeriods": 3, "nSplits": 2, "stride": 1})
+    assert response.status_code == 200, response.text
+    assert len(worker.queued) == 1
+
+
+@pytest.mark.parametrize("endpoint", ["create-backtest", "create-backtests"])
+def test_create_backtest_rejects_an_alternate_target_on_a_masked_dataset(
+    override_session, seeded_session, monkeypatch, endpoint
+):
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    dataset_id = _mask_seeded_dataset(seeded_session, "2021-06", "2021-08")
+    payload = {"name": "x", "datasetId": dataset_id, "modelId": "naive_model", "modelIds": ["naive_model"]}
+
+    response = client.post(f"/v1/analytics/{endpoint}", json={**payload, "targetColumn": "rainfall"})
+    assert response.status_code == 422, response.text
+    assert "masked ranges apply to 'disease_cases' only" in response.text
+    assert worker.queued == []
+
+
+def test_run_backtest_masks_the_history_and_keeps_stored_values(override_session, p_seeded_engine, seeded_session):
+    dataset_id = _mask_seeded_dataset(seeded_session, "2021-06", "2021-08")
+    with SessionWrapper(p_seeded_engine) as session:
+        before = DataSetManager(session.session).to_dataset(dataset_id)
+        model = session.get_configured_model_by_id_or_name("naive_model")
+        backtest_id = run_backtest(
+            BacktestCreate(name="masked", dataset_id=dataset_id, model_id=model.id),
+            n_periods=3,
+            n_splits=2,
+            stride=1,
+            session=session,
+        )
+        assert session.session.get(Backtest, backtest_id) is not None
+        after = DataSetManager(session.session).to_dataset(dataset_id)
+        for location in before.keys():
+            assert np.array_equal(before[location].disease_cases, after[location].disease_cases, equal_nan=True)
+
+
+def test_run_backtest_rejects_a_mask_in_the_evaluation_window(override_session, p_seeded_engine, seeded_session):
+    dataset_id = _mask_seeded_dataset(seeded_session, "2022-11", "2022-12")
+    with SessionWrapper(p_seeded_engine) as session:
+        model = session.get_configured_model_by_id_or_name("naive_model")
+        with pytest.raises(ValueError, match="falls in the evaluation window"):
+            run_backtest(
+                BacktestCreate(name="masked", dataset_id=dataset_id, model_id=model.id),
+                n_periods=3,
+                n_splits=2,
+                stride=1,
+                session=session,
+            )
+
+
+def test_run_prediction_trains_on_a_masked_dataset(override_session, p_seeded_engine, seeded_session, monkeypatch):
+    from chap_core.rest_api import db_worker_functions
+
+    seen = []
+    forecast_ahead = db_worker_functions.forecast_ahead
+
+    def recording_forecast_ahead(estimator, dataset, *args, **kwargs):
+        seen.append(dataset)
+        return forecast_ahead(estimator, dataset, *args, **kwargs)
+
+    monkeypatch.setattr(db_worker_functions, "forecast_ahead", recording_forecast_ahead)
+    dataset_id = _mask_seeded_dataset(seeded_session, "2021-06", "2021-08")
+    with SessionWrapper(p_seeded_engine) as session:
+        prediction_id = run_prediction("naive_model", str(dataset_id), 3, "masked", session=session)
+        assert session.session.get(Prediction, prediction_id) is not None
+    trained_on = seen[0]
+    masked = [
+        period.id
+        for period, flag in zip(trained_on.period_range, next(iter(trained_on.values())).disease_cases_masked)
+        if flag
+    ]
+    assert masked == ["202106", "202107", "202108"]
+    assert all(np.all(np.isnan(data.disease_cases[17:20])) for data in trained_on.values())
+
+
+def test_make_dataset_rejects_input_carrying_the_mask_indicator(dependency_overrides, dataset_make_request):
+    payload = dataset_make_request.model_dump(mode="json")
+    first = payload["provided_data"][0]
+    payload["provided_data"].append({**first, "feature_name": "disease_cases_masked", "value": 1.0})
+    response = client.post("/v1/analytics/make-dataset?dryRun=true", json=payload)
+    assert response.status_code == 422, response.text
+    assert "is reserved" in response.text
+
+
+def test_create_backtest_with_data_rejects_a_mask_in_the_evaluation_window(dependency_overrides, dataset_make_request):
+    payload = dataset_make_request.model_dump(mode="json") | {
+        "model_id": "naive_model",
+        "n_periods": 3,
+        "n_splits": 2,
+        "stride": 1,
+        "masked_ranges": [{"start": "2022-11", "end": "2022-12"}],
+    }
+    response = client.post("/v1/analytics/create-backtest-with-data/?dryRun=true", json=payload)
+    assert response.status_code == 422, response.text
+    assert "falls in the evaluation window" in response.text
 
 
 def test_differing_weather_providers_produce_different_specifications(p_seeded_engine):
