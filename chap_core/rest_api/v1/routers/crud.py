@@ -68,6 +68,7 @@ from chap_core.exceptions import BaselineTemplateConflict, ModelTemplateRevision
 from chap_core.geometry import Polygons
 from chap_core.rest_api.baseline_runs import request_baselines_after_response
 from chap_core.rest_api.celery_tasks import (
+    JOB_METADATA_KW,
     JOB_NAME_KW,
     JOB_REQUEST_KW,
     JOB_TYPE_KW,
@@ -111,7 +112,7 @@ from ...leaderboard_models import (
     list_metric_info,
 )
 from .analytics import validate_full_dataset
-from .dependencies import get_database_url, get_job_request, get_session, get_settings
+from .dependencies import get_database_url, get_job_request, get_session, get_settings, model_job_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -1642,6 +1643,13 @@ async def run_prediction_setup(
         target_column=target_column,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
+        **{
+            JOB_REQUEST_KW: original_request,
+            JOB_TYPE_KW: JobType.PREDICTION,
+            JOB_NAME_KW: request.name,
+            JOB_METADATA_KW: model_job_metadata(
+                setup.configured_model, prediction_params.model_dump(mode="json", exclude={"model_id"})
+            ),
+        },
     )
     return JobResponse(id=job.id)
