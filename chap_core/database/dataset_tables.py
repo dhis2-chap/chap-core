@@ -6,6 +6,8 @@ from geojson_pydantic import (
 from geojson_pydantic import (
     FeatureCollection as _FeatureCollection,
 )
+from pydantic import ConfigDict
+from pydantic.alias_generators import to_camel
 from sqlalchemy import JSON, Column, TypeDecorator, false
 from sqlmodel import Field, Relationship
 
@@ -71,6 +73,23 @@ class DataSource(DBModel):
     data_element_id: str = Field(description="External identifier of the data element to pull values from.")
 
 
+class MaskedRange(DBModel):
+    """An inclusive range of periods in which `disease_cases` is hidden from models (CLIM-1300)."""
+
+    start: PeriodID = Field(description="First masked period, in the dataset's period type (e.g. `2021-06`).")
+    end: PeriodID = Field(description="Last masked period, inclusive, in the dataset's period type.")
+
+
+class DataConfiguration(DBModel):
+    """Data settings read from the CLI `--data-configuration` file, in the same shape as the REST dataset payload."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")  # type: ignore[assignment]
+
+    masked_ranges: list[MaskedRange] = Field(
+        default_factory=list, description="Ranges in which `disease_cases` is masked for every run on the data."
+    )
+
+
 class DataSetCreateInfo(DBModel):
     """Metadata fields required when registering a new dataset."""
 
@@ -82,6 +101,11 @@ class DataSetCreateInfo(DBModel):
         description="A mapping of covariate names to data element IDs from which to source the data",
     )
     type: str | None = Field(None, description="Purpose of dataset, e.g., 'forecasting' or 'backtesting'")
+    masked_ranges: list[MaskedRange] | None = Field(
+        default_factory=list,
+        sa_column=Column(PydanticListType(MaskedRange)),
+        description="Inclusive period ranges in which `disease_cases` is masked. Set at creation and never changed.",
+    )
 
 
 class DataSetInfo(DataSetCreateInfo):

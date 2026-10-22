@@ -1292,9 +1292,10 @@ def test_backtest_list_exposes_prediction_setup_id(override_session, seeded_sess
 def test_run_prediction_setup_not_found_returns_404(clean_engine, dependency_overrides, example_polygons):
     request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
     payload = request.model_dump(mode="json")
-    # /run body doesn't accept dataToBeFetched / dataSources — strip them.
+    # /run body doesn't accept dataToBeFetched / dataSources / maskedRanges — strip them.
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = 3
     response = client.post("/v1/crud/prediction-setups/99999/run", json=payload)
     assert response.status_code == 404, response.json()
@@ -1346,6 +1347,7 @@ def test_run_prediction_setup_inherits_the_backtest_provider(
     payload = request.model_dump(mode="json")
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = 3
 
     from chap_core.rest_api.v1.routers import crud as crud_router
@@ -1390,7 +1392,7 @@ def test_run_prediction_setup_forecasts_the_backtest_target(
         observation.value = 0.0 if observation.feature_name == "hospitalisations" else 1000.0
         if observation.feature_name != "rainfall" and observation.period == "2020-01":
             observation.value = None  # Target gaps must not reject otherwise valid locations.
-    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources"})
+    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources", "masked_ranges"})
     payload["nPeriods"] = 3
 
     def run_inline(func, *args, **kwargs):
@@ -1415,7 +1417,7 @@ def test_run_prediction_setup_rejects_missing_target(override_session, seeded_se
     backtest = seeded_session.exec(select(Backtest)).first()
     setup_id = _create_prediction_setup(backtest.id, "Missing target").json()["id"]
     request = create_make_data_request(example_polygons, [], ["rainfall"])
-    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources"})
+    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources", "masked_ranges"})
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
     assert response.status_code == 422, response.text
@@ -1433,6 +1435,7 @@ def test_run_prediction_setup_rejects_a_look_ahead_provider(override_session, se
     payload = request.model_dump(mode="json")
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = 3
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
@@ -1457,6 +1460,7 @@ def test_run_prediction_setup_non_positive_n_periods_returns_422(
     payload = request.model_dump(mode="json")
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = n_periods
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
@@ -1499,6 +1503,7 @@ def test_run_prediction_setup_archived_model_returns_409(override_session, seede
     payload = request.model_dump(mode="json")
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = 3
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
@@ -1533,6 +1538,7 @@ def test_run_prediction_setup_queues_the_pinned_configured_model(
     payload = request.model_dump(mode="json")
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = 3
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
@@ -1574,6 +1580,7 @@ def test_run_prediction_setup_logs_rejection_count(
     payload = request.model_dump(mode="json")
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = 3
 
     caplog.set_level(logging.WARNING, logger="chap_core.rest_api.v1.routers.crud")
@@ -1644,6 +1651,7 @@ def test_run_prediction_setup_normalizes_dataset_type_to_prediction(
     payload = request.model_dump(mode="json")
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = 3
     payload["type"] = "forecasting"  # what chap-scheduler currently sends; should be overridden server-side
 
@@ -1694,6 +1702,7 @@ def test_run_prediction_setup_full_flow(
     payload = request.model_dump(mode="json")
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = 3
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
