@@ -111,3 +111,13 @@ def test_a_masked_dataset_is_never_stored(health_population_data, engine):
     masked = apply_target_mask(health_population_data, _range(health_population_data, 10, 12))
     with SessionWrapper(engine) as session, pytest.raises(ValueError, match="never stored"):
         DataSetManager(session.session).save_dataset(DataSetCreateInfo(name="masked"), masked, None)
+
+
+def test_dataset_apply_masked_ranges_matches_apply_target_mask(health_population_data):
+    ranges = _range(health_population_data, 10, 12)
+    via_method = health_population_data.apply_masked_ranges(ranges)
+    via_function = apply_target_mask(health_population_data, ranges)
+    for location in via_function.keys():
+        assert np.array_equal(via_method[location].disease_cases, via_function[location].disease_cases, equal_nan=True)
+        assert np.array_equal(via_method[location].disease_cases_masked, via_function[location].disease_cases_masked)
+    assert health_population_data.apply_masked_ranges([]) is health_population_data
