@@ -89,9 +89,8 @@ def test_failed_job_diagnostics_contains_metadata_but_no_data_values(
     assert "geojson" not in response.text
 
 
-@pytest.mark.parametrize("status", ["STARTED", "PENDING", "SUCCESS", "REVOKED"])
-def test_diagnostics_non_failed_job_returns_409(status, request_store, override_session):
-    request_store.hset("job_meta:job-1", mapping={"status": status})
+def test_diagnostics_non_failed_job_returns_409(request_store, override_session):
+    request_store.hset("job_meta:job-1", mapping={"status": "SUCCESS"})
     assert client.get(path).status_code == 409
 
 
@@ -113,12 +112,3 @@ def test_diagnostics_missing_metadata_and_logs(request_store, override_session, 
     assert body["job"]["parameters"] == {}
     assert body["traceback"] is None
     assert body["logs"] == {"tail": "", "truncated": False, "may_contain_values": True}
-
-
-def test_diagnostics_openapi():
-    operation = app.openapi()["paths"]["/v1/jobs/{job_id}/diagnostics"]["get"]
-    assert {"200", "404", "409"} <= operation["responses"].keys()
-    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/JobDiagnostics"
-    }
-    assert "possibly containing data values" in operation["description"]

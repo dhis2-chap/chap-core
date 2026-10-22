@@ -325,6 +325,25 @@ def _parse_prediction_setup_id(value: str | None) -> int | None:
     return int(value) if value is not None else None
 
 
+def job_description(task_id: str, meta: dict[str, str]) -> JobDescription:
+    """Build a JobDescription from a job's Redis metadata."""
+    return JobDescription(
+        id=task_id,
+        type=meta.get("job_type", "Unspecified"),
+        name=meta.get("job_name", "Unnamed"),
+        status=meta["status"],
+        start_time=meta.get("start_time"),
+        end_time=meta.get("end_time"),
+        result=meta.get("result"),
+        error=meta.get("error"),
+        model_id=int(meta["model_id"]) if "model_id" in meta else None,
+        model_version=meta.get("model_version"),
+        dataset_id=int(meta["dataset_id"]) if "dataset_id" in meta else None,
+        parameters=json.loads(meta.get("parameters", "{}")),
+        prediction_setup_id=_parse_prediction_setup_id(meta.get(PREDICTION_SETUP_ID_JOB_META_KEY)),
+    )
+
+
 class CeleryJob[ReturnType]:
     """Wrapper for a Celery Job"""
 
@@ -459,21 +478,7 @@ class CeleryPool[ReturnType]:
                 jobs.append(meta)
 
         return [
-            JobDescription(
-                id=meta["task_id"],
-                type=meta.get("job_type", "Unspecified"),
-                name=meta.get("job_name", "Unnamed"),
-                status=meta["status"],
-                start_time=meta.get("start_time", None),
-                end_time=meta.get("end_time", None),
-                result=meta.get("result", None),
-                error=meta.get("error", None),
-                model_id=int(meta["model_id"]) if "model_id" in meta else None,
-                model_version=meta.get("model_version"),
-                dataset_id=int(meta["dataset_id"]) if "dataset_id" in meta else None,
-                parameters=json.loads(meta.get("parameters", "{}")),
-                prediction_setup_id=_parse_prediction_setup_id(meta.get(PREDICTION_SETUP_ID_JOB_META_KEY, None)),
-            )
+            job_description(meta["task_id"], meta)
             for meta in sorted(jobs, key=lambda x: x.get("start_time", datetime(1900, 1, 1).isoformat()), reverse=True)
         ]
 

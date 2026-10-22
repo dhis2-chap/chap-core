@@ -13,7 +13,7 @@ from chap_core.database.dataset_tables import DataSet, Observation
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import Backtest, BacktestRead, Prediction, PredictionInfo
 from chap_core.log_config import initialize_logging
-from chap_core.rest_api.celery_tasks import CeleryPool, JobDescription, get_job_meta
+from chap_core.rest_api.celery_tasks import CeleryPool, JobDescription, get_job_meta, job_description
 from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.v1.routers.dependencies import get_session
 
@@ -84,21 +84,7 @@ def get_job_diagnostics(job_id: str, session: Session = Depends(get_session)) ->
     if meta["status"].upper() != "FAILURE":
         raise HTTPException(status_code=409, detail="Diagnostics are only available for failed jobs")
 
-    job = JobDescription(
-        id=job_id,
-        type=meta.get("job_type", "Unspecified"),
-        name=meta.get("job_name", "Unnamed"),
-        status=meta["status"],
-        start_time=meta.get("start_time"),
-        end_time=meta.get("end_time"),
-        result=None,
-        error=meta.get("error"),
-        prediction_setup_id=meta.get("prediction_setup_id"),
-        model_id=meta.get("model_id"),
-        model_version=meta.get("model_version"),
-        dataset_id=meta.get("dataset_id"),
-        parameters=json.loads(meta.get("parameters", "{}")),
-    )
+    job = job_description(job_id, meta)
     model_info = None
     model = session.get(ConfiguredModelDB, job.model_id) if job.model_id is not None else None
     if model is not None:
