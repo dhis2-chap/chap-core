@@ -314,5 +314,6 @@ def test_the_leaderboard_leaves_out_backtests_of_archived_models(override_sessio
     assert not archived & {b["id"] for b in leaderboard["backtests"]}
     (row,) = [s for s in client.get("/v1/crud/backtest-specifications").json() if s["id"] == specification_id]
     assert row["backtestCount"] == len(leaderboard["backtests"])
-    # The backtest listing still shows them.
+    # On request, and in the backtest listing, they are still shown.
+    assert archived <= {b["id"] for b in _leaderboard(specification_id, includeArchivedModels=True)["backtests"]}
     assert archived <= {b["id"] for b in client.get("/v1/crud/backtests").json()}
