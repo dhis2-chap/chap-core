@@ -2128,7 +2128,7 @@ def test_create_alert_policy_happy_path(clean_engine, dependency_overrides, code
     [
         ("0", "1", "1"),  # duplicate level codes
         ("0", "1", "0"),  # collides with no alert
-        ("0", "  ", "2"),  # whitespace-only
+        ("0", "RED ", "2"),  # padded
     ],
 )
 def test_create_alert_policy_rejects_invalid_output_codes(
