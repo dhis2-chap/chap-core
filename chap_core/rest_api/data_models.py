@@ -389,7 +389,22 @@ class AlertPolicyCreate(AlertPolicyBase):
     levels: list[AlertLevel] = Field(
         min_length=1,
         description="The tiers of this policy, e.g. a `monitor` level and an `action` level. "
-        "Names must be unique within a policy.",
+        "Names must be unique within a policy. Omitted output codes default to `1`, `2`, etc. in level order.",
+    )
+
+
+class AlertPolicyCodesUpdate(DBModel):
+    """Change output codes without changing the policy's ladder."""
+
+    model_config = ConfigDict(extra="forbid")  # type: ignore[assignment]
+
+    level_output_codes: dict[str, str] = Field(
+        default_factory=dict,
+        description="New output codes keyed by existing level name. Omitted levels keep their codes.",
+    )
+    no_alert_output_code: str | None = Field(
+        default=None,
+        description="New no-alert output code; omitted or null leaves it unchanged.",
     )
 
 

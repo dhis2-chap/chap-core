@@ -2083,13 +2083,11 @@ def _alert_policy_payload(name: str = "Dengue ladder") -> dict:
         "levels": [
             {
                 "name": "monitor",
-                "outputCode": "1",
                 "thresholdParams": {"type": "seasonal", "stdMultiplier": 1.0},
                 "exceedanceThreshold": 0.3,
             },
             {
                 "name": "action",
-                "outputCode": "2",
                 "thresholdParams": {"type": "percentile", "quantile": 0.9},
                 "exceedanceThreshold": 0.8,
             },
@@ -2162,6 +2160,7 @@ def test_list_alert_policies_includes_every_created_policy(clean_engine, depende
 
 def test_get_unknown_alert_policy_returns_404(clean_engine, dependency_overrides):
     assert client.get("/v1/crud/alert-policies/99999").status_code == 404
+    assert client.patch("/v1/crud/alert-policies/99999", json={"noAlertOutputCode": "GREEN"}).status_code == 404
 
 
 def test_create_alert_policy_without_levels_returns_422(clean_engine, dependency_overrides):
@@ -2371,8 +2370,47 @@ def test_deleting_a_prediction_without_alerts_still_works(override_session, seed
     assert client.delete(f"/v1/crud/predictions/{prediction.id}").status_code == 200
 
 
-def test_there_is_no_patch_endpoint_for_alert_policies(clean_engine, dependency_overrides):
-    """Levels are immutable: editing them would orphan the alerts naming them."""
+def test_patch_alert_policy_codes_preserves_levels_and_existing_alerts(clean_engine, dependency_overrides):
     policy_id = _create_alert_policy("Alerts J").json()["id"]
-    response = client.patch(f"/v1/crud/alert-policies/{policy_id}", json={"name": "renamed"})
-    assert response.status_code == 405, response.text
+    url = f"/v1/crud/alert-policies/{policy_id}"
+    before = client.get(url).json()
+    (alert_id,) = _create_alerts(policy_id).json()["ids"]
+    alert_before = client.get(f"/v1/crud/alerts/{alert_id}").json()
+
+    response = client.patch(
+        url,
+        json={"noAlertOutputCode": "GREEN", "levelOutputCodes": {"action": "RED", "monitor": "ORANGE"}},
+    )
+    assert response.status_code == 200, response.text
+    expected = before | {"noAlertOutputCode": "GREEN"}
+    expected["levels"] = [level | {"outputCode": code} for level, code in zip(before["levels"], ["ORANGE", "RED"])]
+    assert response.json() == expected
+    assert client.get(url).json() == expected
+    alert = client.get(f"/v1/crud/alerts/{alert_id}").json()
+    assert alert == alert_before
+    assert next(level["outputCode"] for level in expected["levels"] if level["name"] == alert["level"]) == "RED"
+
+    # A partial update preserves both the no-alert code and omitted levels.
+    response = client.patch(url, json={"levelOutputCodes": {"monitor": "YELLOW"}})
+    expected["levels"][0]["outputCode"] = "YELLOW"
+    assert response.status_code == 200, response.text
+    assert client.get(url).json() == expected
+
+
+@pytest.mark.parametrize(
+    "update",
+    [
+        {"levelOutputCodes": {"unknown": "RED"}},
+        {"levelOutputCodes": {"monitor": "2"}},  # collides with an unchanged level
+        {"noAlertOutputCode": "1"},  # collides with an unchanged level
+        {"name": "renamed"},
+        {"levels": []},
+    ],
+)
+def test_patch_alert_policy_rejects_invalid_changes_without_saving(clean_engine, dependency_overrides, update):
+    policy_id = _create_alert_policy().json()["id"]
+    url = f"/v1/crud/alert-policies/{policy_id}"
+    before = client.get(url).json()
+    response = client.patch(url, json=update)
+    assert response.status_code == 422, response.text
+    assert client.get(url).json() == before

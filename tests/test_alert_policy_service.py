@@ -99,6 +99,20 @@ def test_a_level_reports_the_strategy_from_its_params(monitor_level, action_leve
     assert action_level.threshold_strategy == "percentile"
 
 
+def test_create_defaults_omitted_codes_and_preserves_explicit_codes(engine, monitor_level, action_level):
+    with Session(engine) as session:
+        policy = create_alert_policy(
+            session,
+            name="Mixed codes",
+            levels=[
+                monitor_level.model_dump(exclude={"output_code"}),
+                action_level.model_copy(update={"output_code": "RED"}),
+            ],
+        )
+        assert policy.no_alert_output_code == "0"
+        assert [level.output_code for level in policy.levels] == ["1", "RED"]
+
+
 def test_create_without_levels_is_rejected(engine):
     """A policy with no tiers can never raise anything."""
     with Session(engine) as session:

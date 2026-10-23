@@ -81,6 +81,16 @@ class AlertPolicyBase(DBModel):
         description="The tiers of this policy, ordered from least to most severe.",
     )
 
+    @field_validator("levels", mode="before")
+    @classmethod
+    def _default_output_codes(cls, levels):
+        if not isinstance(levels, (list, tuple)):
+            return levels
+        return [
+            {"output_code": str(index), **level} if isinstance(level, dict) and "outputCode" not in level else level
+            for index, level in enumerate(levels, start=1)
+        ]
+
 
 class AlertPolicy(AlertPolicyBase, table=True):
     """Persisted alert policy: a named set of alert levels a prediction setup scores against."""
