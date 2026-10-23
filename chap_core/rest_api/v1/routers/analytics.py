@@ -97,6 +97,9 @@ def make_dataset(
     (validation runs synchronously, the harmonise-and-load step async). Poll
     ``/v1/jobs/{id}`` to know when the dataset is queryable. Pass ``dryRun=true`` to run
     validation only and get the rejection summary without queuing an import.
+
+    ``maskedRanges`` deletes data: ``disease_cases`` inside the ranges is stored as empty
+    and the submitted values are not kept. They cannot be recovered or unmasked later.
     """
     feature_names, provided_data, rejections = _read_and_validate_dataset(request, dry_run)
     _check_masked_ranges_match(request.masked_ranges, provided_data)

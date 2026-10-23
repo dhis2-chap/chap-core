@@ -149,7 +149,7 @@ chap eval \
 
 ## Data Configuration
 
-Use `--data-configuration` to mask `disease_cases` in periods that should not be used for training, such as COVID years or a reporting outage. The values are not deleted from the CSV: inside a masked range the model receives `disease_cases` as empty (NaN) and an extra column `disease_cases_masked` set to 1. Everywhere else `disease_cases_masked` is 0, so a model can tell a masked period from a genuinely missing value.
+Use `--data-configuration` to mask `disease_cases` in periods that should not be used for training, such as COVID years or a reporting outage. On the command line the values are not deleted from the CSV; only the loaded copy is masked. (Creating a dataset with masked ranges through the REST API is different: it deletes the values inside the ranges, see [Masked periods](../external_models/data_formats.md#masked-periods).) Inside a masked range the model receives `disease_cases` as empty (NaN) and an extra column `disease_cases_masked` set to 1. Everywhere else `disease_cases_masked` is 0, so a model can tell a masked period from a genuinely missing value.
 
 ### Format
 

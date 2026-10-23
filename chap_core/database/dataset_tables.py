@@ -184,7 +184,11 @@ class DataSetCreateInfo(DataSetCreateInfoBase):
     masked_ranges: list[MaskedRange] | None = Field(
         default_factory=list,
         sa_column=Column(PydanticListType(MaskedRange)),
-        description="Inclusive period ranges in which `disease_cases` is masked. Set at creation and never changed.",
+        description=(
+            "Inclusive period ranges in which `disease_cases` is masked. Set at creation and never changed. "
+            "Deletes data: `disease_cases` inside the ranges is stored as empty and the submitted values "
+            "cannot be recovered."
+        ),
     )
 
     @field_validator("masked_ranges")
