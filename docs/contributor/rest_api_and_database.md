@@ -17,6 +17,7 @@ flowchart TB
     Analytics["analytics.py<br/>/v1/analytics"]
     Jobs["jobs.py<br/>/v1/jobs"]
     Viz["visualization.py<br/>/v1/visualization"]
+    Settings["settings.py<br/>/v1/settings"]
     Services["services.py<br/>chapkit registry<br/>/v2/services"]
 
     App --> Common
@@ -26,6 +27,7 @@ flowchart TB
     V1 --> Analytics
     V1 --> Jobs
     V1 --> Viz
+    V1 --> Settings
     V2 --> Services
 ```
 
@@ -55,7 +57,7 @@ SQLAlchemy and Pydantic).
 
 ## The v1 API
 
-The v1 router (`rest_api/v1/rest_api.py`) includes four sub-routers:
+The v1 router (`rest_api/v1/rest_api.py`) includes five sub-routers:
 
 ### crud.py (`/v1/crud/...`)
 
@@ -106,6 +108,41 @@ Monitor and manage async Celery jobs:
 ### visualization.py (`/v1/visualization/...`)
 
 Generates plots and metrics charts from backtest results.
+
+### settings.py (`/v1/settings`)
+
+`GET /v1/settings` reads the installation-wide defaults; `PUT /v1/settings` replaces
+the complete record. The `backendsettings` table holds only the values an admin
+changed; reads layer them over the code defaults, so a release that changes a default
+reaches every installation that has not overridden it. Routers access the settings
+through `SettingsManager` (`database/settings.py`):
+
+- `metricSortOrder`: metric ids in display and ranking order. Metrics omitted from
+  this list are appended in their default order.
+- `selectedMetrics`: the subset shown by default, returned in `metricSortOrder` order.
+- `defaultBaselineModel`: the built-in baseline's name, initially `persistence`.
+  A name follows new model versions without changing the settings.
+- `weeklyBacktestParams` and `monthlyBacktestParams`: the `BacktestParams` fields.
+  Initially both use 7 splits, one training run and `climatology` for future weather.
+  Weekly data forecasts 12 periods with stride 4; monthly data forecasts 3 with stride 1.
+
+`DEFAULT_METRIC_ORDER` in `database/settings.py` sets the default order. The first six,
+selected by default, are CRPS (log1p), Winkler 25–75 (log1p), MAE, RMSE, MAPE and
+Coverage 10–90. Reads drop metric ids that no longer exist and fall back to
+`persistence` for a missing baseline, so renaming either never breaks the API. A record
+that is invalid for any other reason is logged and replaced by the defaults. The
+leaderboard and metric catalogue return every metric in the saved order with `sortOrder` and
+`isSelected`. The leaderboard also returns `defaultBaselineModel` so clients can
+choose that baseline's comparison values. Its backtest rows remain newest first;
+the frontend uses the selected metrics in order to rank them, respecting each
+metric's direction or target.
+
+`GET /v1/analytics/backtest-parameters?periodType=week` (or `month`, the default)
+returns the saved parameter defaults with their existing display metadata. All
+three backtest creation endpoints resolve omitted parameters against the dataset's
+period type before validating and queueing the work. Explicit parameters override
+the saved defaults, and existing specifications are unchanged. Standalone CLI
+runs continue to use `BacktestParams` defaults without a database.
 
 
 ## The v2 API

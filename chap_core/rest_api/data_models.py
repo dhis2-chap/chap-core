@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, computed_field, create_model, field_validator
 from pydantic.alias_generators import to_camel
 
-from chap_core.api_types import BacktestParams, FeatureCollectionModel
+from chap_core.api_types import BacktestParams, BacktestParamsBase, FeatureCollectionModel
 from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID, resolve_weather_provider
 from chap_core.database.alert_tables import AlertApproval, AlertBase, AlertLevel, AlertPolicyBase
 from chap_core.database.base_tables import DBModel
@@ -196,8 +196,11 @@ class MakePredictionRequest(DatasetMakeRequest, PredictionParams):
     )
 
 
-class MakeBacktestRequest(BacktestParams):
-    """Request to backtest an already-imported dataset against a configured model."""
+class MakeBacktestRequest(BacktestParamsBase):
+    """Request to backtest an already-imported dataset against a configured model.
+
+    Omitted backtest parameters use the stored defaults for the dataset's period type, not the schema defaults.
+    """
 
     target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
 
@@ -208,8 +211,11 @@ class MakeBacktestRequest(BacktestParams):
     dataset_id: int = Field(description="Foreign key to the dataset the backtest evaluates against.")
 
 
-class MakeBacktestsRequest(BacktestParams):
-    """Request to run several configured models on one dataset under one set of evaluation parameters."""
+class MakeBacktestsRequest(BacktestParamsBase):
+    """Request to run several configured models on one dataset under one set of evaluation parameters.
+
+    Omitted backtest parameters use the stored defaults for the dataset's period type, not the schema defaults.
+    """
 
     target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
 
@@ -238,8 +244,11 @@ class MakeBacktestsResponse(DBModel):
     jobs: list[BacktestJob] = Field(description="One queued job per requested model, in request order.")
 
 
-class MakeBacktestWithDataRequest(DatasetMakeRequest, BacktestParams):
-    """Long-path request: build the dataset, then immediately backtest the configured model against it."""
+class MakeBacktestWithDataRequest(DatasetMakeRequest, BacktestParamsBase):
+    """Long-path request: build the dataset, then immediately backtest the configured model against it.
+
+    Omitted backtest parameters use the stored defaults for the dataset's period type, not the schema defaults.
+    """
 
     name: str = Field(description="Human-friendly name for the resulting backtest row.")
     model_id: str = Field(description="Canonical name of the configured model to backtest.")
