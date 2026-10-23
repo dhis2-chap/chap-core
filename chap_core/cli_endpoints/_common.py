@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from chap_core.api_types import BacktestParams, EstimatorOptions, RunConfig
+    from chap_core.database.dataset_tables import DataConfiguration
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
     from chap_core.external.model_configuration import ModelTemplateConfigV2
     from chap_core.hpo.hyperparameter_optimizer import HyperparameterOptimizer
@@ -172,10 +173,25 @@ def discover_geojson(csv_path: Path) -> Path | None:
     return None
 
 
+def load_data_configuration(path: Path | None) -> DataConfiguration | None:
+    """Read a `--data-configuration` file (JSON or YAML) with the dataset's data settings, such as masked ranges."""
+    if path is None:
+        return None
+    import yaml
+
+    from chap_core.database.dataset_tables import DataConfiguration
+
+    logger.info(f"Loading data configuration from {path}")
+    with open(path) as f:
+        content = yaml.safe_load(f)
+    return DataConfiguration.model_validate(content or {})
+
+
 def load_dataset_from_csv(
     csv_path: Path,
     geojson_path: Path | None = None,
     column_mapping: dict[str, str] | None = None,
+    data_configuration: DataConfiguration | None = None,
 ) -> DataSet:
     """
     Load dataset from CSV file with optional GeoJSON polygons.
@@ -185,6 +201,8 @@ def load_dataset_from_csv(
         geojson_path: Optional path to GeoJSON file with polygon boundaries
         column_mapping: Optional mapping from covariate names (keys) to CSV column names (values).
             If provided, columns will be renamed before creating the DataSet.
+        data_configuration: Optional data settings; its masked ranges mask `disease_cases` in the
+            loaded dataset (CLIM-1300).
 
     Returns:
         DataSet loaded from CSV with polygons if provided
@@ -213,6 +231,15 @@ def load_dataset_from_csv(
         polygons.filter_locations(dataset.locations())
         dataset.set_polygons(polygons.data)
 
+    from chap_core.assessment.target_mask import MASK_INDICATOR_FIELD, apply_target_mask
+
+    if MASK_INDICATOR_FIELD in dataset.field_names():
+        raise ValueError(
+            f"{csv_path} has a {MASK_INDICATOR_FIELD!r} column, which is reserved: it is added by masking. "
+            "Use masked ranges in --data-configuration instead."
+        )
+    if data_configuration is not None:
+        dataset = apply_target_mask(dataset, data_configuration.masked_ranges)
     return dataset
 
 

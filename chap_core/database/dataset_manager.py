@@ -14,13 +14,14 @@ from typing import cast
 
 from sqlmodel import select
 
+from chap_core.assessment.target_mask import MASK_INDICATOR_FIELD, apply_target_mask, without_mask_indicator
 from chap_core.datatypes import FullData, create_tsdataclass
 from chap_core.geometry import Polygons
 from chap_core.time_period import Month, Week
 
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
-from .dataset_tables import DataSet, DataSetCreateInfo, DataSetInfo, Observation
+from .dataset_tables import DataSet, DataSetCreateInfo, DataSetInfo, Observation, check_masked_ranges_match_dataset
 from .manager import DbManager
 
 logger = logging.getLogger(__name__)
@@ -82,11 +83,19 @@ class DataSetManager(DbManager[DataSet]):
             if field.name not in ["time_period", "location"]
         ]
         logger.info(f"Field names in dataset: {field_names}")
+        if MASK_INDICATOR_FIELD in field_names:
+            raise ValueError(f"{MASK_INDICATOR_FIELD!r} is added by masking for a run and is never stored")
         if isinstance(orig_dataset.period_range[0], Month):
             period_type = "month"
         else:
             assert isinstance(orig_dataset.period_range[0], Week), orig_dataset.period_range[0]
             period_type = "week"
+        check_masked_ranges_match_dataset(dataset_info.masked_ranges, orig_dataset.period_range[0])
+        if dataset_info.masked_ranges:
+            # Masked on save by design: `disease_cases` is stored as NaN inside the ranges and the
+            # original values are not kept. The indicator is not stored; it is derived from the
+            # stored ranges whenever the dataset is loaded for a run.
+            orig_dataset = without_mask_indicator(apply_target_mask(orig_dataset, dataset_info.masked_ranges))
         full_info = DataSetInfo(
             first_period=orig_dataset.period_range[0].id,
             last_period=orig_dataset.period_range[-1].id,

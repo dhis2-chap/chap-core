@@ -31,6 +31,7 @@ import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import BacktestParams, FeatureCollectionModel
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import compare_aggregated_metrics, compute_all_detailed_metrics
+from chap_core.assessment.target_mask import check_no_mask_indicator_input
 from chap_core.assessment.weather_providers import resolve_weather_provider
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.alert_tables import Alert, AlertApproval, AlertPolicyRead, AlertRead
@@ -41,6 +42,7 @@ from chap_core.database.dataset_tables import (
     DataSetCreateInfo,
     DataSetInfo,
     DataSetWithObservations,
+    check_masked_ranges_match_dataset,
 )
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.model_templates_and_config_tables import (
@@ -845,13 +847,22 @@ async def create_dataset(
     (or ``/v1/jobs/{id}/database_result`` once finished) for the resulting dataset id.
     For a dataset that ships its own covariates, use ``POST /v1/analytics/make-dataset``
     instead.
+
+    ``maskedRanges`` deletes data: ``disease_cases`` inside the ranges is stored as empty
+    and the submitted values are not kept. They cannot be recovered or unmasked later.
     """
     health_data = observations_to_dataset(HealthPopulationData, data.observations, fill_missing=True)
     health_data.set_polygons(FeatureCollectionModel.model_validate(data.geojson))
+    if data.masked_ranges and len(health_data.period_range):
+        try:
+            check_masked_ranges_match_dataset(data.masked_ranges, health_data.period_range[0])
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
     job = worker.queue_db(
         wf.harmonize_and_add_health_dataset,
         health_data.model_dump(),
         data.name,
+        masked_ranges=data.masked_ranges,
         database_url=datababase_url,
         worker_config=worker_settings,
         **{JOB_REQUEST_KW: original_request},
@@ -1568,8 +1579,10 @@ async def run_prediction_setup(
     arrived, a model investigation, etc.). Returns a job id; track it via
     ``/v1/jobs/{id}`` or filter the jobs list with ``predictionSetupId`` to see every
     job this setup has launched. Returns 404 if the setup is unknown, 409 if its
-    configured model has been archived, 422 if ``provided_data`` is empty or missing
-    the backtest's target column. Forecasts use the same target as the backtest.
+    configured model has been archived, 422 if ``provided_data`` is empty, missing
+    the backtest's target column, or of a different period type than the backtest
+    dataset's masked ranges. Forecasts use the same target, future-weather provider and
+    masked ranges as the backtest: the ranges are copied onto the run's new dataset.
     """
     try:
         setup = prediction_setup_service.get_prediction_setup(session, prediction_setup_id)
@@ -1592,6 +1605,10 @@ async def run_prediction_setup(
 
     target_column = setup.backtest.specification.target_column
     feature_names = list({entry.feature_name for entry in request.provided_data})
+    try:
+        check_no_mask_indicator_input(feature_names)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     if target_column not in feature_names:
         raise HTTPException(status_code=422, detail=f"Dataset has no target column {target_column!r}")
     dataclass = create_tsdataclass(feature_names)
@@ -1610,12 +1627,22 @@ async def run_prediction_setup(
         )
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
 
+    # Inherit the backtest dataset's masked ranges, so predictions train under the same mask the
+    # backtest was scored with. Only the ranges are copied; the observations are this run's own.
+    masked_ranges = setup.backtest.dataset.masked_ranges or []
+    has_data = len(list(provided_data.locations())) > 0
+    if masked_ranges and has_data:
+        try:
+            check_masked_ranges_match_dataset(masked_ranges, provided_data.period_range[0])
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+
     # Normalize dataset type server-side, matching analytics.make_prediction. Whatever the
     # client sent in `request.type` (e.g. chap-scheduler defaults to "forecasting") gets
     # overridden so the persisted dataset is consistently tagged "prediction" and shows
     # up in prediction-filtered UI/queries. Use a local instead of mutating the request.
     dataset_type = "prediction"
-    dataset_info = DataSetCreateInfo(name=request.name, type=dataset_type).model_dump()
+    dataset_info = DataSetCreateInfo(name=request.name, type=dataset_type, masked_ranges=masked_ranges).model_dump()
     # Inherit the provider the setup's backtest was evaluated with, so a promoted
     # backtest predicts against the same future-weather source it was scored on.
     provider = setup.backtest.future_weather_provider

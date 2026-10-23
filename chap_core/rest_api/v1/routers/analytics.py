@@ -17,6 +17,7 @@ from chap_core.api_types import (
     PredictionEntry,
 )
 from chap_core.assessment.dataset_splitting import train_test_generator
+from chap_core.assessment.target_mask import check_no_mask_indicator_input
 from chap_core.assessment.thresholds import list_threshold_strategies
 from chap_core.assessment.thresholds.params import ThresholdParams
 from chap_core.assessment.weather_providers import list_weather_providers
@@ -24,7 +25,7 @@ from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet as DataSetTable
-from chap_core.database.dataset_tables import DataSetCreateInfo
+from chap_core.database.dataset_tables import DataSetCreateInfo, MaskedRange, check_masked_ranges_match_dataset
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 from chap_core.database.tables import (
     Backtest,
@@ -96,8 +97,12 @@ def make_dataset(
     (validation runs synchronously, the harmonise-and-load step async). Poll
     ``/v1/jobs/{id}`` to know when the dataset is queryable. Pass ``dryRun=true`` to run
     validation only and get the rejection summary without queuing an import.
+
+    ``maskedRanges`` deletes data: ``disease_cases`` inside the ranges is stored as empty
+    and the submitted values are not kept. They cannot be recovered or unmasked later.
     """
     feature_names, provided_data, rejections = _read_and_validate_dataset(request, dry_run)
+    _check_masked_ranges_match(request.masked_ranges, provided_data)
     imported_count = len(list(provided_data.locations()))
     if dry_run:
         return ImportSummaryResponse(id=None, imported_count=imported_count, rejected=rejections)
@@ -111,6 +116,7 @@ def make_dataset(
         request.name,
         request.type,
         data_sources=request.data_sources,
+        masked_ranges=request.masked_ranges,
         database_url=database_url,
         worker_config=worker_settings,
         **{
@@ -166,10 +172,33 @@ def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataS
     return feature_names, provided_data, rejections
 
 
+def _check_masked_ranges_match(masked_ranges: list[MaskedRange] | None, dataset: DataSet) -> None:
+    """Reject masked ranges whose period type differs from the dataset's, before anything is queued."""
+    if not masked_ranges or not list(dataset.locations()):
+        return
+    if "disease_cases" not in dataset.field_names():
+        raise HTTPException(
+            status_code=422, detail="Masked ranges mask 'disease_cases', but the data has no 'disease_cases' column"
+        )
+    try:
+        check_masked_ranges_match_dataset(masked_ranges, dataset.period_range[0])
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+
+def _reject_mask_indicator_input(feature_names: list[str] | list[str | None]) -> None:
+    """Reject input data that carries the column masking adds itself."""
+    try:
+        check_no_mask_indicator_input(feature_names)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+
 def _read_dataset(request):
     if not request.provided_data:
         raise HTTPException(status_code=400, detail="No observation data provided.")
     feature_names = list({entry.feature_name for entry in request.provided_data})
+    _reject_mask_indicator_input(feature_names)
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
@@ -454,7 +483,7 @@ async def get_evaluation_entries(
     tags=["Backtests"],
     summary="Run a backtest against a stored dataset",
 )
-async def create_backtest(
+def create_backtest(
     request: MakeBacktestRequest,
     original_request: dict = Depends(get_job_request),
     database_url: str = Depends(get_database_url),
@@ -471,6 +500,18 @@ async def create_backtest(
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
     if request.target_column not in stored_dataset.covariates:
         raise HTTPException(status_code=422, detail=f"Dataset has no target column {request.target_column!r}")
+    if stored_dataset.masked_ranges:
+        try:
+            wf.check_backtest_on_masked_dataset(
+                session,
+                request.dataset_id,
+                request.n_periods,
+                request.n_splits,
+                request.stride,
+                target_column=request.target_column,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
     model = get_job_model(session, request.model_id)
     job = worker.queue_db(
         wf.run_backtest,
@@ -524,8 +565,8 @@ def create_backtests(
     wrapper = SessionWrapper(session=session)
     models = [get_job_model(session, model_id) for model_id in request.model_ids]
     params = BacktestParams(**request.model_dump(include=set(BacktestParams.model_fields)))
-    dataset = DataSetManager(session).to_dataset(request.dataset_id)
     try:
+        dataset = wf.load_masked_dataset(session, request.dataset_id, request.target_column)
         _, specification = wf.resolve_backtest_specification(
             wrapper, dataset, request.dataset_id, params, target_column=request.target_column
         )
@@ -584,6 +625,7 @@ async def make_prediction(
     """
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
+    _reject_mask_indicator_input(feature_names)
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
