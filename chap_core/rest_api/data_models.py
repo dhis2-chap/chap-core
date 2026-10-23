@@ -142,7 +142,10 @@ class BacktestSpecificationSummary(BacktestParams):
     id: int = Field(description="Primary key of the specification.")
     dataset: DataSetMeta = Field(description="Slim summary of the dataset the specification evaluates against.")
     org_unit_count: int = Field(description="Number of org units the evaluation runs over.")
-    backtest_count: int = Field(description="Number of backtests that ran under this specification.")
+    backtest_count: int = Field(
+        description="Number of backtests on this specification's leaderboard: those that ran under it, "
+        "except backtests of baseline models and of archived models."
+    )
 
 
 # Derived from BacktestParams so a parameter added there is filterable without touching this
