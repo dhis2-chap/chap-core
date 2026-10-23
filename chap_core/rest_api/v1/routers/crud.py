@@ -31,6 +31,7 @@ import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import BacktestParams, FeatureCollectionModel
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import compare_aggregated_metrics, compute_all_detailed_metrics
+from chap_core.assessment.target_mask import check_no_mask_indicator_input
 from chap_core.assessment.weather_providers import resolve_weather_provider
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.alert_tables import Alert, AlertApproval, AlertPolicyRead, AlertRead
@@ -1593,6 +1594,10 @@ async def run_prediction_setup(
 
     target_column = setup.backtest.specification.target_column
     feature_names = list({entry.feature_name for entry in request.provided_data})
+    try:
+        check_no_mask_indicator_input(feature_names)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     if target_column not in feature_names:
         raise HTTPException(status_code=422, detail=f"Dataset has no target column {target_column!r}")
     dataclass = create_tsdataclass(feature_names)

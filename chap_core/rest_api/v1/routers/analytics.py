@@ -17,7 +17,7 @@ from chap_core.api_types import (
     PredictionEntry,
 )
 from chap_core.assessment.dataset_splitting import train_test_generator
-from chap_core.assessment.target_mask import MASK_INDICATOR_FIELD
+from chap_core.assessment.target_mask import check_no_mask_indicator_input
 from chap_core.assessment.thresholds import list_threshold_strategies
 from chap_core.assessment.thresholds.params import ThresholdParams
 from chap_core.assessment.weather_providers import list_weather_providers
@@ -171,11 +171,10 @@ def _check_masked_ranges_match(masked_ranges: list[MaskedRange] | None, dataset:
 
 def _reject_mask_indicator_input(feature_names: list[str] | list[str | None]) -> None:
     """Reject input data that carries the column masking adds itself."""
-    if MASK_INDICATOR_FIELD in feature_names:
-        raise HTTPException(
-            status_code=422,
-            detail=f"{MASK_INDICATOR_FIELD!r} is reserved: it is added by masking. Send maskedRanges instead.",
-        )
+    try:
+        check_no_mask_indicator_input(feature_names)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 def _read_dataset(request):
@@ -467,7 +466,7 @@ async def get_evaluation_entries(
     tags=["Backtests"],
     summary="Run a backtest against a stored dataset",
 )
-async def create_backtest(
+def create_backtest(
     request: MakeBacktestRequest,
     original_request: dict = Depends(get_job_request),
     database_url: str = Depends(get_database_url),

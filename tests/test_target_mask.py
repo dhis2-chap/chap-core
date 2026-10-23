@@ -127,3 +127,24 @@ def test_mask_rejects_a_dataset_without_disease_cases(health_population_data):
     ranges = _range(health_population_data, 10, 12)
     with pytest.raises(ValueError, match="has no 'disease_cases' column"):
         apply_target_mask(health_population_data.remove_field("disease_cases"), ranges)
+
+
+def test_masking_keeps_the_type_of_other_columns():
+    """Text covariates must survive masking; only disease_cases and the indicator are float."""
+    import dataclasses
+
+    from chap_core.datatypes import TimeSeriesData, tsdataclass
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+    from chap_core.time_period import PeriodRange
+
+    fields = [("disease_cases", float), ("region", str)]
+    data_class = tsdataclass(dataclasses.make_dataclass("Data", fields, bases=(TimeSeriesData,)))
+    periods = PeriodRange.from_strings(["2021-05", "2021-06", "2021-07"])
+    dataset = DataSet({"A": data_class(periods, np.array([1.0, 2.0, 3.0]), ["AB", "AB", "AB"])})
+
+    masked = apply_target_mask(dataset, [MaskedRange(start="2021-06", end="2021-06")])
+    assert [str(value) for value in masked["A"].region] == ["AB", "AB", "AB"]
+    assert list(masked["A"].disease_cases_masked) == [0, 1, 0]
+    future = as_future_data(masked)
+    assert [str(value) for value in future["A"].region] == ["AB", "AB", "AB"]
+    assert list(future["A"].disease_cases_masked) == [0, 0, 0]

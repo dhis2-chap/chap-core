@@ -1622,6 +1622,33 @@ def test_run_prediction_setup_without_backtest_ranges_creates_an_unmasked_datase
     assert captured["dataset_create_info"]["masked_ranges"] == []
 
 
+def test_run_prediction_setup_rejects_input_carrying_the_mask_indicator(
+    override_session, seeded_session, example_polygons, monkeypatch
+):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    setup_id = _create_prediction_setup(backtest.id, "Indicator input").json()["id"]
+    request = create_make_data_request(
+        example_polygons, [], ["rainfall", "disease_cases", "population", "disease_cases_masked"]
+    )
+    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources", "masked_ranges"})
+    payload["nPeriods"] = 3
+
+    from chap_core.rest_api.v1.routers import crud as crud_router
+
+    queued: list = []
+
+    class _RecordingWorker:
+        def queue_db(self, func, *args, **kwargs):
+            queued.append(func)
+
+    monkeypatch.setattr(crud_router, "worker", _RecordingWorker())
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    assert response.status_code == 422, response.text
+    assert "is reserved" in response.text
+    assert queued == []
+
+
 def test_run_prediction_setup_rejects_data_of_another_period_type_than_the_ranges(
     override_session, seeded_session, example_polygons, monkeypatch
 ):

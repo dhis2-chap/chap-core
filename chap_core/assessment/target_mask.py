@@ -11,6 +11,7 @@ and models that stack history and future, or fit on every column, need the same 
 
 from __future__ import annotations
 
+import dataclasses
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -36,7 +37,6 @@ def apply_target_mask(dataset: DataSet, masked_ranges: list[MaskedRange] | None)
     the same result. Run it after any padding, or padded periods get a NaN indicator.
     """
     # Imported here: the weather providers import this module while chap_core.datatypes is still loading.
-    from chap_core.datatypes import create_tsdataclass
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
     if not masked_ranges:
@@ -46,7 +46,7 @@ def apply_target_mask(dataset: DataSet, masked_ranges: list[MaskedRange] | None)
     check_masked_ranges_match_dataset(masked_ranges, dataset.period_range[0])
     bounds = [(parse_masked_period(r.start), parse_masked_period(r.end)) for r in masked_ranges]
     names = [name for name in dataset.field_names() if name != MASK_INDICATOR_FIELD]
-    data_class = create_tsdataclass([*names, MASK_INDICATOR_FIELD])
+    data_class = _with_indicator_class(next(iter(dataset.values())))
     masked = {}
     for location, data in dataset.items():
         inside = np.array(
@@ -79,6 +79,12 @@ def check_mask_outside_evaluation_window(dataset: DataSet, n_periods: int, n_spl
             )
 
 
+def check_no_mask_indicator_input(feature_names: list[str] | list[str | None]) -> None:
+    """Raise if input data carries the indicator column, which masking adds itself."""
+    if MASK_INDICATOR_FIELD in feature_names:
+        raise ValueError(f"{MASK_INDICATOR_FIELD!r} is reserved: it is added by masking. Send maskedRanges instead.")
+
+
 def check_target_column_allows_masking(masked_ranges: list[MaskedRange] | None, target_column: str) -> None:
     """Raise if a dataset with masked ranges is run with a target other than `disease_cases`.
 
@@ -92,13 +98,28 @@ def check_target_column_allows_masking(masked_ranges: list[MaskedRange] | None, 
         )
 
 
+def _with_indicator_class(data) -> type:
+    """The data's own dataclass plus a float mask indicator, keeping every other column's type."""
+    from chap_core.datatypes import TimeSeriesData, tsdataclass
+
+    fields = [
+        (field.name, float if field.name == TARGET_FIELD else field.type)
+        for field in dataclasses.fields(data)
+        if field.name != MASK_INDICATOR_FIELD
+    ]
+    return tsdataclass(  # type: ignore[no-any-return]
+        dataclasses.make_dataclass(
+            type(data).__name__, [*fields, (MASK_INDICATOR_FIELD, float)], bases=(TimeSeriesData,)
+        )
+    )
+
+
 def with_unmasked_indicator(dataset: DataSet) -> DataSet:
     """Return a copy of `dataset` whose mask indicator is 0 everywhere, adding the column if it is missing."""
-    from chap_core.datatypes import create_tsdataclass
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
     names = [name for name in dataset.field_names() if name != MASK_INDICATOR_FIELD]
-    data_class = create_tsdataclass([*names, MASK_INDICATOR_FIELD])
+    data_class = _with_indicator_class(next(iter(dataset.values())))
     unmasked = {
         location: data_class(
             data.time_period,
