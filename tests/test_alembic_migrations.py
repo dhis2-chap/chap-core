@@ -254,10 +254,10 @@ class TestAlembicMigrations:
         assert "chap_version" in columns
 
         from sqlmodel import Session
-        from chap_core.database.settings import get_backend_settings
+        from chap_core.database.settings import SettingsManager
 
         with Session(engine) as session:
-            assert get_backend_settings(session).default_baseline_model == "persistence"
+            assert SettingsManager(session).get().default_baseline_model == "persistence"
 
     def test_downgrade_to_base_and_upgrade_again(self, engine):
         """

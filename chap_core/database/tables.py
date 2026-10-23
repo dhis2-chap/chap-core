@@ -4,7 +4,7 @@ todo: comment this file, make it clear which classes are central and being used
 
 import datetime
 from enum import StrEnum
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 from pydantic import computed_field
@@ -25,10 +25,10 @@ from chap_core.database.model_templates_and_config_tables import (
 
 
 class BackendSettings(DBModel, table=True):
-    """One installation-wide record, validated through `Settings` before writing."""
+    """One installation-wide record of the settings an admin changed. Access it through `SettingsManager`."""
 
     id: int = Field(default=1, primary_key=True)
-    values: dict = Field(sa_column=Column(JSON, nullable=False))
+    values: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
 
     __table_args__ = (CheckConstraint("id = 1", name="ck_backendsettings_singleton"),)
 

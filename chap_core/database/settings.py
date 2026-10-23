@@ -4,12 +4,11 @@ import logging
 from typing import Self
 
 from pydantic import Field, ValidationError, field_validator, model_validator
-from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session
 
 from chap_core.api_types import BacktestParams
 from chap_core.assessment.metrics import available_metrics
 from chap_core.database.base_tables import DBModel
+from chap_core.database.manager import DbManager
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.database.tables import BackendSettings
 from chap_core.models.builtin import get_builtin_models
@@ -85,6 +84,7 @@ class Settings(DBModel):
             return self.weekly_backtest_params
         if period_type == "month":
             return self.monthly_backtest_params
+        logger.warning("No stored backtest defaults for period type %r; using schema defaults", period_type)
         return BacktestParams()
 
 
@@ -98,35 +98,32 @@ def default_settings() -> Settings:
     )
 
 
-def get_settings_record(session: Session) -> BackendSettings:
-    """Seed on first use, including when two API workers start against a fresh database."""
-    record = session.get(BackendSettings, 1)
-    if record is None:
-        record = BackendSettings(values=default_settings().model_dump())
-        session.add(record)
+class SettingsManager(DbManager[BackendSettings]):
+    """Stores only the settings an admin changed, so later changes to the code defaults still apply."""
+
+    model = BackendSettings
+
+    def get(self) -> Settings:
+        """Code defaults with the stored overrides on top, dropping metrics and baselines that no longer exist.
+
+        Falls back to the defaults if the overrides are otherwise invalid, for example after
+        a weather provider is removed, so stale settings never break the API.
+        """
+        record = self.find_by_id(1)
+        values = default_settings().model_dump() | (record.values if record else {})
+        for key in ("metric_sort_order", "selected_metrics"):
+            values[key] = [metric_id for metric_id in values[key] if metric_id in available_metrics]
+        if not is_builtin_baseline(values["default_baseline_model"]):
+            values["default_baseline_model"] = DEFAULT_BASELINE_MODEL
         try:
-            session.commit()
-        except IntegrityError:
-            session.rollback()
-            record = session.get(BackendSettings, 1)
-            if record is None:
-                raise
-    return record
+            return Settings.model_validate(values)
+        except ValidationError:
+            logger.warning("Stored backend settings are invalid; using defaults", exc_info=True)
+            return default_settings()
 
-
-def get_backend_settings(session: Session) -> Settings:
-    """Read the stored settings, dropping metrics and baselines that no longer exist.
-
-    Falls back to the defaults if the stored record is otherwise invalid, for example after
-    a weather provider is removed, so stale settings never break the API.
-    """
-    values = dict(get_settings_record(session).values)
-    for key in ("metric_sort_order", "selected_metrics"):
-        values[key] = [metric_id for metric_id in values.get(key, []) if metric_id in available_metrics]
-    if not is_builtin_baseline(values.get("default_baseline_model", "")):
-        values["default_baseline_model"] = DEFAULT_BASELINE_MODEL
-    try:
-        return Settings.model_validate(values)
-    except ValidationError:
-        logger.warning("Stored backend settings are invalid; using defaults", exc_info=True)
-        return default_settings()
+    def update(self, settings: Settings) -> Settings:
+        defaults = default_settings().model_dump()
+        record = self.find_by_id(1) or BackendSettings()
+        record.values = {key: value for key, value in settings.model_dump().items() if value != defaults[key]}
+        self.save(record)
+        return settings

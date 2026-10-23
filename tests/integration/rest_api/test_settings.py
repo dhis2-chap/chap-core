@@ -4,14 +4,15 @@ from sqlmodel import Session, select
 
 from chap_core.api_types import BacktestParams
 from chap_core.assessment.metrics import available_metrics
-from chap_core.database.settings import default_settings, get_backend_settings
+from chap_core.database.settings import SettingsManager, default_settings
 from chap_core.database.tables import BackendSettings, BacktestSpecification
 from chap_core.rest_api.app import app
+from chap_core.rest_api.celery_tasks import JOB_METADATA_KW
 
 client = TestClient(app)
 
 
-def test_fresh_settings_are_seeded_once(override_session, seeded_session):
+def test_fresh_settings_are_code_defaults_and_not_stored(override_session, seeded_session):
     assert seeded_session.get(BackendSettings, 1) is None
     response = client.get("/v1/settings")
     assert response.status_code == 200, response.text
@@ -23,11 +24,10 @@ def test_fresh_settings_are_seeded_once(override_session, seeded_session):
     assert settings["defaultBaselineModel"] == "persistence"
     assert settings["monthlyBacktestParams"] == BacktestParams().model_dump(by_alias=True)
     assert settings["weeklyBacktestParams"] == BacktestParams(n_periods=12, stride=4).model_dump(by_alias=True)
-    assert client.get("/v1/settings").json() == settings
-    assert len(seeded_session.exec(select(BackendSettings)).all()) == 1
+    assert seeded_session.get(BackendSettings, 1) is None
 
 
-def test_saved_settings_drive_leaderboard_and_survive_reseeding(
+def test_saved_settings_store_only_changes_and_drive_leaderboard(
     override_session, p_seeded_engine, seeded_session, backend_settings_payload
 ):
     payload = backend_settings_payload
@@ -41,9 +41,11 @@ def test_saved_settings_drive_leaderboard_and_survive_reseeding(
     assert saved["metricSortOrder"][:2] == ["coverage_10_90", "mae"]
     assert set(saved["metricSortOrder"]) == set(available_metrics)
     assert saved["selectedMetrics"] == ["coverage_10_90", "mae"]
-    # A new session (as on restart) uses the existing record, without restoring the seed.
     with Session(p_seeded_engine) as session:
-        assert get_backend_settings(session).model_dump(by_alias=True) == saved
+        assert SettingsManager(session).get().model_dump(by_alias=True) == saved
+        record = session.get(BackendSettings, 1)
+    assert record is not None
+    assert set(record.values) == {"metric_sort_order", "selected_metrics", "default_baseline_model"}
 
     specification = seeded_session.exec(select(BacktestSpecification)).first()
     response = client.get(f"/v1/crud/backtest-specifications/{specification.id}")
@@ -136,6 +138,10 @@ def test_saved_defaults_are_used_by_backtests(
     kwargs = analytics_worker.queued[0][2]
     params = {name: kwargs[name] for name in BacktestParams.model_fields}
     assert BacktestParams(**params).model_dump(by_alias=True) == expected
+    assert kwargs[JOB_METADATA_KW]["parameters"] == {
+        **BacktestParams(**params).model_dump(),
+        "target_column": "disease_cases",
+    }
 
 
 def test_explicit_parameters_override_saved_defaults(
@@ -151,8 +157,10 @@ def test_explicit_parameters_override_saved_defaults(
     assert (kwargs["n_splits"], kwargs["n_retrain"]) == (10, 8)
 
     request["nRetrain"] = 11
+    request["modelId"] = "no_such_model"
     response = client.post("/v1/analytics/create-backtest", json=request)
     assert response.status_code == 422, response.text
+    assert response.json()["detail"][0]["loc"] == ["body"]
     assert len(analytics_worker.queued) == 1
 
 

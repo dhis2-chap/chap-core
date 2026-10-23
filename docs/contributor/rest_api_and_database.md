@@ -112,8 +112,10 @@ Generates plots and metrics charts from backtest results.
 ### settings.py (`/v1/settings`)
 
 `GET /v1/settings` reads the installation-wide defaults; `PUT /v1/settings` replaces
-the complete record. The `backendsettings` table holds one validated JSON record,
-seeded on first use, without overwriting later changes:
+the complete record. The `backendsettings` table holds only the values an admin
+changed; reads layer them over the code defaults, so a release that changes a default
+reaches every installation that has not overridden it. Routers access the settings
+through `SettingsManager` (`database/settings.py`):
 
 - `metricSortOrder`: metric ids in display and ranking order. Metrics omitted from
   this list are appended in their default order.
@@ -124,7 +126,7 @@ seeded on first use, without overwriting later changes:
   Initially both use 7 splits, one training run and `climatology` for future weather.
   Weekly data forecasts 12 periods with stride 4; monthly data forecasts 3 with stride 1.
 
-`DEFAULT_METRIC_ORDER` in `database/settings.py` seeds the order. The first six,
+`DEFAULT_METRIC_ORDER` in `database/settings.py` sets the default order. The first six,
 selected by default, are CRPS (log1p), Winkler 25–75 (log1p), MAE, RMSE, MAPE and
 Coverage 10–90. Reads drop metric ids that no longer exist and fall back to
 `persistence` for a missing baseline, so renaming either never breaks the API. A record

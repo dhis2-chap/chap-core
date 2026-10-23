@@ -2,6 +2,7 @@ import pytest
 from sqlmodel import select, Session
 
 from chap_core.assessment.metrics import list_metrics
+from chap_core.database.settings import SettingsManager
 from chap_core.database.tables import Backtest
 from chap_core.rest_api.v1.routers.visualization import (
     get_available_metrics,
@@ -12,21 +13,27 @@ from chap_core.rest_api.v1.routers.visualization import (
 
 
 def test_get_available_metrics(seeded_session):
-    metrics = get_available_metrics(backtest_id=1, session=seeded_session)
+    metrics = get_available_metrics(backtest_id=1, settings_manager=SettingsManager(seeded_session))
     print(metrics)
     # Check for unified metrics (no more "detailed_" prefix)
     assert any(metric.id == "rmse" for metric in metrics)
 
 
 def test_available_metrics_expose_optimization_direction(seeded_session):
-    metrics = {metric.id: metric for metric in get_available_metrics(backtest_id=1, session=seeded_session)}
+    metrics = {
+        metric.id: metric
+        for metric in get_available_metrics(backtest_id=1, settings_manager=SettingsManager(seeded_session))
+    }
     assert metrics["crps"].optimization_direction == "minimize"
     assert metrics["sensitivity"].optimization_direction == "maximize"
     assert metrics["coverage_10_90"].optimization_direction is None
 
 
 def test_available_metrics_expose_unit_and_target(seeded_session):
-    metrics = {metric.id: metric for metric in get_available_metrics(backtest_id=1, session=seeded_session)}
+    metrics = {
+        metric.id: metric
+        for metric in get_available_metrics(backtest_id=1, settings_manager=SettingsManager(seeded_session))
+    }
     assert metrics["mape"].unit == "%"
     assert metrics["mape"].target is None
     assert metrics["coverage_10_90"].target == 0.8
@@ -43,7 +50,10 @@ def test_available_metrics_expose_unit_and_target(seeded_session):
 
 
 def test_available_metrics_expose_target_behavior(seeded_session):
-    metrics = {metric.id: metric for metric in get_available_metrics(backtest_id=1, session=seeded_session)}
+    metrics = {
+        metric.id: metric
+        for metric in get_available_metrics(backtest_id=1, settings_manager=SettingsManager(seeded_session))
+    }
     assert metrics["coverage_10_90"].target_behavior == "at_least"
     assert metrics["coverage_25_75"].target_behavior == "at_least"
     assert metrics["ratio_above_truth"].target_behavior == "closest"
@@ -52,7 +62,10 @@ def test_available_metrics_expose_target_behavior(seeded_session):
 
 
 def test_available_metrics_expose_comparison_op(seeded_session):
-    metrics = {metric.id: metric for metric in get_available_metrics(backtest_id=1, session=seeded_session)}
+    metrics = {
+        metric.id: metric
+        for metric in get_available_metrics(backtest_id=1, settings_manager=SettingsManager(seeded_session))
+    }
     assert metrics["mae"].comparison_op == "skill_ratio"
     for entry in list_metrics():
         assert metrics[entry["id"]].comparison_op == entry["comparison_op"]

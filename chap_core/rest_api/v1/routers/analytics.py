@@ -3,6 +3,7 @@ from typing import Annotated, Any, Literal
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi.exceptions import RequestValidationError
 from pydantic import Field as PydanticField
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.orm import selectinload
@@ -24,11 +25,11 @@ from chap_core.assessment.thresholds.params import ThresholdParams
 from chap_core.assessment.weather_providers import list_weather_providers
 from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
-from chap_core.database.dataset_manager import DataSetManager
+from chap_core.database.dataset_manager import DataSetManager, period_type_of
 from chap_core.database.dataset_tables import DataSet as DataSetTable
 from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
-from chap_core.database.settings import get_backend_settings
+from chap_core.database.settings import Settings, SettingsManager
 from chap_core.database.tables import (
     Backtest,
     BacktestForecast,
@@ -42,7 +43,6 @@ from chap_core.services import threshold_service
 from chap_core.services.dataset_validation import RESERVED_FIELDS
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core.time_period import Month
 
 from ...celery_tasks import JOB_METADATA_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW, CeleryPool, JobType
 from ...data_models import (
@@ -68,6 +68,7 @@ from .dependencies import (
     get_job_request,
     get_session,
     get_settings,
+    get_settings_manager,
     model_job_metadata,
 )
 
@@ -463,6 +464,7 @@ async def create_backtest(
     original_request: dict = Depends(get_job_request),
     database_url: str = Depends(get_database_url),
     session: Session = Depends(get_session),
+    settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
     """Train and evaluate a configured model on a dataset that's already been imported, producing a backtest you can score, plot, or promote into a prediction setup.
 
@@ -475,8 +477,8 @@ async def create_backtest(
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
     if request.target_column not in stored_dataset.covariates:
         raise HTTPException(status_code=422, detail=f"Dataset has no target column {request.target_column!r}")
+    params = _resolve_backtest_params(settings_manager.get(), request, stored_dataset.period_type)
     model = get_job_model(session, request.model_id)
-    params = _resolve_backtest_params(session, request, stored_dataset.period_type)
     job = worker.queue_db(
         wf.run_backtest,
         BacktestCreate(name=request.name, dataset_id=request.dataset_id, model_id=model.id),
@@ -490,7 +492,7 @@ async def create_backtest(
             JOB_NAME_KW: request.name,
             JOB_METADATA_KW: model_job_metadata(
                 model,
-                request.model_dump(mode="json", exclude={"name", "model_id", "dataset_id"}),
+                {**params.model_dump(mode="json"), "target_column": request.target_column},
                 request.dataset_id,
             ),
         },
@@ -510,6 +512,7 @@ def create_backtests(
     original_request: dict = Depends(get_job_request),
     database_url: str = Depends(get_database_url),
     session: Session = Depends(get_session),
+    settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
     """Evaluate a set of configured models on one stored dataset with one set of parameters, so the resulting backtests are comparable by construction.
 
@@ -524,8 +527,8 @@ def create_backtests(
     if stored_dataset is None:
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
     wrapper = SessionWrapper(session=session)
+    params = _resolve_backtest_params(settings_manager.get(), request, stored_dataset.period_type)
     models = [get_job_model(session, model_id) for model_id in request.model_ids]
-    params = _resolve_backtest_params(session, request, stored_dataset.period_type)
     dataset = DataSetManager(session).to_dataset(request.dataset_id)
     try:
         _, specification = wf.resolve_backtest_specification(
@@ -872,6 +875,7 @@ async def create_backtest_with_data(
     database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
     session: Session = Depends(get_session),
+    settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
     """Train and evaluate a model on observations supplied directly in the request body, without first creating a reusable dataset.
 
@@ -884,8 +888,11 @@ async def create_backtest_with_data(
     feature_names, provided_data_processed, rejections = _read_and_validate_dataset(request, dry_run)
     if dry_run and not provided_data_processed.locations():
         return ImportSummaryResponse(id=None, imported_count=0, rejected=rejections)
-    period_type = "month" if isinstance(provided_data_processed.period_range[0], Month) else "week"
-    backtest_params = _resolve_backtest_params(session, request, period_type)
+    try:
+        period_type = period_type_of(provided_data_processed.period_range[0])
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    backtest_params = _resolve_backtest_params(settings_manager.get(), request, period_type)
     train_set, _ = train_test_generator(
         provided_data_processed, backtest_params.n_periods, backtest_params.n_splits, stride=backtest_params.stride
     )
@@ -983,14 +990,18 @@ class ThresholdStrategyInfo(DBModel):
     description: str = Field(default="", description="Short paragraph explaining what the strategy computes.")
 
 
-def _resolve_backtest_params(session: Session, request: BacktestParamsBase, period_type: str | None) -> BacktestParams:
+def _resolve_backtest_params(
+    settings: Settings, request: BacktestParamsBase, period_type: str | None
+) -> BacktestParams:
     """Apply saved defaults only to omitted parameters, then validate the resolved combination."""
-    defaults = get_backend_settings(session).backtest_params(period_type).model_dump()
+    defaults = settings.backtest_params(period_type).model_dump()
     explicit = request.model_dump(include=set(BacktestParams.model_fields), exclude_unset=True)
     try:
         return BacktestParams(**(defaults | explicit))
     except PydanticValidationError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
+        raise RequestValidationError(
+            [{**error, "loc": ("body", *error["loc"])} for error in e.errors(include_url=False)]
+        ) from e
 
 
 class BacktestParameterInfo(DBModel):
@@ -1013,7 +1024,7 @@ class BacktestParameterInfo(DBModel):
 )
 def list_backtest_parameters(
     period_type: Annotated[Literal["week", "month"], Query(alias="periodType")] = "month",
-    session: Session = Depends(get_session),
+    settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
     """Populate a backtest form from the same field definitions used to validate requests.
 
@@ -1021,7 +1032,7 @@ def list_backtest_parameters(
     `periodType` selects the stored weekly or monthly defaults; omitted means monthly.
     """
     properties = BacktestParams.model_json_schema(by_alias=False)["properties"]
-    defaults = get_backend_settings(session).backtest_params(period_type).model_dump()
+    defaults = settings_manager.get().backtest_params(period_type).model_dump()
     return [
         BacktestParameterInfo(
             name=field.alias or name,
