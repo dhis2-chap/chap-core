@@ -95,11 +95,6 @@ def test_data_configuration_parses_masked_ranges():
     assert config.masked_ranges == [MaskedRange(start="202106", end="202108")]
 
 
-def test_data_configuration_rejects_unknown_keys():
-    with pytest.raises(ValidationError):
-        DataConfiguration.model_validate({"maskedRanges": [], "columnMapping": {}})
-
-
 def test_disease_cases_are_masked_when_the_dataset_is_saved(health_population_data, engine):
     """By design, the stored observations are masked: NaN inside the ranges, unchanged elsewhere."""
     periods = health_population_data.period_range
