@@ -28,7 +28,7 @@ class BackendSettings(DBModel, table=True):
     """One installation-wide record of the settings an admin changed. Access it through `SettingsManager`."""
 
     id: int = Field(default=1, primary_key=True)
-    values: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+    overrides: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
 
     __table_args__ = (CheckConstraint("id = 1", name="ck_backendsettings_singleton"),)
 

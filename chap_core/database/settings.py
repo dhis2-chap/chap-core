@@ -110,7 +110,7 @@ class SettingsManager(DbManager[BackendSettings]):
         a weather provider is removed, so stale settings never break the API.
         """
         record = self.find_by_id(1)
-        values = default_settings().model_dump() | (record.values if record else {})
+        values = default_settings().model_dump() | (record.overrides if record else {})
         for key in ("metric_sort_order", "selected_metrics"):
             values[key] = [metric_id for metric_id in values[key] if metric_id in available_metrics]
         if not is_builtin_baseline(values["default_baseline_model"]):
@@ -124,6 +124,6 @@ class SettingsManager(DbManager[BackendSettings]):
     def update(self, settings: Settings) -> Settings:
         defaults = default_settings().model_dump()
         record = self.find_by_id(1) or BackendSettings()
-        record.values = {key: value for key, value in settings.model_dump().items() if value != defaults[key]}
+        record.overrides = {key: value for key, value in settings.model_dump().items() if value != defaults[key]}
         self.save(record)
         return settings

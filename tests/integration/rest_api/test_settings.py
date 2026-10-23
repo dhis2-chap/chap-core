@@ -45,7 +45,7 @@ def test_saved_settings_store_only_changes_and_drive_leaderboard(
         assert SettingsManager(session).get().model_dump(by_alias=True) == saved
         record = session.get(BackendSettings, 1)
     assert record is not None
-    assert set(record.values) == {"metric_sort_order", "selected_metrics", "default_baseline_model"}
+    assert set(record.overrides) == {"metric_sort_order", "selected_metrics", "default_baseline_model"}
 
     specification = seeded_session.exec(select(BacktestSpecification)).first()
     response = client.get(f"/v1/crud/backtest-specifications/{specification.id}")
@@ -69,7 +69,7 @@ def test_stored_settings_with_removed_metric_and_baseline_still_load(
         "weekly_backtest_params": backend_settings_payload["weeklyBacktestParams"],
         "monthly_backtest_params": backend_settings_payload["monthlyBacktestParams"],
     }
-    seeded_session.add(BackendSettings(values=values))
+    seeded_session.add(BackendSettings(overrides=values))
     seeded_session.commit()
     response = client.get("/v1/settings")
     assert response.status_code == 200, response.text
@@ -85,7 +85,7 @@ def test_otherwise_invalid_stored_settings_fall_back_to_defaults(
 ):
     values = default_settings().model_dump()
     values["weekly_backtest_params"]["future_weather_provider"] = "removed_provider"
-    seeded_session.add(BackendSettings(values=values))
+    seeded_session.add(BackendSettings(overrides=values))
     seeded_session.commit()
     response = client.get("/v1/settings")
     assert response.status_code == 200, response.text

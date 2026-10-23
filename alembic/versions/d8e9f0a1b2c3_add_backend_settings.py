@@ -22,7 +22,7 @@ def upgrade() -> None:
     op.create_table(
         "backendsettings",
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("values", sa.JSON(), nullable=False),
+        sa.Column("overrides", sa.JSON(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.CheckConstraint("id = 1", name="ck_backendsettings_singleton"),
     )
