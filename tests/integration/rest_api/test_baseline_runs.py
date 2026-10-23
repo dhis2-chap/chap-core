@@ -295,3 +295,25 @@ def test_the_leaderboard_leaves_out_archived_comparison_models(override_session,
         session.session.commit()
 
     assert _leaderboard(specification_id, includeComparisonModels=True)["comparisonModels"] == []
+
+
+def test_the_leaderboard_leaves_out_backtests_of_archived_models(override_session, p_seeded_engine, specification_id):
+    with SessionWrapper(p_seeded_engine) as session:
+        backtest = session.session.exec(select(Backtest).where(Backtest.specification_id == specification_id)).first()
+        backtest.configured_model.archived = True
+        session.session.commit()
+        archived = set(
+            session.session.exec(
+                select(Backtest.id).where(
+                    Backtest.specification_id == specification_id, Backtest.model_db_id == backtest.model_db_id
+                )
+            ).all()
+        )
+
+    leaderboard = _leaderboard(specification_id)
+    assert not archived & {b["id"] for b in leaderboard["backtests"]}
+    (row,) = [s for s in client.get("/v1/crud/backtest-specifications").json() if s["id"] == specification_id]
+    assert row["backtestCount"] == len(leaderboard["backtests"])
+    # On request, and in the backtest listing, they are still shown.
+    assert archived <= {b["id"] for b in _leaderboard(specification_id, includeArchivedModels=True)["backtests"]}
+    assert archived <= {b["id"] for b in client.get("/v1/crud/backtests").json()}
