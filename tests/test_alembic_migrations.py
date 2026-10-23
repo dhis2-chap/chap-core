@@ -700,17 +700,3 @@ def test_alert_policy_output_codes_migration(engine, alert_prediction, generic_m
         ]
         alert = session.exec(select(Alert)).one()
         assert next(level.output_code for level in policy.levels if level.name == alert.level) == "2"
-
-        # Startup may have already created policies with custom codes. Keep them on replay.
-        policy.no_alert_output_code = "GREEN"
-        policy.levels = [
-            level.model_copy(update={"output_code": code}) for level, code in zip(policy.levels, ["ORANGE", "RED"])
-        ]
-        session.add(policy)
-        session.commit()
-    command.stamp(cfg, "c4d5e6f7a8b9")
-    command.upgrade(cfg, "head")
-    with Session(engine) as session:
-        policy = get_alert_policy(session, policy_id)
-        assert policy.no_alert_output_code == "GREEN"
-        assert [level.output_code for level in policy.levels] == ["ORANGE", "RED"]

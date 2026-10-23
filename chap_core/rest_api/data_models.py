@@ -404,6 +404,7 @@ class AlertPolicyCodesUpdate(DBModel):
     )
     no_alert_output_code: str | None = Field(
         default=None,
+        min_length=1,
         description="New no-alert output code; omitted or null leaves it unchanged.",
     )
 

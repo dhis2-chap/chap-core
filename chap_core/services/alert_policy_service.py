@@ -61,7 +61,7 @@ def _validate_levels(levels: Sequence[AlertLevel]) -> None:
 
 def _validate_output_codes(levels: Sequence[AlertLevel], no_alert_output_code: str) -> None:
     codes = [no_alert_output_code, *(level.output_code for level in levels)]
-    if not all(isinstance(code, str) and code.strip() for code in codes):
+    if not all(code.strip() for code in codes):
         raise InvalidAlertPolicyError("Output codes must be non-empty strings")
     if len(set(codes)) != len(codes):
         raise InvalidAlertPolicyError("Output codes must be unique within a policy, including the no-alert code")

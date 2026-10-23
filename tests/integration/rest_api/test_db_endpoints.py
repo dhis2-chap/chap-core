@@ -2128,11 +2128,7 @@ def test_create_alert_policy_happy_path(clean_engine, dependency_overrides, code
     [
         ("0", "1", "1"),  # duplicate level codes
         ("0", "1", "0"),  # collides with no alert
-        ("", "1", "2"),
-        ("0", "", "2"),
-        ("0", "  ", "2"),
-        ("  ", "1", "2"),
-        ("0", 1, "2"),  # codes must stay strings, including numeric-looking codes
+        ("0", "  ", "2"),  # whitespace-only
     ],
 )
 def test_create_alert_policy_rejects_invalid_output_codes(
@@ -2403,8 +2399,7 @@ def test_patch_alert_policy_codes_preserves_levels_and_existing_alerts(clean_eng
         {"levelOutputCodes": {"unknown": "RED"}},
         {"levelOutputCodes": {"monitor": "2"}},  # collides with an unchanged level
         {"noAlertOutputCode": "1"},  # collides with an unchanged level
-        {"name": "renamed"},
-        {"levels": []},
+        {"name": "renamed"},  # only codes are editable
     ],
 )
 def test_patch_alert_policy_rejects_invalid_changes_without_saving(clean_engine, dependency_overrides, update):

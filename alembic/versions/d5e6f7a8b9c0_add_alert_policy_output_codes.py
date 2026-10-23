@@ -30,7 +30,7 @@ def upgrade() -> None:
     op.alter_column("alertpolicy", "no_alert_output_code", existing_type=sa.String(), nullable=False)
 
     connection = op.get_bind()
-    for policy_id, levels in connection.execute(sa.select(policies.c.id, policies.c.levels)):
+    for policy_id, levels in connection.execute(sa.select(policies.c.id, policies.c.levels)).fetchall():
         if levels and any("output_code" not in level for level in levels):
             for index, level in enumerate(levels, start=1):
                 level.setdefault("output_code", str(index))
@@ -39,7 +39,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     connection = op.get_bind()
-    for policy_id, levels in connection.execute(sa.select(policies.c.id, policies.c.levels)):
+    for policy_id, levels in connection.execute(sa.select(policies.c.id, policies.c.levels)).fetchall():
         if levels:
             for level in levels:
                 level.pop("output_code", None)
