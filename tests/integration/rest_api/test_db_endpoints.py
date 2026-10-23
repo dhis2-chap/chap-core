@@ -2083,11 +2083,13 @@ def _alert_policy_payload(name: str = "Dengue ladder") -> dict:
         "levels": [
             {
                 "name": "monitor",
+                "outputCode": "1",
                 "thresholdParams": {"type": "seasonal", "stdMultiplier": 1.0},
                 "exceedanceThreshold": 0.3,
             },
             {
                 "name": "action",
+                "outputCode": "2",
                 "thresholdParams": {"type": "percentile", "quantile": 0.9},
                 "exceedanceThreshold": 0.8,
             },
@@ -2099,9 +2101,15 @@ def _create_alert_policy(name: str = "Dengue ladder"):
     return client.post("/v1/crud/alert-policies", json=_alert_policy_payload(name))
 
 
-def test_create_alert_policy_happy_path(clean_engine, dependency_overrides):
+@pytest.mark.parametrize("codes", [None, ("GREEN", "ORANGE", "RED")])
+def test_create_alert_policy_happy_path(clean_engine, dependency_overrides, codes):
     """A policy round-trips its tiers, each keeping its own strategy's params."""
-    response = _create_alert_policy("Ladder A")
+    payload = _alert_policy_payload("Ladder A")
+    if codes is not None:
+        payload["noAlertOutputCode"] = codes[0]
+        for level, code in zip(payload["levels"], codes[1:]):
+            level["outputCode"] = code
+    response = client.post("/v1/crud/alert-policies", json=payload)
     assert response.status_code == 200, response.json()
     policy_id = response.json()["id"]
 
@@ -2111,6 +2119,33 @@ def test_create_alert_policy_happy_path(clean_engine, dependency_overrides):
     assert body["levels"][0]["thresholdParams"] == {"type": "seasonal", "stdMultiplier": 1.0}
     assert body["levels"][1]["thresholdParams"]["quantile"] == 0.9
     assert body["levels"][1]["exceedanceThreshold"] == 0.8
+    assert body["noAlertOutputCode"] == (codes[0] if codes else "0")
+    assert [level["outputCode"] for level in body["levels"]] == (list(codes[1:]) if codes else ["1", "2"])
+    listed = client.get("/v1/crud/alert-policies").json()
+    assert next(policy for policy in listed if policy["id"] == policy_id) == body
+
+
+@pytest.mark.parametrize(
+    "no_alert,monitor,action",
+    [
+        ("0", "1", "1"),  # duplicate level codes
+        ("0", "1", "0"),  # collides with no alert
+        ("", "1", "2"),
+        ("0", "", "2"),
+        ("0", "  ", "2"),
+        ("  ", "1", "2"),
+        ("0", 1, "2"),  # codes must stay strings, including numeric-looking codes
+    ],
+)
+def test_create_alert_policy_rejects_invalid_output_codes(
+    clean_engine, dependency_overrides, no_alert, monitor, action
+):
+    payload = _alert_policy_payload()
+    payload["noAlertOutputCode"] = no_alert
+    payload["levels"][0]["outputCode"] = monitor
+    payload["levels"][1]["outputCode"] = action
+    response = client.post("/v1/crud/alert-policies", json=payload)
+    assert response.status_code == 422, response.text
 
 
 def test_list_alert_policies_includes_every_created_policy(clean_engine, dependency_overrides):
@@ -2140,7 +2175,14 @@ def test_create_alert_policy_with_an_unknown_strategy_returns_422(clean_engine, 
         "/v1/crud/alert-policies",
         json={
             "name": "bogus",
-            "levels": [{"name": "alert", "thresholdParams": {"type": "not-a-strategy"}, "exceedanceThreshold": 0.5}],
+            "levels": [
+                {
+                    "name": "alert",
+                    "outputCode": "1",
+                    "thresholdParams": {"type": "not-a-strategy"},
+                    "exceedanceThreshold": 0.5,
+                }
+            ],
         },
     )
     assert response.status_code == 422, response.text
@@ -2154,6 +2196,7 @@ def test_create_alert_policy_with_out_of_range_exceedance_returns_422(clean_engi
             "levels": [
                 {
                     "name": "alert",
+                    "outputCode": "1",
                     "thresholdParams": {"type": "seasonal"},
                     "exceedanceThreshold": 1.5,
                 }

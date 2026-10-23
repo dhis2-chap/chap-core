@@ -1313,10 +1313,13 @@ async def create_alert_policy(request: AlertPolicyCreate, session: Session = Dep
     exceedance probability at or above which that tier fires, so one policy expresses a
     whole escalation ladder. Levels are ordered from least to most severe. 422 if the
     policy has no levels, an unnamed level, a level with more than one threshold line,
-    or two levels sharing a name.
+    or two levels sharing a name. Output codes must be non-empty and unique across
+    all levels and the no-alert state. Codes do not affect severity ordering.
     """
     try:
-        policy = alert_policy_service.create_alert_policy(session, name=request.name, levels=request.levels)
+        policy = alert_policy_service.create_alert_policy(
+            session, name=request.name, levels=request.levels, no_alert_output_code=request.no_alert_output_code
+        )
     except alert_policy_service.InvalidAlertPolicyError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     if policy.id is None:

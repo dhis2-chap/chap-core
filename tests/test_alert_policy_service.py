@@ -32,6 +32,7 @@ def monitor_level():
     """A low tier drawn with the seasonal strategy."""
     return AlertLevel(
         name="monitor",
+        output_code="1",
         threshold_params=SeasonalParams(type="seasonal", std_multiplier=1.0),
         exceedance_threshold=0.3,
     )
@@ -42,6 +43,7 @@ def action_level():
     """A high tier drawn with the WHO percentile strategy."""
     return AlertLevel(
         name="action",
+        output_code="2",
         threshold_params=PercentileParams(type="percentile", quantile=0.9),
         exceedance_threshold=0.8,
     )
@@ -75,11 +77,15 @@ def _make_backtest(session: Session) -> int:
 def test_create_round_trips_the_levels(engine, monitor_level, action_level):
     """Levels survive the JSON column, discriminated params and all."""
     with Session(engine) as session:
-        policy = create_alert_policy(session, name="Dengue ladder", levels=[monitor_level, action_level])
+        policy = create_alert_policy(
+            session, name="Dengue ladder", levels=[monitor_level, action_level], no_alert_output_code="GREEN"
+        )
         assert policy.id is not None
 
         stored = get_alert_policy(session, policy.id)
         assert [level.name for level in stored.levels] == ["monitor", "action"]
+        assert stored.no_alert_output_code == "GREEN"
+        assert [level.output_code for level in stored.levels] == ["1", "2"]
         assert stored.levels[1].exceedance_threshold == 0.8
         # The discriminator picked the right union member back out of the JSON column.
         params = stored.levels[1].threshold_params

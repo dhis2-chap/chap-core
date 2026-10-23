@@ -72,7 +72,12 @@ def _validate_levels(levels: Sequence[AlertLevel | dict[str, Any]]) -> list[Aler
     return parsed
 
 
-def create_alert_policy(session: Session, name: str, levels: Sequence[AlertLevel | dict[str, Any]]) -> AlertPolicy:
+def create_alert_policy(
+    session: Session,
+    name: str,
+    levels: Sequence[AlertLevel | dict[str, Any]],
+    no_alert_output_code: str = "0",
+) -> AlertPolicy:
     """Create a new AlertPolicy.
 
     Raises:
@@ -81,7 +86,16 @@ def create_alert_policy(session: Session, name: str, levels: Sequence[AlertLevel
     if not name or not name.strip():
         raise InvalidAlertPolicyError("name is required")
 
-    policy = AlertPolicy(name=name, created=datetime.datetime.now(), levels=_validate_levels(levels))
+    parsed = _validate_levels(levels)
+    codes = [no_alert_output_code, *(level.output_code for level in parsed)]
+    if not all(isinstance(code, str) and code.strip() for code in codes):
+        raise InvalidAlertPolicyError("Output codes must be non-empty strings")
+    if len(set(codes)) != len(codes):
+        raise InvalidAlertPolicyError("Output codes must be unique within a policy, including the no-alert code")
+
+    policy = AlertPolicy(
+        name=name, created=datetime.datetime.now(), levels=parsed, no_alert_output_code=no_alert_output_code
+    )
     session.add(policy)
     session.commit()
     session.refresh(policy)

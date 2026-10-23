@@ -35,6 +35,11 @@ class AlertLevel(DBModel):
     name: str = Field(
         description="Name of the tier, e.g. `monitor`, `alert` or `action`. Unique within a policy.",
     )
+    output_code: str = Field(
+        min_length=1,
+        description="Output code for this level. Must be non-empty and unique within the policy, including "
+        "the no-alert code. For DHIS2 import, it must match the destination data element's value type or option set.",
+    )
     threshold_params: ThresholdParams = Field(
         description="Parameters for the epidemic channel this tier is judged against. Its `type` selects "
         "the threshold strategy, exactly as in `POST /v1/analytics/thresholds`. Must describe a single "
@@ -64,6 +69,12 @@ class AlertPolicyBase(DBModel):
     """Fields shared by every alert-policy shape (DB row, read view, create body)."""
 
     name: str = Field(description="Human-friendly name for the policy.")
+    no_alert_output_code: str = Field(
+        default="0",
+        min_length=1,
+        description="Output code for the no-alert state. Must be non-empty and distinct from every level's code. "
+        "For DHIS2 import, it must match the destination data element's value type or option set.",
+    )
     levels: list[AlertLevel] = Field(
         default_factory=list,
         sa_column=Column(PydanticListType(AlertLevel)),
