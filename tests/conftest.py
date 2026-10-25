@@ -197,14 +197,6 @@ def models_path():
 
 
 @pytest.fixture
-def local_data_path():
-    path = Path("/home/knut/Data/ch_data/")
-    if not path.exists():
-        pytest.skip("Data path does not exist")
-    return path
-
-
-@pytest.fixture
 def tests_path():
     return Path(__file__).parent
 
@@ -286,36 +278,6 @@ def big_request_json(data_path):
         pytest.skip()
     with open(filepath, "r") as f:
         return f.read()
-
-
-@pytest.fixture
-def laos_request(local_data_path):
-    filepath = local_data_path / "laos_requet.json"
-    with open(filepath, "r") as f:
-        text = f.read()
-    dicts = json.loads(text)
-    dicts["estimator_id"] = "naive_model"
-    return json.dumps(dicts)
-
-
-@pytest.fixture
-def laos_request_2(local_data_path):
-    filepath = local_data_path / "laos_request_2.json"
-    with open(filepath, "r") as f:
-        text = f.read()
-    dicts = json.loads(text)
-    dicts["estimator_id"] = "naive_model"
-    return json.dumps(dicts)
-
-
-@pytest.fixture
-def laos_request_3(local_data_path):
-    filepath = local_data_path / "laos_request_3.json"
-    with open(filepath, "r") as f:
-        text = f.read()
-    dicts = json.loads(text)
-    dicts["estimator_id"] = "naive_model"
-    return json.dumps(dicts)
 
 
 @pytest.fixture
@@ -407,6 +369,22 @@ def clean_engine(database_url):
     with Session(engine) as session:
         seed_configured_models_from_config_dir(session, skip_chapkit_models=True)
     return engine
+
+
+@pytest.fixture
+def engine():
+    from sqlalchemy import event
+
+    eng = create_engine("sqlite://")
+
+    @event.listens_for(eng, "connect")
+    def _enable_fk(dbapi_connection, _connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    SQLModel.metadata.create_all(eng)
+    return eng
 
 
 @pytest.fixture

@@ -85,7 +85,7 @@ renv_env: renv.lock
 
     This creates `renv.lock` with exact versions of all dependencies, ensuring reproducible environments.
 
-    See the [minimalist R model example](https://github.com/dhis2-chap/chap-core/tree/master/minimalist_example_renv) for a complete working example.
+    See the [minimalist R model example](https://github.com/dhis2-chap/minimalist_example_renv) for a complete working example.
 
 ## Option 3) Docker environment
 

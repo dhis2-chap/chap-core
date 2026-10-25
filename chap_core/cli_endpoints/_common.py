@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     import pandas as pd
 
-    from chap_core.api_types import BacktestParams, EstimatorOptions
+    from chap_core.api_types import BacktestParams, EstimatorOptions, RunConfig
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
     from chap_core.external.model_configuration import ModelTemplateConfigV2
     from chap_core.hpo.hyperparameter_optimizer import HyperparameterOptimizer
@@ -60,10 +60,6 @@ def resolve_period_arg(value: str, available_periods: Any, arg_name: str) -> Tim
     return resolved
 
 
-def append_to_csv(file_object, data_frame: pd.DataFrame):
-    data_frame.to_csv(file_object, mode="a", header=False)
-
-
 def get_model(
     configuration: str | None,
     ignore_environment: bool,
@@ -71,9 +67,6 @@ def get_model(
     name: str,
     run_directory_type: Literal["latest", "timestamp", "use_existing"] | None,
 ) -> Any:
-    import yaml
-
-    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
     from chap_core.models.model_template import ModelTemplate
     from chap_core.models.utils import CHAP_RUNS_DIR
 
@@ -85,11 +78,7 @@ def get_model(
         is_chapkit_model=is_chapkit_model,
     )
     logger.info(f"Model template loaded: {template}")
-    model_config: ModelConfiguration | None = None
-    if configuration is not None:
-        logger.info(f"Loading model configuration from yaml file {configuration}")
-        model_config = ModelConfiguration.model_validate(yaml.safe_load(open(configuration)))
-        logger.info(f"Loaded model configuration from yaml file: {model_config}")
+    model_config = get_configuration(Path(configuration) if configuration is not None else None)
 
     model = template.get_model(model_config)  # type: ignore[arg-type]
     model = model()
@@ -275,6 +264,29 @@ def get_configuration(
 
     logger.info(f"Loading model configuration from {model_configuration_yaml}")
     return ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
+
+
+def load_dataset_and_template(
+    model_name: str,
+    dataset_csv: str,
+    model_configuration_yaml: Path | None,
+    run_config: RunConfig,
+) -> tuple[DataSet, ModelTemplate, ModelConfiguration | None]:
+    """Load the dataset, model configuration and model template shared by ``report`` and ``simulate``."""
+    from chap_core.models.model_template import ModelTemplate
+
+    csv_path, url_geojson_path = resolve_csv_path(dataset_csv)
+    geojson_path = url_geojson_path or discover_geojson(csv_path)
+    dataset = load_dataset_from_csv(csv_path, geojson_path)
+    configuration = get_configuration(model_configuration_yaml)
+
+    logger.info(f"Loading model template from {model_name}")
+    template = ModelTemplate.from_directory_or_github_url(
+        model_name,
+        ignore_env=run_config.ignore_environment,
+        run_dir_type=run_config.run_directory_type,
+    )
+    return dataset, template, configuration
 
 
 def get_estimator(

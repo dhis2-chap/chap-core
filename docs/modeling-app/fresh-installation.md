@@ -39,7 +39,7 @@ git fetch --tags
 git tag -l
 
 # Checkout a specific version
-git checkout [VERSION] #Replace with your desired version, e.g. v1.0.18
+git checkout [VERSION] #Replace with your desired version, e.g. v2.4.0
 ```
 
 For latest release go to: [https://github.com/dhis2-chap/chap-core/releases](https://github.com/dhis2-chap/chap-core/releases)
@@ -67,7 +67,7 @@ docker compose up -d
 
 This command will:
 
-- Pull all required Docker images
+- Build the chap and worker images from source (this takes several minutes the first time; `compose.ghcr.yml` uses pre-built images instead) and pull the other images
 - Start the PostgreSQL database
 - Start the Redis cache
 - Start the Chap Core API server
@@ -84,7 +84,7 @@ The Chap Core REST API will be available at `http://localhost:8000` once all ser
 Model services are installed from the [CHAP Model Marketplace](https://github.com/dhis2-chap/model-marketplace) with `chap-admin`, which comes with the `chap-core` package. Install the same `chap-core` version as the Chap you checked out in step 2, since `chap-admin` uses REST API endpoints of that version. Then install every model with a verified stable version from the repository directory:
 
 ```console
-uv tool install chap-core==[VERSION] --python 3.13  # e.g. chap-core==1.0.18
+uv tool install chap-core==[VERSION] --python 3.13  # e.g. chap-core==2.4.0 (chap-admin needs 2.4.0 or later)
 chap-admin install-all
 ```
 

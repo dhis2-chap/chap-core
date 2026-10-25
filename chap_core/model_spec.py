@@ -1,7 +1,7 @@
 import inspect
 from enum import Enum
 
-from pydantic import BaseModel, PositiveInt
+from pydantic import BaseModel
 
 import chap_core.predictor.feature_spec as fs
 from chap_core.datatypes import TimeSeriesData
@@ -30,11 +30,6 @@ class PeriodType(Enum):
 
 class ParameterSpec(BaseModel):
     pass
-
-
-class EwarsParamSpec(ParameterSpec):
-    n_weeks: PositiveInt
-    alpha: float
 
 
 EmptyParameterSpec: dict[str, object] = {}

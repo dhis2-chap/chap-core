@@ -30,7 +30,7 @@ from starlette.responses import StreamingResponse
 import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import BacktestParams, FeatureCollectionModel
 from chap_core.assessment.evaluation import Evaluation
-from chap_core.assessment.metrics import compute_all_detailed_metrics
+from chap_core.assessment.metrics import compare_aggregated_metrics, compute_all_detailed_metrics
 from chap_core.assessment.weather_providers import resolve_weather_provider
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.alert_tables import Alert, AlertApproval, AlertPolicyRead, AlertRead
@@ -52,11 +52,15 @@ from chap_core.database.model_templates_and_config_tables import (
 )
 from chap_core.database.tables import (
     Backtest,
+    BacktestRead,
     BacktestSpecification,
     Prediction,
     PredictionInfo,
     PredictionSetupRead,
     PredictionSetupReadWithPredictions,
+    SpecificationBaseline,
+    SpecificationBaselineStatus,
+    is_not_archived_model_backtest,
     is_not_baseline_backtest,
 )
 from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
@@ -64,6 +68,7 @@ from chap_core.exceptions import BaselineTemplateConflict, ModelTemplateRevision
 from chap_core.geometry import Polygons
 from chap_core.rest_api.baseline_runs import request_baselines_after_response
 from chap_core.rest_api.celery_tasks import (
+    JOB_METADATA_KW,
     JOB_NAME_KW,
     JOB_REQUEST_KW,
     JOB_TYPE_KW,
@@ -84,9 +89,7 @@ from ...data_models import (
     AlertIdsResponse,
     AlertPolicyCreate,
     AlertsCreate,
-    BacktestRead,
     BacktestSpecificationFilter,
-    BacktestSpecificationRead,
     BacktestSpecificationSummary,
     BacktestUpdate,
     ConfiguredModelInfoRead,
@@ -101,8 +104,15 @@ from ...data_models import (
     PredictionSetupUpdate,
     RunPredictionSetupRequest,
 )
+from ...leaderboard_models import (
+    BacktestSpecificationRead,
+    LeaderboardBacktestRead,
+    ReferenceComparison,
+    ReferenceModelResult,
+    list_metric_info,
+)
 from .analytics import validate_full_dataset
-from .dependencies import get_database_url, get_job_request, get_session, get_settings
+from .dependencies import get_database_url, get_job_request, get_session, get_settings, model_job_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -337,11 +347,12 @@ def get_backtest_specifications(
     ``datasetId``, ``targetColumn`` and any of the ``BacktestParams`` fields; the full tuple identifies at
     most one specification, which is how an external system finds a benchmark again
     without storing the specification id. Rows carry counts only; fetch
-    ``/backtest-specifications/{id}`` for the backtests themselves.
+    ``/backtest-specifications/{id}`` for the backtests themselves. The counts leave out
+    backtests of baseline models and of archived models, like the leaderboard.
     """
     backtest_counts = (
         select(Backtest.specification_id, func.count(col(Backtest.id)).label("backtest_count"))
-        .where(is_not_baseline_backtest())
+        .where(is_not_baseline_backtest(), is_not_archived_model_backtest())
         .group_by(col(Backtest.specification_id))
         .subquery()
     )
@@ -374,6 +385,8 @@ def get_backtest_specifications(
 def get_backtest_specification(
     specification_id: Annotated[int, Path(alias="specificationId")],
     background_tasks: BackgroundTasks,
+    include_comparison_models: Annotated[bool, Query(alias="includeComparisonModels")] = False,
+    include_archived_models: Annotated[bool, Query(alias="includeArchivedModels")] = False,
     session: Session = Depends(get_session),
     database_url: str = Depends(get_database_url),
 ):
@@ -382,8 +395,16 @@ def get_backtest_specification(
     This is the benchmark leaderboard: each backtest row is the ``BacktestRead`` shape
     with aggregate metrics, the configured model and its template, so a client can rank
     models without a request per backtest. Forecasts and per-org-unit metrics are not
-    included, and neither are backtests of built-in baseline models. Baselines that have not
-    run on the specification yet are queued after the response is sent. 404 if the id is unknown.
+    included, and neither are backtests of built-in baseline models, nor of archived
+    models unless ``includeArchivedModels`` is set. Baselines are listed under
+    ``baselines`` with their status and scores instead, and each backtest row
+    carries the comparison of its scores with every baseline that is done. With
+    ``includeComparisonModels``, the newest backtest of each comparison model on the
+    specification is listed and compared with the same way, except that a
+    backtest is never compared with a run of its own model. Baselines that have not run on
+    the specification yet are queued after the response is sent. ``metrics`` describes every
+    metric the scores and comparisons are keyed by, including what its comparison value means.
+    404 if the id is unknown.
     """
     specification = session.exec(
         select(BacktestSpecification)
@@ -393,19 +414,107 @@ def get_backtest_specification(
     if specification is None:
         raise HTTPException(status_code=404, detail="Backtest specification not found")
     background_tasks.add_task(request_baselines_after_response, session.get_bind(), specification_id, database_url)
+    conditions = [Backtest.specification_id == specification_id, is_not_baseline_backtest()]
+    if not include_archived_models:
+        conditions.append(is_not_archived_model_backtest())
     backtests = session.exec(
         select(Backtest)
-        .where(Backtest.specification_id == specification_id, is_not_baseline_backtest())
+        .where(*conditions)
         .order_by(col(Backtest.created).desc().nulls_last(), col(Backtest.id).desc())
         .options(*_backtest_read_loads())
     ).all()
+    baselines = _baseline_results(session, specification_id)
+    comparison_models = _comparison_model_results(session, specification_id) if include_comparison_models else None
+    references = [
+        reference
+        for reference in baselines + (comparison_models or [])
+        if reference.status == SpecificationBaselineStatus.done
+    ]
     return BacktestSpecificationRead(
         id=specification_id,
         dataset=specification.dataset,
         org_units=specification.org_units,
-        backtests=backtests,
+        backtests=[
+            LeaderboardBacktestRead.model_validate(
+                backtest, update={"comparisons": _reference_comparisons(backtest, references)}
+            )
+            for backtest in backtests
+        ],
+        baselines=baselines,
+        comparison_models=comparison_models,
+        metrics=list_metric_info(),
         **_specification_params(specification),
     )
+
+
+def _baseline_results(session: Session, specification_id: int) -> list[ReferenceModelResult]:
+    """The current version of each baseline on the specification. One that has no run yet is pending."""
+    runs: dict[int, tuple[SpecificationBaseline, Backtest | None]] = {
+        run.configured_model_id: (run, backtest)
+        for run, backtest in session.exec(
+            select(SpecificationBaseline, Backtest)
+            .outerjoin(Backtest, col(Backtest.id) == SpecificationBaseline.backtest_id)
+            .where(SpecificationBaseline.specification_id == specification_id)
+        ).all()
+    }
+    results = []
+    for model in SessionWrapper(session=session).get_baseline_models():
+        assert model.id is not None
+        if model.id not in runs:
+            results.append(ReferenceModelResult(configured_model=model, status=SpecificationBaselineStatus.pending))
+            continue
+        run, backtest = runs[model.id]
+        results.append(
+            ReferenceModelResult(
+                configured_model=model,
+                status=run.status,
+                message=run.message,
+                backtest_id=backtest.id if backtest else None,
+                aggregate_metrics=backtest.aggregate_metrics if backtest else {},
+            )
+        )
+    return results
+
+
+def _comparison_model_results(session: Session, specification_id: int) -> list[ReferenceModelResult]:
+    """The newest backtest of each comparison model on the specification. Archived models are left out."""
+    backtests = session.exec(
+        select(Backtest)
+        .join(ConfiguredModelDB, col(ConfiguredModelDB.id) == Backtest.model_db_id)
+        .join(ModelTemplateDB)
+        .where(
+            Backtest.specification_id == specification_id,
+            ModelTemplateDB.role == ModelTemplateRole.comparison,
+            col(ModelTemplateDB.archived).is_(False),
+            col(ConfiguredModelDB.archived).is_(False),
+        )
+        .order_by(col(Backtest.created).desc().nulls_last(), col(Backtest.id).desc())
+        .options(selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template))  # type: ignore[arg-type]
+    ).all()
+    newest: dict[int, Backtest] = {}
+    for backtest in backtests:
+        newest.setdefault(backtest.model_db_id, backtest)
+    return [
+        ReferenceModelResult(
+            configured_model=backtest.configured_model,
+            status=SpecificationBaselineStatus.done,
+            backtest_id=backtest.id,
+            aggregate_metrics=backtest.aggregate_metrics,
+        )
+        for backtest in newest.values()
+    ]
+
+
+def _reference_comparisons(backtest: Backtest, references: list[ReferenceModelResult]) -> list[ReferenceComparison]:
+    """Compare a backtest with each reference, except a run of its own model."""
+    return [
+        ReferenceComparison(
+            configured_model_id=reference.configured_model.id,
+            values=compare_aggregated_metrics(backtest.aggregate_metrics, reference.aggregate_metrics),
+        )
+        for reference in references
+        if reference.configured_model.id != backtest.model_db_id
+    ]
 
 
 def _specification_params(specification: BacktestSpecification) -> dict[str, Any]:
@@ -1534,6 +1643,13 @@ async def run_prediction_setup(
         target_column=target_column,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
+        **{
+            JOB_REQUEST_KW: original_request,
+            JOB_TYPE_KW: JobType.PREDICTION,
+            JOB_NAME_KW: request.name,
+            JOB_METADATA_KW: model_job_metadata(
+                setup.configured_model, prediction_params.model_dump(mode="json", exclude={"model_id"})
+            ),
+        },
     )
     return JobResponse(id=job.id)

@@ -5,7 +5,6 @@ import bionumpy as bnp
 import numpy as np
 import pandas as pd
 from bionumpy.bnpdataclass import BNPDataClass
-from pydantic import BaseModel, ConfigDict, field_validator
 
 from .api_types import PeriodObservation
 from .time_period import PeriodRange
@@ -271,27 +270,6 @@ class FullData(ClimateHealthData):
 
 
 @tsdataclass
-class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
-    location: str
-
-
-class ClimateHealthTimeSeriesModel(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    time_period: str | pd.Period
-    rainfall: float
-    mean_temperature: float
-    disease_cases: int
-
-    @field_validator("time_period")
-    def parse_time_period(cls, data: str | pd.Period) -> pd.Period:
-        if isinstance(data, pd.Period):
-            return data
-        else:
-            return pd.Period(data)
-
-
-@tsdataclass
 class HealthPopulationData(HealthData):
     population: int
 
@@ -388,18 +366,6 @@ def remove_field(data: BNPDataClass, field_name, new_class=None):
     return new_class(
         **{field.name: getattr(data, field.name) for field in dataclasses.fields(data) if field.name != field_name}
     )
-
-
-@tsdataclass
-class GEEData(TimeSeriesData):
-    temperature_2m: float
-    total_precipitation_sum: float
-
-
-@tsdataclass
-class FullGEEData(HealthPopulationData):
-    temperature_2m: float
-    total_precipitation_sum: float
 
 
 def create_tsdataclass(field_names):

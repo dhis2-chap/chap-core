@@ -100,19 +100,3 @@ class MultiRegionPoissonModel:
             prediction_dict[location] = HealthData(location_data.time_period[:1], np.atleast_1d(prediction))  # type: ignore[call-arg]
 
         return DataSet(prediction_dict)
-
-
-class NaiveForecastSampler:
-    def __init__(self):
-        self._case_average = None
-        self._case_std = None
-
-    def train(self, time_series: ClimateHealthTimeSeries):
-        self._case_average = time_series.disease_cases.mean()  # type: ignore[attr-defined]
-        self._case_std = time_series.disease_cases.std()  # type: ignore[attr-defined]
-
-    def sample(self, weather_data: ClimateData, n_samples: int = 1) -> HealthData:
-        return HealthData(  # type: ignore[call-arg]
-            weather_data.time_period,
-            np.random.normal(self._case_average, self._case_std, n_samples),  # type: ignore[arg-type]
-        )
