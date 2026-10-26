@@ -64,6 +64,7 @@ markdown_extensions:
 docs_dir: docs
 
 exclude_docs: |
+  AGENTS.md
   CLAUDE.md
   kigali-workshop/kigali-workshop-material/tuesday-afternoon-backup.md
 

@@ -46,6 +46,7 @@ jobs:
               - '!mkdocs.yml'
               - '!charts/**'
               - '!README.md'
+              - '!AGENTS.md'
               - '!CLAUDE.md'
               - '!LICENSE'
               - '!.github/CODEOWNERS'
