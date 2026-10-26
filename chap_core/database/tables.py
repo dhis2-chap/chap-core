@@ -10,7 +10,7 @@ import numpy as np
 from pydantic import computed_field
 from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
-from sqlmodel import Field, Relationship, col, select
+from sqlmodel import Field, Relationship, col, or_, select
 
 from chap_core.api_types import BacktestParams
 from chap_core.database.alert_tables import AlertPolicy, AlertPolicyRead
@@ -188,6 +188,22 @@ def is_not_baseline_backtest():
         select(ConfiguredModelDB.id).join(ModelTemplateDB).where(ModelTemplateDB.role == ModelTemplateRole.baseline)
     )
     return col(Backtest.model_db_id).not_in(baseline_models)
+
+
+def is_not_archived_model_backtest():
+    """Where clause that leaves out backtests of archived configured models or templates.
+
+    Archiving retires a model, so benchmark leaderboards hide its backtests. That includes
+    templates CHAP archives itself: built-in models no longer registered at startup, and
+    marketplace services that are undeployed or rolled back. The rows are kept, the
+    backtest listing still shows them, and the leaderboard shows them on request.
+    """
+    archived_models = (
+        select(ConfiguredModelDB.id)
+        .join(ModelTemplateDB)
+        .where(or_(col(ConfiguredModelDB.archived).is_(True), col(ModelTemplateDB.archived).is_(True)))
+    )
+    return col(Backtest.model_db_id).not_in(archived_models)
 
 
 class SpecificationBaselineStatus(StrEnum):
