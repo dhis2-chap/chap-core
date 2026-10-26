@@ -6,7 +6,6 @@ exposes dataset methods.
 """
 
 import dataclasses
-import datetime
 import json
 import logging
 from pathlib import Path
@@ -14,6 +13,7 @@ from typing import cast
 
 from sqlmodel import select
 
+from chap_core.database.base_tables import utc_now
 from chap_core.datatypes import FullData, create_tsdataclass
 from chap_core.geometry import Polygons
 from chap_core.time_period import Month, TimePeriod, Week
@@ -96,7 +96,7 @@ class DataSetManager(DbManager[DataSet]):
             first_period=orig_dataset.period_range[0].id,
             last_period=orig_dataset.period_range[-1].id,
             covariates=field_names,
-            created=datetime.datetime.now(),
+            created=utc_now(),
             org_units=list(orig_dataset.locations()),
             period_type=period_type,
             created_manually=created_manually,

@@ -6,7 +6,6 @@ the router (or any other caller) maps to its own error format.
 
 from __future__ import annotations
 
-import datetime
 import logging
 from typing import TYPE_CHECKING
 
@@ -14,6 +13,7 @@ import numpy as np
 from sqlmodel import Session, select
 
 from chap_core.database.alert_tables import Alert, AlertApproval, AlertPolicy
+from chap_core.database.base_tables import utc_now
 from chap_core.database.tables import Prediction
 from chap_core.services import threshold_service
 
@@ -135,7 +135,7 @@ def create_alerts(session: Session, alerts: Sequence[Alert]) -> list[Alert]:
             )
         seen.add(key)
 
-    now = datetime.datetime.now()
+    now = utc_now()
     for alert in alerts:
         alert.created = now
         session.add(alert)
@@ -212,7 +212,7 @@ def set_approval(
 
     alerts = [get_alert(session, alert_id) for alert_id in alert_ids]
 
-    reviewed_at = datetime.datetime.now() if approved is not AlertApproval.PENDING else None
+    reviewed_at = utc_now() if approved is not AlertApproval.PENDING else None
     reviewer = approved_by if approved is not AlertApproval.PENDING else None
     for alert in alerts:
         alert.approved = approved

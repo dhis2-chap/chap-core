@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -151,6 +152,13 @@ def test_evaluation_result_returns_backtest(monkeypatch, override_session):
     assert body["modelId"] == "naive_model"
     assert body["name"] == "test backtest"
     assert body["aggregateMetrics"] == {"MAE": 1.5}
+
+
+def test_prediction_result_created_carries_a_utc_offset(monkeypatch, override_session):
+    job_id = _stub_successful_job(monkeypatch, result=1)
+    response = client.get(f"{base_path}/{job_id}/prediction_result")
+    assert response.status_code == 200, response.text
+    assert datetime.fromisoformat(response.json()["created"]).utcoffset() == timedelta(0)
 
 
 def test_prediction_result_missing_row_returns_404(monkeypatch, override_session):

@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import select
 
 from chap_core.assessment.metrics import get_comparison_description
+from chap_core.database.base_tables import utc_now
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration, ModelTemplateRole
@@ -116,7 +117,7 @@ def test_a_baseline_failing_for_another_reason_fails_its_job_and_is_retried_a_da
         # A failure that repeats must not queue a job on every trigger.
         assert request_baselines(session, specification_id, "db-url") == []
         row = session.session.get(SpecificationBaseline, failed.id)
-        row.claimed_at = datetime.datetime.now() - STALE_CLAIM_AFTER - datetime.timedelta(minutes=1)
+        row.claimed_at = utc_now() - STALE_CLAIM_AFTER - datetime.timedelta(minutes=1)
         session.session.commit()
         assert request_baselines(session, specification_id, "db-url") == [failed.id]
         assert session.session.get(SpecificationBaseline, failed.id).status == SpecificationBaselineStatus.pending
@@ -126,7 +127,7 @@ def test_a_baseline_still_pending_after_a_day_is_queued_again(p_seeded_engine, s
     with SessionWrapper(p_seeded_engine) as session:
         first = request_baselines(session, specification_id, "db-url")
         lost = session.session.get(SpecificationBaseline, first[0])
-        lost.claimed_at = datetime.datetime.now() - STALE_CLAIM_AFTER - datetime.timedelta(minutes=1)
+        lost.claimed_at = utc_now() - STALE_CLAIM_AFTER - datetime.timedelta(minutes=1)
         session.session.commit()
 
         assert request_baselines(session, specification_id, "db-url") == [lost.id]

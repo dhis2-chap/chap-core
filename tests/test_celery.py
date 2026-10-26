@@ -1,5 +1,6 @@
 import logging
 import time
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -123,6 +124,22 @@ def test_apply_async_stores_prediction_setup_id_in_job_metadata(monkeypatch, tmp
     )
 
     assert fake_redis.hsets[-1][1]["prediction_setup_id"] == "12"
+
+
+def test_job_timestamps_are_stored_in_utc(monkeypatch, tmp_path):
+    fake_redis = _FakeRedis()
+    monkeypatch.setattr(celery_tasks, "r", fake_redis)
+    monkeypatch.setattr(celery_tasks, "CHAP_LOGS_DIR", tmp_path)
+    monkeypatch.setitem(celery_tasks.app.conf, "task_always_eager", True)
+
+    celery_tasks.celery_run.apply_async(args=(f, 1, 2))
+
+    timestamps = {
+        key: value for _, mapping in fake_redis.hsets for key, value in mapping.items() if key.endswith("_time")
+    }
+    assert set(timestamps) == {"start_time", "end_time"}
+    for value in timestamps.values():
+        assert datetime.fromisoformat(value).utcoffset() == timedelta(0)
 
 
 class _NoMetaRedis:
