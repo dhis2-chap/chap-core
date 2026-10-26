@@ -39,7 +39,6 @@ jobs:
               - '!charts/**'
               - '!README.md'
               - '!AGENTS.md'
-              - '!CLAUDE.md'
               - '!LICENSE'
               - '!.github/CODEOWNERS'
               - '!.github/dependabot.yml'
