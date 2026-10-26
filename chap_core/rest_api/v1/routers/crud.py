@@ -88,6 +88,7 @@ from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from ...data_models import (
     AlertApprovalRequest,
     AlertIdsResponse,
+    AlertPolicyCodesUpdate,
     AlertPolicyCreate,
     AlertsCreate,
     BacktestSpecificationFilter,
@@ -1331,10 +1332,14 @@ async def create_alert_policy(request: AlertPolicyCreate, session: Session = Dep
     exceedance probability at or above which that tier fires, so one policy expresses a
     whole escalation ladder. Levels are ordered from least to most severe. 422 if the
     policy has no levels, an unnamed level, a level with more than one threshold line,
-    or two levels sharing a name.
+    or two levels sharing a name. Output codes must be non-empty and unique across
+    all levels and the no-alert state. Codes do not affect severity ordering.
+    Omitted level codes default to `1`, `2`, etc. in level order; no alert defaults to `0`.
     """
     try:
-        policy = alert_policy_service.create_alert_policy(session, name=request.name, levels=request.levels)
+        policy = alert_policy_service.create_alert_policy(
+            session, name=request.name, levels=request.levels, no_alert_output_code=request.no_alert_output_code
+        )
     except alert_policy_service.InvalidAlertPolicyError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     if policy.id is None:
@@ -1370,6 +1375,34 @@ async def get_alert_policy(
         return alert_policy_service.get_alert_policy(session, alert_policy_id)
     except alert_policy_service.AlertPolicyNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.patch(
+    "/alert-policies/{alertPolicyId}",
+    response_model=AlertPolicyRead,
+    tags=["Alert Policies"],
+    summary="Update a policy's output codes",
+)
+@api_experimental
+async def update_alert_policy_codes(
+    alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
+    request: AlertPolicyCodesUpdate,
+    session: Session = Depends(get_session),
+):
+    """Update codes by level name. Existing alerts resolve to the new codes through their policy.
+
+    Names, order and thresholds cannot change. The resulting codes must be non-empty
+    and unique, including unchanged codes and no alert. 404 for an unknown policy;
+    422 for unknown levels or invalid codes. Invalid updates leave the policy unchanged.
+    """
+    try:
+        return alert_policy_service.update_alert_policy_codes(
+            session, alert_policy_id, request.level_output_codes, request.no_alert_output_code
+        )
+    except alert_policy_service.AlertPolicyNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except alert_policy_service.InvalidAlertPolicyError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 @router.delete(
