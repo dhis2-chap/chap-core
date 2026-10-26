@@ -325,6 +325,25 @@ def _parse_prediction_setup_id(value: str | None) -> int | None:
     return int(value) if value is not None else None
 
 
+def job_description(task_id: str, meta: dict[str, str]) -> JobDescription:
+    """Build a JobDescription from a job's Redis metadata."""
+    return JobDescription(
+        id=task_id,
+        type=meta.get("job_type", "Unspecified"),
+        name=meta.get("job_name", "Unnamed"),
+        status=meta["status"],
+        start_time=meta.get("start_time"),
+        end_time=meta.get("end_time"),
+        result=meta.get("result"),
+        error=meta.get("error"),
+        model_id=int(meta["model_id"]) if "model_id" in meta else None,
+        model_version=meta.get("model_version"),
+        dataset_id=int(meta["dataset_id"]) if "dataset_id" in meta else None,
+        parameters=json.loads(meta.get("parameters", "{}")),
+        prediction_setup_id=_parse_prediction_setup_id(meta.get(PREDICTION_SETUP_ID_JOB_META_KEY)),
+    )
+
+
 class CeleryJob[ReturnType]:
     """Wrapper for a Celery Job"""
 
@@ -372,6 +391,13 @@ class CeleryJob[ReturnType]:
     def exception_info(self) -> str:
         return str(self._result.traceback or "")
 
+    def get_log_tail(self) -> tuple[str, bool]:
+        """Read captured output and its truncation flag, without appending a traceback."""
+        log_file = CHAP_LOGS_DIR / f"task_{self.id}.debug.txt"
+        if not log_file.exists():
+            return "", False
+        return _read_tail(log_file, LOG_TAIL_BYTES)
+
     def get_logs(self) -> str:
         """Get the tail of the complete log for this job.
 
@@ -383,23 +409,23 @@ class CeleryJob[ReturnType]:
         if not log_file.exists():
             logger.warning("Log file %s not found, falling back to traceback", log_file)
             return self.exception_info
-        logs = _read_tail(log_file, LOG_TAIL_BYTES)
+        logs, _ = self.get_log_tail()
         job_meta = get_job_meta(self.id)
         if job_meta and job_meta.get("status") == "FAILURE":
             logs += "\n" + str(job_meta.get("traceback", ""))
         return logs
 
 
-def _read_tail(path: Path, max_bytes: int) -> str:
+def _read_tail(path: Path, max_bytes: int) -> tuple[str, bool]:
     """Return the last max_bytes of path, cut to a line boundary and marked when truncated."""
     size = path.stat().st_size
     if size <= max_bytes:
-        return path.read_text()
+        return path.read_text(), False
     with path.open("rb") as f:
         f.seek(size - max_bytes)
         tail = f.read().decode("utf-8", errors="replace")
     _, _, tail = tail.partition("\n")
-    return f"[... earlier log output truncated ...]\n{tail}"
+    return f"[... earlier log output truncated ...]\n{tail}", True
 
 
 class CeleryPool[ReturnType]:
@@ -452,21 +478,7 @@ class CeleryPool[ReturnType]:
                 jobs.append(meta)
 
         return [
-            JobDescription(
-                id=meta["task_id"],
-                type=meta.get("job_type", "Unspecified"),
-                name=meta.get("job_name", "Unnamed"),
-                status=meta["status"],
-                start_time=meta.get("start_time", None),
-                end_time=meta.get("end_time", None),
-                result=meta.get("result", None),
-                error=meta.get("error", None),
-                model_id=int(meta["model_id"]) if "model_id" in meta else None,
-                model_version=meta.get("model_version"),
-                dataset_id=int(meta["dataset_id"]) if "dataset_id" in meta else None,
-                parameters=json.loads(meta.get("parameters", "{}")),
-                prediction_setup_id=_parse_prediction_setup_id(meta.get(PREDICTION_SETUP_ID_JOB_META_KEY, None)),
-            )
+            job_description(meta["task_id"], meta)
             for meta in sorted(jobs, key=lambda x: x.get("start_time", datetime(1900, 1, 1).isoformat()), reverse=True)
         ]
 
