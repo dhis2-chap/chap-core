@@ -20,6 +20,7 @@ import logging
 from typing import Annotated, Any, Final, Literal
 
 import numpy as np
+import pandas as pd
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Path, Query, UploadFile
 from redis.exceptions import RedisError
 from sqlalchemy import func
@@ -887,11 +888,14 @@ async def create_dataset_csv(
 
     Use this when you have the files on disk and do not want to round-trip them
     through DHIS2 or the JSON import endpoints. Inserts inline — no background job —
-    and returns the new dataset id immediately.
+    and returns the new dataset id immediately. The dataset has no masked ranges;
+    a CSV with a ``disease_cases_masked`` column gets a 422.
     """
     import io
 
     csv_content = await csv_file.read()
+    # The import keeps only the FullData columns, so check the header before an indicator is silently dropped.
+    reject_mask_indicator_input(pd.read_csv(io.BytesIO(csv_content), nrows=0).columns.tolist())
     dataset = InMemoryDataSet.from_csv(io.BytesIO(csv_content), dataclass=FullData)
     geo_json_content = await geojson_file.read()
     features = Polygons.from_geojson(json.loads(geo_json_content), id_property="NAME_1").feature_collection()

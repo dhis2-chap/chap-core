@@ -5,6 +5,7 @@ import time
 from datetime import datetime
 
 import numpy as np
+import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
@@ -2103,6 +2104,36 @@ def test_add_csv_dataset(dependency_overrides, data_path):
     response = client.get(f"/v1/crud/datasets/{response.json()['id']}")
     assert response.status_code == 200, response.json()
     assert DataSetWithObservations.model_validate(response.json()).created_manually
+
+
+def test_add_csv_dataset_stores_it_unmasked(dependency_overrides, data_path):
+    """The CSV upload takes no masked ranges: every disease_cases value is stored as given."""
+    with (
+        open(data_path / "vietnam_monthly.csv", "rb") as csv_data,
+        open(data_path / "vietnam_monthly.geojson", "rb") as geojson_data,
+    ):
+        response = client.post("/v1/crud/datasets/csvFile", files={"csv_file": csv_data, "geojson_file": geojson_data})
+    assert response.status_code == 200, response.json()
+    dataset = DataSetWithObservations.model_validate(client.get(f"/v1/crud/datasets/{response.json()['id']}").json())
+    assert dataset.masked_ranges == []
+    assert "disease_cases_masked" not in dataset.covariates
+    stored_cases = [o.value for o in dataset.observations if o.feature_name == "disease_cases"]
+    source_cases = pd.read_csv(data_path / "vietnam_monthly.csv")["disease_cases"]
+    assert len(stored_cases) == len(source_cases)
+    assert sum(v is None or np.isnan(v) for v in stored_cases) == source_cases.isna().sum()
+
+
+def test_add_csv_dataset_rejects_the_mask_indicator(dependency_overrides, data_path, tmp_path):
+    df = pd.read_csv(data_path / "vietnam_monthly.csv")
+    df["disease_cases_masked"] = 0
+    csv_path = tmp_path / "with_indicator.csv"
+    df.to_csv(csv_path, index=False)
+    n_datasets = len(client.get("/v1/crud/datasets").json())
+    with open(csv_path, "rb") as csv_data, open(data_path / "vietnam_monthly.geojson", "rb") as geojson_data:
+        response = client.post("/v1/crud/datasets/csvFile", files={"csv_file": csv_data, "geojson_file": geojson_data})
+    assert response.status_code == 422, response.text
+    assert "is reserved" in response.text
+    assert len(client.get("/v1/crud/datasets").json()) == n_datasets
 
 
 def test_full_prediction_flow(celery_session_worker, dependency_overrides, example_polygons):
