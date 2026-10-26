@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from chap_core.rest_api.app import app
+from chap_core.rest_api import celery_tasks
 from chap_core.rest_api.celery_tasks import JOB_ERROR_MAX_CHARS, JobDescription, JobType, TrackedTask
 from chap_core.rest_api.v1 import jobs
 from chap_core.util import redis_available
@@ -68,6 +69,21 @@ def test_failed_job_lists_why_it_failed(request_store):
     assert job["status"] == "FAILURE"
     assert job["error"] == "Prediction job ended with status 'failed'"
     assert job["result"] is None
+
+
+def _add(x, y):
+    return x + y
+
+
+def test_listed_job_times_carry_a_utc_offset(request_store, monkeypatch, tmp_path):
+    monkeypatch.setattr(celery_tasks, "CHAP_LOGS_DIR", tmp_path)
+    monkeypatch.setitem(celery_tasks.app.conf, "task_always_eager", True)
+    job_id = celery_tasks.celery_run.apply_async(args=(_add, 1, 2)).id
+
+    [job] = client.get(f"{base_path}?ids={job_id}").json()
+
+    for key in ("start_time", "end_time"):
+        assert datetime.fromisoformat(job[key]).utcoffset() == timedelta(0)
 
 
 def test_failed_job_error_is_bounded(request_store):
