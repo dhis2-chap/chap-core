@@ -686,16 +686,23 @@ def test_chapkit_model_runs_when_service_reports_the_stored_revision(engine, see
 
 
 @pytest.mark.parametrize(
-    "stored_digest, reported_digest", [("a" * 40, "b" * 40), (None, "a" * 40), ("a" * 40, None), (None, None)]
+    "stored_digest, reported_digest, expected",
+    [
+        ("a" * 40, "b" * 40, "stored from revision 'a{40}'.*reports revision 'b{40}'.*info.version"),
+        (None, "a" * 40, "stored before chap-core recorded.*'a{40}'.*info.version"),
+        ("a" * 40, None, "reports no git revision.*GIT_REVISION build arg.*info.version"),
+        (None, None, "reports no git revision.*GIT_REVISION build arg.*info.version"),
+    ],
 )
 def test_chapkit_model_is_refused_when_service_reports_another_revision(
-    engine, seeded_chapkit_model, stored_digest, reported_digest
+    engine, seeded_chapkit_model, stored_digest, reported_digest, expected
 ):
     name = seeded_chapkit_model(stored_digest, reported_digest)
     with SessionWrapper(engine) as session:
         configured_model = session.get_configured_model_by_name(name)
-        with pytest.raises(ModelTemplateRevisionConflict, match="info.version"):
+        with pytest.raises(ModelTemplateRevisionConflict, match=expected) as conflict:
             session.get_configured_model_with_code(configured_model.id)
+        assert "revision None" not in str(conflict.value)
     # The refused template does not leak its HTTP client.
     assert database_module.ExternalChapkitModelTemplate.closed == [name]
 
