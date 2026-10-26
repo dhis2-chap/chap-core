@@ -4,11 +4,11 @@ todo: comment this file, make it clear which classes are central and being used
 
 import datetime
 from enum import StrEnum
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 from pydantic import computed_field
-from sqlalchemy import JSON, Column, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, Column, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, Relationship, col, or_, select
 
@@ -22,6 +22,15 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateDB,
     ModelTemplateRole,
 )
+
+
+class BackendSettings(DBModel, table=True):
+    """One installation-wide record of the settings an admin changed. Access it through `SettingsManager`."""
+
+    id: int = Field(default=1, primary_key=True)
+    overrides: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+
+    __table_args__ = (CheckConstraint("id = 1", name="ck_backendsettings_singleton"),)
 
 
 class BacktestSpecification(BacktestParams, table=True):

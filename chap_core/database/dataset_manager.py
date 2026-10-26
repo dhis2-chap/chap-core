@@ -16,7 +16,7 @@ from sqlmodel import select
 
 from chap_core.datatypes import FullData, create_tsdataclass
 from chap_core.geometry import Polygons
-from chap_core.time_period import Month, Week
+from chap_core.time_period import Month, TimePeriod, Week
 
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
@@ -46,6 +46,15 @@ def _filtered_observation_query(
     if feature_names is not None:
         expr = expr.where(Observation.feature_name.in_(feature_names))  # type: ignore[union-attr]
     return expr
+
+
+def period_type_of(period: TimePeriod) -> str:
+    """Stored `DataSet.period_type` for a dataset whose periods are like ``period``."""
+    if isinstance(period, Month):
+        return "month"
+    if isinstance(period, Week):
+        return "week"
+    raise ValueError(f"Unsupported period type: {type(period).__name__}")
 
 
 class DataSetManager(DbManager[DataSet]):
@@ -82,11 +91,7 @@ class DataSetManager(DbManager[DataSet]):
             if field.name not in ["time_period", "location"]
         ]
         logger.info(f"Field names in dataset: {field_names}")
-        if isinstance(orig_dataset.period_range[0], Month):
-            period_type = "month"
-        else:
-            assert isinstance(orig_dataset.period_range[0], Week), orig_dataset.period_range[0]
-            period_type = "week"
+        period_type = period_type_of(orig_dataset.period_range[0])
         full_info = DataSetInfo(
             first_period=orig_dataset.period_range[0].id,
             last_period=orig_dataset.period_range[-1].id,
