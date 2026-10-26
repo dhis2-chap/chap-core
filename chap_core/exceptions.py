@@ -49,9 +49,10 @@ class ModelTemplateRevisionConflict(ValueError):
         self.reported_digest = reported_digest
         write_once = "A version is write-once, so the new revision needs a new version label:"
         if reported_digest is None:
+            stored = "" if stored_digest is None else f" is stored from revision {stored_digest!r}, but"
             message = (
-                f"Model template {name!r} version {version!r}: its source reports no git revision, "
-                f"so chap-core cannot check which source it runs. To fix it, {how_to_fix}"
+                f"Model template {name!r} version {version!r}{stored or ':'} its source reports no git "
+                f"revision, so chap-core cannot check which source it runs. To fix it, {how_to_fix}"
             )
         elif stored_digest is None:
             message = (
