@@ -17,7 +17,6 @@ from chap_core.api_types import (
     PredictionEntry,
 )
 from chap_core.assessment.dataset_splitting import train_test_generator
-from chap_core.assessment.target_mask import check_no_mask_indicator_input
 from chap_core.assessment.thresholds import list_threshold_strategies
 from chap_core.assessment.thresholds.params import ThresholdParams
 from chap_core.assessment.weather_providers import list_weather_providers
@@ -25,7 +24,7 @@ from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet as DataSetTable
-from chap_core.database.dataset_tables import DataSetCreateInfo, MaskedRange, check_masked_ranges_match_dataset
+from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 from chap_core.database.tables import (
     Backtest,
@@ -60,12 +59,14 @@ from ...data_models import (
     ValidationError,
 )
 from .dependencies import (
+    check_masked_ranges_match,
     get_database_url,
     get_job_model,
     get_job_request,
     get_session,
     get_settings,
     model_job_metadata,
+    reject_mask_indicator_input,
 )
 
 router = APIRouter(prefix="/analytics")
@@ -102,7 +103,7 @@ def make_dataset(
     and the submitted values are not kept. They cannot be recovered or unmasked later.
     """
     feature_names, provided_data, rejections = _read_and_validate_dataset(request, dry_run)
-    _check_masked_ranges_match(request.masked_ranges, provided_data)
+    check_masked_ranges_match(request.masked_ranges, provided_data)
     imported_count = len(list(provided_data.locations()))
     if dry_run:
         return ImportSummaryResponse(id=None, imported_count=imported_count, rejected=rejections)
@@ -172,33 +173,11 @@ def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataS
     return feature_names, provided_data, rejections
 
 
-def _check_masked_ranges_match(masked_ranges: list[MaskedRange] | None, dataset: DataSet) -> None:
-    """Reject masked ranges whose period type differs from the dataset's, before anything is queued."""
-    if not masked_ranges or not list(dataset.locations()):
-        return
-    if "disease_cases" not in dataset.field_names():
-        raise HTTPException(
-            status_code=422, detail="Masked ranges mask 'disease_cases', but the data has no 'disease_cases' column"
-        )
-    try:
-        check_masked_ranges_match_dataset(masked_ranges, dataset.period_range[0])
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
-
-
-def _reject_mask_indicator_input(feature_names: list[str] | list[str | None]) -> None:
-    """Reject input data that carries the column masking adds itself."""
-    try:
-        check_no_mask_indicator_input(feature_names)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
-
-
 def _read_dataset(request):
     if not request.provided_data:
         raise HTTPException(status_code=400, detail="No observation data provided.")
     feature_names = list({entry.feature_name for entry in request.provided_data})
-    _reject_mask_indicator_input(feature_names)
+    reject_mask_indicator_input(feature_names)
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
@@ -625,7 +604,7 @@ async def make_prediction(
     """
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
-    _reject_mask_indicator_input(feature_names)
+    reject_mask_indicator_input(feature_names)
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
