@@ -4,7 +4,7 @@ Store the inclusive period ranges in which a dataset's `disease_cases` is masked
 models (CLIM-1300). Existing datasets get no ranges, so they behave as before.
 
 Revision ID: e6f7a8b9c0d1
-Revises: d5e6f7a8b9c0
+Revises: d8e9f0a1b2c3
 Create Date: 2026-10-22
 
 """
@@ -17,7 +17,7 @@ from alembic import op
 from chap_core.database.migration_helpers import has_column
 
 revision: str = "e6f7a8b9c0d1"
-down_revision: str | Sequence[str] | None = "d5e6f7a8b9c0"
+down_revision: str | Sequence[str] | None = "d8e9f0a1b2c3"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

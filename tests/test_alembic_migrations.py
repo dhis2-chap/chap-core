@@ -59,6 +59,7 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
 # Tables added by alembic migrations (not in the baseline schema).
 # These are dropped after create_all so the migration can re-create them.
 _TABLES_ADDED_BY_MIGRATIONS = [
+    "backendsettings",
     "predictionsetup",
     "specificationbaseline",
     "backtestspecification",
@@ -253,6 +254,12 @@ class TestAlembicMigrations:
         columns = {col["name"] for col in sa.inspect(engine).get_columns("backtest")}
         assert not columns & {"n_periods", "n_splits", "stride", "n_retrain", "future_weather_provider"}
         assert "chap_version" in columns
+
+        from sqlmodel import Session
+        from chap_core.database.settings import SettingsManager
+
+        with Session(engine) as session:
+            assert SettingsManager(session).get().default_baseline_model == "persistence"
 
     def test_downgrade_to_base_and_upgrade_again(self, engine):
         """

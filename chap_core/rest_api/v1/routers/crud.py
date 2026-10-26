@@ -51,6 +51,7 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateRole,
     chapkit_revision_conflict,
 )
+from chap_core.database.settings import SettingsManager
 from chap_core.database.tables import (
     Backtest,
     BacktestRead,
@@ -120,6 +121,7 @@ from .dependencies import (
     get_job_request,
     get_session,
     get_settings,
+    get_settings_manager,
     model_job_metadata,
     reject_mask_indicator_input,
 )
@@ -399,6 +401,7 @@ def get_backtest_specification(
     include_archived_models: Annotated[bool, Query(alias="includeArchivedModels")] = False,
     session: Session = Depends(get_session),
     database_url: str = Depends(get_database_url),
+    settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
     """Read one specification together with every backtest that ran under it, newest first, in a single response.
 
@@ -434,6 +437,7 @@ def get_backtest_specification(
         .options(*_backtest_read_loads())
     ).all()
     baselines = _baseline_results(session, specification_id)
+    settings = settings_manager.get()
     comparison_models = _comparison_model_results(session, specification_id) if include_comparison_models else None
     references = [
         reference
@@ -452,7 +456,8 @@ def get_backtest_specification(
         ],
         baselines=baselines,
         comparison_models=comparison_models,
-        metrics=list_metric_info(),
+        metrics=list_metric_info(settings),
+        default_baseline_model=settings.default_baseline_model,
         **_specification_params(specification),
     )
 

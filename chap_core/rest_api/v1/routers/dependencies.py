@@ -3,13 +3,14 @@ import os
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, cast
 
-from fastapi import HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 from sqlmodel import Session
 
 from chap_core.assessment.target_mask import TARGET_FIELD, check_no_mask_indicator_input
 from chap_core.database.database import SessionWrapper, engine
 from chap_core.database.dataset_tables import MaskedRange, check_masked_ranges_match_dataset
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
+from chap_core.database.settings import SettingsManager
 from chap_core.rest_api.worker_functions import WorkerConfig
 
 if TYPE_CHECKING:
@@ -23,6 +24,10 @@ def get_session():
 
 
 def get_session_wrapper(): ...
+
+
+def get_settings_manager(session: Session = Depends(get_session)) -> SettingsManager:
+    return SettingsManager(session)
 
 
 @lru_cache
