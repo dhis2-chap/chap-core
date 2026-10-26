@@ -42,11 +42,13 @@ def policy_id(engine):
             levels=[
                 AlertLevel(
                     name="monitor",
+                    output_code="1",
                     threshold_params=SeasonalParams(type="seasonal", std_multiplier=1.0),
                     exceedance_threshold=0.3,
                 ),
                 AlertLevel(
                     name="action",
+                    output_code="2",
                     threshold_params=SeasonalParams(type="seasonal", std_multiplier=3.0),
                     exceedance_threshold=0.8,
                 ),
