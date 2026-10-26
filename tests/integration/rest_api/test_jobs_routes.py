@@ -69,6 +69,16 @@ def test_failed_job_lists_why_it_failed(request_store):
     assert job["result"] is None
 
 
+def test_get_job_matches_list_entry(request_store):
+    _fail_job("job-1", RuntimeError("Prediction job ended with status 'failed'"))
+
+    response = client.get(f"{base_path}/job-1")
+
+    assert response.status_code == 200, response.json()
+    assert response.json() == client.get(f"{base_path}?ids=job-1").json()[0]
+    assert response.json()["status"] == "FAILURE"
+
+
 def test_failed_job_error_is_bounded(request_store):
     _fail_job("job-1", RuntimeError("x" * (JOB_ERROR_MAX_CHARS + 500)))
 
