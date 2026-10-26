@@ -31,6 +31,18 @@ def test_mask_sets_nan_and_indicator_inside_the_range_only(health_population_dat
         assert not np.any(data.disease_cases_masked[:10]) and not np.any(data.disease_cases_masked[13:])
 
 
+def test_mask_clips_ranges_that_extend_past_the_data(health_population_data):
+    periods = health_population_data.period_range
+    ranges = [
+        MaskedRange(start=(periods[0] - periods.delta * 5).id, end=periods[1].id),
+        MaskedRange(start=periods[-2].id, end=(periods[-1] + periods.delta * 5).id),
+        MaskedRange(start=(periods[-1] + periods.delta * 10).id, end=(periods[-1] + periods.delta * 12).id),
+    ]
+    masked = apply_target_mask(health_population_data, ranges)
+    for data in masked.values():
+        assert list(np.flatnonzero(data.disease_cases_masked)) == [0, 1, len(periods) - 2, len(periods) - 1]
+
+
 def test_mask_leaves_the_input_dataset_unchanged(health_population_data):
     location = next(iter(health_population_data.keys()))
     before = health_population_data[location].disease_cases.copy()

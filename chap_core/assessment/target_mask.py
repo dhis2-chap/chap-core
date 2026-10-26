@@ -24,6 +24,7 @@ from chap_core.database.dataset_tables import (
 
 if TYPE_CHECKING:
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+    from chap_core.time_period import PeriodRange, TimePeriod
 
 TARGET_FIELD = "disease_cases"
 MASK_INDICATOR_FIELD = "disease_cases_masked"
@@ -49,14 +50,20 @@ def apply_target_mask(dataset: DataSet, masked_ranges: list[MaskedRange] | None)
     data_class = _with_indicator_class(next(iter(dataset.values())))
     masked = {}
     for location, data in dataset.items():
-        inside = np.array(
-            [any(start <= period <= end for start, end in bounds) for period in data.time_period], dtype=bool
-        )
+        inside = _inside_ranges(data.time_period, bounds)
         values = {name: getattr(data, name) for name in names}
         values[TARGET_FIELD] = np.where(inside, np.nan, values[TARGET_FIELD].astype(float))
         values[MASK_INDICATOR_FIELD] = inside.astype(float)
         masked[location] = data_class(data.time_period, **values)
     return DataSet(masked, polygons=dataset.polygons, metadata=dataset.metadata)
+
+
+def _inside_ranges(period_range: PeriodRange, bounds: list[tuple[TimePeriod, TimePeriod]]) -> np.ndarray:
+    """Mark the periods inside any of the inclusive bounds, using index lookups instead of comparing each period."""
+    inside = np.zeros(len(period_range), dtype=bool)
+    for start, end in bounds:
+        inside[period_range.searchsorted(start) : period_range.searchsorted(end, side="right")] = True
+    return inside
 
 
 def check_mask_outside_evaluation_window(dataset: DataSet, n_periods: int, n_splits: int, stride: int) -> None:
