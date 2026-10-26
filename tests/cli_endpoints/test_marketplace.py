@@ -46,9 +46,9 @@ def test_refuses_invalid_pin(marketplace_model, marketplace_http, tag):
         resolve_model(marketplace_model["id"])
 
 
-def test_refuses_template(marketplace_model, marketplace_http):
-    marketplace_model["kind"] = "template"
-    with pytest.raises(ValueError, match="template"):
+def test_refuses_starter(marketplace_model, marketplace_http):
+    marketplace_model["kind"] = "starter"
+    with pytest.raises(ValueError, match="starter"):
         resolve_model(marketplace_model["id"])
 
 
@@ -422,7 +422,7 @@ def test_install_all_installs_every_verified_model_once(marketplace_model, model
     assert f"Skipping {marketplace_model['id']}: already installed" in caplog.text
 
 
-@pytest.mark.parametrize("change", [{"kind": "template"}, {"channels": {"stable": "missing"}}])
+@pytest.mark.parametrize("change", [{"kind": "starter"}, {"channels": {"stable": "missing"}}])
 def test_install_all_skips_entries_that_cannot_be_installed(marketplace_model, model_deployment, caplog, change):
     marketplace_model.update(change)
     with caplog.at_level(logging.INFO):

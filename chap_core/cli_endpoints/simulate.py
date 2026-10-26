@@ -4,7 +4,6 @@ import logging
 from pathlib import Path
 from typing import Annotated
 
-import yaml
 from cyclopts import Parameter
 
 from chap_core.api_types import RunConfig
@@ -14,10 +13,8 @@ from chap_core.cli_endpoints._args import (
     ModelNameArg,
     RunConfigArg,
 )
-from chap_core.cli_endpoints._common import discover_geojson, load_dataset_from_csv, resolve_csv_path
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+from chap_core.cli_endpoints._common import load_dataset_and_template
 from chap_core.log_config import initialize_logging
-from chap_core.models.model_template import ModelTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -32,20 +29,8 @@ def simulate(
     """Simulate disease data for the locations and periods in a covariate CSV via a model's ``simulate`` entry point."""
     initialize_logging(run_config.debug, run_config.log_file)
 
-    csv_path, url_geojson_path = resolve_csv_path(dataset_csv)
-    geojson_path = url_geojson_path or discover_geojson(csv_path)
-    covariates = load_dataset_from_csv(csv_path, geojson_path)
-
-    configuration = None
-    if model_configuration_yaml is not None:
-        logger.info(f"Loading model configuration from {model_configuration_yaml}")
-        configuration = ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
-
-    logger.info(f"Loading model template from {model_name}")
-    template = ModelTemplate.from_directory_or_github_url(
-        model_name,
-        ignore_env=run_config.ignore_environment,
-        run_dir_type=run_config.run_directory_type,
+    covariates, template, configuration = load_dataset_and_template(
+        model_name, dataset_csv, model_configuration_yaml, run_config
     )
 
     with template:
