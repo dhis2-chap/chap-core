@@ -109,6 +109,12 @@ class MaskedRange(DBModel):
     end: PeriodID = Field(description="Last masked period, inclusive, of the same period type as `start`.")
     name: str | None = Field(default=None, description="Optional label for the range, such as `covid`.")
 
+    @field_validator("start", "end", mode="before")
+    @classmethod
+    def _int_to_period_id(cls, value: object) -> object:
+        # An unquoted `start: 202106` in YAML or JSON arrives as an int.
+        return str(value) if isinstance(value, int) and not isinstance(value, bool) else value
+
     @model_validator(mode="after")
     def _normalise_bounds(self) -> "MaskedRange":
         start, end = parse_masked_period(self.start), parse_masked_period(self.end)
