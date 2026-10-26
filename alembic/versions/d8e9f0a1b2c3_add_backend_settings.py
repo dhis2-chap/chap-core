@@ -1,7 +1,7 @@
 """Add the installation-wide backend settings record.
 
 Revision ID: d8e9f0a1b2c3
-Revises: c4d5e6f7a8b9
+Revises: d5e6f7a8b9c0
 """
 
 import sqlalchemy as sa
@@ -10,7 +10,7 @@ from alembic import op
 from chap_core.database.migration_helpers import has_table
 
 revision = "d8e9f0a1b2c3"
-down_revision = "c4d5e6f7a8b9"
+down_revision = "d5e6f7a8b9c0"
 branch_labels = None
 depends_on = None
 
