@@ -46,7 +46,7 @@ jobs:
               - '!mkdocs.yml'
               - '!charts/**'
               - '!README.md'
-              - '!CLAUDE.md'
+              - '!AGENTS.md'
               - '!LICENSE'
               - '!.github/CODEOWNERS'
               - '!.github/dependabot.yml'
