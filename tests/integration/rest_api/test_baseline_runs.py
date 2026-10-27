@@ -9,7 +9,7 @@ from chap_core.assessment.metrics import get_comparison_description
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration, ModelTemplateRole
-from chap_core.database.tables import Backtest, SpecificationBaseline, SpecificationBaselineStatus
+from chap_core.database.tables import Backtest, Prediction, SpecificationBaseline, SpecificationBaselineStatus
 from chap_core.models.builtin import BaselineNotApplicable, builtin_template_config, get_builtin_model
 from chap_core.rest_api.app import app
 from chap_core.rest_api.baseline_runs import STALE_CLAIM_AFTER, request_baselines, run_baseline
@@ -195,6 +195,37 @@ def test_a_backtest_from_the_api_runs_even_when_requesting_baselines_fails(p_see
         assert session.session.get(Backtest, backtest_id).forecasts
 
 
+def test_deleting_a_dataset_whose_only_backtests_are_baselines_is_refused_with_their_ids(
+    override_session, p_seeded_engine, baseline_worker
+):
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        backtest_id = run_backtest(
+            BacktestCreate(name="model", dataset_id=dataset_id, model_id="naive_model"),
+            session=session,
+            baseline_database_url="db-url",
+            **PARAMS,
+        )
+    _run_queued(p_seeded_engine, baseline_worker)
+    assert client.delete(f"/v1/crud/backtests/{backtest_id}").status_code == 200
+    with SessionWrapper(p_seeded_engine) as session:
+        # Clear the seeded backtests and predictions so only the hidden baselines are left.
+        for row in [
+            *session.session.exec(select(Backtest).where(Backtest.name != "baseline")).all(),
+            *session.session.exec(select(Prediction)).all(),
+        ]:
+            session.session.delete(row)
+        session.session.commit()
+        baseline_ids = sorted(session.session.exec(select(Backtest.id).where(Backtest.dataset_id == dataset_id)).all())
+    assert len(baseline_ids) == 3
+    assert [b["id"] for b in client.get("/v1/crud/backtests").json()] == []
+
+    response = client.delete(f"/v1/crud/datasets/{dataset_id}")
+
+    assert response.status_code == 409
+    assert f"backtests {baseline_ids}" in response.json()["detail"]
+
+
 def test_reading_a_specification_queues_its_missing_baselines(override_session, specification_id, baseline_worker):
     assert client.get(f"/v1/crud/backtest-specifications/{specification_id}").status_code == 200
     assert len(baseline_worker.queued) == 3
@@ -295,3 +326,25 @@ def test_the_leaderboard_leaves_out_archived_comparison_models(override_session,
         session.session.commit()
 
     assert _leaderboard(specification_id, includeComparisonModels=True)["comparisonModels"] == []
+
+
+def test_the_leaderboard_leaves_out_backtests_of_archived_models(override_session, p_seeded_engine, specification_id):
+    with SessionWrapper(p_seeded_engine) as session:
+        backtest = session.session.exec(select(Backtest).where(Backtest.specification_id == specification_id)).first()
+        backtest.configured_model.archived = True
+        session.session.commit()
+        archived = set(
+            session.session.exec(
+                select(Backtest.id).where(
+                    Backtest.specification_id == specification_id, Backtest.model_db_id == backtest.model_db_id
+                )
+            ).all()
+        )
+
+    leaderboard = _leaderboard(specification_id)
+    assert not archived & {b["id"] for b in leaderboard["backtests"]}
+    (row,) = [s for s in client.get("/v1/crud/backtest-specifications").json() if s["id"] == specification_id]
+    assert row["backtestCount"] == len(leaderboard["backtests"])
+    # On request, and in the backtest listing, they are still shown.
+    assert archived <= {b["id"] for b in _leaderboard(specification_id, includeArchivedModels=True)["backtests"]}
+    assert archived <= {b["id"] for b in client.get("/v1/crud/backtests").json()}
