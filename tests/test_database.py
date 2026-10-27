@@ -508,6 +508,26 @@ def test_reseeding_a_label_with_a_new_sha_is_a_revision_conflict(engine, model_t
         assert session.get_model_template(template_id).source_digest == "a" * 40
 
 
+def test_reseeding_a_label_with_an_unresolvable_ref_names_the_stored_sha(
+    engine, model_template_yaml_config, monkeypatch
+):
+    def fetch_config(url):
+        config = model_template_yaml_config.model_copy(deep=True)
+        config.source_url = url
+        return config
+
+    monkeypatch.setattr(
+        "chap_core.database.model_template_seed.ExternalModelTemplate.fetch_config_from_github_url", fetch_config
+    )
+    with SessionWrapper(engine) as session:
+        add_model_template_from_url("https://github.com/example/test_model@" + "a" * 40, session, "v1")
+        monkeypatch.setattr("chap_core.database.model_template_seed.resolve_commit_sha", lambda url: None)
+        with pytest.raises(
+            ModelTemplateRevisionConflict, match="stored from revision 'a{40}'.*reports no git revision.*pin"
+        ):
+            add_model_template_from_url("https://github.com/example/test_model@main", session, "v1")
+
+
 def test_reseeding_a_label_without_a_stored_digest_keeps_the_row(engine, model_template_yaml_config, monkeypatch):
     """A row seeded before digests were recorded has nothing to compare against."""
     monkeypatch.setattr(
@@ -686,16 +706,23 @@ def test_chapkit_model_runs_when_service_reports_the_stored_revision(engine, see
 
 
 @pytest.mark.parametrize(
-    "stored_digest, reported_digest", [("a" * 40, "b" * 40), (None, "a" * 40), ("a" * 40, None), (None, None)]
+    "stored_digest, reported_digest, expected",
+    [
+        ("a" * 40, "b" * 40, "stored from revision 'a{40}'.*reports revision 'b{40}'.*info.version"),
+        (None, "a" * 40, "stored before chap-core recorded.*'a{40}'.*info.version"),
+        ("a" * 40, None, "stored from revision 'a{40}'.*reports no git revision.*GIT_REVISION build arg.*info.version"),
+        (None, None, "reports no git revision.*GIT_REVISION build arg.*info.version"),
+    ],
 )
 def test_chapkit_model_is_refused_when_service_reports_another_revision(
-    engine, seeded_chapkit_model, stored_digest, reported_digest
+    engine, seeded_chapkit_model, stored_digest, reported_digest, expected
 ):
     name = seeded_chapkit_model(stored_digest, reported_digest)
     with SessionWrapper(engine) as session:
         configured_model = session.get_configured_model_by_name(name)
-        with pytest.raises(ModelTemplateRevisionConflict, match="info.version"):
+        with pytest.raises(ModelTemplateRevisionConflict, match=expected) as conflict:
             session.get_configured_model_with_code(configured_model.id)
+        assert "revision None" not in str(conflict.value)
     # The refused template does not leak its HTTP client.
     assert database_module.ExternalChapkitModelTemplate.closed == [name]
 
