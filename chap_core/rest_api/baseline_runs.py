@@ -16,6 +16,7 @@ from sqlalchemy.engine import Connection, Engine
 from sqlmodel import col, select
 
 from chap_core.api_types import BacktestParams
+from chap_core.database.base_tables import utc_now
 from chap_core.database.database import SessionWrapper
 from chap_core.database.tables import SpecificationBaseline, SpecificationBaselineStatus
 from chap_core.models.builtin import BaselineNotApplicable
@@ -45,7 +46,7 @@ def request_baselines(session: SessionWrapper, specification_id: int, database_u
     than raised, so a trigger never fails because of them. The claim is then removed, so
     the next trigger tries again.
     """
-    now = datetime.datetime.now()
+    now = utc_now()
     stale_before = now - STALE_CLAIM_AFTER
     claims = {
         baseline.configured_model_id: baseline
@@ -160,7 +161,7 @@ def run_baseline(specification_baseline_id: int, session: SessionWrapper) -> int
         session.session.rollback()
         baseline.status = SpecificationBaselineStatus.failed
         baseline.message = str(e)
-        baseline.claimed_at = datetime.datetime.now()
+        baseline.claimed_at = utc_now()
         session.session.commit()
         raise
     baseline.status = SpecificationBaselineStatus.done

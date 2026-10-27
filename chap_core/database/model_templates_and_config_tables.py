@@ -196,12 +196,17 @@ def chapkit_revision_conflict(
     """
     if template.source_digest is not None and template.source_digest == reported_digest:
         return None
+    if reported_digest is None:
+        how_to_fix = "build the image with the GIT_REVISION build arg, set a new info.version and register it again."
+    elif template.source_digest is None:
+        how_to_fix = "set a new info.version in the chapkit service and register it again."
+    else:
+        how_to_fix = (
+            "set a new info.version in the chapkit service (built with the GIT_REVISION build arg) "
+            "and register it again."
+        )
     return ModelTemplateRevisionConflict(
-        template.name,
-        template.version,
-        template.source_digest,
-        reported_digest,
-        "set a new info.version in the chapkit service (built with the GIT_REVISION build arg) and register it again.",
+        template.name, template.version, template.source_digest, reported_digest, how_to_fix
     )
 
 

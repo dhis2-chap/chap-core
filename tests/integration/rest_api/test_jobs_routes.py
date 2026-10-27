@@ -1,10 +1,12 @@
 import uuid
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
 from chap_core.rest_api.app import app
+from chap_core.rest_api import celery_tasks
 from chap_core.rest_api.celery_tasks import JOB_ERROR_MAX_CHARS, JobDescription, JobType, TrackedTask
 from chap_core.rest_api.v1 import jobs
 from chap_core.util import redis_available
@@ -77,6 +79,21 @@ def test_get_job_matches_list_entry(request_store):
     assert response.status_code == 200, response.json()
     assert response.json() == client.get(f"{base_path}?ids=job-1").json()[0]
     assert response.json()["status"] == "FAILURE"
+
+
+def _add(x, y):
+    return x + y
+
+
+def test_listed_job_times_carry_a_utc_offset(request_store, monkeypatch, tmp_path):
+    monkeypatch.setattr(celery_tasks, "CHAP_LOGS_DIR", tmp_path)
+    monkeypatch.setitem(celery_tasks.app.conf, "task_always_eager", True)
+    job_id = celery_tasks.celery_run.apply_async(args=(_add, 1, 2)).id
+
+    [job] = client.get(f"{base_path}?ids={job_id}").json()
+
+    for key in ("start_time", "end_time"):
+        assert datetime.fromisoformat(job[key]).utcoffset() == timedelta(0)
 
 
 def test_failed_job_error_is_bounded(request_store):
@@ -161,6 +178,13 @@ def test_evaluation_result_returns_backtest(monkeypatch, override_session):
     assert body["modelId"] == "naive_model"
     assert body["name"] == "test backtest"
     assert body["aggregateMetrics"] == {"MAE": 1.5}
+
+
+def test_prediction_result_created_carries_a_utc_offset(monkeypatch, override_session):
+    job_id = _stub_successful_job(monkeypatch, result=1)
+    response = client.get(f"{base_path}/{job_id}/prediction_result")
+    assert response.status_code == 200, response.text
+    assert datetime.fromisoformat(response.json()["created"]).utcoffset() == timedelta(0)
 
 
 def test_prediction_result_missing_row_returns_404(monkeypatch, override_session):

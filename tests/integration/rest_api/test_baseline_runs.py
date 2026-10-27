@@ -6,10 +6,11 @@ from fastapi.testclient import TestClient
 from sqlmodel import select
 
 from chap_core.assessment.metrics import get_comparison_description
+from chap_core.database.base_tables import utc_now
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration, ModelTemplateRole
-from chap_core.database.tables import Backtest, SpecificationBaseline, SpecificationBaselineStatus
+from chap_core.database.tables import Backtest, Prediction, SpecificationBaseline, SpecificationBaselineStatus
 from chap_core.models.builtin import BaselineNotApplicable, builtin_template_config, get_builtin_model
 from chap_core.rest_api.app import app
 from chap_core.rest_api.baseline_runs import STALE_CLAIM_AFTER, request_baselines, run_baseline
@@ -116,7 +117,7 @@ def test_a_baseline_failing_for_another_reason_fails_its_job_and_is_retried_a_da
         # A failure that repeats must not queue a job on every trigger.
         assert request_baselines(session, specification_id, "db-url") == []
         row = session.session.get(SpecificationBaseline, failed.id)
-        row.claimed_at = datetime.datetime.now() - STALE_CLAIM_AFTER - datetime.timedelta(minutes=1)
+        row.claimed_at = utc_now() - STALE_CLAIM_AFTER - datetime.timedelta(minutes=1)
         session.session.commit()
         assert request_baselines(session, specification_id, "db-url") == [failed.id]
         assert session.session.get(SpecificationBaseline, failed.id).status == SpecificationBaselineStatus.pending
@@ -126,7 +127,7 @@ def test_a_baseline_still_pending_after_a_day_is_queued_again(p_seeded_engine, s
     with SessionWrapper(p_seeded_engine) as session:
         first = request_baselines(session, specification_id, "db-url")
         lost = session.session.get(SpecificationBaseline, first[0])
-        lost.claimed_at = datetime.datetime.now() - STALE_CLAIM_AFTER - datetime.timedelta(minutes=1)
+        lost.claimed_at = utc_now() - STALE_CLAIM_AFTER - datetime.timedelta(minutes=1)
         session.session.commit()
 
         assert request_baselines(session, specification_id, "db-url") == [lost.id]
@@ -193,6 +194,37 @@ def test_a_backtest_from_the_api_runs_even_when_requesting_baselines_fails(p_see
             **PARAMS,
         )
         assert session.session.get(Backtest, backtest_id).forecasts
+
+
+def test_deleting_a_dataset_whose_only_backtests_are_baselines_is_refused_with_their_ids(
+    override_session, p_seeded_engine, baseline_worker
+):
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        backtest_id = run_backtest(
+            BacktestCreate(name="model", dataset_id=dataset_id, model_id="naive_model"),
+            session=session,
+            baseline_database_url="db-url",
+            **PARAMS,
+        )
+    _run_queued(p_seeded_engine, baseline_worker)
+    assert client.delete(f"/v1/crud/backtests/{backtest_id}").status_code == 200
+    with SessionWrapper(p_seeded_engine) as session:
+        # Clear the seeded backtests and predictions so only the hidden baselines are left.
+        for row in [
+            *session.session.exec(select(Backtest).where(Backtest.name != "baseline")).all(),
+            *session.session.exec(select(Prediction)).all(),
+        ]:
+            session.session.delete(row)
+        session.session.commit()
+        baseline_ids = sorted(session.session.exec(select(Backtest.id).where(Backtest.dataset_id == dataset_id)).all())
+    assert len(baseline_ids) == 3
+    assert [b["id"] for b in client.get("/v1/crud/backtests").json()] == []
+
+    response = client.delete(f"/v1/crud/datasets/{dataset_id}")
+
+    assert response.status_code == 409
+    assert f"backtests {baseline_ids}" in response.json()["detail"]
 
 
 def test_reading_a_specification_queues_its_missing_baselines(override_session, specification_id, baseline_worker):
