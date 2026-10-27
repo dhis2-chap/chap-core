@@ -405,30 +405,43 @@ class MonitoringSource(StrEnum):
 
 
 class MonitoringPoint(DBModel):
-    """Metric value for one run of a prediction setup: a backtest split or a live prediction."""
+    """One run of a prediction setup, a backtest split or a live prediction, compared with the baseline model.
+
+    Values come from the metric's comparison operator: positive means better than the
+    baseline and zero means equal. They are null where the comparison is undefined, for
+    example a skill ratio against a baseline score of 0.
+    """
 
     period: str = Field(description="Last period the run had data for, i.e. the period it predicted from.")
     source: MonitoringSource = Field(
         description="`evaluation` for a backtest split, `prediction` for a live prediction of the setup."
     )
-    value: float = Field(
-        description="Metric over the run's forecasts that have an observed value, pooled over org units and horizons."
+    value: float | None = Field(
+        description="The run's metric compared with the baseline's, over the forecasts both made that have an "
+        "observed value, pooled over org units and horizons."
     )
-    running_value: float = Field(description="Metric over all runs of the same source up to and including this one.")
+    running_value: float | None = Field(
+        description="The same comparison over all runs of the same source up to and including this one."
+    )
     n_observed: int = Field(
         description="Number of (org unit, period, horizon) forecasts scored; grows as later runs bring in observed cases."
     )
 
 
 class PredictionSetupMonitoring(DBModel):
-    """A prediction setup's live performance on one metric, next to the value its backtest promised."""
+    """A prediction setup's live performance on one metric relative to a baseline model, next to its backtest's."""
 
     metric_id: str = Field(description="Id of the metric that was computed.")
+    baseline_model: str = Field(description="Name of the baseline model the values are compared with.")
+    comparison_description: str = Field(description="One-line description of what the comparison values mean.")
     evaluation_value: float | None = Field(
-        description="The metric's value in the setup's backtest; `None` if the backtest did not record it."
+        description="The backtest's aggregate metric compared with the baseline's backtest on the same "
+        "specification; `None` until the baseline's backtest is done, or when the comparison is undefined."
     )
     points: list[MonitoringPoint] = Field(
-        description="One entry per scored run: evaluation points first, then prediction points, each in period order."
+        description="One entry per scored run: evaluation points first, then prediction points, each in period "
+        "order. Evaluation points are missing until the baseline's backtest is done, and predictions without a "
+        "stored baseline forecast are left out."
     )
 
 
@@ -517,6 +530,16 @@ class Prediction(PredictionBase, table=True):
     )
     configured_model: Optional["ConfiguredModelDB"] = Relationship()
     prediction_setup: Optional["PredictionSetup"] = Relationship(back_populates="predictions")
+    baseline_for_prediction_id: int | None = Field(
+        default=None,
+        foreign_key="prediction.id",
+        ondelete="CASCADE",
+        description="For a baseline model's forecast made alongside a setup prediction, the id of that prediction.",
+    )
+    baseline_predictions: list["Prediction"] = Relationship(
+        cascade_delete=True,
+        sa_relationship_kwargs={"foreign_keys": "[Prediction.baseline_for_prediction_id]"},
+    )
 
 
 class PredictionInfo(PredictionBase):

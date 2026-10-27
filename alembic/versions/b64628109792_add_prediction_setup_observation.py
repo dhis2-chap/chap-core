@@ -2,9 +2,12 @@
 
 Creates the predictionsetupobservation table: the observed disease cases each run of a
 PredictionSetup uploads, one row per (setup, org unit, period), so the setup's
-predictions can be scored against them.
+predictions can be scored against them. Adds prediction.baseline_for_prediction_id, which
+links the baseline model's forecast made with each setup prediction to that prediction,
+so monitoring can compare the two.
 
-The foreign key is CASCADE: the values only exist to monitor their setup.
+The foreign keys are CASCADE: the values and baseline forecasts only exist to monitor
+their setup.
 
 Revision ID: b64628109792
 Revises: d8e9f0a1b2c3
@@ -17,7 +20,7 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-from chap_core.database.migration_helpers import has_table
+from chap_core.database.migration_helpers import foreign_key_name, has_column, has_table
 
 # revision identifiers, used by Alembic.
 revision: str = "b64628109792"
@@ -48,7 +51,24 @@ def upgrade() -> None:
                 name="uq_predictionsetupobservation_setup_org_unit_period",
             ),
         )
+    if not has_column("prediction", "baseline_for_prediction_id"):
+        op.add_column("prediction", sa.Column("baseline_for_prediction_id", sa.Integer(), nullable=True))
+    if foreign_key_name("prediction", "prediction") is None:
+        # The generic startup migration fills the column with 0 on existing rows, which no prediction has.
+        op.execute(sa.text("UPDATE prediction SET baseline_for_prediction_id = NULL"))
+        op.create_foreign_key(
+            "fk_prediction_baseline_for_prediction",
+            "prediction",
+            "prediction",
+            ["baseline_for_prediction_id"],
+            ["id"],
+            ondelete="CASCADE",
+        )
 
 
 def downgrade() -> None:
+    foreign_key = foreign_key_name("prediction", "prediction")
+    if foreign_key is not None:
+        op.drop_constraint(foreign_key, "prediction", type_="foreignkey")
+    op.drop_column("prediction", "baseline_for_prediction_id")
     op.drop_table("predictionsetupobservation")

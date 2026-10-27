@@ -15,9 +15,11 @@ from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSetCreateInfo, DataSource
+from chap_core.database.settings import SettingsManager
 from chap_core.database.tables import BacktestSpecification
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
+from chap_core.models.builtin import BaselineNotApplicable
 from chap_core.rest_api.data_models import BacktestCreate, FetchRequest, PredictionParams
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
 from chap_core.services.alert_service import raise_alerts_for_prediction
@@ -273,7 +275,42 @@ def run_prediction(
     status_logger.info(f"Prediction completed successfully. Results saved with ID {db_id}")
     if prediction_setup_id is not None:
         raise_alerts_for_prediction(session.session, db_id)
+        _predict_baseline(session, dataset, dataset_id, n_periods, name, db_id, future_weather_provider)
     return db_id
+
+
+def _predict_baseline(
+    session: SessionWrapper,
+    dataset: DataSet,
+    dataset_id: str,
+    n_periods: int,
+    name: str,
+    prediction_id: int,
+    future_weather_provider: str,
+) -> int | None:
+    """Store the default baseline's forecast on the same data, so monitoring can compare the prediction with it.
+
+    A baseline that rejects the data with `BaselineNotApplicable` stores nothing, and
+    monitoring then leaves the prediction out.
+    """
+    baseline_name = SettingsManager(session.session).get().default_baseline_model
+    baseline = session.get_configured_model_by_id_or_name(baseline_name)
+    assert baseline.id is not None, "configured_model.id is required"
+    estimator = session.get_configured_model_with_code(baseline.id, prediction_length=n_periods)
+    try:
+        forecasts = forecast_ahead(estimator, dataset, n_periods, weather_provider=future_weather_provider)
+    except BaselineNotApplicable as e:
+        logger.warning(f"Baseline {baseline_name!r} is not applicable to prediction {prediction_id}: {e}")
+        return None
+    baseline_prediction_id: int = session.add_predictions(
+        forecasts,
+        dataset_id,
+        baseline.name,
+        f"{name} ({baseline_name})",
+        baseline.id,
+        baseline_for_prediction_id=prediction_id,
+    )
+    return baseline_prediction_id
 
 
 def harmonize_and_add_health_dataset(

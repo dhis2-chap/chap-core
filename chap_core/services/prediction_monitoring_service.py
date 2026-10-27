@@ -1,36 +1,51 @@
-"""Monitoring of a PredictionSetup: score each backtest split and each live prediction.
+"""Monitoring of a PredictionSetup: compare each backtest split and each live prediction with a baseline model.
 
 Live predictions are scored against the observed cases stored in
 `PredictionSetupObservation`, which every run of the setup updates, so a forecast made
 by one run is scored once a later run brings in the observed value for its period.
 Backtest forecasts are scored against the backtest's own dataset. All org units and
 horizons are pooled, matching how a backtest's aggregate metrics are computed.
+
+The baseline is the installation's default baseline model. Its backtest on the setup's
+backtest specification is the reference for the backtest splits, and the forecast it
+made alongside each live prediction is the reference for that prediction. A metric's
+comparison operator turns the two scores into one value, positive meaning better than
+the baseline.
 """
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING
 
 import pandas as pd
+from sqlmodel import col, select
 
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved, horizon_diff
-from chap_core.assessment.metrics import get_metric
+from chap_core.assessment.metrics import compare_aggregated_metrics, get_comparison_description, get_metric
+from chap_core.database.database import SessionWrapper
+from chap_core.database.settings import SettingsManager
 from chap_core.database.tables import (
+    Backtest,
     MonitoringPoint,
     MonitoringSource,
     Prediction,
     PredictionSetup,
     PredictionSetupMonitoring,
     PredictionSetupObservation,
+    SpecificationBaseline,
+    SpecificationBaselineStatus,
 )
 from chap_core.services.prediction_setup_service import PredictionSetupNotFoundError
 from chap_core.time_period import TimePeriod
 
 if TYPE_CHECKING:
+    import pandera.pandas as pa
     from sqlmodel import Session
 
     from chap_core.assessment.metrics.base import Metric
+    from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 
 
 class InvalidMetricError(Exception):
@@ -83,48 +98,94 @@ def _origin_periods(forecasts: pd.DataFrame) -> pd.Series:
     )
 
 
-def metric_over_time(
-    metric: Metric, observations: pd.DataFrame, forecasts: pd.DataFrame, source: MonitoringSource
+def _forecast_keys(forecasts: pd.DataFrame) -> pd.Series:
+    return pd.Series(
+        list(zip(forecasts.location, forecasts.time_period, forecasts.horizon_distance, strict=True)),
+        index=forecasts.index,
+    )
+
+
+def _score(metric: Metric, observed: pa.typing.DataFrame[FlatObserved], forecasts: pd.DataFrame) -> float:
+    return float(metric.get_global_metric(observed, FlatForecasts.validate(forecasts)).metric.iloc[0])
+
+
+def _compare(metric: Metric, score: float, baseline_score: float) -> float | None:
+    value = metric.compare(score, baseline_score)
+    assert value is not None, f"Metric {metric.spec.metric_id!r} has no comparison operator"
+    return None if math.isnan(value) else value
+
+
+def comparison_over_time(
+    metric: Metric,
+    observations: pd.DataFrame,
+    forecasts: pd.DataFrame,
+    baseline_forecasts: pd.DataFrame,
+    source: MonitoringSource,
 ) -> list[MonitoringPoint]:
     """One point per run (backtest split or prediction), keyed by the period it predicted from.
 
-    A run is scored on the forecasts that have an observed value so far, pooled over org
-    units and horizons; the running value pools every run up to and including it.
+    A run is scored on the forecasts that both it and the baseline made and that have an
+    observed value so far, pooled over org units and horizons, and the score is compared
+    with the baseline's on the same forecasts. The running value compares every run up to
+    and including it.
     """
-    if observations.empty or forecasts.empty:
+    if observations.empty or forecasts.empty or baseline_forecasts.empty:
         return []
     observed = FlatObserved.validate(observations[observations.disease_cases.notna()])
-    observed_keys = set(zip(observed.location, observed.time_period, strict=True))
-    is_scored = pd.Series(
-        [key in observed_keys for key in zip(forecasts.location, forecasts.time_period, strict=True)],
-        index=forecasts.index,
+    observed_locations_periods = set(zip(observed.location, observed.time_period, strict=True))
+    scored_keys = {
+        key
+        for key in set(_forecast_keys(forecasts)) & set(_forecast_keys(baseline_forecasts))
+        if key[:2] in observed_locations_periods
+    }
+    if not scored_keys:
+        return []
+    model, baseline = (
+        frame[_forecast_keys(frame).isin(scored_keys)].assign(origin=lambda df: _origin_periods(df))
+        for frame in (forecasts, baseline_forecasts)
     )
-    scored = forecasts[is_scored].assign(origin=lambda df: _origin_periods(df))
     points = []
-    for origin in sorted(scored.origin.unique()):
-        run = scored[scored.origin == origin]
-        value = metric.get_global_metric(observed, FlatForecasts.validate(run.drop(columns="origin")))
-        running = metric.get_global_metric(
-            observed, FlatForecasts.validate(scored[scored.origin <= origin].drop(columns="origin"))
-        )
+    for origin in sorted(model.origin.unique()):
+        scores = [
+            (
+                _score(metric, observed, frame[frame.origin == origin].drop(columns="origin")),
+                _score(metric, observed, frame[frame.origin <= origin].drop(columns="origin")),
+            )
+            for frame in (model, baseline)
+        ]
+        (value, running), (baseline_value, baseline_running) = scores
+        run = model[model.origin == origin]
         points.append(
             MonitoringPoint(
                 period=origin,
                 source=source,
-                value=float(value.metric.iloc[0]),
-                running_value=float(running.metric.iloc[0]),
+                value=_compare(metric, value, baseline_value),
+                running_value=_compare(metric, running, baseline_running),
                 n_observed=len(run[["location", "time_period", "horizon_distance"]].drop_duplicates()),
             )
         )
     return points
 
 
+def _baseline_backtest(session: Session, backtest: Backtest, baseline: ConfiguredModelDB) -> Backtest | None:
+    """The baseline's backtest on the same specification, once it is done."""
+    return session.exec(
+        select(Backtest)
+        .join(SpecificationBaseline, col(SpecificationBaseline.backtest_id) == Backtest.id)
+        .where(
+            SpecificationBaseline.specification_id == backtest.specification_id,
+            SpecificationBaseline.configured_model_id == baseline.id,
+            SpecificationBaseline.status == SpecificationBaselineStatus.done,
+        )
+    ).first()
+
+
 def get_prediction_setup_monitoring(session: Session, setup_id: int, metric_id: str) -> PredictionSetupMonitoring:
-    """Score a setup's backtest and live predictions over time for one metric.
+    """Compare a setup's backtest and live predictions with the default baseline model over time for one metric.
 
     Raises:
         PredictionSetupNotFoundError: setup does not exist.
-        InvalidMetricError: metric is unknown or not applicable to the observed data.
+        InvalidMetricError: metric is unknown, has no comparison, or is not applicable to the observed data.
     """
     setup = session.get(PredictionSetup, setup_id)
     if setup is None:
@@ -132,22 +193,47 @@ def get_prediction_setup_monitoring(session: Session, setup_id: int, metric_id: 
     metric_cls = get_metric(metric_id)
     if metric_cls is None:
         raise InvalidMetricError(f"Unknown metric '{metric_id}'")
+    if metric_cls.spec.comparison_op is None:
+        raise InvalidMetricError(f"Metric '{metric_id}' cannot be compared with a baseline")
     metric = metric_cls()
+    baseline_name = SettingsManager(session).get().default_baseline_model
+    baseline = SessionWrapper(session=session).get_configured_model_by_id_or_name(baseline_name)
 
     evaluation = Evaluation.from_backtest(setup.backtest).to_flat()
     if not evaluation.observations.empty and not metric.is_applicable(evaluation.observations):
         raise InvalidMetricError(f"Metric '{metric_id}' cannot be computed for this setup's data")
-    evaluation_points = metric_over_time(
-        metric, evaluation.observations, evaluation.forecasts, MonitoringSource.evaluation
-    )
-    prediction_points = metric_over_time(
+    baseline_backtest = _baseline_backtest(session, setup.backtest, baseline)
+    evaluation_points: list[MonitoringPoint] = []
+    evaluation_value = None
+    if baseline_backtest is not None:
+        evaluation_points = comparison_over_time(
+            metric,
+            evaluation.observations,
+            evaluation.forecasts,
+            Evaluation.from_backtest(baseline_backtest).to_flat().forecasts,
+            MonitoringSource.evaluation,
+        )
+        evaluation_value = compare_aggregated_metrics(
+            setup.backtest.aggregate_metrics, baseline_backtest.aggregate_metrics
+        ).get(metric_id)
+
+    baseline_predictions = [
+        baseline_prediction
+        for prediction in setup.predictions
+        for baseline_prediction in prediction.baseline_predictions
+        if baseline_prediction.model_id == baseline_name
+    ]
+    prediction_points = comparison_over_time(
         metric,
         flat_setup_observations(setup.observations),
         flat_prediction_forecasts(setup.predictions),
+        flat_prediction_forecasts(baseline_predictions),
         MonitoringSource.prediction,
     )
     return PredictionSetupMonitoring(
         metric_id=metric_id,
-        evaluation_value=setup.backtest.aggregate_metrics.get(metric_id),
+        baseline_model=baseline_name,
+        comparison_description=get_comparison_description(metric_cls.spec.comparison_op),
+        evaluation_value=evaluation_value,
         points=evaluation_points + prediction_points,
     )

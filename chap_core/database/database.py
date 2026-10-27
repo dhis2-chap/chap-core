@@ -618,6 +618,7 @@ class SessionWrapper:
         configured_model_id: int,
         metadata: dict | None = None,
         prediction_setup_id: int | None = None,
+        baseline_for_prediction_id: int | None = None,
     ):
         if metadata is None:
             metadata = {}
@@ -640,6 +641,7 @@ class SessionWrapper:
             org_units=org_units,
             model_db_id=configured_model_id,
             prediction_setup_id=prediction_setup_id,
+            baseline_for_prediction_id=baseline_for_prediction_id,
         )
         self.session.add(prediction)
         if prediction_setup_id is not None:

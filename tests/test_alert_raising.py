@@ -117,3 +117,12 @@ def test_run_prediction_fails_but_keeps_prediction_when_alerts_fail(alert_predic
             _run_prediction(session, original)
     stored = session.exec(select(Prediction).where(Prediction.name == "new")).one()
     assert stored.forecasts[0].values == [21.0, 21.0]
+
+
+def test_run_prediction_stores_the_default_baseline_forecast(alert_prediction):
+    session, original = alert_prediction
+    prediction_id = _run_prediction(session, original)
+    prediction = session.get(Prediction, prediction_id)
+    [baseline] = prediction.baseline_predictions
+    assert (baseline.model_id, baseline.prediction_setup_id) == ("persistence", None)
+    assert baseline.forecasts[0].values == [21.0, 21.0]

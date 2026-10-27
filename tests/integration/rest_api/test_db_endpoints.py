@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 import chap_core
+from chap_core.assessment.metrics import get_comparison_description
 from chap_core.api_types import DataList, EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import create_tsdataclass
@@ -28,7 +29,10 @@ from chap_core.database.tables import (
     BacktestSpecification,
     Prediction,
     PredictionInfo,
+    PredictionSamplesEntry,
     PredictionSetupObservation,
+    SpecificationBaseline,
+    SpecificationBaselineStatus,
 )
 from chap_core.rest_api.data_models import (
     BacktestCreate,
@@ -1059,7 +1063,7 @@ def test_get_prediction_setup_includes_linked_predictions(override_session, seed
     assert body["predictions"][0]["predictionSetupId"] == setup_id
 
 
-def test_prediction_setup_monitoring_returns_evaluation_and_prediction_points(override_session, seeded_session):
+def test_prediction_setup_monitoring_compares_with_the_default_baseline(override_session, seeded_session):
     backtest = seeded_session.exec(select(Backtest)).first()
     assert backtest is not None
     created = _create_prediction_setup(backtest.id, "Monitored")
@@ -1076,22 +1080,61 @@ def test_prediction_setup_monitoring_returns_evaluation_and_prediction_points(ov
                 prediction_setup_id=setup_id, org_unit=entry.org_unit, period=entry.period, disease_cases=1.0
             )
         )
+    backtest.aggregate_metrics = {"mae": 1.5}
+    # Stand-ins for the baseline's runs that forecast exactly what the model did, so every comparison is 0.
+    baseline = SessionWrapper(session=seeded_session).get_configured_model_by_id_or_name("persistence")
+    seeded_session.add(
+        SpecificationBaseline(
+            specification_id=backtest.specification_id,
+            configured_model_id=baseline.id,
+            status=SpecificationBaselineStatus.done,
+            backtest_id=backtest.id,
+        )
+    )
+    seeded_session.add(
+        Prediction(
+            **prediction.model_dump(
+                exclude={"id", "prediction_setup_id", "model_id", "model_db_id", "baseline_for_prediction_id"}
+            ),
+            model_id=baseline.name,
+            model_db_id=baseline.id,
+            baseline_for_prediction_id=prediction.id,
+            forecasts=[
+                PredictionSamplesEntry(period=entry.period, org_unit=entry.org_unit, values=entry.values)
+                for entry in prediction.forecasts
+            ],
+        )
+    )
     seeded_session.commit()
 
     response = client.get(f"/v1/crud/prediction-setups/{setup_id}/monitoring", params={"metric": "mae"})
 
     assert response.status_code == 200, response.json()
     body = response.json()
-    assert body["metricId"] == "mae"
-    assert body["evaluationValue"] == backtest.aggregate_metrics.get("mae")
+    assert (body["metricId"], body["baselineModel"]) == ("mae", "persistence")
+    assert body["comparisonDescription"] == get_comparison_description("skill_ratio")
+    assert body["evaluationValue"] == 0.0
     sources = [point["source"] for point in body["points"]]
     # Evaluation points come first, one per backtest split, then one per prediction.
     assert sources == sorted(sources)
     assert sources.count("evaluation") == len({forecast.last_seen_period for forecast in backtest.forecasts})
+    assert {point["value"] for point in body["points"]} == {0.0}
     first_forecast_period = TimePeriod.parse(min(entry.period for entry in prediction.forecasts))
     [prediction_point] = [point for point in body["points"] if point["source"] == "prediction"]
     assert prediction_point["period"] == (first_forecast_period - first_forecast_period.time_delta).id
     assert prediction_point["nObserved"] == len(prediction.forecasts)
+
+
+def test_prediction_setup_monitoring_has_no_points_before_the_baseline_has_run(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Monitored")
+    assert created.status_code == 200, created.json()
+
+    response = client.get(f"/v1/crud/prediction-setups/{created.json()['id']}/monitoring", params={"metric": "mae"})
+
+    assert response.status_code == 200, response.json()
+    assert (response.json()["evaluationValue"], response.json()["points"]) == (None, [])
 
 
 def test_flat_prediction_forecasts_counts_horizons_from_first_forecast_period(seeded_session):

@@ -750,11 +750,14 @@ async def get_predictions(session: Session = Depends(get_session)):
 
     Predictions whose configured model has been deleted outright are filtered out;
     predictions whose configured model has only been archived (soft-deleted) still
-    appear, since the row is still resolvable.
+    appear, since the row is still resolvable. Baseline forecasts stored alongside
+    prediction setup runs for monitoring are left out.
     """
     session_wrapper = SessionWrapper(session=session)
     return [
-        prediction for prediction in session_wrapper.list_all(Prediction) if prediction.configured_model is not None
+        prediction
+        for prediction in session_wrapper.list_all(Prediction)
+        if prediction.configured_model is not None and prediction.baseline_for_prediction_id is None
     ]
 
 
@@ -1522,20 +1525,26 @@ async def get_prediction_setup(
     "/prediction-setups/{predictionSetupId}/monitoring",
     response_model=PredictionSetupMonitoring,
     tags=["Prediction Setups"],
-    summary="Compare a prediction setup's live performance with its backtest",
+    summary="Compare a prediction setup's live and backtest performance with a baseline model",
 )
 async def get_prediction_setup_monitoring(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
-    metric: Annotated[str, Query(description="Id of the metric to compute, as listed by the metrics endpoint.")],
+    metric: Annotated[
+        str, Query(description="Id of a metric with a comparison operator, as listed by the metrics endpoint.")
+    ],
     session: Session = Depends(get_session),
 ):
-    """Score the setup's stored predictions against observed cases, period by period, next to the value the same metric had in the setup's backtest.
+    """Compare the setup's model with the default baseline model on one metric, run by run, for both its backtest splits and its stored predictions.
 
-    Observed cases come from the setup's later runs, so a period is scored once a run
-    after the forecast has uploaded its observed value. Org units and horizons are
-    pooled. Each point has the metric for that period and the running aggregate over
-    all scored periods up to it. 404 if the setup is unknown, 422 if the metric is
-    unknown or cannot be computed for the setup's data.
+    Each value is the metric's comparison with the baseline over the forecasts both
+    models made, positive meaning better than the baseline. Backtest splits are compared
+    with the baseline's backtest on the same specification, and each stored prediction
+    with the baseline forecast made in the same run. Observed cases come from the setup's
+    later runs, so a prediction is scored once a run after it has uploaded the observed
+    values. Org units and horizons are pooled. Each point has the comparison for that run
+    and the running comparison over all runs of the same source up to it. 404 if the
+    setup is unknown, 422 if the metric is unknown, has no comparison operator, or cannot
+    be computed for the setup's data.
     """
     try:
         return prediction_monitoring_service.get_prediction_setup_monitoring(session, prediction_setup_id, metric)
