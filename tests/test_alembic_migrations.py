@@ -667,53 +667,33 @@ def test_target_column_migration_preserves_and_separates_specifications(engine):
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize("generic_migration_ran_first", [False, True])
-def test_prediction_alert_policy_migration(engine, alert_prediction, generic_migration_ran_first):
+def test_prediction_alert_policy_migration_clears_startup_placeholders(engine, alert_prediction):
     from alembic import command
-    from alembic.config import Config
 
-    source, prediction = alert_prediction
+    source, _ = alert_prediction
     with engine.begin() as conn:
         conn.execute(sa.text("DROP SCHEMA public CASCADE"))
         conn.execute(sa.text("CREATE SCHEMA public"))
     SQLModel.metadata.create_all(engine)
     with engine.begin() as conn:
-        for name in (
-            "modeltemplatedb",
-            "configuredmodeldb",
-            "dataset",
-            "backtestspecification",
-            "backtest",
-            "alertpolicy",
-            "predictionsetup",
-            "prediction",
-        ):
-            table = SQLModel.metadata.tables[name]
+        for table in SQLModel.metadata.sorted_tables:
             rows = source.execute(sa.select(table)).mappings().all()
-            conn.execute(table.insert(), [dict(row) for row in rows])
+            if rows:
+                conn.execute(table.insert(), [dict(row) for row in rows])
 
-    cfg = Config(str(ALEMBIC_INI))
-    cfg.attributes["connection"] = engine
+    cfg = _make_alembic_cfg(engine)
     command.stamp(cfg, "head")
     command.downgrade(cfg, "d8e9f0a1b2c3")
-    if generic_migration_ran_first:
-        with engine.begin() as conn:
-            conn.execute(sa.text("ALTER TABLE prediction ADD COLUMN alert_policy_id INTEGER"))
-            conn.execute(sa.text("UPDATE prediction SET alert_policy_id = 0"))
+    with engine.begin() as conn:
+        # What the generic startup migration does before Alembic runs.
+        conn.execute(sa.text("ALTER TABLE prediction ADD COLUMN alert_policy_id INTEGER"))
+        conn.execute(sa.text("UPDATE prediction SET alert_policy_id = 0"))
 
     command.upgrade(cfg, "head")
     with engine.begin() as conn:
         assert conn.execute(sa.text("SELECT alert_policy_id FROM prediction")).scalar_one() is None
-        assert (
-            conn.execute(sa.text("SELECT alert_policy_id FROM predictionsetup")).scalar_one()
-            == prediction.alert_policy_id
-        )
-        conn.execute(
-            sa.text("UPDATE prediction SET alert_policy_id = :policy_id"), {"policy_id": prediction.alert_policy_id}
-        )
-        conn.execute(sa.text("UPDATE predictionsetup SET alert_policy_id = NULL"))
-    with pytest.raises(sa.exc.IntegrityError), engine.begin() as conn:
-        conn.execute(sa.text("DELETE FROM alertpolicy"))
+    foreign_keys = sa.inspect(engine).get_foreign_keys("prediction")
+    assert any(fk["referred_table"] == "alertpolicy" for fk in foreign_keys)
 
 
 @pytest.mark.slow

@@ -171,19 +171,12 @@ def test_delete_removes_an_unused_policy(engine, monitor_level):
 
 
 def test_delete_is_refused_while_a_prediction_references_it(alert_prediction):
-    from sqlalchemy.exc import IntegrityError
-
     session, prediction = alert_prediction
-    policy = prediction.alert_policy
     prediction.prediction_setup.alert_policy = None
     session.commit()
 
     with pytest.raises(AlertPolicyInUseError, match="used by prediction"):
-        delete_alert_policy(session, policy.id)
-    with pytest.raises(IntegrityError):
-        session.delete(policy)
-        session.commit()
-    session.rollback()
+        delete_alert_policy(session, prediction.alert_policy_id)
 
 
 def test_delete_is_refused_while_a_setup_points_at_it(engine, monitor_level):

@@ -517,13 +517,3 @@ def alert_prediction():
         session.commit()
         yield session, prediction
     engine.dispose()
-
-
-@pytest.fixture
-def alert_forecast():
-    """Forecast above both alert levels for testing the prediction worker."""
-    from chap_core.datatypes import Samples
-    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-    from chap_core.time_period import PeriodRange
-
-    return DataSet({"A": Samples(PeriodRange.from_strings(["2024-01"]), np.array([[21.0, 21.0]]))})
