@@ -17,6 +17,7 @@ from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime v
 )
 from chap_core.cli_endpoints._common import (
     discover_geojson,
+    get_configuration,
     load_dataset_from_csv,
     resolve_csv_path,
 )
@@ -102,9 +103,6 @@ def explain_lime(
     """
     Explain a model prediction by providing variable contribution weighting.
     """
-    import yaml
-
-    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
     from chap_core.log_config import initialize_logging
     from chap_core.models.builtin import BuiltinModelTemplate
     from chap_core.models.model_template import ModelTemplate
@@ -126,11 +124,7 @@ def explain_lime(
     # Fail fast on a bad/missing location before the (expensive) model load.
     locations = _resolve_locations(location, all_locations, list(dataset.locations()))
 
-    configuration = None
-    if model_configuration_yaml is not None:
-        logger.info(f"Loading model configuration from {model_configuration_yaml}")
-        with open(model_configuration_yaml) as f:
-            configuration = ModelConfiguration.model_validate(yaml.safe_load(f))
+    configuration = get_configuration(model_configuration_yaml)
 
     logger.info(f"Loading model template from {model_name}")
     template = ModelTemplate.from_directory_or_github_url(

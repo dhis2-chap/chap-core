@@ -10,7 +10,7 @@ from chap_core.rest_api.v1.routers import analytics
 client = TestClient(app)
 
 
-def test_backtest_parameters():
+def test_backtest_parameters(override_session):
     response = client.get("/v1/analytics/backtest-parameters")
     assert response.status_code == 200, response.text
     parameters = response.json()
@@ -41,7 +41,7 @@ def test_backtest_parameters():
         assert by_name[field.alias]["description"] == field.description
 
 
-def test_backtest_parameters_reflect_new_fields(monkeypatch):
+def test_backtest_parameters_reflect_new_fields(monkeypatch, override_session):
     class ExtendedBacktestParams(BacktestParams):
         extra_periods: int = Field(default=4, ge=2, title="Extra periods", description="Extra forecast periods.")
 

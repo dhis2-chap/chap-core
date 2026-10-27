@@ -54,7 +54,7 @@ jobs:
             4. Places where the code does something surprising or roundabout
                that a human should judge, such as silently swallowed errors,
                disabled or weakened tests, or scope well beyond the PR title.
-            5. Violations of the repo conventions in CLAUDE.md that CI does not
+            5. Violations of the repo conventions in AGENTS.md that CI does not
                catch, for example tests reaching into private members, new
                behaviour without a test, or a missing regenerated plot id file.
             6. Redundant tests: new tests that duplicate an existing test, test

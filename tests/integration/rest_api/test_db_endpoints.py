@@ -1372,7 +1372,7 @@ def test_run_prediction_setup_forecasts_the_backtest_target(
 ):
     from types import SimpleNamespace
 
-    from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW
+    from chap_core.rest_api.celery_tasks import JOB_METADATA_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW
     from chap_core.rest_api.v1.routers import crud
 
     backtest = seeded_session.exec(select(Backtest)).first()
@@ -1396,7 +1396,7 @@ def test_run_prediction_setup_forecasts_the_backtest_target(
     payload["nPeriods"] = 3
 
     def run_inline(func, *args, **kwargs):
-        for key in ("database_url", JOB_TYPE_KW, JOB_NAME_KW, JOB_REQUEST_KW):
+        for key in ("database_url", JOB_TYPE_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_METADATA_KW):
             kwargs.pop(key)
         kwargs["prediction_params"] = kwargs["prediction_params"].model_dump()
         with SessionWrapper(p_seeded_engine) as session:
@@ -1856,6 +1856,21 @@ def test_backtest_with_all_regions_rejected_dry_run(dependency_overrides, create
     )
 
 
+def test_backtest_with_no_target_data_in_any_region_returns_400_with_rejections(
+    dependency_overrides, create_backtest_with_data_request
+):
+    request_payload = create_backtest_with_data_request.model_dump()
+    for observation in request_payload["provided_data"]:
+        if observation["feature_name"] == "disease_cases":
+            observation["value"] = None
+    response = client.post("/v1/analytics/create-backtest-with-data", json=request_payload)
+    assert response.status_code == 400, response.json()
+    detail = response.json()["detail"]
+    assert detail["imported_count"] == 0
+    assert detail["rejected"]
+    assert all(r["featureName"] == "disease_cases" for r in detail["rejected"])
+
+
 def test_make_dataset_dry_run(dependency_overrides, dataset_make_request, org_units):
     response = client.post("/v1/analytics/make-dataset?dryRun=true", json=dataset_make_request.model_dump())
     assert response.status_code == 200, response.json()
@@ -1869,15 +1884,15 @@ def test_make_dataset_all_regions_rejected_dry_run(dependency_overrides, dataset
     _check_all_regions_rejected_dry_run("/v1/analytics/make-dataset", dataset_make_request.model_dump())
 
 
-def test_make_dataset_all_polygons_missing_returns_500_with_rejections(
+def test_make_dataset_all_polygons_missing_returns_400_with_rejections(
     dependency_overrides, dataset_make_request, org_units
 ):
     request_payload = dataset_make_request.model_dump()
     request_payload["geojson"]["features"] = []
     response = client.post("/v1/analytics/make-dataset", json=request_payload)
-    assert response.status_code == 500, response.json()
+    assert response.status_code == 400, response.json()
     detail = response.json()["detail"]
-    assert detail["message"] == "Missing values. No data was imported."
+    assert detail["imported_count"] == 0
     assert {r["orgUnit"] for r in detail["rejected"]} == set(org_units)
     assert all(r["featureName"] == "polygon" for r in detail["rejected"])
 
@@ -2086,9 +2101,15 @@ def _create_alert_policy(name: str = "Dengue ladder"):
     return client.post("/v1/crud/alert-policies", json=_alert_policy_payload(name))
 
 
-def test_create_alert_policy_happy_path(clean_engine, dependency_overrides):
+@pytest.mark.parametrize("codes", [None, ("GREEN", "ORANGE", "RED")])
+def test_create_alert_policy_happy_path(clean_engine, dependency_overrides, codes):
     """A policy round-trips its tiers, each keeping its own strategy's params."""
-    response = _create_alert_policy("Ladder A")
+    payload = _alert_policy_payload("Ladder A")
+    if codes is not None:
+        payload["noAlertOutputCode"] = codes[0]
+        for level, code in zip(payload["levels"], codes[1:]):
+            level["outputCode"] = code
+    response = client.post("/v1/crud/alert-policies", json=payload)
     assert response.status_code == 200, response.json()
     policy_id = response.json()["id"]
 
@@ -2098,6 +2119,29 @@ def test_create_alert_policy_happy_path(clean_engine, dependency_overrides):
     assert body["levels"][0]["thresholdParams"] == {"type": "seasonal", "stdMultiplier": 1.0}
     assert body["levels"][1]["thresholdParams"]["quantile"] == 0.9
     assert body["levels"][1]["exceedanceThreshold"] == 0.8
+    assert body["noAlertOutputCode"] == (codes[0] if codes else "0")
+    assert [level["outputCode"] for level in body["levels"]] == (list(codes[1:]) if codes else ["1", "2"])
+    listed = client.get("/v1/crud/alert-policies").json()
+    assert next(policy for policy in listed if policy["id"] == policy_id) == body
+
+
+@pytest.mark.parametrize(
+    "no_alert,monitor,action",
+    [
+        ("0", "1", "1"),  # duplicate level codes
+        ("0", "1", "0"),  # collides with no alert
+        ("0", "RED ", "2"),  # padded
+    ],
+)
+def test_create_alert_policy_rejects_invalid_output_codes(
+    clean_engine, dependency_overrides, no_alert, monitor, action
+):
+    payload = _alert_policy_payload()
+    payload["noAlertOutputCode"] = no_alert
+    payload["levels"][0]["outputCode"] = monitor
+    payload["levels"][1]["outputCode"] = action
+    response = client.post("/v1/crud/alert-policies", json=payload)
+    assert response.status_code == 422, response.text
 
 
 def test_list_alert_policies_includes_every_created_policy(clean_engine, dependency_overrides):
@@ -2114,6 +2158,7 @@ def test_list_alert_policies_includes_every_created_policy(clean_engine, depende
 
 def test_get_unknown_alert_policy_returns_404(clean_engine, dependency_overrides):
     assert client.get("/v1/crud/alert-policies/99999").status_code == 404
+    assert client.patch("/v1/crud/alert-policies/99999", json={"noAlertOutputCode": "GREEN"}).status_code == 404
 
 
 def test_create_alert_policy_without_levels_returns_422(clean_engine, dependency_overrides):
@@ -2127,7 +2172,14 @@ def test_create_alert_policy_with_an_unknown_strategy_returns_422(clean_engine, 
         "/v1/crud/alert-policies",
         json={
             "name": "bogus",
-            "levels": [{"name": "alert", "thresholdParams": {"type": "not-a-strategy"}, "exceedanceThreshold": 0.5}],
+            "levels": [
+                {
+                    "name": "alert",
+                    "outputCode": "1",
+                    "thresholdParams": {"type": "not-a-strategy"},
+                    "exceedanceThreshold": 0.5,
+                }
+            ],
         },
     )
     assert response.status_code == 422, response.text
@@ -2141,6 +2193,7 @@ def test_create_alert_policy_with_out_of_range_exceedance_returns_422(clean_engi
             "levels": [
                 {
                     "name": "alert",
+                    "outputCode": "1",
                     "thresholdParams": {"type": "seasonal"},
                     "exceedanceThreshold": 1.5,
                 }
@@ -2315,8 +2368,46 @@ def test_deleting_a_prediction_without_alerts_still_works(override_session, seed
     assert client.delete(f"/v1/crud/predictions/{prediction.id}").status_code == 200
 
 
-def test_there_is_no_patch_endpoint_for_alert_policies(clean_engine, dependency_overrides):
-    """Levels are immutable: editing them would orphan the alerts naming them."""
+def test_patch_alert_policy_codes_preserves_levels_and_existing_alerts(clean_engine, dependency_overrides):
     policy_id = _create_alert_policy("Alerts J").json()["id"]
-    response = client.patch(f"/v1/crud/alert-policies/{policy_id}", json={"name": "renamed"})
-    assert response.status_code == 405, response.text
+    url = f"/v1/crud/alert-policies/{policy_id}"
+    before = client.get(url).json()
+    (alert_id,) = _create_alerts(policy_id).json()["ids"]
+    alert_before = client.get(f"/v1/crud/alerts/{alert_id}").json()
+
+    response = client.patch(
+        url,
+        json={"noAlertOutputCode": "GREEN", "levelOutputCodes": {"action": "RED", "monitor": "ORANGE"}},
+    )
+    assert response.status_code == 200, response.text
+    expected = before | {"noAlertOutputCode": "GREEN"}
+    expected["levels"] = [level | {"outputCode": code} for level, code in zip(before["levels"], ["ORANGE", "RED"])]
+    assert response.json() == expected
+    assert client.get(url).json() == expected
+    alert = client.get(f"/v1/crud/alerts/{alert_id}").json()
+    assert alert == alert_before
+    assert next(level["outputCode"] for level in expected["levels"] if level["name"] == alert["level"]) == "RED"
+
+    # A partial update preserves both the no-alert code and omitted levels.
+    response = client.patch(url, json={"levelOutputCodes": {"monitor": "YELLOW"}})
+    expected["levels"][0]["outputCode"] = "YELLOW"
+    assert response.status_code == 200, response.text
+    assert client.get(url).json() == expected
+
+
+@pytest.mark.parametrize(
+    "update",
+    [
+        {"levelOutputCodes": {"unknown": "RED"}},
+        {"levelOutputCodes": {"monitor": "2"}},  # collides with an unchanged level
+        {"noAlertOutputCode": "1"},  # collides with an unchanged level
+        {"name": "renamed"},  # only codes are editable
+    ],
+)
+def test_patch_alert_policy_rejects_invalid_changes_without_saving(clean_engine, dependency_overrides, update):
+    policy_id = _create_alert_policy().json()["id"]
+    url = f"/v1/crud/alert-policies/{policy_id}"
+    before = client.get(url).json()
+    response = client.patch(url, json=update)
+    assert response.status_code == 422, response.text
+    assert client.get(url).json() == before
