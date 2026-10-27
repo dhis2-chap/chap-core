@@ -34,7 +34,7 @@ The table below summarises every column name that Chap recognises:
 | `disease_cases` | Yes | Observed case count (target) |
 | `population` | Model-dependent | Population for the location |
 | *covariate columns* | Model-dependent | Climate/environmental covariates (e.g. `rainfall`, `mean_temperature`) |
-| `disease_cases_masked` | Never in input | Added by Chap on datasets with masked periods; reserved, so input data may not contain it. See [Masked periods](#masked-periods) |
+| `target_masked` | Never in input | Added by Chap on datasets with masked periods; reserved, so input data may not contain it. See [Masked periods](#masked-periods) |
 
 ### Time period format
 
@@ -70,19 +70,21 @@ A dataset can have masked periods: stretches such as COVID years or a reporting 
 
 With `--data-configuration` on the command line the CSV file is left as it is and only the loaded copy is masked. Either way, this is what the model receives:
 
-| Data the model receives | `disease_cases` | `disease_cases_masked` |
-|-------------------------|-----------------|------------------------|
+| Data the model receives | `disease_cases` | `target_masked` |
+|-------------------------|-----------------|-----------------|
 | Training and historic data, masked period | NaN | 1 |
 | Training and historic data, other periods | the observed value, or NaN if genuinely missing | 0 |
 | Future data | not present | 0 |
 
-A model that ignores `disease_cases_masked` sees masked periods as missing values, so a model that already handles NaN in the target keeps working. The column lets a model tell the two kinds of NaN apart and handle masked periods on purpose. A model can:
+The indicator is named `target_masked`, not after `disease_cases`, because it marks the period rather than one variable: 1 means the target is masked in that period.
 
-- drop the rows where `disease_cases_masked` is 1 before fitting;
+A model that ignores `target_masked` sees masked periods as missing values, so a model that already handles NaN in the target keeps working. The column lets a model tell the two kinds of NaN apart and handle masked periods on purpose. A model can:
+
+- drop the rows where `target_masked` is 1 before fitting;
 - avoid interpolating across masked periods, which can span several years;
 - or keep it as a covariate. Future data always has it as 0, so the columns in history and future match, and models that fit on every column (such as an R formula `y ~ .`) or that stack historic and future data keep working.
 
-Datasets without masked periods have no `disease_cases_masked` column, so models see exactly the same data as before. Masked periods are set when a dataset is created, or with `--data-configuration` on the command line; see the [eval command reference](../chap-cli/eval-reference.md#data-configuration).
+Datasets without masked periods have no `target_masked` column, so models see exactly the same data as before. Masked periods are set when a dataset is created, or with `--data-configuration` on the command line; see the [eval command reference](../chap-cli/eval-reference.md#data-configuration).
 
 ### Requirement for Periods to be consecutive
 

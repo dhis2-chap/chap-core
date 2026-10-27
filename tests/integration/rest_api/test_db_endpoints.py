@@ -812,7 +812,7 @@ def test_run_prediction_trains_on_a_masked_dataset(override_session, p_seeded_en
     trained_on = seen[0]
     masked = [
         period.id
-        for period, flag in zip(trained_on.period_range, next(iter(trained_on.values())).disease_cases_masked)
+        for period, flag in zip(trained_on.period_range, next(iter(trained_on.values())).target_masked)
         if flag
     ]
     assert masked == ["202106", "202107", "202108"]
@@ -831,7 +831,7 @@ def test_make_dataset_rejects_masked_ranges_without_disease_cases(dependency_ove
 def test_make_dataset_rejects_input_carrying_the_mask_indicator(dependency_overrides, dataset_make_request):
     payload = dataset_make_request.model_dump(mode="json")
     first = payload["provided_data"][0]
-    payload["provided_data"].append({**first, "feature_name": "disease_cases_masked", "value": 1.0})
+    payload["provided_data"].append({**first, "feature_name": "target_masked", "value": 1.0})
     response = client.post("/v1/analytics/make-dataset?dryRun=true", json=payload)
     assert response.status_code == 422, response.text
     assert "is reserved" in response.text
@@ -1640,7 +1640,7 @@ def test_run_prediction_setup_rejects_input_carrying_the_mask_indicator(
     assert backtest is not None
     setup_id = _create_prediction_setup(backtest.id, "Indicator input").json()["id"]
     request = create_make_data_request(
-        example_polygons, [], ["rainfall", "disease_cases", "population", "disease_cases_masked"]
+        example_polygons, [], ["rainfall", "disease_cases", "population", "target_masked"]
     )
     payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources", "masked_ranges"})
     payload["nPeriods"] = 3
@@ -1710,7 +1710,7 @@ def test_prediction_pipeline_stores_the_ranges_and_trains_masked(
         assert session.session.get(DataSet, prediction.dataset_id).masked_ranges == ranges
 
     trained_on = seen[0]
-    flags = next(iter(trained_on.values())).disease_cases_masked
+    flags = next(iter(trained_on.values())).target_masked
     assert [period.id for period, flag in zip(trained_on.period_range, flags) if flag] == ["202106", "202107", "202108"]
 
 
@@ -2126,7 +2126,7 @@ def test_add_csv_dataset_stores_it_unmasked(dependency_overrides, data_path):
     assert response.status_code == 200, response.json()
     dataset = DataSetWithObservations.model_validate(client.get(f"/v1/crud/datasets/{response.json()['id']}").json())
     assert dataset.masked_ranges == []
-    assert "disease_cases_masked" not in dataset.covariates
+    assert "target_masked" not in dataset.covariates
     stored_cases = [o.value for o in dataset.observations if o.feature_name == "disease_cases"]
     source_cases = pd.read_csv(data_path / "vietnam_monthly.csv")["disease_cases"]
     assert len(stored_cases) == len(source_cases)
@@ -2135,7 +2135,7 @@ def test_add_csv_dataset_stores_it_unmasked(dependency_overrides, data_path):
 
 def test_add_csv_dataset_rejects_the_mask_indicator(dependency_overrides, data_path, tmp_path):
     df = pd.read_csv(data_path / "vietnam_monthly.csv")
-    df["disease_cases_masked"] = 0
+    df["target_masked"] = 0
     csv_path = tmp_path / "with_indicator.csv"
     df.to_csv(csv_path, index=False)
     n_datasets = len(client.get("/v1/crud/datasets").json())

@@ -104,7 +104,7 @@ def test_disease_cases_are_masked_when_the_dataset_is_saved(health_population_da
         manager = DataSetManager(session.session)
         dataset_id = manager.save_dataset(info, health_population_data, None)
         stored = manager.to_dataset(dataset_id)
-        assert "disease_cases_masked" not in stored.field_names()
+        assert "target_masked" not in stored.field_names()
         for location, data in stored.items():
             original = health_population_data[location].disease_cases
             assert np.all(np.isnan(data.disease_cases[10:13]))

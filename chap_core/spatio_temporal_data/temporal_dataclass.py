@@ -537,7 +537,7 @@ class DataSet[FeaturesT]:
     def apply_masked_ranges(self, masked_ranges: "list[MaskedRange] | None") -> "DataSet":
         """Return a copy with `disease_cases` masked in the given ranges (CLIM-1300).
 
-        Inside a range `disease_cases` is NaN and `disease_cases_masked` is 1; elsewhere the indicator is 0.
+        Inside a range `disease_cases` is NaN and `target_masked` is 1; elsewhere the indicator is 0.
         Without ranges the dataset is returned unchanged. See `chap_core.assessment.target_mask.apply_target_mask`.
         """
         from chap_core.assessment.target_mask import apply_target_mask

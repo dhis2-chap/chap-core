@@ -296,11 +296,11 @@ def test_chapkit_model_receives_the_mask_indicator(chapkit_service, chapkit_call
     predict_calls = [call for call in logged if call["call"] == "predict"]
     assert train_calls and predict_calls, logged
     for call in train_calls:
-        assert "disease_cases_masked" in call["columns"], call
+        assert "target_masked" in call["columns"], call
         assert call["masked_values"] == [0.0, 1.0], call
         assert call["cases_in_masked_rows"] == 0, call
     for call in predict_calls:
-        assert "disease_cases_masked" in call["columns"], call
+        assert "target_masked" in call["columns"], call
         assert call["masked_values"] == [0.0], call
 
 
@@ -314,4 +314,4 @@ def test_chapkit_model_gets_no_mask_indicator_on_an_unmasked_dataset(chapkit_ser
 
     logged = _logged_calls(chapkit_call_log)
     assert logged
-    assert all("disease_cases_masked" not in call["columns"] for call in logged), logged
+    assert all("target_masked" not in call["columns"] for call in logged), logged

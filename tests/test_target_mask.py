@@ -25,10 +25,10 @@ def test_mask_sets_nan_and_indicator_inside_the_range_only(health_population_dat
     for location, data in masked.items():
         original = health_population_data[location].disease_cases
         assert np.all(np.isnan(data.disease_cases[10:13]))
-        assert list(data.disease_cases_masked[10:13]) == [1, 1, 1]
+        assert list(data.target_masked[10:13]) == [1, 1, 1]
         assert np.array_equal(data.disease_cases[:10], original[:10], equal_nan=True)
         assert np.array_equal(data.disease_cases[13:], original[13:], equal_nan=True)
-        assert not np.any(data.disease_cases_masked[:10]) and not np.any(data.disease_cases_masked[13:])
+        assert not np.any(data.target_masked[:10]) and not np.any(data.target_masked[13:])
 
 
 def test_mask_clips_ranges_that_extend_past_the_data(health_population_data):
@@ -40,7 +40,7 @@ def test_mask_clips_ranges_that_extend_past_the_data(health_population_data):
     ]
     masked = apply_target_mask(health_population_data, ranges)
     for data in masked.values():
-        assert list(np.flatnonzero(data.disease_cases_masked)) == [0, 1, len(periods) - 2, len(periods) - 1]
+        assert list(np.flatnonzero(data.target_masked)) == [0, 1, len(periods) - 2, len(periods) - 1]
 
 
 def test_mask_leaves_the_input_dataset_unchanged(health_population_data):
@@ -57,7 +57,7 @@ def test_mask_is_idempotent(health_population_data):
     twice = apply_target_mask(once, ranges)
     for location in once.keys():
         assert np.array_equal(once[location].disease_cases, twice[location].disease_cases, equal_nan=True)
-        assert np.array_equal(once[location].disease_cases_masked, twice[location].disease_cases_masked)
+        assert np.array_equal(once[location].target_masked, twice[location].target_masked)
 
 
 def test_no_ranges_leaves_the_dataset_as_it_is(health_population_data):
@@ -102,7 +102,7 @@ def test_future_data_carries_an_all_zero_indicator(weekly_full_data, provider):
     _, splits = train_test_generator(masked, prediction_length=3, n_test_sets=1, future_weather_provider=provider)
     historic, future, _ = next(iter(splits))
     assert set(historic.field_names()) - {"disease_cases"} == set(future.field_names())
-    assert all(not np.any(data.disease_cases_masked) for data in future.values())
+    assert all(not np.any(data.target_masked) for data in future.values())
 
 
 def test_unmasked_future_data_has_no_indicator(weekly_full_data):
@@ -115,7 +115,7 @@ def test_as_future_data_drops_the_target_and_zeroes_the_indicator(health_populat
     masked = apply_target_mask(health_population_data, _range(health_population_data, 10, 12))
     future = as_future_data(masked)
     assert future.field_names() == ["population", MASK_INDICATOR_FIELD]
-    assert all(not np.any(data.disease_cases_masked) for data in future.values())
+    assert all(not np.any(data.target_masked) for data in future.values())
     assert as_future_data(health_population_data).field_names() == ["population"]
 
 
@@ -131,7 +131,7 @@ def test_dataset_apply_masked_ranges_matches_apply_target_mask(health_population
     via_function = apply_target_mask(health_population_data, ranges)
     for location in via_function.keys():
         assert np.array_equal(via_method[location].disease_cases, via_function[location].disease_cases, equal_nan=True)
-        assert np.array_equal(via_method[location].disease_cases_masked, via_function[location].disease_cases_masked)
+        assert np.array_equal(via_method[location].target_masked, via_function[location].target_masked)
     assert health_population_data.apply_masked_ranges([]) is health_population_data
 
 
@@ -156,7 +156,7 @@ def test_masking_keeps_the_type_of_other_columns():
 
     masked = apply_target_mask(dataset, [MaskedRange(start="2021-06", end="2021-06")])
     assert [str(value) for value in masked["A"].region] == ["AB", "AB", "AB"]
-    assert list(masked["A"].disease_cases_masked) == [0, 1, 0]
+    assert list(masked["A"].target_masked) == [0, 1, 0]
     future = as_future_data(masked)
     assert [str(value) for value in future["A"].region] == ["AB", "AB", "AB"]
-    assert list(future["A"].disease_cases_masked) == [0, 0, 0]
+    assert list(future["A"].target_masked) == [0, 0, 0]

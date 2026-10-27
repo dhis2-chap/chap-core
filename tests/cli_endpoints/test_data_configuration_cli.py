@@ -55,12 +55,12 @@ def test_csv_is_masked_with_the_data_configuration(laos_csv, mask_file):
     dataset = load_dataset_from_csv(laos_csv, data_configuration=config)
     for data in dataset.values():
         assert np.all(np.isnan(data.disease_cases[17:20]))
-        assert list(data.disease_cases_masked[16:21]) == [0, 1, 1, 1, 0]
+        assert list(data.target_masked[16:21]) == [0, 1, 1, 1, 0]
 
 
 def test_csv_with_a_mask_indicator_column_is_rejected(laos_csv, tmp_path):
     df = pd.read_csv(laos_csv)
-    df["disease_cases_masked"] = 0
+    df["target_masked"] = 0
     csv = tmp_path / "with_indicator.csv"
     df.to_csv(csv, index=False)
     with pytest.raises(ValueError, match="reserved"):

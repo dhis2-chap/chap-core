@@ -894,7 +894,7 @@ async def create_dataset_csv(
     Use this when you have the files on disk and do not want to round-trip them
     through DHIS2 or the JSON import endpoints. Inserts inline — no background job —
     and returns the new dataset id immediately. The dataset has no masked ranges;
-    a CSV with a ``disease_cases_masked`` column gets a 422.
+    a CSV with a ``target_masked`` column gets a 422.
     """
     import io
 

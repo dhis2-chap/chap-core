@@ -36,10 +36,10 @@ def _log_call(call: str, config: TestConfig, df: Any) -> None:
     if not log_path:
         return
     masked_values, cases_in_masked_rows = None, None
-    if "disease_cases_masked" in df.columns:
-        masked_values = sorted(df["disease_cases_masked"].unique().tolist())
+    if "target_masked" in df.columns:
+        masked_values = sorted(df["target_masked"].unique().tolist())
         if "disease_cases" in df.columns:
-            cases_in_masked_rows = int(df.loc[df["disease_cases_masked"] == 1, "disease_cases"].notna().sum())
+            cases_in_masked_rows = int(df.loc[df["target_masked"] == 1, "disease_cases"].notna().sum())
     line = json.dumps(
         {
             "call": call,

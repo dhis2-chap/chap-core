@@ -149,7 +149,7 @@ chap eval \
 
 ## Data Configuration
 
-Use `--data-configuration` to mask `disease_cases` in periods that should not be used for training, such as COVID years or a reporting outage. On the command line the values are not deleted from the CSV; only the loaded copy is masked. (Creating a dataset with masked ranges through the REST API is different: it deletes the values inside the ranges, see [Masked periods](../external_models/data_formats.md#masked-periods).) Inside a masked range the model receives `disease_cases` as empty (NaN) and an extra column `disease_cases_masked` set to 1. Everywhere else `disease_cases_masked` is 0, so a model can tell a masked period from a genuinely missing value.
+Use `--data-configuration` to mask `disease_cases` in periods that should not be used for training, such as COVID years or a reporting outage. On the command line the values are not deleted from the CSV; only the loaded copy is masked. (Creating a dataset with masked ranges through the REST API is different: it deletes the values inside the ranges, see [Masked periods](../external_models/data_formats.md#masked-periods).) Inside a masked range the model receives `disease_cases` as empty (NaN) and an extra column `target_masked` set to 1. Everywhere else `target_masked` is 0, so a model can tell a masked period from a genuinely missing value.
 
 ### Format
 
@@ -186,12 +186,12 @@ The same option is available on `chap evaluate-ensemble` (with `--dataset-csv`) 
 - A range must use the same period type as the dataset: week ranges on monthly data are rejected.
 - Ranges may not overlap, and `start` may not be after `end`.
 - A masked period may not fall in the evaluation window, the last `n_periods + (n_splits - 1) * stride` periods. The backtest is rejected before any model runs.
-- The CSV may not contain a `disease_cases_masked` column of its own; that name is reserved.
-- Future data passed to the model has no `disease_cases`. It does have `disease_cases_masked`, always 0, because a forecast period is never masked.
+- The CSV may not contain a `target_masked` column of its own; that name is reserved.
+- Future data passed to the model has no `disease_cases`. It does have `target_masked`, always 0, because a forecast period is never masked.
 
 ### Model compatibility
 
-On a masked dataset the training, historic and future data all have one extra column, `disease_cases_masked`. It is 1 in masked periods and 0 elsewhere, and always 0 in future data. Because the column is in both history and future, models that stack the two tables or fit on every column keep working. A model that uses every column will pick the indicator up as a covariate. That is harmless, but a model can also use it explicitly, for example to drop masked rows before fitting.
+On a masked dataset the training, historic and future data all have one extra column, `target_masked`. It is 1 in masked periods and 0 elsewhere, and always 0 in future data. Because the column is in both history and future, models that stack the two tables or fit on every column keep working. A model that uses every column will pick the indicator up as a covariate. That is harmless, but a model can also use it explicitly, for example to drop masked rows before fitting.
 
 ## Model Types
 

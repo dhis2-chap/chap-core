@@ -1,7 +1,7 @@
 """Masking `disease_cases` in a dataset's masked ranges for a run (CLIM-1300).
 
 A dataset with masked ranges is masked when it is saved: `disease_cases` inside the ranges is
-stored as NaN and the original values are not kept. Each run adds `disease_cases_masked` to its
+stored as NaN and the original values are not kept. Each run adds `target_masked` to its
 in-memory copy when it loads the data: 1 inside a range and 0 elsewhere, so a model can tell a
 masked period from a genuinely missing one (NaN with indicator 0). The CLI masks only the loaded copy.
 
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from chap_core.time_period import PeriodRange, TimePeriod
 
 TARGET_FIELD = "disease_cases"
-MASK_INDICATOR_FIELD = "disease_cases_masked"
+MASK_INDICATOR_FIELD = "target_masked"
 
 
 def apply_target_mask(dataset: DataSet, masked_ranges: list[MaskedRange] | None) -> DataSet:
