@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 from starlette.testclient import TestClient
 
 from chap_core.database.dataset_tables import DataSet
-from chap_core.database.tables import BacktestRead
+from chap_core.database.tables import Backtest, BacktestRead, Prediction
 from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.routers.dependencies import get_session
 
@@ -91,6 +91,33 @@ def test_dataset_df(override_session):
     assert len(df) > 10
     # assert "mean_temperature" in df[0], df[0].keys()
     # assert "cases" in df[0], df[0].keys()
+
+
+def test_deleting_a_dataset_in_use_is_refused_with_its_backtests_and_predictions(override_session, seeded_session):
+    backtest_ids = sorted(seeded_session.exec(select(Backtest.id).where(Backtest.dataset_id == 1)).all())
+    prediction_ids = sorted(seeded_session.exec(select(Prediction.id).where(Prediction.dataset_id == 1)).all())
+    assert backtest_ids and prediction_ids
+
+    response = client.delete("/v1/crud/datasets/1")
+
+    assert response.status_code == 409
+    assert f"backtests {backtest_ids}" in response.json()["detail"]
+    assert f"predictions {prediction_ids}" in response.json()["detail"]
+    assert client.get("/v1/crud/datasets/1").status_code == 200
+
+
+def test_deleting_an_unused_dataset_removes_it(override_session, seeded_session):
+    used = set(seeded_session.exec(select(Backtest.dataset_id)).all()) | set(
+        seeded_session.exec(select(Prediction.dataset_id)).all()
+    )
+    dataset_id = next(id for id in seeded_session.exec(select(DataSet.id)).all() if id not in used)
+
+    assert client.delete(f"/v1/crud/datasets/{dataset_id}").status_code == 200
+    assert client.get(f"/v1/crud/datasets/{dataset_id}").status_code == 404
+
+
+def test_deleting_an_unknown_dataset_is_404(override_session):
+    assert client.delete("/v1/crud/datasets/999999").status_code == 404
 
 
 def test_metrics_csv(override_session):

@@ -11,7 +11,7 @@ import logging
 from pathlib import Path
 from typing import cast
 
-from sqlmodel import select
+from sqlmodel import col, select
 
 from chap_core.database.base_tables import utc_now
 from chap_core.datatypes import FullData, create_tsdataclass
@@ -22,6 +22,7 @@ from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
 from .dataset_tables import DataSet, DataSetCreateInfo, DataSetInfo, Observation
 from .manager import DbManager
+from .tables import Backtest, Prediction
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,10 @@ def period_type_of(period: TimePeriod) -> str:
     if isinstance(period, Week):
         return "week"
     raise ValueError(f"Unsupported period type: {type(period).__name__}")
+
+
+class DataSetInUseError(Exception):
+    """Raised when deleting a dataset that a backtest or a prediction still points at."""
 
 
 class DataSetManager(DbManager[DataSet]):
@@ -194,3 +199,28 @@ class DataSetManager(DbManager[DataSet]):
     def find_by_name(self, dataset_name: str) -> DataSet | None:
         dataset = self.session.exec(select(DataSet).where(DataSet.name == dataset_name)).first()
         return dataset
+
+    def delete_by_id(self, item_id: int) -> None:
+        """Delete a dataset and its observations, if it exists.
+
+        Raises:
+            DataSetInUseError: a backtest or a prediction still points at the dataset.
+                Baseline backtests count too, although backtest listings hide them,
+                so the error names every id the caller has to delete first.
+        """
+        backtest_ids = list(
+            self.session.exec(
+                select(Backtest.id).where(Backtest.dataset_id == item_id).order_by(col(Backtest.id))
+            ).all()
+        )
+        prediction_ids = list(
+            self.session.exec(
+                select(Prediction.id).where(Prediction.dataset_id == item_id).order_by(col(Prediction.id))
+            ).all()
+        )
+        if backtest_ids or prediction_ids:
+            raise DataSetInUseError(
+                f"Dataset {item_id} is still used by backtests {backtest_ids} "
+                f"and predictions {prediction_ids}; delete those first"
+            )
+        super().delete_by_id(item_id)
