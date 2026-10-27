@@ -105,8 +105,8 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
             logger.error("Execution of model failed for some reason. Check the logs for more information")
             raise ModelFailedException(str(e)) from e
 
-    def context(self, output_file):
-        logger.debug(f"Running context with output to {output_file}")
+    def model_info(self, output_file):
+        logger.debug(f"Running model_info with output to {output_file}")
 
         params = {
             "out_file": str(output_file),
@@ -120,7 +120,7 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
         try:
             return mlflow.projects.run(
                 str(self.model_path),
-                entry_point="context",
+                entry_point="model_info",
                 parameters=params,
             )
 

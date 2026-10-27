@@ -79,9 +79,9 @@ def get_train_predict_runner_from_model_template_config(
             else None
         )
 
-        context_command = (
-            model_template_config.entry_points.context.command
-            if model_template_config.entry_points.context is not None
+        model_info_command = (
+            model_template_config.entry_points.model_info.command
+            if model_template_config.entry_points.model_info is not None
             else None
         )
 
@@ -104,7 +104,7 @@ def get_train_predict_runner_from_model_template_config(
                 predict_command,
                 model_configuration_filename=yaml_filename,
                 report_command=report_command,
-                context_command=context_command,
+                model_info_command=model_info_command,
                 simulate_command=simulate_command,
             )
         elif runner_type == "uv":
@@ -114,7 +114,7 @@ def get_train_predict_runner_from_model_template_config(
                 predict_command,
                 model_configuration_filename=yaml_filename,
                 report_command=report_command,
-                context_command=context_command,
+                model_info_command=model_info_command,
                 simulate_command=simulate_command,
             )
         elif runner_type == "renv":
@@ -124,7 +124,7 @@ def get_train_predict_runner_from_model_template_config(
                 predict_command,
                 model_configuration_filename=yaml_filename,
                 report_command=report_command,
-                context_command=context_command,
+                model_info_command=model_info_command,
                 simulate_command=simulate_command,
             )
         elif runner_type == "conda":
@@ -136,7 +136,7 @@ def get_train_predict_runner_from_model_template_config(
                 model_configuration_filename=yaml_filename,
                 report_command=report_command,
                 simulate_command=simulate_command,
-                context_command=context_command,
+                model_info_command=model_info_command,
             )
         else:
             assert model_template_config.docker_env is not None
@@ -149,7 +149,7 @@ def get_train_predict_runner_from_model_template_config(
                 yaml_filename,
                 report_command,
                 simulate_command,
-                context_command,
+                model_info_command,
             )
     else:
         # assert model_configuration is None or model_configuration == {}, "ModelConfiguration (for templates) not supported when runner is mlflow for now"

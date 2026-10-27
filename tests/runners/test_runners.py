@@ -415,24 +415,24 @@ def test_mlflow_runner_report_wraps_execution_errors(tmp_path):
             runner.report("model", "historic.csv", "out.pdf")
 
 
-def test_mlflow_runner_invokes_context_entry_point(tmp_path):
-    """Test that MlflowTrainPredictRunner finds and invokes context endpoint"""
+def test_mlflow_runner_invokes_model_info_entry_point(tmp_path):
+    """Test that MlflowTrainPredictRunner finds and invokes model_info endpoint"""
     runner = MlFlowTrainPredictRunner(model_path=tmp_path)
     with patch("mlflow.projects.run") as mock_run:
         mock_run.return_value = MagicMock()
-        runner.context(
-            output_file="/abs/out/context.json",
+        runner.model_info(
+            output_file="/abs/out/model_info.json",
         )
         mock_run.assert_called_once()
         _, kwargs = mock_run.call_args
-        assert kwargs["entry_point"] == "context"
+        assert kwargs["entry_point"] == "model_info"
         assert kwargs["parameters"] == {
-            "out_file": "/abs/out/context.json",
+            "out_file": "/abs/out/model_info.json",
         }
 
 
-def test_command_line_runner_context_formats_command():
-    """Test that CommandLineTrainPredictRunner.context() formats and runs the context command."""
+def test_command_line_runner_model_info_formats_command():
+    """Test that CommandLineTrainPredictRunner.model_info() formats and runs the model_info command."""
     with patch.object(CommandLineRunner, "run_command") as mock_run:
         mock_run.return_value = "done"
         from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner
@@ -441,10 +441,10 @@ def test_command_line_runner_context_formats_command():
             CommandLineRunner(Path(".")),
             train_command="python train.py {train_data} {model}",
             predict_command="python predict.py {model} {historic_data} {future_data} {out_file}",
-            context_command="python context.py {out_file}",
+            model_info_command="python model_info.py {out_file}",
         )
-        runner.context("context.json")
-        mock_run.assert_called_once_with("python context.py context.json")
+        runner.model_info("model_info.json")
+        mock_run.assert_called_once_with("python model_info.py model_info.json")
 
 
 def test_mlflow_runner_predict_wraps_execution_errors(tmp_path):

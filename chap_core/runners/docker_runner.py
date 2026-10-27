@@ -51,7 +51,7 @@ class DockerTrainPredictRunner(CommandLineTrainPredictRunner):
         model_configuration_filename: str | None = None,
         report_command: str | None = None,
         simulate_command: str | None = None,
-        context_command: str | None = None,
+        model_info_command: str | None = None,
     ):
         super().__init__(
             runner,
@@ -60,7 +60,7 @@ class DockerTrainPredictRunner(CommandLineTrainPredictRunner):
             model_configuration_filename,
             report_command,
             simulate_command,
-            context_command,
+            model_info_command,
         )
 
     def teardown(self):

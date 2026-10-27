@@ -30,8 +30,8 @@ class ConfiguredModel(abc.ABC):
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         pass
 
-    def context(self) -> ContextInfo | None:
-        """Returns the models ContextInfo, or None if the model does not specify one"""
+    def model_info(self) -> ModelInfo | None:
+        """Returns the models ModelInfo, or None if the model does not specify one"""
         return None
 
 
@@ -41,15 +41,16 @@ class ModelConfiguration(BaseModel):
     """
 
 
-class ContextInfo(BaseModel):
+class ModelInfo(BaseModel, extra="ignore"):
     """
-    ContextInfo used for handling the context_length of a configured model
+    ModelInfo holds information a configured model shares through its model_info entry point.
 
-    The context length is an int or None, and represents how many timesteps backwards from the most recent timestep
-    the model uses. None (null or missing value in context.json) represents
-    all available history in the given dataset
+    All fields are optional, and unknown fields are ignored. New fields can be added without
+    needing to change existing model_info implementations.
 
-    Values that are <= 0 are not allowed.
+    context_length is an int or None, and represents how many timesteps backwards from the most recent timestep
+    the model uses. None (null or missing value in model_info.json) represents
+    all available history in the given dataset. Values that are <= 0 are not allowed.
     """
 
     context_length: int | None = Field(default=None, gt=0)

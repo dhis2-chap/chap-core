@@ -117,55 +117,55 @@ def test_external_model_report_without_entry_point_raises(weekly_full_data, tmp_
     runner.report.assert_not_called()
 
 
-def _context_model_template_config() -> ModelTemplateConfigV2:
+def _model_info_template_config() -> ModelTemplateConfigV2:
     return ModelTemplateConfigV2(
-        name="test_context_model",
+        name="test_model_info_model",
         entry_points=EntryPointConfig(
             train=CommandConfig(command="python train.py {train_data} {model}"),
             predict=CommandConfig(command="python predict.py {model} {historic_data} {future_data} {out_file}"),
-            context=CommandConfig(command="python context.py {out_file}"),
+            model_info=CommandConfig(command="python model_info.py {out_file}"),
         ),
     )
 
 
-def test_external_model_context_invokes_runner(tmp_path):
+def test_external_model_model_info_invokes_runner(tmp_path):
     working_dir = tmp_path / "workdir"
     working_dir.mkdir()
 
-    def _fake_context(out_filename):
+    def _fake_model_info(out_filename):
         (working_dir / out_filename).write_text('{"context_length" : 12}')
 
     runner = Mock()
-    runner.context.side_effect = _fake_context
+    runner.model_info.side_effect = _fake_model_info
     model = ExternalModel(
         runner=runner,
-        name="test_context_model",
+        name="test_model_info_model",
         working_dir=str(working_dir),
-        model_information=_context_model_template_config(),
+        model_information=_model_info_template_config(),
     )
 
-    context = model.context()
-    assert context is not None
+    model_info = model.model_info()
+    assert model_info is not None
 
-    runner.context.assert_called_once()
-    args, _ = runner.context.call_args
-    assert args[0] == "context.json"
+    runner.model_info.assert_called_once()
+    args, _ = runner.model_info.call_args
+    assert args[0] == "model_info.json"
 
-    assert (working_dir / "context.json").exists()
-    assert context.context_length == 12
+    assert (working_dir / "model_info.json").exists()
+    assert model_info.context_length == 12
 
 
-def test_external_model_without_context_entry_point_returns_none(tmp_path):
+def test_external_model_without_model_info_entry_point_returns_none(tmp_path):
     working_dir = tmp_path / "workdir"
     working_dir.mkdir()
 
     runner = Mock()
     model = ExternalModel(
         runner=runner,
-        name="test_context_model",
+        name="test_model_info_model",
         working_dir=str(working_dir),
         model_information=ModelTemplateConfigV2(
-            name="test_context_model",
+            name="test_model_info_model",
             entry_points=EntryPointConfig(
                 train=CommandConfig(command="python train.py {train_data} {model}"),
                 predict=CommandConfig(command="python predict.py {model} {historic_data} {future_data} {out_file}"),
@@ -173,25 +173,25 @@ def test_external_model_without_context_entry_point_returns_none(tmp_path):
         ),
     )
 
-    assert model.context() == None
-    runner.context.assert_not_called()
+    assert model.model_info() == None
+    runner.model_info.assert_not_called()
 
 
-def test_external_model_context_rejects_zero(tmp_path):
+def test_external_model_model_info_rejects_zero(tmp_path):
     working_dir = tmp_path / "workdir"
     working_dir.mkdir()
 
-    def _fake_context(out_filename):
+    def _fake_model_info(out_filename):
         (working_dir / out_filename).write_text('{"context_length" : 0}')
 
     runner = Mock()
-    runner.context.side_effect = _fake_context
+    runner.model_info.side_effect = _fake_model_info
     model = ExternalModel(
         runner=runner,
-        name="test_context_model",
+        name="test_model_info_model",
         working_dir=str(working_dir),
-        model_information=_context_model_template_config(),
+        model_information=_model_info_template_config(),
     )
 
     with pytest.raises(ModelFailedException):
-        model.context()
+        model.model_info()

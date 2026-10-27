@@ -149,3 +149,26 @@ The covariate CSV may already contain the target for some rows, for example the 
 `model_config` is optional and is forwarded the same way as for `train`/`predict`, so simulation parameters can be declared as `user_options`. `{polygons}` is passed if the dataset has a GeoJSON file.
 
 `train` and `predict` are still required in `MLproject`. A simulation-only model can point them at a command that raises an error. See `tests/fixture_models/climate_simulation_model` for a minimal example.
+
+## Model Info Entry Point
+
+A model may declare an optional `model_info` entry point that gives Chap information about the model that depends on how the model is configured, for example how many timesteps back it uses as the context length.
+
+```yaml
+entry_points:
+  model_info:
+    parameters:
+      out_file: str
+      model_config: str
+    command: "python model_info.py {out_file} {model_config}"
+```
+
+### Contract
+
+- The entry point runs before training with only the model config available. It cannot depend on the trained model or on the data for the model information.
+- The script must write a JSON object to `out_file`, for example `{"context_length": 12}`.
+- All fields are optional, and fields that are not known are ignored.
+
+Supported fields:
+
+- `context_length`: how many timesteps back from the most recent timestep the model uses. Must be a positive integer. `null` or a missing value means the model uses all available history.
