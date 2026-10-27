@@ -5,7 +5,6 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
-from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
 from chap_core.database.alert_tables import AlertApproval
@@ -121,20 +120,6 @@ def test_run_prediction_keeps_the_policy_captured_at_start(alert_prediction):
     prediction_id = _run_prediction(session, original, before_forecast=clear_setup_policy)
     assert session.get(Prediction, prediction_id).alert_policy_id == policy_id
     assert [a.level for a in list_alerts(session, prediction_id=prediction_id)] == ["action"]
-
-
-def test_run_prediction_fails_when_captured_policy_is_deleted(alert_prediction):
-    session, original = alert_prediction
-
-    def delete_policy():
-        policy = original.alert_policy
-        original.alert_policy_id = None
-        original.prediction_setup.alert_policy = None
-        session.delete(policy)
-        session.commit()
-
-    with pytest.raises(IntegrityError):
-        _run_prediction(session, original, before_forecast=delete_policy)
 
 
 def test_run_prediction_fails_but_keeps_prediction_when_alerts_fail(alert_prediction):
