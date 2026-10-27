@@ -389,10 +389,15 @@ def seeded_database_url(tmp_path):
 
 @pytest.fixture
 def base_engine(seeded_database_url):
-    from sqlalchemy import create_engine
+    from sqlalchemy import create_engine, event
     from sqlmodel import SQLModel, Session
 
     engine = create_engine(seeded_database_url, connect_args={"check_same_thread": False})
+
+    @event.listens_for(engine, "connect")
+    def enable_foreign_keys(connection, _record):
+        connection.execute("PRAGMA foreign_keys=ON")
+
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
 
