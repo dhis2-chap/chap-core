@@ -35,7 +35,7 @@ from chap_core.assessment.weather_providers import resolve_weather_provider
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.alert_tables import Alert, AlertApproval, AlertPolicyRead, AlertRead
 from chap_core.database.database import SessionWrapper
-from chap_core.database.dataset_manager import DataSetManager
+from chap_core.database.dataset_manager import DataSetInUseError, DataSetManager
 from chap_core.database.dataset_tables import (
     DataSet,
     DataSetCreateInfo,
@@ -50,6 +50,7 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateRole,
     chapkit_revision_conflict,
 )
+from chap_core.database.settings import SettingsManager
 from chap_core.database.tables import (
     Backtest,
     BacktestRead,
@@ -87,6 +88,7 @@ from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from ...data_models import (
     AlertApprovalRequest,
     AlertIdsResponse,
+    AlertPolicyCodesUpdate,
     AlertPolicyCreate,
     AlertsCreate,
     BacktestSpecificationFilter,
@@ -112,7 +114,14 @@ from ...leaderboard_models import (
     list_metric_info,
 )
 from .analytics import validate_full_dataset
-from .dependencies import get_database_url, get_job_request, get_session, get_settings, model_job_metadata
+from .dependencies import (
+    get_database_url,
+    get_job_request,
+    get_session,
+    get_settings,
+    get_settings_manager,
+    model_job_metadata,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -389,6 +398,7 @@ def get_backtest_specification(
     include_archived_models: Annotated[bool, Query(alias="includeArchivedModels")] = False,
     session: Session = Depends(get_session),
     database_url: str = Depends(get_database_url),
+    settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
     """Read one specification together with every backtest that ran under it, newest first, in a single response.
 
@@ -424,6 +434,7 @@ def get_backtest_specification(
         .options(*_backtest_read_loads())
     ).all()
     baselines = _baseline_results(session, specification_id)
+    settings = settings_manager.get()
     comparison_models = _comparison_model_results(session, specification_id) if include_comparison_models else None
     references = [
         reference
@@ -442,7 +453,8 @@ def get_backtest_specification(
         ],
         baselines=baselines,
         comparison_models=comparison_models,
-        metrics=list_metric_info(),
+        metrics=list_metric_info(settings),
+        default_baseline_model=settings.default_baseline_model,
         **_specification_params(specification),
     )
 
@@ -946,11 +958,18 @@ async def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], s
     summary="Remove an imported dataset",
 )
 async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
-    """Permanently delete a dataset and every observation in it. Use this to clean up obsolete imports — be aware that backtests and predictions that referenced this dataset will lose their data link. 404 if the id is unknown."""
-    # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
+    """Permanently delete a dataset and every observation in it. Use this to clean up obsolete imports.
+
+    Refused with 409 while a backtest or a prediction still uses the dataset. The baseline
+    backtests that every backtest queues count too, although backtest listings hide them,
+    so the error names every backtest and prediction to delete first. 404 if the id is unknown.
+    """
     if session.get(DataSet, dataset_id) is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    DataSetManager(session).delete_by_id(dataset_id)
+    try:
+        DataSetManager(session).delete_by_id(dataset_id)
+    except DataSetInUseError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     return {"message": "deleted"}
 
 
@@ -1320,10 +1339,14 @@ async def create_alert_policy(request: AlertPolicyCreate, session: Session = Dep
     exceedance probability at or above which that tier fires, so one policy expresses a
     whole escalation ladder. Levels are ordered from least to most severe. 422 if the
     policy has no levels, an unnamed level, a level with more than one threshold line,
-    or two levels sharing a name.
+    or two levels sharing a name. Output codes must be non-empty and unique across
+    all levels and the no-alert state. Codes do not affect severity ordering.
+    Omitted level codes default to `1`, `2`, etc. in level order; no alert defaults to `0`.
     """
     try:
-        policy = alert_policy_service.create_alert_policy(session, name=request.name, levels=request.levels)
+        policy = alert_policy_service.create_alert_policy(
+            session, name=request.name, levels=request.levels, no_alert_output_code=request.no_alert_output_code
+        )
     except alert_policy_service.InvalidAlertPolicyError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     if policy.id is None:
@@ -1359,6 +1382,34 @@ async def get_alert_policy(
         return alert_policy_service.get_alert_policy(session, alert_policy_id)
     except alert_policy_service.AlertPolicyNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.patch(
+    "/alert-policies/{alertPolicyId}",
+    response_model=AlertPolicyRead,
+    tags=["Alert Policies"],
+    summary="Update a policy's output codes",
+)
+@api_experimental
+async def update_alert_policy_codes(
+    alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
+    request: AlertPolicyCodesUpdate,
+    session: Session = Depends(get_session),
+):
+    """Update codes by level name. Existing alerts resolve to the new codes through their policy.
+
+    Names, order and thresholds cannot change. The resulting codes must be non-empty
+    and unique, including unchanged codes and no alert. 404 for an unknown policy;
+    422 for unknown levels or invalid codes. Invalid updates leave the policy unchanged.
+    """
+    try:
+        return alert_policy_service.update_alert_policy_codes(
+            session, alert_policy_id, request.level_output_codes, request.no_alert_output_code
+        )
+    except alert_policy_service.AlertPolicyNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except alert_policy_service.InvalidAlertPolicyError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 @router.delete(
