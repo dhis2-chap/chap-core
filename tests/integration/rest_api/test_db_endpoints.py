@@ -1125,16 +1125,37 @@ def test_prediction_setup_monitoring_compares_with_the_default_baseline(override
     assert prediction_point["nObserved"] == len(prediction.forecasts)
 
 
-def test_prediction_setup_monitoring_has_no_points_before_the_baseline_has_run(override_session, seeded_session):
+@pytest.mark.parametrize("baseline", ["persistence", "global_median"])
+def test_prediction_setup_monitoring_has_no_points_before_the_baseline_has_run(
+    override_session, seeded_session, baseline
+):
     backtest = seeded_session.exec(select(Backtest)).first()
     assert backtest is not None
     created = _create_prediction_setup(backtest.id, "Monitored")
     assert created.status_code == 200, created.json()
 
-    response = client.get(f"/v1/crud/prediction-setups/{created.json()['id']}/monitoring", params={"metric": "mae"})
+    response = client.get(
+        f"/v1/crud/prediction-setups/{created.json()['id']}/monitoring",
+        params={"metric": "mae", "baseline": baseline},
+    )
 
     assert response.status_code == 200, response.json()
-    assert (response.json()["evaluationValue"], response.json()["points"]) == (None, [])
+    body = response.json()
+    assert (body["baselineModel"], body["evaluationValue"], body["points"]) == (baseline, None, [])
+
+
+def test_prediction_setup_monitoring_unknown_baseline_returns_422(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Monitored")
+    assert created.status_code == 200, created.json()
+
+    response = client.get(
+        f"/v1/crud/prediction-setups/{created.json()['id']}/monitoring",
+        params={"metric": "mae", "baseline": "naive_model"},
+    )
+
+    assert response.status_code == 422
 
 
 def test_flat_prediction_forecasts_counts_horizons_from_first_forecast_period(seeded_session):

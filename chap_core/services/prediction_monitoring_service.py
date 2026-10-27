@@ -6,7 +6,8 @@ by one run is scored once a later run brings in the observed value for its perio
 Backtest forecasts are scored against the backtest's own dataset. All org units and
 horizons are pooled, matching how a backtest's aggregate metrics are computed.
 
-The baseline is the installation's default baseline model. Its backtest on the setup's
+The baseline is one of the built-in baseline models, the installation's default unless
+another is asked for. Every baseline forecasts alongside each setup prediction. Its backtest on the setup's
 backtest specification is the reference for the backtest splits, and the forecast it
 made alongside each live prediction is the reference for that prediction. A metric's
 comparison operator turns the two scores into one value, positive meaning better than
@@ -50,6 +51,10 @@ if TYPE_CHECKING:
 
 class InvalidMetricError(Exception):
     """Raised when the metric is unknown or cannot be computed for the setup's data."""
+
+
+class InvalidBaselineError(Exception):
+    """Raised when no live baseline model has the requested name."""
 
 
 def flat_prediction_forecasts(predictions: list[Prediction]) -> pd.DataFrame:
@@ -180,12 +185,18 @@ def _baseline_backtest(session: Session, backtest: Backtest, baseline: Configure
     ).first()
 
 
-def get_prediction_setup_monitoring(session: Session, setup_id: int, metric_id: str) -> PredictionSetupMonitoring:
-    """Compare a setup's backtest and live predictions with the default baseline model over time for one metric.
+def get_prediction_setup_monitoring(
+    session: Session, setup_id: int, metric_id: str, baseline_name: str | None = None
+) -> PredictionSetupMonitoring:
+    """Compare a setup's backtest and live predictions with a baseline model over time for one metric.
+
+    The baseline is given by name, independent of its version, and defaults to the
+    installation's default baseline model.
 
     Raises:
         PredictionSetupNotFoundError: setup does not exist.
         InvalidMetricError: metric is unknown, has no comparison, or is not applicable to the observed data.
+        InvalidBaselineError: no live baseline model has that name.
     """
     setup = session.get(PredictionSetup, setup_id)
     if setup is None:
@@ -196,8 +207,12 @@ def get_prediction_setup_monitoring(session: Session, setup_id: int, metric_id: 
     if metric_cls.spec.comparison_op is None:
         raise InvalidMetricError(f"Metric '{metric_id}' cannot be compared with a baseline")
     metric = metric_cls()
-    baseline_name = SettingsManager(session).get().default_baseline_model
-    baseline = SessionWrapper(session=session).get_configured_model_by_id_or_name(baseline_name)
+    if baseline_name is None:
+        baseline_name = SettingsManager(session).get().default_baseline_model
+    baselines = {model.name: model for model in SessionWrapper(session=session).get_baseline_models()}
+    if baseline_name not in baselines:
+        raise InvalidBaselineError(f"Unknown baseline model '{baseline_name}'. Available: {sorted(baselines)}")
+    baseline = baselines[baseline_name]
 
     evaluation = Evaluation.from_backtest(setup.backtest).to_flat()
     if not evaluation.observations.empty and not metric.is_applicable(evaluation.observations):
