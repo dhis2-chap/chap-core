@@ -3,7 +3,7 @@ import json
 import logging
 import os
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, TypeVar, cast
@@ -160,7 +160,7 @@ class TrackedTask(Task):
                 f"job_meta:{task_id}",
                 mapping={
                     "status": "STARTED",
-                    # "start_time": datetime.now().isoformat(), # update the start time
+                    # "start_time": datetime.now(UTC).isoformat(), # update the start time
                 },
             )
             # Execute the actual task
@@ -189,7 +189,7 @@ class TrackedTask(Task):
             "job_name": job_name,
             "job_type": job_type,
             "status": "PENDING",
-            "start_time": datetime.now().isoformat(),
+            "start_time": datetime.now(UTC).isoformat(),
         }
         if prediction_setup_id is not None:
             job_meta[PREDICTION_SETUP_ID_JOB_META_KEY] = str(prediction_setup_id)
@@ -227,7 +227,7 @@ class TrackedTask(Task):
                     "status": "FAILURE",
                     # "duration": duration,
                     "error": "Could not serialize return value to JSON",
-                    "end_time": datetime.now().isoformat(),
+                    "end_time": datetime.now(UTC).isoformat(),
                 },
             )
             raise Exception("Could not serialize return value to JSON. Return value is:" + str(retval)) from None
@@ -238,7 +238,7 @@ class TrackedTask(Task):
                 "status": "SUCCESS",
                 # "duration": duration,
                 "result": retval,
-                "end_time": datetime.now().isoformat(),
+                "end_time": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -255,7 +255,7 @@ class TrackedTask(Task):
                 # A job list shows this, so it is bounded. The traceback keeps the full text.
                 "error": str(exc)[:JOB_ERROR_MAX_CHARS],
                 "traceback": str(einfo.traceback),
-                "end_time": datetime.now().isoformat(),
+                "end_time": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -375,7 +375,7 @@ class CeleryJob[ReturnType]:
             f"job_meta:{self._job.id}",
             mapping={
                 "status": "REVOKED",
-                "end_time": datetime.now().isoformat(),
+                "end_time": datetime.now(UTC).isoformat(),
             },
         )
 
