@@ -52,12 +52,14 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("backtest", "specification_id"),
     ("backtest", "chap_version"),
     ("dataset", "created_manually"),
+    ("alertpolicy", "no_alert_output_code"),
 ]
 
 # Tables added by alembic migrations (not in the baseline schema).
 # These are dropped after create_all so the migration can re-create them.
 _TABLES_ADDED_BY_MIGRATIONS = [
     "predictionsetupobservation",
+    "backendsettings",
     "predictionsetup",
     "specificationbaseline",
     "backtestspecification",
@@ -252,6 +254,12 @@ class TestAlembicMigrations:
         columns = {col["name"] for col in sa.inspect(engine).get_columns("backtest")}
         assert not columns & {"n_periods", "n_splits", "stride", "n_retrain", "future_weather_provider"}
         assert "chap_version" in columns
+
+        from sqlmodel import Session
+        from chap_core.database.settings import SettingsManager
+
+        with Session(engine) as session:
+            assert SettingsManager(session).get().default_baseline_model == "persistence"
 
     def test_downgrade_to_base_and_upgrade_again(self, engine):
         """
@@ -656,3 +664,47 @@ def test_target_column_migration_preserves_and_separates_specifications(engine):
         assert conn.execute(sa.text("SELECT id FROM backtestspecification")).scalars().all() == [1]
         assert conn.execute(sa.text("SELECT specification_id FROM backtest")).scalar_one() == 1
     command.upgrade(cfg, "head")
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("generic_migration_ran_first", [False, True])
+def test_alert_policy_output_codes_migration(engine, alert_prediction, generic_migration_ran_first):
+    from alembic import command
+    from chap_core.database.alert_tables import Alert, AlertPolicy
+    from chap_core.services.alert_policy_service import get_alert_policy
+    from sqlmodel import Session, select
+
+    _, prediction = alert_prediction
+    original = prediction.prediction_setup.alert_policy
+    with engine.begin() as conn:
+        conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+        conn.execute(sa.text("CREATE SCHEMA public"))
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        policy = AlertPolicy.model_validate(original.model_dump(exclude={"id"}))
+        session.add(policy)
+        session.flush()
+        policy_id = policy.id
+        session.add(Alert(time_period="2024-01", org_unit="A", alert_policy_id=policy_id, level="action"))
+        session.commit()
+
+    cfg = _make_alembic_cfg(engine)
+    command.stamp(cfg, "head")
+    command.downgrade(cfg, "c4d5e6f7a8b9")
+    with engine.begin() as conn:
+        levels = conn.execute(sa.text("SELECT levels FROM alertpolicy")).scalar_one()
+        assert all("output_code" not in level for level in levels)
+        if generic_migration_ran_first:
+            conn.execute(sa.text("ALTER TABLE alertpolicy ADD COLUMN no_alert_output_code VARCHAR"))
+            conn.execute(sa.text("UPDATE alertpolicy SET no_alert_output_code = '0'"))
+
+    command.upgrade(cfg, "head")
+    with Session(engine) as session:
+        policy = get_alert_policy(session, policy_id)
+        assert policy.no_alert_output_code == "0"
+        assert [level.output_code for level in policy.levels] == ["1", "2"]
+        assert [level.model_dump(exclude={"output_code"}) for level in policy.levels] == [
+            level.model_dump(exclude={"output_code"}) for level in original.levels
+        ]
+        alert = session.exec(select(Alert)).one()
+        assert next(level.output_code for level in policy.levels if level.name == alert.level) == "2"

@@ -1,4 +1,3 @@
-import datetime
 import logging
 import math
 
@@ -15,6 +14,7 @@ from sqlmodel import Session, SQLModel, col, create_engine, select
 from sqlmodel.sql.expression import SelectOfScalar
 
 from chap_core.api_types import BacktestParams
+from chap_core.database.base_tables import utc_now
 from chap_core.log_config import is_debug_mode
 from chap_core.predictor.naive_estimator import NaiveEstimator
 
@@ -633,7 +633,7 @@ class SessionWrapper:
             dataset_id=dataset_id,
             model_id=model_id,
             name=name,
-            created=datetime.datetime.now(),
+            created=utc_now(),
             n_periods=n_periods,
             meta_data=metadata,
             forecasts=samples_,

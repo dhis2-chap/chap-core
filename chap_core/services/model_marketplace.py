@@ -66,7 +66,7 @@ class MarketplaceModel(BaseModel):
     schema_version: Literal[2]
     id: str
     service_id: str
-    kind: Literal["model", "template"]
+    kind: Literal["model", "starter"]
     # Flags the model as a comparison model that other models are compared against on request.
     role: Literal["comparison"] | None = None
     display_name: str | None = None
@@ -133,7 +133,7 @@ def stable_pin(entry: MarketplaceModel) -> ModelPin:
     """The verified stable version of an entry, as the image pin to run."""
     model = entry.id
     if entry.kind != "model":
-        raise ValueError(f"'{model}' is a template for model authors, not a forecasting model.")
+        raise ValueError(f"'{model}' is a starter for model authors, not a forecasting model.")
     stable = entry.channels.get("stable")
     version = next((version for version in entry.versions if version.version == stable), None)
     if version is None or version.status != "verified":

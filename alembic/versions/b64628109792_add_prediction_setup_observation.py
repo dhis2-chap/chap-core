@@ -7,7 +7,7 @@ predictions can be scored against them.
 The foreign key is CASCADE: the values only exist to monitor their setup.
 
 Revision ID: b64628109792
-Revises: c4d5e6f7a8b9
+Revises: d8e9f0a1b2c3
 Create Date: 2026-10-02
 
 """
@@ -21,7 +21,7 @@ from chap_core.database.migration_helpers import has_table
 
 # revision identifiers, used by Alembic.
 revision: str = "b64628109792"
-down_revision: Union[str, Sequence[str], None] = "c4d5e6f7a8b9"
+down_revision: Union[str, Sequence[str], None] = "d8e9f0a1b2c3"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

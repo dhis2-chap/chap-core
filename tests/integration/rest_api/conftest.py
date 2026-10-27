@@ -389,10 +389,15 @@ def seeded_database_url(tmp_path):
 
 @pytest.fixture
 def base_engine(seeded_database_url):
-    from sqlalchemy import create_engine
+    from sqlalchemy import create_engine, event
     from sqlmodel import SQLModel, Session
 
     engine = create_engine(seeded_database_url, connect_args={"check_same_thread": False})
+
+    @event.listens_for(engine, "connect")
+    def enable_foreign_keys(connection, _record):
+        connection.execute("PRAGMA foreign_keys=ON")
+
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
 
@@ -460,3 +465,32 @@ def override_session(p_seeded_engine):
     app.dependency_overrides[get_session] = get_test_session
     yield
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def backend_settings_payload():
+    from chap_core.database.settings import default_settings
+
+    return default_settings().model_dump(by_alias=True)
+
+
+@pytest.fixture
+def analytics_worker(monkeypatch):
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = RecordingWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    return worker
+
+
+@pytest.fixture
+def weekly_dataset_id(
+    seeded_session, dataset_observations_weekly, feature_names, geojson, org_units, seen_periods_weekly
+):
+    dataset = _make_dataset(
+        dataset_observations_weekly, feature_names, geojson, org_units, seen_periods_weekly, name="weekly settings test"
+    )
+    dataset.period_type = "week"
+    seeded_session.add(dataset)
+    seeded_session.commit()
+    return dataset.id

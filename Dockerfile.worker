@@ -11,7 +11,7 @@ ENV MPLCONFIGDIR=/tmp
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Bring in uv from the official image, consistent with Dockerfile and Dockerfile.inla
-COPY --from=ghcr.io/astral-sh/uv:0.11 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13 /uv /bin/uv
 
 USER root
 WORKDIR /app
