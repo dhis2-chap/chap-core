@@ -36,7 +36,7 @@ from chap_core.assessment.weather_providers import resolve_weather_provider
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.alert_tables import Alert, AlertApproval, AlertPolicyRead, AlertRead
 from chap_core.database.database import SessionWrapper
-from chap_core.database.dataset_manager import DataSetManager
+from chap_core.database.dataset_manager import DataSetInUseError, DataSetManager
 from chap_core.database.dataset_tables import (
     DataSet,
     DataSetCreateInfo,
@@ -969,11 +969,18 @@ async def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], s
     summary="Remove an imported dataset",
 )
 async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
-    """Permanently delete a dataset and every observation in it. Use this to clean up obsolete imports — be aware that backtests and predictions that referenced this dataset will lose their data link. 404 if the id is unknown."""
-    # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
+    """Permanently delete a dataset and every observation in it. Use this to clean up obsolete imports.
+
+    Refused with 409 while a backtest or a prediction still uses the dataset. The baseline
+    backtests that every backtest queues count too, although backtest listings hide them,
+    so the error names every backtest and prediction to delete first. 404 if the id is unknown.
+    """
     if session.get(DataSet, dataset_id) is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    DataSetManager(session).delete_by_id(dataset_id)
+    try:
+        DataSetManager(session).delete_by_id(dataset_id)
+    except DataSetInUseError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     return {"message": "deleted"}
 
 
