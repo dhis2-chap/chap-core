@@ -14,7 +14,6 @@ discriminator the thresholds API uses to select a strategy, so there is no
 second field that could disagree with it.
 """
 
-import datetime
 from enum import StrEnum
 
 from pydantic import field_validator
@@ -22,7 +21,7 @@ from sqlalchemy import Column, String, TypeDecorator, UniqueConstraint
 from sqlmodel import Field
 
 from chap_core.assessment.thresholds.params import ThresholdParams
-from chap_core.database.base_tables import DBModel, PeriodID
+from chap_core.database.base_tables import DBModel, PeriodID, UtcDatetime
 from chap_core.database.dataset_tables import PydanticListType
 
 
@@ -96,16 +95,14 @@ class AlertPolicy(AlertPolicyBase, table=True):
     """Persisted alert policy: a named set of alert levels a prediction setup scores against."""
 
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
-    created: datetime.datetime | None = Field(
-        default=None, description="Server-side timestamp when the policy was created."
-    )
+    created: UtcDatetime | None = Field(default=None, description="Server-side timestamp when the policy was created.")
 
 
 class AlertPolicyRead(AlertPolicyBase):
     """API read shape for an `AlertPolicy`."""
 
     id: int = Field(description="Primary key of the policy.")
-    created: datetime.datetime | None = Field(description="Server-side timestamp when the policy was created.")
+    created: UtcDatetime | None = Field(description="Server-side timestamp when the policy was created.")
 
 
 class AlertApproval(StrEnum):
@@ -186,9 +183,7 @@ class AlertRecord(AlertBase):
     Shared by the DB row and the read view, which differ only in how `id` is typed.
     """
 
-    created: datetime.datetime | None = Field(
-        default=None, description="Server-side timestamp when the alert was recorded."
-    )
+    created: UtcDatetime | None = Field(default=None, description="Server-side timestamp when the alert was recorded.")
     approved: AlertApproval = Field(
         default=AlertApproval.PENDING,
         sa_column=Column(
@@ -203,7 +198,7 @@ class AlertRecord(AlertBase):
     approved_by: str | None = Field(
         default=None, description="Caller-supplied identifier of whoever reviewed it; `None` while pending."
     )
-    approved_at: datetime.datetime | None = Field(
+    approved_at: UtcDatetime | None = Field(
         default=None, description="Server-side timestamp of the review; `None` while pending."
     )
 

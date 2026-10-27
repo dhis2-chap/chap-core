@@ -2,7 +2,7 @@ import itertools
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 import pytest
@@ -538,6 +538,16 @@ def _run(session, name, dataset_id, **params):
     return run_backtest(
         BacktestCreate(name=name, dataset_id=dataset_id, model_id="naive_model"), session=session, **params
     )
+
+
+def test_backtest_created_carries_a_utc_offset(override_session, p_seeded_engine):
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        backtest_id = _run(session, "utc", dataset_id, n_periods=3, n_splits=2, stride=1, n_retrain=1)
+
+    response = client.get(f"/v1/crud/backtests/{backtest_id}")
+    assert response.status_code == 200, response.text
+    assert datetime.fromisoformat(response.json()["created"]).utcoffset() == timedelta(0)
 
 
 def test_run_backtest_records_the_train_cutoff_not_the_dataset_end(p_seeded_engine):
