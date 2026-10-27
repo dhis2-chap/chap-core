@@ -122,6 +122,21 @@ def test_run_prediction_keeps_the_policy_captured_at_start(alert_prediction):
     assert [a.level for a in list_alerts(session, prediction_id=prediction_id)] == ["action"]
 
 
+def test_run_prediction_keeps_forecast_when_captured_policy_is_deleted(alert_prediction):
+    session, original = alert_prediction
+
+    def delete_policy():
+        policy = original.alert_policy
+        original.alert_policy_id = None
+        original.prediction_setup.alert_policy = None
+        session.delete(policy)
+        session.commit()
+
+    prediction_id = _run_prediction(session, original, before_forecast=delete_policy)
+    assert session.get(Prediction, prediction_id).alert_policy_id is None
+    assert list_alerts(session, prediction_id=prediction_id) == []
+
+
 def test_run_prediction_fails_but_keeps_prediction_when_alerts_fail(alert_prediction):
     session, original = alert_prediction
     with patch("chap_core.rest_api.db_worker_functions.raise_alerts_for_prediction", side_effect=RuntimeError):

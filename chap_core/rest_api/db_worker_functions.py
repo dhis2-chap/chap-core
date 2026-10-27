@@ -13,6 +13,7 @@ from chap_core.assessment.forecast import forecast_ahead
 from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
 from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID
 from chap_core.data import DataSet as InMemoryDataSet
+from chap_core.database.alert_tables import AlertPolicy
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSetCreateInfo, DataSource
@@ -268,6 +269,10 @@ def run_prediction(
     assert configured_model.id is not None, "configured_model.id is required"
     estimator = session.get_configured_model_with_code(configured_model.id, prediction_length=n_periods)
     predictions = forecast_ahead(estimator, dataset, n_periods, weather_provider=future_weather_provider)
+    # The policy may have been detached from the setup and deleted during the run.
+    # Keep the forecast and record no policy rather than failing on the foreign key.
+    if alert_policy_id is not None and session.session.get(AlertPolicy, alert_policy_id) is None:
+        alert_policy_id = None
     db_id = session.add_predictions(
         predictions,
         dataset_id,
