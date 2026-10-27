@@ -144,7 +144,9 @@ def delete_alert_policy(session: Session, policy_id: int) -> None:
 
     Raises:
         AlertPolicyNotFoundError: policy does not exist.
-        AlertPolicyInUseError: a setup, prediction or alert still points at the policy.
+        AlertPolicyInUseError: a setup, prediction or alert still points at the
+            policy. An alert's level name only means something against its policy,
+            so deleting the policy would leave the alert unreadable.
     """
     policy = get_alert_policy(session, policy_id)
 
