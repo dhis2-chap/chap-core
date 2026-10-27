@@ -20,7 +20,7 @@ from sqlmodel import Session, select
 
 from chap_core.database.alert_tables import Alert, AlertLevel, AlertPolicy, AlertPolicyBase
 from chap_core.database.base_tables import utc_now
-from chap_core.database.tables import PredictionSetup
+from chap_core.database.tables import Prediction, PredictionSetup
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -41,7 +41,7 @@ class InvalidAlertPolicyError(AlertPolicyServiceError):
 
 
 class AlertPolicyInUseError(AlertPolicyServiceError):
-    """Raised when deleting a policy that a prediction setup or an alert still points at."""
+    """Raised when deleting a policy that a setup, prediction or alert still points at."""
 
 
 def _validate_levels(levels: Sequence[AlertLevel]) -> None:
@@ -144,15 +144,17 @@ def delete_alert_policy(session: Session, policy_id: int) -> None:
 
     Raises:
         AlertPolicyNotFoundError: policy does not exist.
-        AlertPolicyInUseError: a prediction setup or an alert still points at the
-            policy. An alert's level name only means something against its policy,
-            so deleting the policy would leave the alert unreadable.
+        AlertPolicyInUseError: a setup, prediction or alert still points at the policy.
     """
     policy = get_alert_policy(session, policy_id)
 
     setup_id = session.exec(select(PredictionSetup.id).where(PredictionSetup.alert_policy_id == policy_id)).first()
     if setup_id is not None:
         raise AlertPolicyInUseError(f"AlertPolicy {policy_id} is still used by prediction setup {setup_id}")
+
+    prediction_id = session.exec(select(Prediction.id).where(Prediction.alert_policy_id == policy_id)).first()
+    if prediction_id is not None:
+        raise AlertPolicyInUseError(f"AlertPolicy {policy_id} is still used by prediction {prediction_id}")
 
     alert_id = session.exec(select(Alert.id).where(Alert.alert_policy_id == policy_id)).first()
     if alert_id is not None:
