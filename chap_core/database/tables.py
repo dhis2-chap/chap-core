@@ -2,19 +2,18 @@
 todo: comment this file, make it clear which classes are central and being used
 """
 
-import datetime
 from enum import StrEnum
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 from pydantic import computed_field
-from sqlalchemy import JSON, Column, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, Column, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, Relationship, col, or_, select
 
 from chap_core.api_types import BacktestParams
 from chap_core.database.alert_tables import AlertPolicy, AlertPolicyRead
-from chap_core.database.base_tables import DBModel, PeriodID
+from chap_core.database.base_tables import DBModel, PeriodID, UtcDatetime, utc_now
 from chap_core.database.dataset_tables import DataSet, DataSetInfo, DataSource, PydanticListType
 from chap_core.database.model_templates_and_config_tables import (
     ConfiguredModelDB,
@@ -22,6 +21,15 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateDB,
     ModelTemplateRole,
 )
+
+
+class BackendSettings(DBModel, table=True):
+    """One installation-wide record of the settings an admin changed. Access it through `SettingsManager`."""
+
+    id: int = Field(default=1, primary_key=True)
+    overrides: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+
+    __table_args__ = (CheckConstraint("id = 1", name="ck_backendsettings_singleton"),)
 
 
 class BacktestSpecification(BacktestParams, table=True):
@@ -75,7 +83,7 @@ class BacktestBase(DBModel):
     )
     model_id: str = Field(description="Name of the configured model that was backtested.")
     name: str | None = Field(default=None, description="Optional human-friendly name for the backtest.")
-    created: datetime.datetime | None = Field(
+    created: UtcDatetime | None = Field(
         default=None, description="Server-side timestamp when the backtest row was created."
     )
     model_template_version: str | None = Field(
@@ -246,8 +254,8 @@ class SpecificationBaseline(DBModel, table=True):
         description="Foreign key to the baseline's `Backtest` once it is done.",
     )
     message: str | None = Field(default=None, description="Why the baseline is not applicable, when it is not.")
-    claimed_at: datetime.datetime = Field(
-        default_factory=datetime.datetime.now,
+    claimed_at: UtcDatetime = Field(
+        default_factory=utc_now,
         description="When the run was last queued, or when it failed. A pending or failed run is queued again a day after this.",
     )
     __table_args__ = (
@@ -286,9 +294,7 @@ class PredictionSetup(DBModel, table=True):
 
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
     name: str = Field(description="Human-friendly name for the setup.")
-    created: datetime.datetime | None = Field(
-        default=None, description="Server-side timestamp when the setup was created."
-    )
+    created: UtcDatetime | None = Field(default=None, description="Server-side timestamp when the setup was created.")
     backtest_id: int = Field(
         foreign_key="backtest.id",
         unique=True,
@@ -343,7 +349,7 @@ class PredictionSetupRead(DBModel):
 
     id: int = Field(description="Primary key of the setup.")
     name: str = Field(description="Human-friendly name for the setup.")
-    created: datetime.datetime | None = Field(description="Server-side timestamp when the setup was created.")
+    created: UtcDatetime | None = Field(description="Server-side timestamp when the setup was created.")
     backtest_id: int = Field(description="Foreign key to the parent `Backtest`.")
     configured_model: ConfiguredModelRead = Field(description="Configured model the setup will run.")
     start_period: PeriodID | None = Field(
@@ -426,7 +432,7 @@ class PredictionBase(DBModel):
     model_id: str = Field(description="Name of the configured model that produced the prediction.")
     n_periods: int = Field(description="Number of periods the model was asked to forecast.")
     name: str = Field(description="Human-friendly name for the prediction run.")
-    created: datetime.datetime = Field(description="Server-side timestamp when the prediction row was created.")
+    created: UtcDatetime = Field(description="Server-side timestamp when the prediction row was created.")
     meta_data: dict = Field(
         default_factory=dict,
         sa_column=Column(JSON),

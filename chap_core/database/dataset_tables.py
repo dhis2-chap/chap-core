@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from geojson_pydantic import (
     Feature,
 )
@@ -9,7 +7,7 @@ from geojson_pydantic import (
 from sqlalchemy import JSON, Column, TypeDecorator, false
 from sqlmodel import Field, Relationship
 
-from chap_core.database.base_tables import DBModel, PeriodID
+from chap_core.database.base_tables import DBModel, PeriodID, UtcDatetime
 
 
 class FeatureCollectionModel(_FeatureCollection):
@@ -100,7 +98,9 @@ class DataSetInfo(DataSetCreateInfo):
         sa_column=Column(JSON),
         description="Identifiers of every org unit that has at least one observation.",
     )
-    created: datetime | None = Field(default=None, description="Server-side timestamp when the dataset was registered.")
+    created: UtcDatetime | None = Field(
+        default=None, description="Server-side timestamp when the dataset was registered."
+    )
 
     period_type: str | None = Field(default=None, description="Granularity of the periods (`month`, `week`, ...).")
     created_manually: bool = Field(
@@ -129,4 +129,4 @@ class DataSetWithObservations(DataSetBase):
 
     id: int = Field(description="Primary key of the dataset.")
     observations: list[ObservationBase] = Field(description="Every observation belonging to this dataset.")
-    created: datetime | None = Field(description="Server-side timestamp when the dataset was registered.")
+    created: UtcDatetime | None = Field(description="Server-side timestamp when the dataset was registered.")

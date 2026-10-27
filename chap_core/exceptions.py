@@ -47,11 +47,25 @@ class ModelTemplateRevisionConflict(ValueError):
         self.version = version
         self.stored_digest = stored_digest
         self.reported_digest = reported_digest
-        super().__init__(
-            f"Model template {name!r} version {version!r} is stored from revision {stored_digest!r}, "
-            f"but its source now reports revision {reported_digest!r}. A version is write-once, so "
-            f"the new revision needs a new version label: {how_to_fix}"
-        )
+        write_once = "A version is write-once, so the new revision needs a new version label:"
+        if reported_digest is None:
+            stored = "" if stored_digest is None else f" is stored from revision {stored_digest!r}, but"
+            message = (
+                f"Model template {name!r} version {version!r}{stored or ':'} its source reports no git "
+                f"revision, so chap-core cannot check which source it runs. To fix it, {how_to_fix}"
+            )
+        elif stored_digest is None:
+            message = (
+                f"Model template {name!r} version {version!r} was stored before chap-core recorded "
+                f"source revisions, so the revision {reported_digest!r} its source reports now cannot "
+                f"be matched to it. {write_once} {how_to_fix}"
+            )
+        else:
+            message = (
+                f"Model template {name!r} version {version!r} is stored from revision {stored_digest!r}, "
+                f"but its source now reports revision {reported_digest!r}. {write_once} {how_to_fix}"
+            )
+        super().__init__(message)
 
 
 class BaselineTemplateConflict(ValueError):
