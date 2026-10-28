@@ -228,7 +228,7 @@ class ConfiguredModelsIntegrationTest:
         """Wait for a job to complete and return the database ID."""
         for _ in range(3000):
             job_url = self._chap_url + f"/v1/jobs/{job_id}"
-            job_status = self._get(job_url).lower()
+            job_status = self._get(job_url)["status"].lower()
             logger.info(f"Job status: {job_status}")
             if job_status == "failure":
                 try:

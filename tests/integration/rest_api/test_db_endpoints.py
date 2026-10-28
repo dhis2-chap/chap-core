@@ -62,7 +62,7 @@ client = TestClient(app)
 def await_result_id(job_id, timeout=30):
     for _ in range(timeout):
         response = client.get(f"/v1/jobs/{job_id}")
-        status = response.json()
+        status = response.json()["status"]
         if status == "SUCCESS":
             return client.get(f"/v1/jobs/{job_id}/database_result").json()["id"]
         if status == "FAILURE":

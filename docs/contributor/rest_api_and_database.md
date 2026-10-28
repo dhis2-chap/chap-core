@@ -97,7 +97,7 @@ Higher-level endpoints used by the Modeling App:
 Monitor and manage async Celery jobs:
 
 - `GET /v1/jobs` -- list all jobs, with optional filters for IDs, status, and type.
-- `GET /v1/jobs/{id}` -- get job status (PENDING, STARTED, SUCCESS, FAILURE, REVOKED).
+- `GET /v1/jobs/{id}` -- get one job, including its status (PENDING, STARTED, SUCCESS, FAILURE, REVOKED).
 - `DELETE /v1/jobs/{id}` -- delete a completed job's metadata.
 - `POST /v1/jobs/{id}/cancel` -- cancel a running job.
 - `GET /v1/jobs/{id}/logs` -- get the tail of a job's complete log.
