@@ -240,7 +240,7 @@ def load_dataset_from_csv(
         polygons.filter_locations(dataset.locations())
         dataset.set_polygons(polygons.data)
 
-    from chap_core.assessment.target_mask import MASK_INDICATOR_FIELD, apply_target_mask
+    from chap_core.assessment.target_mask import MASK_INDICATOR_FIELD
 
     if MASK_INDICATOR_FIELD in dataset.field_names():
         raise ValueError(
@@ -248,7 +248,7 @@ def load_dataset_from_csv(
             "Use masked ranges in --data-configuration instead."
         )
     if data_configuration is not None:
-        dataset = apply_target_mask(dataset, data_configuration.masked_ranges)
+        dataset = dataset.apply_masked_ranges(data_configuration.masked_ranges)
     return dataset
 
 

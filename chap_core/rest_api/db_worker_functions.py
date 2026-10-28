@@ -12,7 +12,6 @@ from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
 from chap_core.assessment.target_mask import (
-    apply_target_mask,
     check_mask_outside_evaluation_window,
     check_target_column_allows_masking,
 )
@@ -107,7 +106,7 @@ def load_masked_dataset(session: Session, dataset_id: int, target_column: str = 
     if stored is None:
         raise ValueError(f"Dataset with id {dataset_id} not found")
     check_target_column_allows_masking(stored.masked_ranges, target_column)
-    return apply_target_mask(manager.to_dataset(dataset_id), stored.masked_ranges)
+    return manager.to_dataset(dataset_id).apply_masked_ranges(stored.masked_ranges)
 
 
 def check_backtest_on_masked_dataset(

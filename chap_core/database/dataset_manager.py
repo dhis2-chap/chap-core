@@ -13,7 +13,7 @@ from typing import cast
 
 from sqlmodel import col, select
 
-from chap_core.assessment.target_mask import MASK_INDICATOR_FIELD, apply_target_mask, without_mask_indicator
+from chap_core.assessment.target_mask import MASK_INDICATOR_FIELD, without_mask_indicator
 from chap_core.database.base_tables import utc_now
 from chap_core.datatypes import FullData, create_tsdataclass
 from chap_core.geometry import Polygons
@@ -105,7 +105,7 @@ class DataSetManager(DbManager[DataSet]):
             # Masked on save by design: `disease_cases` is stored as NaN inside the ranges and the
             # original values are not kept. The indicator is not stored; it is derived from the
             # stored ranges whenever the dataset is loaded for a run.
-            orig_dataset = without_mask_indicator(apply_target_mask(orig_dataset, dataset_info.masked_ranges))
+            orig_dataset = without_mask_indicator(orig_dataset.apply_masked_ranges(dataset_info.masked_ranges))
         full_info = DataSetInfo(
             first_period=orig_dataset.period_range[0].id,
             last_period=orig_dataset.period_range[-1].id,
