@@ -266,3 +266,36 @@ def test_pydantic_arguments_survive_the_json_broker():
         wf.harmonize_and_add_dataset, ["rainfall"], [], {"data_dict": {}}, "dataset", "evaluation", data_sources=sources
     )
     assert received["data_sources"] == sources
+
+
+@job_function
+def database_of(session):
+    return session.session.get_bind().url.render_as_string(hide_password=False)
+
+
+def test_worker_ignores_a_database_url_in_the_message(monkeypatch, tmp_path):
+    monkeypatch.setattr(celery_tasks, "r", _FakeRedis())
+    monkeypatch.setattr(celery_tasks, "CHAP_LOGS_DIR", tmp_path)
+    monkeypatch.setitem(celery_tasks.app.conf, "task_always_eager", True)
+    own_database = f"sqlite:///{tmp_path}/worker.db"
+    monkeypatch.setenv("CHAP_DATABASE_URL", own_database)
+
+    result = celery_tasks.celery_run_with_session.apply_async(
+        args=(job_name_for(database_of),), kwargs={"database_url": "postgresql://attacker@evil.example/chap"}
+    )
+
+    assert result.result == own_database
+
+
+def test_worker_without_a_database_url_refuses_the_job(monkeypatch, tmp_path):
+    monkeypatch.setattr(celery_tasks, "r", _FakeRedis())
+    monkeypatch.setattr(celery_tasks, "CHAP_LOGS_DIR", tmp_path)
+    monkeypatch.setitem(celery_tasks.app.conf, "task_always_eager", True)
+    monkeypatch.delenv("CHAP_DATABASE_URL", raising=False)
+
+    result = celery_tasks.celery_run_with_session.apply_async(
+        args=(job_name_for(database_of),), kwargs={"database_url": "postgresql://attacker@evil.example/chap"}
+    )
+
+    assert result.status == "FAILURE"
+    assert isinstance(result.result, RuntimeError)

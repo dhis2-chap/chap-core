@@ -304,9 +304,20 @@ def celery_run(func_name: str, *args, **kwargs):
 ENGINES_CACHE: dict[str, Engine] = {}
 
 
+def worker_database_url() -> str:
+    """The database the worker runs jobs against, from its own environment."""
+    database_url = os.getenv("CHAP_DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("CHAP_DATABASE_URL is not set on the worker")
+    return database_url
+
+
 @app.task(base=TrackedTask)
 def celery_run_with_session(func_name: str, *args, **kwargs):
-    database_url = kwargs.pop("database_url")
+    # A database URL in the message is ignored: anyone who can write to the broker could
+    # otherwise point the worker at a database holding a model that runs their code.
+    kwargs.pop("database_url", None)
+    database_url = worker_database_url()
     if database_url not in ENGINES_CACHE:
         ENGINES_CACHE[database_url] = create_engine(database_url)
     engine = ENGINES_CACHE[database_url]
