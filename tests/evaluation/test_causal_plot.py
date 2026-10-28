@@ -192,6 +192,7 @@ def _make_vietnam_evaluation_with_history(
         dataset=dataset,
         model_id="test",
         model_db_id=1,
+        specification=BacktestSpecification(dataset_id=1),
         name="vietnam_test",
         created=None,
         aggregate_metrics={},
