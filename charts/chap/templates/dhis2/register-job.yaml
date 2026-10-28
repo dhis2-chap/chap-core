@@ -29,6 +29,9 @@ spec:
           env:
             - name: CHAP_URL
               value: "http://{{ include "chap.fullname" . }}-api.{{ .Release.Namespace }}.svc:{{ .Values.api.service.port }}"
+            {{- if include "chap.apiToken.enabled" . }}
+            {{- include "chap.apiTokenEnv" . | nindent 12 }}
+            {{- end }}
           command:
             - /bin/sh
             - -c
@@ -55,6 +58,9 @@ spec:
                 "url": "'"${CHAP_URL}"'/**",
                 "authorities": ["F_CHAP_MODELING_APP"],
                 "headers": {"Content-Type": "application/json"},
+                {{- if include "chap.apiToken.enabled" . }}
+                "auth": {"type": "api-token", "token": "'"${CHAP_API_TOKEN}"'"},
+                {{- end }}
                 "responseTimeoutSeconds": 30
               }')
               RESPONSE=$(curl -s -w "\n%{http_code}" \

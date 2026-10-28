@@ -72,6 +72,17 @@ externalValkey:
   password: <password>       # or use existingSecret
 ```
 
+## API token
+
+Set an API token to require `Authorization: Bearer <token>` on every request except the health endpoints. See [API Authentication](../../docs/webapi/api-authentication.md). Without a token the API accepts unauthenticated requests.
+
+```yaml
+apiToken:
+  token: <token>             # or use existingSecret
+```
+
+With `dhis2.enabled=true`, the registration job adds the token to the DHIS2 route (`auth.type = api-token`). The job skips a route that already exists, so for an existing route add the token in DHIS2 yourself, or delete the route and upgrade.
+
 ## Instance Manager
 
 When deploying via IM, set the IM-required labels once under `global.commonLabels` (and `valkey.commonLabels`, since the valkey subchart does not read global values). They propagate to all resources, pods and PVCs of every component. Components are distinguished by the `app.kubernetes.io/component` label (`api`, `worker`, `db`), and labels that differ per component, such as the `im-type` IM addresses a workload by, go in `api.labels`, `worker.labels` and `db.labels`. Those land on the component's own resources as well as its pods, which is what lets IM restart a single component. `api.podLabels`, `worker.podLabels`, `db.podLabels` and `valkey.podLabels` add labels to the pods only:
