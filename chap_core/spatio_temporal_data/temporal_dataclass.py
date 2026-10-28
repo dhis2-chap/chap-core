@@ -4,7 +4,7 @@ import pickle
 from collections.abc import Callable, Iterable, Iterator
 from numbers import Number
 from pathlib import Path, PurePath
-from typing import IO, Protocol, TypeVar
+from typing import IO, TYPE_CHECKING, Protocol, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -21,6 +21,9 @@ from ..datatypes import (
 from ..geometry import Polygons
 from ..time_period import Month, PeriodRange
 from ..time_period.date_util_wrapper import TimeStamp, Week, clean_timestring
+
+if TYPE_CHECKING:
+    from chap_core.database.dataset_tables import MaskedRange
 
 logger = logging.getLogger(__name__)
 
@@ -430,7 +433,7 @@ class DataSet[FeaturesT]:
     @classmethod
     def from_pickle(cls, file_name: str, dataclass: type[FeaturesT]) -> "DataSet[FeaturesT]":
         with open(file_name, "rb") as f:
-            data_dict = pickle.load(f)
+            data_dict = pickle.load(f)  # noqa: S301 — only loads local files we wrote
         return cls({loc: dataclass.from_pickle_dict(val) for loc, val in data_dict.items()})  # type: ignore[attr-defined, misc]
 
     @classmethod
@@ -530,6 +533,16 @@ class DataSet[FeaturesT]:
                 for loc, data in self.items()
             }
         )
+
+    def apply_masked_ranges(self, masked_ranges: "list[MaskedRange] | None") -> "DataSet":
+        """Return a copy with `disease_cases` masked in the given ranges (CLIM-1300).
+
+        Inside a range `disease_cases` is NaN and `target_masked` is 1; elsewhere the indicator is 0.
+        Without ranges the dataset is returned unchanged. See `chap_core.assessment.target_mask.apply_target_mask`.
+        """
+        from chap_core.assessment.target_mask import apply_target_mask
+
+        return apply_target_mask(self, masked_ranges)
 
     def remove_field(self, field_name, new_class=None):
         return self.__class__(
