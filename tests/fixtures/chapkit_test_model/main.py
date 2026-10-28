@@ -25,16 +25,30 @@ class TestConfig(BaseConfig):
     prediction_periods: int = 3
 
 
-def _log_train_call(config: TestConfig) -> None:
-    """Append what the service resolved for this train call to the side-channel file.
+def _log_call(call: str, config: TestConfig, df: Any) -> None:
+    """Append what the service received for this call to the side-channel file.
 
-    The file is how the chap-core integration tests observe the horizon that
-    reached the model, which is otherwise only visible inside the service.
+    The file is how the chap-core integration tests observe the horizon and the
+    data columns that reached the model, which are otherwise only visible inside
+    the service.
     """
-    log_path = os.environ.get("CHAPKIT_TEST_TRAIN_LOG")
+    log_path = os.environ.get("CHAPKIT_TEST_CALL_LOG")
     if not log_path:
         return
-    line = json.dumps({"prediction_periods": config.prediction_periods})
+    masked_values, cases_in_masked_rows = None, None
+    if "target_masked" in df.columns:
+        masked_values = sorted(df["target_masked"].unique().tolist())
+        if "disease_cases" in df.columns:
+            cases_in_masked_rows = int(df.loc[df["target_masked"] == 1, "disease_cases"].notna().sum())
+    line = json.dumps(
+        {
+            "call": call,
+            "prediction_periods": config.prediction_periods,
+            "columns": sorted(df.columns),
+            "masked_values": masked_values,
+            "cases_in_masked_rows": cases_in_masked_rows,
+        }
+    )
     with Path(log_path).open("a") as f:
         f.write(line + "\n")
 
@@ -52,8 +66,8 @@ async def on_train(
     data: DataFrame,
     geo: FeatureCollection | None = None,
 ) -> Any:
-    _log_train_call(config)
     df = data.to_pandas()
+    _log_call("train", config, df)
     if "disease_cases" not in df.columns:
         log.warning("no disease_cases column, returning empty model")
         return {"seasonal": {}, "fallback": 0.0}
@@ -84,6 +98,7 @@ async def on_predict(
     geo: FeatureCollection | None = None,
 ) -> DataFrame:
     future_df = future.to_pandas()
+    _log_call("predict", config, future_df)
     seasonal = model["seasonal"]
     fallback = model["fallback"]
 

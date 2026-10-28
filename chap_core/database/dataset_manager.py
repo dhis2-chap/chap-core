@@ -6,7 +6,6 @@ exposes dataset methods.
 """
 
 import dataclasses
-import datetime
 import json
 import logging
 from pathlib import Path
@@ -14,13 +13,15 @@ from typing import cast
 
 from sqlmodel import col, select
 
+from chap_core.assessment.target_mask import MASK_INDICATOR_FIELD, without_mask_indicator
+from chap_core.database.base_tables import utc_now
 from chap_core.datatypes import FullData, create_tsdataclass
 from chap_core.geometry import Polygons
 from chap_core.time_period import Month, TimePeriod, Week
 
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
-from .dataset_tables import DataSet, DataSetCreateInfo, DataSetInfo, Observation
+from .dataset_tables import DataSet, DataSetCreateInfo, DataSetInfo, Observation, check_masked_ranges_match_dataset
 from .manager import DbManager
 from .tables import Backtest, Prediction
 
@@ -96,12 +97,20 @@ class DataSetManager(DbManager[DataSet]):
             if field.name not in ["time_period", "location"]
         ]
         logger.info(f"Field names in dataset: {field_names}")
+        if MASK_INDICATOR_FIELD in field_names:
+            raise ValueError(f"{MASK_INDICATOR_FIELD!r} is added by masking for a run and is never stored")
         period_type = period_type_of(orig_dataset.period_range[0])
+        check_masked_ranges_match_dataset(dataset_info.masked_ranges, orig_dataset.period_range[0])
+        if dataset_info.masked_ranges:
+            # Masked on save by design: `disease_cases` is stored as NaN inside the ranges and the
+            # original values are not kept. The indicator is not stored; it is derived from the
+            # stored ranges whenever the dataset is loaded for a run.
+            orig_dataset = without_mask_indicator(orig_dataset.apply_masked_ranges(dataset_info.masked_ranges))
         full_info = DataSetInfo(
             first_period=orig_dataset.period_range[0].id,
             last_period=orig_dataset.period_range[-1].id,
             covariates=field_names,
-            created=datetime.datetime.now(),
+            created=utc_now(),
             org_units=list(orig_dataset.locations()),
             period_type=period_type,
             created_manually=created_manually,

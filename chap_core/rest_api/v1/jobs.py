@@ -193,19 +193,21 @@ def _get_successful_job(job_id):
 
 @router.get(
     "/{job_id}",
-    summary="Check whether a job is done yet",
+    summary="Get one job",
+    responses={404: {"description": "Job not found"}},
 )
-def get_job_status(job_id: str) -> str:
-    """Return the current state of a queued job (``PENDING``, ``STARTED``, ``SUCCESS``, ``FAILURE``, ...).
+def get_job(job_id: str) -> JobDescription:
+    """Return one job in the same shape as an entry of ``GET /v1/jobs``: its type, name, status
+    (``PENDING``, ``STARTED``, ``SUCCESS``, ``FAILURE``, ...), start and end time, result and error.
 
     The canonical way to poll a background job started by any of the
     ``POST /v1/analytics/*`` or ``POST /v1/crud/*`` endpoints. 404 if the job id is
     unknown.
     """
-    _ensure_job_exists(job_id)
-    status: str = worker.get_job(job_id).status
-    logger.info(f"status of job {job_id}: {status}")
-    return status
+    meta = get_job_meta(job_id)
+    if not meta:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+    return job_description(job_id, meta)
 
 
 @router.get(

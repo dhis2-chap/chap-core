@@ -52,6 +52,15 @@ ModelConfigYamlArg = Annotated[
     Parameter(help="Path to YAML file with model-specific configuration parameters"),
 ]
 
+DataConfigurationArg = Annotated[
+    Path | None,
+    Parameter(
+        help="Path to a JSON or YAML file with data settings, in the same shape as the REST dataset payload. "
+        'Masks disease_cases in the given ranges for this run. Example: {"maskedRanges": '
+        '[{"start": "2021-06", "end": "2021-08"}]}'
+    ),
+]
+
 DataSourceMappingArg = Annotated[
     Path | None,
     Parameter(

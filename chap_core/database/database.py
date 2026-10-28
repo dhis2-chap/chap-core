@@ -1,4 +1,3 @@
-import datetime
 import logging
 
 # CHeck if CHAP_DATABASE_URL is set in the environment
@@ -14,6 +13,7 @@ from sqlmodel import Session, SQLModel, col, create_engine, select
 from sqlmodel.sql.expression import SelectOfScalar
 
 from chap_core.api_types import BacktestParams
+from chap_core.database.base_tables import utc_now
 from chap_core.log_config import is_debug_mode
 from chap_core.predictor.naive_estimator import NaiveEstimator
 
@@ -631,7 +631,7 @@ class SessionWrapper:
             dataset_id=dataset_id,
             model_id=model_id,
             name=name,
-            created=datetime.datetime.now(),
+            created=utc_now(),
             n_periods=n_periods,
             meta_data=metadata,
             forecasts=samples_,
@@ -910,7 +910,7 @@ def _run_generic_migration(engine):
                         default_value = _get_column_default_value(column)
                         if default_value is not None:
                             update_sql = (
-                                f"UPDATE {table_name} SET {column.name} = :default_val WHERE {column.name} IS NULL"
+                                f"UPDATE {table_name} SET {column.name} = :default_val WHERE {column.name} IS NULL"  # noqa: S608 — names come from SQLModel metadata
                             )
                             conn.execute(sqlalchemy.text(update_sql), {"default_val": default_value})
                             logger.info(f"Set default value for {column.name} in existing records")
@@ -937,7 +937,7 @@ def _get_column_default_value(column):
                     return "[]"
                 elif isinstance(result, dict):
                     return "{}"
-            except Exception:
+            except Exception:  # noqa: S110 — fall back to the raw default
                 pass
         return column.default.arg
 
