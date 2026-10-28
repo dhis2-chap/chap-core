@@ -55,8 +55,7 @@ app = FastAPI(
 )
 
 CORS_ORIGINS_ENV_VAR = "CHAP_CORS_ORIGINS"
-# The Modeling App dev server. In production the app reaches Chap through the DHIS2 Route API,
-# a server-to-server call that needs no CORS.
+# A local front-end dev server.
 DEFAULT_CORS_ORIGINS = "http://localhost:3000"
 
 

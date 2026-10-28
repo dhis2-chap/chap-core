@@ -12,7 +12,7 @@ def preflight(origin: str):
 
 
 class TestCorsMiddleware:
-    def test_allows_the_modeling_app_dev_server(self):
+    def test_allows_the_local_dev_server(self):
         response = preflight("http://localhost:3000")
 
         assert response.status_code == 200
@@ -27,7 +27,7 @@ class TestCorsMiddleware:
 
 
 class TestGetCorsOrigins:
-    def test_defaults_to_the_modeling_app_dev_server(self, monkeypatch):
+    def test_defaults_to_the_local_dev_server(self, monkeypatch):
         monkeypatch.delenv(CORS_ORIGINS_ENV_VAR, raising=False)
 
         assert get_cors_origins() == ["http://localhost:3000"]
