@@ -62,7 +62,7 @@ DEFAULT_CORS_ORIGINS = "http://localhost:3000"
 def get_cors_origins() -> list[str]:
     """Origins allowed to call the API from a browser, from comma-separated ``CHAP_CORS_ORIGINS``."""
     value = os.getenv(CORS_ORIGINS_ENV_VAR) or DEFAULT_CORS_ORIGINS
-    return [origin.strip() for origin in value.split(",") if origin.strip()]
+    return [origin.strip().rstrip("/") for origin in value.split(",") if origin.strip()]
 
 
 warn_on_weak_token()

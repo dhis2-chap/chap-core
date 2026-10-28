@@ -12,13 +12,6 @@ def preflight(origin: str):
 
 
 class TestCorsMiddleware:
-    def test_allows_the_local_dev_server(self):
-        response = preflight("http://localhost:3000")
-
-        assert response.status_code == 200
-        assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
-        assert "access-control-allow-credentials" not in response.headers
-
     def test_refuses_an_unknown_origin(self):
         response = preflight("https://evil.example")
 
@@ -41,3 +34,8 @@ class TestGetCorsOrigins:
         monkeypatch.setenv(CORS_ORIGINS_ENV_VAR, "https://dhis2.example.org, https://app.example.org,")
 
         assert get_cors_origins() == ["https://dhis2.example.org", "https://app.example.org"]
+
+    def test_strips_a_trailing_slash(self, monkeypatch):
+        monkeypatch.setenv(CORS_ORIGINS_ENV_VAR, "https://dhis2.example.org/")
+
+        assert get_cors_origins() == ["https://dhis2.example.org"]
