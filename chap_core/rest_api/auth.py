@@ -21,7 +21,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 logger = logging.getLogger(__name__)
 
-API_TOKEN_ENV_VAR = "CHAP_API_TOKEN"
+API_TOKEN_ENV_VAR = "CHAP_API_TOKEN"  # noqa: S105 — name of the env var, not a secret
 SERVICE_KEY_ENV_VAR = "SERVICEKIT_REGISTRATION_KEY"
 SERVICE_KEY_HEADER = "X-Service-Key"
 

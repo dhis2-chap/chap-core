@@ -128,3 +128,13 @@ entry_points:
 
     assert template.model_template_config.max_prediction_periods == 1
     assert template.model_template_config.min_prediction_periods is None
+
+
+def test_mlproject_with_python_tag_is_rejected(tmp_path):
+    from chap_core.models.utils import get_model_template_from_mlproject_file
+
+    mlproject_file = tmp_path / "MLproject"
+    mlproject_file.write_text("name: !!python/tuple [a, b]\n")
+
+    with pytest.raises(yaml.constructor.ConstructorError):
+        get_model_template_from_mlproject_file(mlproject_file)

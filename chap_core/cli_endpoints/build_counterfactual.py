@@ -87,7 +87,7 @@ class FeatureTransformations:
         result = series.copy()
         mask = ~series.isna()
         code = compile(expr, "<expr>", "eval")
-        result[mask] = series[mask].apply(lambda x: eval(code, namespace, {"x": x}))
+        result[mask] = series[mask].apply(lambda x: eval(code, namespace, {"x": x}))  # noqa: S307 — expression is validated and has no builtins
         return result
 
 

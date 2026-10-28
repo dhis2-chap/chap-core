@@ -46,7 +46,7 @@ def run_command(command: str, working_directory=Path("."), env: dict | None = No
     # Python block-buffers stdout when it is not a terminal, which would hold a
     # model's output until it exits and defeat the line-by-line logging below.
     env.setdefault("PYTHONUNBUFFERED", "1")
-    process = subprocess.Popen(
+    process = subprocess.Popen(  # noqa: S602 — model commands are shell strings by design
         command,
         stdout=subprocess.PIPE,
         # Merged so the two streams stay in the order the model produced them;

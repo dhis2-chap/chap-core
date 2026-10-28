@@ -433,7 +433,7 @@ class DataSet[FeaturesT]:
     @classmethod
     def from_pickle(cls, file_name: str, dataclass: type[FeaturesT]) -> "DataSet[FeaturesT]":
         with open(file_name, "rb") as f:
-            data_dict = pickle.load(f)
+            data_dict = pickle.load(f)  # noqa: S301 — only loads local files we wrote
         return cls({loc: dataclass.from_pickle_dict(val) for loc, val in data_dict.items()})  # type: ignore[attr-defined, misc]
 
     @classmethod
