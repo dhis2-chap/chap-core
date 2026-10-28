@@ -10,6 +10,7 @@
 #   CHAP_DATABASE_URL  full percent-encoded URL, overrides the POSTGRES_* values
 #   CHAP_ROOT_PATH     path prefix when served behind a reverse proxy
 #   CHAP_API_TOKEN     API token; unset means no authentication
+#   CHAP_CORS_ORIGINS  comma-separated browser origins allowed by CORS
 #
 # An alternative to compose.yml, not an overlay: layering the two duplicates
 # security_opt / cap_drop entries and fails validation.
@@ -28,6 +29,7 @@ services:
       CHAP_RUNS_DIR: /data/runs
       CHAP_ROOT_PATH: ${CHAP_ROOT_PATH:-}
       CHAP_API_TOKEN: ${CHAP_API_TOKEN:-}
+      CHAP_CORS_ORIGINS: ${CHAP_CORS_ORIGINS:-}
     read_only: true
     security_opt:
       - no-new-privileges:true
