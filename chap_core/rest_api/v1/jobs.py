@@ -1,14 +1,19 @@
 import json
 import logging
+import platform
+from importlib.metadata import version
 from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlmodel import Session
+from sqlalchemy import func, or_
+from sqlmodel import Session, col, select
 
+from chap_core.database.dataset_tables import DataSet, Observation
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import Backtest, BacktestRead, Prediction, PredictionInfo
 from chap_core.log_config import initialize_logging
-from chap_core.rest_api.celery_tasks import CeleryPool, JobDescription, get_job_meta
+from chap_core.rest_api.celery_tasks import CeleryPool, JobDescription, get_job_meta, job_description
 from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.v1.routers.dependencies import get_session
 
@@ -19,6 +24,113 @@ logger.info("Logging initialized")
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 worker: CeleryPool[Any] = CeleryPool()
+
+
+class ModelDiagnostics(BaseModel):
+    name: str
+    version: str
+    source: str | None
+    commit_sha: str | None = Field(description="Stored source revision; null when unavailable.")
+
+
+class DatasetDiagnostics(BaseModel):
+    n_locations: int
+    period_type: str | None
+    first_period: str | None
+    last_period: str | None
+    covariates: list[str]
+    missing_value_counts: dict[str, int] = Field(description="Number of stored NULL or NaN observations per feature.")
+
+
+class DiagnosticLogs(BaseModel):
+    tail: str = Field(
+        description="Last 256 KiB of captured output, plus a truncation marker when needed. "
+        "Model output may contain data values; it is not sanitized."
+    )
+    truncated: bool
+
+
+class JobDiagnostics(BaseModel):
+    job: JobDescription
+    traceback: str | None = Field(description="Stored failure traceback; may include values printed by the model.")
+    model: ModelDiagnostics | None
+    dataset: DatasetDiagnostics | None = Field(
+        description="Aggregate metadata only; never observation values or geometry."
+    )
+    environment: dict[str, str] = Field(
+        description="Current API runtime versions, not a snapshot of the worker environment."
+    )
+    logs: DiagnosticLogs
+
+
+@router.get(
+    "/{job_id}/diagnostics",
+    summary="Download diagnostics for a failed job",
+    responses={404: {"description": "Job not found"}, 409: {"description": "Job has not failed"}},
+)
+def get_job_diagnostics(job_id: str, session: Session = Depends(get_session)) -> JobDiagnostics:
+    """Assemble job information, run parameters, the error and traceback, model provenance,
+    dataset metadata and environment versions in one JSON bundle.
+
+    Dataset observations, geometry and the submitted request are never included.
+    Logs are bounded and may contain data values.
+    Error messages and tracebacks can also contain model output and are not sanitized.
+    Missing model/dataset references (including older jobs and jobs that create their
+    dataset in the worker) are returned as null. Only FAILURE jobs are supported.
+    """
+    meta = get_job_meta(job_id)
+    if not meta:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+    if meta["status"] != "FAILURE":
+        raise HTTPException(status_code=409, detail="Diagnostics are only available for failed jobs")
+
+    job = job_description(job_id, meta)
+    model_info = None
+    model = session.get(ConfiguredModelDB, job.model_id) if job.model_id is not None else None
+    if model is not None:
+        template = model.model_template
+        model_info = ModelDiagnostics(
+            name=model.name,
+            version=job.model_version or template.version,
+            source=template.source_url,
+            commit_sha=template.source_digest,
+        )
+
+    dataset_info = None
+    dataset = session.get(DataSet, job.dataset_id) if job.dataset_id is not None else None
+    if dataset is not None:
+        # Aggregate in SQL so observation values never enter the response object.
+        missing = session.exec(
+            select(Observation.feature_name, func.count())
+            .where(
+                Observation.dataset_id == dataset.id,
+                or_(col(Observation.value).is_(None), col(Observation.value) == float("nan")),
+            )
+            .group_by(Observation.feature_name)
+        ).all()
+        counts = dict.fromkeys(dataset.covariates, 0)
+        counts.update({name: count for name, count in missing if name is not None})
+        dataset_info = DatasetDiagnostics(
+            n_locations=len(dataset.org_units or []),
+            period_type=dataset.period_type,
+            first_period=dataset.first_period,
+            last_period=dataset.last_period,
+            covariates=dataset.covariates,
+            missing_value_counts=counts,
+        )
+
+    tail, truncated = worker.get_job(job_id).get_log_tail()
+    return JobDiagnostics(
+        job=job,
+        traceback=meta.get("traceback"),
+        model=model_info,
+        dataset=dataset_info,
+        environment={
+            "python": platform.python_version(),
+            **{package: version(package) for package in ("chap_core", "chapkit", "celery", "numpy", "pandas")},
+        },
+        logs=DiagnosticLogs(tail=tail, truncated=truncated),
+    )
 
 
 @router.get(
@@ -81,19 +193,21 @@ def _get_successful_job(job_id):
 
 @router.get(
     "/{job_id}",
-    summary="Check whether a job is done yet",
+    summary="Get one job",
+    responses={404: {"description": "Job not found"}},
 )
-def get_job_status(job_id: str) -> str:
-    """Return the current state of a queued job (``PENDING``, ``STARTED``, ``SUCCESS``, ``FAILURE``, ...).
+def get_job(job_id: str) -> JobDescription:
+    """Return one job in the same shape as an entry of ``GET /v1/jobs``: its type, name, status
+    (``PENDING``, ``STARTED``, ``SUCCESS``, ``FAILURE``, ...), start and end time, result and error.
 
     The canonical way to poll a background job started by any of the
     ``POST /v1/analytics/*`` or ``POST /v1/crud/*`` endpoints. 404 if the job id is
     unknown.
     """
-    _ensure_job_exists(job_id)
-    status: str = worker.get_job(job_id).status
-    logger.info(f"status of job {job_id}: {status}")
-    return status
+    meta = get_job_meta(job_id)
+    if not meta:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+    return job_description(job_id, meta)
 
 
 @router.get(

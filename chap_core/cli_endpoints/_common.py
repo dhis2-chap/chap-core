@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     import pandas as pd
 
-    from chap_core.api_types import BacktestParams, EstimatorOptions
+    from chap_core.api_types import BacktestParams, EstimatorOptions, RunConfig
+    from chap_core.database.dataset_tables import DataConfiguration
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
     from chap_core.external.model_configuration import ModelTemplateConfigV2
     from chap_core.hpo.hyperparameter_optimizer import HyperparameterOptimizer
@@ -67,9 +68,6 @@ def get_model(
     name: str,
     run_directory_type: Literal["latest", "timestamp", "use_existing"] | None,
 ) -> Any:
-    import yaml
-
-    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
     from chap_core.models.model_template import ModelTemplate
     from chap_core.models.utils import CHAP_RUNS_DIR
 
@@ -81,11 +79,7 @@ def get_model(
         is_chapkit_model=is_chapkit_model,
     )
     logger.info(f"Model template loaded: {template}")
-    model_config: ModelConfiguration | None = None
-    if configuration is not None:
-        logger.info(f"Loading model configuration from yaml file {configuration}")
-        model_config = ModelConfiguration.model_validate(yaml.safe_load(open(configuration)))
-        logger.info(f"Loaded model configuration from yaml file: {model_config}")
+    model_config = get_configuration(Path(configuration) if configuration is not None else None)
 
     model = template.get_model(model_config)  # type: ignore[arg-type]
     model = model()
@@ -179,10 +173,34 @@ def discover_geojson(csv_path: Path) -> Path | None:
     return None
 
 
+def load_data_configuration(path: Path | None) -> DataConfiguration | None:
+    """Read a `--data-configuration` file (JSON or YAML) with the dataset's data settings, such as masked ranges.
+
+    Raises ValueError when the file cannot be read or parsed, or its content is invalid.
+    """
+    if path is None:
+        return None
+    import json
+
+    import yaml
+
+    from chap_core.database.dataset_tables import DataConfiguration
+
+    logger.info(f"Loading data configuration from {path}")
+    try:
+        with open(path) as f:
+            # JSON allows tab indentation, which YAML rejects, so .json files go through the JSON parser.
+            content = json.load(f) if Path(path).suffix.lower() == ".json" else yaml.safe_load(f)
+    except (OSError, yaml.YAMLError) as e:
+        raise ValueError(f"Could not read {path}: {e}") from e
+    return DataConfiguration.model_validate(content or {})
+
+
 def load_dataset_from_csv(
     csv_path: Path,
     geojson_path: Path | None = None,
     column_mapping: dict[str, str] | None = None,
+    data_configuration: DataConfiguration | None = None,
 ) -> DataSet:
     """
     Load dataset from CSV file with optional GeoJSON polygons.
@@ -192,6 +210,8 @@ def load_dataset_from_csv(
         geojson_path: Optional path to GeoJSON file with polygon boundaries
         column_mapping: Optional mapping from covariate names (keys) to CSV column names (values).
             If provided, columns will be renamed before creating the DataSet.
+        data_configuration: Optional data settings; its masked ranges mask `disease_cases` in the
+            loaded dataset (CLIM-1300).
 
     Returns:
         DataSet loaded from CSV with polygons if provided
@@ -220,6 +240,15 @@ def load_dataset_from_csv(
         polygons.filter_locations(dataset.locations())
         dataset.set_polygons(polygons.data)
 
+    from chap_core.assessment.target_mask import MASK_INDICATOR_FIELD
+
+    if MASK_INDICATOR_FIELD in dataset.field_names():
+        raise ValueError(
+            f"{csv_path} has a {MASK_INDICATOR_FIELD!r} column, which is reserved: it is added by masking. "
+            "Use masked ranges in --data-configuration instead."
+        )
+    if data_configuration is not None:
+        dataset = dataset.apply_masked_ranges(data_configuration.masked_ranges)
     return dataset
 
 
@@ -271,6 +300,29 @@ def get_configuration(
 
     logger.info(f"Loading model configuration from {model_configuration_yaml}")
     return ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
+
+
+def load_dataset_and_template(
+    model_name: str,
+    dataset_csv: str,
+    model_configuration_yaml: Path | None,
+    run_config: RunConfig,
+) -> tuple[DataSet, ModelTemplate, ModelConfiguration | None]:
+    """Load the dataset, model configuration and model template shared by ``report`` and ``simulate``."""
+    from chap_core.models.model_template import ModelTemplate
+
+    csv_path, url_geojson_path = resolve_csv_path(dataset_csv)
+    geojson_path = url_geojson_path or discover_geojson(csv_path)
+    dataset = load_dataset_from_csv(csv_path, geojson_path)
+    configuration = get_configuration(model_configuration_yaml)
+
+    logger.info(f"Loading model template from {model_name}")
+    template = ModelTemplate.from_directory_or_github_url(
+        model_name,
+        ignore_env=run_config.ignore_environment,
+        run_dir_type=run_config.run_directory_type,
+    )
+    return dataset, template, configuration
 
 
 def get_estimator(

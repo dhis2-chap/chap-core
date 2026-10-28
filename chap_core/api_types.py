@@ -107,8 +107,8 @@ class EvaluationEntry(PredictionEntry):
     splitPeriod: str = Field(description="Period at which the rolling split was advanced for this prediction.")
 
 
-class BacktestParams(DBModel):
-    """Shared backtest scheduling parameters used by request models."""
+class BacktestParamsBase(DBModel):
+    """Backtest parameter fields. API requests resolve omitted values from stored settings."""
 
     n_periods: int = Field(
         default=3, ge=1, title="Forecast periods", description="Number of periods to forecast at each split."
@@ -141,6 +141,10 @@ class BacktestParams(DBModel):
     def _check_weather_provider(cls, value: str) -> str:
         resolve_weather_provider(value)
         return value
+
+
+class BacktestParams(BacktestParamsBase):
+    """Resolved backtest parameters, including validation across fields."""
 
     @model_validator(mode="after")
     def _check_n_retrain(self) -> "BacktestParams":

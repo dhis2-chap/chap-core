@@ -57,7 +57,7 @@ def _label_points_from_geojson_features(features: list[object]) -> list[dict[str
         if bbox is None:
             try:
                 bbox = [float(v) for v in feature_bbox(FeatureModel.model_validate(feature))]
-            except Exception:
+            except Exception:  # noqa: S112 — skip features without a usable bbox
                 continue
 
         xmin, ymin, xmax, ymax = bbox

@@ -141,8 +141,11 @@ select = [
     "A",
     "TCH",
     "SIM",
+    "S",
 ]
-ignore = ["B008", "RUF012", "SIM108", "SIM115"]
+# S101: assert guards internal invariants. S603/S607: subprocess calls take argument lists
+# of fixed executables. S311: random is used for sampling, not cryptography.
+ignore = ["B008", "RUF012", "SIM108", "SIM115", "S101", "S311", "S603", "S607"]
 fixable = ["ALL"]
 
 # Disable all linting in tests, but still allow formatting there.

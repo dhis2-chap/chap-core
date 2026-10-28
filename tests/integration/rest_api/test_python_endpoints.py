@@ -2,6 +2,7 @@ import pytest
 from sqlmodel import select, Session
 
 from chap_core.assessment.metrics import list_metrics
+from chap_core.database.settings import SettingsManager
 from chap_core.database.tables import Backtest
 from chap_core.rest_api.v1.routers.visualization import (
     get_available_metrics,
@@ -11,21 +12,27 @@ from chap_core.rest_api.v1.routers.visualization import (
 )
 
 
-def test_get_available_metrics():
-    metrics = get_available_metrics(backtest_id=1)
+def test_get_available_metrics(seeded_session):
+    metrics = get_available_metrics(backtest_id=1, settings_manager=SettingsManager(seeded_session))
     print(metrics)
     # Check for unified metrics (no more "detailed_" prefix)
     assert any(metric.id == "rmse" for metric in metrics)
 
 
-def test_available_metrics_expose_optimization_direction():
-    metrics = {metric.id: metric for metric in get_available_metrics(backtest_id=1)}
+def test_available_metrics_expose_optimization_direction(seeded_session):
+    metrics = {
+        metric.id: metric
+        for metric in get_available_metrics(backtest_id=1, settings_manager=SettingsManager(seeded_session))
+    }
     assert metrics["crps"].optimization_direction == "minimize"
     assert metrics["coverage_10_90"].optimization_direction is None
 
 
-def test_available_metrics_expose_unit_and_target():
-    metrics = {metric.id: metric for metric in get_available_metrics(backtest_id=1)}
+def test_available_metrics_expose_unit_and_target(seeded_session):
+    metrics = {
+        metric.id: metric
+        for metric in get_available_metrics(backtest_id=1, settings_manager=SettingsManager(seeded_session))
+    }
     assert metrics["mape"].unit == "%"
     assert metrics["mape"].target is None
     assert metrics["coverage_10_90"].target == 0.8
@@ -41,8 +48,11 @@ def test_available_metrics_expose_unit_and_target():
             assert metric.target is not None, metric.id
 
 
-def test_available_metrics_expose_target_behavior():
-    metrics = {metric.id: metric for metric in get_available_metrics(backtest_id=1)}
+def test_available_metrics_expose_target_behavior(seeded_session):
+    metrics = {
+        metric.id: metric
+        for metric in get_available_metrics(backtest_id=1, settings_manager=SettingsManager(seeded_session))
+    }
     assert metrics["coverage_10_90"].target_behavior == "at_least"
     assert metrics["coverage_25_75"].target_behavior == "at_least"
     assert metrics["ratio_above_truth"].target_behavior == "closest"
@@ -50,19 +60,17 @@ def test_available_metrics_expose_target_behavior():
         assert metrics[entry["id"]].target_behavior == entry["target_behavior"]
 
 
-def test_available_metrics_expose_comparison_op():
-    metrics = {metric.id: metric for metric in get_available_metrics(backtest_id=1)}
+def test_available_metrics_expose_comparison_op(seeded_session):
+    metrics = {
+        metric.id: metric
+        for metric in get_available_metrics(backtest_id=1, settings_manager=SettingsManager(seeded_session))
+    }
     assert metrics["mae"].comparison_op == "skill_ratio"
     for entry in list_metrics():
         assert metrics[entry["id"]].comparison_op == entry["comparison_op"]
 
 
-def all_metric_ids():
-    metrics = get_available_metrics(backtest_id=1)
-    return [metric.id for metric in metrics]
-
-
-@pytest.mark.parametrize("metric_id", all_metric_ids())
+@pytest.mark.parametrize("metric_id", [entry["id"] for entry in list_metrics()])
 def test_generate_metric_visualization(seeded_session, metric_id, visualization_name="metric_by_horizon_mean"):
     assert generate_visualization(
         visualization_name=visualization_name, backtest_id=1, metric_id=metric_id, session=seeded_session

@@ -16,12 +16,14 @@ from sqlalchemy.engine import Connection, Engine
 from sqlmodel import col, select
 
 from chap_core.api_types import BacktestParams
+from chap_core.database.base_tables import utc_now
 from chap_core.database.database import SessionWrapper
 from chap_core.database.tables import SpecificationBaseline, SpecificationBaselineStatus
 from chap_core.models.builtin import BaselineNotApplicable
 from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
 from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.rest_api.db_worker_functions import run_backtest
+from chap_core.rest_api.job_registry import job_function
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +47,7 @@ def request_baselines(session: SessionWrapper, specification_id: int, database_u
     than raised, so a trigger never fails because of them. The claim is then removed, so
     the next trigger tries again.
     """
-    now = datetime.datetime.now()
+    now = utc_now()
     stale_before = now - STALE_CLAIM_AFTER
     claims = {
         baseline.configured_model_id: baseline
@@ -130,6 +132,7 @@ def request_baselines_after_response(bind: Engine | Connection, specification_id
         request_baselines(session, specification_id, database_url)
 
 
+@job_function
 def run_baseline(specification_baseline_id: int, session: SessionWrapper) -> int | None:
     """Run one claimed baseline as a backtest on its specification, and return the backtest id.
 
@@ -160,7 +163,7 @@ def run_baseline(specification_baseline_id: int, session: SessionWrapper) -> int
         session.session.rollback()
         baseline.status = SpecificationBaselineStatus.failed
         baseline.message = str(e)
-        baseline.claimed_at = datetime.datetime.now()
+        baseline.claimed_at = utc_now()
         session.session.commit()
         raise
     baseline.status = SpecificationBaselineStatus.done

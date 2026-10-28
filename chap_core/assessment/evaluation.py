@@ -32,6 +32,7 @@ from chap_core.assessment.weather_providers import (
     DEFAULT_WEATHER_PROVIDER_ID,
     LEGACY_WEATHER_PROVIDER_ID,
 )
+from chap_core.database.base_tables import utc_now
 from chap_core.database.dataset_tables import DataSet, Observation, ObservationBase
 from chap_core.database.tables import Backtest, BacktestForecast, BacktestSpecification
 from chap_core.external.ExtendedPredictor import ExtendedPredictor
@@ -345,7 +346,7 @@ class Evaluation(EvaluationBase):
         specification: BacktestSpecification | None = None,
         hpo: HyperparameterOptimization | None = None,
     ) -> Evaluation:
-        info.created = datetime.datetime.now()
+        info.created = utc_now()
         # The parameters live on the specification now and are computed fields on
         # Backtest, reading through the link. Excluding them here keeps that explicit;
         # passing them would be silently ignored rather than rejected.

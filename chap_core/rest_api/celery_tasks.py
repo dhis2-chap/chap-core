@@ -1,12 +1,11 @@
-import inspect
 import json
 import logging
 import os
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import TypeVar, cast
+from typing import Any, TypeVar, cast
 
 import celery
 from celery import Celery, Task, shared_task
@@ -20,6 +19,7 @@ from sqlalchemy.engine import Engine
 from ..database.database import SessionWrapper
 from ..log_config import CHAP_LOGS_DIR, get_status_logger
 from ..util import load_redis
+from .job_registry import job_function, job_name_for, json_args, json_kwargs, resolve_job
 
 ReturnType = TypeVar("ReturnType")
 
@@ -73,6 +73,13 @@ class JobDescription(BaseModel):
         default=None, description="`PredictionSetup.id` this job belongs to, when applicable."
     )
 
+    model_id: int | None = Field(default=None, description="Configured model primary key captured at enqueue time.")
+    model_version: str | None = Field(default=None, description="Model template version captured at enqueue time.")
+    dataset_id: int | None = Field(
+        default=None, description="Input dataset primary key; None when the job creates its dataset."
+    )
+    parameters: dict[str, Any] = Field(default_factory=dict, description="Run parameters, including defaults.")
+
 
 def read_environment_variables():
     load_dotenv(find_dotenv())
@@ -85,9 +92,13 @@ url = read_environment_variables()
 logger.info(f"Connecting to {url}")
 app = Celery("worker", broker=url, backend=url)
 app.conf.update(
-    task_serializer="pickle",
-    accept_content=["pickle"],  # Allow pickle serialization
-    result_serializer="pickle",
+    # JSON only: a pickled message would let anyone who can write to the broker run code on the worker.
+    task_serializer="json",
+    accept_content=["json"],
+    result_serializer="json",
+    result_accept_content=["json"],
+    # Modules defining @job_function, imported by the worker so the registry is full before it takes a task.
+    imports=["chap_core.rest_api.db_worker_functions", "chap_core.rest_api.baseline_runs"],
     # Enables tracking of job lifecycle
     task_track_started=True,
     task_send_sent_event=True,
@@ -153,7 +164,7 @@ class TrackedTask(Task):
                 f"job_meta:{task_id}",
                 mapping={
                     "status": "STARTED",
-                    # "start_time": datetime.now().isoformat(), # update the start time
+                    # "start_time": datetime.now(UTC).isoformat(), # update the start time
                 },
             )
             # Execute the actual task
@@ -175,16 +186,21 @@ class TrackedTask(Task):
         # Read (don't pop) — the worker function also needs prediction_setup_id when present.
         prediction_setup_id = kwargs.get(PREDICTION_SETUP_ID_JOB_META_KEY)
         original_request = kwargs.pop(JOB_REQUEST_KW, None)
+        metadata = kwargs.pop(JOB_METADATA_KW, {})
         result = super().apply_async(args=args, kwargs=kwargs, **options)
 
         job_meta: dict[str, str] = {
             "job_name": job_name,
             "job_type": job_type,
             "status": "PENDING",
-            "start_time": datetime.now().isoformat(),
+            "start_time": datetime.now(UTC).isoformat(),
         }
         if prediction_setup_id is not None:
             job_meta[PREDICTION_SETUP_ID_JOB_META_KEY] = str(prediction_setup_id)
+
+        for key, value in metadata.items():
+            if value is not None:
+                job_meta[key] = json.dumps(value) if isinstance(value, dict) else str(value)
 
         r.hset(
             f"job_meta:{result.id}",
@@ -215,7 +231,7 @@ class TrackedTask(Task):
                     "status": "FAILURE",
                     # "duration": duration,
                     "error": "Could not serialize return value to JSON",
-                    "end_time": datetime.now().isoformat(),
+                    "end_time": datetime.now(UTC).isoformat(),
                 },
             )
             raise Exception("Could not serialize return value to JSON. Return value is:" + str(retval)) from None
@@ -226,7 +242,7 @@ class TrackedTask(Task):
                 "status": "SUCCESS",
                 # "duration": duration,
                 "result": retval,
-                "end_time": datetime.now().isoformat(),
+                "end_time": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -243,7 +259,7 @@ class TrackedTask(Task):
                 # A job list shows this, so it is bounded. The traceback keeps the full text.
                 "error": str(exc)[:JOB_ERROR_MAX_CHARS],
                 "traceback": str(einfo.traceback),
-                "end_time": datetime.now().isoformat(),
+                "end_time": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -272,6 +288,7 @@ def db_roundtrip() -> str:
     return "ok"
 
 
+@job_function
 def add_numbers(a: int, b: int):
     logger.info(f"Adding {a} + {b}")
     return a + b
@@ -279,22 +296,34 @@ def add_numbers(a: int, b: int):
 
 # set base to TrackedTask to enable per-task logging
 @app.task(base=TrackedTask)
-def celery_run(func, *args, **kwargs):
+def celery_run(func_name: str, *args, **kwargs):
+    func, args, kwargs = resolve_job(func_name, args, kwargs)
     return func(*args, **kwargs)
 
 
 ENGINES_CACHE: dict[str, Engine] = {}
 
 
+def worker_database_url() -> str:
+    """The database the worker runs jobs against, from its own environment."""
+    database_url = os.getenv("CHAP_DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("CHAP_DATABASE_URL is not set on the worker")
+    return database_url
+
+
 @app.task(base=TrackedTask)
-def celery_run_with_session(func, *args, **kwargs):
-    database_url = kwargs.pop("database_url")
+def celery_run_with_session(func_name: str, *args, **kwargs):
+    # A database URL in the message is ignored: anyone who can write to the broker could
+    # otherwise point the worker at a database holding a model that runs their code.
+    kwargs.pop("database_url", None)
+    database_url = worker_database_url()
     if database_url not in ENGINES_CACHE:
         ENGINES_CACHE[database_url] = create_engine(database_url)
     engine = ENGINES_CACHE[database_url]
 
-    named_args = inspect.getfullargspec(func).args
-    logger.info(f"Running {named_args}")
+    func, args, kwargs = resolve_job(func_name, args, kwargs)
+    logger.info(f"Running {func_name}")
     with SessionWrapper(engine) as session:
         ret = func(*args, **kwargs | {"session": session})
         return ret
@@ -302,6 +331,7 @@ def celery_run_with_session(func, *args, **kwargs):
 
 JOB_TYPE_KW = "__job_type__"
 JOB_NAME_KW = "__job_name__"
+JOB_METADATA_KW = "__job_metadata__"
 JOB_REQUEST_KW = "__job_request__"
 # Request bodies can be several MB of inline data, so they expire instead of living as long as job_meta.
 JOB_REQUEST_TTL_SECONDS = 7 * 24 * 60 * 60
@@ -310,6 +340,25 @@ PREDICTION_SETUP_ID_JOB_META_KEY = "prediction_setup_id"
 
 def _parse_prediction_setup_id(value: str | None) -> int | None:
     return int(value) if value is not None else None
+
+
+def job_description(task_id: str, meta: dict[str, str]) -> JobDescription:
+    """Build a JobDescription from a job's Redis metadata."""
+    return JobDescription(
+        id=task_id,
+        type=meta.get("job_type", "Unspecified"),
+        name=meta.get("job_name", "Unnamed"),
+        status=meta["status"],
+        start_time=meta.get("start_time"),
+        end_time=meta.get("end_time"),
+        result=meta.get("result"),
+        error=meta.get("error"),
+        model_id=int(meta["model_id"]) if "model_id" in meta else None,
+        model_version=meta.get("model_version"),
+        dataset_id=int(meta["dataset_id"]) if "dataset_id" in meta else None,
+        parameters=json.loads(meta.get("parameters", "{}")),
+        prediction_setup_id=_parse_prediction_setup_id(meta.get(PREDICTION_SETUP_ID_JOB_META_KEY)),
+    )
 
 
 class CeleryJob[ReturnType]:
@@ -343,7 +392,7 @@ class CeleryJob[ReturnType]:
             f"job_meta:{self._job.id}",
             mapping={
                 "status": "REVOKED",
-                "end_time": datetime.now().isoformat(),
+                "end_time": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -359,6 +408,13 @@ class CeleryJob[ReturnType]:
     def exception_info(self) -> str:
         return str(self._result.traceback or "")
 
+    def get_log_tail(self) -> tuple[str, bool]:
+        """Read captured output and its truncation flag, without appending a traceback."""
+        log_file = CHAP_LOGS_DIR / f"task_{self.id}.debug.txt"
+        if not log_file.exists():
+            return "", False
+        return _read_tail(log_file, LOG_TAIL_BYTES)
+
     def get_logs(self) -> str:
         """Get the tail of the complete log for this job.
 
@@ -370,23 +426,23 @@ class CeleryJob[ReturnType]:
         if not log_file.exists():
             logger.warning("Log file %s not found, falling back to traceback", log_file)
             return self.exception_info
-        logs = _read_tail(log_file, LOG_TAIL_BYTES)
+        logs, _ = self.get_log_tail()
         job_meta = get_job_meta(self.id)
         if job_meta and job_meta.get("status") == "FAILURE":
             logs += "\n" + str(job_meta.get("traceback", ""))
         return logs
 
 
-def _read_tail(path: Path, max_bytes: int) -> str:
+def _read_tail(path: Path, max_bytes: int) -> tuple[str, bool]:
     """Return the last max_bytes of path, cut to a line boundary and marked when truncated."""
     size = path.stat().st_size
     if size <= max_bytes:
-        return path.read_text()
+        return path.read_text(), False
     with path.open("rb") as f:
         f.seek(size - max_bytes)
         tail = f.read().decode("utf-8", errors="replace")
     _, _, tail = tail.partition("\n")
-    return f"[... earlier log output truncated ...]\n{tail}"
+    return f"[... earlier log output truncated ...]\n{tail}", True
 
 
 class CeleryPool[ReturnType]:
@@ -397,11 +453,11 @@ class CeleryPool[ReturnType]:
         self._celery = app
 
     def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> CeleryJob[ReturnType]:
-        job = celery_run.delay(func, *args, **kwargs)
+        job = celery_run.delay(job_name_for(func), *json_args(args), **json_kwargs(kwargs))
         return CeleryJob(job, app=self._celery)
 
     def queue_db(self, func: Callable[..., ReturnType], *args, **kwargs) -> CeleryJob[ReturnType]:
-        job = celery_run_with_session.delay(func, *args, **kwargs)
+        job = celery_run_with_session.delay(job_name_for(func), *json_args(args), **json_kwargs(kwargs))
         return CeleryJob(job, app=self._celery)
 
     def get_job(self, task_id: str) -> CeleryJob[ReturnType]:
@@ -439,17 +495,7 @@ class CeleryPool[ReturnType]:
                 jobs.append(meta)
 
         return [
-            JobDescription(
-                id=meta["task_id"],
-                type=meta.get("job_type", "Unspecified"),
-                name=meta.get("job_name", "Unnamed"),
-                status=meta["status"],
-                start_time=meta.get("start_time", None),
-                end_time=meta.get("end_time", None),
-                result=meta.get("result", None),
-                error=meta.get("error", None),
-                prediction_setup_id=_parse_prediction_setup_id(meta.get(PREDICTION_SETUP_ID_JOB_META_KEY, None)),
-            )
+            job_description(meta["task_id"], meta)
             for meta in sorted(jobs, key=lambda x: x.get("start_time", datetime(1900, 1, 1).isoformat()), reverse=True)
         ]
 
