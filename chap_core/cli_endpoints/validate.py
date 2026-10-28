@@ -11,10 +11,16 @@ from typing import TYPE_CHECKING, Annotated
 from cyclopts import Parameter
 
 from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
+    DataConfigurationArg,
     DatasetCsvArg,
     DataSourceMappingArg,
 )
-from chap_core.cli_endpoints._common import discover_geojson, load_dataset_from_csv, resolve_csv_path
+from chap_core.cli_endpoints._common import (
+    discover_geojson,
+    load_data_configuration,
+    load_dataset_from_csv,
+    resolve_csv_path,
+)
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -31,6 +37,7 @@ def validate_cmd(
         Parameter(help="Model path (local directory) or GitHub URL to validate dataset against"),
     ] = None,
     data_source_mapping: DataSourceMappingArg = None,
+    data_configuration: DataConfigurationArg = None,
 ):
     """Validate a CSV dataset for CHAP compatibility.
 
@@ -44,6 +51,9 @@ def validate_cmd(
         # Validate against a model
         chap validate --dataset-csv ./data/vietnam.csv \\
             --model-name https://github.com/dhis2-chap/minimalist_example_r
+
+        # Check that masked ranges fit the dataset
+        chap validate --dataset-csv ./data/vietnam.csv --data-configuration ./data/vietnam.data.json
     """
     import pandas as pd
 
@@ -68,8 +78,14 @@ def validate_cmd(
             sys.exit(1)
 
     try:
+        data_config = load_data_configuration(data_configuration)
+    except ValueError as e:
+        print(f"Error in data configuration {data_configuration}: {e}")
+        sys.exit(1)
+
+    try:
         geojson_path = url_geojson_path or discover_geojson(csv_path)
-        dataset = load_dataset_from_csv(csv_path, geojson_path, column_mapping)
+        dataset = load_dataset_from_csv(csv_path, geojson_path, column_mapping, data_config)
     except ValueError as e:
         print(f"Error loading dataset: {e}")
         _report_period_gaps(raw_df)

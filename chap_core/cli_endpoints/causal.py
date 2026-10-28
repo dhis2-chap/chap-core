@@ -10,6 +10,7 @@ import pandas as pd
 from cyclopts import Parameter
 
 from chap_core.api_types import RunConfig
+from chap_core.assessment.target_mask import as_future_data
 from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
     DatasetCsvArg,
     ModelNameArg,
@@ -256,7 +257,7 @@ def causal_cmd(
         predictor = estimator.train(train_data)
 
         logger.info("Predicting on original dataset")
-        original_predictions = predictor.predict(train_data, original_test_data.remove_field("disease_cases"))
+        original_predictions = predictor.predict(train_data, as_future_data(original_test_data))
 
         logger.info("Predicting on counterfactual dataset")
         if cf_start_period_obj is not None:
@@ -270,7 +271,7 @@ def causal_cmd(
         else:
             cf_historic_data = train_data
 
-        cf_predictions = predictor.predict(cf_historic_data, cf_test_data.remove_field("disease_cases"))
+        cf_predictions = predictor.predict(cf_historic_data, as_future_data(cf_test_data))
 
         original_swt = original_test_data.merge(original_predictions, result_dataclass=SamplesWithTruth)
         cf_swt = cf_test_data.merge(cf_predictions, result_dataclass=SamplesWithTruth)
