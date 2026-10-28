@@ -308,3 +308,15 @@ def test_worker_without_a_database_url_refuses_the_job(monkeypatch, tmp_path):
 
     assert result.status == "FAILURE"
     assert isinstance(result.result, RuntimeError)
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("redis://:s3cret@redis.internal:6379/0", "redis.internal:6379"),
+        ("redis://user:s3cret@redis.internal/0", "redis.internal"),
+        ("redis://localhost:6379", "localhost:6379"),
+    ],
+)
+def test_broker_host_drops_credentials(url, expected):
+    assert celery_tasks.broker_host(url) == expected

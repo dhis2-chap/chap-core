@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, TypeVar, cast
+from urllib.parse import urlsplit
 
 import celery
 from celery import Celery, Task, shared_task
@@ -87,9 +88,15 @@ def read_environment_variables():
     return host
 
 
+def broker_host(url: str) -> str:
+    """Return host:port of a broker URL, leaving out credentials so it is safe to log."""
+    parts = urlsplit(url)
+    return f"{parts.hostname}:{parts.port}" if parts.port else str(parts.hostname)
+
+
 # Setup celery
 url = read_environment_variables()
-logger.info(f"Connecting to {url}")
+logger.info(f"Connecting to Celery broker at {broker_host(url)}")
 app = Celery("worker", broker=url, backend=url)
 app.conf.update(
     # JSON only: a pickled message would let anyone who can write to the broker run code on the worker.
