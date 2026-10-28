@@ -203,3 +203,8 @@ def test_model_services_stay_on_default_network(compose_file):
             f"{compose_file}: service '{service_name}' joins '{BACKEND_NETWORK}', so it shares a network "
             f"with the Celery broker and can enqueue tasks the worker executes"
         )
+
+
+@pytest.mark.parametrize("compose_file", ["compose.yml", "compose.ghcr.yml"])
+def test_api_port_is_published_on_localhost_by_default(compose_file):
+    assert _services(compose_file)["chap"]["ports"] == ["${CHAP_BIND_ADDRESS:-127.0.0.1}:8000:8000"]

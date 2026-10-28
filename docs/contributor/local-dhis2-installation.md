@@ -26,7 +26,7 @@ Whichever option you chose, you should now have a DHIS2 instance running at loca
 - First install the `App Management` app, then install the app called `Modeling` through the App Hub.
 - **Option 2 only** (or if the DHIS2 Route was not registered for you): in the Modeling app, you will be told to put in an url to Chap. Since DHIS2 runs through a Docker container, it cannot reach Chap via `localhost`, so you need a URL that points from inside the container back to Chap running on your host machine:
   - **On Mac and Windows**, use `http://host.docker.internal:8000/**` -- Docker Desktop resolves this hostname to your host automatically.
-  - **On Linux**, `host.docker.internal` is not available by default, so you need the IP of your local computer. Find it by running `ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}'` in your terminal (you may have to install ifconfig). Put `http://` before that IP and `:8000/**` after, e.g. `http://172.18.0.1:8000/**`.
+  - **On Linux**, `host.docker.internal` is not available by default, so you need the IP of your local computer. Find it by running `ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}'` in your terminal (you may have to install ifconfig). Put `http://` before that IP and `:8000/**` after, e.g. `http://172.18.0.1:8000/**`. Chap publishes port 8000 on `127.0.0.1` by default, which that address cannot reach, so also set `CHAP_BIND_ADDRESS=0.0.0.0` in Chap's `.env` (or the IP you use) and restart with `docker compose up -d`.
 
 ## Running an evaluation
 

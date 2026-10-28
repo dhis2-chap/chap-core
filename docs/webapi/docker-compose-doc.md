@@ -80,6 +80,7 @@ inline on the command line: Compose reads `.env` on every command, so a later
 | `POSTGRES_PASSWORD` | `chap` | Database password. Postgres is never published to the host, but override this for anything beyond a local trial. It is interpolated into a database URI, so it must be URL-safe -- no `@`, `:`, `/`, `?`, `#` or `%`. |
 | `POSTGRES_DB` | `chap_core` | Database name. |
 | `CHAP_DATABASE_URL` | composed from the three above | Full, percent-encoded database URL. Takes precedence, and is how you use a password containing reserved characters. |
+| `CHAP_BIND_ADDRESS` | `127.0.0.1` | Host address the API port 8000 is published on. The default only accepts connections from the same machine. To reach Chap from other machines, put a reverse proxy in front of it, or set the host's private IP (or `0.0.0.0`) when DHIS2 runs on another host, VM or LXC container and calls Chap directly. Do not publish the API on a public interface without `CHAP_API_TOKEN`. |
 | `CHAP_ROOT_PATH` | empty | Path prefix when serving behind a reverse proxy. |
 | `CHAP_API_TOKEN` | empty | API token. Unset means no authentication. |
 | `CHAP_CORS_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins allowed by CORS. Not needed when the Modeling App connects through the DHIS2 Route API. |
