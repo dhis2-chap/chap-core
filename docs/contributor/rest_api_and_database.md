@@ -17,6 +17,7 @@ flowchart TB
     Analytics["analytics.py<br/>/v1/analytics"]
     Jobs["jobs.py<br/>/v1/jobs"]
     Viz["visualization.py<br/>/v1/visualization"]
+    Settings["settings.py<br/>/v1/settings"]
     Services["services.py<br/>chapkit registry<br/>/v2/services"]
 
     App --> Common
@@ -26,6 +27,7 @@ flowchart TB
     V1 --> Analytics
     V1 --> Jobs
     V1 --> Viz
+    V1 --> Settings
     V2 --> Services
 ```
 
@@ -55,7 +57,7 @@ SQLAlchemy and Pydantic).
 
 ## The v1 API
 
-The v1 router (`rest_api/v1/rest_api.py`) includes four sub-routers:
+The v1 router (`rest_api/v1/rest_api.py`) includes five sub-routers:
 
 ### crud.py (`/v1/crud/...`)
 
@@ -95,7 +97,7 @@ Higher-level endpoints used by the Modeling App:
 Monitor and manage async Celery jobs:
 
 - `GET /v1/jobs` -- list all jobs, with optional filters for IDs, status, and type.
-- `GET /v1/jobs/{id}` -- get job status (PENDING, STARTED, SUCCESS, FAILURE, REVOKED).
+- `GET /v1/jobs/{id}` -- get one job, including its status (PENDING, STARTED, SUCCESS, FAILURE, REVOKED).
 - `DELETE /v1/jobs/{id}` -- delete a completed job's metadata.
 - `POST /v1/jobs/{id}/cancel` -- cancel a running job.
 - `GET /v1/jobs/{id}/logs` -- get the tail of a job's complete log.
@@ -106,6 +108,41 @@ Monitor and manage async Celery jobs:
 ### visualization.py (`/v1/visualization/...`)
 
 Generates plots and metrics charts from backtest results.
+
+### settings.py (`/v1/settings`)
+
+`GET /v1/settings` reads the installation-wide defaults; `PUT /v1/settings` replaces
+the complete record. The `backendsettings` table holds only the values an admin
+changed; reads layer them over the code defaults, so a release that changes a default
+reaches every installation that has not overridden it. Routers access the settings
+through `SettingsManager` (`database/settings.py`):
+
+- `metricSortOrder`: metric ids in display and ranking order. Metrics omitted from
+  this list are appended in their default order.
+- `selectedMetrics`: the subset shown by default, returned in `metricSortOrder` order.
+- `defaultBaselineModel`: the built-in baseline's name, initially `persistence`.
+  A name follows new model versions without changing the settings.
+- `weeklyBacktestParams` and `monthlyBacktestParams`: the `BacktestParams` fields.
+  Initially both use 7 splits, one training run and `climatology` for future weather.
+  Weekly data forecasts 12 periods with stride 4; monthly data forecasts 3 with stride 1.
+
+`DEFAULT_METRIC_ORDER` in `database/settings.py` sets the default order. The first six,
+selected by default, are CRPS (log1p), Winkler 25–75 (log1p), MAE, RMSE, MAPE and
+Coverage 10–90. Reads drop metric ids that no longer exist and fall back to
+`persistence` for a missing baseline, so renaming either never breaks the API. A record
+that is invalid for any other reason is logged and replaced by the defaults. The
+leaderboard and metric catalogue return every metric in the saved order with `sortOrder` and
+`isSelected`. The leaderboard also returns `defaultBaselineModel` so clients can
+choose that baseline's comparison values. Its backtest rows remain newest first;
+the frontend uses the selected metrics in order to rank them, respecting each
+metric's direction or target.
+
+`GET /v1/analytics/backtest-parameters?periodType=week` (or `month`, the default)
+returns the saved parameter defaults with their existing display metadata. All
+three backtest creation endpoints resolve omitted parameters against the dataset's
+period type before validating and queueing the work. Explicit parameters override
+the saved defaults, and existing specifications are unchanged. Standalone CLI
+runs continue to use `BacktestParams` defaults without a database.
 
 
 ## The v2 API
@@ -225,10 +262,17 @@ model templates and configured models from YAML config files.
 ### How it works
 
 1. A REST endpoint calls `worker.queue_db(func, *args, **kwargs)` on a `CeleryPool`.
-2. This serializes the function and arguments (using pickle) and sends them to the
-   Redis broker via `celery_run_with_session.delay()`.
-3. The Celery worker picks up the task, creates a `SessionWrapper` with a fresh DB
+2. This sends the function's registered name and its arguments as JSON to the Redis
+   broker via `celery_run_with_session.delay()`. Pydantic arguments are sent as dicts.
+3. The Celery worker picks up the task, looks the function up by name, rebuilds the
+   pydantic arguments from its type hints, creates a `SessionWrapper` with a fresh DB
    engine, and calls the function with the session injected.
+
+Celery accepts JSON only, never pickle, so a message on the broker can call nothing
+but a registered job function. To queue a new function, decorate it with
+`@job_function` from `chap_core/rest_api/job_registry.py`, in a module listed in the
+Celery app's `imports` setting (`celery_tasks.py`), so the worker registers it at
+startup. Queuing an unregistered function raises `ValueError`.
 4. Job metadata (status, timestamps, results) is stored in Redis hashes (`job_meta:{task_id}`).
 
 ### TrackedTask

@@ -1,15 +1,18 @@
 import logging
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi.exceptions import RequestValidationError
 from pydantic import Field as PydanticField
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.orm import selectinload
 from sqlmodel import Field, Session, select
 
 import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import (
     BacktestParams,
+    BacktestParamsBase,
     DataElement,
     DataList,
     EvaluationEntry,
@@ -22,10 +25,11 @@ from chap_core.assessment.thresholds.params import ThresholdParams
 from chap_core.assessment.weather_providers import list_weather_providers
 from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
-from chap_core.database.dataset_manager import DataSetManager
+from chap_core.database.dataset_manager import DataSetManager, period_type_of
 from chap_core.database.dataset_tables import DataSet as DataSetTable
 from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
+from chap_core.database.settings import Settings, SettingsManager
 from chap_core.database.tables import (
     Backtest,
     BacktestForecast,
@@ -40,7 +44,7 @@ from chap_core.services.dataset_validation import RESERVED_FIELDS
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
-from ...celery_tasks import JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW, CeleryPool, JobType
+from ...celery_tasks import JOB_METADATA_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW, CeleryPool, JobType
 from ...data_models import (
     BacktestCreate,
     BacktestDomain,
@@ -58,7 +62,17 @@ from ...data_models import (
     PredictionParams,
     ValidationError,
 )
-from .dependencies import get_database_url, get_job_request, get_session, get_settings
+from .dependencies import (
+    check_masked_ranges_match,
+    get_database_url,
+    get_job_model,
+    get_job_request,
+    get_session,
+    get_settings,
+    get_settings_manager,
+    model_job_metadata,
+    reject_mask_indicator_input,
+)
 
 router = APIRouter(prefix="/analytics")
 
@@ -89,8 +103,12 @@ def make_dataset(
     (validation runs synchronously, the harmonise-and-load step async). Poll
     ``/v1/jobs/{id}`` to know when the dataset is queryable. Pass ``dryRun=true`` to run
     validation only and get the rejection summary without queuing an import.
+
+    ``maskedRanges`` deletes data: ``disease_cases`` inside the ranges is stored as empty
+    and the submitted values are not kept. They cannot be recovered or unmasked later.
     """
     feature_names, provided_data, rejections = _read_and_validate_dataset(request, dry_run)
+    check_masked_ranges_match(request.masked_ranges, provided_data)
     imported_count = len(list(provided_data.locations()))
     if dry_run:
         return ImportSummaryResponse(id=None, imported_count=imported_count, rejected=rejections)
@@ -104,12 +122,32 @@ def make_dataset(
         request.name,
         request.type,
         data_sources=request.data_sources,
+        masked_ranges=request.masked_ranges,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.DATASET, JOB_NAME_KW: request.name},
+        **{
+            JOB_REQUEST_KW: original_request,
+            JOB_TYPE_KW: JobType.DATASET,
+            JOB_NAME_KW: request.name,
+            JOB_METADATA_KW: {
+                "parameters": request.model_dump(mode="json", exclude={"name", "geojson", "provided_data"})
+            },
+        },
     )
 
     return ImportSummaryResponse(id=job.id, imported_count=imported_count, rejected=rejections)
+
+
+def _all_regions_rejected(rejections: list[ValidationError]) -> HTTPException:
+    """A 400 in the same shape as `validate_full_dataset`'s, so clients can show the rejections."""
+    return HTTPException(
+        status_code=400,
+        detail={
+            "message": "All regions rejected. No data was imported.",
+            "imported_count": 0,
+            "rejected": [r.model_dump(by_alias=True) for r in rejections],
+        },
+    )
 
 
 def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataSet, list[ValidationError]]:
@@ -136,13 +174,7 @@ def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataS
         for location in polygon_rejected
     )
     if not dry_run and not provided_data.locations():
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "message": "Missing values. No data was imported.",
-                "rejected": [r.model_dump(by_alias=True) for r in rejections],
-            },
-        )
+        raise _all_regions_rejected(rejections)
     return feature_names, provided_data, rejections
 
 
@@ -150,6 +182,7 @@ def _read_dataset(request):
     if not request.provided_data:
         raise HTTPException(status_code=400, detail="No observation data provided.")
     feature_names = list({entry.feature_name for entry in request.provided_data})
+    reject_mask_indicator_input(feature_names)
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
@@ -434,11 +467,12 @@ async def get_evaluation_entries(
     tags=["Backtests"],
     summary="Run a backtest against a stored dataset",
 )
-async def create_backtest(
+def create_backtest(
     request: MakeBacktestRequest,
     original_request: dict = Depends(get_job_request),
     database_url: str = Depends(get_database_url),
     session: Session = Depends(get_session),
+    settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
     """Train and evaluate a configured model on a dataset that's already been imported, producing a backtest you can score, plot, or promote into a prediction setup.
 
@@ -451,18 +485,37 @@ async def create_backtest(
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
     if request.target_column not in stored_dataset.covariates:
         raise HTTPException(status_code=422, detail=f"Dataset has no target column {request.target_column!r}")
+    params = _resolve_backtest_params(settings_manager.get(), request, stored_dataset.period_type)
+    if stored_dataset.masked_ranges:
+        try:
+            wf.check_backtest_on_masked_dataset(
+                session,
+                request.dataset_id,
+                params.n_periods,
+                params.n_splits,
+                params.stride,
+                target_column=request.target_column,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+    model = get_job_model(session, request.model_id)
     job = worker.queue_db(
         wf.run_backtest,
-        BacktestCreate(name=request.name, dataset_id=request.dataset_id, model_id=request.model_id),
-        n_periods=request.n_periods,
-        n_splits=request.n_splits,
-        stride=request.stride,
-        n_retrain=request.n_retrain,
-        future_weather_provider=request.future_weather_provider,
+        BacktestCreate(name=request.name, dataset_id=request.dataset_id, model_id=model.id),
+        **params.model_dump(),
         target_column=request.target_column,
         baseline_database_url=database_url,
         database_url=database_url,
-        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: request.name},
+        **{
+            JOB_REQUEST_KW: original_request,
+            JOB_TYPE_KW: JobType.EVALUATION_LEGACY,
+            JOB_NAME_KW: request.name,
+            JOB_METADATA_KW: model_job_metadata(
+                model,
+                {**params.model_dump(mode="json"), "target_column": request.target_column},
+                request.dataset_id,
+            ),
+        },
     )
 
     return JobResponse(id=job.id)
@@ -479,6 +532,7 @@ def create_backtests(
     original_request: dict = Depends(get_job_request),
     database_url: str = Depends(get_database_url),
     session: Session = Depends(get_session),
+    settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
     """Evaluate a set of configured models on one stored dataset with one set of parameters, so the resulting backtests are comparable by construction.
 
@@ -489,16 +543,14 @@ def create_backtests(
     per model to poll via ``/v1/jobs/{id}``. 404 if the dataset or a model does not exist,
     422 if targetColumn is not a dataset column or no org unit has target data left to train on.
     """
-    if session.get(DataSetTable, request.dataset_id) is None:
+    stored_dataset = session.get(DataSetTable, request.dataset_id)
+    if stored_dataset is None:
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
     wrapper = SessionWrapper(session=session)
+    params = _resolve_backtest_params(settings_manager.get(), request, stored_dataset.period_type)
+    models = [get_job_model(session, model_id) for model_id in request.model_ids]
     try:
-        models = [wrapper.get_configured_model_by_id_or_name(model_id) for model_id in request.model_ids]
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    params = BacktestParams(**request.model_dump(include=set(BacktestParams.model_fields)))
-    dataset = DataSetManager(session).to_dataset(request.dataset_id)
-    try:
+        dataset = wf.load_masked_dataset(session, request.dataset_id, request.target_column)
         _, specification = wf.resolve_backtest_specification(
             wrapper, dataset, request.dataset_id, params, target_column=request.target_column
         )
@@ -515,7 +567,16 @@ def create_backtests(
             target_column=request.target_column,
             baseline_database_url=database_url,
             database_url=database_url,
-            **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: name},
+            **{
+                JOB_REQUEST_KW: original_request,
+                JOB_TYPE_KW: JobType.EVALUATION_LEGACY,
+                JOB_NAME_KW: name,
+                JOB_METADATA_KW: model_job_metadata(
+                    model,
+                    {**params.model_dump(mode="json"), "target_column": request.target_column},
+                    request.dataset_id,
+                ),
+            },
         )
         jobs.append(BacktestJob(configured_model_id=model.id, job_id=job.id))
     assert specification.id is not None
@@ -534,6 +595,7 @@ async def make_prediction(
     original_request: dict = Depends(get_job_request),
     database_url=Depends(get_database_url),
     worker_settings=Depends(get_settings),
+    session: Session = Depends(get_session),
 ):
     """Run a forecast against observations supplied directly in the request body — no stored dataset needed.
 
@@ -547,6 +609,7 @@ async def make_prediction(
     """
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
+    reject_mask_indicator_input(feature_names)
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
@@ -558,6 +621,7 @@ async def make_prediction(
     dump = request.model_dump()
     dataset_info = DataSetCreateInfo(**dump).model_dump()
     prediction_params = PredictionParams(**dump)
+    model = get_job_model(session, request.model_id)
     job = worker.queue_db(
         wf.predict_pipeline_from_composite_dataset,
         feature_names,
@@ -565,9 +629,15 @@ async def make_prediction(
         request.name,
         dataset_create_info=dataset_info,
         prediction_params=prediction_params,
+        configured_model_id=model.id,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
+        **{
+            JOB_REQUEST_KW: original_request,
+            JOB_TYPE_KW: JobType.PREDICTION,
+            JOB_NAME_KW: request.name,
+            JOB_METADATA_KW: model_job_metadata(model, prediction_params.model_dump(mode="json", exclude={"model_id"})),
+        },
     )
     return JobResponse(id=job.id)
 
@@ -825,6 +895,8 @@ async def create_backtest_with_data(
     ),
     database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
+    session: Session = Depends(get_session),
+    settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
     """Train and evaluate a model on observations supplied directly in the request body, without first creating a reusable dataset.
 
@@ -837,7 +909,11 @@ async def create_backtest_with_data(
     feature_names, provided_data_processed, rejections = _read_and_validate_dataset(request, dry_run)
     if dry_run and not provided_data_processed.locations():
         return ImportSummaryResponse(id=None, imported_count=0, rejected=rejections)
-    backtest_params = BacktestParams(**request.model_dump())
+    try:
+        period_type = period_type_of(provided_data_processed.period_range[0])
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    backtest_params = _resolve_backtest_params(settings_manager.get(), request, period_type)
     train_set, _ = train_test_generator(
         provided_data_processed, backtest_params.n_periods, backtest_params.n_splits, stride=backtest_params.stride
     )
@@ -849,13 +925,7 @@ async def create_backtest_with_data(
         return ImportSummaryResponse(id=None, imported_count=imported_count, rejected=rejections)
 
     if imported_count == 0:
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "message": "Missing values. No data was imported.",
-                "rejected": [r.model_dump(by_alias=True) for r in rejections],
-            },
-        )
+        raise _all_regions_rejected(rejections)
 
     logger.info(
         f"Creating backtest with data: {request.name}, model_id: {request.model_id} on {len(list(provided_data_processed.locations()))} locations"
@@ -865,7 +935,8 @@ async def create_backtest_with_data(
             status_code=400, detail="data_to_be_fetched is not supported when providing data for backtest"
         )
 
-    bt_params = BacktestParams(**request.model_dump()).model_dump()
+    model = get_job_model(session, request.model_id)
+    bt_params = backtest_params.model_dump()
     dataset_create_info = DataSetCreateInfo(**request.model_dump()).model_dump()
     dataset_create_info["type"] = "evaluation"
     job = worker.queue_db(
@@ -874,12 +945,17 @@ async def create_backtest_with_data(
         provided_data_model_dump=provided_data_processed.model_dump(),
         dataset_info=dataset_create_info,
         backtest_name=request.name,
-        model_id=request.model_id,
+        model_id=model.id,
         backtest_params=bt_params,
         database_url=database_url,
         worker_config=worker_settings,
         baseline_database_url=database_url,
-        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.EVALUATION, JOB_NAME_KW: request.name},
+        **{
+            JOB_REQUEST_KW: original_request,
+            JOB_TYPE_KW: JobType.EVALUATION,
+            JOB_NAME_KW: request.name,
+            JOB_METADATA_KW: model_job_metadata(model, bt_params),
+        },
     )
     job_id = job.id
     return ImportSummaryResponse(id=job_id, imported_count=imported_count, rejected=rejections)
@@ -935,6 +1011,20 @@ class ThresholdStrategyInfo(DBModel):
     description: str = Field(default="", description="Short paragraph explaining what the strategy computes.")
 
 
+def _resolve_backtest_params(
+    settings: Settings, request: BacktestParamsBase, period_type: str | None
+) -> BacktestParams:
+    """Apply saved defaults only to omitted parameters, then validate the resolved combination."""
+    defaults = settings.backtest_params(period_type).model_dump()
+    explicit = request.model_dump(include=set(BacktestParams.model_fields), exclude_unset=True)
+    try:
+        return BacktestParams(**(defaults | explicit))
+    except PydanticValidationError as e:
+        raise RequestValidationError(
+            [{**error, "loc": ("body", *error["loc"])} for error in e.errors(include_url=False)]
+        ) from e
+
+
 class BacktestParameterInfo(DBModel):
     """Default value and display metadata for one backtest parameter."""
 
@@ -953,18 +1043,23 @@ class BacktestParameterInfo(DBModel):
     tags=["Backtests"],
     summary="Discover backtest parameter defaults and display metadata",
 )
-def list_backtest_parameters():
+def list_backtest_parameters(
+    period_type: Annotated[Literal["week", "month"], Query(alias="periodType")] = "month",
+    settings_manager: SettingsManager = Depends(get_settings_manager),
+):
     """Populate a backtest form from the same field definitions used to validate requests.
 
     Use `GET /v1/analytics/weather-providers` to populate the `futureWeatherProvider` picker.
+    `periodType` selects the stored weekly or monthly defaults; omitted means monthly.
     """
     properties = BacktestParams.model_json_schema(by_alias=False)["properties"]
+    defaults = settings_manager.get().backtest_params(period_type).model_dump()
     return [
         BacktestParameterInfo(
             name=field.alias or name,
             label=properties[name]["title"],
             description=field.description,
-            default=field.default,
+            default=defaults.get(name, field.default),
             type=properties[name]["type"],
             minimum=properties[name].get("minimum"),
         )

@@ -510,7 +510,7 @@ def _deploy(
         # chapkit keeps its SQLite database under data/ in the image's working directory, which
         # the image owns for its service user; mounting elsewhere leaves a root-owned volume.
         workdir = (_inspect_image(image, "{{.Config.WorkingDir}}") or "/").rstrip("/")
-        service["volumes"] = [f"{service_name}-data:{workdir}/data", {"type": "tmpfs", "target": "/tmp"}]
+        service["volumes"] = [f"{service_name}-data:{workdir}/data", {"type": "tmpfs", "target": "/tmp"}]  # noqa: S108 — tmpfs mount inside the container
     # Publish the new pin only after the service runs and is registered in CHAP.
     pending = _write_pending(config, overlay)
     try:

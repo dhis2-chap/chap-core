@@ -7,7 +7,6 @@ error format.
 
 from __future__ import annotations
 
-import datetime
 import logging
 from typing import Any
 
@@ -17,6 +16,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from chap_core.database.alert_tables import AlertPolicy
+from chap_core.database.base_tables import utc_now
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import Backtest, Prediction, PredictionSetup, QuantileTarget
@@ -141,7 +141,7 @@ def create_prediction_setup(
     dataset = backtest.dataset
     setup = PredictionSetup(
         name=name,
-        created=datetime.datetime.now(),
+        created=utc_now(),
         backtest_id=backtest_id,
         configured_model_id=backtest.model_db_id,
         start_period=dataset.first_period,

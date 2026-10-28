@@ -10,6 +10,7 @@ from chap_core.api_types import BacktestParams
 from chap_core.assessment.metrics import available_metrics, get_comparison_description
 from chap_core.assessment.metrics.base import OptimizationDirection, TargetBehavior
 from chap_core.database.base_tables import DBModel
+from chap_core.database.settings import Settings
 from chap_core.database.tables import BacktestRead, ConfiguredModelRead, DataSetMeta, SpecificationBaselineStatus
 
 
@@ -19,6 +20,8 @@ class MetricInfo(DBModel):
     id: str = Field(description="Canonical metric identifier used in URLs and request bodies.")
     display_name: str = Field(description="Human-friendly metric name shown in pickers.")
     description: str = Field(default="", description="Short paragraph explaining what the metric measures.")
+    sort_order: int = Field(description="Display and ranking priority, starting at zero; lower comes first.")
+    is_selected: bool = Field(description="Whether this metric is selected by the installation's settings.")
     unit: str | None = Field(default=None, description="Display suffix for the raw score, e.g. '%' for MAPE.")
     target: float | None = Field(
         default=None,
@@ -56,24 +59,29 @@ class MetricInfo(DBModel):
     )
 
 
-def list_metric_info() -> list[MetricInfo]:
-    """Describe every registered metric."""
-    return [
-        MetricInfo(
-            id=metric_id,
-            display_name=metric_cls().get_name(),
-            description=metric_cls().get_description(),
-            optimization_direction=metric_cls.spec.optimization_direction,
-            target_behavior=metric_cls.spec.target_behavior,
-            unit=metric_cls.spec.unit,
-            target=metric_cls.spec.target,
-            comparison_op=metric_cls.spec.comparison_op,
-            comparison_description=get_comparison_description(metric_cls.spec.comparison_op)
-            if metric_cls.spec.comparison_op
-            else None,
+def list_metric_info(settings: Settings) -> list[MetricInfo]:
+    """Describe every metric in the configured order, retaining unselected metrics."""
+    metrics = []
+    for rank, metric_id in enumerate(settings.metric_sort_order):
+        metric_cls = available_metrics[metric_id]
+        metrics.append(
+            MetricInfo(
+                id=metric_id,
+                sort_order=rank,
+                is_selected=metric_id in settings.selected_metrics,
+                display_name=metric_cls().get_name(),
+                description=metric_cls().get_description(),
+                optimization_direction=metric_cls.spec.optimization_direction,
+                target_behavior=metric_cls.spec.target_behavior,
+                unit=metric_cls.spec.unit,
+                target=metric_cls.spec.target,
+                comparison_op=metric_cls.spec.comparison_op,
+                comparison_description=get_comparison_description(metric_cls.spec.comparison_op)
+                if metric_cls.spec.comparison_op
+                else None,
+            )
         )
-        for metric_id, metric_cls in available_metrics.items()
-    ]
+    return metrics
 
 
 class ReferenceModelResult(DBModel):
@@ -130,5 +138,7 @@ class BacktestSpecificationRead(BacktestParams):
     )
     metrics: list[MetricInfo] = Field(
         default_factory=list,
-        description="Every metric the scores and comparisons are keyed by, with its meaning and comparison operator.",
+        description="Every metric in configured ranking order, marked with isSelected for the default display. "
+        "Sort by the selected metrics in this order, using each metric's direction or target.",
     )
+    default_baseline_model: str = Field(description="Built-in baseline name to use for ratios and model promotion.")

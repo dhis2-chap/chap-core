@@ -20,6 +20,7 @@ import logging
 from typing import Annotated, Any, Final, Literal
 
 import numpy as np
+import pandas as pd
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Path, Query, UploadFile
 from redis.exceptions import RedisError
 from sqlalchemy import func
@@ -35,7 +36,7 @@ from chap_core.assessment.weather_providers import resolve_weather_provider
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.alert_tables import Alert, AlertApproval, AlertPolicyRead, AlertRead
 from chap_core.database.database import SessionWrapper
-from chap_core.database.dataset_manager import DataSetManager
+from chap_core.database.dataset_manager import DataSetInUseError, DataSetManager
 from chap_core.database.dataset_tables import (
     DataSet,
     DataSetCreateInfo,
@@ -50,6 +51,7 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateRole,
     chapkit_revision_conflict,
 )
+from chap_core.database.settings import SettingsManager
 from chap_core.database.tables import (
     Backtest,
     BacktestRead,
@@ -60,6 +62,7 @@ from chap_core.database.tables import (
     PredictionSetupReadWithPredictions,
     SpecificationBaseline,
     SpecificationBaselineStatus,
+    is_not_archived_model_backtest,
     is_not_baseline_backtest,
 )
 from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
@@ -67,6 +70,7 @@ from chap_core.exceptions import BaselineTemplateConflict, ModelTemplateRevision
 from chap_core.geometry import Polygons
 from chap_core.rest_api.baseline_runs import request_baselines_after_response
 from chap_core.rest_api.celery_tasks import (
+    JOB_METADATA_KW,
     JOB_NAME_KW,
     JOB_REQUEST_KW,
     JOB_TYPE_KW,
@@ -85,6 +89,7 @@ from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from ...data_models import (
     AlertApprovalRequest,
     AlertIdsResponse,
+    AlertPolicyCodesUpdate,
     AlertPolicyCreate,
     AlertsCreate,
     BacktestSpecificationFilter,
@@ -110,7 +115,16 @@ from ...leaderboard_models import (
     list_metric_info,
 )
 from .analytics import validate_full_dataset
-from .dependencies import get_database_url, get_job_request, get_session, get_settings
+from .dependencies import (
+    check_masked_ranges_match,
+    get_database_url,
+    get_job_request,
+    get_session,
+    get_settings,
+    get_settings_manager,
+    model_job_metadata,
+    reject_mask_indicator_input,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -345,11 +359,12 @@ def get_backtest_specifications(
     ``datasetId``, ``targetColumn`` and any of the ``BacktestParams`` fields; the full tuple identifies at
     most one specification, which is how an external system finds a benchmark again
     without storing the specification id. Rows carry counts only; fetch
-    ``/backtest-specifications/{id}`` for the backtests themselves.
+    ``/backtest-specifications/{id}`` for the backtests themselves. The counts leave out
+    backtests of baseline models and of archived models, like the leaderboard.
     """
     backtest_counts = (
         select(Backtest.specification_id, func.count(col(Backtest.id)).label("backtest_count"))
-        .where(is_not_baseline_backtest())
+        .where(is_not_baseline_backtest(), is_not_archived_model_backtest())
         .group_by(col(Backtest.specification_id))
         .subquery()
     )
@@ -383,16 +398,19 @@ def get_backtest_specification(
     specification_id: Annotated[int, Path(alias="specificationId")],
     background_tasks: BackgroundTasks,
     include_comparison_models: Annotated[bool, Query(alias="includeComparisonModels")] = False,
+    include_archived_models: Annotated[bool, Query(alias="includeArchivedModels")] = False,
     session: Session = Depends(get_session),
     database_url: str = Depends(get_database_url),
+    settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
     """Read one specification together with every backtest that ran under it, newest first, in a single response.
 
     This is the benchmark leaderboard: each backtest row is the ``BacktestRead`` shape
     with aggregate metrics, the configured model and its template, so a client can rank
     models without a request per backtest. Forecasts and per-org-unit metrics are not
-    included, and neither are backtests of built-in baseline models. Those are listed
-    under ``baselines`` with their status and scores instead, and each backtest row
+    included, and neither are backtests of built-in baseline models, nor of archived
+    models unless ``includeArchivedModels`` is set. Baselines are listed under
+    ``baselines`` with their status and scores instead, and each backtest row
     carries the comparison of its scores with every baseline that is done. With
     ``includeComparisonModels``, the newest backtest of each comparison model on the
     specification is listed and compared with the same way, except that a
@@ -409,13 +427,17 @@ def get_backtest_specification(
     if specification is None:
         raise HTTPException(status_code=404, detail="Backtest specification not found")
     background_tasks.add_task(request_baselines_after_response, session.get_bind(), specification_id, database_url)
+    conditions = [Backtest.specification_id == specification_id, is_not_baseline_backtest()]
+    if not include_archived_models:
+        conditions.append(is_not_archived_model_backtest())
     backtests = session.exec(
         select(Backtest)
-        .where(Backtest.specification_id == specification_id, is_not_baseline_backtest())
+        .where(*conditions)
         .order_by(col(Backtest.created).desc().nulls_last(), col(Backtest.id).desc())
         .options(*_backtest_read_loads())
     ).all()
     baselines = _baseline_results(session, specification_id)
+    settings = settings_manager.get()
     comparison_models = _comparison_model_results(session, specification_id) if include_comparison_models else None
     references = [
         reference
@@ -434,7 +456,8 @@ def get_backtest_specification(
         ],
         baselines=baselines,
         comparison_models=comparison_models,
-        metrics=list_metric_info(),
+        metrics=list_metric_info(settings),
+        default_baseline_model=settings.default_baseline_model,
         **_specification_params(specification),
     )
 
@@ -837,13 +860,20 @@ async def create_dataset(
     (or ``/v1/jobs/{id}/database_result`` once finished) for the resulting dataset id.
     For a dataset that ships its own covariates, use ``POST /v1/analytics/make-dataset``
     instead.
+
+    ``maskedRanges`` deletes data: ``disease_cases`` inside the ranges is stored as empty
+    and the submitted values are not kept. They cannot be recovered or unmasked later.
     """
+    # The import keeps only the HealthPopulationData fields, so check before an indicator is silently dropped.
+    reject_mask_indicator_input([obs.feature_name for obs in data.observations])
     health_data = observations_to_dataset(HealthPopulationData, data.observations, fill_missing=True)
     health_data.set_polygons(FeatureCollectionModel.model_validate(data.geojson))
+    check_masked_ranges_match(data.masked_ranges, health_data)
     job = worker.queue_db(
         wf.harmonize_and_add_health_dataset,
         health_data.model_dump(),
         data.name,
+        masked_ranges=data.masked_ranges,
         database_url=datababase_url,
         worker_config=worker_settings,
         **{JOB_REQUEST_KW: original_request},
@@ -865,11 +895,14 @@ async def create_dataset_csv(
 
     Use this when you have the files on disk and do not want to round-trip them
     through DHIS2 or the JSON import endpoints. Inserts inline — no background job —
-    and returns the new dataset id immediately.
+    and returns the new dataset id immediately. The dataset has no masked ranges;
+    a CSV with a ``target_masked`` column gets a 422.
     """
     import io
 
     csv_content = await csv_file.read()
+    # The import keeps only the FullData columns, so check the header before an indicator is silently dropped.
+    reject_mask_indicator_input(pd.read_csv(io.BytesIO(csv_content), nrows=0).columns.tolist())
     dataset = InMemoryDataSet.from_csv(io.BytesIO(csv_content), dataclass=FullData)
     geo_json_content = await geojson_file.read()
     features = Polygons.from_geojson(json.loads(geo_json_content), id_property="NAME_1").feature_collection()
@@ -938,11 +971,18 @@ async def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], s
     summary="Remove an imported dataset",
 )
 async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
-    """Permanently delete a dataset and every observation in it. Use this to clean up obsolete imports — be aware that backtests and predictions that referenced this dataset will lose their data link. 404 if the id is unknown."""
-    # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
+    """Permanently delete a dataset and every observation in it. Use this to clean up obsolete imports.
+
+    Refused with 409 while a backtest or a prediction still uses the dataset. The baseline
+    backtests that every backtest queues count too, although backtest listings hide them,
+    so the error names every backtest and prediction to delete first. 404 if the id is unknown.
+    """
     if session.get(DataSet, dataset_id) is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    DataSetManager(session).delete_by_id(dataset_id)
+    try:
+        DataSetManager(session).delete_by_id(dataset_id)
+    except DataSetInUseError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     return {"message": "deleted"}
 
 
@@ -1312,10 +1352,14 @@ async def create_alert_policy(request: AlertPolicyCreate, session: Session = Dep
     exceedance probability at or above which that tier fires, so one policy expresses a
     whole escalation ladder. Levels are ordered from least to most severe. 422 if the
     policy has no levels, an unnamed level, a level with more than one threshold line,
-    or two levels sharing a name.
+    or two levels sharing a name. Output codes must be non-empty and unique across
+    all levels and the no-alert state. Codes do not affect severity ordering.
+    Omitted level codes default to `1`, `2`, etc. in level order; no alert defaults to `0`.
     """
     try:
-        policy = alert_policy_service.create_alert_policy(session, name=request.name, levels=request.levels)
+        policy = alert_policy_service.create_alert_policy(
+            session, name=request.name, levels=request.levels, no_alert_output_code=request.no_alert_output_code
+        )
     except alert_policy_service.InvalidAlertPolicyError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     if policy.id is None:
@@ -1351,6 +1395,34 @@ async def get_alert_policy(
         return alert_policy_service.get_alert_policy(session, alert_policy_id)
     except alert_policy_service.AlertPolicyNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.patch(
+    "/alert-policies/{alertPolicyId}",
+    response_model=AlertPolicyRead,
+    tags=["Alert Policies"],
+    summary="Update a policy's output codes",
+)
+@api_experimental
+async def update_alert_policy_codes(
+    alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
+    request: AlertPolicyCodesUpdate,
+    session: Session = Depends(get_session),
+):
+    """Update codes by level name. Existing alerts resolve to the new codes through their policy.
+
+    Names, order and thresholds cannot change. The resulting codes must be non-empty
+    and unique, including unchanged codes and no alert. 404 for an unknown policy;
+    422 for unknown levels or invalid codes. Invalid updates leave the policy unchanged.
+    """
+    try:
+        return alert_policy_service.update_alert_policy_codes(
+            session, alert_policy_id, request.level_output_codes, request.no_alert_output_code
+        )
+    except alert_policy_service.AlertPolicyNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except alert_policy_service.InvalidAlertPolicyError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 @router.delete(
@@ -1560,8 +1632,10 @@ async def run_prediction_setup(
     arrived, a model investigation, etc.). Returns a job id; track it via
     ``/v1/jobs/{id}`` or filter the jobs list with ``predictionSetupId`` to see every
     job this setup has launched. Returns 404 if the setup is unknown, 409 if its
-    configured model has been archived, 422 if ``provided_data`` is empty or missing
-    the backtest's target column. Forecasts use the same target as the backtest.
+    configured model has been archived, 422 if ``provided_data`` is empty, missing
+    the backtest's target column, or of a different period type than the backtest
+    dataset's masked ranges. Forecasts use the same target, future-weather provider and
+    masked ranges as the backtest: the ranges are copied onto the run's new dataset.
     """
     try:
         setup = prediction_setup_service.get_prediction_setup(session, prediction_setup_id)
@@ -1584,6 +1658,7 @@ async def run_prediction_setup(
 
     target_column = setup.backtest.specification.target_column
     feature_names = list({entry.feature_name for entry in request.provided_data})
+    reject_mask_indicator_input(feature_names)
     if target_column not in feature_names:
         raise HTTPException(status_code=422, detail=f"Dataset has no target column {target_column!r}")
     dataclass = create_tsdataclass(feature_names)
@@ -1602,12 +1677,17 @@ async def run_prediction_setup(
         )
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
 
+    # Inherit the backtest dataset's masked ranges, so predictions train under the same mask the
+    # backtest was scored with. Only the ranges are copied; the observations are this run's own.
+    masked_ranges = setup.backtest.dataset.masked_ranges or []
+    check_masked_ranges_match(masked_ranges, provided_data)
+
     # Normalize dataset type server-side, matching analytics.make_prediction. Whatever the
     # client sent in `request.type` (e.g. chap-scheduler defaults to "forecasting") gets
     # overridden so the persisted dataset is consistently tagged "prediction" and shows
     # up in prediction-filtered UI/queries. Use a local instead of mutating the request.
     dataset_type = "prediction"
-    dataset_info = DataSetCreateInfo(name=request.name, type=dataset_type).model_dump()
+    dataset_info = DataSetCreateInfo(name=request.name, type=dataset_type, masked_ranges=masked_ranges).model_dump()
     # Inherit the provider the setup's backtest was evaluated with, so a promoted
     # backtest predicts against the same future-weather source it was scored on.
     provider = setup.backtest.future_weather_provider
@@ -1635,6 +1715,13 @@ async def run_prediction_setup(
         target_column=target_column,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_REQUEST_KW: original_request, JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
+        **{
+            JOB_REQUEST_KW: original_request,
+            JOB_TYPE_KW: JobType.PREDICTION,
+            JOB_NAME_KW: request.name,
+            JOB_METADATA_KW: model_job_metadata(
+                setup.configured_model, prediction_params.model_dump(mode="json", exclude={"model_id"})
+            ),
+        },
     )
     return JobResponse(id=job.id)

@@ -91,7 +91,7 @@ jobs:
             between those reviews: bugs and structural problems that no single
             PR review would see.
 
-            Start by reading CLAUDE.md, docs/contributor/code_overview.md and
+            Start by reading AGENTS.md, docs/contributor/code_overview.md and
             the "Weekly codebase review" section of docs/contributor/pr_review.md,
             which lists deliberate design choices you must not report as
             findings. Then read previous-report.md (last week's report, or

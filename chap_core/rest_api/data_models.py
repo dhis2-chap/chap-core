@@ -1,13 +1,13 @@
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, create_model, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, create_model, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
-from chap_core.api_types import BacktestParams, FeatureCollectionModel
+from chap_core.api_types import BacktestParams, BacktestParamsBase, FeatureCollectionModel
 from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID, resolve_weather_provider
 from chap_core.database.alert_tables import AlertApproval, AlertBase, AlertLevel, AlertPolicyBase
 from chap_core.database.base_tables import DBModel
-from chap_core.database.dataset_tables import DataSetCreateInfo, ObservationBase
+from chap_core.database.dataset_tables import DataSetCreateInfo, DataSetCreateInfoBase, ObservationBase
 from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateInformation,
     ModelTemplateMetaData,
@@ -41,14 +41,32 @@ class FetchRequest(DBModel):
     data_source_name: str = Field(description="Canonical name of the source to pull from.")
 
 
-class DatasetMakeRequest(DataSetCreateInfo):
-    """Request body for building a dataset: metadata + polygons + observations (provided or fetched)."""
+class ObservationPayload(DBModel):
+    """Polygons and observations sent inline with a request."""
 
     geojson: FeatureCollectionModel = Field(description="GeoJSON polygon set for the dataset's org units.")
     provided_data: list[ObservationBase] = Field(description="Observations the caller is supplying directly.")
     data_to_be_fetched: list[FetchRequest] = Field(
         description="Features whose observations the server should fetch from a registered source."
     )
+
+
+class DatasetMakeRequest(DataSetCreateInfo, ObservationPayload):
+    """Request body for building a dataset: metadata + polygons + observations (provided or fetched)."""
+
+
+class InlineDataRequest(DataSetCreateInfoBase, ObservationPayload):
+    """Inline observations for a one-off run. Masked ranges are not accepted: create a dataset with them first."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_masked_ranges(cls, data: Any) -> Any:
+        if isinstance(data, dict) and (data.get("maskedRanges") or data.get("masked_ranges")):
+            raise ValueError(
+                "maskedRanges can only be set when a dataset is created (make-dataset or POST /v1/crud/datasets); "
+                "create the dataset with its ranges and run on it by id"
+            )
+        return data
 
 
 class JobResponse(BaseModel):
@@ -124,7 +142,10 @@ class BacktestSpecificationSummary(BacktestParams):
     id: int = Field(description="Primary key of the specification.")
     dataset: DataSetMeta = Field(description="Slim summary of the dataset the specification evaluates against.")
     org_unit_count: int = Field(description="Number of org units the evaluation runs over.")
-    backtest_count: int = Field(description="Number of backtests that ran under this specification.")
+    backtest_count: int = Field(
+        description="Number of backtests on this specification's leaderboard: those that ran under it, "
+        "except backtests of baseline models and of archived models."
+    )
 
 
 # Derived from BacktestParams so a parameter added there is filterable without touching this
@@ -185,7 +206,7 @@ class CovariateNameSuggestion(DBModel):
     )
 
 
-class MakePredictionRequest(DatasetMakeRequest, PredictionParams):
+class MakePredictionRequest(InlineDataRequest, PredictionParams):
     """Long-path request for kicking off a prediction: combines dataset construction + model parameters."""
 
     meta_data: dict = Field(
@@ -193,8 +214,11 @@ class MakePredictionRequest(DatasetMakeRequest, PredictionParams):
     )
 
 
-class MakeBacktestRequest(BacktestParams):
-    """Request to backtest an already-imported dataset against a configured model."""
+class MakeBacktestRequest(BacktestParamsBase):
+    """Request to backtest an already-imported dataset against a configured model.
+
+    Omitted backtest parameters use the stored defaults for the dataset's period type, not the schema defaults.
+    """
 
     target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
 
@@ -205,8 +229,11 @@ class MakeBacktestRequest(BacktestParams):
     dataset_id: int = Field(description="Foreign key to the dataset the backtest evaluates against.")
 
 
-class MakeBacktestsRequest(BacktestParams):
-    """Request to run several configured models on one dataset under one set of evaluation parameters."""
+class MakeBacktestsRequest(BacktestParamsBase):
+    """Request to run several configured models on one dataset under one set of evaluation parameters.
+
+    Omitted backtest parameters use the stored defaults for the dataset's period type, not the schema defaults.
+    """
 
     target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
 
@@ -235,8 +262,11 @@ class MakeBacktestsResponse(DBModel):
     jobs: list[BacktestJob] = Field(description="One queued job per requested model, in request order.")
 
 
-class MakeBacktestWithDataRequest(DatasetMakeRequest, BacktestParams):
-    """Long-path request: build the dataset, then immediately backtest the configured model against it."""
+class MakeBacktestWithDataRequest(InlineDataRequest, BacktestParamsBase):
+    """Long-path request: build the dataset, then immediately backtest the configured model against it.
+
+    Omitted backtest parameters use the stored defaults for the dataset's period type, not the schema defaults.
+    """
 
     name: str = Field(description="Human-friendly name for the resulting backtest row.")
     model_id: str = Field(description="Canonical name of the configured model to backtest.")
@@ -389,7 +419,23 @@ class AlertPolicyCreate(AlertPolicyBase):
     levels: list[AlertLevel] = Field(
         min_length=1,
         description="The tiers of this policy, e.g. a `monitor` level and an `action` level. "
-        "Names must be unique within a policy.",
+        "Names must be unique within a policy. Omitted output codes default to `1`, `2`, etc. in level order.",
+    )
+
+
+class AlertPolicyCodesUpdate(DBModel):
+    """Change output codes without changing the policy's ladder."""
+
+    model_config = ConfigDict(extra="forbid")  # type: ignore[assignment]
+
+    level_output_codes: dict[str, str] = Field(
+        default_factory=dict,
+        description="New output codes keyed by existing level name. Omitted levels keep their codes.",
+    )
+    no_alert_output_code: str | None = Field(
+        default=None,
+        min_length=1,
+        description="New no-alert output code; omitted or null leaves it unchanged.",
     )
 
 

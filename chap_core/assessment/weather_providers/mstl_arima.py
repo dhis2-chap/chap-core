@@ -106,7 +106,7 @@ def _select_model(y: np.ndarray):
         for q in range(MAX_Q + 1):
             try:
                 fitted = ARIMA(y, order=(p, d, q)).fit()
-            except Exception:
+            except Exception:  # noqa: S112 — skip orders that fail to fit
                 continue
             if not _is_well_conditioned(fitted):
                 continue

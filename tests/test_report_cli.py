@@ -16,7 +16,7 @@ def test_report_cli_trains_then_reports(dumped_weekly_data_paths, tmp_path):
     mock_template.get_model.return_value = lambda: mock_estimator
 
     with patch(
-        "chap_core.cli_endpoints.report.ModelTemplate.from_directory_or_github_url",
+        "chap_core.models.model_template.ModelTemplate.from_directory_or_github_url",
         return_value=mock_template,
     ) as mock_from:
         report(
