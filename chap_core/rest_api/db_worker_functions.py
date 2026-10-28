@@ -23,6 +23,7 @@ from chap_core.database.dataset_tables import DataSetCreateInfo, DataSource, Mas
 from chap_core.database.tables import BacktestSpecification
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
+from chap_core.models.builtin import BaselineNotApplicable
 from chap_core.rest_api.data_models import BacktestCreate, FetchRequest, PredictionParams
 from chap_core.rest_api.job_registry import job_function
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
@@ -308,7 +309,48 @@ def run_prediction(
     status_logger.info(f"Prediction completed successfully. Results saved with ID {db_id}")
     if prediction_setup_id is not None:
         raise_alerts_for_prediction(session.session, db_id)
+        _predict_baselines(session, dataset, dataset_id, n_periods, name, db_id, future_weather_provider)
     return db_id
+
+
+def _predict_baselines(
+    session: SessionWrapper,
+    dataset: DataSet,
+    dataset_id: str,
+    n_periods: int,
+    name: str,
+    prediction_id: int,
+    future_weather_provider: str,
+) -> list[int]:
+    """Store every baseline's forecast on the same data, so monitoring can compare the prediction with them.
+
+    Returns the ids of the stored baseline forecasts. As with backtests, a baseline never
+    costs the user their prediction: one that fails, whether it rejects the data with
+    `BaselineNotApplicable` or for another reason, is logged and stores nothing, and
+    monitoring then leaves the prediction out of the comparison with that baseline.
+    """
+    stored = []
+    for baseline in session.get_baseline_models():
+        assert baseline.id is not None, "configured_model.id is required"
+        try:
+            estimator = session.get_configured_model_with_code(baseline.id, prediction_length=n_periods)
+            forecasts = forecast_ahead(estimator, dataset, n_periods, weather_provider=future_weather_provider)
+            stored.append(
+                session.add_predictions(
+                    forecasts,
+                    dataset_id,
+                    baseline.name,
+                    f"{name} ({baseline.name})",
+                    baseline.id,
+                    baseline_for_prediction_id=prediction_id,
+                )
+            )
+        except BaselineNotApplicable as e:
+            logger.warning(f"Baseline {baseline.name!r} is not applicable to prediction {prediction_id}: {e}")
+        except Exception:
+            logger.warning(f"Baseline {baseline.name!r} failed for prediction {prediction_id}", exc_info=True)
+            session.session.rollback()
+    return stored
 
 
 @job_function

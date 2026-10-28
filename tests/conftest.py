@@ -445,6 +445,8 @@ def alert_prediction():
 
     from chap_core.assessment.thresholds.params import PercentileParams
     from chap_core.database.alert_tables import AlertLevel, AlertPolicy
+    from chap_core.database.database import SessionWrapper
+    from chap_core.database.model_template_seed import seed_builtin_models
     from chap_core.database.dataset_tables import DataSet, Observation
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
     from chap_core.database.tables import (
@@ -523,5 +525,7 @@ def alert_prediction():
         )
         session.add(prediction)
         session.commit()
+        # Setup runs also forecast with the default baseline model.
+        seed_builtin_models(SessionWrapper(session=session))
         yield session, prediction
     engine.dispose()

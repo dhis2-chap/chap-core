@@ -342,6 +342,31 @@ class PredictionSetup(DBModel, table=True):
     )
     alert_policy: AlertPolicy | None = Relationship()
     predictions: list["Prediction"] = Relationship(back_populates="prediction_setup")
+    observations: list["PredictionSetupObservation"] = Relationship(cascade_delete=True)
+
+
+class PredictionSetupObservation(DBModel, table=True):
+    """Observed disease cases for one (org unit, period), as last uploaded by a run of a `PredictionSetup`.
+
+    Each run upserts the cases in its dataset, so the setup's predictions can be scored
+    against the observed values once later runs bring them in.
+    """
+
+    __table_args__ = (
+        UniqueConstraint(
+            "prediction_setup_id", "org_unit", "period", name="uq_predictionsetupobservation_setup_org_unit_period"
+        ),
+    )
+
+    id: int | None = Field(primary_key=True, default=None, description="Primary key.")
+    prediction_setup_id: int = Field(
+        foreign_key="predictionsetup.id",
+        ondelete="CASCADE",
+        description="Foreign key to the `PredictionSetup` whose runs uploaded the value.",
+    )
+    org_unit: str = Field(description="Identifier of the org unit the value is for.")
+    period: PeriodID = Field(description="Period the value is for.")
+    disease_cases: float = Field(description="Observed disease cases.")
 
 
 class PredictionSetupRead(DBModel):
@@ -369,6 +394,54 @@ class PredictionSetupRead(DBModel):
     )
     alert_policy: AlertPolicyRead | None = Field(
         default=None, description="Alert policy this setup raises alerts against; `None` means no alerting."
+    )
+
+
+class MonitoringSource(StrEnum):
+    """Where a monitoring point's forecasts come from."""
+
+    evaluation = "evaluation"
+    prediction = "prediction"
+
+
+class MonitoringPoint(DBModel):
+    """One run of a prediction setup, a backtest split or a live prediction, compared with the baseline model.
+
+    Values come from the metric's comparison operator: positive means better than the
+    baseline and zero means equal. They are null where the comparison is undefined, for
+    example a skill ratio against a baseline score of 0.
+    """
+
+    period: str = Field(description="Last period the run had data for, i.e. the period it predicted from.")
+    source: MonitoringSource = Field(
+        description="`evaluation` for a backtest split, `prediction` for a live prediction of the setup."
+    )
+    value: float | None = Field(
+        description="The run's metric compared with the baseline's, over the forecasts both made that have an "
+        "observed value, pooled over org units and horizons."
+    )
+    running_value: float | None = Field(
+        description="The same comparison over all runs of the same source up to and including this one."
+    )
+    n_observed: int = Field(
+        description="Number of (org unit, period, horizon) forecasts scored; grows as later runs bring in observed cases."
+    )
+
+
+class PredictionSetupMonitoring(DBModel):
+    """A prediction setup's live performance on one metric relative to a baseline model, next to its backtest's."""
+
+    metric_id: str = Field(description="Id of the metric that was computed.")
+    baseline_model: str = Field(description="Name of the baseline model the values are compared with.")
+    comparison_description: str = Field(description="One-line description of what the comparison values mean.")
+    evaluation_value: float | None = Field(
+        description="The backtest's aggregate metric compared with the baseline's backtest on the same "
+        "specification; `None` until the baseline's backtest is done, or when the comparison is undefined."
+    )
+    points: list[MonitoringPoint] = Field(
+        description="One entry per scored run: evaluation points first, then prediction points, each in period "
+        "order. Evaluation points are missing until the baseline's backtest is done, and predictions without a "
+        "stored baseline forecast are left out."
     )
 
 
@@ -457,6 +530,16 @@ class Prediction(PredictionBase, table=True):
     )
     configured_model: Optional["ConfiguredModelDB"] = Relationship()
     prediction_setup: Optional["PredictionSetup"] = Relationship(back_populates="predictions")
+    baseline_for_prediction_id: int | None = Field(
+        default=None,
+        foreign_key="prediction.id",
+        ondelete="CASCADE",
+        description="For a baseline model's forecast made alongside a setup prediction, the id of that prediction.",
+    )
+    baseline_predictions: list["Prediction"] = Relationship(
+        cascade_delete=True,
+        sa_relationship_kwargs={"foreign_keys": "[Prediction.baseline_for_prediction_id]"},
+    )
 
 
 class PredictionInfo(PredictionBase):

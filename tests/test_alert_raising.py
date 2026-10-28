@@ -117,3 +117,30 @@ def test_run_prediction_fails_but_keeps_prediction_when_alerts_fail(alert_predic
             _run_prediction(session, original)
     stored = session.exec(select(Prediction).where(Prediction.name == "new")).one()
     assert stored.forecasts[0].values == [21.0, 21.0]
+
+
+def test_run_prediction_stores_every_baseline_forecast(alert_prediction):
+    session, original = alert_prediction
+    prediction_id = _run_prediction(session, original)
+    prediction = session.get(Prediction, prediction_id)
+    baselines = prediction.baseline_predictions
+    assert {baseline.model_id for baseline in baselines} == {"global_median", "persistence", "seasonal_median"}
+    assert {baseline.prediction_setup_id for baseline in baselines} == {None}
+    assert baselines[0].forecasts[0].values == [21.0, 21.0]
+
+
+def test_run_prediction_keeps_prediction_and_other_baselines_when_a_baseline_fails(alert_prediction):
+    session, original = alert_prediction
+    forecast = DataSet({"A": Samples(PeriodRange.from_strings(["2024-01"]), np.array([[21.0, 21.0]]))})
+    wrapper = SessionWrapper(session=session)
+    with (
+        patch.object(wrapper, "get_configured_model_with_code"),
+        patch(
+            "chap_core.rest_api.db_worker_functions.forecast_ahead",
+            side_effect=[forecast, forecast, RuntimeError("baseline bug"), forecast],
+        ),
+    ):
+        prediction_id = run_prediction(
+            original.model_id, str(original.dataset_id), 1, "new", wrapper, original.prediction_setup_id
+        )
+    assert len(session.get(Prediction, prediction_id).baseline_predictions) == 2

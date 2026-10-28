@@ -48,6 +48,7 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("configuredmodeldb", "configuration_digest"),
     ("configuredmodeldb", "is_live"),
     ("prediction", "prediction_setup_id"),
+    ("prediction", "baseline_for_prediction_id"),
     ("backtest", "max_horizon_distance"),
     ("backtest", "specification_id"),
     ("backtest", "chap_version"),
@@ -59,6 +60,7 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
 # Tables added by alembic migrations (not in the baseline schema).
 # These are dropped after create_all so the migration can re-create them.
 _TABLES_ADDED_BY_MIGRATIONS = [
+    "predictionsetupobservation",
     "backendsettings",
     "predictionsetup",
     "specificationbaseline",

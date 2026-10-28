@@ -58,6 +58,7 @@ from chap_core.database.tables import (
     BacktestSpecification,
     Prediction,
     PredictionInfo,
+    PredictionSetupMonitoring,
     PredictionSetupRead,
     PredictionSetupReadWithPredictions,
     SpecificationBaseline,
@@ -83,7 +84,12 @@ from chap_core.rest_api.experimental import api_experimental
 from chap_core.rest_api.services.orchestrator import Orchestrator, ServiceNotFoundError
 from chap_core.rest_api.services.schemas import MLServiceInfo
 from chap_core.rest_api.v2.dependencies import get_orchestrator, get_registry_reader
-from chap_core.services import alert_policy_service, alert_service, prediction_setup_service
+from chap_core.services import (
+    alert_policy_service,
+    alert_service,
+    prediction_monitoring_service,
+    prediction_setup_service,
+)
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import (
@@ -747,11 +753,14 @@ async def get_predictions(session: Session = Depends(get_session)):
 
     Predictions whose configured model has been deleted outright are filtered out;
     predictions whose configured model has only been archived (soft-deleted) still
-    appear, since the row is still resolvable.
+    appear, since the row is still resolvable. Baseline forecasts stored alongside
+    prediction setup runs for monitoring are left out.
     """
     session_wrapper = SessionWrapper(session=session)
     return [
-        prediction for prediction in session_wrapper.list_all(Prediction) if prediction.configured_model is not None
+        prediction
+        for prediction in session_wrapper.list_all(Prediction)
+        if prediction.configured_model is not None and prediction.baseline_for_prediction_id is None
     ]
 
 
@@ -1523,6 +1532,49 @@ async def get_prediction_setup(
         return prediction_setup_service.get_prediction_setup(session, prediction_setup_id, include_predictions=True)
     except prediction_setup_service.PredictionSetupNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.get(
+    "/prediction-setups/{predictionSetupId}/monitoring",
+    response_model=PredictionSetupMonitoring,
+    tags=["Prediction Setups"],
+    summary="Compare a prediction setup's live and backtest performance with a baseline model",
+)
+async def get_prediction_setup_monitoring(
+    prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
+    metric: Annotated[
+        str, Query(description="Id of a metric with a comparison operator, as listed by the metrics endpoint.")
+    ],
+    baseline: Annotated[
+        str | None,
+        Query(
+            description="Name of the baseline model to compare with, e.g. 'persistence'. Defaults to the "
+            "installation's default baseline model."
+        ),
+    ] = None,
+    session: Session = Depends(get_session),
+):
+    """Compare the setup's model with a baseline model on one metric, run by run, for both its backtest splits and its stored predictions.
+
+    Every built-in baseline forecasts alongside each setup run, so any of them can be
+    compared with. Each value is the metric's comparison with the baseline over the forecasts both
+    models made, positive meaning better than the baseline. Backtest splits are compared
+    with the baseline's backtest on the same specification, and each stored prediction
+    with the baseline forecast made in the same run. Observed cases come from the setup's
+    later runs, so a prediction is scored once a run after it has uploaded the observed
+    values. Org units and horizons are pooled. Each point has the comparison for that run
+    and the running comparison over all runs of the same source up to it. 404 if the
+    setup is unknown, 422 if the metric is unknown, has no comparison operator, or cannot
+    be computed for the setup's data, or if the baseline is not a built-in baseline model.
+    """
+    try:
+        return prediction_monitoring_service.get_prediction_setup_monitoring(
+            session, prediction_setup_id, metric, baseline
+        )
+    except prediction_setup_service.PredictionSetupNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except (prediction_monitoring_service.InvalidMetricError, prediction_monitoring_service.InvalidBaselineError) as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 @router.patch(
