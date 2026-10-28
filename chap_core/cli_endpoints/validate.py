@@ -158,7 +158,7 @@ def _report_period_gaps(raw_df: pd.DataFrame):
 
         try:
             parsed = [TimePeriod.parse(p) for p in loc_periods]
-        except Exception:
+        except Exception:  # noqa: S112 — skip locations with unparseable periods
             continue
 
         delta = parsed[0].time_delta
