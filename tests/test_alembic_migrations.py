@@ -53,6 +53,7 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("backtest", "chap_version"),
     ("dataset", "created_manually"),
     ("alertpolicy", "no_alert_output_code"),
+    ("dataset", "masked_ranges"),
 ]
 
 # Tables added by alembic migrations (not in the baseline schema).

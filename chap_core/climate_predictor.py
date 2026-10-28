@@ -5,6 +5,7 @@ from typing import Any
 import numpy as np
 from sklearn import linear_model
 
+from chap_core.assessment.target_mask import without_target
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month, PeriodRange, Week
 
@@ -35,7 +36,7 @@ class MonthlyClimatePredictor:
         return time_period.month[:, None] == np.arange(1, 13)
 
     def train(self, train_data: DataSet[ClimateData]):
-        train_data = train_data.remove_field("disease_cases")
+        train_data = without_target(train_data)
         for location, data in train_data.items():
             self._cls = data.__class__
             # Retain the forecast grid even when there are no covariates to fit.

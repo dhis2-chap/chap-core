@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from chap_core.assessment.target_mask import MASK_INDICATOR_FIELD
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import HealthData, Samples
 from chap_core.exceptions import CommandLineException, InvalidModelException, ModelFailedException, NoPredictionsError
@@ -192,7 +193,8 @@ class ExternalModel(ExternalModelBase):
         historic_df = historic_data.to_pandas()
         future_df = future_data.to_pandas()
         # For each generated feature, extract per-location values from historic data
-        generated_fields = set(historic_df.columns) - set(future_df.columns)
+        # Future data has its own all-0 mask indicator; the historic values must never be copied into it.
+        generated_fields = set(historic_df.columns) - set(future_df.columns) - {MASK_INDICATOR_FIELD}
         if not generated_fields:
             return future_data
         for field in generated_fields:
