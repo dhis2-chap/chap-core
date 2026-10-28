@@ -2133,6 +2133,15 @@ def test_add_csv_dataset_stores_it_unmasked(dependency_overrides, data_path):
     assert sum(v is None or np.isnan(v) for v in stored_cases) == source_cases.isna().sum()
 
 
+def test_create_dataset_rejects_input_carrying_the_mask_indicator(dependency_overrides, dataset_create):
+    payload = dataset_create.model_dump(mode="json")
+    first = payload["observations"][0]
+    payload["observations"].append({**first, "feature_name": "target_masked", "value": 1.0})
+    response = client.post("/v1/crud/datasets", json=payload)
+    assert response.status_code == 422, response.text
+    assert "is reserved" in response.text
+
+
 def test_add_csv_dataset_rejects_the_mask_indicator(dependency_overrides, data_path, tmp_path):
     df = pd.read_csv(data_path / "vietnam_monthly.csv")
     df["target_masked"] = 0

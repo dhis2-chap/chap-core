@@ -864,6 +864,8 @@ async def create_dataset(
     ``maskedRanges`` deletes data: ``disease_cases`` inside the ranges is stored as empty
     and the submitted values are not kept. They cannot be recovered or unmasked later.
     """
+    # The import keeps only the HealthPopulationData fields, so check before an indicator is silently dropped.
+    reject_mask_indicator_input([obs.feature_name for obs in data.observations])
     health_data = observations_to_dataset(HealthPopulationData, data.observations, fill_missing=True)
     health_data.set_polygons(FeatureCollectionModel.model_validate(data.geojson))
     check_masked_ranges_match(data.masked_ranges, health_data)

@@ -174,16 +174,25 @@ def discover_geojson(csv_path: Path) -> Path | None:
 
 
 def load_data_configuration(path: Path | None) -> DataConfiguration | None:
-    """Read a `--data-configuration` file (JSON or YAML) with the dataset's data settings, such as masked ranges."""
+    """Read a `--data-configuration` file (JSON or YAML) with the dataset's data settings, such as masked ranges.
+
+    Raises ValueError when the file cannot be read or parsed, or its content is invalid.
+    """
     if path is None:
         return None
+    import json
+
     import yaml
 
     from chap_core.database.dataset_tables import DataConfiguration
 
     logger.info(f"Loading data configuration from {path}")
-    with open(path) as f:
-        content = yaml.safe_load(f)
+    try:
+        with open(path) as f:
+            # JSON allows tab indentation, which YAML rejects, so .json files go through the JSON parser.
+            content = json.load(f) if Path(path).suffix.lower() == ".json" else yaml.safe_load(f)
+    except (OSError, yaml.YAMLError) as e:
+        raise ValueError(f"Could not read {path}: {e}") from e
     return DataConfiguration.model_validate(content or {})
 
 

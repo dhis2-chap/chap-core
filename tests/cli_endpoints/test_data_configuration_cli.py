@@ -39,6 +39,14 @@ def test_data_configuration_file_is_read_as_json_or_yaml(mask_file, suffix):
     assert config.masked_ranges == [MaskedRange(start="201106", end="201108")]
 
 
+def test_tab_indented_json_data_configuration_is_read(tmp_path):
+    path = tmp_path / "data.json"
+    path.write_text(json.dumps({"maskedRanges": [{"start": "2011-06", "end": "2011-08"}]}, indent="\t"))
+    config = load_data_configuration(path)
+    assert config is not None
+    assert config.masked_ranges == [MaskedRange(start="201106", end="201108")]
+
+
 def test_no_data_configuration_file_gives_none():
     assert load_data_configuration(None) is None
 
@@ -106,3 +114,9 @@ def test_validate_reports_a_mask_of_the_wrong_period_type(laos_csv, mask_file, c
     with pytest.raises(SystemExit):
         validate_cmd(dataset_csv=laos_csv, data_configuration=mask_file("2011W1", "2011W3"))
     assert "is a week range, but the dataset has month periods" in capsys.readouterr().out
+
+
+def test_validate_reports_an_unreadable_data_configuration(laos_csv, tmp_path, capsys):
+    with pytest.raises(SystemExit):
+        validate_cmd(dataset_csv=laos_csv, data_configuration=tmp_path / "missing.json")
+    assert "Error in data configuration" in capsys.readouterr().out
