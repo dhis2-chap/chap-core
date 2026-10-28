@@ -10,7 +10,7 @@ The foreign keys are CASCADE: the values and baseline forecasts only exist to mo
 their setup.
 
 Revision ID: b64628109792
-Revises: d8e9f0a1b2c3
+Revises: e6f7a8b9c0d1
 Create Date: 2026-10-02
 
 """
@@ -24,7 +24,7 @@ from chap_core.database.migration_helpers import foreign_key_name, has_column, h
 
 # revision identifiers, used by Alembic.
 revision: str = "b64628109792"
-down_revision: Union[str, Sequence[str], None] = "d8e9f0a1b2c3"
+down_revision: Union[str, Sequence[str], None] = "e6f7a8b9c0d1"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
