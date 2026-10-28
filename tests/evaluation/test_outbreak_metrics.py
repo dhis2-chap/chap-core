@@ -12,7 +12,7 @@ from chap_core.assessment.outbreak_metrics.scoring import categories, label_cell
 
 @pytest.fixture
 def labelled(alert_history, alert_observations, alert_forecasts, alert_levels):
-    return label_cells(alert_history, alert_observations, alert_forecasts, alert_levels)
+    return label_cells(pd.concat([alert_history, alert_observations]), alert_forecasts, alert_levels)
 
 
 def test_label_cells_judges_every_level(labelled):
@@ -29,8 +29,44 @@ def test_label_cells_judges_every_level(labelled):
 
 def test_label_cells_drops_cells_without_a_threshold(alert_history, alert_observations, alert_forecasts, alert_levels):
     july = alert_forecasts.assign(time_period="2023-07")
-    labelled = label_cells(alert_history, alert_observations, pd.concat([alert_forecasts, july]), alert_levels)
+    observations = pd.concat([alert_history, alert_observations])
+    labelled = label_cells(observations, pd.concat([alert_forecasts, july]), alert_levels)
     assert "2023-07" not in set(labelled["time_period"])
+
+
+def test_label_cells_computes_thresholds_from_the_history_before_each_split(
+    alert_history, alert_observations, alert_levels
+):
+    """The 2023-06 observation lifts the June mean, so a borderline forecast alerts for 2023 but not for 2024."""
+    forecasts = pd.DataFrame(
+        {
+            "location": "A",
+            "time_period": ["2023-06"] * 3 + ["2024-06"] * 3,
+            "horizon_distance": 1,
+            "sample": [0, 1, 2] * 2,
+            "forecast": 100.5,
+        }
+    )
+    labelled = label_cells(pd.concat([alert_history, alert_observations]), forecasts, alert_levels)
+    monitor = labelled[labelled["level"] == 0].set_index("time_period")["alert"]
+    assert monitor["2023-06"] and not monitor["2024-06"]
+
+
+def test_label_cells_keeps_a_forecast_periods_own_observation_out_of_its_threshold(alert_levels):
+    """Weekly ids are unpadded, so 2023W10 sorts before 2023W9 as a string but comes after it in time."""
+    observations = pd.DataFrame(
+        {
+            "location": "A",
+            "time_period": [f"{year}W10" for year in range(2019, 2024)],
+            "disease_cases": [90.0, 95.0, 105.0, 110.0, 1000.0],
+        }
+    )
+    forecasts = pd.DataFrame(
+        {"location": "A", "time_period": "2023W10", "horizon_distance": 2, "sample": [0, 1, 2], "forecast": 150.0}
+    )
+    labelled = label_cells(observations, forecasts, alert_levels)
+    assert labelled.set_index("level")["alert"].to_dict() == {0: True, 1: True}
+    assert labelled["outbreak"].all()
 
 
 def test_categories_take_the_most_severe_level(labelled):
@@ -63,7 +99,7 @@ def test_categorical_metrics_from_confusion_matrix():
     metrics = get_categorical_outbreak_metrics()
     # observed 1 -> predicted 1, observed 1 -> predicted 0, observed 0 -> predicted 2
     confusion = np.array([[0, 0, 1], [1, 1, 0], [0, 0, 0]])
-    assert metrics["accuracy"].compute(confusion) == pytest.approx(1 / 3)
+    assert metrics["categorical_accuracy"].compute(confusion) == pytest.approx(1 / 3)
     assert metrics["macro_f1"].compute(confusion) == pytest.approx((0 + 2 / 3 + 0) / 3)
     assert metrics["weighted_kappa"].compute(confusion) == pytest.approx(-2 / 3)
 
@@ -79,7 +115,7 @@ def test_score_pools_every_cell_without_grouping(labelled):
     assert overall.n_cells == 3
     assert overall.levels[0]["sensitivity"] == 0.5
     assert overall.levels[1]["specificity"] == pytest.approx(2 / 3)
-    assert overall.categorical["accuracy"] == pytest.approx(1 / 3)
+    assert overall.categorical["categorical_accuracy"] == pytest.approx(1 / 3)
 
 
 def test_score_groups_by_the_requested_dimensions(labelled):
@@ -90,4 +126,4 @@ def test_score_groups_by_the_requested_dimensions(labelled):
         {"time_period": "2024-06", "horizon_distance": 1},
     ]
     assert [row.n_cells for row in rows] == [1, 1, 1]
-    assert rows[0].categorical["accuracy"] == 1.0
+    assert rows[0].categorical["categorical_accuracy"] == 1.0

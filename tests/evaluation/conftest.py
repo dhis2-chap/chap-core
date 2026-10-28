@@ -480,11 +480,13 @@ def alert_levels():
     return [
         AlertLevel(
             name="monitor",
+            output_code="1",
             threshold_params=SeasonalParams(type="seasonal", std_multiplier=0.0),
             exceedance_threshold=0.5,
         ),
         AlertLevel(
             name="action",
+            output_code="2",
             threshold_params=SeasonalParams(type="seasonal", std_multiplier=1.0),
             exceedance_threshold=0.5,
         ),

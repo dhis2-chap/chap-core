@@ -12,7 +12,9 @@ from chap_core.assessment.outbreak_metrics import categorical_outbreak_metric
 from chap_core.assessment.outbreak_metrics.binary import ratio
 
 
-@categorical_outbreak_metric("accuracy", "Accuracy", "Share of cells whose predicted category is the observed one.")
+@categorical_outbreak_metric(
+    "categorical_accuracy", "Categorical accuracy", "Share of cells whose predicted category is the observed one."
+)
 def accuracy(confusion: np.ndarray) -> float | None:
     return ratio(float(np.trace(confusion)), float(confusion.sum()))
 

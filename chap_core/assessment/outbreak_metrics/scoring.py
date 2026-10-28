@@ -9,6 +9,11 @@ alerted when the fraction of forecast samples above the threshold reaches the le
 The levels together also split every cell into ordered categories -- ``0`` for no
 level, ``i + 1`` for the most severe level ``i`` breached -- so the policy can be judged
 as a single ordinal classifier, ternary for a two-level policy.
+
+Thresholds are computed per split, from the observations before the split's first
+forecast period, so each cell is judged as a live run with that history would have
+judged it (see :func:`chap_core.services.alert_service.raise_alerts_for_prediction`)
+and a scored period never raises its own threshold.
 """
 
 from __future__ import annotations
@@ -25,25 +30,23 @@ from chap_core.assessment.outbreak_metrics import (
     get_categorical_outbreak_metrics,
 )
 from chap_core.assessment.thresholds import get_threshold_strategy
+from chap_core.time_period import TimePeriod
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from chap_core.database.alert_tables import AlertLevel
 
 _CELL = ["location", "time_period", "horizon_distance"]
 
 
-def label_cells(
-    historical_observations: pd.DataFrame,
-    observations: pd.DataFrame,
-    forecasts: pd.DataFrame,
-    levels: list[AlertLevel],
-) -> pd.DataFrame:
+def label_cells(observations: pd.DataFrame, forecasts: pd.DataFrame, levels: list[AlertLevel]) -> pd.DataFrame:
     """Label every scored cell as outbreak and alert at every level of a policy.
 
     Args:
-        historical_observations: Observations the thresholds are computed from, with
-            columns ``[location, time_period, disease_cases]``.
-        observations: Observed cases to score against, same columns.
+        observations: Observed cases, with columns ``[location, time_period, disease_cases]``.
+            Those before a split are the history its thresholds are computed from; those
+            in the forecast periods are what the cells are scored against.
         forecasts: Forecast samples, with columns
             ``[location, time_period, horizon_distance, sample, forecast]``.
         levels: The policy's levels, least to most severe.
@@ -55,22 +58,16 @@ def label_cells(
         same cells.
 
     Raises:
-        ValueError: If a strategy cannot compute thresholds from the history.
+        ValueError: If no threshold can be computed from the observations before any
+            split, or a strategy rejects the history.
     """
-    period_ids = sorted(forecasts["time_period"].astype(str).unique())
-    thresholds = pd.concat(
-        [
-            _level_thresholds(historical_observations, period_ids, level).assign(level=i)
-            for i, level in enumerate(levels)
-        ],
-        ignore_index=True,
-    )
     exceedance = pd.Series([level.exceedance_threshold for level in levels], name="exceedance_threshold")
 
     obs = observations[["location", "time_period", "disease_cases"]].dropna(subset=["disease_cases"])
     obs = obs.assign(time_period=obs["time_period"].astype(str))
     fc = forecasts.assign(time_period=forecasts["time_period"].astype(str))
-    fc = fc.merge(thresholds, on=["location", "time_period"])
+    fc = fc.merge(_splits(fc), on=["time_period", "horizon_distance"])
+    fc = fc.merge(_thresholds(obs, fc, levels), on=["location", "time_period", "split"])
     fc["exceeds"] = fc["forecast"] > fc["threshold"]
     cells = fc.groupby([*_CELL, "level", "threshold"], as_index=False)["exceeds"].mean()
     cells = cells.merge(obs, on=["location", "time_period"])
@@ -81,6 +78,48 @@ def label_cells(
     cells["outbreak"] = cells["disease_cases"] > cells["threshold"]
     cells["alert"] = cells["exceeds"] >= cells["exceedance_threshold"]
     return pd.DataFrame(cells[[*_CELL, "level", "outbreak", "alert"]]).reset_index(drop=True)
+
+
+def _splits(forecasts: pd.DataFrame) -> pd.DataFrame:
+    """The split each ``(time_period, horizon_distance)`` was forecast from, as the start of its first period.
+
+    A forecast at horizon ``h`` was made ``h - 1`` periods before its period, so the split
+    is its period rolled back that far. Dates rather than period ids, so periods compare in
+    time order whatever their padding (``2023W9`` sorts before ``2023W10``).
+    """
+    cells = forecasts[["time_period", "horizon_distance"]].drop_duplicates()
+    cells["split"] = pd.to_datetime(
+        [
+            _period_start(period_id, back=int(horizon) - 1)
+            for period_id, horizon in zip(cells["time_period"], cells["horizon_distance"], strict=True)
+        ]
+    )
+    return cells
+
+
+def _period_start(period_id: str, back: int = 0) -> datetime:
+    """Start date of a period id, rolled back ``back`` periods."""
+    period = TimePeriod.parse(period_id)
+    start: datetime = (period - back * period.time_delta).start_timestamp.date
+    return start
+
+
+def _thresholds(observations: pd.DataFrame, forecasts: pd.DataFrame, levels: list[AlertLevel]) -> pd.DataFrame:
+    """Every level's threshold per ``(location, time_period, split)``, from the observations before each split."""
+    observed_at = observations["time_period"].map({p: _period_start(p) for p in observations["time_period"].unique()})
+    frames = []
+    for split in forecasts["split"].unique():
+        history = observations[observed_at < split]
+        if history.empty:
+            continue
+        period_ids = sorted(forecasts.loc[forecasts["split"] == split, "time_period"].unique())
+        for i, level in enumerate(levels):
+            thresholds = _level_thresholds(history, period_ids, level)
+            if not thresholds.empty:
+                frames.append(thresholds.assign(level=i, split=split))
+    if not frames:
+        raise ValueError("No threshold could be computed from the observations before any split")
+    return pd.concat(frames, ignore_index=True)
 
 
 def _level_thresholds(historical_observations: pd.DataFrame, period_ids: list[str], level: AlertLevel) -> pd.DataFrame:

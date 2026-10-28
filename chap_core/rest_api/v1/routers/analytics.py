@@ -1246,25 +1246,23 @@ def get_outbreak_metrics(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     alert_policy_id: Annotated[int, Query(alias="alertPolicyId")],
     group_by: Annotated[list[DataDimension] | None, Query(alias="groupBy")] = None,
-    baseline_before_first_split: Annotated[bool, Query(alias="baselineBeforeFirstSplit")] = False,
     session: Session = Depends(get_session),
 ):
     """Judge how well a backtest's forecasts would have raised the alerts of an alert policy.
 
-    Each level's threshold is computed by its strategy, as in `POST /v1/analytics/thresholds`.
-    A cell (location, period, horizon) is an outbreak at a level when observed cases exceed
-    the threshold, and is alerted when the share of forecast samples above it reaches the
-    level's `exceedanceThreshold`. Every level gets the binary metrics; the levels together
-    get the categorical metrics on the most severe level breached. See
-    `GET /v1/analytics/outbreak-metrics` for the metrics.
+    Each level's threshold is computed by its strategy, as in `POST /v1/analytics/thresholds`,
+    per split from the observations before the split's first forecast period: what a live
+    run with that history would have used. A cell (location, period, horizon) is an outbreak
+    at a level when observed cases exceed the threshold, and is alerted when the share of
+    forecast samples above it reaches the level's `exceedanceThreshold`. Every level gets the
+    binary metrics; the levels together get the categorical metrics on the most severe level
+    breached. See `GET /v1/analytics/outbreak-metrics` for the metrics.
 
     `groupBy` (repeatable: `location`, `time_period`, `horizon_distance`) splits the cells
     into one row per group; without it every cell is pooled into one row.
 
-    Thresholds are computed from the backtest's whole dataset by default. With
-    `baselineBeforeFirstSplit`, only observations before the first forecast period are used,
-    so the scored periods cannot raise their own threshold. 404 if the backtest or policy
-    is unknown; 400 if the policy has no levels or no threshold can be computed.
+    404 if the backtest or policy is unknown; 400 if the policy has no levels, no threshold
+    can be computed, or no cell has both an observation and a threshold at every level.
     """
     from chap_core.assessment.evaluation import Evaluation
     from chap_core.assessment.outbreak_metrics.scoring import label_cells, score
@@ -1280,20 +1278,15 @@ def get_outbreak_metrics(
         raise HTTPException(status_code=400, detail=f"Alert policy {alert_policy_id} has no levels")
 
     flat = Evaluation.from_backtest(backtest).to_flat()
-    observations = pd.DataFrame(flat.observations)
-    forecasts = pd.DataFrame(flat.forecasts)
-    history = observations
-    if baseline_before_first_split:
-        first_period = forecasts["time_period"].astype(str).min()
-        history = observations[observations["time_period"].astype(str) < first_period]
-    history = history.dropna(subset=["disease_cases"])
-    if history.empty:
-        raise HTTPException(status_code=400, detail="No observations to compute thresholds from")
-
     try:
-        labelled = label_cells(history, observations, forecasts, policy.levels)
+        labelled = label_cells(pd.DataFrame(flat.observations), pd.DataFrame(flat.forecasts), policy.levels)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    if labelled.empty:
+        raise HTTPException(
+            status_code=400,
+            detail="No cell to score: no forecast period has an observation and a threshold at every level",
+        )
 
     dimensions = [str(dim) for dim in dict.fromkeys(group_by or [])]
     return OutbreakMetricsResponse(

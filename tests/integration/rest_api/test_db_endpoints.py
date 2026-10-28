@@ -2808,14 +2808,12 @@ def _test_backtest_id(session) -> int:
     return session.exec(select(Backtest).where(Backtest.name == "test backtest")).one().id
 
 
-@pytest.mark.parametrize("before_first_split", [False, True])
-def test_outbreak_metrics_scores_every_level(override_session, seeded_session, before_first_split):
+def test_outbreak_metrics_scores_every_level(override_session, seeded_session):
     backtest_id = _test_backtest_id(seeded_session)
     policy_id = _create_alert_policy().json()["id"]
 
     response = client.get(
-        f"/v1/analytics/backtests/{backtest_id}/outbreak-metrics",
-        params={"alertPolicyId": policy_id, "baselineBeforeFirstSplit": before_first_split},
+        f"/v1/analytics/backtests/{backtest_id}/outbreak-metrics", params={"alertPolicyId": policy_id}
     )
 
     assert response.status_code == 200, response.json()
@@ -2826,6 +2824,18 @@ def test_outbreak_metrics_scores_every_level(override_session, seeded_session, b
     assert [level["level"] for level in overall["levels"]] == ["monitor", "action"]
     assert "sensitivity" in overall["levels"][0]["metrics"]
     assert "weighted_kappa" in overall["categorical"]
+
+
+def test_outbreak_metrics_without_a_scorable_cell_is_400(override_session, seeded_session):
+    """The NaN backtest has no observed cases in its forecast periods, so nothing can be scored."""
+    backtest_id = seeded_session.exec(select(Backtest).where(Backtest.name == "test_backtest_with_nans")).one().id
+    policy_id = _create_alert_policy().json()["id"]
+
+    response = client.get(
+        f"/v1/analytics/backtests/{backtest_id}/outbreak-metrics", params={"alertPolicyId": policy_id}
+    )
+
+    assert response.status_code == 400, response.json()
 
 
 def test_outbreak_metrics_groups_by_the_requested_dimensions(override_session, seeded_session):
@@ -2844,8 +2854,10 @@ def test_outbreak_metrics_groups_by_the_requested_dimensions(override_session, s
     assert all(row["timePeriod"] is None for row in rows)
 
 
-def test_list_outbreak_metrics_includes_both_kinds():
-    metrics = {m["id"]: m["kind"] for m in client.get("/v1/analytics/outbreak-metrics").json()}
+def test_list_outbreak_metrics_has_unique_ids_of_both_kinds():
+    listed = client.get("/v1/analytics/outbreak-metrics").json()
+    metrics = {m["id"]: m["kind"] for m in listed}
+    assert len(metrics) == len(listed)
     assert metrics["sensitivity"] == "binary"
     assert metrics["weighted_kappa"] == "categorical"
 
