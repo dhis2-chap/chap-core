@@ -124,6 +124,7 @@ from .dependencies import (
     get_settings_manager,
     model_job_metadata,
     reject_mask_indicator_input,
+    require_target_column,
 )
 
 logger = logging.getLogger(__name__)
@@ -1659,8 +1660,7 @@ async def run_prediction_setup(
     target_column = setup.backtest.specification.target_column
     feature_names = list({entry.feature_name for entry in request.provided_data})
     reject_mask_indicator_input(feature_names)
-    if target_column not in feature_names:
-        raise HTTPException(status_code=422, detail=f"Dataset has no target column {target_column!r}")
+    require_target_column(target_column, feature_names)
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
