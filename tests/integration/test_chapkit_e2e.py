@@ -20,9 +20,13 @@ from sqlmodel import SQLModel
 
 import chap_core.database.tables  # noqa: F401 - register all table models
 from chap_core.database.database import SessionWrapper
+from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.dataset_manager import DataSetManager
+from chap_core.database.dataset_tables import DataSetCreateInfo, MaskedRange
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.database.tables import Backtest
+from chap_core.datatypes import FullData
+from chap_core.geometry import Polygons
 from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config
 from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.rest_api.db_worker_functions import run_backtest
@@ -57,13 +61,13 @@ def _wait_for_health(url: str, timeout: float = 60.0) -> bool:
 
 
 @pytest.fixture(scope="module")
-def chapkit_train_log(tmp_path_factory) -> Path:
-    """Path the fixture service appends one JSON line to per train call."""
-    return tmp_path_factory.mktemp("chapkit_train_log") / "train_calls.jsonl"
+def chapkit_call_log(tmp_path_factory) -> Path:
+    """Path the fixture service appends one JSON line to per train and predict call."""
+    return tmp_path_factory.mktemp("chapkit_call_log") / "calls.jsonl"
 
 
 @pytest.fixture(scope="module")
-def chapkit_service(tmp_path_factory, chapkit_train_log):
+def chapkit_service(tmp_path_factory, chapkit_call_log):
     """Start a real chapkit service as a subprocess."""
     port = _find_free_port()
     url = f"http://127.0.0.1:{port}"
@@ -81,7 +85,7 @@ def chapkit_service(tmp_path_factory, chapkit_train_log):
         "SERVICEKIT_ORCHESTRATOR_URL": "",  # disable registration for CLI test
         "GIT_REVISION": FIXTURE_GIT_REVISION,
         "CHAPKIT_DATABASE_URL": f"sqlite+aiosqlite:///{data_dir}/chapkit.db",
-        "CHAPKIT_TEST_TRAIN_LOG": str(chapkit_train_log),
+        "CHAPKIT_TEST_CALL_LOG": str(chapkit_call_log),
     }
 
     # Log to files rather than pipes: chapkit logs every request, and an
@@ -133,17 +137,30 @@ def _in_memory_engine():
     return engine
 
 
-def _register_service_and_dataset(session: SessionWrapper, chapkit_service: str) -> int:
+def _register_service_and_dataset(
+    session: SessionWrapper, chapkit_service: str, masked_ranges: list[MaskedRange] | None = None
+) -> int:
     """Register the live service as a model template with a default configured model.
 
-    Returns the id of the example dataset the backtest runs on.
+    Returns the id of the example dataset the backtest runs on, stored with the given masked ranges.
     """
     info_response = httpx.get(f"{chapkit_service}/api/v1/info")
     info = MLServiceInfo.model_validate(info_response.json())
     template_config = ml_service_info_to_model_template_config(info, chapkit_service)
     template_id = session.add_model_template_from_yaml_config(template_config, source_digest=info.git_revision)
     session.add_configured_model(template_id, ModelConfiguration(), uses_chapkit=True)
-    return DataSetManager(session.session).save_dataset_from_csv("vietnam_test", EXAMPLE_CSV, EXAMPLE_GEOJSON)
+    dataset = InMemoryDataSet.from_csv(EXAMPLE_CSV, dataclass=FullData)
+    polygons = Polygons.from_geojson(json.loads(EXAMPLE_GEOJSON.read_text()), id_property="NAME_1")
+    return DataSetManager(session.session).save_dataset(
+        DataSetCreateInfo(name="vietnam_test", masked_ranges=masked_ranges or []),
+        dataset,
+        polygons.feature_collection().model_dump_json(),
+        created_manually=True,
+    )
+
+
+def _logged_calls(call_log: Path) -> list[dict]:
+    return [json.loads(line) for line in call_log.read_text().splitlines() if line.strip()]
 
 
 @pytest.mark.slow
@@ -231,13 +248,13 @@ def test_chapkit_backtest_via_worker_function(chapkit_service):
 
 
 @pytest.mark.slow
-def test_chapkit_train_receives_the_requested_horizon(chapkit_service, chapkit_train_log):
+def test_chapkit_train_receives_the_requested_horizon(chapkit_service, chapkit_call_log):
     """The horizon chap asks for reaches the service's train function through run_info.
 
     The fixture service's own config defaults to 3 periods, so a train call that sees
     5 can only have got it from the run_info chap-core sent.
     """
-    chapkit_train_log.write_text("")
+    chapkit_call_log.write_text("")
 
     with SessionWrapper(_in_memory_engine()) as session:
         dataset_id = _register_service_and_dataset(session, chapkit_service)
@@ -249,6 +266,52 @@ def test_chapkit_train_receives_the_requested_horizon(chapkit_service, chapkit_t
         )
 
     assert backtest_id is not None
-    logged = [json.loads(line) for line in chapkit_train_log.read_text().splitlines() if line.strip()]
+    logged = [call for call in _logged_calls(chapkit_call_log) if call["call"] == "train"]
     assert logged, "the service recorded no train calls"
     assert all(call["prediction_periods"] == 5 for call in logged), logged
+
+
+@pytest.mark.slow
+def test_chapkit_model_receives_the_mask_indicator(chapkit_service, chapkit_call_log):
+    """A backtest on a masked dataset sends the indicator to a chapkit model.
+
+    Training data carries 1 in the masked periods, with no disease_cases there, and
+    future data carries the indicator as all 0.
+    """
+    chapkit_call_log.write_text("")
+
+    with SessionWrapper(_in_memory_engine()) as session:
+        dataset_id = _register_service_and_dataset(
+            session, chapkit_service, masked_ranges=[MaskedRange(start="2008-06", end="2008-08")]
+        )
+        backtest_id = run_backtest(
+            BacktestCreate(dataset_id=dataset_id, model_id="chapkit-test-model"),
+            n_splits=2,
+            session=session,
+        )
+
+    assert backtest_id is not None
+    logged = _logged_calls(chapkit_call_log)
+    train_calls = [call for call in logged if call["call"] == "train"]
+    predict_calls = [call for call in logged if call["call"] == "predict"]
+    assert train_calls and predict_calls, logged
+    for call in train_calls:
+        assert "target_masked" in call["columns"], call
+        assert call["masked_values"] == [0.0, 1.0], call
+        assert call["cases_in_masked_rows"] == 0, call
+    for call in predict_calls:
+        assert "target_masked" in call["columns"], call
+        assert call["masked_values"] == [0.0], call
+
+
+@pytest.mark.slow
+def test_chapkit_model_gets_no_mask_indicator_on_an_unmasked_dataset(chapkit_service, chapkit_call_log):
+    chapkit_call_log.write_text("")
+
+    with SessionWrapper(_in_memory_engine()) as session:
+        dataset_id = _register_service_and_dataset(session, chapkit_service)
+        run_backtest(BacktestCreate(dataset_id=dataset_id, model_id="chapkit-test-model"), n_splits=2, session=session)
+
+    logged = _logged_calls(chapkit_call_log)
+    assert logged
+    assert all("target_masked" not in call["columns"] for call in logged), logged

@@ -61,7 +61,8 @@ def validate_dataset(
     return issues
 
 
-RESERVED_FIELDS = {"time_period", "location", "location_name", "disease_cases"}
+# `target_masked` is added by masking (CLIM-1300) and is never part of input data.
+RESERVED_FIELDS = {"time_period", "location", "location_name", "disease_cases", "target_masked"}
 
 
 def _check_nan_covariates(dataset: DataSet) -> list[ValidationIssue]:

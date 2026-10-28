@@ -155,6 +155,7 @@ class TestTokenEnabled:
         )
 
         assert response.status_code == 200
+        assert "access-control-allow-credentials" not in response.headers
 
 
 class TestServiceKeyHeaderCarriesTheToken:

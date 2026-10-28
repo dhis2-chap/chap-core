@@ -57,7 +57,7 @@ def get_temp_dir() -> Path:
     Path
         Path to the temporary directory (default: '/tmp/chap/temp/')
     """
-    temp_dir = Path("/tmp/chap/temp")
+    temp_dir = Path("/tmp/chap/temp")  # noqa: S108 — shared scratch location for model runs
     temp_dir.mkdir(parents=True, exist_ok=True)
     return temp_dir
 

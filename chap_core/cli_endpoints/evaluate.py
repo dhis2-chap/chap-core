@@ -11,6 +11,7 @@ from cyclopts import Parameter
 from chap_core.api_types import BacktestParams, EstimatorMode, EstimatorOptions, RunConfig
 from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
     BacktestParamsArg,
+    DataConfigurationArg,
     DatasetCsvArg,
     DataSourceMappingArg,
     ModelConfigYamlArg,
@@ -22,6 +23,7 @@ from chap_core.cli_endpoints._common import (
     get_configuration,
     get_estimator,
     get_hpo_estimator,
+    load_data_configuration,
     load_dataset_from_csv,
     resolve_csv_path,
     warn_unused_covariates,
@@ -50,6 +52,7 @@ def eval_cmd(
         Parameter(help="Years of historical data to include for plotting context."),
     ] = 6,
     data_source_mapping: DataSourceMappingArg = None,
+    data_configuration: DataConfigurationArg = None,
     dry_run: Annotated[bool, Parameter(help="Write inputs and print commands without executing.")] = False,
     plot: Annotated[bool, Parameter(help="Generate an HTML evaluation plot alongside the NetCDF.")] = False,
     estimator_options: Annotated[
@@ -84,6 +87,7 @@ def eval_cmd(
             model_configuration_yaml=model_configuration_yaml,
             historical_context_years=historical_context_years,
             data_source_mapping=data_source_mapping,
+            data_configuration=data_configuration,
             dry_run=dry_run,
             plot=plot,
             estimator_options=estimator_options,
@@ -112,6 +116,7 @@ def _run_eval(
         ),
     ] = 6,
     data_source_mapping: DataSourceMappingArg = None,
+    data_configuration: DataConfigurationArg = None,
     dry_run: Annotated[
         bool,
         Parameter(
@@ -173,6 +178,7 @@ def _run_eval(
             --estimator-options.metric rmse --estimator-options.searcher tpe
     """
     from chap_core.assessment.evaluation import Evaluation
+    from chap_core.assessment.target_mask import check_mask_outside_evaluation_window
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
     from chap_core.external.ExtendedPredictor import ExtendedPredictor
     from chap_core.log_config import initialize_logging
@@ -197,9 +203,13 @@ def _run_eval(
         with open(data_source_mapping) as f:
             column_mapping = json.load(f)
 
+    data_config = load_data_configuration(data_configuration)
     csv_path, url_geojson_path = resolve_csv_path(dataset_csv)
     geojson_path = url_geojson_path or discover_geojson(csv_path)
-    dataset = load_dataset_from_csv(csv_path, geojson_path, column_mapping)
+    dataset = load_dataset_from_csv(csv_path, geojson_path, column_mapping, data_config)
+    check_mask_outside_evaluation_window(
+        dataset, backtest_params.n_periods, backtest_params.n_splits, backtest_params.stride
+    )
 
     dataset = validate_and_filter_dataset_for_evaluation(
         dataset,

@@ -50,13 +50,11 @@ def add_model_template_from_url(
     # The label guards the stored revision. A row seeded before digests were recorded
     # has nothing to compare against and keeps serving its stored source.
     if existing.source_digest is not None and source_digest != existing.source_digest:
-        raise ModelTemplateRevisionConflict(
-            existing.name,
-            version,
-            existing.source_digest,
-            source_digest,
-            f"add a new version entry for {url.partition('@')[0]} in config/configured_models.",
-        )
+        if source_digest is None:
+            how_to_fix = f"pin {url!r} to a commit sha, or check that GitHub can be reached, and seed again."
+        else:
+            how_to_fix = f"add a new version entry for {url.partition('@')[0]} in config/configured_models."
+        raise ModelTemplateRevisionConflict(existing.name, version, existing.source_digest, source_digest, how_to_fix)
     return session_wrapper.add_or_update_model_template(existing)
 
 

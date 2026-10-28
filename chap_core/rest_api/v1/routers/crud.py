@@ -20,6 +20,7 @@ import logging
 from typing import Annotated, Any, Final, Literal
 
 import numpy as np
+import pandas as pd
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Path, Query, UploadFile
 from redis.exceptions import RedisError
 from sqlalchemy import func
@@ -35,7 +36,7 @@ from chap_core.assessment.weather_providers import resolve_weather_provider
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.alert_tables import Alert, AlertApproval, AlertPolicyRead, AlertRead
 from chap_core.database.database import SessionWrapper
-from chap_core.database.dataset_manager import DataSetManager
+from chap_core.database.dataset_manager import DataSetInUseError, DataSetManager
 from chap_core.database.dataset_tables import (
     DataSet,
     DataSetCreateInfo,
@@ -115,12 +116,14 @@ from ...leaderboard_models import (
 )
 from .analytics import validate_full_dataset
 from .dependencies import (
+    check_masked_ranges_match,
     get_database_url,
     get_job_request,
     get_session,
     get_settings,
     get_settings_manager,
     model_job_metadata,
+    reject_mask_indicator_input,
 )
 
 logger = logging.getLogger(__name__)
@@ -857,13 +860,20 @@ async def create_dataset(
     (or ``/v1/jobs/{id}/database_result`` once finished) for the resulting dataset id.
     For a dataset that ships its own covariates, use ``POST /v1/analytics/make-dataset``
     instead.
+
+    ``maskedRanges`` deletes data: ``disease_cases`` inside the ranges is stored as empty
+    and the submitted values are not kept. They cannot be recovered or unmasked later.
     """
+    # The import keeps only the HealthPopulationData fields, so check before an indicator is silently dropped.
+    reject_mask_indicator_input([obs.feature_name for obs in data.observations])
     health_data = observations_to_dataset(HealthPopulationData, data.observations, fill_missing=True)
     health_data.set_polygons(FeatureCollectionModel.model_validate(data.geojson))
+    check_masked_ranges_match(data.masked_ranges, health_data)
     job = worker.queue_db(
         wf.harmonize_and_add_health_dataset,
         health_data.model_dump(),
         data.name,
+        masked_ranges=data.masked_ranges,
         database_url=datababase_url,
         worker_config=worker_settings,
         **{JOB_REQUEST_KW: original_request},
@@ -885,11 +895,14 @@ async def create_dataset_csv(
 
     Use this when you have the files on disk and do not want to round-trip them
     through DHIS2 or the JSON import endpoints. Inserts inline — no background job —
-    and returns the new dataset id immediately.
+    and returns the new dataset id immediately. The dataset has no masked ranges;
+    a CSV with a ``target_masked`` column gets a 422.
     """
     import io
 
     csv_content = await csv_file.read()
+    # The import keeps only the FullData columns, so check the header before an indicator is silently dropped.
+    reject_mask_indicator_input(pd.read_csv(io.BytesIO(csv_content), nrows=0).columns.tolist())
     dataset = InMemoryDataSet.from_csv(io.BytesIO(csv_content), dataclass=FullData)
     geo_json_content = await geojson_file.read()
     features = Polygons.from_geojson(json.loads(geo_json_content), id_property="NAME_1").feature_collection()
@@ -958,11 +971,18 @@ async def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], s
     summary="Remove an imported dataset",
 )
 async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
-    """Permanently delete a dataset and every observation in it. Use this to clean up obsolete imports — be aware that backtests and predictions that referenced this dataset will lose their data link. 404 if the id is unknown."""
-    # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
+    """Permanently delete a dataset and every observation in it. Use this to clean up obsolete imports.
+
+    Refused with 409 while a backtest or a prediction still uses the dataset. The baseline
+    backtests that every backtest queues count too, although backtest listings hide them,
+    so the error names every backtest and prediction to delete first. 404 if the id is unknown.
+    """
     if session.get(DataSet, dataset_id) is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    DataSetManager(session).delete_by_id(dataset_id)
+    try:
+        DataSetManager(session).delete_by_id(dataset_id)
+    except DataSetInUseError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     return {"message": "deleted"}
 
 
@@ -1612,8 +1632,10 @@ async def run_prediction_setup(
     arrived, a model investigation, etc.). Returns a job id; track it via
     ``/v1/jobs/{id}`` or filter the jobs list with ``predictionSetupId`` to see every
     job this setup has launched. Returns 404 if the setup is unknown, 409 if its
-    configured model has been archived, 422 if ``provided_data`` is empty or missing
-    the backtest's target column. Forecasts use the same target as the backtest.
+    configured model has been archived, 422 if ``provided_data`` is empty, missing
+    the backtest's target column, or of a different period type than the backtest
+    dataset's masked ranges. Forecasts use the same target, future-weather provider and
+    masked ranges as the backtest: the ranges are copied onto the run's new dataset.
     """
     try:
         setup = prediction_setup_service.get_prediction_setup(session, prediction_setup_id)
@@ -1636,6 +1658,7 @@ async def run_prediction_setup(
 
     target_column = setup.backtest.specification.target_column
     feature_names = list({entry.feature_name for entry in request.provided_data})
+    reject_mask_indicator_input(feature_names)
     if target_column not in feature_names:
         raise HTTPException(status_code=422, detail=f"Dataset has no target column {target_column!r}")
     dataclass = create_tsdataclass(feature_names)
@@ -1654,12 +1677,17 @@ async def run_prediction_setup(
         )
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
 
+    # Inherit the backtest dataset's masked ranges, so predictions train under the same mask the
+    # backtest was scored with. Only the ranges are copied; the observations are this run's own.
+    masked_ranges = setup.backtest.dataset.masked_ranges or []
+    check_masked_ranges_match(masked_ranges, provided_data)
+
     # Normalize dataset type server-side, matching analytics.make_prediction. Whatever the
     # client sent in `request.type` (e.g. chap-scheduler defaults to "forecasting") gets
     # overridden so the persisted dataset is consistently tagged "prediction" and shows
     # up in prediction-filtered UI/queries. Use a local instead of mutating the request.
     dataset_type = "prediction"
-    dataset_info = DataSetCreateInfo(name=request.name, type=dataset_type).model_dump()
+    dataset_info = DataSetCreateInfo(name=request.name, type=dataset_type, masked_ranges=masked_ranges).model_dump()
     # Inherit the provider the setup's backtest was evaluated with, so a promoted
     # backtest predicts against the same future-weather source it was scored on.
     provider = setup.backtest.future_weather_provider

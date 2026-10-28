@@ -11,7 +11,6 @@ one of its policy's level names. Changing the ladder requires a new policy.
 
 from __future__ import annotations
 
-import datetime
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -20,6 +19,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from chap_core.database.alert_tables import Alert, AlertLevel, AlertPolicy, AlertPolicyBase
+from chap_core.database.base_tables import utc_now
 from chap_core.database.tables import PredictionSetup
 
 if TYPE_CHECKING:
@@ -94,7 +94,7 @@ def create_alert_policy(
         name=validated.name,
         levels=validated.levels,
         no_alert_output_code=validated.no_alert_output_code,
-        created=datetime.datetime.now(),
+        created=utc_now(),
     )
     session.add(policy)
     session.commit()

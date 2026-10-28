@@ -2,9 +2,10 @@ import itertools
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
+import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
@@ -12,12 +13,15 @@ from sqlmodel import Session, select
 import chap_core
 from chap_core.api_types import DataList, EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
-from chap_core.datatypes import create_tsdataclass
+from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateRole
 from chap_core.database.dataset_tables import (
     DataSet,
+    DataSetCreateInfo,
     DataSetWithObservations,
+    FeatureCollectionModel,
+    MaskedRange,
     Observation,
     ObservationBase,
 )
@@ -37,10 +41,17 @@ from chap_core.rest_api.data_models import (
     MakePredictionRequest,
     ModelConfigurationCreate,
     ModelTemplateRead,
+    PredictionParams,
 )
 from chap_core.rest_api.app import app
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
-from chap_core.rest_api.db_worker_functions import harmonize_and_add_dataset, run_backtest
+from chap_core.rest_api.db_worker_functions import (
+    harmonize_and_add_dataset,
+    harmonize_and_add_health_dataset,
+    predict_pipeline_from_composite_dataset,
+    run_backtest,
+    run_prediction,
+)
 from chap_core.time_period import TimePeriod
 
 logger = logging.getLogger(__name__)
@@ -51,7 +62,7 @@ client = TestClient(app)
 def await_result_id(job_id, timeout=30):
     for _ in range(timeout):
         response = client.get(f"/v1/jobs/{job_id}")
-        status = response.json()
+        status = response.json()["status"]
         if status == "SUCCESS":
             return client.get(f"/v1/jobs/{job_id}/database_result").json()["id"]
         if status == "FAILURE":
@@ -102,6 +113,7 @@ def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_ove
 
 def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_create: DatasetCreate):
     data = dataset_create.model_dump(mode="json")
+    data["masked_ranges"] = [{"start": "2021-06", "end": "2021-08", "name": "outage"}]
     print(json.dumps(data, indent=2))
     response = client.post("/v1/crud/datasets", json=data)
     assert response.status_code == 200, response.json()
@@ -109,6 +121,7 @@ def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_c
     response = client.get(f"/v1/crud/datasets/{db_id}")
     assert response.status_code == 200, response.json()
     ds = DataSetWithObservations.model_validate(response.json())
+    assert response.json()["maskedRanges"] == [{"start": "202106", "end": "202108", "name": "outage"}]
 
     assert len(ds.observations) > 0
     assert ds.created_manually
@@ -190,6 +203,44 @@ def test_make_dataset_import_persists_data_sources(clean_engine, dataset_make_re
         assert stored is not None
         assert stored.data_sources == request.data_sources
         assert stored.created_manually
+
+
+def test_make_dataset_import_persists_masked_ranges(clean_engine, dataset_make_request):
+    """Masked ranges sent to make-dataset must survive the import (CLIM-1300)."""
+    request = dataset_make_request
+    feature_names = list({obs.feature_name for obs in request.provided_data})
+    provided_data = observations_to_dataset(create_tsdataclass(feature_names), request.provided_data, fill_missing=True)
+    provided_data.set_polygons(request.geojson)
+    masked_ranges = [MaskedRange(start="2021-06", end="2021-08")]
+
+    with SessionWrapper(clean_engine) as session:
+        dataset_id = harmonize_and_add_dataset(
+            feature_names,
+            request.data_to_be_fetched,
+            provided_data.model_dump(),
+            request.name,
+            request.type,
+            session=session,
+            masked_ranges=masked_ranges,
+        )
+        stored = session.session.get(DataSet, dataset_id)
+        assert stored is not None
+        assert stored.masked_ranges == masked_ranges
+
+
+def test_health_dataset_import_persists_masked_ranges(clean_engine, dataset_create):
+    """Masked ranges sent to POST /v1/crud/datasets must survive the import (CLIM-1300)."""
+    health_data = observations_to_dataset(HealthPopulationData, dataset_create.observations, fill_missing=True)
+    health_data.set_polygons(FeatureCollectionModel.model_validate(dataset_create.geojson.model_dump()))
+    masked_ranges = [MaskedRange(start="2021-06", end="2021-08")]
+
+    with SessionWrapper(clean_engine) as session:
+        dataset_id = harmonize_and_add_health_dataset(
+            health_data.model_dump(), dataset_create.name, session=session, masked_ranges=masked_ranges
+        )
+        stored = session.session.get(DataSet, dataset_id)
+        assert stored is not None
+        assert stored.masked_ranges == masked_ranges
 
 
 def test_get_data_sources():
@@ -540,6 +591,16 @@ def _run(session, name, dataset_id, **params):
     )
 
 
+def test_backtest_created_carries_a_utc_offset(override_session, p_seeded_engine):
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        backtest_id = _run(session, "utc", dataset_id, n_periods=3, n_splits=2, stride=1, n_retrain=1)
+
+    response = client.get(f"/v1/crud/backtests/{backtest_id}")
+    assert response.status_code == 200, response.text
+    assert datetime.fromisoformat(response.json()["created"]).utcoffset() == timedelta(0)
+
+
 def test_run_backtest_records_the_train_cutoff_not_the_dataset_end(p_seeded_engine):
     """`last_train_period` is the end of the training window, so it must precede every
     period forecast from it. Using the end of the full dataset instead puts the cutoff
@@ -640,6 +701,156 @@ def test_create_backtest_rejects_unknown_target_column(override_session, seeded_
     response = client.post(f"/v1/analytics/{endpoint}", json={**payload, "targetColumn": "missing"})
     assert response.status_code == 422, response.text
     assert worker.queued == []
+
+
+def _mask_seeded_dataset(seeded_session, start: str, end: str) -> int:
+    """Give the seeded monthly dataset (2020-01 to 2022-12) one masked range and return its id."""
+    stored = seeded_session.exec(select(DataSet)).first()
+    stored.masked_ranges = [MaskedRange(start=start, end=end)]
+    seeded_session.add(stored)
+    seeded_session.commit()
+    return stored.id
+
+
+@pytest.mark.parametrize("endpoint", ["create-backtest", "create-backtests"])
+def test_create_backtest_rejects_a_mask_in_the_evaluation_window(
+    override_session, seeded_session, monkeypatch, endpoint
+):
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    dataset_id = _mask_seeded_dataset(seeded_session, "2022-11", "2022-12")
+    payload = {"name": "x", "datasetId": dataset_id, "modelId": "naive_model", "modelIds": ["naive_model"]}
+
+    response = client.post(f"/v1/analytics/{endpoint}", json={**payload, "nPeriods": 3, "nSplits": 2, "stride": 1})
+    assert response.status_code == 422, response.text
+    assert "falls in the evaluation window" in response.text
+    assert worker.queued == []
+
+
+@pytest.mark.parametrize("endpoint", ["create-backtest", "create-backtests"])
+def test_create_backtest_accepts_a_mask_in_the_history(override_session, seeded_session, monkeypatch, endpoint):
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    dataset_id = _mask_seeded_dataset(seeded_session, "2021-06", "2021-08")
+    payload = {"name": "x", "datasetId": dataset_id, "modelId": "naive_model", "modelIds": ["naive_model"]}
+
+    response = client.post(f"/v1/analytics/{endpoint}", json={**payload, "nPeriods": 3, "nSplits": 2, "stride": 1})
+    assert response.status_code == 200, response.text
+    assert len(worker.queued) == 1
+
+
+@pytest.mark.parametrize("endpoint", ["create-backtest", "create-backtests"])
+def test_create_backtest_rejects_an_alternate_target_on_a_masked_dataset(
+    override_session, seeded_session, monkeypatch, endpoint
+):
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    dataset_id = _mask_seeded_dataset(seeded_session, "2021-06", "2021-08")
+    payload = {"name": "x", "datasetId": dataset_id, "modelId": "naive_model", "modelIds": ["naive_model"]}
+
+    response = client.post(f"/v1/analytics/{endpoint}", json={**payload, "targetColumn": "rainfall"})
+    assert response.status_code == 422, response.text
+    assert "masked ranges apply to 'disease_cases' only" in response.text
+    assert worker.queued == []
+
+
+def test_run_backtest_masks_the_history_without_writing_to_the_dataset(
+    override_session, p_seeded_engine, seeded_session
+):
+    dataset_id = _mask_seeded_dataset(seeded_session, "2021-06", "2021-08")
+    with SessionWrapper(p_seeded_engine) as session:
+        before = DataSetManager(session.session).to_dataset(dataset_id)
+        model = session.get_configured_model_by_id_or_name("naive_model")
+        backtest_id = run_backtest(
+            BacktestCreate(name="masked", dataset_id=dataset_id, model_id=model.id),
+            n_periods=3,
+            n_splits=2,
+            stride=1,
+            session=session,
+        )
+        assert session.session.get(Backtest, backtest_id) is not None
+        after = DataSetManager(session.session).to_dataset(dataset_id)
+        for location in before.keys():
+            assert np.array_equal(before[location].disease_cases, after[location].disease_cases, equal_nan=True)
+
+
+def test_run_backtest_rejects_a_mask_in_the_evaluation_window(override_session, p_seeded_engine, seeded_session):
+    dataset_id = _mask_seeded_dataset(seeded_session, "2022-11", "2022-12")
+    with SessionWrapper(p_seeded_engine) as session:
+        model = session.get_configured_model_by_id_or_name("naive_model")
+        with pytest.raises(ValueError, match="falls in the evaluation window"):
+            run_backtest(
+                BacktestCreate(name="masked", dataset_id=dataset_id, model_id=model.id),
+                n_periods=3,
+                n_splits=2,
+                stride=1,
+                session=session,
+            )
+
+
+def test_run_prediction_trains_on_a_masked_dataset(override_session, p_seeded_engine, seeded_session, monkeypatch):
+    from chap_core.rest_api import db_worker_functions
+
+    seen = []
+    forecast_ahead = db_worker_functions.forecast_ahead
+
+    def recording_forecast_ahead(estimator, dataset, *args, **kwargs):
+        seen.append(dataset)
+        return forecast_ahead(estimator, dataset, *args, **kwargs)
+
+    monkeypatch.setattr(db_worker_functions, "forecast_ahead", recording_forecast_ahead)
+    dataset_id = _mask_seeded_dataset(seeded_session, "2021-06", "2021-08")
+    with SessionWrapper(p_seeded_engine) as session:
+        prediction_id = run_prediction("naive_model", str(dataset_id), 3, "masked", session=session)
+        assert session.session.get(Prediction, prediction_id) is not None
+    trained_on = seen[0]
+    masked = [
+        period.id
+        for period, flag in zip(trained_on.period_range, next(iter(trained_on.values())).target_masked)
+        if flag
+    ]
+    assert masked == ["202106", "202107", "202108"]
+    assert all(np.all(np.isnan(data.disease_cases[17:20])) for data in trained_on.values())
+
+
+def test_make_dataset_rejects_masked_ranges_without_disease_cases(dependency_overrides, dataset_make_request):
+    payload = dataset_make_request.model_dump(mode="json")
+    payload["provided_data"] = [o for o in payload["provided_data"] if o["feature_name"] != "disease_cases"]
+    payload["masked_ranges"] = [{"start": "2021-06", "end": "2021-08"}]
+    response = client.post("/v1/analytics/make-dataset?dryRun=true", json=payload)
+    assert response.status_code == 422, response.text
+    assert "has no 'disease_cases' column" in response.text
+
+
+def test_make_dataset_rejects_input_carrying_the_mask_indicator(dependency_overrides, dataset_make_request):
+    payload = dataset_make_request.model_dump(mode="json")
+    first = payload["provided_data"][0]
+    payload["provided_data"].append({**first, "feature_name": "target_masked", "value": 1.0})
+    response = client.post("/v1/analytics/make-dataset?dryRun=true", json=payload)
+    assert response.status_code == 422, response.text
+    assert "is reserved" in response.text
+
+
+@pytest.mark.parametrize(
+    "endpoint, extra",
+    [
+        ("create-backtest-with-data/", {"n_periods": 3, "n_splits": 2, "stride": 1}),
+        ("make-prediction", {"n_periods": 3}),
+    ],
+)
+def test_inline_data_routes_reject_masked_ranges(dependency_overrides, dataset_make_request, endpoint, extra):
+    """Masked ranges belong to a dataset: they are set with make-dataset or POST /v1/crud/datasets only."""
+    payload = dataset_make_request.model_dump(mode="json") | {"model_id": "naive_model", **extra}
+    payload["masked_ranges"] = [{"start": "2021-06", "end": "2021-08"}]
+    response = client.post(f"/v1/analytics/{endpoint}?dryRun=true", json=payload)
+    assert response.status_code == 422, response.text
+    assert "maskedRanges can only be set when a dataset is created" in response.text
 
 
 def test_differing_weather_providers_produce_different_specifications(p_seeded_engine):
@@ -1292,9 +1503,10 @@ def test_backtest_list_exposes_prediction_setup_id(override_session, seeded_sess
 def test_run_prediction_setup_not_found_returns_404(clean_engine, dependency_overrides, example_polygons):
     request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
     payload = request.model_dump(mode="json")
-    # /run body doesn't accept dataToBeFetched / dataSources — strip them.
+    # /run body doesn't accept dataToBeFetched / dataSources / maskedRanges — strip them.
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = 3
     response = client.post("/v1/crud/prediction-setups/99999/run", json=payload)
     assert response.status_code == 404, response.json()
@@ -1346,6 +1558,7 @@ def test_run_prediction_setup_inherits_the_backtest_provider(
     payload = request.model_dump(mode="json")
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = 3
 
     from chap_core.rest_api.v1.routers import crud as crud_router
@@ -1365,6 +1578,140 @@ def test_run_prediction_setup_inherits_the_backtest_provider(
 
     assert response.status_code == 200, response.json()
     assert captured["prediction_params"].future_weather_provider == "damped_persistence"
+
+
+def _run_setup_capturing_the_job(setup_id, example_polygons, monkeypatch):
+    """Post a monthly 2020-01..2023-12 run to a prediction setup and return the response and the queued kwargs."""
+    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources", "masked_ranges"})
+    payload["nPeriods"] = 3
+
+    from chap_core.rest_api.v1.routers import crud as crud_router
+
+    captured: dict = {}
+
+    class _FakeJob:
+        id = "captured-job"
+
+    class _CapturingWorker:
+        def queue_db(self, func, *args, **kwargs):
+            captured.update(kwargs)
+            return _FakeJob()
+
+    monkeypatch.setattr(crud_router, "worker", _CapturingWorker())
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    return response, captured
+
+
+def test_run_prediction_setup_copies_the_backtest_dataset_masked_ranges(
+    override_session, seeded_session, example_polygons, monkeypatch
+):
+    """A promoted backtest must predict under the mask it was scored with: the run's new dataset gets its ranges."""
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    backtest.dataset.masked_ranges = [MaskedRange(start="2021-06", end="2021-08", name="covid")]
+    seeded_session.add(backtest.dataset)
+    seeded_session.commit()
+    setup_id = _create_prediction_setup(backtest.id, "Inherit mask").json()["id"]
+
+    response, captured = _run_setup_capturing_the_job(setup_id, example_polygons, monkeypatch)
+
+    assert response.status_code == 200, response.json()
+    assert captured["dataset_create_info"]["masked_ranges"] == [{"start": "202106", "end": "202108", "name": "covid"}]
+
+
+def test_run_prediction_setup_without_backtest_ranges_creates_an_unmasked_dataset(
+    override_session, seeded_session, example_polygons, monkeypatch
+):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    setup_id = _create_prediction_setup(backtest.id, "No mask").json()["id"]
+
+    response, captured = _run_setup_capturing_the_job(setup_id, example_polygons, monkeypatch)
+
+    assert response.status_code == 200, response.json()
+    assert captured["dataset_create_info"]["masked_ranges"] == []
+
+
+def test_run_prediction_setup_rejects_input_carrying_the_mask_indicator(
+    override_session, seeded_session, example_polygons, monkeypatch
+):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    setup_id = _create_prediction_setup(backtest.id, "Indicator input").json()["id"]
+    request = create_make_data_request(
+        example_polygons, [], ["rainfall", "disease_cases", "population", "target_masked"]
+    )
+    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources", "masked_ranges"})
+    payload["nPeriods"] = 3
+
+    from chap_core.rest_api.v1.routers import crud as crud_router
+
+    queued: list = []
+
+    class _RecordingWorker:
+        def queue_db(self, func, *args, **kwargs):
+            queued.append(func)
+
+    monkeypatch.setattr(crud_router, "worker", _RecordingWorker())
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    assert response.status_code == 422, response.text
+    assert "is reserved" in response.text
+    assert queued == []
+
+
+def test_run_prediction_setup_rejects_data_of_another_period_type_than_the_ranges(
+    override_session, seeded_session, example_polygons, monkeypatch
+):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    backtest.dataset.masked_ranges = [MaskedRange(start="2021W1", end="2021W3")]
+    seeded_session.add(backtest.dataset)
+    seeded_session.commit()
+    setup_id = _create_prediction_setup(backtest.id, "Week mask").json()["id"]
+
+    response, captured = _run_setup_capturing_the_job(setup_id, example_polygons, monkeypatch)
+
+    assert response.status_code == 422, response.text
+    assert "is a week range, but the dataset has month periods" in response.text
+    assert captured == {}
+
+
+def test_prediction_pipeline_stores_the_ranges_and_trains_masked(
+    override_session, p_seeded_engine, example_polygons, monkeypatch
+):
+    """What a setup run queues: the new prediction dataset keeps the ranges and the model trains on masked data."""
+    from chap_core.rest_api import db_worker_functions
+
+    seen = []
+    forecast_ahead = db_worker_functions.forecast_ahead
+
+    def recording_forecast_ahead(estimator, dataset, *args, **kwargs):
+        seen.append(dataset)
+        return forecast_ahead(estimator, dataset, *args, **kwargs)
+
+    monkeypatch.setattr(db_worker_functions, "forecast_ahead", recording_forecast_ahead)
+    features = ["rainfall", "disease_cases", "population"]
+    request = create_make_data_request(example_polygons, [], features)
+    provided = observations_to_dataset(create_tsdataclass(features), request.provided_data, fill_missing=True)
+    provided.set_polygons(request.geojson)
+    ranges = [MaskedRange(start="2021-06", end="2021-08", name="covid")]
+
+    with SessionWrapper(p_seeded_engine) as session:
+        prediction_id = predict_pipeline_from_composite_dataset(
+            features,
+            provided.model_dump(),
+            "masked-run",
+            dataset_create_info=DataSetCreateInfo(name="masked-run", type="prediction", masked_ranges=ranges),
+            prediction_params=PredictionParams(model_id="naive_model", n_periods=3),
+            session=session,
+        )
+        prediction = session.session.get(Prediction, prediction_id)
+        assert session.session.get(DataSet, prediction.dataset_id).masked_ranges == ranges
+
+    trained_on = seen[0]
+    flags = next(iter(trained_on.values())).target_masked
+    assert [period.id for period, flag in zip(trained_on.period_range, flags) if flag] == ["202106", "202107", "202108"]
 
 
 def test_run_prediction_setup_forecasts_the_backtest_target(
@@ -1392,7 +1739,7 @@ def test_run_prediction_setup_forecasts_the_backtest_target(
         observation.value = 0.0 if observation.feature_name == "hospitalisations" else 1000.0
         if observation.feature_name in ("hospitalisations", "disease_cases") and observation.period == "2020-01":
             observation.value = None  # Target gaps must not reject otherwise valid locations.
-    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources"})
+    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources", "masked_ranges"})
     payload["nPeriods"] = 3
 
     def run_inline(func, *args, **kwargs):
@@ -1417,7 +1764,7 @@ def test_run_prediction_setup_rejects_missing_target(override_session, seeded_se
     backtest = seeded_session.exec(select(Backtest)).first()
     setup_id = _create_prediction_setup(backtest.id, "Missing target").json()["id"]
     request = create_make_data_request(example_polygons, [], ["rainfall"])
-    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources"})
+    payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources", "masked_ranges"})
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
     assert response.status_code == 422, response.text
@@ -1435,6 +1782,7 @@ def test_run_prediction_setup_rejects_a_look_ahead_provider(override_session, se
     payload = request.model_dump(mode="json")
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = 3
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
@@ -1459,6 +1807,7 @@ def test_run_prediction_setup_non_positive_n_periods_returns_422(
     payload = request.model_dump(mode="json")
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = n_periods
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
@@ -1501,6 +1850,7 @@ def test_run_prediction_setup_archived_model_returns_409(override_session, seede
     payload = request.model_dump(mode="json")
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = 3
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
@@ -1535,6 +1885,7 @@ def test_run_prediction_setup_queues_the_pinned_configured_model(
     payload = request.model_dump(mode="json")
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = 3
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
@@ -1576,6 +1927,7 @@ def test_run_prediction_setup_logs_rejection_count(
     payload = request.model_dump(mode="json")
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = 3
 
     caplog.set_level(logging.WARNING, logger="chap_core.rest_api.v1.routers.crud")
@@ -1646,6 +1998,7 @@ def test_run_prediction_setup_normalizes_dataset_type_to_prediction(
     payload = request.model_dump(mode="json")
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = 3
     payload["type"] = "forecasting"  # what chap-scheduler currently sends; should be overridden server-side
 
@@ -1696,6 +2049,7 @@ def test_run_prediction_setup_full_flow(
     payload = request.model_dump(mode="json")
     payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
+    payload.pop("masked_ranges", None)
     payload["nPeriods"] = 3
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
@@ -1762,6 +2116,45 @@ def test_add_csv_dataset(dependency_overrides, data_path):
     response = client.get(f"/v1/crud/datasets/{response.json()['id']}")
     assert response.status_code == 200, response.json()
     assert DataSetWithObservations.model_validate(response.json()).created_manually
+
+
+def test_add_csv_dataset_stores_it_unmasked(dependency_overrides, data_path):
+    """The CSV upload takes no masked ranges: every disease_cases value is stored as given."""
+    with (
+        open(data_path / "vietnam_monthly.csv", "rb") as csv_data,
+        open(data_path / "vietnam_monthly.geojson", "rb") as geojson_data,
+    ):
+        response = client.post("/v1/crud/datasets/csvFile", files={"csv_file": csv_data, "geojson_file": geojson_data})
+    assert response.status_code == 200, response.json()
+    dataset = DataSetWithObservations.model_validate(client.get(f"/v1/crud/datasets/{response.json()['id']}").json())
+    assert dataset.masked_ranges == []
+    assert "target_masked" not in dataset.covariates
+    stored_cases = [o.value for o in dataset.observations if o.feature_name == "disease_cases"]
+    source_cases = pd.read_csv(data_path / "vietnam_monthly.csv")["disease_cases"]
+    assert len(stored_cases) == len(source_cases)
+    assert sum(v is None or np.isnan(v) for v in stored_cases) == source_cases.isna().sum()
+
+
+def test_create_dataset_rejects_input_carrying_the_mask_indicator(dependency_overrides, dataset_create):
+    payload = dataset_create.model_dump(mode="json")
+    first = payload["observations"][0]
+    payload["observations"].append({**first, "feature_name": "target_masked", "value": 1.0})
+    response = client.post("/v1/crud/datasets", json=payload)
+    assert response.status_code == 422, response.text
+    assert "is reserved" in response.text
+
+
+def test_add_csv_dataset_rejects_the_mask_indicator(dependency_overrides, data_path, tmp_path):
+    df = pd.read_csv(data_path / "vietnam_monthly.csv")
+    df["target_masked"] = 0
+    csv_path = tmp_path / "with_indicator.csv"
+    df.to_csv(csv_path, index=False)
+    n_datasets = len(client.get("/v1/crud/datasets").json())
+    with open(csv_path, "rb") as csv_data, open(data_path / "vietnam_monthly.geojson", "rb") as geojson_data:
+        response = client.post("/v1/crud/datasets/csvFile", files={"csv_file": csv_data, "geojson_file": geojson_data})
+    assert response.status_code == 422, response.text
+    assert "is reserved" in response.text
+    assert len(client.get("/v1/crud/datasets").json()) == n_datasets
 
 
 def test_full_prediction_flow(celery_session_worker, dependency_overrides, example_polygons):

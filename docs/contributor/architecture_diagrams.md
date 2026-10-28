@@ -122,7 +122,7 @@ sequenceDiagram
     loop poll until terminal
         FE->>API: GET /v1/jobs/{id}
         API->>Q: fetch job_meta:{id}
-        API-->>FE: status (PENDING / STARTED / ...)
+        API-->>FE: JobDescription { status, start_time, result, ... }
     end
 
     Q-->>W: deliver task
