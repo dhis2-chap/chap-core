@@ -1,7 +1,7 @@
 """add_prediction_alert_policy
 
 Revision ID: e99c0d1cc249
-Revises: d8e9f0a1b2c3
+Revises: e6f7a8b9c0d1
 Create Date: 2026-10-27 20:37:00.468523
 
 """
@@ -15,7 +15,7 @@ from chap_core.database.migration_helpers import foreign_key_name, has_column
 
 # revision identifiers, used by Alembic.
 revision: str = "e99c0d1cc249"
-down_revision: str | Sequence[str] | None = "d8e9f0a1b2c3"
+down_revision: str | Sequence[str] | None = "e6f7a8b9c0d1"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -5,21 +5,26 @@ from typing import get_type_hints
 
 import numpy as np
 from pydantic import BaseModel
-from sqlmodel import select
+from sqlmodel import Session, select
 
 from chap_core.api_types import BacktestParams
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
+from chap_core.assessment.target_mask import (
+    check_mask_outside_evaluation_window,
+    check_target_column_allows_masking,
+)
 from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
-from chap_core.database.dataset_tables import DataSetCreateInfo, DataSource
+from chap_core.database.dataset_tables import DataSetCreateInfo, DataSource, MaskedRange
 from chap_core.database.tables import BacktestSpecification, PredictionSetup
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
 from chap_core.rest_api.data_models import BacktestCreate, FetchRequest, PredictionParams
+from chap_core.rest_api.job_registry import job_function
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
 from chap_core.services.alert_service import raise_alerts_for_prediction
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -95,7 +100,35 @@ def _use_as_disease_cases(dataset: DataSet, column: str) -> DataSet:
     )
 
 
-# @convert_dicts_to_models
+def load_masked_dataset(session: Session, dataset_id: int, target_column: str = "disease_cases") -> DataSet:
+    """Load a stored dataset for a run, with `disease_cases` masked in the dataset's masked ranges."""
+    manager = DataSetManager(session)
+    stored = manager.find_by_id(dataset_id)
+    if stored is None:
+        raise ValueError(f"Dataset with id {dataset_id} not found")
+    check_target_column_allows_masking(stored.masked_ranges, target_column)
+    return manager.to_dataset(dataset_id).apply_masked_ranges(stored.masked_ranges)
+
+
+def check_backtest_on_masked_dataset(
+    session: Session,
+    dataset_id: int,
+    n_periods: int | None,
+    n_splits: int,
+    stride: int,
+    target_column: str = "disease_cases",
+) -> None:
+    """Raise before queueing if a backtest on a masked dataset cannot run.
+
+    Without `n_periods`, the default `run_backtest` would pick is used.
+    """
+    dataset = load_masked_dataset(session, dataset_id, target_column)
+    if n_periods is None:
+        n_periods = _get_n_periods(dataset)
+    check_mask_outside_evaluation_window(dataset, n_periods, n_splits, stride)
+
+
+@job_function
 def run_backtest(
     info: BacktestCreate,
     n_periods: int | None = None,
@@ -117,7 +150,7 @@ def run_backtest(
     assert session is not None, "session is required"
     status_logger.info(f"Starting backtest for model '{info.model_id}' on dataset ID {info.dataset_id}")
 
-    dataset = DataSetManager(session.session).to_dataset(info.dataset_id)
+    dataset = load_masked_dataset(session.session, info.dataset_id, target_column)
 
     configured_model = session.get_configured_model_by_id_or_name(info.model_id)
     # Normalise back to the name string so any downstream code that still
@@ -212,6 +245,7 @@ def resolve_backtest_specification(
     """
     if target_column not in dataset.field_names():
         raise ValueError(f"Dataset has no target column {target_column!r}")
+    check_mask_outside_evaluation_window(dataset, params.n_periods, params.n_splits, params.stride)
     dataset = validate_and_filter_dataset_for_evaluation(
         dataset,
         target_name=target_column,
@@ -254,7 +288,7 @@ def run_prediction(
             select(PredictionSetup.alert_policy_id).where(PredictionSetup.id == prediction_setup_id)
         ).one()
 
-    dataset = DataSetManager(session.session).to_dataset(int(dataset_id))
+    dataset = load_masked_dataset(session.session, int(dataset_id), target_column)
     dataset = _use_as_disease_cases(dataset, target_column)
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
@@ -284,19 +318,28 @@ def run_prediction(
     return db_id
 
 
+@job_function
 def harmonize_and_add_health_dataset(
-    health_dataset: dict, name: str, session: SessionWrapper, worker_config: WorkerConfig = WorkerConfig()
+    health_dataset: dict,
+    name: str,
+    session: SessionWrapper,
+    worker_config: WorkerConfig = WorkerConfig(),
+    masked_ranges: list[MaskedRange] | None = None,
 ) -> int:
     status_logger.info(f"Processing and adding dataset '{name}'")
     dataset_obj = InMemoryDataSet.from_dict(health_dataset, HealthPopulationData)  # type: ignore[arg-type]
     dataset = harmonize_health_dataset(dataset_obj, usecwd_for_credentials=False, worker_config=worker_config)
     db_id: int = DataSetManager(session.session).save_dataset(
-        DataSetCreateInfo(name=name), dataset, polygons=dataset_obj.polygons.model_dump_json(), created_manually=True
+        DataSetCreateInfo(name=name, masked_ranges=masked_ranges or []),
+        dataset,
+        polygons=dataset_obj.polygons.model_dump_json(),
+        created_manually=True,
     )
     status_logger.info(f"Dataset '{name}' added successfully with ID {db_id}")
     return db_id
 
 
+@job_function
 def harmonize_and_add_dataset(
     provided_field_names: list[str],
     data_to_be_fetched: list[FetchRequest],
@@ -306,6 +349,7 @@ def harmonize_and_add_dataset(
     session: SessionWrapper,
     worker_config: WorkerConfig = WorkerConfig(),
     data_sources: list[DataSource] | None = None,
+    masked_ranges: list[MaskedRange] | None = None,
 ) -> int:
     status_logger.info(f"Processing and adding dataset '{name}' of type '{ds_type}'")
     provided_dataclass = create_tsdataclass(provided_field_names)
@@ -316,7 +360,9 @@ def harmonize_and_add_dataset(
         )
     else:
         full_dataset = dataset_obj
-    info = DataSetCreateInfo(name=name, type=ds_type, data_sources=data_sources or [])
+    info = DataSetCreateInfo(
+        name=name, type=ds_type, data_sources=data_sources or [], masked_ranges=masked_ranges or []
+    )
     db_id: int = DataSetManager(session.session).save_dataset(
         info, full_dataset, polygons=dataset_obj.polygons.model_dump_json(), created_manually=True
     )
@@ -330,6 +376,7 @@ def _get_n_periods(health_dataset):
     return n_periods
 
 
+@job_function
 @convert_dicts_to_models
 def predict_pipeline_from_composite_dataset(
     provided_field_names: list[str],
@@ -338,7 +385,7 @@ def predict_pipeline_from_composite_dataset(
     dataset_create_info: DataSetCreateInfo,
     prediction_params: PredictionParams,
     session: SessionWrapper,
-    worker_config=WorkerConfig(),
+    worker_config: WorkerConfig = WorkerConfig(),
     prediction_setup_id: int | None = None,
     configured_model_id: int | None = None,
     target_column: str = "disease_cases",
@@ -367,6 +414,7 @@ def predict_pipeline_from_composite_dataset(
     return result
 
 
+@job_function
 @convert_dicts_to_models
 def run_backtest_from_dataset(
     feature_names: list[str],
@@ -376,7 +424,7 @@ def run_backtest_from_dataset(
     dataset_info: DataSetCreateInfo,
     backtest_params: BacktestParams,
     session: SessionWrapper,
-    worker_config=WorkerConfig(),
+    worker_config: WorkerConfig = WorkerConfig(),
     baseline_database_url: str | None = None,
 ) -> int:
     ds = InMemoryDataSet.from_dict(provided_data_model_dump, create_tsdataclass(feature_names))

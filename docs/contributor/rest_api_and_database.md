@@ -97,7 +97,7 @@ Higher-level endpoints used by the Modeling App:
 Monitor and manage async Celery jobs:
 
 - `GET /v1/jobs` -- list all jobs, with optional filters for IDs, status, and type.
-- `GET /v1/jobs/{id}` -- get job status (PENDING, STARTED, SUCCESS, FAILURE, REVOKED).
+- `GET /v1/jobs/{id}` -- get one job, including its status (PENDING, STARTED, SUCCESS, FAILURE, REVOKED).
 - `DELETE /v1/jobs/{id}` -- delete a completed job's metadata.
 - `POST /v1/jobs/{id}/cancel` -- cancel a running job.
 - `GET /v1/jobs/{id}/logs` -- get the tail of a job's complete log.
@@ -262,10 +262,17 @@ model templates and configured models from YAML config files.
 ### How it works
 
 1. A REST endpoint calls `worker.queue_db(func, *args, **kwargs)` on a `CeleryPool`.
-2. This serializes the function and arguments (using pickle) and sends them to the
-   Redis broker via `celery_run_with_session.delay()`.
-3. The Celery worker picks up the task, creates a `SessionWrapper` with a fresh DB
+2. This sends the function's registered name and its arguments as JSON to the Redis
+   broker via `celery_run_with_session.delay()`. Pydantic arguments are sent as dicts.
+3. The Celery worker picks up the task, looks the function up by name, rebuilds the
+   pydantic arguments from its type hints, creates a `SessionWrapper` with a fresh DB
    engine, and calls the function with the session injected.
+
+Celery accepts JSON only, never pickle, so a message on the broker can call nothing
+but a registered job function. To queue a new function, decorate it with
+`@job_function` from `chap_core/rest_api/job_registry.py`, in a module listed in the
+Celery app's `imports` setting (`celery_tasks.py`), so the worker registers it at
+startup. Queuing an unregistered function raises `ValueError`.
 4. Job metadata (status, timestamps, results) is stored in Redis hashes (`job_meta:{task_id}`).
 
 ### TrackedTask

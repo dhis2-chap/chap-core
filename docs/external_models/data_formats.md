@@ -34,6 +34,7 @@ The table below summarises every column name that Chap recognises:
 | `disease_cases` | Yes | Observed case count (target) |
 | `population` | Model-dependent | Population for the location |
 | *covariate columns* | Model-dependent | Climate/environmental covariates (e.g. `rainfall`, `mean_temperature`) |
+| `target_masked` | Never in input | Added by Chap on datasets with masked periods; reserved, so input data may not contain it. See [Masked periods](#masked-periods) |
 
 ### Time period format
 
@@ -52,13 +53,38 @@ Different columns have different rules for missing (NaN) values:
 |--------|-------------|-------|
 | `time_period` | No | Every row must have a valid period |
 | `location` | No | Every row must have a location |
-| `disease_cases` | Yes | Surveillance data may have gaps; Chap tolerates NaN in the target |
+| `disease_cases` | Yes | Surveillance data may have gaps; Chap tolerates NaN in the target. NaN can also mean the period is masked, see below |
 | Covariates | No | Climate/environmental columns must be fully observed |
 | `population` | Yes | Missing values are forward-filled by interpolation when present |
 
 Chap does not perform imputation on covariates. If your data pipeline produces NaN values in covariate columns, those must be resolved before passing the CSV to Chap. Locations with missing covariate values will be rejected during dataset validation.
 
 Every `(location, time_period)` combination in the dataset must be present as a row. Missing rows are not allowed -- if a location covers 12 months, it must have all 12 rows. Chap will raise an error if any location has fewer time periods than others.
+
+### Masked periods
+
+A dataset can have masked periods: stretches such as COVID years or a reporting outage that should not be used for training.
+
+!!! warning "Masking deletes data"
+    When a dataset with masked ranges is created through the API, `disease_cases` inside the masked periods is stored as empty and the submitted values are **deleted**. They cannot be recovered or unmasked later. This also applies to every prediction-setup run, which inherits the masked ranges of its backtest's dataset. To use those periods again, import the data again from its source without the range.
+
+With `--data-configuration` on the command line the CSV file is left as it is and only the loaded copy is masked. Either way, this is what the model receives:
+
+| Data the model receives | `disease_cases` | `target_masked` |
+|-------------------------|-----------------|-----------------|
+| Training and historic data, masked period | NaN | 1 |
+| Training and historic data, other periods | the observed value, or NaN if genuinely missing | 0 |
+| Future data | not present | 0 |
+
+The indicator is named `target_masked`, not after `disease_cases`, because it marks the period rather than one variable: 1 means the target is masked in that period.
+
+A model that ignores `target_masked` sees masked periods as missing values, so a model that already handles NaN in the target keeps working. The column lets a model tell the two kinds of NaN apart and handle masked periods on purpose. A model can:
+
+- drop the rows where `target_masked` is 1 before fitting;
+- avoid interpolating across masked periods, which can span several years;
+- or keep it as a covariate. Future data always has it as 0, so the columns in history and future match, and models that fit on every column (such as an R formula `y ~ .`) or that stack historic and future data keep working.
+
+Datasets without masked periods have no `target_masked` column, so models see exactly the same data as before. Masked periods are set when a dataset is created, or with `--data-configuration` on the command line; see the [eval command reference](../chap-cli/eval-reference.md#data-configuration).
 
 ### Requirement for Periods to be consecutive
 

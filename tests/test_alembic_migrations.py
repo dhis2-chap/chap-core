@@ -54,6 +54,7 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("backtest", "chap_version"),
     ("dataset", "created_manually"),
     ("alertpolicy", "no_alert_output_code"),
+    ("dataset", "masked_ranges"),
 ]
 
 # Tables added by alembic migrations (not in the baseline schema).
@@ -683,7 +684,7 @@ def test_prediction_alert_policy_migration_clears_startup_placeholders(engine, a
 
     cfg = _make_alembic_cfg(engine)
     command.stamp(cfg, "head")
-    command.downgrade(cfg, "d8e9f0a1b2c3")
+    command.downgrade(cfg, "e6f7a8b9c0d1")
     with engine.begin() as conn:
         # What the generic startup migration does before Alembic runs.
         conn.execute(sa.text("ALTER TABLE prediction ADD COLUMN alert_policy_id INTEGER"))

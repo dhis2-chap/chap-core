@@ -125,7 +125,7 @@ def get_model_template_from_mlproject_file(
         working_dir = Path(working_dir)
 
     with open(mlproject_file) as file:
-        config = yaml.load(file, Loader=yaml.FullLoader)
+        config = yaml.safe_load(file)
     config = ModelTemplateConfigV2.model_validate(config)
 
     model_template = ModelTemplate(config, working_dir, ignore_env, dry_run=dry_run)
@@ -265,7 +265,7 @@ def get_model_from_directory_or_github_url(
     # config_class = template.get_config_class()
     if model_configuration_yaml:
         with open(model_configuration_yaml) as file:
-            model_configuration = yaml.load(file, Loader=yaml.FullLoader)
+            model_configuration = yaml.safe_load(file)
             # model_configuration = config_class.model_validate(model_configuration)
 
     return template.get_model(model_configuration=model_configuration)  # type: ignore[arg-type, return-value]

@@ -63,6 +63,7 @@ from ...data_models import (
     ValidationError,
 )
 from .dependencies import (
+    check_masked_ranges_match,
     get_database_url,
     get_job_model,
     get_job_request,
@@ -70,6 +71,7 @@ from .dependencies import (
     get_settings,
     get_settings_manager,
     model_job_metadata,
+    reject_mask_indicator_input,
 )
 
 router = APIRouter(prefix="/analytics")
@@ -101,8 +103,12 @@ def make_dataset(
     (validation runs synchronously, the harmonise-and-load step async). Poll
     ``/v1/jobs/{id}`` to know when the dataset is queryable. Pass ``dryRun=true`` to run
     validation only and get the rejection summary without queuing an import.
+
+    ``maskedRanges`` deletes data: ``disease_cases`` inside the ranges is stored as empty
+    and the submitted values are not kept. They cannot be recovered or unmasked later.
     """
     feature_names, provided_data, rejections = _read_and_validate_dataset(request, dry_run)
+    check_masked_ranges_match(request.masked_ranges, provided_data)
     imported_count = len(list(provided_data.locations()))
     if dry_run:
         return ImportSummaryResponse(id=None, imported_count=imported_count, rejected=rejections)
@@ -116,6 +122,7 @@ def make_dataset(
         request.name,
         request.type,
         data_sources=request.data_sources,
+        masked_ranges=request.masked_ranges,
         database_url=database_url,
         worker_config=worker_settings,
         **{
@@ -175,6 +182,7 @@ def _read_dataset(request):
     if not request.provided_data:
         raise HTTPException(status_code=400, detail="No observation data provided.")
     feature_names = list({entry.feature_name for entry in request.provided_data})
+    reject_mask_indicator_input(feature_names)
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
@@ -459,7 +467,7 @@ async def get_evaluation_entries(
     tags=["Backtests"],
     summary="Run a backtest against a stored dataset",
 )
-async def create_backtest(
+def create_backtest(
     request: MakeBacktestRequest,
     original_request: dict = Depends(get_job_request),
     database_url: str = Depends(get_database_url),
@@ -478,6 +486,18 @@ async def create_backtest(
     if request.target_column not in stored_dataset.covariates:
         raise HTTPException(status_code=422, detail=f"Dataset has no target column {request.target_column!r}")
     params = _resolve_backtest_params(settings_manager.get(), request, stored_dataset.period_type)
+    if stored_dataset.masked_ranges:
+        try:
+            wf.check_backtest_on_masked_dataset(
+                session,
+                request.dataset_id,
+                params.n_periods,
+                params.n_splits,
+                params.stride,
+                target_column=request.target_column,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
     model = get_job_model(session, request.model_id)
     job = worker.queue_db(
         wf.run_backtest,
@@ -529,8 +549,8 @@ def create_backtests(
     wrapper = SessionWrapper(session=session)
     params = _resolve_backtest_params(settings_manager.get(), request, stored_dataset.period_type)
     models = [get_job_model(session, model_id) for model_id in request.model_ids]
-    dataset = DataSetManager(session).to_dataset(request.dataset_id)
     try:
+        dataset = wf.load_masked_dataset(session, request.dataset_id, request.target_column)
         _, specification = wf.resolve_backtest_specification(
             wrapper, dataset, request.dataset_id, params, target_column=request.target_column
         )
@@ -589,6 +609,7 @@ async def make_prediction(
     """
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
+    reject_mask_indicator_input(feature_names)
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
