@@ -32,7 +32,7 @@ Each parameter can also be passed as a keyword flag (`--model-name`, `--dataset-
 
 ```console
 chap simulate \
-    --model-name tests/fixture_models/climate_simulation_model \
+    --model-name https://github.com/chap-models/climate_simulation_model \
     --dataset-csv ./covariates.csv \
     --out-file ./simulated.csv
 ```
