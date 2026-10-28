@@ -54,11 +54,16 @@ app = FastAPI(
     dependencies=[Depends(HTTPBearer(auto_error=False))],
 )
 
-origins = [
-    "*",
-    "http://localhost:3000",
-    "localhost:3000",
-]
+CORS_ORIGINS_ENV_VAR = "CHAP_CORS_ORIGINS"
+# A local front-end dev server.
+DEFAULT_CORS_ORIGINS = "http://localhost:3000"
+
+
+def get_cors_origins() -> list[str]:
+    """Origins allowed to call the API from a browser, from comma-separated ``CHAP_CORS_ORIGINS``."""
+    value = os.getenv(CORS_ORIGINS_ENV_VAR) or DEFAULT_CORS_ORIGINS
+    return [origin.strip().rstrip("/") for origin in value.split(",") if origin.strip()]
+
 
 warn_on_weak_token()
 
@@ -68,8 +73,9 @@ app.add_middleware(ApiTokenMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=get_cors_origins(),
+    # The API authenticates with a bearer token, not cookies.
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
