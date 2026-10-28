@@ -1732,10 +1732,12 @@ def test_run_prediction_setup_forecasts_the_backtest_target(
     seeded_session.commit()
     setup_id = _create_prediction_setup(backtest.id, "Target forecast").json()["id"]
 
-    request = create_make_data_request(example_polygons, [], ["rainfall", "hospitalisations", "disease_cases"])
+    request = create_make_data_request(
+        example_polygons, [], ["rainfall", "mean_temperature", "hospitalisations", "disease_cases"]
+    )
     for observation in request.provided_data:
         observation.value = 0.0 if observation.feature_name == "hospitalisations" else 1000.0
-        if observation.feature_name != "rainfall" and observation.period == "2020-01":
+        if observation.feature_name in ("hospitalisations", "disease_cases") and observation.period == "2020-01":
             observation.value = None  # Target gaps must not reject otherwise valid locations.
     payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources", "masked_ranges"})
     payload["nPeriods"] = 3

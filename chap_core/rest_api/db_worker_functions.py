@@ -27,6 +27,7 @@ from chap_core.rest_api.data_models import BacktestCreate, FetchRequest, Predict
 from chap_core.rest_api.job_registry import job_function
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
 from chap_core.services.alert_service import raise_alerts_for_prediction
+from chap_core.services.dataset_validation import require_model_covariates
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month
 
@@ -171,6 +172,9 @@ def run_backtest(
     info.future_weather_provider = future_weather_provider
 
     status_logger.info(f"Validating dataset with {len(list(dataset.locations()))} locations")
+    require_model_covariates(
+        dataset, configured_model.model_template.required_covariates, configured_model.additional_continuous_covariates
+    )
     backtest_params = BacktestParams(
         n_periods=n_periods,
         n_splits=n_splits,
@@ -292,6 +296,9 @@ def run_prediction(
     # prediction setup, must give the id so a newer version does not take over the run.
     configured_model = session.get_configured_model_by_id_or_name(
         model_id if configured_model_id is None else configured_model_id
+    )
+    require_model_covariates(
+        dataset, configured_model.model_template.required_covariates, configured_model.additional_continuous_covariates
     )
     assert configured_model.id is not None, "configured_model.id is required"
     estimator = session.get_configured_model_with_code(configured_model.id, prediction_length=n_periods)
