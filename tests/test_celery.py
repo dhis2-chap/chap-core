@@ -8,7 +8,7 @@ from kombu.serialization import dumps, loads
 
 from chap_core.api_types import PredictionRequest
 from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID
-from chap_core.database.dataset_tables import DataSetCreateInfo, DataSource
+from chap_core.database.dataset_tables import DataSetCreateInfo, DataSource, MaskedRange
 from chap_core.log_config import get_status_logger
 from chap_core.rest_api import celery_tasks
 from chap_core.rest_api import db_worker_functions as wf
@@ -262,10 +262,19 @@ def test_pydantic_arguments_survive_the_json_broker():
     assert received["prediction_params"] == params
     assert received["dataset_create_info"] == DataSetCreateInfo(name="dataset", type="prediction")
     assert received["worker_config"] == config
+    masked = [MaskedRange(start="202006", end="202008", name="covid")]
     received = over_the_broker(
-        wf.harmonize_and_add_dataset, ["rainfall"], [], {"data_dict": {}}, "dataset", "evaluation", data_sources=sources
+        wf.harmonize_and_add_dataset,
+        ["rainfall"],
+        [],
+        {"data_dict": {}},
+        "dataset",
+        "evaluation",
+        data_sources=sources,
+        masked_ranges=masked,
     )
     assert received["data_sources"] == sources
+    assert received["masked_ranges"] == masked
 
 
 @job_function

@@ -21,6 +21,7 @@ from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.dataset_tables import ObservationBase
 from chap_core.datatypes import FullData, HealthPopulationData, SimpleClimateData
 from chap_core.geometry import Polygons
+from chap_core.rest_api import celery_tasks
 from chap_core.rest_api.data_models import DatasetCreate, FetchRequest, MakePredictionRequest
 from chap_core.rest_api.worker_functions import WorkerConfig
 
@@ -31,6 +32,12 @@ IS_WINDOWS = os.name == "nt"
 
 # logger
 logger = logging.getLogger(__name__)
+
+# Each xdist process runs its own in-process Celery worker against its own database, so it
+# gets its own queue too. Otherwise one process's worker could pick up another's job and run
+# it against the wrong database. Set before the first send, when Celery builds its queues.
+CELERY_TEST_QUEUE = f"celery-{os.environ.get('PYTEST_XDIST_WORKER', 'main')}"
+celery_tasks.app.conf.task_default_queue = CELERY_TEST_QUEUE
 
 
 @pytest.fixture(scope="session")
@@ -56,6 +63,7 @@ def celery_config(database_url):
         "accept_content": ["json"],
         "result_serializer": "json",
         "result_accept_content": ["json"],
+        "task_default_queue": CELERY_TEST_QUEUE,
         "database_url": database_url,
     }
 
