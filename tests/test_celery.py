@@ -316,6 +316,7 @@ def test_worker_without_a_database_url_refuses_the_job(monkeypatch, tmp_path):
         ("redis://:s3cret@redis.internal:6379/0", "redis.internal:6379"),
         ("redis://user:s3cret@redis.internal/0", "redis.internal"),
         ("redis://localhost:6379", "localhost:6379"),
+        ("redis://:s3cret@h1:6379;redis://:s3cret@h2:6379", "h1"),
     ],
 )
 def test_broker_host_drops_credentials(url, expected):

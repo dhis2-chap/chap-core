@@ -91,7 +91,12 @@ def read_environment_variables():
 def broker_host(url: str) -> str:
     """Return host:port of a broker URL, leaving out credentials so it is safe to log."""
     parts = urlsplit(url)
-    return f"{parts.hostname}:{parts.port}" if parts.port else str(parts.hostname)
+    try:
+        port = parts.port
+    except ValueError:
+        # Not a plain integer port, e.g. kombu's ";"-separated failover URLs. This runs at import, so never raise.
+        port = None
+    return f"{parts.hostname}:{port}" if port else str(parts.hostname)
 
 
 # Setup celery
