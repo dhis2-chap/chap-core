@@ -949,7 +949,7 @@ def _run_generic_migration(engine):
                         default_value = _get_column_default_value(column)
                         if default_value is not None:
                             update_sql = (
-                                f"UPDATE {table_name} SET {column.name} = :default_val WHERE {column.name} IS NULL"
+                                f"UPDATE {table_name} SET {column.name} = :default_val WHERE {column.name} IS NULL"  # noqa: S608 — names come from SQLModel metadata
                             )
                             conn.execute(sqlalchemy.text(update_sql), {"default_val": default_value})
                             logger.info(f"Set default value for {column.name} in existing records")
@@ -976,7 +976,7 @@ def _get_column_default_value(column):
                     return "[]"
                 elif isinstance(result, dict):
                     return "{}"
-            except Exception:
+            except Exception:  # noqa: S110 — fall back to the raw default
                 pass
         return column.default.arg
 

@@ -16,6 +16,8 @@ from chap_core.util import generate_short_id
 
 logger = logging.getLogger(__name__)
 
+REQUEST_TIMEOUT = 60
+
 
 class ExternalWebModel(ExternalModelBase):
     """
@@ -103,7 +105,7 @@ class ExternalWebModel(ExternalModelBase):
 
         while time.time() - start_time < self._timeout:
             try:
-                response = requests.get(f"{self._api_url}/check_status/{job_id}")
+                response = requests.get(f"{self._api_url}/check_status/{job_id}", timeout=REQUEST_TIMEOUT)
                 response.raise_for_status()
                 job_info = response.json()
 
@@ -171,6 +173,7 @@ class ExternalWebModel(ExternalModelBase):
                 f"{self._api_url}/train",
                 files=files,
                 data=data,
+                timeout=REQUEST_TIMEOUT,
             )
             response.raise_for_status()
 
@@ -241,6 +244,7 @@ class ExternalWebModel(ExternalModelBase):
                 f"{self._api_url}/predict",
                 files=files,
                 data=data,
+                timeout=REQUEST_TIMEOUT,
             )
             response.raise_for_status()
 
@@ -252,7 +256,7 @@ class ExternalWebModel(ExternalModelBase):
             self._wait_for_job(job_id, "Prediction")
 
             # Fetch predictions
-            response = requests.get(f"{self._api_url}/fetch_predictions/{job_id}")
+            response = requests.get(f"{self._api_url}/fetch_predictions/{job_id}", timeout=REQUEST_TIMEOUT)
             response.raise_for_status()
 
             # Parse predictions CSV

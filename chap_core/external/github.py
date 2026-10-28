@@ -56,7 +56,7 @@ def fetch_mlproject_content(github_url: str) -> str:
     raw_mlproject_url = f"https://raw.githubusercontent.com/{parsed.owner}/{parsed.repo_name}/{parsed.commit}/MLproject"
     # fetch this MLProject file and parse it
     try:
-        fetched = requests.get(raw_mlproject_url)
+        fetched = requests.get(raw_mlproject_url, timeout=10)
         assert fetched.status_code == 200, (
             f"Error fetching MLProject file from {raw_mlproject_url}: {fetched.status_code, fetched.content}"
         )
