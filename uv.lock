@@ -540,7 +540,7 @@ dev = [
 
 [[package]]
 name = "chapkit"
-version = "2.4.1"
+version = "2.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "geojson-pydantic" },
@@ -550,9 +550,9 @@ dependencies = [
     { name = "servicekit" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9b/d5/3e94facd6596c4c80d94c1e9b53488615f111dfe490aab20d29a65bd5cc3/chapkit-2.4.1.tar.gz", hash = "sha256:634f5b6b84eeacd1219c43f925ccea8889355d309cfe2399245da8d93f2dcde8", size = 1038989, upload-time = "2026-10-19T21:23:42.887Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/81/e0/496875c77e6c087987670afa50de4f6493cf4873319562b273627a87a07a/chapkit-2.5.0.tar.gz", hash = "sha256:82ebae03a3212fff8e769d2f38b3e032d904aeff95a5f08245372f56cca6864c", size = 1040015, upload-time = "2026-10-28T14:18:48.988Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fc/c9/02155f4281d4cf868b1b3a99314a39c5cfc73f5c9ffe0139395d0fe7eb3e/chapkit-2.4.1-py3-none-any.whl", hash = "sha256:e712dadbc2e3c615c9829434a96381754055b1c5fce692f9a554ca11cc2bc62d", size = 1069778, upload-time = "2026-10-19T21:23:41.08Z" },
+    { url = "https://files.pythonhosted.org/packages/38/cd/9bb33ce758a51a0099ba8c70f15739b6018c1efe195f78aa787cd3ba37a0/chapkit-2.5.0-py3-none-any.whl", hash = "sha256:dab9f47dfbc25eab1d6ba4ee86f66fc815c2c1a25c47714a9f9c2e4543e5b39f", size = 1070419, upload-time = "2026-10-28T14:18:47.351Z" },
 ]
 
 [[package]]
@@ -3608,7 +3608,7 @@ wheels = [
 
 [[package]]
 name = "servicekit"
-version = "3.0.1"
+version = "3.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiosqlite" },
@@ -3625,9 +3625,9 @@ dependencies = [
     { name = "starlette" },
     { name = "structlog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/80/0f/9506723128bffd7f87f9db172c9457cce57ca70cc6dce6a62520c879cb36/servicekit-3.0.1.tar.gz", hash = "sha256:c9c8f26bc03adc3a845ac75833834e46315793140e6e2cb3a169d2616000b245", size = 54164, upload-time = "2026-10-19T21:11:57.119Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/30/fe/44a3af471e60f8f2c167e0c0b03cf93ed1e75d3b59ef43cf44d0add7ee87/servicekit-3.1.0.tar.gz", hash = "sha256:5f38ea18608873dc22dab7e4d040f6b51902ac8eb60f95cf01bf27f4258f8eec", size = 54267, upload-time = "2026-10-28T13:40:30.295Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7b/13/e315e0b8695a8879cd07c8bdcca6d858bbc2797ed99910c5eebb03be011a/servicekit-3.0.1-py3-none-any.whl", hash = "sha256:915c58a5e9b3fcc26669be89ed60fb8ecd8f0d9894bc0fae51c2101cad46d684", size = 64897, upload-time = "2026-10-19T21:11:55.737Z" },
+    { url = "https://files.pythonhosted.org/packages/c5/6b/fe7d5f9c895fe7bbbf9ffa8d955da418bbdada067006037cc7ff2508e808/servicekit-3.1.0-py3-none-any.whl", hash = "sha256:38d5a8f2572a3a2031dc15130b0ca664d9795f45ac4414154be0aa1e71d7522e", size = 64959, upload-time = "2026-10-28T13:40:28.696Z" },
 ]
 
 [[package]]
