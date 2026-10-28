@@ -66,8 +66,9 @@ def label_cells(observations: pd.DataFrame, forecasts: pd.DataFrame, levels: lis
     obs = observations[["location", "time_period", "disease_cases"]].dropna(subset=["disease_cases"])
     obs = obs.assign(time_period=obs["time_period"].astype(str))
     fc = forecasts.assign(time_period=forecasts["time_period"].astype(str))
-    fc = fc.merge(_splits(fc), on=["time_period", "horizon_distance"])
-    fc = fc.merge(_thresholds(obs, fc, levels), on=["location", "time_period", "split"])
+    splits = _splits(fc)
+    fc = fc.merge(splits, on=["time_period", "horizon_distance"])
+    fc = fc.merge(_thresholds(obs, splits, levels), on=["location", "time_period", "split"])
     fc["exceeds"] = fc["forecast"] > fc["threshold"]
     cells = fc.groupby([*_CELL, "level", "threshold"], as_index=False)["exceeds"].mean()
     cells = cells.merge(obs, on=["location", "time_period"])
@@ -104,17 +105,23 @@ def _period_start(period_id: str, back: int = 0) -> datetime:
     return start
 
 
-def _thresholds(observations: pd.DataFrame, forecasts: pd.DataFrame, levels: list[AlertLevel]) -> pd.DataFrame:
-    """Every level's threshold per ``(location, time_period, split)``, from the observations before each split."""
+def _thresholds(observations: pd.DataFrame, cells: pd.DataFrame, levels: list[AlertLevel]) -> pd.DataFrame:
+    """Every level's threshold per ``(location, time_period, split)``, from the observations before each split.
+
+    ``cells`` is the output of :func:`_splits`.
+    """
     observed_at = observations["time_period"].map({p: _period_start(p) for p in observations["time_period"].unique()})
     frames = []
-    for split in forecasts["split"].unique():
+    for split in cells["split"].unique():
         history = observations[observed_at < split]
         if history.empty:
             continue
-        period_ids = sorted(forecasts.loc[forecasts["split"] == split, "time_period"].unique())
+        period_ids = sorted(cells.loc[cells["split"] == split, "time_period"].unique())
         for i, level in enumerate(levels):
-            thresholds = _level_thresholds(history, period_ids, level)
+            try:
+                thresholds = _level_thresholds(history, period_ids, level)
+            except ValueError as e:
+                raise ValueError(f"Split starting {pd.Timestamp(split).date()}: {e}") from e
             if not thresholds.empty:
                 frames.append(thresholds.assign(level=i, split=split))
     if not frames:

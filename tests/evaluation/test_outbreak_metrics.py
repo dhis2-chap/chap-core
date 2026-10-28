@@ -52,27 +52,35 @@ def test_label_cells_computes_thresholds_from_the_history_before_each_split(
     assert monitor["2023-06"] and not monitor["2024-06"]
 
 
-def test_label_cells_keeps_a_forecast_periods_own_observation_out_of_its_threshold(alert_levels):
-    """Weekly ids are unpadded, so 2023W10 sorts before 2023W9 as a string but comes after it in time."""
+def test_label_cells_returns_no_cells_without_an_observation_to_score(alert_history, alert_forecasts, alert_levels):
+    """Thresholds exist for every forecast period, but nothing was observed in them."""
+    assert label_cells(alert_history, alert_forecasts, alert_levels).empty
+
+
+def test_label_cells_orders_periods_in_time_not_as_strings(alert_levels):
+    """``2023W9`` sorts after ``2023W52`` as a string but comes before it in time, so it is in that split's history."""
     observations = pd.DataFrame(
         {
             "location": "A",
-            "time_period": [f"{year}W10" for year in range(2019, 2024)],
-            "disease_cases": [90.0, 95.0, 105.0, 110.0, 1000.0],
+            "time_period": [f"{year}W9" for year in range(2019, 2025)],
+            "disease_cases": [90.0, 95.0, 105.0, 110.0, 200.0, 130.0],
         }
     )
+    # Forecast 2024W9 from the split starting 2023W52: the week-9 mean is 120 with 2023W9 in the history, 100 without.
     forecasts = pd.DataFrame(
-        {"location": "A", "time_period": "2023W10", "horizon_distance": 2, "sample": [0, 1, 2], "forecast": 150.0}
+        {"location": "A", "time_period": "2024W9", "horizon_distance": 10, "sample": [0, 1, 2], "forecast": 110.0}
     )
     labelled = label_cells(observations, forecasts, alert_levels)
-    assert labelled.set_index("level")["alert"].to_dict() == {0: True, 1: True}
-    assert labelled["outbreak"].all()
+    monitor = labelled[labelled["level"] == 0].iloc[0]
+    assert monitor["outbreak"] and not monitor["alert"]
 
 
-def test_categories_take_the_most_severe_level(labelled):
-    ranked = categories(labelled)
-    by_cell = {(r.time_period, r.horizon_distance): (r.observed, r.predicted) for r in ranked.itertuples()}
-    assert by_cell == {("2023-06", 1): (1, 1), ("2023-06", 2): (1, 0), ("2024-06", 1): (0, 2)}
+def test_label_cells_names_the_split_a_strategy_rejects(alert_history, alert_levels):
+    weekly = pd.DataFrame(
+        {"location": "A", "time_period": "2023W10", "horizon_distance": 1, "sample": [0], "forecast": 1.0}
+    )
+    with pytest.raises(ValueError, match="Split starting 2023-03-06"):
+        label_cells(alert_history, weekly, alert_levels)
 
 
 def test_binary_metrics_from_confusion_counts():

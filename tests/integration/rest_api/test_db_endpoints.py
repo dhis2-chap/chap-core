@@ -2826,8 +2826,8 @@ def test_outbreak_metrics_scores_every_level(override_session, seeded_session):
     assert "weighted_kappa" in overall["categorical"]
 
 
-def test_outbreak_metrics_without_a_scorable_cell_is_400(override_session, seeded_session):
-    """The NaN backtest has no observed cases in its forecast periods, so nothing can be scored."""
+def test_outbreak_metrics_without_computable_thresholds_is_400(override_session, seeded_session):
+    """The NaN backtest has three observed cases in all, so no level can compute a threshold before any split."""
     backtest_id = seeded_session.exec(select(Backtest).where(Backtest.name == "test_backtest_with_nans")).one().id
     policy_id = _create_alert_policy().json()["id"]
 
