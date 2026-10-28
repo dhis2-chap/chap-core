@@ -82,6 +82,7 @@ inline on the command line: Compose reads `.env` on every command, so a later
 | `CHAP_DATABASE_URL` | composed from the three above | Full, percent-encoded database URL. Takes precedence, and is how you use a password containing reserved characters. |
 | `CHAP_ROOT_PATH` | empty | Path prefix when serving behind a reverse proxy. |
 | `CHAP_API_TOKEN` | empty | API token. Unset means no authentication. |
+| `CHAP_CORS_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins allowed by CORS. Not needed when the Modeling App connects through the DHIS2 Route API. |
 
 Pinning a release and setting a password with reserved characters:
 
