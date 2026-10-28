@@ -12,6 +12,7 @@ services:
       CHAP_RUNS_DIR: /data/runs
       CHAP_ROOT_PATH: ${CHAP_ROOT_PATH:-}
       CHAP_API_TOKEN: ${CHAP_API_TOKEN:-}
+      CHAP_CORS_ORIGINS: ${CHAP_CORS_ORIGINS:-}
     read_only: true
     security_opt:
       - no-new-privileges:true
