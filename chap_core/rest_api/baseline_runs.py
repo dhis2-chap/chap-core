@@ -23,6 +23,7 @@ from chap_core.models.builtin import BaselineNotApplicable
 from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
 from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.rest_api.db_worker_functions import run_backtest
+from chap_core.rest_api.job_registry import job_function
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +132,7 @@ def request_baselines_after_response(bind: Engine | Connection, specification_id
         request_baselines(session, specification_id, database_url)
 
 
+@job_function
 def run_baseline(specification_baseline_id: int, session: SessionWrapper) -> int | None:
     """Run one claimed baseline as a backtest on its specification, and return the backtest id.
 

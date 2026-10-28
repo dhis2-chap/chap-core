@@ -1,4 +1,3 @@
-import inspect
 import json
 import logging
 import os
@@ -20,6 +19,7 @@ from sqlalchemy.engine import Engine
 from ..database.database import SessionWrapper
 from ..log_config import CHAP_LOGS_DIR, get_status_logger
 from ..util import load_redis
+from .job_registry import job_function, job_name_for, json_args, json_kwargs, resolve_job
 
 ReturnType = TypeVar("ReturnType")
 
@@ -92,9 +92,13 @@ url = read_environment_variables()
 logger.info(f"Connecting to {url}")
 app = Celery("worker", broker=url, backend=url)
 app.conf.update(
-    task_serializer="pickle",
-    accept_content=["pickle"],  # Allow pickle serialization
-    result_serializer="pickle",
+    # JSON only: a pickled message would let anyone who can write to the broker run code on the worker.
+    task_serializer="json",
+    accept_content=["json"],
+    result_serializer="json",
+    result_accept_content=["json"],
+    # Modules defining @job_function, imported by the worker so the registry is full before it takes a task.
+    imports=["chap_core.rest_api.db_worker_functions", "chap_core.rest_api.baseline_runs"],
     # Enables tracking of job lifecycle
     task_track_started=True,
     task_send_sent_event=True,
@@ -284,6 +288,7 @@ def db_roundtrip() -> str:
     return "ok"
 
 
+@job_function
 def add_numbers(a: int, b: int):
     logger.info(f"Adding {a} + {b}")
     return a + b
@@ -291,7 +296,8 @@ def add_numbers(a: int, b: int):
 
 # set base to TrackedTask to enable per-task logging
 @app.task(base=TrackedTask)
-def celery_run(func, *args, **kwargs):
+def celery_run(func_name: str, *args, **kwargs):
+    func, args, kwargs = resolve_job(func_name, args, kwargs)
     return func(*args, **kwargs)
 
 
@@ -299,14 +305,14 @@ ENGINES_CACHE: dict[str, Engine] = {}
 
 
 @app.task(base=TrackedTask)
-def celery_run_with_session(func, *args, **kwargs):
+def celery_run_with_session(func_name: str, *args, **kwargs):
     database_url = kwargs.pop("database_url")
     if database_url not in ENGINES_CACHE:
         ENGINES_CACHE[database_url] = create_engine(database_url)
     engine = ENGINES_CACHE[database_url]
 
-    named_args = inspect.getfullargspec(func).args
-    logger.info(f"Running {named_args}")
+    func, args, kwargs = resolve_job(func_name, args, kwargs)
+    logger.info(f"Running {func_name}")
     with SessionWrapper(engine) as session:
         ret = func(*args, **kwargs | {"session": session})
         return ret
@@ -436,11 +442,11 @@ class CeleryPool[ReturnType]:
         self._celery = app
 
     def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> CeleryJob[ReturnType]:
-        job = celery_run.delay(func, *args, **kwargs)
+        job = celery_run.delay(job_name_for(func), *json_args(args), **json_kwargs(kwargs))
         return CeleryJob(job, app=self._celery)
 
     def queue_db(self, func: Callable[..., ReturnType], *args, **kwargs) -> CeleryJob[ReturnType]:
-        job = celery_run_with_session.delay(func, *args, **kwargs)
+        job = celery_run_with_session.delay(job_name_for(func), *json_args(args), **json_kwargs(kwargs))
         return CeleryJob(job, app=self._celery)
 
     def get_job(self, task_id: str) -> CeleryJob[ReturnType]:

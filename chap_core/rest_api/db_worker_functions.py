@@ -24,6 +24,7 @@ from chap_core.database.tables import BacktestSpecification
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
 from chap_core.rest_api.data_models import BacktestCreate, FetchRequest, PredictionParams
+from chap_core.rest_api.job_registry import job_function
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
 from chap_core.services.alert_service import raise_alerts_for_prediction
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -127,7 +128,7 @@ def check_backtest_on_masked_dataset(
     check_mask_outside_evaluation_window(dataset, n_periods, n_splits, stride)
 
 
-# @convert_dicts_to_models
+@job_function
 def run_backtest(
     info: BacktestCreate,
     n_periods: int | None = None,
@@ -310,6 +311,7 @@ def run_prediction(
     return db_id
 
 
+@job_function
 def harmonize_and_add_health_dataset(
     health_dataset: dict,
     name: str,
@@ -330,6 +332,7 @@ def harmonize_and_add_health_dataset(
     return db_id
 
 
+@job_function
 def harmonize_and_add_dataset(
     provided_field_names: list[str],
     data_to_be_fetched: list[FetchRequest],
@@ -366,6 +369,7 @@ def _get_n_periods(health_dataset):
     return n_periods
 
 
+@job_function
 @convert_dicts_to_models
 def predict_pipeline_from_composite_dataset(
     provided_field_names: list[str],
@@ -374,7 +378,7 @@ def predict_pipeline_from_composite_dataset(
     dataset_create_info: DataSetCreateInfo,
     prediction_params: PredictionParams,
     session: SessionWrapper,
-    worker_config=WorkerConfig(),
+    worker_config: WorkerConfig = WorkerConfig(),
     prediction_setup_id: int | None = None,
     configured_model_id: int | None = None,
     target_column: str = "disease_cases",
@@ -403,6 +407,7 @@ def predict_pipeline_from_composite_dataset(
     return result
 
 
+@job_function
 @convert_dicts_to_models
 def run_backtest_from_dataset(
     feature_names: list[str],
@@ -412,7 +417,7 @@ def run_backtest_from_dataset(
     dataset_info: DataSetCreateInfo,
     backtest_params: BacktestParams,
     session: SessionWrapper,
-    worker_config=WorkerConfig(),
+    worker_config: WorkerConfig = WorkerConfig(),
     baseline_database_url: str | None = None,
 ) -> int:
     ds = InMemoryDataSet.from_dict(provided_data_model_dump, create_tsdataclass(feature_names))

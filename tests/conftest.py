@@ -52,9 +52,10 @@ def celery_config(database_url):
     return {
         "broker_url": f"redis://{host}:{port}",  # /0",
         "result_backend": f"redis://{host}:{port}",  # /1",
-        "task_serializer": "pickle",
-        "accept_content": ["pickle"],
-        "result_serializer": "pickle",
+        "task_serializer": "json",
+        "accept_content": ["json"],
+        "result_serializer": "json",
+        "result_accept_content": ["json"],
         "database_url": database_url,
     }
 

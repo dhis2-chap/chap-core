@@ -16,7 +16,7 @@ def dependency_overrides(clean_engine):
             yield session
 
     app.dependency_overrides[get_session] = get_test_session
-    app.dependency_overrides[get_database_url] = lambda: clean_engine.url
+    app.dependency_overrides[get_database_url] = lambda: clean_engine.url.render_as_string(hide_password=False)
     app.dependency_overrides[get_settings] = lambda: WorkerConfig(is_test=True)
     yield
     app.dependency_overrides.clear()
