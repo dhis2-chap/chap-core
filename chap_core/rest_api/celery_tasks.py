@@ -103,6 +103,9 @@ app.conf.update(
     task_track_started=True,
     task_send_sent_event=True,
     worker_send_task_events=True,
+    # A prefork child keeps the memory its first job allocated (about 240 MiB) for as long as it lives,
+    # so replace it after every job. Jobs run for minutes, so the fork is cheap by comparison.
+    worker_max_tasks_per_child=1,
 )
 
 

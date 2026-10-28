@@ -308,3 +308,8 @@ def test_worker_without_a_database_url_refuses_the_job(monkeypatch, tmp_path):
 
     assert result.status == "FAILURE"
     assert isinstance(result.result, RuntimeError)
+
+
+def test_worker_replaces_each_child_after_one_job():
+    # A child never gives back the memory its first job allocated (CLIM-1192).
+    assert celery_tasks.app.conf.worker_max_tasks_per_child == 1
