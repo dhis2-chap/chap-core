@@ -19,7 +19,6 @@ from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
-from chap_core.database.dataset_tables import DataSet as DataSetTable
 from chap_core.database.dataset_tables import DataSetCreateInfo, DataSource, MaskedRange
 from chap_core.database.tables import BacktestSpecification, PredictionSetup
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
@@ -101,14 +100,18 @@ def _use_as_disease_cases(dataset: DataSet, column: str) -> DataSet:
     )
 
 
-def load_masked_dataset(session: Session, dataset_id: int, target_column: str | None = None) -> DataSet:
-    """Load a stored dataset for a run, with `disease_cases` masked in the dataset's masked ranges."""
+def load_masked_dataset(session: Session, dataset_id: int, target_column: str | None = None) -> tuple[DataSet, str]:
+    """Load a stored dataset for a run, with `disease_cases` masked in its masked ranges, and its target.
+
+    The target is the one saved on the dataset unless `target_column` overrides it.
+    """
     manager = DataSetManager(session)
     stored = manager.find_by_id(dataset_id)
     if stored is None:
         raise ValueError(f"Dataset with id {dataset_id} not found")
-    check_target_column_allows_masking(stored.masked_ranges, target_column or stored.target_column)
-    return manager.to_dataset(dataset_id).apply_masked_ranges(stored.masked_ranges)
+    target_column = target_column or stored.target_column
+    check_target_column_allows_masking(stored.masked_ranges, target_column)
+    return manager.to_dataset(dataset_id).apply_masked_ranges(stored.masked_ranges), target_column
 
 
 def check_backtest_on_masked_dataset(
@@ -117,13 +120,13 @@ def check_backtest_on_masked_dataset(
     n_periods: int | None,
     n_splits: int,
     stride: int,
-    target_column: str = "disease_cases",
+    target_column: str | None = None,
 ) -> None:
     """Raise before queueing if a backtest on a masked dataset cannot run.
 
     Without `n_periods`, the default `run_backtest` would pick is used.
     """
-    dataset = load_masked_dataset(session, dataset_id, target_column)
+    dataset, _ = load_masked_dataset(session, dataset_id, target_column)
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
     check_mask_outside_evaluation_window(dataset, n_periods, n_splits, stride)
@@ -151,11 +154,7 @@ def run_backtest(
     assert session is not None, "session is required"
     status_logger.info(f"Starting backtest for model '{info.model_id}' on dataset ID {info.dataset_id}")
 
-    if target_column is None:
-        target_column = session.session.exec(
-            select(DataSetTable.target_column).where(DataSetTable.id == info.dataset_id)
-        ).one()
-    dataset = load_masked_dataset(session.session, info.dataset_id, target_column)
+    dataset, target_column = load_masked_dataset(session.session, info.dataset_id, target_column)
 
     configured_model = session.get_configured_model_by_id_or_name(info.model_id)
     # Normalise back to the name string so any downstream code that still
@@ -293,11 +292,7 @@ def run_prediction(
             select(PredictionSetup.alert_policy_id).where(PredictionSetup.id == prediction_setup_id)
         ).one()
 
-    if target_column is None:
-        target_column = session.session.exec(
-            select(DataSetTable.target_column).where(DataSetTable.id == int(dataset_id))
-        ).one()
-    dataset = load_masked_dataset(session.session, int(dataset_id), target_column)
+    dataset, target_column = load_masked_dataset(session.session, int(dataset_id), target_column)
     dataset = _use_as_disease_cases(dataset, target_column)
     if n_periods is None:
         n_periods = _get_n_periods(dataset)

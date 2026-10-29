@@ -22,6 +22,7 @@ from typing import Annotated, Any, Final, Literal
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Path, Query, UploadFile
+from pandas.api.types import is_numeric_dtype
 from redis.exceptions import RedisError
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
@@ -864,12 +865,13 @@ async def create_dataset(
 
     ``maskedRanges`` deletes data: ``disease_cases`` inside the ranges is stored as empty
     and the submitted values are not kept. They cannot be recovered or unmasked later.
+    ``targetColumn`` must be one of the kept fields and present in the observations.
     """
     # The import keeps only the HealthPopulationData fields, so check before an indicator is silently dropped.
-    reject_mask_indicator_input([obs.feature_name for obs in data.observations])
+    submitted = [obs.feature_name for obs in data.observations]
+    reject_mask_indicator_input(submitted)
     health_data = observations_to_dataset(HealthPopulationData, data.observations, fill_missing=True)
-    require_target_column(data.target_column, health_data.field_names())
-    require_target_column(data.target_column, [obs.feature_name for obs in data.observations])
+    require_target_column(data.target_column, [name for name in health_data.field_names() if name in submitted])
     health_data.set_polygons(FeatureCollectionModel.model_validate(data.geojson))
     check_masked_ranges_match(data.masked_ranges, health_data, data.target_column)
     job = worker.queue_db(
@@ -901,17 +903,22 @@ async def create_dataset_csv(
     Use this when you have the files on disk and do not want to round-trip them
     through DHIS2 or the JSON import endpoints. Inserts inline — no background job —
     and returns the new dataset id immediately. The dataset has no masked ranges;
-    a CSV with a ``target_masked`` column gets a 422.
+    a CSV with a ``target_masked`` column gets a 422. Every numeric column besides
+    ``time_period`` and ``location`` is stored; other columns are ignored.
     The optional ``targetColumn`` form field selects the target (default ``disease_cases``)
-    and must name a column in the uploaded CSV.
+    and must name a stored column.
     """
     import io
 
-    csv_content = await csv_file.read()
-    columns = pd.read_csv(io.BytesIO(csv_content), nrows=0).columns.tolist()
-    reject_mask_indicator_input(columns)
-    dataset: InMemoryDataSet = InMemoryDataSet.from_csv(io.BytesIO(csv_content))
-    require_target_column(target_column, dataset.field_names())
+    frame = pd.read_csv(io.BytesIO(await csv_file.read()))
+    reject_mask_indicator_input(frame.columns.tolist())
+    feature_names = [
+        name
+        for name in frame.columns
+        if name not in ("time_period", "location") and "Unnamed" not in name and is_numeric_dtype(frame[name])
+    ]
+    require_target_column(target_column, feature_names)
+    dataset = InMemoryDataSet.from_pandas(frame, create_tsdataclass(feature_names))
     geo_json_content = await geojson_file.read()
     features = Polygons.from_geojson(json.loads(geo_json_content), id_property="NAME_1").feature_collection()
     dataset_id = DataSetManager(session).save_dataset(
@@ -1676,10 +1683,7 @@ async def run_prediction_setup(
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
-    # disease_cases is replaced by the selected target before training, so neither
-    # column should be validated as a covariate.
-    covariates = [name for name in feature_names if name not in (target_column, "disease_cases")]
-    provided_data, rejections = validate_full_dataset(covariates, provided_data)
+    provided_data, rejections = validate_full_dataset(feature_names, provided_data, target_column)
     if rejections:
         logger.warning(
             "%d observations rejected for prediction-setup %d",

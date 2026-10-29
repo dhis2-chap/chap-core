@@ -220,8 +220,11 @@ class MakeBacktestRequest(BacktestParamsBase):
     Omitted backtest parameters use the stored defaults for the dataset's period type, not the schema defaults.
     """
 
+    # `deprecated=` would warn on every access; the schema flag marks it for clients instead.
     target_column: str | None = Field(
-        default=None, deprecated=True, description="If supplied, must match the dataset's targetColumn."
+        default=None,
+        json_schema_extra={"deprecated": True},
+        description="Deprecated. If supplied, must match the dataset's targetColumn.",
     )
 
     name: str = Field(description="Human-friendly name for the resulting backtest row.")
@@ -238,7 +241,9 @@ class MakeBacktestsRequest(BacktestParamsBase):
     """
 
     target_column: str | None = Field(
-        default=None, deprecated=True, description="If supplied, must match the dataset's targetColumn."
+        default=None,
+        json_schema_extra={"deprecated": True},
+        description="Deprecated. If supplied, must match the dataset's targetColumn.",
     )
 
     name: str = Field(description="Name of the run; each backtest is named `<name>/<configured model name>`.")

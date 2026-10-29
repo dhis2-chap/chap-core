@@ -207,12 +207,15 @@ def _read_dataset(request):
 def _find_locations_with_complete_covariates(
     dataset: DataSet, feature_names: list[str], target_name: str = "disease_cases"
 ) -> tuple[set[str], list[ValidationError]]:
-    """Identify locations that have no NaN values in covariate features."""
+    """Identify locations that have no NaN values in covariate features.
+
+    Neither the target nor `disease_cases` is a covariate: runs replace `disease_cases` with the target.
+    """
     locations_to_keep = set()
     rejected_list = []
     for location, data in dataset.items():
         for feature_name in feature_names:
-            if feature_name == target_name:
+            if feature_name in (target_name, "disease_cases"):
                 continue
             isnan = np.isnan(getattr(data, feature_name))
             if np.any(isnan):
@@ -566,7 +569,7 @@ def create_backtests(
     params = _resolve_backtest_params(settings_manager.get(), request, stored_dataset.period_type)
     models = [get_job_model(session, model_id) for model_id in request.model_ids]
     try:
-        dataset = wf.load_masked_dataset(session, request.dataset_id, target_column)
+        dataset, _ = wf.load_masked_dataset(session, request.dataset_id, target_column)
         _, specification = wf.resolve_backtest_specification(
             wrapper, dataset, request.dataset_id, params, target_column=target_column
         )
@@ -717,7 +720,7 @@ async def get_actual_cases(
     Filter to specific regions with ``orgUnits``, or pass ``orgUnits=["adm0"]`` to get
     one summed series across every region (useful for national-level views). Set
     ``isDatasetId=true`` to skip the backtest lookup and read directly from a dataset
-    id. 404 if the backtest is unknown (and ``isDatasetId`` is false).
+    id. 404 if the backtest, or with ``isDatasetId=true`` the dataset, is unknown.
     """
     return_summed = False
     if org_units is not None and len(org_units) == 1 and org_units[0] == "adm0":

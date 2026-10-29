@@ -21,8 +21,14 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     if not has_column("dataset", "target_column"):
         op.add_column("dataset", sa.Column("target_column", sa.String(), nullable=True))
-    # Startup can already have added the column with empty-string placeholders.
-    # Historical specifications keep their own target, including custom ones.
+    # Startup can already have added the column with empty-string placeholders. A dataset whose
+    # backtests all evaluated one target keeps that target; every other dataset gets the default.
+    op.execute(
+        "UPDATE dataset SET target_column = spec.target_column FROM ("
+        "SELECT dataset_id, min(target_column) AS target_column FROM backtestspecification "
+        "GROUP BY dataset_id HAVING count(DISTINCT target_column) = 1) spec "
+        "WHERE dataset.id = spec.dataset_id AND (dataset.target_column IS NULL OR dataset.target_column = '')"
+    )
     op.execute("UPDATE dataset SET target_column = 'disease_cases' WHERE target_column IS NULL OR target_column = ''")
     op.alter_column("dataset", "target_column", nullable=False, server_default="disease_cases")
 

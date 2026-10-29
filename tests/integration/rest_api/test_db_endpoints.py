@@ -181,8 +181,7 @@ def test_list_model_templates(celery_session_worker, dependency_overrides):
     assert "population" in [f for f in ewars_model.required_covariates], ewars_model.required_covariates
 
 
-@pytest.mark.parametrize("target_column", ["disease_cases", "rainfall"])
-def test_make_dataset_import_persists_data_sources(clean_engine, dataset_make_request, target_column):
+def test_make_dataset_import_persists_data_sources(clean_engine, dataset_make_request):
     """The covariate to data-element mapping sent to make-dataset must survive the import."""
     request = dataset_make_request
     assert request.data_sources, "fixture should provide a mapping to persist"
@@ -199,12 +198,10 @@ def test_make_dataset_import_persists_data_sources(clean_engine, dataset_make_re
             request.type,
             session=session,
             data_sources=request.data_sources,
-            target_column=target_column,
         )
         stored = session.session.get(DataSet, dataset_id)
         assert stored is not None
         assert stored.data_sources == request.data_sources
-        assert stored.target_column == target_column
         assert stored.created_manually
 
 
@@ -713,9 +710,8 @@ def test_target_column_is_scored_and_separates_specifications(override_session, 
     assert actual_cases.featureId == actual_cases.dhis2Id == "rainfall"
 
 
-@pytest.mark.parametrize("endpoint", ["create-backtest", "create-backtests"])
 def test_dataset_target_is_saved_and_used_by_runs(
-    override_session, p_seeded_engine, dataset_make_request, baseline_worker, monkeypatch, endpoint
+    override_session, p_seeded_engine, dataset_make_request, baseline_worker, monkeypatch
 ):
     from chap_core.assessment.evaluation import Evaluation
     from chap_core.rest_api.v1.routers import analytics
@@ -736,8 +732,12 @@ def test_dataset_target_is_saved_and_used_by_runs(
     for observation in request.provided_data:
         if observation.feature_name == "rainfall":
             observation.value = None if observation.period == "2020-01" else 7.0
+        # Gaps in the target and in disease_cases, which runs replace with the target, reject nothing.
+        if observation.feature_name == "disease_cases" and observation.period == "2020-02":
+            observation.value = None
     response = client.post("/v1/analytics/make-dataset", json=request.model_dump(mode="json", by_alias=True))
     assert response.status_code == 200, response.text
+    assert response.json()["rejected"] == []
     func, args, kwargs = baseline_worker.queued.pop()
     with SessionWrapper(p_seeded_engine) as session:
         dataset_id = func(
@@ -756,9 +756,9 @@ def test_dataset_target_is_saved_and_used_by_runs(
         prediction_id = run_prediction("naive_model", str(dataset_id), 3, "rain", session)
         prediction = session.session.get(Prediction, prediction_id)
         assert prediction.forecasts
+        assert "rainfall" not in trained_on[0].field_names()
         for data in trained_on[0].values():
             assert set(data.disease_cases[~np.isnan(data.disease_cases)]) == {7.0}
-            assert "rainfall" not in trained_on[0].field_names()
 
     assert client.get(f"/v1/crud/datasets/{dataset_id}").json()["targetColumn"] == "rainfall"
     rows = client.get("/v1/crud/datasets").json()
@@ -774,15 +774,16 @@ def test_dataset_target_is_saved_and_used_by_runs(
     assert all(entry["values"] == [7.0] for entry in thresholds.json()["entries"])
 
     payload = {"name": "rain", "datasetId": dataset_id, "modelId": "naive_model", "modelIds": ["naive_model"]}
-    for target in ({}, {"targetColumn": "rainfall"}):
-        response = client.post(f"/v1/analytics/{endpoint}", json=payload | target)
-        assert response.status_code == 200, response.text
-        assert baseline_worker.queued[-1][2]["target_column"] == "rainfall"
-    baseline_worker.queued.clear()
-    response = client.post(f"/v1/analytics/{endpoint}", json=payload | {"targetColumn": "disease_cases"})
-    assert response.status_code == 422, response.text
-    assert "create a new dataset" in response.text
-    assert baseline_worker.queued == []
+    for endpoint in ("create-backtest", "create-backtests"):
+        for target in ({}, {"targetColumn": "rainfall"}):
+            response = client.post(f"/v1/analytics/{endpoint}", json=payload | target)
+            assert response.status_code == 200, response.text
+            assert baseline_worker.queued[-1][2]["target_column"] == "rainfall"
+        baseline_worker.queued.clear()
+        response = client.post(f"/v1/analytics/{endpoint}", json=payload | {"targetColumn": "disease_cases"})
+        assert response.status_code == 422, response.text
+        assert "create a new dataset" in response.text
+        assert baseline_worker.queued == []
 
 
 @pytest.mark.parametrize(
@@ -799,20 +800,6 @@ def test_make_dataset_rejects_invalid_target_before_queueing(
     response = client.post("/v1/analytics/make-dataset", json=payload)
     assert response.status_code == 422, response.text
     assert baseline_worker.queued == []
-
-
-@pytest.mark.parametrize("endpoint", ["create-backtest", "create-backtests"])
-def test_create_backtest_rejects_unknown_target_column(override_session, seeded_session, monkeypatch, endpoint):
-    from chap_core.rest_api.v1.routers import analytics
-
-    worker = _JobIdWorker()
-    monkeypatch.setattr(analytics, "worker", worker)
-    dataset_id = seeded_session.exec(select(DataSet.id)).first()
-    payload = {"name": "x", "datasetId": dataset_id, "modelId": "naive_model", "modelIds": ["naive_model"]}
-
-    response = client.post(f"/v1/analytics/{endpoint}", json={**payload, "targetColumn": "missing"})
-    assert response.status_code == 422, response.text
-    assert worker.queued == []
 
 
 def _mask_seeded_dataset(seeded_session, start: str, end: str) -> int:
@@ -853,23 +840,6 @@ def test_create_backtest_accepts_a_mask_in_the_history(override_session, seeded_
     response = client.post(f"/v1/analytics/{endpoint}", json={**payload, "nPeriods": 3, "nSplits": 2, "stride": 1})
     assert response.status_code == 200, response.text
     assert len(worker.queued) == 1
-
-
-@pytest.mark.parametrize("endpoint", ["create-backtest", "create-backtests"])
-def test_create_backtest_rejects_an_alternate_target_on_a_masked_dataset(
-    override_session, seeded_session, monkeypatch, endpoint
-):
-    from chap_core.rest_api.v1.routers import analytics
-
-    worker = _JobIdWorker()
-    monkeypatch.setattr(analytics, "worker", worker)
-    dataset_id = _mask_seeded_dataset(seeded_session, "2021-06", "2021-08")
-    payload = {"name": "x", "datasetId": dataset_id, "modelId": "naive_model", "modelIds": ["naive_model"]}
-
-    response = client.post(f"/v1/analytics/{endpoint}", json={**payload, "targetColumn": "rainfall"})
-    assert response.status_code == 422, response.text
-    assert "create a new dataset" in response.text
-    assert worker.queued == []
 
 
 def test_run_backtest_masks_the_history_without_writing_to_the_dataset(
@@ -2032,7 +2002,7 @@ def test_run_prediction_setup_logs_rejection_count(
     assert created.status_code == 200, created.json()
     setup_id = created.json()["id"]
 
-    def fake_validate(_feature_names, dataset):
+    def fake_validate(_feature_names, dataset, _target_column):
         return dataset, [
             ValidationError(reason="missing data", org_unit="loc_x", feature_name="rainfall", time_periods=[])
         ]
@@ -2234,22 +2204,26 @@ def _check_rejected_org_units(content, expected_rejections):
         assert rejected_regions == set(expected_rejections), (rejected_regions, expected_rejections)
 
 
-@pytest.mark.parametrize("target_column", ["disease_cases", "rainfall"])
-def test_add_csv_dataset(dependency_overrides, data_path, target_column):
-    with (
-        open(data_path / "vietnam_monthly.csv", "rb") as csv_data,
-        open(data_path / "vietnam_monthly.geojson", "rb") as geojson_data,
-    ):
+def test_add_csv_dataset(dependency_overrides, data_path):
+    """The numeric columns are stored with the chosen target; text columns such as a location name are ignored."""
+    frame = pd.read_csv(data_path / "vietnam_monthly.csv")
+    frame["location_name"] = frame["location"]
+    with open(data_path / "vietnam_monthly.geojson", "rb") as geojson_data:
         response = client.post(
             "/v1/crud/datasets/csvFile",
-            files={"csv_file": csv_data, "geojson_file": geojson_data},
-            data={"targetColumn": target_column},
+            files={
+                "csv_file": ("vietnam_monthly.csv", frame.to_csv(index=False).encode()),
+                "geojson_file": geojson_data,
+            },
+            data={"targetColumn": "rainfall"},
         )
     assert response.status_code == 200, response.json()
     response = client.get(f"/v1/crud/datasets/{response.json()['id']}")
     assert response.status_code == 200, response.json()
-    assert DataSetWithObservations.model_validate(response.json()).created_manually
-    assert response.json()["targetColumn"] == target_column
+    stored = DataSetWithObservations.model_validate(response.json())
+    assert stored.created_manually
+    assert stored.target_column == "rainfall"
+    assert set(stored.covariates) == {"rainfall", "mean_temperature", "disease_cases", "population"}
 
 
 def test_add_csv_dataset_stores_it_unmasked(dependency_overrides, data_path):
