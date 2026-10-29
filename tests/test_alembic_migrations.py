@@ -55,6 +55,7 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("dataset", "created_manually"),
     ("alertpolicy", "no_alert_output_code"),
     ("dataset", "masked_ranges"),
+    ("dataset", "target_column"),
 ]
 
 # Tables added by alembic migrations (not in the baseline schema).
@@ -646,12 +647,17 @@ def test_target_column_migration_preserves_and_separates_specifications(engine):
         # Startup's generic migration adds the column as an empty string before Alembic runs.
         conn.execute(sa.text("ALTER TABLE backtestspecification ADD COLUMN target_column VARCHAR"))
         conn.execute(sa.text("UPDATE backtestspecification SET target_column = ''"))
+        conn.execute(sa.text("ALTER TABLE dataset ADD COLUMN target_column VARCHAR"))
+        conn.execute(sa.text("UPDATE dataset SET target_column = ''"))
     command.upgrade(cfg, "head")
     with Session(engine) as session:
         wrapper = SessionWrapper(session=session)
         default = wrapper.get_or_create_backtest_specification(1, BacktestParams(), ["A"])
         assert default.id == 1
         assert default.target_column == "disease_cases"
+        dataset = session.get(DataSet, 1)
+        assert dataset is not None
+        assert dataset.target_column == "disease_cases"
         custom = wrapper.get_or_create_backtest_specification(1, BacktestParams(), ["A"], target_column="cases")
         assert custom.id != default.id
         # A downgrade must merge the identities and keep the backtest pointing at a valid row.

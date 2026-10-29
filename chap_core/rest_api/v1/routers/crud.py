@@ -21,7 +21,7 @@ from typing import Annotated, Any, Final, Literal
 
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Path, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Path, Query, UploadFile
 from redis.exceptions import RedisError
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
@@ -65,7 +65,7 @@ from chap_core.database.tables import (
     is_not_archived_model_backtest,
     is_not_baseline_backtest,
 )
-from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
+from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.exceptions import BaselineTemplateConflict, ModelTemplateRevisionConflict
 from chap_core.geometry import Polygons
 from chap_core.rest_api.baseline_runs import request_baselines_after_response
@@ -124,6 +124,7 @@ from .dependencies import (
     get_settings_manager,
     model_job_metadata,
     reject_mask_indicator_input,
+    require_target_column,
 )
 
 logger = logging.getLogger(__name__)
@@ -867,13 +868,16 @@ async def create_dataset(
     # The import keeps only the HealthPopulationData fields, so check before an indicator is silently dropped.
     reject_mask_indicator_input([obs.feature_name for obs in data.observations])
     health_data = observations_to_dataset(HealthPopulationData, data.observations, fill_missing=True)
+    require_target_column(data.target_column, health_data.field_names())
+    require_target_column(data.target_column, [obs.feature_name for obs in data.observations])
     health_data.set_polygons(FeatureCollectionModel.model_validate(data.geojson))
-    check_masked_ranges_match(data.masked_ranges, health_data)
+    check_masked_ranges_match(data.masked_ranges, health_data, data.target_column)
     job = worker.queue_db(
         wf.harmonize_and_add_health_dataset,
         health_data.model_dump(),
         data.name,
         masked_ranges=data.masked_ranges,
+        target_column=data.target_column,
         database_url=datababase_url,
         worker_config=worker_settings,
         **{JOB_REQUEST_KW: original_request},
@@ -889,6 +893,7 @@ async def create_dataset(
 async def create_dataset_csv(
     csv_file: UploadFile = File(...),
     geojson_file: UploadFile = File(...),
+    target_column: str = Form("disease_cases", alias="targetColumn"),
     session: Session = Depends(get_session),
 ) -> DataBaseResponse:
     """Upload a CSV of observations together with the matching GeoJSON polygons (``NAME_1`` keyed) and persist it as a dataset synchronously.
@@ -897,17 +902,23 @@ async def create_dataset_csv(
     through DHIS2 or the JSON import endpoints. Inserts inline — no background job —
     and returns the new dataset id immediately. The dataset has no masked ranges;
     a CSV with a ``target_masked`` column gets a 422.
+    The optional ``targetColumn`` form field selects the target (default ``disease_cases``)
+    and must name a column in the uploaded CSV.
     """
     import io
 
     csv_content = await csv_file.read()
-    # The import keeps only the FullData columns, so check the header before an indicator is silently dropped.
-    reject_mask_indicator_input(pd.read_csv(io.BytesIO(csv_content), nrows=0).columns.tolist())
-    dataset = InMemoryDataSet.from_csv(io.BytesIO(csv_content), dataclass=FullData)
+    columns = pd.read_csv(io.BytesIO(csv_content), nrows=0).columns.tolist()
+    reject_mask_indicator_input(columns)
+    dataset: InMemoryDataSet = InMemoryDataSet.from_csv(io.BytesIO(csv_content))
+    require_target_column(target_column, dataset.field_names())
     geo_json_content = await geojson_file.read()
     features = Polygons.from_geojson(json.loads(geo_json_content), id_property="NAME_1").feature_collection()
     dataset_id = DataSetManager(session).save_dataset(
-        DataSetCreateInfo(name="csv_file"), dataset, features.model_dump_json(), created_manually=True
+        DataSetCreateInfo(name="csv_file", target_column=target_column),
+        dataset,
+        features.model_dump_json(),
+        created_manually=True,
     )
     return DataBaseResponse(id=dataset_id)
 
@@ -1687,7 +1698,9 @@ async def run_prediction_setup(
     # overridden so the persisted dataset is consistently tagged "prediction" and shows
     # up in prediction-filtered UI/queries. Use a local instead of mutating the request.
     dataset_type = "prediction"
-    dataset_info = DataSetCreateInfo(name=request.name, type=dataset_type, masked_ranges=masked_ranges).model_dump()
+    dataset_info = DataSetCreateInfo(
+        name=request.name, type=dataset_type, masked_ranges=masked_ranges, target_column=target_column
+    ).model_dump()
     # Inherit the provider the setup's backtest was evaluated with, so a promoted
     # backtest predicts against the same future-weather source it was scored on.
     provider = setup.backtest.future_weather_provider

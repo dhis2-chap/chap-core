@@ -220,7 +220,9 @@ class MakeBacktestRequest(BacktestParamsBase):
     Omitted backtest parameters use the stored defaults for the dataset's period type, not the schema defaults.
     """
 
-    target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
+    target_column: str | None = Field(
+        default=None, deprecated=True, description="If supplied, must match the dataset's targetColumn."
+    )
 
     name: str = Field(description="Human-friendly name for the resulting backtest row.")
     model_id: int | str = Field(
@@ -235,7 +237,9 @@ class MakeBacktestsRequest(BacktestParamsBase):
     Omitted backtest parameters use the stored defaults for the dataset's period type, not the schema defaults.
     """
 
-    target_column: str = Field(default="disease_cases", description="Dataset column to evaluate as the target.")
+    target_column: str | None = Field(
+        default=None, deprecated=True, description="If supplied, must match the dataset's targetColumn."
+    )
 
     name: str = Field(description="Name of the run; each backtest is named `<name>/<configured model name>`.")
     model_ids: list[int | str] = Field(

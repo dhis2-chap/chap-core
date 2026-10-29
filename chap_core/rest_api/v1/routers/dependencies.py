@@ -1,14 +1,19 @@
 import json
 import os
+from collections.abc import Iterable
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, cast
 
 from fastapi import Depends, HTTPException, Request
 from sqlmodel import Session
 
-from chap_core.assessment.target_mask import TARGET_FIELD, check_no_mask_indicator_input
+from chap_core.assessment.target_mask import (
+    TARGET_FIELD,
+    check_no_mask_indicator_input,
+    check_target_column_allows_masking,
+)
 from chap_core.database.database import SessionWrapper, engine
-from chap_core.database.dataset_tables import MaskedRange, check_masked_ranges_match_dataset
+from chap_core.database.dataset_tables import DataSetInfo, MaskedRange, check_masked_ranges_match_dataset
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.settings import SettingsManager
 from chap_core.rest_api.worker_functions import WorkerConfig
@@ -66,7 +71,9 @@ def model_job_metadata(model: ConfiguredModelDB, parameters: dict, dataset_id: i
     }
 
 
-def check_masked_ranges_match(masked_ranges: list[MaskedRange] | None, dataset: "DataSet") -> None:
+def check_masked_ranges_match(
+    masked_ranges: list[MaskedRange] | None, dataset: "DataSet", target_column: str = "disease_cases"
+) -> None:
     """Reject masked ranges the data cannot take, with a 422 before anything is queued."""
     if not masked_ranges or not list(dataset.locations()):
         return
@@ -75,9 +82,27 @@ def check_masked_ranges_match(masked_ranges: list[MaskedRange] | None, dataset: 
             status_code=422, detail=f"Masked ranges mask {TARGET_FIELD!r}, but the data has no {TARGET_FIELD!r} column"
         )
     try:
+        check_target_column_allows_masking(masked_ranges, target_column)
         check_masked_ranges_match_dataset(masked_ranges, dataset.period_range[0])
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+
+
+def require_target_column(target_column: str, columns: Iterable[str | None]) -> None:
+    """Reject a request whose data has no `target_column`."""
+    if target_column not in columns:
+        raise HTTPException(status_code=422, detail=f"Dataset has no target column {target_column!r}")
+
+
+def require_dataset_target(dataset: DataSetInfo, requested_target: str | None) -> str:
+    """Use the saved target; tolerate older clients only when they send the same target."""
+    if requested_target is not None and requested_target != dataset.target_column:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Dataset target is {dataset.target_column!r}. To use another target, create a new dataset.",
+        )
+    require_target_column(dataset.target_column, dataset.covariates)
+    return dataset.target_column
 
 
 def reject_mask_indicator_input(feature_names: list[str] | list[str | None]) -> None:
