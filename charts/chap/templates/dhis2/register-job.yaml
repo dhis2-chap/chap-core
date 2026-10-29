@@ -51,6 +51,19 @@ spec:
                 echo "DHIS 2 is not ready yet, retrying in 10s"
                 sleep 10
               done
+              {{- if include "chap.apiToken.enabled" . }}
+
+              # The token is spliced into the JSON below unescaped, so refuse anything outside a safe
+              # set. Stripping instead would leave DHIS 2 and the API (which reads the same secret
+              # verbatim) with different tokens. A secret made with kubectl --from-file usually ends
+              # in a newline and is caught here.
+              case "${CHAP_API_TOKEN}" in
+                *[!A-Za-z0-9._-]*)
+                  echo "CHAP_API_TOKEN may only contain A-Z, a-z, 0-9, '.', '_' and '-' (check for a trailing newline)"
+                  exit 1
+                  ;;
+              esac
+              {{- end }}
 
               PAYLOAD=$(printf '%s' '{
                 "name": "Chap Modeling App",
