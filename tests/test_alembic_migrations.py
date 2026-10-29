@@ -48,6 +48,7 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("configuredmodeldb", "configuration_digest"),
     ("configuredmodeldb", "is_live"),
     ("prediction", "prediction_setup_id"),
+    ("prediction", "alert_policy_id"),
     ("backtest", "max_horizon_distance"),
     ("backtest", "specification_id"),
     ("backtest", "chap_version"),
@@ -664,6 +665,36 @@ def test_target_column_migration_preserves_and_separates_specifications(engine):
         assert conn.execute(sa.text("SELECT id FROM backtestspecification")).scalars().all() == [1]
         assert conn.execute(sa.text("SELECT specification_id FROM backtest")).scalar_one() == 1
     command.upgrade(cfg, "head")
+
+
+@pytest.mark.slow
+def test_prediction_alert_policy_migration_clears_startup_placeholders(engine, alert_prediction):
+    from alembic import command
+
+    source, _ = alert_prediction
+    with engine.begin() as conn:
+        conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+        conn.execute(sa.text("CREATE SCHEMA public"))
+    SQLModel.metadata.create_all(engine)
+    with engine.begin() as conn:
+        for table in SQLModel.metadata.sorted_tables:
+            rows = source.execute(sa.select(table)).mappings().all()
+            if rows:
+                conn.execute(table.insert(), [dict(row) for row in rows])
+
+    cfg = _make_alembic_cfg(engine)
+    command.stamp(cfg, "head")
+    command.downgrade(cfg, "e6f7a8b9c0d1")
+    with engine.begin() as conn:
+        # What the generic startup migration does before Alembic runs.
+        conn.execute(sa.text("ALTER TABLE prediction ADD COLUMN alert_policy_id INTEGER"))
+        conn.execute(sa.text("UPDATE prediction SET alert_policy_id = 0"))
+
+    command.upgrade(cfg, "head")
+    with engine.begin() as conn:
+        assert conn.execute(sa.text("SELECT alert_policy_id FROM prediction")).scalar_one() is None
+    foreign_keys = sa.inspect(engine).get_foreign_keys("prediction")
+    assert any(fk["referred_table"] == "alertpolicy" for fk in foreign_keys)
 
 
 @pytest.mark.slow
