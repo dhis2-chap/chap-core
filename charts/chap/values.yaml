@@ -209,6 +209,16 @@ externalValkey:
   secretKeys:
     password: password
 
+# API token (CHAP_API_TOKEN) required on every API request except the health endpoints.
+# With neither token nor existingSecret set, the API accepts requests without a token.
+apiToken:
+  # -- The token. Ignored when existingSecret is set.
+  token: ""
+  # -- Existing secret with the token.
+  existingSecret: ""
+  secretKeys:
+    token: token
+
 # Register CHAP as a route in a DHIS2 instance after install/upgrade.
 dhis2:
   enabled: false

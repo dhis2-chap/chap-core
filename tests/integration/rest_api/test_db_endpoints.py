@@ -2822,3 +2822,76 @@ def test_patch_alert_policy_rejects_invalid_changes_without_saving(clean_engine,
     response = client.patch(url, json=update)
     assert response.status_code == 422, response.text
     assert client.get(url).json() == before
+
+
+def _test_backtest_id(session) -> int:
+    return session.exec(select(Backtest).where(Backtest.name == "test backtest")).one().id
+
+
+def test_outbreak_metrics_scores_every_level(override_session, seeded_session):
+    backtest_id = _test_backtest_id(seeded_session)
+    policy_id = _create_alert_policy().json()["id"]
+
+    response = client.get(
+        f"/v1/analytics/backtests/{backtest_id}/outbreak-metrics", params={"alertPolicyId": policy_id}
+    )
+
+    assert response.status_code == 200, response.json()
+    body = response.json()
+    assert body["categories"] == ["none", "monitor", "action"]
+    (overall,) = body["rows"]
+    assert overall["nCells"] > 0
+    assert [level["level"] for level in overall["levels"]] == ["monitor", "action"]
+    assert "sensitivity" in overall["levels"][0]["metrics"]
+    assert "weighted_kappa" in overall["categorical"]
+
+
+def test_outbreak_metrics_without_computable_thresholds_is_400(override_session, seeded_session):
+    """The NaN backtest has three observed cases in all, so no level can compute a threshold before any split."""
+    backtest_id = seeded_session.exec(select(Backtest).where(Backtest.name == "test_backtest_with_nans")).one().id
+    policy_id = _create_alert_policy().json()["id"]
+
+    response = client.get(
+        f"/v1/analytics/backtests/{backtest_id}/outbreak-metrics", params={"alertPolicyId": policy_id}
+    )
+
+    assert response.status_code == 400, response.json()
+
+
+def test_outbreak_metrics_groups_by_the_requested_dimensions(override_session, seeded_session):
+    backtest_id = _test_backtest_id(seeded_session)
+    policy_id = _create_alert_policy().json()["id"]
+
+    response = client.get(
+        f"/v1/analytics/backtests/{backtest_id}/outbreak-metrics",
+        params={"alertPolicyId": policy_id, "groupBy": ["location", "horizon_distance"]},
+    )
+
+    assert response.status_code == 200, response.json()
+    rows = response.json()["rows"]
+    groups = [(row["location"], row["horizonDistance"]) for row in rows]
+    assert groups == sorted(groups) and len(groups) == 9
+    assert all(row["timePeriod"] is None for row in rows)
+
+
+def test_list_outbreak_metrics_has_unique_ids_of_both_kinds():
+    listed = client.get("/v1/analytics/outbreak-metrics").json()
+    metrics = {m["id"]: m["kind"] for m in listed}
+    assert len(metrics) == len(listed)
+    assert metrics["sensitivity"] == "binary"
+    assert metrics["weighted_kappa"] == "categorical"
+
+
+def test_outbreak_metrics_unknown_ids_return_404(override_session, seeded_session):
+    backtest_id = _test_backtest_id(seeded_session)
+    policy_id = _create_alert_policy().json()["id"]
+
+    unknown_policy = client.get(
+        f"/v1/analytics/backtests/{backtest_id}/outbreak-metrics", params={"alertPolicyId": policy_id + 1000}
+    )
+    unknown_backtest = client.get(
+        f"/v1/analytics/backtests/{backtest_id + 1000}/outbreak-metrics", params={"alertPolicyId": policy_id}
+    )
+
+    assert unknown_policy.status_code == 404
+    assert unknown_backtest.status_code == 404
