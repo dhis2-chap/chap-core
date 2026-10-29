@@ -616,6 +616,7 @@ class SessionWrapper:
         configured_model_id: int,
         metadata: dict | None = None,
         prediction_setup_id: int | None = None,
+        alert_policy_id: int | None = None,
     ):
         if metadata is None:
             metadata = {}
@@ -638,6 +639,7 @@ class SessionWrapper:
             org_units=org_units,
             model_db_id=configured_model_id,
             prediction_setup_id=prediction_setup_id,
+            alert_policy_id=alert_policy_id,
         )
         self.session.add(prediction)
         self.session.commit()
