@@ -511,7 +511,6 @@ def create_backtest(
                 params.n_periods,
                 params.n_splits,
                 params.stride,
-                target_column=target_column,
             )
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
@@ -569,7 +568,7 @@ def create_backtests(
     params = _resolve_backtest_params(settings_manager.get(), request, stored_dataset.period_type)
     models = [get_job_model(session, model_id) for model_id in request.model_ids]
     try:
-        dataset, _ = wf.load_masked_dataset(session, request.dataset_id, target_column)
+        dataset, _ = wf.load_masked_dataset(session, request.dataset_id)
         _, specification = wf.resolve_backtest_specification(
             wrapper, dataset, request.dataset_id, params, target_column=target_column
         )

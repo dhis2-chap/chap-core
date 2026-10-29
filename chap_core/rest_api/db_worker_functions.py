@@ -120,13 +120,12 @@ def check_backtest_on_masked_dataset(
     n_periods: int | None,
     n_splits: int,
     stride: int,
-    target_column: str | None = None,
 ) -> None:
     """Raise before queueing if a backtest on a masked dataset cannot run.
 
     Without `n_periods`, the default `run_backtest` would pick is used.
     """
-    dataset, _ = load_masked_dataset(session, dataset_id, target_column)
+    dataset, _ = load_masked_dataset(session, dataset_id)
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
     check_mask_outside_evaluation_window(dataset, n_periods, n_splits, stride)
@@ -281,7 +280,6 @@ def run_prediction(
     prediction_setup_id: int | None = None,
     configured_model_id: int | None = None,
     future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
-    target_column: str | None = None,
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     status_logger.info(f"Starting prediction for model '{model_id}' on dataset ID {dataset_id}")
@@ -292,7 +290,7 @@ def run_prediction(
             select(PredictionSetup.alert_policy_id).where(PredictionSetup.id == prediction_setup_id)
         ).one()
 
-    dataset, target_column = load_masked_dataset(session.session, int(dataset_id), target_column)
+    dataset, target_column = load_masked_dataset(session.session, int(dataset_id))
     dataset = _use_as_disease_cases(dataset, target_column)
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
@@ -398,7 +396,6 @@ def predict_pipeline_from_composite_dataset(
     worker_config: WorkerConfig = WorkerConfig(),
     prediction_setup_id: int | None = None,
     configured_model_id: int | None = None,
-    target_column: str | None = None,
 ) -> int:
     """
     This is the main pipeline function to run prediction from a dataset.
@@ -419,7 +416,6 @@ def predict_pipeline_from_composite_dataset(
         prediction_setup_id=prediction_setup_id,
         configured_model_id=configured_model_id,
         future_weather_provider=prediction_params.future_weather_provider,
-        target_column=target_column,
     )
     return result
 

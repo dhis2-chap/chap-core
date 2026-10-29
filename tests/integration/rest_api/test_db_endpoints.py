@@ -785,6 +785,16 @@ def test_dataset_target_is_saved_and_used_by_runs(
         assert "create a new dataset" in response.text
         assert baseline_worker.queued == []
 
+    # A saved target the dataset has no column for, as a migrated dataset can have, is rejected too.
+    with SessionWrapper(p_seeded_engine) as session:
+        stored = session.session.get(DataSet, dataset_id)
+        stored.target_column = "missing"
+        session.session.add(stored)
+        session.session.commit()
+    response = client.post("/v1/analytics/create-backtest", json=payload)
+    assert response.status_code == 422, response.text
+    assert "has no target column 'missing'" in response.text
+
 
 @pytest.mark.parametrize(
     "target_column,masked_ranges", [("missing", []), ("rainfall", [{"start": "202106", "end": "202108"}])]
@@ -2205,16 +2215,24 @@ def _check_rejected_org_units(content, expected_rejections):
 
 
 def test_add_csv_dataset(dependency_overrides, data_path):
-    """The numeric columns are stored with the chosen target; text columns such as a location name are ignored."""
+    """The columns are stored with the chosen target; a text column such as a location name is rejected."""
     frame = pd.read_csv(data_path / "vietnam_monthly.csv")
     frame["location_name"] = frame["location"]
     with open(data_path / "vietnam_monthly.geojson", "rb") as geojson_data:
         response = client.post(
             "/v1/crud/datasets/csvFile",
-            files={
-                "csv_file": ("vietnam_monthly.csv", frame.to_csv(index=False).encode()),
-                "geojson_file": geojson_data,
-            },
+            files={"csv_file": ("named.csv", frame.to_csv(index=False).encode()), "geojson_file": geojson_data},
+        )
+    assert response.status_code == 422, response.text
+    assert "'location_name' is not numeric" in response.text
+
+    with (
+        open(data_path / "vietnam_monthly.csv", "rb") as csv_data,
+        open(data_path / "vietnam_monthly.geojson", "rb") as geojson_data,
+    ):
+        response = client.post(
+            "/v1/crud/datasets/csvFile",
+            files={"csv_file": csv_data, "geojson_file": geojson_data},
             data={"targetColumn": "rainfall"},
         )
     assert response.status_code == 200, response.json()
@@ -2241,6 +2259,13 @@ def test_add_csv_dataset_stores_it_unmasked(dependency_overrides, data_path):
     source_cases = pd.read_csv(data_path / "vietnam_monthly.csv")["disease_cases"]
     assert len(stored_cases) == len(source_cases)
     assert sum(v is None or np.isnan(v) for v in stored_cases) == source_cases.isna().sum()
+
+
+def test_create_dataset_rejects_a_target_outside_the_health_fields(dependency_overrides, dataset_create):
+    payload = dataset_create.model_dump(mode="json") | {"target_column": "rainfall"}
+    response = client.post("/v1/crud/datasets", json=payload)
+    assert response.status_code == 422, response.text
+    assert "has no target column 'rainfall'" in response.text
 
 
 def test_create_dataset_rejects_input_carrying_the_mask_indicator(dependency_overrides, dataset_create):

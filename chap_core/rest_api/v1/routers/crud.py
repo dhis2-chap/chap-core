@@ -15,6 +15,7 @@ alias_generator=to_camel and FastAPI's response_model_by_alias defaults to True.
 
 """
 
+import dataclasses
 import json
 import logging
 from typing import Annotated, Any, Final, Literal
@@ -867,11 +868,13 @@ async def create_dataset(
     and the submitted values are not kept. They cannot be recovered or unmasked later.
     ``targetColumn`` must be one of the kept fields and present in the observations.
     """
-    # The import keeps only the HealthPopulationData fields, so check before an indicator is silently dropped.
+    # The import keeps only the HealthPopulationData fields, so check before an indicator or the
+    # target is silently dropped.
     submitted = [obs.feature_name for obs in data.observations]
     reject_mask_indicator_input(submitted)
+    kept = {field.name for field in dataclasses.fields(HealthPopulationData)}  # type: ignore[arg-type]
+    require_target_column(data.target_column, [name for name in submitted if name in kept])
     health_data = observations_to_dataset(HealthPopulationData, data.observations, fill_missing=True)
-    require_target_column(data.target_column, [name for name in health_data.field_names() if name in submitted])
     health_data.set_polygons(FeatureCollectionModel.model_validate(data.geojson))
     check_masked_ranges_match(data.masked_ranges, health_data, data.target_column)
     job = worker.queue_db(
@@ -903,8 +906,8 @@ async def create_dataset_csv(
     Use this when you have the files on disk and do not want to round-trip them
     through DHIS2 or the JSON import endpoints. Inserts inline — no background job —
     and returns the new dataset id immediately. The dataset has no masked ranges;
-    a CSV with a ``target_masked`` column gets a 422. Every numeric column besides
-    ``time_period`` and ``location`` is stored; other columns are ignored.
+    a CSV with a ``target_masked`` column gets a 422. Every column besides ``time_period``
+    and ``location`` is stored and must be numeric; a text column gets a 422.
     The optional ``targetColumn`` form field selects the target (default ``disease_cases``)
     and must name a stored column.
     """
@@ -912,13 +915,11 @@ async def create_dataset_csv(
 
     frame = pd.read_csv(io.BytesIO(await csv_file.read()))
     reject_mask_indicator_input(frame.columns.tolist())
-    feature_names = [
-        name
-        for name in frame.columns
-        if name not in ("time_period", "location") and "Unnamed" not in name and is_numeric_dtype(frame[name])
-    ]
-    require_target_column(target_column, feature_names)
-    dataset = InMemoryDataSet.from_pandas(frame, create_tsdataclass(feature_names))
+    dataset: InMemoryDataSet = InMemoryDataSet.from_pandas(frame)
+    for name in dataset.field_names():
+        if not is_numeric_dtype(frame[name]):
+            raise HTTPException(status_code=422, detail=f"Column {name!r} is not numeric")
+    require_target_column(target_column, dataset.field_names())
     geo_json_content = await geojson_file.read()
     features = Polygons.from_geojson(json.loads(geo_json_content), id_property="NAME_1").feature_collection()
     dataset_id = DataSetManager(session).save_dataset(
@@ -1677,8 +1678,7 @@ async def run_prediction_setup(
     target_column = setup.backtest.specification.target_column
     feature_names = list({entry.feature_name for entry in request.provided_data})
     reject_mask_indicator_input(feature_names)
-    if target_column not in feature_names:
-        raise HTTPException(status_code=422, detail=f"Dataset has no target column {target_column!r}")
+    require_target_column(target_column, feature_names)
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
@@ -1695,7 +1695,7 @@ async def run_prediction_setup(
     # Inherit the backtest dataset's masked ranges, so predictions train under the same mask the
     # backtest was scored with. Only the ranges are copied; the observations are this run's own.
     masked_ranges = setup.backtest.dataset.masked_ranges or []
-    check_masked_ranges_match(masked_ranges, provided_data)
+    check_masked_ranges_match(masked_ranges, provided_data, target_column)
 
     # Normalize dataset type server-side, matching analytics.make_prediction. Whatever the
     # client sent in `request.type` (e.g. chap-scheduler defaults to "forecasting") gets
@@ -1729,7 +1729,6 @@ async def run_prediction_setup(
         prediction_params=prediction_params,
         prediction_setup_id=prediction_setup_id,
         configured_model_id=setup.configured_model_id,
-        target_column=target_column,
         database_url=database_url,
         worker_config=worker_settings,
         **{

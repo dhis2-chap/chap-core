@@ -649,8 +649,9 @@ def test_target_column_migration_preserves_and_separates_specifications(engine):
         conn.execute(sa.text("UPDATE backtestspecification SET target_column = ''"))
         # Dataset 2 was only ever backtested on a custom target, which it keeps.
         conn.execute(sa.text("UPDATE backtestspecification SET target_column = 'cases' WHERE id = 2"))
+        # Startup's generic migration fills a new column with the model default before Alembic runs.
         conn.execute(sa.text("ALTER TABLE dataset ADD COLUMN target_column VARCHAR"))
-        conn.execute(sa.text("UPDATE dataset SET target_column = ''"))
+        conn.execute(sa.text("UPDATE dataset SET target_column = 'disease_cases'"))
     command.upgrade(cfg, "head")
     with engine.connect() as conn:
         targets = conn.execute(sa.text("SELECT target_column FROM dataset ORDER BY id")).scalars().all()
