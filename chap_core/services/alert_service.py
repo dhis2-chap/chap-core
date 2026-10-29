@@ -48,7 +48,7 @@ def raise_alerts_for_prediction(session: Session, prediction_id: int) -> list[Al
     prediction = session.get(Prediction, prediction_id)
     if prediction is None or prediction.prediction_setup is None:
         return []
-    policy = prediction.prediction_setup.alert_policy
+    policy = prediction.alert_policy
     if policy is None or not policy.levels:
         return []
 
