@@ -2215,24 +2215,13 @@ def _check_rejected_org_units(content, expected_rejections):
 
 
 def test_add_csv_dataset(dependency_overrides, data_path):
-    """The columns are stored with the chosen target; a text column such as a location name is rejected."""
+    """The numeric columns are stored with the chosen target; a text column such as `parent` is ignored."""
     frame = pd.read_csv(data_path / "vietnam_monthly.csv")
-    frame["location_name"] = frame["location"]
+    frame["parent"] = "vietnam"
     with open(data_path / "vietnam_monthly.geojson", "rb") as geojson_data:
         response = client.post(
             "/v1/crud/datasets/csvFile",
-            files={"csv_file": ("named.csv", frame.to_csv(index=False).encode()), "geojson_file": geojson_data},
-        )
-    assert response.status_code == 422, response.text
-    assert "'location_name' is not numeric" in response.text
-
-    with (
-        open(data_path / "vietnam_monthly.csv", "rb") as csv_data,
-        open(data_path / "vietnam_monthly.geojson", "rb") as geojson_data,
-    ):
-        response = client.post(
-            "/v1/crud/datasets/csvFile",
-            files={"csv_file": csv_data, "geojson_file": geojson_data},
+            files={"csv_file": ("with_parent.csv", frame.to_csv(index=False).encode()), "geojson_file": geojson_data},
             data={"targetColumn": "rainfall"},
         )
     assert response.status_code == 200, response.json()

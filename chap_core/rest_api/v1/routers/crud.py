@@ -906,8 +906,8 @@ async def create_dataset_csv(
     Use this when you have the files on disk and do not want to round-trip them
     through DHIS2 or the JSON import endpoints. Inserts inline — no background job —
     and returns the new dataset id immediately. The dataset has no masked ranges;
-    a CSV with a ``target_masked`` column gets a 422. Every column besides ``time_period``
-    and ``location`` is stored and must be numeric; a text column gets a 422.
+    a CSV with a ``target_masked`` column gets a 422. Every numeric column besides
+    ``time_period`` and ``location`` is stored; text columns such as ``parent`` are ignored.
     The optional ``targetColumn`` form field selects the target (default ``disease_cases``)
     and must name a stored column.
     """
@@ -915,10 +915,10 @@ async def create_dataset_csv(
 
     frame = pd.read_csv(io.BytesIO(await csv_file.read()))
     reject_mask_indicator_input(frame.columns.tolist())
-    dataset: InMemoryDataSet = InMemoryDataSet.from_pandas(frame)
-    for name in dataset.field_names():
-        if not is_numeric_dtype(frame[name]):
-            raise HTTPException(status_code=422, detail=f"Column {name!r} is not numeric")
+    text_columns = [
+        name for name in frame.columns if name not in ("time_period", "location") and not is_numeric_dtype(frame[name])
+    ]
+    dataset: InMemoryDataSet = InMemoryDataSet.from_pandas(frame.drop(columns=text_columns))
     require_target_column(target_column, dataset.field_names())
     geo_json_content = await geojson_file.read()
     features = Polygons.from_geojson(json.loads(geo_json_content), id_property="NAME_1").feature_collection()
