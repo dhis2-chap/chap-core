@@ -410,6 +410,26 @@ def test_create_backtest_unknown_dataset_returns_404(clean_engine, dependency_ov
     assert response.status_code == 404, response.text
 
 
+def test_create_backtest_unknown_model_returns_404_without_queueing(override_session, seeded_session, monkeypatch):
+    """An unknown modelId is rejected before a job is queued, and the error names it (CLIM-733)."""
+    from chap_core.rest_api.v1.routers import analytics
+
+    queued: list = []
+
+    class _RecordingWorker:
+        def queue_db(self, func, info, **kwargs):
+            queued.append(info)
+
+    monkeypatch.setattr(analytics, "worker", _RecordingWorker())
+    dataset_id = seeded_session.exec(select(DataSet.id)).first()
+
+    payload = {"name": "x", "datasetId": dataset_id, "modelId": "no-such-model"}
+    response = client.post("/v1/analytics/create-backtest", json=payload)
+    assert response.status_code == 404, response.text
+    assert "no-such-model" in response.json()["detail"]
+    assert queued == []
+
+
 def test_create_backtest_forwards_params_and_accepts_int_model_id(override_session, seeded_session, monkeypatch):
     """The endpoint must hand every BacktestParams field, including n_retrain, to the worker
     and accept the configured model's integer id as well as its name."""
