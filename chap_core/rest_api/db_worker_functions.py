@@ -5,7 +5,7 @@ from typing import get_type_hints
 
 import numpy as np
 from pydantic import BaseModel
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from chap_core.api_types import BacktestParams
 from chap_core.assessment.evaluation import Evaluation
@@ -20,7 +20,7 @@ from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSetCreateInfo, DataSource, MaskedRange
-from chap_core.database.tables import BacktestSpecification
+from chap_core.database.tables import BacktestSpecification, PredictionSetup
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
 from chap_core.rest_api.data_models import BacktestCreate, FetchRequest, PredictionParams
@@ -282,6 +282,12 @@ def run_prediction(
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     status_logger.info(f"Starting prediction for model '{model_id}' on dataset ID {dataset_id}")
 
+    alert_policy_id = None
+    if prediction_setup_id is not None:
+        alert_policy_id = session.session.exec(
+            select(PredictionSetup.alert_policy_id).where(PredictionSetup.id == prediction_setup_id)
+        ).one()
+
     dataset = load_masked_dataset(session.session, int(dataset_id), target_column)
     dataset = _use_as_disease_cases(dataset, target_column)
     if n_periods is None:
@@ -303,6 +309,7 @@ def run_prediction(
         name,
         configured_model.id,
         prediction_setup_id=prediction_setup_id,
+        alert_policy_id=alert_policy_id,
     )
     assert db_id is not None
     status_logger.info(f"Prediction completed successfully. Results saved with ID {db_id}")

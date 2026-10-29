@@ -170,6 +170,15 @@ def test_delete_removes_an_unused_policy(engine, monitor_level):
         assert list_alert_policies(session) == []
 
 
+def test_delete_is_refused_while_a_prediction_references_it(alert_prediction):
+    session, prediction = alert_prediction
+    prediction.prediction_setup.alert_policy = None
+    session.commit()
+
+    with pytest.raises(AlertPolicyInUseError, match="used by prediction"):
+        delete_alert_policy(session, prediction.alert_policy_id)
+
+
 def test_delete_is_refused_while_a_setup_points_at_it(engine, monitor_level):
     """A running forecast must not lose the definition of what counts as an alert."""
     with Session(engine) as session:
