@@ -512,6 +512,7 @@ def alert_prediction():
             model_id=model.name,
             model_db_id=model.id,
             prediction_setup=setup,
+            alert_policy_id=policy.id,
             n_periods=2,
             name="alert-prediction",
             created=datetime.datetime.now(),
