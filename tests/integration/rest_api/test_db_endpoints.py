@@ -503,7 +503,8 @@ def test_create_backtests_resolves_the_specification_and_queues_one_job_per_mode
     for func, _, kwargs in worker.queued:
         assert func is run_backtest
         assert (kwargs["n_periods"], kwargs["n_splits"], kwargs["stride"], kwargs["n_retrain"]) == (3, 4, 1, 2)
-        assert kwargs["baseline_database_url"] == kwargs["database_url"]
+        assert kwargs["queue_baselines"] is True
+        assert "database_url" not in kwargs
 
     specification = client.get(f"/v1/crud/backtest-specifications/{data['specificationId']}").json()
     assert (specification["dataset"]["id"], specification["nSplits"], specification["nRetrain"]) == (dataset_id, 4, 2)
@@ -1761,7 +1762,7 @@ def test_run_prediction_setup_forecasts_the_backtest_target(
     payload["nPeriods"] = 3
 
     def run_inline(func, *args, **kwargs):
-        for key in ("database_url", JOB_TYPE_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_METADATA_KW):
+        for key in (JOB_TYPE_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_METADATA_KW):
             kwargs.pop(key)
         kwargs["prediction_params"] = kwargs["prediction_params"].model_dump()
         with SessionWrapper(p_seeded_engine) as session:

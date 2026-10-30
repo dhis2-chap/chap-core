@@ -326,8 +326,8 @@ def worker_database_url() -> str:
 
 @app.task(base=TrackedTask)
 def celery_run_with_session(func_name: str, *args, **kwargs):
-    # A database URL in the message is ignored: anyone who can write to the broker could
-    # otherwise point the worker at a database holding a model that runs their code.
+    # Older versions put a database URL in the message. It stays ignored: anyone who can write to the
+    # broker could otherwise point the worker at a database holding a model that runs their code.
     kwargs.pop("database_url", None)
     database_url = worker_database_url()
     if database_url not in ENGINES_CACHE:
