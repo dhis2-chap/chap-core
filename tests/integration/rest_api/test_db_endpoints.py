@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 import chap_core
-from chap_core.api_types import DataList, EvaluationEntry, PredictionEntry
+from chap_core.api_types import BacktestParams, DataList, EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.database.dataset_manager import DataSetManager
@@ -26,6 +26,7 @@ from chap_core.database.dataset_tables import (
     ObservationBase,
 )
 from chap_core.database.model_spec_tables import ModelSpecRead
+from chap_core.database.settings import SettingsManager, default_settings
 from chap_core.database.tables import (
     Backtest,
     BacktestRead,
@@ -277,9 +278,9 @@ def test_get_covariate_names(dependency_overrides):
         assert model_name in by_name[covariate]["requiredBy"], by_name[covariate]
 
 
-def create_make_data_request(example_polygons, fetch_request, proivided_features):
+def create_make_data_request(example_polygons, fetch_request, proivided_features, periods=None):
     locations = [f.id for f in example_polygons.features]
-    periods = [f"{year}-{month:02d}" for year in range(2020, 2024) for month in range(1, 13)]
+    periods = periods or [f"{year}-{month:02d}" for year in range(2020, 2024) for month in range(1, 13)]
     combinations = itertools.product(proivided_features, periods, locations)
 
     request = DatasetMakeRequest(
@@ -1600,11 +1601,12 @@ def test_run_prediction_setup_inherits_the_backtest_provider(
     assert captured["prediction_params"].future_weather_provider == "damped_persistence"
 
 
-def _run_setup_capturing_the_job(setup_id, example_polygons, monkeypatch):
+def _run_setup_capturing_the_job(setup_id, example_polygons, monkeypatch, n_periods=3):
     """Post a monthly 2020-01..2023-12 run to a prediction setup and return the response and the queued kwargs."""
     request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
     payload = request.model_dump(mode="json", exclude={"data_to_be_fetched", "data_sources", "masked_ranges"})
-    payload["nPeriods"] = 3
+    if n_periods is not None:
+        payload["nPeriods"] = n_periods
 
     from chap_core.rest_api.v1.routers import crud as crud_router
 
@@ -1621,6 +1623,63 @@ def _run_setup_capturing_the_job(setup_id, example_polygons, monkeypatch):
     monkeypatch.setattr(crud_router, "worker", _CapturingWorker())
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
     return response, captured
+
+
+@pytest.mark.parametrize(
+    "requested, min_periods, max_periods, expected",
+    [
+        (None, None, None, 7),  # The backtest's horizon.
+        (None, None, 2, 2),  # Too long for the model.
+        (None, 9, None, 9),  # Too short for the model.
+        (4, None, 2, 4),  # An explicit horizon is used as given.
+    ],
+)
+def test_run_prediction_setup_horizon(
+    override_session, seeded_session, example_polygons, monkeypatch, requested, min_periods, max_periods, expected
+):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    backtest.specification.n_periods = 7
+    template = backtest.configured_model.model_template
+    template.min_prediction_periods = min_periods
+    template.max_prediction_periods = max_periods
+    seeded_session.add_all([backtest.specification, template])
+    seeded_session.commit()
+    setup_id = _create_prediction_setup(backtest.id, "Horizon").json()["id"]
+
+    response, captured = _run_setup_capturing_the_job(setup_id, example_polygons, monkeypatch, n_periods=requested)
+
+    assert response.status_code == 200, response.json()
+    assert captured["prediction_params"].n_periods == expected
+
+
+@pytest.mark.parametrize(
+    "periods, requested, expected",
+    [
+        (None, None, 5),  # The stored monthly default.
+        ([f"2020W{week:02d}" for week in range(1, 53)], None, 12),  # The stored weekly default.
+        (None, 4, 4),  # An explicit horizon is used as given.
+    ],
+)
+def test_make_prediction_horizon(
+    override_session, seeded_session, example_polygons, baseline_worker, monkeypatch, periods, requested, expected
+):
+    from chap_core.rest_api.v1.routers import analytics
+
+    monkeypatch.setattr(analytics, "worker", baseline_worker)
+    defaults = default_settings()
+    SettingsManager(seeded_session).update(
+        defaults.model_copy(update={"monthly_backtest_params": BacktestParams(n_periods=5)})
+    )
+    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"], periods)
+    payload = request.model_dump(mode="json", exclude={"data_sources", "masked_ranges"})
+    payload["modelId"] = "naive_model"
+    if requested is not None:
+        payload["nPeriods"] = requested
+
+    response = client.post("/v1/analytics/make-prediction", json=payload)
+
+    assert response.status_code == 200, response.text
+    assert baseline_worker.queued[-1][2]["prediction_params"].n_periods == expected
 
 
 def test_run_prediction_setup_copies_the_backtest_dataset_masked_ranges(

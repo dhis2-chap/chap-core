@@ -603,6 +603,7 @@ async def make_prediction(
     database_url=Depends(get_database_url),
     worker_settings=Depends(get_settings),
     session: Session = Depends(get_session),
+    settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
     """Run a forecast against observations supplied directly in the request body — no stored dataset needed.
 
@@ -612,7 +613,8 @@ async def make_prediction(
 
     Forecasting happens in the background; the response carries a job id you poll via
     ``/v1/jobs/{id}`` for the result. The legacy ``data_to_be_fetched`` field is
-    rejected — supply the observations directly.
+    rejected — supply the observations directly. Without ``nPeriods``, the stored default
+    for the data's period type is used.
     """
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
@@ -621,13 +623,20 @@ async def make_prediction(
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
+    n_periods = request.n_periods
+    if n_periods is None:
+        try:
+            period_type = period_type_of(provided_data.period_range[0])
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+        n_periods = settings_manager.get().backtest_params(period_type).n_periods
     provided_data, _rejections = validate_full_dataset(feature_names, provided_data)
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     if request.data_to_be_fetched:
         raise HTTPException(status_code=404, detail="Data to be fetched is no longer supported by chap-core")
     dump = request.model_dump()
     dataset_info = DataSetCreateInfo(**dump).model_dump()
-    prediction_params = PredictionParams(**dump)
+    prediction_params = PredictionParams(**(dump | {"n_periods": n_periods}))
     model = get_job_model(session, request.model_id)
     job = worker.queue_db(
         wf.predict_pipeline_from_composite_dataset,
