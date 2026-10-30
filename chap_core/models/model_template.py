@@ -14,8 +14,8 @@ from chap_core.models.model_template_interface import ModelTemplateInterface
 from chap_core.runners.runner import TrainPredictRunner
 
 if TYPE_CHECKING:
-    from chap_core.external.external_model import ExternalModel  # type: ignore[attr-defined]
     from chap_core.models.configured_model import ModelConfiguration
+    from chap_core.models.external_model import ExternalModel
     from chap_core.runners.runner import TrainPredictRunner
 
 
@@ -100,14 +100,14 @@ class ModelTemplate:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Context manager exit (no-op for compatibility with ExternalChapkitModelTemplate)."""
 
-    def get_default_model(self) -> ExternalModel:
+    def get_default_model(self) -> ExternalModel | ExternalWebModel:
         return self.get_model()
 
     def get_model(
         self,
         model_configuration: ModelConfiguration | None = None,
         prediction_length: int | None = None,
-    ) -> ExternalModel:
+    ) -> ExternalModel | ExternalWebModel:
         """
         Returns a model based on the model configuration. The model configuration is an object of the class
         returned by get_model_class (i.e. specified by the user). If no model configuration is passed, the default

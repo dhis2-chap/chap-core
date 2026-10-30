@@ -67,7 +67,6 @@ CLI_HELP_COMMANDS = [
     ["chap", "eval", "--help"],
     ["chap", "plot-backtest", "--help"],
     ["chap", "export-metrics", "--help"],
-    ["chap", "forecast", "--help"],
 ]
 
 # SQLModel code examples that should compile

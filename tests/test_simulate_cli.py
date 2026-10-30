@@ -62,6 +62,7 @@ def test_simulate_without_entry_point_raises(models_path, covariates_csv):
         models_path / "naive_python_model_with_mlproject_file", ignore_env=True
     )
     model = template.get_model()
+    assert isinstance(model, ExternalModel)
     with pytest.raises(InvalidModelException):
         model.simulate(DataSet.from_csv(covariates_csv))
 
