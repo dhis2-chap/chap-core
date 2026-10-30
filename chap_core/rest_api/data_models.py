@@ -212,6 +212,11 @@ class MakePredictionRequest(InlineDataRequest, PredictionParams):
     meta_data: dict = Field(
         default={}, description="Free-form metadata bag stored alongside the resulting prediction row."
     )
+    n_periods: int | None = Field(  # type: ignore[assignment]
+        default=None,
+        gt=0,
+        description="Number of future periods to forecast. Defaults to the stored default for the data's period type.",
+    )
 
 
 class MakeBacktestRequest(BacktestParamsBase):
@@ -523,4 +528,9 @@ class RunPredictionSetupRequest(DBModel):
     geojson: FeatureCollectionModel = Field(description="GeoJSON polygon set for the org units in the run.")
     provided_data: list[ObservationBase] = Field(description="Observations supplied directly by the caller.")
     type: str | None = Field(default=None, description="Free-form run-type marker stored alongside the prediction.")
-    n_periods: int = Field(default=3, gt=0, description="Number of future periods to forecast.")
+    n_periods: int | None = Field(
+        default=None,
+        gt=0,
+        description="Number of future periods to forecast. Defaults to the horizon of the setup's backtest, "
+        "kept within the range the model supports.",
+    )
