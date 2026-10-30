@@ -79,6 +79,7 @@ from .dependencies import (
     get_settings_manager,
     model_job_metadata,
     reject_mask_indicator_input,
+    require_target_column,
 )
 
 router = APIRouter(prefix="/analytics")
@@ -490,8 +491,7 @@ def create_backtest(
     stored_dataset = session.get(DataSetTable, request.dataset_id)
     if stored_dataset is None:
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
-    if request.target_column not in stored_dataset.covariates:
-        raise HTTPException(status_code=422, detail=f"Dataset has no target column {request.target_column!r}")
+    require_target_column(request.target_column, stored_dataset.covariates)
     params = _resolve_backtest_params(settings_manager.get(), request, stored_dataset.period_type)
     if stored_dataset.masked_ranges:
         try:

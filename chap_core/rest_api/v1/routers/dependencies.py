@@ -1,5 +1,6 @@
 import json
 import os
+from collections.abc import Iterable
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, cast
 
@@ -78,6 +79,12 @@ def check_masked_ranges_match(masked_ranges: list[MaskedRange] | None, dataset: 
         check_masked_ranges_match_dataset(masked_ranges, dataset.period_range[0])
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+
+
+def require_target_column(target_column: str, columns: Iterable[str | None]) -> None:
+    """Reject a request whose data has no `target_column`."""
+    if target_column not in columns:
+        raise HTTPException(status_code=422, detail=f"Dataset has no target column {target_column!r}")
 
 
 def reject_mask_indicator_input(feature_names: list[str] | list[str | None]) -> None:
