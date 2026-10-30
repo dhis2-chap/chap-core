@@ -46,6 +46,12 @@ class TrainPredictRunner(abc.ABC):
         polygons_file_name: str | None,
     ): ...
 
+    def model_info(
+        self,
+        output_file: str,
+    ):
+        raise NotImplementedError("This runner does not support model info")
+
     def report(
         self,
         model_file_name: str,

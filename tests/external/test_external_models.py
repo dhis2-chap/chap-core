@@ -115,3 +115,83 @@ def test_external_model_report_without_entry_point_raises(weekly_full_data, tmp_
     with pytest.raises(InvalidModelException):
         model.report(weekly_full_data, tmp_path / "report.pdf")
     runner.report.assert_not_called()
+
+
+def _model_info_template_config() -> ModelTemplateConfigV2:
+    return ModelTemplateConfigV2(
+        name="test_model_info_model",
+        entry_points=EntryPointConfig(
+            train=CommandConfig(command="python train.py {train_data} {model}"),
+            predict=CommandConfig(command="python predict.py {model} {historic_data} {future_data} {out_file}"),
+            model_info=CommandConfig(command="python model_info.py {out_file}"),
+        ),
+    )
+
+
+def test_external_model_model_info_invokes_runner(tmp_path):
+    working_dir = tmp_path / "workdir"
+    working_dir.mkdir()
+
+    def _fake_model_info(out_filename):
+        (working_dir / out_filename).write_text('{"context_length" : 12}')
+
+    runner = Mock()
+    runner.model_info.side_effect = _fake_model_info
+    model = ExternalModel(
+        runner=runner,
+        name="test_model_info_model",
+        working_dir=str(working_dir),
+        model_information=_model_info_template_config(),
+    )
+
+    model_info = model.model_info()
+    assert model_info is not None
+
+    runner.model_info.assert_called_once()
+    args, _ = runner.model_info.call_args
+    assert args[0] == "model_info.json"
+
+    assert (working_dir / "model_info.json").exists()
+    assert model_info.context_length == 12
+
+
+def test_external_model_without_model_info_entry_point_returns_none(tmp_path):
+    working_dir = tmp_path / "workdir"
+    working_dir.mkdir()
+
+    runner = Mock()
+    model = ExternalModel(
+        runner=runner,
+        name="test_model_info_model",
+        working_dir=str(working_dir),
+        model_information=ModelTemplateConfigV2(
+            name="test_model_info_model",
+            entry_points=EntryPointConfig(
+                train=CommandConfig(command="python train.py {train_data} {model}"),
+                predict=CommandConfig(command="python predict.py {model} {historic_data} {future_data} {out_file}"),
+            ),
+        ),
+    )
+
+    assert model.model_info() == None
+    runner.model_info.assert_not_called()
+
+
+def test_external_model_model_info_rejects_zero(tmp_path):
+    working_dir = tmp_path / "workdir"
+    working_dir.mkdir()
+
+    def _fake_model_info(out_filename):
+        (working_dir / out_filename).write_text('{"context_length" : 0}')
+
+    runner = Mock()
+    runner.model_info.side_effect = _fake_model_info
+    model = ExternalModel(
+        runner=runner,
+        name="test_model_info_model",
+        working_dir=str(working_dir),
+        model_information=_model_info_template_config(),
+    )
+
+    with pytest.raises(ModelFailedException):
+        model.model_info()
