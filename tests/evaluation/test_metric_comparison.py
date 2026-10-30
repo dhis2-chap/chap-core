@@ -8,8 +8,8 @@ from chap_core.assessment.metrics import (
     DataDimension,
     MAEMetric,
     MetricSpec,
+    OptimizationDirection,
     RatioAboveTruthMetric,
-    SensitivityMetric,
     compare_aggregated_metrics,
     get_comparison_description,
     get_comparison_op,
@@ -42,7 +42,15 @@ def test_every_comparison_op_has_a_description():
 
 
 def test_difference_for_rate():
-    assert SensitivityMetric().compare(0.7, 0.5) == pytest.approx(0.2)
+    class RateMetric(MAEMetric):
+        spec = MetricSpec(
+            metric_id="rate",
+            metric_name="Rate",
+            optimization_direction=OptimizationDirection.MAXIMIZE,
+            comparison_op="difference",
+        )
+
+    assert RateMetric().compare(0.7, 0.5) == pytest.approx(0.2)
     assert get_comparison_op("difference")(1.0, 3.0, MAEMetric.spec) == pytest.approx(2.0)
 
 
