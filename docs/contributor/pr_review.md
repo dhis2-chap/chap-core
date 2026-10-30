@@ -114,3 +114,6 @@ something the team has decided to keep.
 - Model templates run as external processes through MLproject files and
   Docker or Pixi environments. The subprocess handling this needs is by
   design.
+- `BacktestSpecification.dataset_id` is `ondelete="CASCADE"`, so a specification
+  left behind by deleted or failed backtests does not block deleting its dataset.
+  `DataSetManager.delete_by_id` does not need to check for specifications.
