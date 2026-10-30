@@ -10,7 +10,6 @@ import yaml
 from pydantic import ValidationError
 
 from chap_core.exceptions import InvalidModelException
-from chap_core.external.external_model import logger
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.builtin import BUILTIN_SOURCE_PREFIX, BuiltinModelTemplate
 from chap_core.models.chapkit_service_manager import is_url
@@ -19,6 +18,8 @@ from chap_core.models.mlproject_chapkit import chapkit_service_launch, check_cha
 from chap_core.models.model_template import ModelTemplate
 from chap_core.rest_api.services.schemas import MLServiceInfo
 from chap_core.util import generate_run_name
+
+logger = logging.getLogger(__name__)
 
 CHAP_RUNS_DIR = Path(os.getenv("CHAP_RUNS_DIR", "runs/"))
 
