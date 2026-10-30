@@ -562,14 +562,13 @@ def test_create_backtests_rejects_a_window_that_leaves_no_org_unit_to_train_on(
 
 
 def test_run_backtest_persists_resolved_params(override_session, p_seeded_engine):
-    """The stored row records the parameters that actually ran: n_periods=None is
-    resolved from the (monthly) dataset, and an integer model id is resolved to its name."""
+    """The stored row records the parameters that actually ran, and an integer model id is resolved to its name."""
     with SessionWrapper(p_seeded_engine) as session:
         dataset_id = session.session.exec(select(DataSet.id)).first()
         model = session.get_configured_model_by_id_or_name("naive_model")
         backtest_id = run_backtest(
             BacktestCreate(name="params", dataset_id=dataset_id, model_id=model.id),
-            n_periods=None,
+            n_periods=3,
             n_splits=2,
             stride=1,
             n_retrain=2,

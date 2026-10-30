@@ -28,7 +28,6 @@ from chap_core.rest_api.job_registry import job_function
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
 from chap_core.services.alert_service import raise_alerts_for_prediction
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core.time_period import Month
 
 logger = logging.getLogger(__name__)
 status_logger = get_status_logger()
@@ -113,25 +112,20 @@ def load_masked_dataset(session: Session, dataset_id: int, target_column: str = 
 def check_backtest_on_masked_dataset(
     session: Session,
     dataset_id: int,
-    n_periods: int | None,
+    n_periods: int,
     n_splits: int,
     stride: int,
     target_column: str = "disease_cases",
 ) -> None:
-    """Raise before queueing if a backtest on a masked dataset cannot run.
-
-    Without `n_periods`, the default `run_backtest` would pick is used.
-    """
+    """Raise before queueing if a backtest on a masked dataset cannot run."""
     dataset = load_masked_dataset(session, dataset_id, target_column)
-    if n_periods is None:
-        n_periods = _get_n_periods(dataset)
     check_mask_outside_evaluation_window(dataset, n_periods, n_splits, stride)
 
 
 @job_function
 def run_backtest(
     info: BacktestCreate,
-    n_periods: int | None = None,
+    n_periods: int,
     n_splits: int = _DEFAULT_PARAMS.n_splits,
     stride: int = _DEFAULT_PARAMS.stride,
     n_retrain: int = _DEFAULT_PARAMS.n_retrain,
@@ -157,9 +151,6 @@ def run_backtest(
     # reads `info.model_id` as a string (job metadata, logs, etc.) sees the
     # canonical value rather than the raw integer primary key.
     info.model_id = configured_model.name
-
-    if n_periods is None:
-        n_periods = _get_n_periods(dataset)
 
     # Carry the resolved values, not the requested ones, so everything downstream of
     # here sees what actually ran. The persisted copy is the specification resolved
@@ -271,7 +262,7 @@ def resolve_backtest_specification(
 def run_prediction(
     model_id: str,
     dataset_id: str,
-    n_periods: int | None,
+    n_periods: int,
     name: str,
     session: SessionWrapper,
     prediction_setup_id: int | None = None,
@@ -290,8 +281,6 @@ def run_prediction(
 
     dataset = load_masked_dataset(session.session, int(dataset_id), target_column)
     dataset = _use_as_disease_cases(dataset, target_column)
-    if n_periods is None:
-        n_periods = _get_n_periods(dataset)
 
     status_logger.info(f"Training model and generating {n_periods} period forecast")
     # A name resolves to the live configuration. Callers with a pinned row, such as a
@@ -368,12 +357,6 @@ def harmonize_and_add_dataset(
     )
     status_logger.info(f"Dataset '{name}' added successfully with ID {db_id}")
     return db_id
-
-
-def _get_n_periods(health_dataset):
-    frequency = "ME" if isinstance(health_dataset.period_range[0], Month) else "W"
-    n_periods = 3 if frequency == "ME" else 12
-    return n_periods
 
 
 @job_function
