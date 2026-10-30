@@ -5,7 +5,7 @@ from chap_core.database.dataset_tables import DataSource
 from chap_core.rest_api.data_models import DatasetMakeRequest, MakeBacktestWithDataRequest
 from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.routers.analytics import data_sources
-from chap_core.rest_api.v1.routers.dependencies import get_database_url, get_session, get_settings
+from chap_core.rest_api.v1.routers.dependencies import get_session, get_settings
 from chap_core.rest_api.worker_functions import WorkerConfig
 
 
@@ -15,11 +15,9 @@ def dependency_overrides(clean_engine, monkeypatch):
         with Session(clean_engine) as session:
             yield session
 
-    database_url = clean_engine.url.render_as_string(hide_password=False)
     # The in-process Celery worker connects to the database in its own environment, as a deployed worker does.
-    monkeypatch.setenv("CHAP_DATABASE_URL", database_url)
+    monkeypatch.setenv("CHAP_DATABASE_URL", clean_engine.url.render_as_string(hide_password=False))
     app.dependency_overrides[get_session] = get_test_session
-    app.dependency_overrides[get_database_url] = lambda: database_url
     app.dependency_overrides[get_settings] = lambda: WorkerConfig(is_test=True)
     yield
     app.dependency_overrides.clear()

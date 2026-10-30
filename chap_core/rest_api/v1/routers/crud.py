@@ -117,7 +117,6 @@ from ...leaderboard_models import (
 from .analytics import validate_full_dataset
 from .dependencies import (
     check_masked_ranges_match,
-    get_database_url,
     get_job_request,
     get_session,
     get_settings,
@@ -400,7 +399,6 @@ def get_backtest_specification(
     include_comparison_models: Annotated[bool, Query(alias="includeComparisonModels")] = False,
     include_archived_models: Annotated[bool, Query(alias="includeArchivedModels")] = False,
     session: Session = Depends(get_session),
-    database_url: str = Depends(get_database_url),
     settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
     """Read one specification together with every backtest that ran under it, newest first, in a single response.
@@ -426,7 +424,7 @@ def get_backtest_specification(
     ).first()
     if specification is None:
         raise HTTPException(status_code=404, detail="Backtest specification not found")
-    background_tasks.add_task(request_baselines_after_response, session.get_bind(), specification_id, database_url)
+    background_tasks.add_task(request_baselines_after_response, session.get_bind(), specification_id)
     conditions = [Backtest.specification_id == specification_id, is_not_baseline_backtest()]
     if not include_archived_models:
         conditions.append(is_not_archived_model_backtest())
@@ -850,7 +848,6 @@ async def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], sessi
 async def create_dataset(
     data: DatasetCreate,
     original_request: dict = Depends(get_job_request),
-    datababase_url=Depends(get_database_url),
     worker_settings=Depends(get_settings),
 ) -> JobResponse:
     """Import a dataset that carries just disease cases and population (no climate covariates inline), with polygons attached.
@@ -874,7 +871,6 @@ async def create_dataset(
         health_data.model_dump(),
         data.name,
         masked_ranges=data.masked_ranges,
-        database_url=datababase_url,
         worker_config=worker_settings,
         **{JOB_REQUEST_KW: original_request},
     )
@@ -1623,7 +1619,6 @@ async def run_prediction_setup(
     request: RunPredictionSetupRequest,
     original_request: dict = Depends(get_job_request),
     session: Session = Depends(get_session),
-    database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
 ):
     """Run a forecast from a saved setup using observations supplied directly in the request body — the manual equivalent of what the cron schedule does automatically.
@@ -1713,7 +1708,6 @@ async def run_prediction_setup(
         prediction_setup_id=prediction_setup_id,
         configured_model_id=setup.configured_model_id,
         target_column=target_column,
-        database_url=database_url,
         worker_config=worker_settings,
         **{
             JOB_REQUEST_KW: original_request,

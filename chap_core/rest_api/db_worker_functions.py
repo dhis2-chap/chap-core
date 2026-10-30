@@ -138,11 +138,11 @@ def run_backtest(
     session: SessionWrapper | None = None,
     future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
     target_column: str = "disease_cases",
-    baseline_database_url: str | None = None,
+    queue_baselines: bool = False,
 ):
     """Run and store a backtest, and return its id.
 
-    With `baseline_database_url`, the baselines missing on the backtest's specification
+    With `queue_baselines`, the baselines missing on the backtest's specification
     are queued as soon as it is resolved. The REST endpoints pass it. Baseline runs do
     not, so they never trigger more baseline runs.
     """
@@ -181,14 +181,14 @@ def run_backtest(
     dataset, specification = resolve_backtest_specification(
         session, dataset, info.dataset_id, backtest_params, target_column=target_column
     )
-    if baseline_database_url is not None:
+    if queue_baselines:
         # Imported here because baseline_runs imports this module for its jobs.
         from chap_core.rest_api.baseline_runs import request_baselines
 
         assert specification.id is not None
         # The baselines must never cost the user their own backtest.
         try:
-            request_baselines(session, specification.id, baseline_database_url)
+            request_baselines(session, specification.id)
         except Exception:
             logger.warning(f"Could not request baselines for specification {specification.id}", exc_info=True)
             session.session.rollback()
@@ -425,7 +425,7 @@ def run_backtest_from_dataset(
     backtest_params: BacktestParams,
     session: SessionWrapper,
     worker_config: WorkerConfig = WorkerConfig(),
-    baseline_database_url: str | None = None,
+    queue_baselines: bool = False,
 ) -> int:
     ds = InMemoryDataSet.from_dict(provided_data_model_dump, create_tsdataclass(feature_names))
     dataset_id = DataSetManager(session.session).save_dataset(
@@ -440,6 +440,6 @@ def run_backtest_from_dataset(
         n_retrain=backtest_params.n_retrain,
         session=session,
         future_weather_provider=backtest_params.future_weather_provider,
-        baseline_database_url=baseline_database_url,
+        queue_baselines=queue_baselines,
     )
     return result

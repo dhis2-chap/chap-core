@@ -49,12 +49,12 @@ def _rows(engine, specification_id):
 def test_each_baseline_is_queued_once_per_specification(p_seeded_engine, specification_id, baseline_worker):
     with SessionWrapper(p_seeded_engine) as session:
         baselines = {model.name for model in session.get_baseline_models()}
-        first = request_baselines(session, specification_id, "db-url")
-        assert request_baselines(session, specification_id, "db-url") == []
+        first = request_baselines(session, specification_id)
+        assert request_baselines(session, specification_id) == []
 
     assert baselines == {"global_median", "seasonal_median", "persistence"}
     assert len(first) == len(baseline_worker.queued) == len(baselines)
-    assert {kwargs["database_url"] for _, _, kwargs in baseline_worker.queued} == {"db-url"}
+    assert not any("database_url" in kwargs for _, _, kwargs in baseline_worker.queued)
     rows = _rows(p_seeded_engine, specification_id)
     assert set(rows) == baselines
     assert {row.status for row in rows.values()} == {SpecificationBaselineStatus.pending}
@@ -62,7 +62,7 @@ def test_each_baseline_is_queued_once_per_specification(p_seeded_engine, specifi
 
 def test_baseline_runs_store_their_backtests(p_seeded_engine, specification_id, baseline_worker):
     with SessionWrapper(p_seeded_engine) as session:
-        request_baselines(session, specification_id, "db-url")
+        request_baselines(session, specification_id)
     _run_queued(p_seeded_engine, baseline_worker)
 
     rows = _rows(p_seeded_engine, specification_id)
@@ -83,7 +83,7 @@ def test_a_failing_baseline_is_not_applicable_and_the_others_still_run(
 
     monkeypatch.setattr(get_builtin_model("persistence"), "predict", fail)
     with SessionWrapper(p_seeded_engine) as session:
-        request_baselines(session, specification_id, "db-url")
+        request_baselines(session, specification_id)
     _run_queued(p_seeded_engine, baseline_worker)
 
     rows = _rows(p_seeded_engine, specification_id)
@@ -95,7 +95,7 @@ def test_a_failing_baseline_is_not_applicable_and_the_others_still_run(
     assert rows["global_median"].status == SpecificationBaselineStatus.done
     # Not applicable is final, so reading the specification again does not retry it.
     with SessionWrapper(p_seeded_engine) as session:
-        assert request_baselines(session, specification_id, "db-url") == []
+        assert request_baselines(session, specification_id) == []
 
 
 def test_a_baseline_failing_for_another_reason_fails_its_job_and_is_retried_a_day_later(
@@ -107,7 +107,7 @@ def test_a_baseline_failing_for_another_reason_fails_its_job_and_is_retried_a_da
 
     monkeypatch.setattr(get_builtin_model("persistence"), "predict", fail)
     with SessionWrapper(p_seeded_engine) as session:
-        request_baselines(session, specification_id, "db-url")
+        request_baselines(session, specification_id)
     with pytest.raises(ValueError, match="bug in a shared path"):
         _run_queued(p_seeded_engine, baseline_worker)
 
@@ -115,23 +115,23 @@ def test_a_baseline_failing_for_another_reason_fails_its_job_and_is_retried_a_da
     assert (failed.status, failed.message) == (SpecificationBaselineStatus.failed, "bug in a shared path")
     with SessionWrapper(p_seeded_engine) as session:
         # A failure that repeats must not queue a job on every trigger.
-        assert request_baselines(session, specification_id, "db-url") == []
+        assert request_baselines(session, specification_id) == []
         row = session.session.get(SpecificationBaseline, failed.id)
         row.claimed_at = utc_now() - STALE_CLAIM_AFTER - datetime.timedelta(minutes=1)
         session.session.commit()
-        assert request_baselines(session, specification_id, "db-url") == [failed.id]
+        assert request_baselines(session, specification_id) == [failed.id]
         assert session.session.get(SpecificationBaseline, failed.id).status == SpecificationBaselineStatus.pending
 
 
 def test_a_baseline_still_pending_after_a_day_is_queued_again(p_seeded_engine, specification_id, baseline_worker):
     with SessionWrapper(p_seeded_engine) as session:
-        first = request_baselines(session, specification_id, "db-url")
+        first = request_baselines(session, specification_id)
         lost = session.session.get(SpecificationBaseline, first[0])
         lost.claimed_at = utc_now() - STALE_CLAIM_AFTER - datetime.timedelta(minutes=1)
         session.session.commit()
 
-        assert request_baselines(session, specification_id, "db-url") == [lost.id]
-        assert request_baselines(session, specification_id, "db-url") == []
+        assert request_baselines(session, specification_id) == [lost.id]
+        assert request_baselines(session, specification_id) == []
     assert [args for _, args, _ in baseline_worker.queued[len(first) :]] == [(lost.id,)]
 
 
@@ -139,14 +139,14 @@ def test_a_new_baseline_version_is_queued_on_an_existing_specification(
     p_seeded_engine, specification_id, baseline_worker
 ):
     with SessionWrapper(p_seeded_engine) as session:
-        request_baselines(session, specification_id, "db-url")
+        request_baselines(session, specification_id)
         spec = dataclasses.replace(get_builtin_model("global_median").spec, version="2")
         template_id = session.add_model_template_from_yaml_config(builtin_template_config(spec))
         session.get_model_template(template_id).role = spec.role
         model_id = session.add_configured_model(
             template_id, ModelConfiguration(additional_continuous_covariates=[], user_option_values={})
         )
-        new = request_baselines(session, specification_id, "db-url")
+        new = request_baselines(session, specification_id)
 
         assert [session.session.get(SpecificationBaseline, id).configured_model_id for id in new] == [model_id]
 
@@ -160,7 +160,7 @@ def test_a_baseline_that_cannot_be_queued_is_not_claimed(p_seeded_engine, specif
 
     monkeypatch.setattr(baseline_runs, "worker", _BrokerDown())
     with SessionWrapper(p_seeded_engine) as session:
-        assert request_baselines(session, specification_id, "db-url") == []
+        assert request_baselines(session, specification_id) == []
     assert _rows(p_seeded_engine, specification_id) == {}
 
 
@@ -170,7 +170,7 @@ def test_a_backtest_from_the_api_queues_the_baselines_of_its_specification(p_see
         backtest_id = run_backtest(
             BacktestCreate(name="model", dataset_id=dataset_id, model_id="naive_model"),
             session=session,
-            baseline_database_url="db-url",
+            queue_baselines=True,
             **PARAMS,
         )
         specification_id = session.session.get(Backtest, backtest_id).specification_id
@@ -190,7 +190,7 @@ def test_a_backtest_from_the_api_runs_even_when_requesting_baselines_fails(p_see
         backtest_id = run_backtest(
             BacktestCreate(name="model", dataset_id=dataset_id, model_id="naive_model"),
             session=session,
-            baseline_database_url="db-url",
+            queue_baselines=True,
             **PARAMS,
         )
         assert session.session.get(Backtest, backtest_id).forecasts
@@ -204,7 +204,7 @@ def test_deleting_a_dataset_whose_only_backtests_are_baselines_is_refused_with_t
         backtest_id = run_backtest(
             BacktestCreate(name="model", dataset_id=dataset_id, model_id="naive_model"),
             session=session,
-            baseline_database_url="db-url",
+            queue_baselines=True,
             **PARAMS,
         )
     _run_queued(p_seeded_engine, baseline_worker)
@@ -267,7 +267,7 @@ def test_the_leaderboard_compares_each_backtest_with_the_baselines(
 
     monkeypatch.setattr(get_builtin_model("persistence"), "predict", fail)
     with SessionWrapper(p_seeded_engine) as session:
-        request_baselines(session, specification_id, "db-url")
+        request_baselines(session, specification_id)
     _run_queued(p_seeded_engine, baseline_worker)
     # The seeded dataset is too small to score, so the scores are set here.
     with SessionWrapper(p_seeded_engine) as session:
