@@ -8,6 +8,7 @@ isolation; the HTTP-layer wiring is verified by the FastAPI integration tests.
 from __future__ import annotations
 
 import datetime
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import inspect
@@ -137,6 +138,21 @@ def test_a_bad_entry_writes_none_of_the_batch(engine, policy_id):
         with pytest.raises(InvalidAlertError):
             create_alerts(session, [_alert(policy_id), _alert(policy_id, level="nonsense")])
         assert list_alerts(session) == []
+
+
+def test_a_duplicate_that_passes_the_check_fails_the_whole_batch(engine, policy_id, prediction_id, monkeypatch):
+    """A concurrent request can insert the same alert after the check, leaving the constraint to refuse it."""
+    with Session(engine) as session:
+        create_alerts(session, [_alert(policy_id, prediction_id=prediction_id)])
+        batch = [
+            _alert(policy_id, org_unit="other", prediction_id=prediction_id),
+            _alert(policy_id, level="monitor", prediction_id=prediction_id),
+        ]
+        with monkeypatch.context() as patch:
+            patch.setattr(session, "exec", lambda *_: SimpleNamespace(first=lambda: None))
+            with pytest.raises(InvalidAlertError, match="none were recorded"):
+                create_alerts(session, batch)
+        assert len(list_alerts(session)) == 1
 
 
 def test_a_prediction_raises_one_alert_per_org_unit_and_period(engine, policy_id, prediction_id):
