@@ -7,7 +7,10 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated
+
+if TYPE_CHECKING:
+    from chap_core.external.model_configuration import ModelTemplateConfigV2
 
 from cyclopts import Parameter
 
@@ -16,10 +19,12 @@ from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime v
     BacktestParamsArg,
     RunConfigArg,
 )
+from chap_core.cli_endpoints.model import example_configuration_yaml
 from chap_core.project import (
     COLUMN_MAPPING_FILE,
     DATA_SETTINGS_FILE,
     DATASET_FILE,
+    INPUT_DIR,
     MODEL_CONFIG_FILE,
     PROJECT_FILE,
     STATE_DIR,
@@ -108,20 +113,32 @@ def init_cmd(
 
     initialize_logging()
 
+    if directory.exists() and not directory.is_dir():
+        raise ValueError(f"{directory} is a file, not a directory")
     if (directory / PROJECT_FILE).exists() and not force:
         raise ValueError(f"{directory / PROJECT_FILE} already exists. Use --force to overwrite it.")
     for path in (data_settings, column_mapping, model_config):
         if path is not None and not path.is_file():
-            raise ValueError(f"{path} does not exist")
+            raise ValueError(f"{path} is not a file")
     if data_settings is not None:
         load_data_configuration(data_settings)
     csv_path, geojson_path = resolve_csv_path(dataset) if dataset is not None else (None, None)
     if csv_path is not None and not csv_path.is_file():
-        raise ValueError(f"{dataset} does not exist")
+        raise ValueError(f"{dataset} is not a file")
+    input_dir = directory / INPUT_DIR
+    _check_dataset(
+        csv_path or input_dir / DATASET_FILE,
+        column_mapping or input_dir / COLUMN_MAPPING_FILE,
+        data_settings or input_dir / DATA_SETTINGS_FILE,
+        changed=(dataset, column_mapping, data_settings),
+    )
     # Loading the model checks that it can be found before anything is written.
+    template_config = None
     if model is not None:
         model = resolve_model_source(model, pin)
-    example_config = _example_model_config(model, run_config) if model is not None and model_config is None else None
+        template_config = _model_template_config(model, run_config)
+    if model_config is not None:
+        _check_model_config(model_config, template_config)
 
     previous_model = _previous_model(directory)
     directory.mkdir(parents=True, exist_ok=True)
@@ -154,14 +171,14 @@ def init_cmd(
     if model_config is not None:
         shutil.copyfile(model_config, model_config_path)
         created.append(f"input/{MODEL_CONFIG_FILE}")
-    elif example_config is not None:
+    elif template_config is not None and project_model is not None:
+        options = template_config.user_options or {}
         if project_model == previous_model and model_config_path.exists():
             # Re-initialising with the same model keeps the options you edited.
             created.append(f"input/{MODEL_CONFIG_FILE} (kept, same model)")
-        elif example_config["user_option_values"]:
-            text = yaml.safe_dump(example_config, sort_keys=False)
-            model_config_path.write_text(text, encoding="utf-8")
-            missing = [name for name, value in example_config["user_option_values"].items() if value is None]
+        elif options:
+            model_config_path.write_text(example_configuration_yaml(template_config, project_model), encoding="utf-8")
+            missing = [name for name, spec in options.items() if spec.get("default") is None]
             created.append(f"input/{MODEL_CONFIG_FILE}" + (f" (fill in {', '.join(missing)})" if missing else ""))
         else:
             # Options written for another model do not apply to this one, which has none.
@@ -178,7 +195,7 @@ def init_cmd(
     for name in [PROJECT_FILE, *created]:
         print(f"  {name}")
     todo = [f"set model_name in {PROJECT_FILE}"] if model is None else []
-    todo += [f"copy your dataset to input/{DATASET_FILE}"] if dataset is None else []
+    todo += [f"copy your dataset to input/{DATASET_FILE}"] if not (project.input_dir / DATASET_FILE).is_file() else []
     if todo:
         print(f"Next: {' and '.join(todo)}, then run `chap eval`.")
     else:
@@ -235,26 +252,94 @@ def remote_head_commit(repository: str) -> str:
     return commit
 
 
-def _example_model_config(model: str, run_config: RunConfig) -> dict[str, Any]:
-    """The model's configuration with its default option values; options without a default are None."""
+def _model_template_config(model: str, run_config: RunConfig) -> ModelTemplateConfigV2:
+    """Load the model once to read its configuration, including its options."""
     from chap_core.cli_endpoints._common import inspect_model_template
-    from chap_core.cli_endpoints.model import build_example_configuration
 
     with inspect_model_template(model, run_config) as template:
-        return build_example_configuration(template.model_template_config)
+        config: ModelTemplateConfigV2 = template.model_template_config
+        return config
+
+
+def _check_dataset(
+    csv_path: Path, column_mapping: Path, data_settings: Path, changed: tuple[object, object, object]
+) -> None:
+    """Load the dataset the project will use, with its column mapping and data settings, before writing anything.
+
+    Only runs when chap init is given one of them (``changed``); a file not given is the one already in
+    input/, so a kept data_settings.yaml that does not fit a new dataset is caught here.
+    """
+    import json
+
+    from chap_core.cli_endpoints._common import load_data_configuration, load_dataset_from_csv
+
+    if not any(value is not None for value in changed) or not csv_path.is_file():
+        if changed[1] is not None:
+            _read_column_mapping(column_mapping)
+        return
+    used = [path for path in (column_mapping, data_settings) if path.is_file()]
+    try:
+        mapping = _read_column_mapping(column_mapping) if column_mapping.is_file() else None
+        settings = load_data_configuration(data_settings) if data_settings.is_file() else None
+        load_dataset_from_csv(csv_path, column_mapping=mapping, data_configuration=settings)
+    except (ValueError, TypeError, KeyError, OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
+        with_files = f" with {' and '.join(str(path) for path in used)}" if used else ""
+        raise ValueError(
+            f"Could not load {csv_path} as a Chap dataset{with_files}: {e}\n"
+            f"Run `chap validate --dataset-csv {csv_path}` for a full report."
+        ) from e
+
+
+def _read_column_mapping(path: Path) -> dict[str, str]:
+    import json
+
+    try:
+        mapping = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        raise ValueError(f"Could not read the column mapping {path}: {e}") from e
+    if not isinstance(mapping, dict):
+        raise ValueError(f"The column mapping {path} must be a JSON object of covariate names to column names")
+    return mapping
+
+
+def _check_model_config(path: Path, template_config: ModelTemplateConfigV2 | None) -> None:
+    """Check that a model configuration file can be read and, when the model is known, only sets its options."""
+    import yaml
+    from pydantic import ValidationError
+
+    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+
+    try:
+        configuration = ModelConfiguration.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
+    except (yaml.YAMLError, ValidationError) as e:
+        raise ValueError(f"Could not read the model configuration {path}: {e}") from e
+    if template_config is None:
+        return
+    known = set(template_config.user_options or {})
+    unknown = sorted(set(configuration.user_option_values or {}) - known)
+    if unknown:
+        options = ", ".join(sorted(known)) or "none"
+        raise ValueError(f"{path} sets options the model does not have: {', '.join(unknown)}. Its options: {options}")
 
 
 def _relative_to_project(model: str, project: Project) -> str:
-    """A local model directory as a path relative to the project, since chap.yaml paths are; other sources as given."""
+    """A local model directory inside or next to the project as a path relative to it, since chap.yaml paths are.
+
+    A model directory further away is stored as an absolute path, and other sources as given.
+    """
     import os
 
     path = Path(model).expanduser()
     if "://" in model or not path.is_dir():
         return model
     try:
-        return Path(os.path.relpath(path.resolve(), project.root)).as_posix()
+        relative = Path(os.path.relpath(path.resolve(), project.root))
     except ValueError:  # on another drive than the project, on Windows
         return str(path.resolve())
+    # Only a model inside the project or next to it moves with the project; one further away keeps its place.
+    if relative.parts[:2] == ("..", ".."):
+        return str(path.resolve())
+    return relative.as_posix()
 
 
 def _project_file(model: str | None, backtest_params: BacktestParams, run_config: RunConfig) -> str:

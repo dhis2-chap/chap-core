@@ -74,6 +74,62 @@ def build_example_configuration(template_config: ModelTemplateConfigV2) -> dict[
     }
 
 
+def example_configuration_yaml(template_config: ModelTemplateConfigV2, model_name: str) -> str:
+    """The example configuration of ``build_example_configuration`` as YAML, with each option explained.
+
+    Every option gets its description, allowed values and default as comments above it, so the file
+    shows how to change the model without looking up its schema.
+    """
+    import textwrap
+
+    import yaml
+
+    def comment(text: str, indent: str) -> list[str]:
+        return [
+            f"{indent}# {line}"
+            for line in textwrap.wrap(" ".join(text.split()), width=96 - len(indent), break_on_hyphens=False)
+        ]
+
+    lines = [
+        f"# Options for {model_name}, used as --model-configuration-yaml.",
+        "# Change a value to change how the model runs. The values below are the model's defaults.",
+        "# `chap model schema` shows every option in full.",
+        "",
+        "user_option_values:",
+    ]
+    for name, spec in (template_config.user_options or {}).items():
+        lines += comment(str(spec.get("description") or spec.get("title") or ""), "  ")
+        details = []
+        if "enum" in spec:
+            details.append("One of: " + ", ".join(str(value) for value in spec["enum"]) + ".")
+        elif "type" in spec:
+            details.append(f"Type: {spec['type']}.")
+        bounds = [
+            f"{word} {spec[key]}" for key, word in (("minimum", "at least"), ("maximum", "at most")) if key in spec
+        ]
+        if bounds:
+            details.append(f"Must be {' and '.join(bounds)}.")
+        default = spec.get("default")
+        details.append("Required: fill in a value." if default is None else f"Default: {json_text(default)}.")
+        lines += comment(" ".join(details), "  ")
+        dumped = yaml.safe_dump({name: default}, sort_keys=False, width=1000).rstrip("\n")
+        lines += [f"  {line}" for line in dumped.splitlines()]
+    lines.append("")
+    if template_config.allow_free_additional_continuous_covariates:
+        lines.append("# Extra dataset columns to give the model as continuous covariates, such as [humidity].")
+    else:
+        lines.append("# This model takes no extra covariates; leave this empty.")
+    lines.append("additional_continuous_covariates: []")
+    return "\n".join(lines) + "\n"
+
+
+def json_text(value: Any) -> str:
+    """A default value as it reads in a comment: strings quoted, others as JSON."""
+    import json
+
+    return json.dumps(value)
+
+
 def schema_cmd(
     model_name: ModelNameArg,
     output_file: Annotated[

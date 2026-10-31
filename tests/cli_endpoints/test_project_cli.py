@@ -1,5 +1,7 @@
 import json
 import logging
+import os
+import shutil
 from pathlib import Path
 from unittest.mock import patch
 
@@ -11,7 +13,7 @@ from cyclopts import CycloptsError
 from chap_core.api_types import RunConfig
 from chap_core.cli import app
 from chap_core.cli_endpoints.init import init_cmd
-from chap_core.project import Project, model_label
+from chap_core.project import Project, find_project, model_label
 
 
 def parse(*tokens: str):
@@ -71,19 +73,21 @@ def test_init_copies_configuration_files_to_their_fixed_names(tmp_path):
     assert (input_dir / "model_config.yaml").read_text() == "user_option_values: {}\n"
 
 
-def test_init_stores_a_local_model_relative_to_the_project_with_its_run_options(tmp_path, models_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    init_cmd(
-        Path("studies/laos"),
-        model=str(models_path / "naive_python_model_with_mlproject_file"),
-        run_config=RunConfig(ignore_environment=True),
-    )
-    root = tmp_path / "studies" / "laos"
-    settings = Project.load(root).settings
-    assert (root / settings["model_name"]).resolve() == (
-        models_path / "naive_python_model_with_mlproject_file"
-    ).resolve()
+def test_init_stores_a_model_next_to_the_project_relative_to_it_with_its_run_options(
+    tmp_path, models_path, monkeypatch
+):
+    shutil.copytree(models_path / "naive_python_model_with_mlproject_file", tmp_path / "models" / "naive")
+    monkeypatch.chdir(tmp_path / "models")
+    init_cmd(Path("../laos"), model="naive", run_config=RunConfig(ignore_environment=True))
+    settings = Project.load(tmp_path / "laos").settings
+    assert settings["model_name"] == "../models/naive"
     assert settings["run_config"] == {"ignore_environment": True}
+
+
+def test_init_stores_a_model_further_away_as_an_absolute_path(tmp_path, models_path):
+    model = models_path / "naive_python_model_with_mlproject_file"
+    init_cmd(tmp_path / "studies" / "laos", model=str(model), run_config=RunConfig(ignore_environment=True))
+    assert Project.load(tmp_path / "studies" / "laos").settings["model_name"] == str(model.resolve())
 
 
 def test_validate_leaves_no_model_copy_behind(chap_project, models_path, monkeypatch):
@@ -246,3 +250,89 @@ def test_init_with_force_keeps_model_options_for_the_same_model_and_drops_them_f
 
     init_cmd(root, model="builtin:persistence", force=True)
     assert not model_config.exists()
+
+
+def test_project_search_stops_at_a_git_repository_root(tmp_path):
+    (tmp_path / "chap.yaml").write_text("model_name: builtin:persistence\n")
+    (tmp_path / "repo" / ".git").mkdir(parents=True)
+    (tmp_path / "repo" / "src").mkdir()
+    assert find_project(tmp_path / "repo" / "src") is None
+    project = find_project(tmp_path)
+    assert project is not None
+    assert project.root == tmp_path.resolve()
+
+
+def test_project_file_owned_by_another_user_is_ignored(chap_project):
+    with patch("os.getuid", return_value=os.getuid() + 1):
+        assert find_project(chap_project) is None
+
+
+def test_dataset_files_in_input_are_skipped_when_the_project_file_names_another_dataset(
+    chap_project, monkeypatch, laos_csv
+):
+    input_dir = chap_project / "input"
+    (input_dir / "data_settings.yaml").write_text("maskedRanges: []\n")
+    monkeypatch.chdir(chap_project)
+    edit_project_file(chap_project, dataset_csv=str(laos_csv))
+    assert "data_configuration" not in parse("validate")[1]
+    edit_project_file(chap_project, dataset_csv="input/data.csv")
+    assert parse("validate")[1]["data_configuration"] == input_dir / "data_settings.yaml"
+
+
+@pytest.mark.parametrize(
+    ("settings", "message"),
+    [
+        ({"run_config": True}, "'run_config' in chap.yaml must be a mapping"),
+        ({"model": "builtin:persistence"}, "To choose the model, write model_name"),
+    ],
+)
+def test_single_value_where_options_are_expected_is_an_error(chap_project, monkeypatch, settings, message):
+    edit_project_file(chap_project, **settings)
+    monkeypatch.chdir(chap_project)
+    with pytest.raises(ValueError, match=message):
+        parse("eval")
+
+
+def test_init_refuses_to_serve_a_docker_image_with_as_chapkit(tmp_path):
+    with pytest.raises(ValueError, match="already a chapkit service"):
+        init_cmd(tmp_path / "project", model="docker://example/model:1", run_config=RunConfig(as_chapkit=True))
+    assert not (tmp_path / "project").exists()
+
+
+def test_init_writes_model_options_with_their_descriptions(tmp_path, models_path):
+    root = tmp_path / "project"
+    init_cmd(root, model=str(models_path / "naive_python_model_with_mlproject_file_and_docker"))
+    text = (root / "input" / "model_config.yaml").read_text()
+    assert yaml.safe_load(text)["user_option_values"] == {"some_option": "10"}
+    assert "# Options for " in text
+    assert '  # Some option for the model\n  # Type: integer. Default: "10".\n' in text
+
+
+def test_init_refuses_model_options_the_model_does_not_have(tmp_path, models_path):
+    model_config = tmp_path / "options.yaml"
+    model_config.write_text("user_option_values:\n  some_optoin: '5'\n")
+    model = str(models_path / "naive_python_model_with_mlproject_file_and_docker")
+    with pytest.raises(ValueError, match="some_optoin. Its options: some_option"):
+        init_cmd(tmp_path / "project", model=model, model_config=model_config)
+    assert not (tmp_path / "project").exists()
+
+
+def test_init_refuses_a_file_that_is_not_a_chap_dataset(tmp_path):
+    not_a_dataset = tmp_path / "data.csv"
+    not_a_dataset.write_text("periodname\tvalue\n2020-01\t3\n")
+    with pytest.raises(ValueError, match="Could not load"):
+        init_cmd(tmp_path / "project", model="builtin:persistence", dataset=str(not_a_dataset))
+    assert not (tmp_path / "project").exists()
+
+
+def test_init_with_a_new_dataset_checks_the_kept_data_settings(chap_project, nicaragua_path):
+    (chap_project / "input" / "data_settings.yaml").write_text(
+        'maskedRanges:\n  - start: "2011-06"\n    end: "2011-08"\n'
+    )
+    with pytest.raises(ValueError, match="data_settings.yaml"):
+        init_cmd(chap_project, model="builtin:persistence", dataset=str(nicaragua_path), force=True)
+
+
+def test_init_without_a_dataset_does_not_ask_for_one_the_project_has(chap_project, capsys):
+    init_cmd(chap_project, model="builtin:persistence", force=True)
+    assert "copy your dataset" not in capsys.readouterr().out

@@ -23,9 +23,9 @@ chap eval
 chap export-metrics --input-files output/*.nc --output-file metrics.csv
 ```
 
-Chap commands find the project from the current directory or any directory below it, the same way `git` finds a repository.
+Chap commands find the project from the current directory or any directory below it, the same way `git` finds a repository. The search stops at the root of a git repository and at your home directory, so a `chap.yaml` further up does not change commands run elsewhere, and a `chap.yaml` owned by another user is ignored.
 
-`chap init` loads the model once to check that it can be found and to read its options. A local model directory is stored in `chap.yaml` relative to the project, so the two can be moved together.
+`chap init` loads the model once to check that it can be found and to read its options, and loads the dataset with its column mapping and data settings to check that they fit together. Nothing is written when a check fails. A local model directory inside the project or next to it is stored in `chap.yaml` relative to the project, so the two can be moved together. A model directory further away is stored as an absolute path.
 
 A GitHub model is pinned to the commit its default branch points at when you run `chap init`, written as `https://github.com/org/model@<commit>`. Every run then uses the same model code, so results in `output/` stay comparable. Use `--no-pin` to have each run use the latest commit instead, or edit the commit in `chap.yaml` to move to a newer version.
 
@@ -70,11 +70,13 @@ A `docker://` image needs Docker. Each command pulls the image if it is missing,
 | `input/data.geojson` | Region polygons, copied in when found next to the dataset. |
 | `input/data_settings.yaml` | Data settings such as masked ranges, as for `--data-configuration`. `chap init` writes a commented example that sets nothing until you edit it. |
 | `input/column_mapping.json` | Optional covariate-to-column mapping, as for `--data-source-mapping`. |
-| `input/model_config.yaml` | The model's options. `chap init --model` writes it with the model's default values when the model has options. |
+| `input/model_config.yaml` | The model's options. `chap init --model` writes it with the model's default values when the model has options, with each option's description and allowed values as comments. |
 | `output/` | Evaluation results. |
 | `.chap/` | Chap's working copies of the model, in place of `runs/`. Listed in `.gitignore`. |
 
-`chap init --data-settings`, `--column-mapping` and `--model-config` copy existing files to these names. You can also add or edit the files by hand: a file in `input/` is used whenever it exists.
+`chap init --data-settings`, `--column-mapping` and `--model-config` copy existing files to these names. `--model-config` may only set options the model has. You can also add or edit the files by hand: a file in `input/` is used whenever it exists.
+
+`chap init --force` keeps `data_settings.yaml` and `column_mapping.json`. When it is given a new dataset, it checks that the kept files still fit it, and stops if they do not.
 
 ## chap.yaml
 
@@ -92,7 +94,7 @@ eval:
 
 Top-level keys apply to every command that takes them. A section named after a command, such as `eval:`, applies to that command only. Relative paths are relative to the project root, so `dataset_csv: ../shared/vietnam.csv` uses a dataset outside the project instead of `input/data.csv`.
 
-A misspelled option inside a known option or a command section, such as `backtest_params: {n_period: 3}`, stops the command with an error. A top-level key that no project command takes gives a warning.
+A misspelled option inside a known option or a command section, such as `backtest_params: {n_period: 3}`, stops the command with an error, and so does a single value where options are expected, such as `run_config: true` or `model: builtin:persistence` (`model:` is the section for `chap model schema`; the model is `model_name`). A top-level key that no project command takes gives a warning.
 
 ## Which value is used
 
@@ -107,7 +109,7 @@ For each option, the first of these that gives a value wins:
 
 So `chap eval --backtest-params.n-periods 6` changes the forecast horizon for one run and leaves the project unchanged.
 
-The files in `input/` belong to the project's own dataset and model. When `--dataset-csv` is given on the command line, `data_settings.yaml` and `column_mapping.json` are not used, and when `--model-name` is given, `model_config.yaml` is not used. This keeps masked ranges or model options written for the project from being applied to another dataset or model.
+The files in `input/` belong to the project's own dataset and model. When `--dataset-csv` is given on the command line, or `dataset_csv` in `chap.yaml` points at another file, `data_settings.yaml` and `column_mapping.json` are not used, and when `--model-name` is given, `model_config.yaml` is not used. This keeps masked ranges or model options written for the project from being applied to another dataset or model.
 
 Each run logs the project it uses and where each value came from.
 

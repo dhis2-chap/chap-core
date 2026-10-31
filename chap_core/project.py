@@ -94,11 +94,25 @@ class Project:
 
 
 def find_project(start: Path | None = None) -> Project | None:
-    """Return the project whose ``chap.yaml`` is in ``start`` (default: the current directory) or above it."""
+    """Return the project whose ``chap.yaml`` is in ``start`` (default: the current directory) or above it.
+
+    The search stops at the root of a git repository and at the home directory, so a ``chap.yaml``
+    further up does not change commands run elsewhere. A ``chap.yaml`` owned by another user is ignored.
+    """
+    import os
+
     directory = (start or Path.cwd()).resolve()
+    home = Path.home().resolve()
     for candidate in (directory, *directory.parents):
-        if (candidate / PROJECT_FILE).is_file():
+        path = candidate / PROJECT_FILE
+        if path.is_file():
+            getuid = getattr(os, "getuid", None)  # not on Windows
+            if getuid is not None and path.stat().st_uid != getuid():
+                logger.warning("Ignoring %s: it belongs to another user", path)
+                return None
             return Project.load(candidate)
+        if candidate == home or (candidate / ".git").exists():
+            return None
     return None
 
 
@@ -144,6 +158,14 @@ def project_values(
     """The option values a project gives a command, and where each top-level option came from."""
     settings = project.settings
     shared = {key: value for key, value in settings.items() if key not in SECTION_NAMES}
+    for name, value in settings.items():
+        if name in SECTION_NAMES and value is not None and not isinstance(value, dict):
+            command = " ".join(next(c for c in sorted(PROJECT_COMMANDS) if c[0] == name))
+            hint = f" To choose the model, write model_name: {value}" if name == "model" else ""
+            raise ValueError(
+                f"{name!r} in {project.root / PROJECT_FILE} is the section for chap {command}, "
+                f"so it must be a mapping of options.{hint}"
+            )
     section: Any = settings
     for command in commands:
         section = section.get(command) if isinstance(section, dict) else None
@@ -157,6 +179,8 @@ def project_values(
     for filename, option, owner in INPUT_FILES:
         path = project.input_dir / filename
         if option in values or not path.is_file() or (owner is not None and _given(arguments, owner)):
+            continue
+        if owner == "dataset_csv" and _other_dataset(values, project):
             continue
         values[option] = str(path)
         sources[option] = f"{INPUT_DIR}/{filename}"
@@ -173,6 +197,17 @@ def project_values(
             values["run_config"] = {"runs_dir": str(project.runs_dir), **(run_config or {})}
             sources.setdefault("run_config", f"{STATE_DIR}/")
     return values, sources
+
+
+def _other_dataset(values: dict[str, Any], project: Project) -> bool:
+    """Whether chap.yaml sets ``dataset_csv`` to a dataset other than ``input/data.csv``.
+
+    The files in input/ that belong to the dataset, such as masked ranges, are then not used.
+    """
+    dataset = values.get("dataset_csv")
+    if not isinstance(dataset, str):
+        return False
+    return "://" in dataset or Path(dataset).resolve() != (project.input_dir / DATASET_FILE).resolve()
 
 
 def _check_options(
@@ -208,12 +243,19 @@ def _check_leaves(
 ) -> None:
     for key, value in values.items():
         path = (*keys, key)
+        where = f"the {'.'.join(section)} section of " if section else ""
         if isinstance(value, dict):
             _check_leaves(value, commands, arguments, path, section)
-        elif _match(arguments, path) is None:
-            where = f"the {'.'.join(section)} section of " if section else ""
+            continue
+        argument = _match(arguments, path)
+        if argument is None:
             raise ValueError(
                 f"Unknown option {'.'.join(path)!r} in {where}{PROJECT_FILE} for chap {' '.join(commands)}"
+            )
+        if argument.children:
+            raise ValueError(
+                f"{'.'.join(path)!r} in {where}{PROJECT_FILE} must be a mapping of options, "
+                f"such as {key}: {{{argument.children[0].names[0].rsplit('.', 1)[-1].replace('-', '_')}: ...}}"
             )
 
 

@@ -340,7 +340,9 @@ def inspect_model_template(model_name: str, run_config: RunConfig) -> Iterator[M
     import tempfile
 
     from chap_core.models.model_template import ModelTemplate
+    from chap_core.models.utils import check_run_options
 
+    check_run_options(model_name, is_chapkit_model=run_config.is_chapkit_model, as_chapkit=run_config.as_chapkit)
     logger.info(f"Loading model template from {model_name}")
     with tempfile.TemporaryDirectory(prefix="chap-model-") as working_dir:
         template = ModelTemplate.from_directory_or_github_url(
