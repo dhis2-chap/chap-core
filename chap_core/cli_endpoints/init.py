@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+import re
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -43,8 +45,9 @@ def init_cmd(
     model: Annotated[
         str | None,
         Parameter(
-            help="Model to evaluate: local directory, GitHub URL, chapkit service URL, chapkit container image "
-            "(docker://<image>) or built-in model (builtin:<name>). Can also be set later as model_name in chap.yaml."
+            help="Model to evaluate: a Chap Hub model ID (stored as its verified stable image), local directory, "
+            "GitHub URL, chapkit service URL, chapkit container image (docker://<image>) or built-in model "
+            "(builtin:<name>). Can also be set later as model_name in chap.yaml."
         ),
     ] = None,
     dataset: Annotated[
@@ -68,6 +71,13 @@ def init_cmd(
     ] = None,
     backtest_params: BacktestParamsArg = BacktestParams(),
     run_config: RunConfigArg = RunConfig(),
+    pin: Annotated[
+        bool,
+        Parameter(
+            help="Pin a GitHub model to its current commit, so every run uses the same model code. "
+            "With --no-pin, each run uses the latest commit."
+        ),
+    ] = True,
     force: Annotated[bool, Parameter(help="Overwrite an existing chap.yaml.")] = False,
 ) -> None:
     """Create a Chap project, so that `chap eval` runs without options inside it.
@@ -98,6 +108,8 @@ def init_cmd(
     if csv_path is not None and not csv_path.is_file():
         raise ValueError(f"{dataset} does not exist")
     # Loading the model checks that it can be found before anything is written.
+    if model is not None:
+        model = resolve_model_source(model, pin)
     example_config = _example_model_config(model, run_config) if model is not None and model_config is None else None
 
     directory.mkdir(parents=True, exist_ok=True)
@@ -137,6 +149,8 @@ def init_cmd(
     _ignore_state_dir(project.root / ".gitignore")
 
     print(f"Created Chap project in {directory}")
+    if project_model is not None:
+        print(f"  model: {project_model}")
     for name in [PROJECT_FILE, *created]:
         print(f"  {name}")
     todo = [f"set model_name in {PROJECT_FILE}"] if model is None else []
@@ -145,6 +159,45 @@ def init_cmd(
         print(f"Next: {' and '.join(todo)}, then run `chap eval`.")
     else:
         print("Next: `chap validate` to check the dataset against the model, then `chap eval`.")
+
+
+def resolve_model_source(model: str, pin: bool) -> str:
+    """The model source to store in chap.yaml for the ``--model`` given to chap init.
+
+    A Chap Hub model ID becomes ``docker://`` with its verified stable image. With ``pin``, a GitHub URL
+    without a commit gets the commit its default branch points at now. Other sources are kept as given.
+    """
+    from chap_core.models.chapkit_service_manager import DOCKER_SOURCE_PREFIX
+
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", model) and not Path(model).exists():
+        from chap_core.services.model_marketplace import resolve_model
+
+        try:
+            hub_pin = resolve_model(model)
+        except ValueError as e:
+            raise ValueError(f"{model!r} is not a local directory, and not a Chap Hub model: {e}") from e
+        logger.info(f"Chap Hub model {model} {hub_pin.version} is {hub_pin.image}")
+        return f"{DOCKER_SOURCE_PREFIX}{hub_pin.image}"
+    if pin and model.startswith("https://github.com/") and "@" not in model:
+        url = model.rstrip("/")
+        commit = remote_head_commit(url)
+        logger.info(f"Pinned {url} to commit {commit}; use --no-pin to follow the latest commit instead")
+        return f"{url}@{commit}"
+    return model
+
+
+def remote_head_commit(repository: str) -> str:
+    """The commit a git repository's default branch points at, read with ``git ls-remote``."""
+    try:
+        result = subprocess.run(
+            ["git", "ls-remote", repository, "HEAD"], capture_output=True, text=True, check=True, timeout=60
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        raise ValueError(f"Could not read the current commit of {repository}: {e}") from e
+    commit = result.stdout.split()[0] if result.stdout.split() else ""
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise ValueError(f"Could not read the current commit of {repository}: {result.stdout.strip()!r}")
+    return commit
 
 
 def _example_model_config(model: str, run_config: RunConfig) -> dict[str, Any]:

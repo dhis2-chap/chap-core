@@ -27,6 +27,18 @@ Chap commands find the project from the current directory or any directory below
 
 `chap init` loads the model once to check that it can be found and to read its options. A local model directory is stored in `chap.yaml` relative to the project, so the two can be moved together.
 
+A GitHub model is pinned to the commit its default branch points at when you run `chap init`, written as `https://github.com/org/model@<commit>`. Every run then uses the same model code, so results in `output/` stay comparable. Use `--no-pin` to have each run use the latest commit instead, or edit the commit in `chap.yaml` to move to a newer version.
+
+## Chap Hub models
+
+`--model` also takes the ID of a model in [Chap Hub](https://github.com/dhis2-chap/chap-hub). `chap init` looks up the model's verified stable version and stores its container image:
+
+```console
+chap init study --model chapkit_ghr_model --dataset ./data.csv
+```
+
+This writes `model_name: docker://ghcr.io/chap-models/chapkit_ghr_model:sha-<commit>` to `chap.yaml`. The image is run as described for `docker://` images below.
+
 ## Chapkit models
 
 `chap init` takes the same `--run-config` options as `chap eval` and stores the ones you give in `chap.yaml`, so every later command runs the model the same way:

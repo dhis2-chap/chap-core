@@ -1,7 +1,9 @@
 import json
 import logging
 from pathlib import Path
+from unittest.mock import patch
 
+import git
 import pytest
 import yaml
 from cyclopts import CycloptsError
@@ -162,3 +164,45 @@ def test_nothing_is_filled_in_outside_a_project(tmp_path, monkeypatch):
 )
 def test_model_label(source, label):
     assert model_label(source) == label
+
+
+def test_init_stores_a_chap_hub_model_as_its_stable_image(marketplace_model):
+    from chap_core.cli_endpoints.init import resolve_model_source
+    from chap_core.services.model_marketplace import MarketplaceModel, stable_pin
+
+    hub_pin = stable_pin(MarketplaceModel.model_validate(marketplace_model))
+    with patch("chap_core.services.model_marketplace.resolve_model", return_value=hub_pin) as resolve:
+        source = resolve_model_source(hub_pin.entry.id, pin=True)
+    resolve.assert_called_once_with(hub_pin.entry.id)
+    assert source == f"docker://{hub_pin.image}"
+
+
+def test_init_refuses_a_name_that_is_neither_a_directory_nor_a_chap_hub_model():
+    from chap_core.cli_endpoints.init import resolve_model_source
+
+    unlisted = ValueError("Model 'no_such_model' is not listed in the marketplace.")
+    with (
+        patch("chap_core.services.model_marketplace.resolve_model", side_effect=unlisted),
+        pytest.raises(ValueError, match="not a local directory, and not a Chap Hub model"),
+    ):
+        resolve_model_source("no_such_model", pin=True)
+
+
+def test_init_pins_a_github_model_unless_told_not_to():
+    from chap_core.cli_endpoints.init import resolve_model_source
+
+    url = "https://github.com/chap-models/some_model"
+    with patch("chap_core.cli_endpoints.init.remote_head_commit", return_value="a" * 40):
+        assert resolve_model_source(url, pin=True) == f"{url}@{'a' * 40}"
+        assert resolve_model_source(f"{url}@{'b' * 40}", pin=True) == f"{url}@{'b' * 40}"
+    assert resolve_model_source(url, pin=False) == url
+
+
+def test_remote_head_commit_reads_the_default_branch(tmp_path):
+    from chap_core.cli_endpoints.init import remote_head_commit
+
+    repository = git.Repo.init(tmp_path)
+    (tmp_path / "MLproject").write_text("name: model\n")
+    repository.index.add(["MLproject"])
+    commit = repository.index.commit("Add model")
+    assert remote_head_commit(str(tmp_path)) == commit.hexsha
