@@ -6,6 +6,7 @@ import pytest
 import yaml
 from cyclopts import CycloptsError
 
+from chap_core.api_types import RunConfig
 from chap_core.cli import app
 from chap_core.cli_endpoints.init import init_cmd
 from chap_core.project import Project, model_label
@@ -48,6 +49,29 @@ def test_init_copies_configuration_files_to_their_fixed_names(tmp_path):
     input_dir = tmp_path / "project" / "input"
     assert yaml.safe_load((input_dir / "data_settings.yaml").read_text())["maskedRanges"][0]["start"] == "2011-06"
     assert (input_dir / "model_config.yaml").read_text() == "user_option_values: {}\n"
+
+
+def test_init_stores_a_local_model_relative_to_the_project_with_its_run_options(tmp_path, models_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    init_cmd(
+        Path("studies/laos"),
+        model=str(models_path / "naive_python_model_with_mlproject_file"),
+        run_config=RunConfig(ignore_environment=True),
+    )
+    root = tmp_path / "studies" / "laos"
+    settings = Project.load(root).settings
+    assert (root / settings["model_name"]).resolve() == (
+        models_path / "naive_python_model_with_mlproject_file"
+    ).resolve()
+    assert settings["run_config"] == {"ignore_environment": True}
+
+
+def test_validate_leaves_no_model_copy_behind(chap_project, models_path, monkeypatch):
+    monkeypatch.chdir(chap_project)
+    command, arguments = parse("validate", "--model-name", str(models_path / "naive_python_model_with_mlproject_file"))
+    command(**arguments)
+    assert not (chap_project / "runs").exists()
+    assert list((chap_project / ".chap" / "runs").iterdir()) == []
 
 
 def test_eval_runs_with_no_options_inside_a_project(chap_project, monkeypatch):

@@ -25,6 +25,25 @@ chap export-metrics --input-files output/*.nc --output-file metrics.csv
 
 Chap commands find the project from the current directory or any directory below it, the same way `git` finds a repository.
 
+`chap init` loads the model once to check that it can be found and to read its options. A local model directory is stored in `chap.yaml` relative to the project, so the two can be moved together.
+
+## Chapkit models
+
+`chap init` takes the same `--run-config` options as `chap eval` and stores the ones you give in `chap.yaml`, so every later command runs the model the same way:
+
+```console
+# A chapkit model in a local directory, started and stopped by each command
+chap init study --model ../chapkit_minimalist_example_py --run-config.is-chapkit-model
+
+# An MLproject model served as a chapkit service for the duration of each run
+chap init study --model https://github.com/chap-models/mlproject_template_python --run-config.as-chapkit
+
+# A chapkit service that is already running
+chap init study --model http://localhost:8000
+```
+
+For a chapkit service, `input/model_config.yaml` is filled with the options the service declares.
+
 ## Project layout
 
 | Path | Contents |

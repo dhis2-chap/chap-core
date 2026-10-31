@@ -154,3 +154,17 @@ class TestExportMetrics:
         df = pd.read_csv(output_file)
         assert len(df) == 1
         assert df["model_name"].iloc[0] == "WeeklyModel"
+
+
+@pytest.mark.parametrize(
+    "tokens",
+    [
+        ["--input-files", "a.nc", "b.nc"],
+        ["--input-files", "a.nc", "--input-files", "b.nc"],
+    ],
+)
+def test_input_files_take_a_shell_glob_or_repeated_flags(tokens):
+    from chap_core.cli import app
+
+    _, bound, _ = app.parse_args(["export-metrics", *tokens, "--output-file", "out.csv"], exit_on_error=False)
+    assert bound.arguments["input_files"] == [Path("a.nc"), Path("b.nc")]

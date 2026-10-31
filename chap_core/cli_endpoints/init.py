@@ -5,12 +5,15 @@ from __future__ import annotations
 import logging
 import shutil
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from cyclopts import Parameter
 
-from chap_core.api_types import BacktestParams
-from chap_core.cli_endpoints._args import BacktestParamsArg  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
+from chap_core.api_types import BacktestParams, RunConfig
+from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
+    BacktestParamsArg,
+    RunConfigArg,
+)
 from chap_core.project import (
     COLUMN_MAPPING_FILE,
     DATA_SETTINGS_FILE,
@@ -64,6 +67,7 @@ def init_cmd(
         ),
     ] = None,
     backtest_params: BacktestParamsArg = BacktestParams(),
+    run_config: RunConfigArg = RunConfig(),
     force: Annotated[bool, Parameter(help="Overwrite an existing chap.yaml.")] = False,
 ) -> None:
     """Create a Chap project, so that `chap eval` runs without options inside it.
@@ -90,6 +94,11 @@ def init_cmd(
             raise ValueError(f"{path} does not exist")
     if data_settings is not None:
         load_data_configuration(data_settings)
+    csv_path, geojson_path = resolve_csv_path(dataset) if dataset is not None else (None, None)
+    if csv_path is not None and not csv_path.is_file():
+        raise ValueError(f"{dataset} does not exist")
+    # Loading the model checks that it can be found before anything is written.
+    example_config = _example_model_config(model, run_config) if model is not None and model_config is None else None
 
     directory.mkdir(parents=True, exist_ok=True)
     project = Project(root=directory.resolve(), settings={})
@@ -97,10 +106,7 @@ def init_cmd(
         path.mkdir(parents=True, exist_ok=True)
 
     created: list[str] = []
-    if dataset is not None:
-        csv_path, geojson_path = resolve_csv_path(dataset)
-        if not csv_path.is_file():
-            raise ValueError(f"{dataset} does not exist")
+    if csv_path is not None:
         shutil.copyfile(csv_path, project.input_dir / DATASET_FILE)
         created.append(f"input/{DATASET_FILE}")
         geojson_path = geojson_path or discover_geojson(csv_path)
@@ -118,50 +124,52 @@ def init_cmd(
     if model_config is not None:
         shutil.copyfile(model_config, project.input_dir / MODEL_CONFIG_FILE)
         created.append(f"input/{MODEL_CONFIG_FILE}")
-    elif model is not None:
-        missing = _write_default_model_config(model, project)
-        if (project.input_dir / MODEL_CONFIG_FILE).exists():
-            note = f" (fill in {', '.join(missing)})" if missing else ""
-            created.append(f"input/{MODEL_CONFIG_FILE}{note}")
+    elif example_config is not None and example_config["user_option_values"]:
+        text = yaml.safe_dump(example_config, sort_keys=False)
+        (project.input_dir / MODEL_CONFIG_FILE).write_text(text, encoding="utf-8")
+        missing = [name for name, value in example_config["user_option_values"].items() if value is None]
+        created.append(f"input/{MODEL_CONFIG_FILE}" + (f" (fill in {', '.join(missing)})" if missing else ""))
 
-    (project.root / PROJECT_FILE).write_text(_project_file(model, backtest_params), encoding="utf-8")
+    project_model = _relative_to_project(model, project) if model is not None else None
+    (project.root / PROJECT_FILE).write_text(
+        _project_file(project_model, backtest_params, run_config), encoding="utf-8"
+    )
     _ignore_state_dir(project.root / ".gitignore")
 
     print(f"Created Chap project in {directory}")
     for name in [PROJECT_FILE, *created]:
         print(f"  {name}")
-    if model is None:
-        print(f"Set model_name in {PROJECT_FILE}, then run `chap eval`.")
-    elif dataset is None:
-        print(f"Copy your dataset to input/{DATASET_FILE}, then run `chap eval`.")
+    todo = [f"set model_name in {PROJECT_FILE}"] if model is None else []
+    todo += [f"copy your dataset to input/{DATASET_FILE}"] if dataset is None else []
+    if todo:
+        print(f"Next: {' and '.join(todo)}, then run `chap eval`.")
     else:
         print("Next: `chap validate` to check the dataset against the model, then `chap eval`.")
 
 
-def _write_default_model_config(model: str, project: Project) -> list[str]:
-    """Write input/model_config.yaml with the model's default option values, if the model has options.
-
-    Loading the model also checks that it can be found. Returns the options that have no default.
-    """
-    import yaml
-
+def _example_model_config(model: str, run_config: RunConfig) -> dict[str, Any]:
+    """The model's configuration with its default option values; options without a default are None."""
+    from chap_core.cli_endpoints._common import inspect_model_template
     from chap_core.cli_endpoints.model import build_example_configuration
-    from chap_core.models.model_template import ModelTemplate
 
-    logger.info(f"Loading model template from {model}")
-    template = ModelTemplate.from_directory_or_github_url(
-        model, base_working_dir=project.runs_dir, ignore_env=True, dry_run=True
-    )
-    with template:
-        example = build_example_configuration(template.model_template_config)
-    options = example["user_option_values"]
-    if not options:
-        return []
-    (project.input_dir / MODEL_CONFIG_FILE).write_text(yaml.safe_dump(example, sort_keys=False), encoding="utf-8")
-    return [name for name, value in options.items() if value is None]
+    with inspect_model_template(model, run_config) as template:
+        return build_example_configuration(template.model_template_config)
 
 
-def _project_file(model: str | None, backtest_params: BacktestParams) -> str:
+def _relative_to_project(model: str, project: Project) -> str:
+    """A local model directory as a path relative to the project, since chap.yaml paths are; other sources as given."""
+    import os
+
+    path = Path(model).expanduser()
+    if "://" in model or not path.is_dir():
+        return model
+    try:
+        return Path(os.path.relpath(path.resolve(), project.root)).as_posix()
+    except ValueError:  # on another drive than the project, on Windows
+        return str(path.resolve())
+
+
+def _project_file(model: str | None, backtest_params: BacktestParams, run_config: RunConfig) -> str:
     import yaml
 
     model_line = (
@@ -169,8 +177,11 @@ def _project_file(model: str | None, backtest_params: BacktestParams) -> str:
         if model is not None
         else "# model_name: <local directory, GitHub URL, chapkit service URL or builtin:<name>>\n"
     )
+    # Only the run options given to chap init, such as is_chapkit_model, so the rest keep their defaults.
+    run_options = run_config.model_dump(mode="json", exclude_defaults=True)
+    run_lines = yaml.safe_dump({"run_config": run_options}, sort_keys=False) if run_options else ""
     evaluation = {"eval": {"backtest_params": backtest_params.model_dump(mode="json"), "plot": True}}
-    return f"{PROJECT_FILE_HEADER}\n{model_line}\n{yaml.safe_dump(evaluation, sort_keys=False)}"
+    return f"{PROJECT_FILE_HEADER}\n{model_line}{run_lines}\n{yaml.safe_dump(evaluation, sort_keys=False)}"
 
 
 def _ignore_state_dir(gitignore: Path) -> None:

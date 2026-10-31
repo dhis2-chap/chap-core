@@ -10,13 +10,16 @@ from typing import TYPE_CHECKING, Annotated
 
 from cyclopts import Parameter
 
+from chap_core.api_types import RunConfig
 from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
     DataConfigurationArg,
     DatasetCsvArg,
     DataSourceMappingArg,
+    RunConfigArg,
 )
 from chap_core.cli_endpoints._common import (
     discover_geojson,
+    inspect_model_template,
     load_data_configuration,
     load_dataset_from_csv,
     resolve_csv_path,
@@ -38,6 +41,7 @@ def validate_cmd(
     ] = None,
     data_source_mapping: DataSourceMappingArg = None,
     data_configuration: DataConfigurationArg = None,
+    run_config: RunConfigArg = RunConfig(),
 ):
     """Validate a CSV dataset for CHAP compatibility.
 
@@ -57,7 +61,6 @@ def validate_cmd(
     """
     import pandas as pd
 
-    from chap_core.models.model_template import ModelTemplate
     from chap_core.services.dataset_validation import validate_dataset
 
     column_mapping = None
@@ -93,9 +96,8 @@ def validate_cmd(
 
     model_template_config = None
     if model_name is not None:
-        logger.info(f"Loading model template from {model_name}")
-        template = ModelTemplate.from_directory_or_github_url(model_name)
-        model_template_config = template.model_template_config
+        with inspect_model_template(model_name, run_config) as template:
+            model_template_config = template.model_template_config
 
     issues = validate_dataset(dataset, raw_df=raw_df, model_template_config=model_template_config)
 

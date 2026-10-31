@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import logging
 import re
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     import pandas as pd
 
     from chap_core.api_types import BacktestParams, EstimatorOptions, RunConfig
@@ -324,6 +327,31 @@ def load_dataset_and_template(
         run_dir_type=run_config.run_directory_type,
     )
     return dataset, template, configuration
+
+
+@contextmanager
+def inspect_model_template(model_name: str, run_config: RunConfig) -> Iterator[ModelTemplate]:
+    """Load a model template only to read its configuration, and clean up afterwards.
+
+    The model is copied into a temporary working directory that is removed on exit, and its
+    environment is not set up. A chapkit model in a local directory is started for the duration
+    and stopped on exit. A model run with ``as_chapkit`` is read from its MLproject file directly.
+    """
+    import tempfile
+
+    from chap_core.models.model_template import ModelTemplate
+
+    logger.info(f"Loading model template from {model_name}")
+    with tempfile.TemporaryDirectory(prefix="chap-model-") as working_dir:
+        template = ModelTemplate.from_directory_or_github_url(
+            model_name,
+            base_working_dir=Path(working_dir),
+            ignore_env=True,
+            dry_run=True,
+            is_chapkit_model=run_config.is_chapkit_model,
+        )
+        with template:
+            yield template
 
 
 def get_estimator(
