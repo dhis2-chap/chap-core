@@ -175,6 +175,9 @@ if args[0] == "pull":
     print("no matching manifest for linux/arm64/v8 in the manifest list entries", file=sys.stderr)
     sys.exit(1)
 if args[0] == "run":
+    import time
+
+    time.sleep(float(os.environ.get("FAKE_DOCKER_STARTUP_SECONDS", "0")))
     port = int(args[args.index("-p") + 1].split(":")[1])
 
     class Health(BaseHTTPRequestHandler):

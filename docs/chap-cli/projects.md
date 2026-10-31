@@ -59,7 +59,7 @@ chap init study --model http://localhost:8000
 
 For a chapkit service, `input/model_config.yaml` is filled with the options the service declares.
 
-A `docker://` image needs Docker. Each command pulls the image if it is missing, runs it on a free local port and removes the container afterwards, also when the command is interrupted with Ctrl-C. An image with no build for your machine, such as an amd64-only image on Apple Silicon, runs under emulation, which makes it slower.
+A `docker://` image needs Docker. Each command pulls the image if it is missing, runs it on a free local port and removes the container afterwards, also when the command is interrupted with Ctrl-C, stopped with `kill` or its terminal is closed. Only `kill -9` leaves the container running; find it with `docker ps --filter name=chap-` and remove it with `docker rm -f <name>`. An image with no build for your machine, such as an amd64-only image on Apple Silicon, runs under emulation, which makes it slower.
 
 ## Project layout
 

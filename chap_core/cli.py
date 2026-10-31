@@ -1,6 +1,7 @@
 """Console script for chap_core."""
 
 import logging
+import signal
 import warnings
 
 # Suppress GluonTS deprecation warning about pandas frequency aliases
@@ -54,9 +55,19 @@ generate_modelcard.register_commands(app)
 ensemble.register_commands(app)
 
 
+def exit_on_signal(signum, frame):
+    """Exit like Ctrl-C does, so context managers run and stop model services and containers."""
+    raise SystemExit(128 + signum)
+
+
 def main():
+    # A closed terminal (SIGHUP) or `kill` (SIGTERM) would otherwise end the process without cleanup,
+    # leaving chapkit services and docker:// containers started for the command running.
+    for name in ("SIGTERM", "SIGHUP"):
+        if hasattr(signal, name):
+            signal.signal(getattr(signal, name), exit_on_signal)
     app()
 
 
 if __name__ == "__main__":
-    app()
+    main()

@@ -309,6 +309,11 @@ class ChapkitServiceManager:
                 logger.info(f"Port {self.port} was taken before the service could bind it, retrying on another port")
                 self._stop_service()
                 self.port = None
+            except BaseException:
+                # __exit__ does not run when __enter__ fails, so a service interrupted while
+                # starting (Ctrl-C, a closed terminal) is stopped here.
+                self._stop_service()
+                raise
         raise AssertionError("unreachable")
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
