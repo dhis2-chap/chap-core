@@ -16,8 +16,10 @@ from chap_core.api_types import BacktestParams, RunConfig
 ModelNameArg = Annotated[
     str,
     Parameter(
-        help="Model path (local directory), GitHub URL, chapkit service URL, or built-in model (builtin:<name>). "
-        "Examples: /path/to/model, https://github.com/org/model, http://localhost:8000"
+        help="Model path (local directory), GitHub URL, chapkit service URL, chapkit container image "
+        "(docker://<image>, run for the duration of the command) or built-in model (builtin:<name>). "
+        "Examples: /path/to/model, https://github.com/org/model, http://localhost:8000, "
+        "docker://ghcr.io/chap-models/chapkit_ghr_model:sha-84fbe77"
     ),
 ]
 

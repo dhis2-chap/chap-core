@@ -25,7 +25,7 @@ The output NetCDF file can be used with `plot-backtest` for visualization and `e
 
 | Parameter | Description |
 |-----------|-------------|
-| `--model-name` | Model identifier. Can be a local directory path, GitHub URL, or chapkit service URL |
+| `--model-name` | Model identifier. Can be a local directory path, GitHub URL, chapkit service URL, chapkit container image (`docker://<image>`, run as a container for the duration of the command) or built-in model (`builtin:<name>`) |
 | `--dataset-csv` | Path to CSV file containing disease data |
 | `--output-file` | Path for output NetCDF file (use `.nc` extension) |
 

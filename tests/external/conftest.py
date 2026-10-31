@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 from unittest.mock import patch
@@ -152,3 +153,53 @@ def fake_chapkit_service(tmp_path):
         return patch("chap_core.models.chapkit_service_manager.subprocess.Popen", side_effect=launch)
 
     return factory
+
+
+FAKE_DOCKER = """\
+import os, pathlib, sys
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+state = pathlib.Path(os.environ["FAKE_DOCKER_STATE"])
+args = sys.argv[1:]
+with open(state / "calls.log", "a") as log:
+    log.write(" ".join(args) + "\\n")
+if args[:2] == ["image", "inspect"]:
+    if (state / "pulled").exists():
+        print("linux/amd64")
+        sys.exit(0)
+    sys.exit(1)
+if args[0] == "pull":
+    if "--platform" in args:
+        (state / "pulled").touch()
+        sys.exit(0)
+    print("no matching manifest for linux/arm64/v8 in the manifest list entries", file=sys.stderr)
+    sys.exit(1)
+if args[0] == "run":
+    port = int(args[args.index("-p") + 1].split(":")[1])
+
+    class Health(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"status": "healthy"}')
+
+        def log_message(self, *args):
+            pass
+
+    HTTPServer(("127.0.0.1", port), Health).serve_forever()
+"""
+
+
+@pytest.fixture
+def fake_docker(tmp_path, monkeypatch):
+    """A `docker` on PATH for an amd64-only image: the first pull fails without --platform, and `run`
+    serves a healthy chapkit /health endpoint on the published port. Returns the file of its calls."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    docker = bin_dir / "docker"
+    docker.write_text(f"#!{sys.executable}\n{FAKE_DOCKER}")
+    docker.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("FAKE_DOCKER_STATE", str(tmp_path))
+    return tmp_path / "calls.log"

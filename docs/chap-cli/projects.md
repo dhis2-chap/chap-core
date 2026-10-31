@@ -38,11 +38,16 @@ chap init study --model ../chapkit_minimalist_example_py --run-config.is-chapkit
 # An MLproject model served as a chapkit service for the duration of each run
 chap init study --model https://github.com/chap-models/mlproject_template_python --run-config.as-chapkit
 
+# A chapkit container image, such as a Chap Hub model, run as a container by each command
+chap init study --model docker://ghcr.io/chap-models/chapkit_ghr_model:sha-84fbe77
+
 # A chapkit service that is already running
 chap init study --model http://localhost:8000
 ```
 
 For a chapkit service, `input/model_config.yaml` is filled with the options the service declares.
+
+A `docker://` image needs Docker. Each command pulls the image if it is missing, runs it on a free local port and removes the container afterwards, also when the command is interrupted with Ctrl-C. An image with no build for your machine, such as an amd64-only image on Apple Silicon, runs under emulation, which makes it slower.
 
 ## Project layout
 

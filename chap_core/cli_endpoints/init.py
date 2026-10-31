@@ -43,8 +43,8 @@ def init_cmd(
     model: Annotated[
         str | None,
         Parameter(
-            help="Model to evaluate: local directory, GitHub URL, chapkit service URL or built-in model "
-            "(builtin:<name>). Can also be set later as model_name in chap.yaml."
+            help="Model to evaluate: local directory, GitHub URL, chapkit service URL, chapkit container image "
+            "(docker://<image>) or built-in model (builtin:<name>). Can also be set later as model_name in chap.yaml."
         ),
     ] = None,
     dataset: Annotated[
@@ -175,7 +175,7 @@ def _project_file(model: str | None, backtest_params: BacktestParams, run_config
     model_line = (
         yaml.safe_dump({"model_name": model})
         if model is not None
-        else "# model_name: <local directory, GitHub URL, chapkit service URL or builtin:<name>>\n"
+        else "# model_name: <local directory, GitHub URL, chapkit service URL, docker://<image> or builtin:<name>>\n"
     )
     # Only the run options given to chap init, such as is_chapkit_model, so the rest keep their defaults.
     run_options = run_config.model_dump(mode="json", exclude_defaults=True)

@@ -105,10 +105,13 @@ def model_label(source: str) -> str:
     """A short, file-name-safe name for a model source, used to name output files.
 
     ``builtin:seasonal_median@1`` gives ``seasonal_median``, ``https://github.com/org/repo@abc`` gives
-    ``repo``, ``./models/my_model`` gives ``my_model`` and ``http://localhost:8000`` gives ``localhost-8000``.
+    ``repo``, ``docker://ghcr.io/org/model:tag`` gives ``model``, ``./models/my_model`` gives ``my_model``
+    and ``http://localhost:8000`` gives ``localhost-8000``.
     """
     name = source.removeprefix("builtin:").split("@")[0].rstrip("/")
     name = name.rsplit("/", 1)[-1].removesuffix(".git")
+    if source.startswith("docker://"):
+        name = name.split(":")[0]
     return re.sub(r"[^A-Za-z0-9_.-]+", "-", name).strip("-") or "model"
 
 

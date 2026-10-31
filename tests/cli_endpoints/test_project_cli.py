@@ -157,6 +157,7 @@ def test_nothing_is_filled_in_outside_a_project(tmp_path, monkeypatch):
         ("https://github.com/org/repo.git@abc123", "repo"),
         ("./models/my_model/", "my_model"),
         ("http://localhost:8000", "localhost-8000"),
+        ("docker://ghcr.io/chap-models/chapkit_ghr_model:sha-84fbe77", "chapkit_ghr_model"),
     ],
 )
 def test_model_label(source, label):
