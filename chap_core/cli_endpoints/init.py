@@ -38,6 +38,17 @@ PROJECT_FILE_HEADER = f"""\
 #   {COLUMN_MAPPING_FILE} (--data-source-mapping), {MODEL_CONFIG_FILE} (--model-configuration-yaml)
 """
 
+# Written to input/data_settings.yaml so the file and its format are visible; with only comments it sets nothing.
+DATA_SETTINGS_TEMPLATE = """\
+# Data settings for input/data.csv, used as --data-configuration.
+# Masked ranges hide disease_cases in periods you do not trust, such as a reporting gap,
+# from training and scoring. Remove the # signs to use them:
+#
+# maskedRanges:
+#   - start: "2021-06"
+#     end: "2021-08"
+"""
+
 
 def init_cmd(
     directory: Annotated[Path, Parameter(help="Project directory. Created if it does not exist.")] = Path(),
@@ -126,10 +137,14 @@ def init_cmd(
             shutil.copyfile(geojson_path, project.input_dir / "data.geojson")
             created.append("input/data.geojson")
 
+    data_settings_path = project.input_dir / DATA_SETTINGS_FILE
     if data_settings is not None:
         content = yaml.safe_load(data_settings.read_text(encoding="utf-8"))
-        (project.input_dir / DATA_SETTINGS_FILE).write_text(yaml.safe_dump(content, sort_keys=False), encoding="utf-8")
+        data_settings_path.write_text(yaml.safe_dump(content, sort_keys=False), encoding="utf-8")
         created.append(f"input/{DATA_SETTINGS_FILE}")
+    elif not data_settings_path.exists():
+        data_settings_path.write_text(DATA_SETTINGS_TEMPLATE, encoding="utf-8")
+        created.append(f"input/{DATA_SETTINGS_FILE} (example, no settings yet)")
     if column_mapping is not None:
         shutil.copyfile(column_mapping, project.input_dir / COLUMN_MAPPING_FILE)
         created.append(f"input/{COLUMN_MAPPING_FILE}")

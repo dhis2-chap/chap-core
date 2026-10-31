@@ -68,7 +68,7 @@ A `docker://` image needs Docker. Each command pulls the image if it is missing,
 | `chap.yaml` | The model and evaluation settings. Marks the project root. |
 | `input/data.csv` | The dataset, copied in by `chap init --dataset`. |
 | `input/data.geojson` | Region polygons, copied in when found next to the dataset. |
-| `input/data_settings.yaml` | Optional data settings such as masked ranges, as for `--data-configuration`. |
+| `input/data_settings.yaml` | Data settings such as masked ranges, as for `--data-configuration`. `chap init` writes a commented example that sets nothing until you edit it. |
 | `input/column_mapping.json` | Optional covariate-to-column mapping, as for `--data-source-mapping`. |
 | `input/model_config.yaml` | The model's options. `chap init --model` writes it with the model's default values when the model has options. |
 | `output/` | Evaluation results. |

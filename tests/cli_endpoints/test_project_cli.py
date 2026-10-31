@@ -35,6 +35,24 @@ def test_init_creates_the_project_layout(chap_project):
     assert ".chap/" in (chap_project / ".gitignore").read_text().splitlines()
 
 
+def test_init_writes_a_data_settings_example_that_sets_nothing(chap_project):
+    from chap_core.cli_endpoints._common import load_data_configuration
+
+    data_settings = chap_project / "input" / "data_settings.yaml"
+    assert "maskedRanges" in data_settings.read_text()
+    settings = load_data_configuration(data_settings)
+    assert settings is not None
+    assert settings.masked_ranges == []
+    assert not (chap_project / "input" / "column_mapping.json").exists()
+
+
+def test_init_with_force_keeps_edited_data_settings(chap_project):
+    data_settings = chap_project / "input" / "data_settings.yaml"
+    data_settings.write_text('maskedRanges:\n  - start: "2011-06"\n    end: "2011-08"\n')
+    init_cmd(chap_project, model="builtin:persistence", force=True)
+    assert "2011-06" in data_settings.read_text()
+
+
 def test_init_refuses_an_existing_project_without_force(chap_project):
     with pytest.raises(ValueError, match="already exists"):
         init_cmd(chap_project)
