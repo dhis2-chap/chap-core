@@ -6,11 +6,13 @@ import collections
 import logging
 import os
 import re
+import shutil
 import signal
 import socket
 import subprocess
 import threading
 import time
+import uuid
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -25,6 +27,12 @@ OUTPUT_TAIL_LINES = 200
 
 # ANSI colour and style codes, stripped from service output before matching.
 ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+
+# Model source prefix for a chapkit model run from its container image, as in docker://ghcr.io/org/model:tag.
+DOCKER_SOURCE_PREFIX = "docker://"
+
+# The port chapkit images serve on inside the container.
+CONTAINER_PORT = 8000
 
 # Startup attempts when an auto-selected port is taken between selection and bind,
 # which happens when several services are started at the same time.
@@ -141,9 +149,9 @@ class ChapkitServiceManager:
 
         self._url = f"http://{self.host}:{self.port}"
 
-        command = [*self.command, "--port", str(self.port), "--host", self.host]
+        command = self._launch_command()
 
-        logger.info(f"Starting chapkit service at {self._url} from {self.model_directory}")
+        logger.info(f"Starting chapkit service at {self._url} from {self._source()}")
 
         self._output.clear()
         # A fresh event per launch, so a previous process's reader cannot mark this one as listening.
@@ -168,6 +176,18 @@ class ChapkitServiceManager:
             daemon=True,
         )
         self._reader.start()
+
+    def _launch_command(self) -> list[str]:
+        """The command that starts the service on ``self.port``."""
+        return [*self.command, "--port", str(self.port), "--host", self.host]
+
+    def _source(self) -> str:
+        """What the service is started from, for log messages."""
+        return str(self.model_directory)
+
+    def _prepare(self) -> None:
+        """Check what the service is started from, before the first start."""
+        self._validate_directory()
 
     def _pump_output(self, stream, listening_marker: re.Pattern[str], listening: threading.Event) -> None:
         """Drain the service's merged output until EOF, keeping a bounded tail.
@@ -203,7 +223,9 @@ class ChapkitServiceManager:
                     f"Service process died during startup with exit code {self._process.returncode}.\n"
                     f"Recent output:\n{self.recent_output()}"
                 )
-                if "already in use" in self.recent_output().lower():
+                output = self.recent_output().lower()
+                # A process reports "address already in use"; docker reports "port is already allocated".
+                if "already in use" in output or "already allocated" in output:
                     raise ChapkitServicePortInUseError(message)
                 raise ChapkitServiceStartupError(message)
 
@@ -274,7 +296,7 @@ class ChapkitServiceManager:
         "already in use" error and is started again on a newly selected port.
         Only a service that exits with that error is retried, never a timeout.
         """
-        self._validate_directory()
+        self._prepare()
         self.port = self._requested_port
         auto_port = self._requested_port is None
         for attempt in range(1, PORT_ATTEMPTS + 1):
@@ -288,8 +310,100 @@ class ChapkitServiceManager:
                 logger.info(f"Port {self.port} was taken before the service could bind it, retrying on another port")
                 self._stop_service()
                 self.port = None
+            except BaseException:
+                # __exit__ does not run when __enter__ fails, so a service interrupted while
+                # starting (Ctrl-C, a closed terminal) is stopped here.
+                self._stop_service()
+                raise
         raise AssertionError("unreachable")
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Stop the service when exiting context."""
         self._stop_service()
+
+
+def ensure_docker_image(image: str) -> str:
+    """Pull ``image`` unless it is present, and return the platform to run it with, such as ``linux/amd64``.
+
+    An image with no build for this machine, such as an amd64-only image on Apple Silicon, is pulled
+    for linux/amd64 and runs under emulation.
+    """
+    if shutil.which("docker") is None:
+        raise ChapkitServiceStartupError(f"Running {image} needs Docker, but the docker command was not found.")
+
+    def platform() -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["docker", "image", "inspect", "--format", "{{.Os}}/{{.Architecture}}", image],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    inspected = platform()
+    if inspected.returncode != 0:
+        logger.info(f"Pulling {image}")
+        pulled = subprocess.run(["docker", "pull", "-q", image], capture_output=True, text=True, check=False)
+        if pulled.returncode != 0 and "no matching manifest" in pulled.stderr.lower():
+            logger.info(f"{image} has no build for this machine; pulling linux/amd64, which runs under emulation")
+            pulled = subprocess.run(
+                ["docker", "pull", "-q", "--platform", "linux/amd64", image],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        if pulled.returncode != 0:
+            raise ChapkitServiceStartupError(f"Could not pull {image}: {pulled.stderr.strip()}")
+        inspected = platform()
+    return inspected.stdout.strip()
+
+
+class DockerChapkitServiceManager(ChapkitServiceManager):
+    """Runs a chapkit model's container image for the duration of a run.
+
+    The container is started with ``docker run --rm`` on a free local port and removed when the
+    service stops, also if it outlived the docker process.
+    """
+
+    def __init__(self, image: str, port: int | None = None, host: str = "127.0.0.1", startup_timeout: int = 300):
+        """
+        Args:
+            image: Container image, such as ``ghcr.io/chap-models/chapkit_ghr_model:sha-84fbe77``
+            port: Local port to publish the service on, or None to pick a free one
+            host: Local address to publish the service on
+            startup_timeout: Seconds to wait for the service to become healthy. Images that run under
+                emulation can take minutes to start.
+        """
+        super().__init__(model_directory=".", port=port, host=host, startup_timeout=startup_timeout)
+        self.image = image
+        self._platform: str | None = None
+        self._container: str | None = None
+
+    def _source(self) -> str:
+        return self.image
+
+    def _prepare(self) -> None:
+        self._platform = ensure_docker_image(self.image)
+
+    def _launch_command(self) -> list[str]:
+        name = re.sub(r"[^a-zA-Z0-9_.-]+", "-", self.image.rsplit("/", 1)[-1])
+        # Unique per launch: two launches can pick the same free port, and removing the losing
+        # launch's container by name must not remove the winning one.
+        self._container = f"chap-{name}-{self.port}-{uuid.uuid4().hex[:8]}"
+        platform = ["--platform", self._platform] if self._platform else []
+        return [
+            "docker",
+            "run",
+            "--rm",
+            "--name",
+            self._container,
+            *platform,
+            "-p",
+            f"{self.host}:{self.port}:{CONTAINER_PORT}",
+            self.image,
+        ]
+
+    def _stop_service(self) -> None:
+        super()._stop_service()
+        if self._container is not None:
+            subprocess.run(["docker", "rm", "-f", self._container], capture_output=True, check=False)
+            self._container = None

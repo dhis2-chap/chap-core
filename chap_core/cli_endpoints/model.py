@@ -9,7 +9,11 @@ from typing import TYPE_CHECKING, Annotated, Any
 
 from cyclopts import Parameter
 
-from chap_core.cli_endpoints._args import ModelNameArg  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
+from chap_core.api_types import RunConfig
+from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
+    ModelNameArg,
+    RunConfigArg,
+)
 
 if TYPE_CHECKING:
     from chap_core.external.model_configuration import ModelTemplateConfigV2
@@ -86,6 +90,7 @@ def schema_cmd(
             help="Emit an example configuration filled with default values instead of the schema.",
         ),
     ] = False,
+    run_config: RunConfigArg = RunConfig(),
 ):
     """Print the model configuration schema for a model.
 
@@ -104,18 +109,9 @@ def schema_cmd(
     """
     import yaml
 
-    from chap_core.models.model_template import ModelTemplate
-    from chap_core.models.utils import CHAP_RUNS_DIR
+    from chap_core.cli_endpoints._common import inspect_model_template
 
-    logger.info(f"Loading model template from {model_name}")
-    template = ModelTemplate.from_directory_or_github_url(
-        model_name,
-        base_working_dir=CHAP_RUNS_DIR,
-        ignore_env=True,
-        dry_run=True,
-    )
-
-    with template:
+    with inspect_model_template(model_name, run_config) as template:
         builder = build_example_configuration if example else build_model_configuration_schema
         payload = builder(template.model_template_config)
 

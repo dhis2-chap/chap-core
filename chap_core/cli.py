@@ -1,6 +1,7 @@
 """Console script for chap_core."""
 
 import logging
+import signal
 import warnings
 
 # Suppress GluonTS deprecation warning about pandas frequency aliases
@@ -18,6 +19,7 @@ from chap_core.cli_endpoints import (
     evaluate,
     explain,
     generate_modelcard,
+    init,
     model,
     preference_learn,
     report,
@@ -25,6 +27,7 @@ from chap_core.cli_endpoints import (
     utils,
     validate,
 )
+from chap_core.project import project_defaults
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,7 +35,8 @@ logging.basicConfig(
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
 
-app = App()
+# Inside a Chap project (see `chap init`), options not given on the command line come from the project.
+app = App(config=[project_defaults])
 
 # Register commands from each module
 aggregate_eval.register_commands(app)
@@ -40,6 +44,7 @@ causal.register_commands(app)
 convert.register_commands(app)
 evaluate.register_commands(app)
 explain.register_commands(app)
+init.register_commands(app)
 model.register_commands(app)
 preference_learn.register_commands(app)
 report.register_commands(app)
@@ -50,9 +55,19 @@ generate_modelcard.register_commands(app)
 ensemble.register_commands(app)
 
 
+def exit_on_signal(signum, frame):
+    """Exit like Ctrl-C does, so context managers run and stop model services and containers."""
+    raise SystemExit(128 + signum)
+
+
 def main():
+    # A closed terminal (SIGHUP) or `kill` (SIGTERM) would otherwise end the process without cleanup,
+    # leaving chapkit services and docker:// containers started for the command running.
+    for name in ("SIGTERM", "SIGHUP"):
+        if hasattr(signal, name):
+            signal.signal(getattr(signal, name), exit_on_signal)
     app()
 
 
 if __name__ == "__main__":
-    app()
+    main()

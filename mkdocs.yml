@@ -133,6 +133,7 @@ nav:
           - Model Explainability: external_models/model_explainability.md
       - CLI:
           - Overview: chap-cli/index.md
+          - Chap Projects: chap-cli/projects.md
 
           - eval Reference: chap-cli/eval-reference.md
           - report Reference: chap-cli/report-reference.md

@@ -25,7 +25,7 @@ The output NetCDF file can be used with `plot-backtest` for visualization and `e
 
 | Parameter | Description |
 |-----------|-------------|
-| `--model-name` | Model identifier. Can be a local directory path, GitHub URL, or chapkit service URL |
+| `--model-name` | Model identifier. Can be a local directory path, GitHub URL, chapkit service URL, chapkit container image (`docker://<image>`, run as a container for the duration of the command) or built-in model (`builtin:<name>`) |
 | `--dataset-csv` | Path to CSV file containing disease data |
 | `--output-file` | Path for output NetCDF file (use `.nc` extension) |
 
@@ -66,6 +66,7 @@ Control model execution environment:
 | `--run-config.debug` | Enable verbose debug logging | false |
 | `--run-config.log-file` | Path to write log output | None |
 | `--run-config.run-directory-type` | Directory handling: `latest`, `timestamp`, or `use_existing` | timestamp |
+| `--run-config.runs-dir` | Directory for the per-run model working copies | `CHAP_RUNS_DIR`, or `runs/` |
 
 ### Run Directory Types
 

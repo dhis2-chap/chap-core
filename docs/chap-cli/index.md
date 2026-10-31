@@ -12,10 +12,13 @@ The main workflow consists of three commands:
 
 See the [Evaluation Workflow](evaluation-workflow.md) guide for detailed usage and examples.
 
+To set up a model and dataset once and then run `chap eval` without options, create a [Chap project](projects.md) with `chap init`.
+
 ## Documentation
 
 - [Setup](chap-core-cli-setup.md) - How to install and configure the CLI
 - [Evaluation Workflow](evaluation-workflow.md) - Complete guide to evaluating and comparing models
+- [Chap Projects](projects.md) - Keep a model, dataset and settings in a directory and run `chap eval` without options
 
 ## Command Reference
 

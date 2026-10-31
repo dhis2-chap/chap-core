@@ -239,7 +239,10 @@ def generate_pdf_report(input_file: Path, output_file: Path):
 
 
 def export_metrics(
-    input_files: list[Path],
+    input_files: Annotated[
+        list[Path],
+        Parameter(consume_multiple=True, help="NetCDF evaluation files, such as `--input-files output/*.nc`"),
+    ],
     *,
     output_file: Path,
     metric_ids: list[str] | None = None,

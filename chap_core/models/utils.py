@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from chap_core.exceptions import InvalidModelException
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.builtin import BUILTIN_SOURCE_PREFIX, BuiltinModelTemplate
-from chap_core.models.chapkit_service_manager import is_url
+from chap_core.models.chapkit_service_manager import DOCKER_SOURCE_PREFIX, is_url
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.mlproject_chapkit import chapkit_service_launch, check_chapkit_version
 from chap_core.models.model_template import ModelTemplate
@@ -182,6 +182,12 @@ def get_model_template_from_directory_or_github_url(
             "--dry-run is not supported with --run-config.as-chapkit: a chapkit service runs the model "
             "commands itself, so they cannot be printed instead of executed."
         )
+    if str(model_template_path).startswith(DOCKER_SOURCE_PREFIX):
+        if as_chapkit:
+            raise ValueError(
+                "--run-config.as-chapkit serves an MLproject; a docker:// image is already a chapkit service."
+            )
+        return ExternalChapkitModelTemplate(str(model_template_path))
     if as_chapkit:
         check_chapkit_version()
     detected = (
