@@ -66,3 +66,22 @@ def test_a_command_stopped_while_the_service_starts_removes_the_container(fake_d
     calls = fake_docker.read_text().splitlines()
     container = next(call for call in calls if call.startswith("run ")).split("--name ")[1].split()[0]
     assert f"rm -f {container}" in calls
+
+
+def test_a_command_started_with_sighup_ignored_survives_sighup(fake_docker, monkeypatch):
+    monkeypatch.setenv("FAKE_DOCKER_STARTUP_SECONDS", "60")
+    command = [sys.executable, "-m", "chap_core.cli", "model", "schema", f"docker://{IMAGE}"]
+
+    def ignore_sighup():  # what nohup does
+        signal.signal(signal.SIGHUP, signal.SIG_IGN)
+
+    process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, preexec_fn=ignore_sighup)
+    deadline = time.monotonic() + 60
+    while not (fake_docker.exists() and "run " in fake_docker.read_text()):
+        assert time.monotonic() < deadline, "the container was never started"
+        time.sleep(0.2)
+    process.send_signal(signal.SIGHUP)
+    time.sleep(2)
+    assert process.poll() is None
+    process.send_signal(signal.SIGTERM)
+    assert process.wait(timeout=30) == 128 + signal.SIGTERM

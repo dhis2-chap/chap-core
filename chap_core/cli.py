@@ -63,9 +63,11 @@ def exit_on_signal(signum, frame):
 def main():
     # A closed terminal (SIGHUP) or `kill` (SIGTERM) would otherwise end the process without cleanup,
     # leaving chapkit services and docker:// containers started for the command running.
+    # A signal ignored on start stays ignored, so `nohup chap eval &` keeps running after logout.
     for name in ("SIGTERM", "SIGHUP"):
-        if hasattr(signal, name):
-            signal.signal(getattr(signal, name), exit_on_signal)
+        signum = getattr(signal, name, None)
+        if signum is not None and signal.getsignal(signum) is not signal.SIG_IGN:
+            signal.signal(signum, exit_on_signal)
     app()
 
 

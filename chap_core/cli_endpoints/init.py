@@ -123,8 +123,10 @@ def init_cmd(
         model = resolve_model_source(model, pin)
     example_config = _example_model_config(model, run_config) if model is not None and model_config is None else None
 
+    previous_model = _previous_model(directory)
     directory.mkdir(parents=True, exist_ok=True)
     project = Project(root=directory.resolve(), settings={})
+    project_model = _relative_to_project(model, project) if model is not None else None
     for path in (project.input_dir, project.output_dir, project.runs_dir):
         path.mkdir(parents=True, exist_ok=True)
 
@@ -148,16 +150,23 @@ def init_cmd(
     if column_mapping is not None:
         shutil.copyfile(column_mapping, project.input_dir / COLUMN_MAPPING_FILE)
         created.append(f"input/{COLUMN_MAPPING_FILE}")
+    model_config_path = project.input_dir / MODEL_CONFIG_FILE
     if model_config is not None:
-        shutil.copyfile(model_config, project.input_dir / MODEL_CONFIG_FILE)
+        shutil.copyfile(model_config, model_config_path)
         created.append(f"input/{MODEL_CONFIG_FILE}")
-    elif example_config is not None and example_config["user_option_values"]:
-        text = yaml.safe_dump(example_config, sort_keys=False)
-        (project.input_dir / MODEL_CONFIG_FILE).write_text(text, encoding="utf-8")
-        missing = [name for name, value in example_config["user_option_values"].items() if value is None]
-        created.append(f"input/{MODEL_CONFIG_FILE}" + (f" (fill in {', '.join(missing)})" if missing else ""))
+    elif example_config is not None:
+        if project_model == previous_model and model_config_path.exists():
+            # Re-initialising with the same model keeps the options you edited.
+            created.append(f"input/{MODEL_CONFIG_FILE} (kept, same model)")
+        elif example_config["user_option_values"]:
+            text = yaml.safe_dump(example_config, sort_keys=False)
+            model_config_path.write_text(text, encoding="utf-8")
+            missing = [name for name, value in example_config["user_option_values"].items() if value is None]
+            created.append(f"input/{MODEL_CONFIG_FILE}" + (f" (fill in {', '.join(missing)})" if missing else ""))
+        else:
+            # Options written for another model do not apply to this one, which has none.
+            model_config_path.unlink(missing_ok=True)
 
-    project_model = _relative_to_project(model, project) if model is not None else None
     (project.root / PROJECT_FILE).write_text(
         _project_file(project_model, backtest_params, run_config), encoding="utf-8"
     )
@@ -174,6 +183,17 @@ def init_cmd(
         print(f"Next: {' and '.join(todo)}, then run `chap eval`.")
     else:
         print("Next: `chap validate` to check the dataset against the model, then `chap eval`.")
+
+
+def _previous_model(directory: Path) -> str | None:
+    """The model_name in an existing chap.yaml that chap init --force replaces, or None."""
+    if not (directory / PROJECT_FILE).is_file():
+        return None
+    try:
+        model = Project.load(directory).settings.get("model_name")
+    except ValueError:
+        return None
+    return model if isinstance(model, str) else None
 
 
 def resolve_model_source(model: str, pin: bool) -> str:

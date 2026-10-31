@@ -231,3 +231,18 @@ def test_remote_head_commit_reads_the_default_branch(tmp_path):
     repository.index.add(["MLproject"])
     commit = repository.index.commit("Add model")
     assert remote_head_commit(str(tmp_path)) == commit.hexsha
+
+
+def test_init_with_force_keeps_model_options_for_the_same_model_and_drops_them_for_another(tmp_path, models_path):
+    model = str(models_path / "naive_python_model_with_mlproject_file_and_docker")
+    root = tmp_path / "project"
+    model_config = root / "input" / "model_config.yaml"
+    init_cmd(root, model=model)
+    assert yaml.safe_load(model_config.read_text())["user_option_values"] == {"some_option": "10"}
+
+    model_config.write_text("user_option_values:\n  some_option: '99'\n")
+    init_cmd(root, model=model, force=True)
+    assert "'99'" in model_config.read_text()
+
+    init_cmd(root, model="builtin:persistence", force=True)
+    assert not model_config.exists()
