@@ -10,6 +10,8 @@ The workflow consists of three main steps:
 2. **plot-backtest**: Generate visualizations from evaluation results
 3. **export-metrics**: Compare metrics across multiple evaluations in CSV format
 
+To keep the model, dataset and settings in one directory and run `chap eval` without options, see [Chap Projects](projects.md).
+
 ## Prerequisites
 
 - Chap Core installed (see [Setup guide](chap-core-cli-setup.md))

@@ -237,7 +237,7 @@ def causal_cmd(
     logger.info(f"Loading model template from {model_name}")
     template = ModelTemplate.from_directory_or_github_url(
         model_name,
-        base_working_dir=CHAP_RUNS_DIR,
+        base_working_dir=run_config.runs_dir or CHAP_RUNS_DIR,
         ignore_env=run_config.ignore_environment,
         run_dir_type=run_config.run_directory_type,
         is_chapkit_model=run_config.is_chapkit_model,

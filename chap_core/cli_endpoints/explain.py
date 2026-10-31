@@ -129,6 +129,7 @@ def explain_lime(
     logger.info(f"Loading model template from {model_name}")
     template = ModelTemplate.from_directory_or_github_url(
         model_name,
+        base_working_dir=run_config.runs_dir,
         ignore_env=run_config.ignore_environment,
         run_dir_type="use_existing",
         is_chapkit_model=run_config.is_chapkit_model,

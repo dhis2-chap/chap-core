@@ -18,6 +18,7 @@ from chap_core.cli_endpoints import (
     evaluate,
     explain,
     generate_modelcard,
+    init,
     model,
     preference_learn,
     report,
@@ -25,6 +26,7 @@ from chap_core.cli_endpoints import (
     utils,
     validate,
 )
+from chap_core.project import project_defaults
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,7 +34,8 @@ logging.basicConfig(
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
 
-app = App()
+# Inside a Chap project (see `chap init`), options not given on the command line come from the project.
+app = App(config=[project_defaults])
 
 # Register commands from each module
 aggregate_eval.register_commands(app)
@@ -40,6 +43,7 @@ causal.register_commands(app)
 convert.register_commands(app)
 evaluate.register_commands(app)
 explain.register_commands(app)
+init.register_commands(app)
 model.register_commands(app)
 preference_learn.register_commands(app)
 report.register_commands(app)

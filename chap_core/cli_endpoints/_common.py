@@ -319,6 +319,7 @@ def load_dataset_and_template(
     logger.info(f"Loading model template from {model_name}")
     template = ModelTemplate.from_directory_or_github_url(
         model_name,
+        base_working_dir=run_config.runs_dir,
         ignore_env=run_config.ignore_environment,
         run_dir_type=run_config.run_directory_type,
     )

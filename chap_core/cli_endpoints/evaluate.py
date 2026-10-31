@@ -62,6 +62,9 @@ def eval_cmd(
 ):
     """Evaluate a model using backtesting and export results to NetCDF format.
 
+    Inside a Chap project (see ``chap init``), options not given on the command line are read
+    from the project, so ``chap eval`` alone runs the project's model on its dataset.
+
     Thin wrapper around :func:`_run_eval` that optionally records the run to
     MLflow when ``run_config.track`` is True. See :func:`_run_eval` for the
     detailed backtest workflow.
@@ -228,7 +231,7 @@ def _run_eval(
     logger.info(f"Loading model template from {model_name}")
     template = ModelTemplate.from_directory_or_github_url(
         model_name,
-        base_working_dir=CHAP_RUNS_DIR,
+        base_working_dir=run_config.runs_dir or CHAP_RUNS_DIR,
         ignore_env=run_config.ignore_environment,
         run_dir_type=run_config.run_directory_type,
         is_chapkit_model=run_config.is_chapkit_model,
@@ -326,6 +329,7 @@ def _run_eval(
         )
 
         logger.info(f"Exporting evaluation to {output_file}")
+        output_file.parent.mkdir(parents=True, exist_ok=True)
         evaluation.to_file(
             filepath=output_file,
             model_name=model_name,
