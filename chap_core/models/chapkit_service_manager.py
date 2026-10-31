@@ -12,6 +12,7 @@ import socket
 import subprocess
 import threading
 import time
+import uuid
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -385,7 +386,9 @@ class DockerChapkitServiceManager(ChapkitServiceManager):
 
     def _launch_command(self) -> list[str]:
         name = re.sub(r"[^a-zA-Z0-9_.-]+", "-", self.image.rsplit("/", 1)[-1])
-        self._container = f"chap-{name}-{self.port}"
+        # Unique per launch: two launches can pick the same free port, and removing the losing
+        # launch's container by name must not remove the winning one.
+        self._container = f"chap-{name}-{self.port}-{uuid.uuid4().hex[:8]}"
         platform = ["--platform", self._platform] if self._platform else []
         return [
             "docker",

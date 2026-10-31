@@ -98,6 +98,13 @@ def test_command_line_overrides_project_values_field_by_field(chap_project, monk
     assert arguments["run_config"].runs_dir == chap_project / ".chap" / "runs"
 
 
+def test_runs_started_in_the_same_second_get_different_output_files(chap_project, monkeypatch):
+    monkeypatch.chdir(chap_project)
+    first, second = parse("eval")[1]["output_file"], parse("eval")[1]["output_file"]
+    assert first != second
+    assert first.name.startswith("seasonal_median-")
+
+
 def test_command_section_overrides_shared_keys(chap_project, monkeypatch):
     edit_project_file(chap_project, historical_context_years=2)
     monkeypatch.chdir(chap_project)

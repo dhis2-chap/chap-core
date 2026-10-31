@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import re
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -163,7 +164,8 @@ def project_values(
     if commands == ("eval",):
         if "output_file" not in values:
             model = _given(arguments, "model_name") or str(values.get("model_name", "model"))
-            stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            # The random part keeps two runs started in the same second from writing the same file.
+            stamp = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
             values["output_file"] = str(project.output_dir / f"{model_label(model)}-{stamp}.nc")
             sources["output_file"] = f"{OUTPUT_DIR}/"
         run_config = values.get("run_config")
