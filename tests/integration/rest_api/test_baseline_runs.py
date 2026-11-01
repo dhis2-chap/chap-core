@@ -140,7 +140,8 @@ def test_a_new_baseline_version_is_queued_on_an_existing_specification(
 ):
     with SessionWrapper(p_seeded_engine) as session:
         request_baselines(session, specification_id, "db-url")
-        spec = dataclasses.replace(get_builtin_model("global_median").spec, version="2")
+        current = get_builtin_model("global_median").spec
+        spec = dataclasses.replace(current, version=str(int(current.version) + 1))
         template_id = session.add_model_template_from_yaml_config(builtin_template_config(spec))
         session.get_model_template(template_id).role = spec.role
         model_id = session.add_configured_model(

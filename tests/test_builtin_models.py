@@ -15,6 +15,7 @@ from chap_core.datatypes import FullData
 from chap_core.external.ExtendedPredictor import ExtendedPredictor
 from chap_core.file_io.example_data_set import datasets
 from chap_core.models.builtin import (
+    BaselineNotApplicable,
     BuiltinModelTemplate,
     builtin_model,
     get_builtin_model,
@@ -52,7 +53,8 @@ def test_unknown_builtin_url_fails():
 
 
 def test_builtin_url_resolves_the_registered_version_only():
-    assert ModelTemplate.from_directory_or_github_url("builtin:global_median@1").name == "global_median"
+    version = get_builtin_model("global_median").spec.version
+    assert ModelTemplate.from_directory_or_github_url(f"builtin:global_median@{version}").name == "global_median"
     with pytest.raises(ValueError, match="version '0' cannot be run"):
         ModelTemplate.from_directory_or_github_url("builtin:global_median@0")
 
@@ -208,6 +210,39 @@ def test_baseline_fixed_output(name, expected, weekly_split):
     assert samples.shape == (4, 100)
     # Lowest, the two middle and highest sample of each future week.
     np.testing.assert_allclose(samples[:, [0, 49, 50, 99]], expected, atol=1e-4)
+
+
+def _other_locations_median(train, location):
+    return np.median([np.nanmedian(train[other].disease_cases) for other in train.keys() if other != location])
+
+
+def test_global_median_uses_other_locations_for_an_unseen_location(weekly_split):
+    train, historic, future = weekly_split
+    others = [location for location in train.keys() if location != "boaco"]
+
+    samples = _forecast("global_median", train.filter_locations(others), historic, future)["boaco"].samples
+
+    assert np.all(samples[:, 49] == _other_locations_median(train, "boaco"))
+    assert np.all(np.diff(samples, axis=1) >= 0)
+
+
+def test_global_median_uses_other_locations_for_a_location_without_observations(weekly_split):
+    train, historic, future = weekly_split
+    df = train.to_pandas()
+    df.loc[df.location == "boaco", "disease_cases"] = np.nan
+    unobserved = SpatioTemporalDataSet.from_pandas(df, FullData)
+
+    samples = _forecast("global_median", unobserved, historic, future)["boaco"].samples
+
+    assert np.all(samples[:, 49] == _other_locations_median(train, "boaco"))
+
+
+def test_global_median_is_not_applicable_without_any_observations(weekly_split):
+    train, historic, future = weekly_split
+    df = train.to_pandas()
+    df["disease_cases"] = np.nan
+    with pytest.raises(BaselineNotApplicable, match="any location"):
+        _forecast("global_median", SpatioTemporalDataSet.from_pandas(df, FullData), historic, future)
 
 
 def test_seasonal_median_is_the_median_of_the_same_week(weekly_split):

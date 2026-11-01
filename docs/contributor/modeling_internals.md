@@ -86,6 +86,7 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
   `tests/test_builtin_models.py` runs each one through all of these paths. The
   baselines, all with role `baseline` and all per location:
   - `global_median`: all past observations as forecast samples for every period.
+    A location without observations gets the median of the other locations' samples.
   - `seasonal_median`: all past observations of the same month or week of the
     year (week 53 pooled with week 52). Fails if a forecast period of the year was
     never observed.
