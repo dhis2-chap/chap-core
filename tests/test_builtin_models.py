@@ -255,12 +255,25 @@ def test_seasonal_median_is_the_median_of_the_same_week(weekly_split):
             assert median == np.nanmedian(same_week)
 
 
-def test_seasonal_median_fails_for_an_unobserved_period_of_year(weekly_full_data):
+def test_seasonal_median_uses_the_global_median_for_an_unobserved_period_of_year(weekly_full_data):
     periods = weekly_full_data.period_range
     short_train = weekly_full_data.restrict_time_period(slice(periods[0], periods[9]))
     future = weekly_full_data.restrict_time_period(slice(periods[20], periods[22]))
-    with pytest.raises(ValueError, match="needs every forecast period of the year observed"):
-        _forecast("seasonal_median", short_train, short_train, future)
+
+    seasonal = _forecast("seasonal_median", short_train, short_train, future)
+    global_median = _forecast("global_median", short_train, short_train, future)
+
+    for location, samples in seasonal.items():
+        np.testing.assert_array_equal(samples.samples, global_median[location].samples)
+
+
+def test_seasonal_median_uses_other_locations_for_an_unseen_location(weekly_split):
+    train, historic, future = weekly_split
+    others = [location for location in train.keys() if location != "boaco"]
+
+    samples = _forecast("seasonal_median", train.filter_locations(others), historic, future)["boaco"].samples
+
+    assert np.all(samples[:, 49] == _other_locations_median(train, "boaco"))
 
 
 def test_persistence_scales_the_last_historic_value(weekly_split):

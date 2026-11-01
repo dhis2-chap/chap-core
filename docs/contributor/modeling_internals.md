@@ -88,8 +88,8 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
   - `global_median`: all past observations as forecast samples for every period.
     A location without observations gets the median of the other locations' samples.
   - `seasonal_median`: all past observations of the same month or week of the
-    year (week 53 pooled with week 52). Fails if a forecast period of the year was
-    never observed.
+    year (week 53 pooled with week 52). Uses the `global_median` samples for a
+    period of the year that was never observed for the location.
   - `persistence`: the last observed value, scaled by the changes over the same
     horizon and time of year in earlier years, so the spread widens with horizon.
 
