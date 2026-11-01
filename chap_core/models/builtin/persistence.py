@@ -1,14 +1,69 @@
+from collections import defaultdict
+from collections.abc import Iterable
+from dataclasses import dataclass
+
 import numpy as np
 
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.datatypes import Samples
-from chap_core.models.builtin.empirical import period_of_year, quantile_samples
+from chap_core.models.builtin.empirical import period_of_year, periods_per_year, quantile_samples
 from chap_core.models.builtin.registry import BaselineNotApplicable, BuiltinModel, BuiltinModelSpec, builtin_model
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
+@dataclass(frozen=True)
+class SeasonalShifts:
+    """Ratios ``(y_t + 1) / (y_{t-h} + 1)`` by horizon ``h`` and the period of year of ``t``."""
+
+    by_horizon: dict[int, dict[int, np.ndarray]]
+
+    @classmethod
+    def from_cases(cls, cases: np.ndarray, seasons: np.ndarray, max_horizon: int) -> "SeasonalShifts":
+        by_horizon = {}
+        for horizon in range(1, min(max_horizon, len(cases) - 1) + 1):
+            ratios = (cases[horizon:] + 1) / (cases[:-horizon] + 1)
+            target_seasons = seasons[horizon:]
+            finite = np.isfinite(ratios)
+            by_horizon[horizon] = {
+                int(season): ratios[finite & (target_seasons == season)] for season in np.unique(target_seasons[finite])
+            }
+        return cls(by_horizon)
+
+    @classmethod
+    def pooled(cls, shifts: Iterable["SeasonalShifts"]) -> "SeasonalShifts":
+        """The ratios of all the given shifts together."""
+        collected: dict[int, dict[int, list[np.ndarray]]] = defaultdict(lambda: defaultdict(list))
+        for location_shifts in shifts:
+            for horizon, by_season in location_shifts.by_horizon.items():
+                for season, ratios in by_season.items():
+                    collected[horizon][season].append(ratios)
+        return cls(
+            {
+                horizon: {season: np.concatenate(ratios) for season, ratios in by_season.items()}
+                for horizon, by_season in collected.items()
+            }
+        )
+
+    def ratios(self, season: int, horizon: int) -> np.ndarray | None:
+        """The ratios ending in the period of year, else in the nearest ones earlier and later in the year.
+
+        Without ratios both earlier and later in the year, the ratios of every period of year
+        are used. None when there are no ratios for the horizon.
+        """
+        by_season = self.by_horizon.get(horizon, {})
+        if not by_season:
+            return None
+        if season in by_season:
+            return by_season[season]
+        earlier = [other for other in by_season if other < season]
+        later = [other for other in by_season if other > season]
+        if earlier and later:
+            return np.concatenate([by_season[max(earlier)], by_season[min(later)]])
+        return np.concatenate(list(by_season.values()))
+
+
 @builtin_model()
-class Persistence(BuiltinModel):
+class SeasonalShiftPersistence(BuiltinModel):
     """Forecasts the last observed value, scaled by how cases changed in earlier years.
 
     For a target ``h`` periods after the last observed value ``y``, the samples are
@@ -17,39 +72,44 @@ class Persistence(BuiltinModel):
     ratios are quantile samples, so the median is ``y`` scaled by the median ratio, and
     the spread widens with the horizon. Adding one keeps zero counts usable. Week 53 is
     pooled with week 52.
+
+    Training keeps the ratios for horizons up to one year. Missing ratios fall back to
+    those of the nearest periods of year (see ``SeasonalShifts.ratios``), then to those of
+    all locations, and without any ratio the last value is forecast unchanged. A location
+    without an observed value in the historic data has no value to persist, so it is not
+    applicable.
     """
 
     spec = BuiltinModelSpec(
         name="persistence",
-        display_name="Persistence",
+        display_name="Seasonal shift persistence",
         description=(
             "Baseline that forecasts the last observed value for the same location, scaled by how cases "
             "changed over the same horizon and time of year in the training data."
         ),
-        version="1",
+        version="2",
         role=ModelTemplateRole.baseline,
     )
 
-    def __init__(self):
-        self._history: dict[str, tuple[np.ndarray, np.ndarray]] = {}
-
     def train(self, data: DataSet) -> None:
-        for location, location_data in data.items():
-            cases = np.asarray(location_data.disease_cases, dtype=float)
-            self._history[location] = (cases, period_of_year(location_data.time_period))
+        max_horizon = periods_per_year(data.period_range)
+        self._shifts = {
+            location: SeasonalShifts.from_cases(
+                np.asarray(location_data.disease_cases, dtype=float),
+                period_of_year(location_data.time_period),
+                max_horizon,
+            )
+            for location, location_data in data.items()
+        }
+        self._pooled_shifts = SeasonalShifts.pooled(self._shifts.values())
 
     def _ratios(self, location: str, season: int, horizon: int) -> np.ndarray:
-        if location not in self._history:
-            raise BaselineNotApplicable(f"No training data for location {location!r}")
-        cases, seasons = self._history[location]
-        ratios = (cases[horizon:] + 1) / (cases[:-horizon] + 1)
-        ratios = ratios[(seasons[horizon:] == season) & np.isfinite(ratios)]
-        if len(ratios) == 0:
-            raise BaselineNotApplicable(
-                f"No pair of observations {horizon} periods apart ending in period of year {season} for location "
-                f"{location!r} in the training data. Persistence needs one to estimate the spread."
-            )
-        return np.asarray(ratios)
+        """The ratios of the location, else of all locations, else 1."""
+        location_shifts = self._shifts.get(location)
+        ratios = location_shifts.ratios(season, horizon) if location_shifts is not None else None
+        if ratios is None:
+            ratios = self._pooled_shifts.ratios(season, horizon)
+        return np.ones(1) if ratios is None else ratios
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         forecasts = {}

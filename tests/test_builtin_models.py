@@ -21,6 +21,8 @@ from chap_core.models.builtin import (
     get_builtin_model,
     get_builtin_models,
 )
+from chap_core.models.builtin.empirical import period_of_year, quantile_samples
+from chap_core.models.builtin.persistence import SeasonalShifts
 from chap_core.models.model_template import ModelTemplate
 from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.rest_api.db_worker_functions import run_backtest, run_prediction
@@ -289,9 +291,69 @@ def test_persistence_scales_the_last_historic_value(weekly_split):
     np.testing.assert_allclose(doubled_median + 1, (median + 1) * (2 * last_value + 1) / (last_value + 1))
 
 
-def test_persistence_fails_without_earlier_changes_to_learn_from(weekly_full_data):
+def test_persistence_forecasts_with_less_than_a_year_of_history(weekly_full_data):
     periods = weekly_full_data.period_range
     short_train = weekly_full_data.restrict_time_period(slice(periods[0], periods[9]))
     future = weekly_full_data.restrict_time_period(slice(periods[10], periods[11]))
-    with pytest.raises(ValueError, match="Persistence needs one to estimate the spread"):
-        _forecast("persistence", short_train, short_train, future)
+
+    forecasts = _forecast("persistence", short_train, short_train, future)
+
+    assert set(forecasts.keys()) == set(future.keys())
+    assert all(np.all(np.isfinite(samples.samples)) for samples in forecasts.values())
+
+
+def test_persistence_uses_the_ratios_of_all_locations_for_an_unseen_location(weekly_split):
+    train, historic, future = weekly_split
+    others = train.filter_locations([location for location in train.keys() if location != "boaco"])
+    pooled = SeasonalShifts.pooled(
+        SeasonalShifts.from_cases(np.asarray(data.disease_cases, dtype=float), period_of_year(data.time_period), 52)
+        for data in others.values()
+    )
+
+    samples = _forecast("persistence", others, historic, future)["boaco"].samples
+
+    last_value = historic["boaco"].disease_cases[-1]
+    first_week = period_of_year(future["boaco"].time_period)[0]
+    expected = np.maximum((last_value + 1) * quantile_samples(pooled.ratios(first_week, 1)) - 1, 0)
+    np.testing.assert_allclose(samples[0], expected)
+
+
+def test_persistence_forecasts_the_last_value_without_any_ratios(weekly_full_data):
+    periods = weekly_full_data.period_range
+    single_period = weekly_full_data.restrict_time_period(slice(periods[0], periods[0]))
+    future = weekly_full_data.restrict_time_period(slice(periods[1], periods[2]))
+
+    forecasts = _forecast("persistence", single_period, single_period, future)
+
+    for location, samples in forecasts.items():
+        assert np.all(samples.samples == single_period[location].disease_cases[-1])
+
+
+def test_persistence_is_not_applicable_without_a_historic_value(weekly_split):
+    train, historic, future = weekly_split
+    df = historic.to_pandas()
+    df.loc[df.location == "boaco", "disease_cases"] = np.nan
+    with pytest.raises(BaselineNotApplicable, match="boaco"):
+        _forecast("persistence", train, SpatioTemporalDataSet.from_pandas(df, FullData), future)
+
+
+SHIFTS = SeasonalShifts({1: {2: np.array([1.0, 3.0]), 3: np.array([2.0]), 5: np.array([4.0]), 8: np.array([6.0])}})
+
+
+@pytest.mark.parametrize(
+    ("season", "expected"),
+    [
+        (3, [2.0]),
+        (4, [2.0, 4.0]),
+        (6, [4.0, 6.0]),
+        (1, [1.0, 3.0, 2.0, 4.0, 6.0]),
+        (9, [1.0, 3.0, 2.0, 4.0, 6.0]),
+    ],
+    ids=["observed", "one-missing", "several-missing", "nothing-earlier", "nothing-later"],
+)
+def test_seasonal_shifts_fall_back_to_the_nearest_periods_of_year(season, expected):
+    np.testing.assert_array_equal(SHIFTS.ratios(season, horizon=1), expected)
+
+
+def test_seasonal_shifts_have_no_ratios_for_an_unseen_horizon():
+    assert SHIFTS.ratios(3, horizon=2) is None

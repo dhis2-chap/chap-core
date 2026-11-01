@@ -90,8 +90,11 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
   - `seasonal_median`: all past observations of the same month or week of the
     year (week 53 pooled with week 52). Uses the `global_median` samples for a
     period of the year that was never observed for the location.
-  - `persistence`: the last observed value, scaled by the changes over the same
-    horizon and time of year in earlier years, so the spread widens with horizon.
+  - `persistence` (`SeasonalShiftPersistence`): the last observed value, scaled by
+    the changes over the same horizon and time of year in earlier years, so the
+    spread widens with horizon. Training keeps these changes for horizons up to one
+    year. Missing changes fall back to those of the nearest periods of the year, then
+    of all locations, and without any the last value is forecast unchanged.
 
   All three use deterministic quantile samples whose two middle values are both
   the median, so the sample median is exactly the point forecast.
