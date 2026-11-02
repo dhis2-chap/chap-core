@@ -10,6 +10,7 @@ import logging
 from typing import TYPE_CHECKING
 
 import numpy as np
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from chap_core.database.alert_tables import Alert, AlertApproval, AlertPolicy
@@ -109,7 +110,8 @@ def create_alerts(session: Session, alerts: Sequence[Alert]) -> list[Alert]:
     Raises:
         InvalidAlertError: unknown policy, a level the policy does not define, an
             unknown prediction, or a second alert for the same prediction, org unit
-            and period.
+            and period. A concurrent request can pass these checks first, so the
+            database has the last word and the whole batch is rolled back.
     """
     if not alerts:
         return []
@@ -139,7 +141,11 @@ def create_alerts(session: Session, alerts: Sequence[Alert]) -> list[Alert]:
     for alert in alerts:
         alert.created = now
         session.add(alert)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError as e:
+        session.rollback()
+        raise InvalidAlertError("The alerts conflict with a change made at the same time; none were recorded") from e
     for alert in alerts:
         session.refresh(alert)
     return list(alerts)
