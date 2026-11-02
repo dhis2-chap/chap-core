@@ -22,7 +22,7 @@ from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
 from ..models.external_chapkit_model import ExternalChapkitModelTemplate
-from .dataset_tables import Observation
+from .dataset_tables import DataSet, Observation
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import (
     ConfiguredModelDB,
@@ -659,7 +659,8 @@ class SessionWrapper:
         return prediction.id
 
     def _upsert_prediction_setup_observations(self, prediction_setup_id: int, dataset_id: int) -> None:
-        """Record the dataset's disease cases against the setup, overwriting values from earlier runs."""
+        """Record the dataset's target values against the setup, overwriting values from earlier runs."""
+        target_column = self.session.exec(select(DataSet.target_column).where(DataSet.id == dataset_id)).one()
         existing = {
             (row.org_unit, row.period): row
             for row in self.session.exec(
@@ -671,7 +672,7 @@ class SessionWrapper:
         observations = self.session.exec(
             select(Observation).where(
                 Observation.dataset_id == dataset_id,
-                Observation.feature_name == "disease_cases",
+                Observation.feature_name == target_column,
                 col(Observation.value).is_not(None),
             )
         )

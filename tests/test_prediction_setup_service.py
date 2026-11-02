@@ -473,3 +473,47 @@ def test_session_wrapper_add_predictions_keeps_prediction_when_concurrent_run_in
         assert session.get(Prediction, prediction_id) is not None
         rows = session.exec(select(PredictionSetupObservation)).all()
         assert [(row.org_unit, row.period, row.disease_cases) for row in rows] == [("loc_1", "2024-01", 5.0)]
+
+
+def test_session_wrapper_add_predictions_records_the_dataset_target_column(engine):
+    """A setup whose dataset targets another column records that column, not disease_cases."""
+    from types import SimpleNamespace
+
+    import numpy as np
+
+    from chap_core.database.database import SessionWrapper
+
+    with Session(engine) as session:
+        backtest_id, configured_model_id, _ = _make_parents(session)
+        setup = _create_default_setup(session, backtest_id)
+        assert setup.id is not None
+        setup_id = setup.id
+        dataset = DataSet(
+            name="confirmed cases",
+            target_column="confirmed_cases",
+            observations=[
+                Observation(org_unit="loc_1", period="2024-01", feature_name="disease_cases", value=1.0),
+                Observation(org_unit="loc_1", period="2024-01", feature_name="confirmed_cases", value=7.0),
+            ],
+        )
+        session.add(dataset)
+        session.commit()
+        dataset_id = dataset.id
+
+    class _Forecast:
+        def __init__(self, periods, samples):
+            self.time_period = periods
+            self.samples = samples
+
+        def __len__(self):
+            return len(self.time_period)
+
+    predictions = {"loc_1": _Forecast([SimpleNamespace(id="2024-02")], [np.array([1.0, 2.0, 3.0])])}
+    with SessionWrapper(engine) as wrapper:
+        wrapper.add_predictions(
+            predictions, dataset_id, "cfg", "run", configured_model_id, prediction_setup_id=setup_id
+        )
+
+    with Session(engine) as session:
+        rows = session.exec(select(PredictionSetupObservation)).all()
+        assert [(row.org_unit, row.period, row.disease_cases) for row in rows] == [("loc_1", "2024-01", 7.0)]
