@@ -100,14 +100,18 @@ def _use_as_disease_cases(dataset: DataSet, column: str) -> DataSet:
     )
 
 
-def load_masked_dataset(session: Session, dataset_id: int, target_column: str = "disease_cases") -> DataSet:
-    """Load a stored dataset for a run, with `disease_cases` masked in the dataset's masked ranges."""
+def load_masked_dataset(session: Session, dataset_id: int, target_column: str | None = None) -> tuple[DataSet, str]:
+    """Load a stored dataset for a run, with `disease_cases` masked in its masked ranges, and its target.
+
+    The target is the one saved on the dataset unless `target_column` overrides it.
+    """
     manager = DataSetManager(session)
     stored = manager.find_by_id(dataset_id)
     if stored is None:
         raise ValueError(f"Dataset with id {dataset_id} not found")
+    target_column = target_column or stored.target_column
     check_target_column_allows_masking(stored.masked_ranges, target_column)
-    return manager.to_dataset(dataset_id).apply_masked_ranges(stored.masked_ranges)
+    return manager.to_dataset(dataset_id).apply_masked_ranges(stored.masked_ranges), target_column
 
 
 def check_backtest_on_masked_dataset(
@@ -116,13 +120,12 @@ def check_backtest_on_masked_dataset(
     n_periods: int | None,
     n_splits: int,
     stride: int,
-    target_column: str = "disease_cases",
 ) -> None:
     """Raise before queueing if a backtest on a masked dataset cannot run.
 
     Without `n_periods`, the default `run_backtest` would pick is used.
     """
-    dataset = load_masked_dataset(session, dataset_id, target_column)
+    dataset, _ = load_masked_dataset(session, dataset_id)
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
     check_mask_outside_evaluation_window(dataset, n_periods, n_splits, stride)
@@ -137,7 +140,7 @@ def run_backtest(
     n_retrain: int = _DEFAULT_PARAMS.n_retrain,
     session: SessionWrapper | None = None,
     future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
-    target_column: str = "disease_cases",
+    target_column: str | None = None,
     baseline_database_url: str | None = None,
 ):
     """Run and store a backtest, and return its id.
@@ -150,7 +153,7 @@ def run_backtest(
     assert session is not None, "session is required"
     status_logger.info(f"Starting backtest for model '{info.model_id}' on dataset ID {info.dataset_id}")
 
-    dataset = load_masked_dataset(session.session, info.dataset_id, target_column)
+    dataset, target_column = load_masked_dataset(session.session, info.dataset_id, target_column)
 
     configured_model = session.get_configured_model_by_id_or_name(info.model_id)
     # Normalise back to the name string so any downstream code that still
@@ -277,7 +280,6 @@ def run_prediction(
     prediction_setup_id: int | None = None,
     configured_model_id: int | None = None,
     future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
-    target_column: str = "disease_cases",
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     status_logger.info(f"Starting prediction for model '{model_id}' on dataset ID {dataset_id}")
@@ -288,7 +290,7 @@ def run_prediction(
             select(PredictionSetup.alert_policy_id).where(PredictionSetup.id == prediction_setup_id)
         ).one()
 
-    dataset = load_masked_dataset(session.session, int(dataset_id), target_column)
+    dataset, target_column = load_masked_dataset(session.session, int(dataset_id))
     dataset = _use_as_disease_cases(dataset, target_column)
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
@@ -325,12 +327,13 @@ def harmonize_and_add_health_dataset(
     session: SessionWrapper,
     worker_config: WorkerConfig = WorkerConfig(),
     masked_ranges: list[MaskedRange] | None = None,
+    target_column: str = "disease_cases",
 ) -> int:
     status_logger.info(f"Processing and adding dataset '{name}'")
     dataset_obj = InMemoryDataSet.from_dict(health_dataset, HealthPopulationData)  # type: ignore[arg-type]
     dataset = harmonize_health_dataset(dataset_obj, usecwd_for_credentials=False, worker_config=worker_config)
     db_id: int = DataSetManager(session.session).save_dataset(
-        DataSetCreateInfo(name=name, masked_ranges=masked_ranges or []),
+        DataSetCreateInfo(name=name, masked_ranges=masked_ranges or [], target_column=target_column),
         dataset,
         polygons=dataset_obj.polygons.model_dump_json(),
         created_manually=True,
@@ -350,6 +353,7 @@ def harmonize_and_add_dataset(
     worker_config: WorkerConfig = WorkerConfig(),
     data_sources: list[DataSource] | None = None,
     masked_ranges: list[MaskedRange] | None = None,
+    target_column: str = "disease_cases",
 ) -> int:
     status_logger.info(f"Processing and adding dataset '{name}' of type '{ds_type}'")
     provided_dataclass = create_tsdataclass(provided_field_names)
@@ -361,7 +365,11 @@ def harmonize_and_add_dataset(
     else:
         full_dataset = dataset_obj
     info = DataSetCreateInfo(
-        name=name, type=ds_type, data_sources=data_sources or [], masked_ranges=masked_ranges or []
+        name=name,
+        type=ds_type,
+        data_sources=data_sources or [],
+        masked_ranges=masked_ranges or [],
+        target_column=target_column,
     )
     db_id: int = DataSetManager(session.session).save_dataset(
         info, full_dataset, polygons=dataset_obj.polygons.model_dump_json(), created_manually=True
@@ -388,7 +396,6 @@ def predict_pipeline_from_composite_dataset(
     worker_config: WorkerConfig = WorkerConfig(),
     prediction_setup_id: int | None = None,
     configured_model_id: int | None = None,
-    target_column: str = "disease_cases",
 ) -> int:
     """
     This is the main pipeline function to run prediction from a dataset.
@@ -409,7 +416,6 @@ def predict_pipeline_from_composite_dataset(
         prediction_setup_id=prediction_setup_id,
         configured_model_id=configured_model_id,
         future_weather_provider=prediction_params.future_weather_provider,
-        target_column=target_column,
     )
     return result
 
