@@ -414,3 +414,62 @@ def test_session_wrapper_add_predictions_upserts_setup_observations(engine):
         assert [(row.prediction_setup_id, row.org_unit, row.period, row.disease_cases) for row in rows] == [
             (setup_id, "loc_1", "2024-01", 2.0)
         ]
+
+
+def test_session_wrapper_add_predictions_keeps_prediction_when_concurrent_run_inserts_observations(file_engine):
+    """A concurrent run inserting the same observation rows first must not fail the prediction."""
+    from types import SimpleNamespace
+
+    import numpy as np
+    from sqlalchemy import event
+
+    from chap_core.database.database import SessionWrapper
+
+    with Session(file_engine) as session:
+        backtest_id, configured_model_id, _ = _make_parents(session)
+        setup = _create_default_setup(session, backtest_id)
+        assert setup.id is not None
+        setup_id = setup.id
+        dataset = DataSet(
+            name="run",
+            observations=[Observation(org_unit="loc_1", period="2024-01", feature_name="disease_cases", value=5.0)],
+        )
+        session.add(dataset)
+        session.commit()
+        dataset_id = dataset.id
+
+    class _Forecast:
+        def __init__(self, periods, samples):
+            self.time_period = periods
+            self.samples = samples
+
+        def __len__(self):
+            return len(self.time_period)
+
+    predictions = {"loc_1": _Forecast([SimpleNamespace(id="2024-02")], [np.array([1.0, 2.0, 3.0])])}
+    with SessionWrapper(file_engine) as wrapper:
+        concurrent_run_done = False
+
+        def insert_from_concurrent_run(session, _flush_context, _instances):
+            nonlocal concurrent_run_done
+            if concurrent_run_done or not any(isinstance(obj, PredictionSetupObservation) for obj in session.new):
+                return
+            concurrent_run_done = True
+            with Session(file_engine) as other:
+                other.add(
+                    PredictionSetupObservation(
+                        prediction_setup_id=setup_id, org_unit="loc_1", period="2024-01", disease_cases=1.0
+                    )
+                )
+                other.commit()
+
+        event.listen(wrapper.session, "before_flush", insert_from_concurrent_run)
+        prediction_id = wrapper.add_predictions(
+            predictions, dataset_id, "cfg", "run", configured_model_id, prediction_setup_id=setup_id
+        )
+
+    assert concurrent_run_done
+    with Session(file_engine) as session:
+        assert session.get(Prediction, prediction_id) is not None
+        rows = session.exec(select(PredictionSetupObservation)).all()
+        assert [(row.org_unit, row.period, row.disease_cases) for row in rows] == [("loc_1", "2024-01", 5.0)]

@@ -397,6 +397,14 @@ def engine():
 
 
 @pytest.fixture
+def file_engine(tmp_path):
+    """A file-backed SQLite engine, so separate sessions get separate connections (e.g. to simulate concurrent runs)."""
+    eng = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    SQLModel.metadata.create_all(eng)
+    return eng
+
+
+@pytest.fixture
 def test_config():
     return WorkerConfig(is_test=True)
 

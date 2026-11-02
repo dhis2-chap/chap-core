@@ -646,9 +646,16 @@ class SessionWrapper:
             alert_policy_id=alert_policy_id,
         )
         self.session.add(prediction)
-        if prediction_setup_id is not None:
-            self._upsert_prediction_setup_observations(prediction_setup_id, dataset_id)
         self.session.commit()
+        if prediction_setup_id is not None:
+            try:
+                self._upsert_prediction_setup_observations(prediction_setup_id, dataset_id)
+                self.session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                # A concurrent run of the same setup inserted some of the rows first; they now exist, so retrying updates them.
+                self.session.rollback()
+                self._upsert_prediction_setup_observations(prediction_setup_id, dataset_id)
+                self.session.commit()
         return prediction.id
 
     def _upsert_prediction_setup_observations(self, prediction_setup_id: int, dataset_id: int) -> None:
