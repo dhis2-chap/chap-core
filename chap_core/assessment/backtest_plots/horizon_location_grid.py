@@ -14,7 +14,6 @@ from chap_core.assessment.backtest_plots.db_dimensions import HorizonDistanceDim
 from chap_core.assessment.backtest_plots.evaluation_plot import _compute_quantiles_from_forecasts
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 from chap_core.assessment.metrics.crps import CRPSLog1pMetric, CRPSMetric
-from chap_core.assessment.metrics.outbreak_detection import OutbreakAccuracyMetric
 from chap_core.assessment.metrics.winkler_score import WinklerScore10_90Log1pMetric, WinklerScore10_90Metric
 from chap_core.plotting.backtest_plot import clean_time
 
@@ -158,7 +157,6 @@ def _metric_instances(historical_observations: pd.DataFrame | None) -> list:
         CRPSLog1pMetric(historical_observations=historical_observations),
         WinklerScore10_90Metric(historical_observations=historical_observations),
         WinklerScore10_90Log1pMetric(historical_observations=historical_observations),
-        OutbreakAccuracyMetric(historical_observations=historical_observations),
     ]
 
 

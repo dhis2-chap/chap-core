@@ -1,6 +1,6 @@
 import logging
 import os
-import traceback
+import uuid
 
 # pandera imports geopandas, and with it pyproj, the first time a schema is built. In a
 # sync route that happens on a threadpool thread, and once pyproj has been imported off
@@ -85,16 +85,13 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """Catch all unhandled exceptions and log full traceback"""
-    logger.error(f"Unhandled exception on {request.method} {request.url.path}")
-    logger.error(f"Exception type: {type(exc).__name__}")
-    logger.error(f"Exception message: {exc!s}")
-    logger.error("Full traceback:")
-    logger.error(traceback.format_exc())
-
-    return JSONResponse(
-        status_code=500, content={"detail": "Internal server error", "error": str(exc), "type": type(exc).__name__}
+    """Log unhandled exceptions with a trace id and return only the trace id, so internals stay out of the response."""
+    trace_id = uuid.uuid4().hex
+    logger.error(
+        f"Unhandled exception on {request.method} {request.url.path} (trace_id={trace_id})",
+        exc_info=(type(exc), exc, exc.__traceback__),
     )
+    return JSONResponse(status_code=500, content={"detail": "Internal server error", "trace_id": trace_id})
 
 
 app.include_router(common_router)

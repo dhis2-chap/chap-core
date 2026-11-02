@@ -1,6 +1,6 @@
 [project]
 name = "chap_core"
-version = "2.6.0.dev0"
+version = "2.7.0.dev0"
 description = "Climate Health Analysis Platform (CHAP)"
 readme = "README.md"
 requires-python = ">=3.13,<3.15"
@@ -103,7 +103,11 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/dhis2/chap-core"
+Homepage = "https://chap.dhis2.org/"
+Documentation = "https://chap.dhis2.org/chap-modeling-platform/"
+Source = "https://github.com/dhis2-chap/chap-core"
+Issues = "https://github.com/dhis2-chap/chap-core/issues"
+Changelog = "https://github.com/dhis2-chap/chap-core/releases"
 
 [project.scripts]
 chap = "chap_core.cli:main"
