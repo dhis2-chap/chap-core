@@ -103,7 +103,11 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/dhis2/chap-core"
+Homepage = "https://chap.dhis2.org/"
+Documentation = "https://chap.dhis2.org/chap-modeling-platform/"
+Source = "https://github.com/dhis2-chap/chap-core"
+Issues = "https://github.com/dhis2-chap/chap-core/issues"
+Changelog = "https://github.com/dhis2-chap/chap-core/releases"
 
 [project.scripts]
 chap = "chap_core.cli:main"

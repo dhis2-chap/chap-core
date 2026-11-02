@@ -502,6 +502,12 @@ class PredictionBase(DBModel):
         nullable=True,
         description="Foreign key to the `PredictionSetup` that triggered the run, if any.",
     )
+    alert_policy_id: int | None = Field(
+        default=None,
+        foreign_key="alertpolicy.id",
+        ondelete="RESTRICT",
+        description="Alert policy captured when the run started; `None` means no policy was recorded.",
+    )
     model_id: str = Field(description="Name of the configured model that produced the prediction.")
     n_periods: int = Field(description="Number of periods the model was asked to forecast.")
     name: str = Field(description="Human-friendly name for the prediction run.")
@@ -540,6 +546,7 @@ class Prediction(PredictionBase, table=True):
         cascade_delete=True,
         sa_relationship_kwargs={"foreign_keys": "[Prediction.baseline_for_prediction_id]"},
     )
+    alert_policy: AlertPolicy | None = Relationship()
 
 
 class PredictionInfo(PredictionBase):
