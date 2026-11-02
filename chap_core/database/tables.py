@@ -12,7 +12,6 @@ from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, Relationship, col, or_, select
 
 from chap_core.api_types import BacktestParams
-from chap_core.database.alert_tables import AlertPolicy, AlertPolicyRead
 from chap_core.database.base_tables import DBModel, PeriodID, UtcDatetime, utc_now
 from chap_core.database.dataset_tables import DataSet, DataSetInfo, DataSource, PydanticListType
 from chap_core.database.model_templates_and_config_tables import (
@@ -21,6 +20,7 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateDB,
     ModelTemplateRole,
 )
+from chap_core.database.signal_tables import ThresholdPolicy, ThresholdPolicyRead
 
 
 class BackendSettings(DBModel, table=True):
@@ -334,13 +334,13 @@ class PredictionSetup(DBModel, table=True):
         sa_column=Column(PydanticListType(QuantileTarget)),
         description="Where to push each quantile of the predictive distribution.",
     )
-    alert_policy_id: int | None = Field(
+    threshold_policy_id: int | None = Field(
         default=None,
-        foreign_key="alertpolicy.id",
+        foreign_key="thresholdpolicy.id",
         ondelete="RESTRICT",
-        description="Foreign key to the `AlertPolicy` this setup raises alerts against; `None` means no alerting.",
+        description="Foreign key to the `ThresholdPolicy` this setup raises signals against; `None` means no signaling.",
     )
-    alert_policy: AlertPolicy | None = Relationship()
+    threshold_policy: ThresholdPolicy | None = Relationship()
     predictions: list["Prediction"] = Relationship(back_populates="prediction_setup")
     observations: list["PredictionSetupObservation"] = Relationship(cascade_delete=True)
 
@@ -392,8 +392,8 @@ class PredictionSetupRead(DBModel):
     quantile_targets: list[QuantileTarget] = Field(
         description="Where to push each quantile of the predictive distribution."
     )
-    alert_policy: AlertPolicyRead | None = Field(
-        default=None, description="Alert policy this setup raises alerts against; `None` means no alerting."
+    threshold_policy: ThresholdPolicyRead | None = Field(
+        default=None, description="Threshold policy this setup raises signals against; `None` means no signaling."
     )
 
 
@@ -502,11 +502,11 @@ class PredictionBase(DBModel):
         nullable=True,
         description="Foreign key to the `PredictionSetup` that triggered the run, if any.",
     )
-    alert_policy_id: int | None = Field(
+    threshold_policy_id: int | None = Field(
         default=None,
-        foreign_key="alertpolicy.id",
+        foreign_key="thresholdpolicy.id",
         ondelete="RESTRICT",
-        description="Alert policy captured when the run started; `None` means no policy was recorded.",
+        description="Threshold policy captured when the run started; `None` means no policy was recorded.",
     )
     model_id: str = Field(description="Name of the configured model that produced the prediction.")
     n_periods: int = Field(description="Number of periods the model was asked to forecast.")
@@ -546,7 +546,7 @@ class Prediction(PredictionBase, table=True):
         cascade_delete=True,
         sa_relationship_kwargs={"foreign_keys": "[Prediction.baseline_for_prediction_id]"},
     )
-    alert_policy: AlertPolicy | None = Relationship()
+    threshold_policy: ThresholdPolicy | None = Relationship()
 
 
 class PredictionInfo(PredictionBase):

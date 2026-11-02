@@ -11,12 +11,12 @@ from chap_core.assessment.outbreak_metrics.scoring import categories, label_cell
 
 
 @pytest.fixture
-def labelled(alert_history, alert_observations, alert_forecasts, alert_levels):
-    return label_cells(pd.concat([alert_history, alert_observations]), alert_forecasts, alert_levels)
+def labelled(signal_history, signal_observations, signal_forecasts, signal_levels):
+    return label_cells(pd.concat([signal_history, signal_observations]), signal_forecasts, signal_levels)
 
 
 def test_label_cells_judges_every_level(labelled):
-    by_cell = {(r.time_period, r.horizon_distance, r.level): (r.outbreak, r.alert) for r in labelled.itertuples()}
+    by_cell = {(r.time_period, r.horizon_distance, r.level): (r.outbreak, r.signal) for r in labelled.itertuples()}
     assert by_cell == {
         ("2023-06", 1, 0): (True, True),
         ("2023-06", 1, 1): (False, False),
@@ -27,17 +27,19 @@ def test_label_cells_judges_every_level(labelled):
     }
 
 
-def test_label_cells_drops_cells_without_a_threshold(alert_history, alert_observations, alert_forecasts, alert_levels):
-    july = alert_forecasts.assign(time_period="2023-07")
-    observations = pd.concat([alert_history, alert_observations])
-    labelled = label_cells(observations, pd.concat([alert_forecasts, july]), alert_levels)
+def test_label_cells_drops_cells_without_a_threshold(
+    signal_history, signal_observations, signal_forecasts, signal_levels
+):
+    july = signal_forecasts.assign(time_period="2023-07")
+    observations = pd.concat([signal_history, signal_observations])
+    labelled = label_cells(observations, pd.concat([signal_forecasts, july]), signal_levels)
     assert "2023-07" not in set(labelled["time_period"])
 
 
 def test_label_cells_computes_thresholds_from_the_history_before_each_split(
-    alert_history, alert_observations, alert_levels
+    signal_history, signal_observations, signal_levels
 ):
-    """The 2023-06 observation lifts the June mean, so a borderline forecast alerts for 2023 but not for 2024."""
+    """The 2023-06 observation lifts the June mean, so a borderline forecast signals for 2023 but not for 2024."""
     forecasts = pd.DataFrame(
         {
             "location": "A",
@@ -47,17 +49,17 @@ def test_label_cells_computes_thresholds_from_the_history_before_each_split(
             "forecast": 100.5,
         }
     )
-    labelled = label_cells(pd.concat([alert_history, alert_observations]), forecasts, alert_levels)
-    monitor = labelled[labelled["level"] == 0].set_index("time_period")["alert"]
-    assert monitor["2023-06"] and not monitor["2024-06"]
+    labelled = label_cells(pd.concat([signal_history, signal_observations]), forecasts, signal_levels)
+    level_1 = labelled[labelled["level"] == 0].set_index("time_period")["signal"]
+    assert level_1["2023-06"] and not level_1["2024-06"]
 
 
-def test_label_cells_returns_no_cells_without_an_observation_to_score(alert_history, alert_forecasts, alert_levels):
+def test_label_cells_returns_no_cells_without_an_observation_to_score(signal_history, signal_forecasts, signal_levels):
     """Thresholds exist for every forecast period, but nothing was observed in them."""
-    assert label_cells(alert_history, alert_forecasts, alert_levels).empty
+    assert label_cells(signal_history, signal_forecasts, signal_levels).empty
 
 
-def test_label_cells_orders_periods_in_time_not_as_strings(alert_levels):
+def test_label_cells_orders_periods_in_time_not_as_strings(signal_levels):
     """``2023W9`` sorts after ``2023W52`` as a string but comes before it in time, so it is in that split's history."""
     observations = pd.DataFrame(
         {
@@ -70,17 +72,17 @@ def test_label_cells_orders_periods_in_time_not_as_strings(alert_levels):
     forecasts = pd.DataFrame(
         {"location": "A", "time_period": "2024W9", "horizon_distance": 10, "sample": [0, 1, 2], "forecast": 110.0}
     )
-    labelled = label_cells(observations, forecasts, alert_levels)
-    monitor = labelled[labelled["level"] == 0].iloc[0]
-    assert monitor["outbreak"] and not monitor["alert"]
+    labelled = label_cells(observations, forecasts, signal_levels)
+    level_1 = labelled[labelled["level"] == 0].iloc[0]
+    assert level_1["outbreak"] and not level_1["signal"]
 
 
-def test_label_cells_names_the_split_a_strategy_rejects(alert_history, alert_levels):
+def test_label_cells_names_the_split_a_strategy_rejects(signal_history, signal_levels):
     weekly = pd.DataFrame(
         {"location": "A", "time_period": "2023W10", "horizon_distance": 1, "sample": [0], "forecast": 1.0}
     )
     with pytest.raises(ValueError, match="Split starting 2023-03-06"):
-        label_cells(alert_history, weekly, alert_levels)
+        label_cells(signal_history, weekly, signal_levels)
 
 
 def test_binary_metrics_from_confusion_counts():

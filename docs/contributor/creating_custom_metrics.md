@@ -157,10 +157,10 @@ proper scoring rules with an explicit direction. MAPE, for example, is rejected:
 minimised by systematically under-forecasting.
 
 Outbreak-detection metrics (sensitivity, PPV, kappa, ...) are not part of this registry.
-They score forecasts against an alert policy, live in
+They score forecasts against a threshold policy, live in
 `chap_core/assessment/outbreak_metrics/`, and are registered with
 `@binary_outbreak_metric` (a function of a `BinaryConfusion` with `tp`, `fp`, `fn`, `tn`) or
-`@categorical_outbreak_metric` (a function of the confusion matrix of alert levels).
+`@categorical_outbreak_metric` (a function of the confusion matrix of threshold levels).
 
 ### Comparing with a reference model
 

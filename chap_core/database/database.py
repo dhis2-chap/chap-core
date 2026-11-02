@@ -619,7 +619,7 @@ class SessionWrapper:
         metadata: dict | None = None,
         prediction_setup_id: int | None = None,
         baseline_for_prediction_id: int | None = None,
-        alert_policy_id: int | None = None,
+        threshold_policy_id: int | None = None,
     ):
         if metadata is None:
             metadata = {}
@@ -643,7 +643,7 @@ class SessionWrapper:
             model_db_id=configured_model_id,
             prediction_setup_id=prediction_setup_id,
             baseline_for_prediction_id=baseline_for_prediction_id,
-            alert_policy_id=alert_policy_id,
+            threshold_policy_id=threshold_policy_id,
         )
         self.session.add(prediction)
         self.session.commit()

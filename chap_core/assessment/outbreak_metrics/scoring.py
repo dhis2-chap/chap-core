@@ -1,10 +1,10 @@
-"""Score a backtest's forecasts against the levels of an alert policy.
+"""Score a backtest's forecasts against the levels of a threshold policy.
 
-Each level of an :class:`~chap_core.database.alert_tables.AlertPolicy` is judged as
+Each level of an :class:`~chap_core.database.signal_tables.ThresholdPolicy` is judged as
 its own binary classifier: a cell ``(location, time_period, horizon_distance)`` is an
 outbreak at that level when the observed cases exceed the level's threshold, and is
-alerted when the fraction of forecast samples above the threshold reaches the level's
-``exceedance_threshold``.
+signaled when the fraction of forecast samples above the threshold reaches the level's
+``alarm_threshold``.
 
 The levels together also split every cell into ordered categories -- ``0`` for no
 level, ``i + 1`` for the most severe level ``i`` breached -- so the policy can be judged
@@ -12,7 +12,7 @@ as a single ordinal classifier, ternary for a two-level policy.
 
 Thresholds are computed per split, from the observations before the split's first
 forecast period, so each cell is judged as a live run with that history would have
-judged it (see :func:`chap_core.services.alert_service.raise_alerts_for_prediction`)
+judged it (see :func:`chap_core.services.signal_service.raise_signals_for_prediction`)
 and a scored period never raises its own threshold.
 """
 
@@ -35,13 +35,13 @@ from chap_core.time_period import TimePeriod
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from chap_core.database.alert_tables import AlertLevel
+    from chap_core.database.signal_tables import ThresholdLevel
 
 _CELL = ["location", "time_period", "horizon_distance"]
 
 
-def label_cells(observations: pd.DataFrame, forecasts: pd.DataFrame, levels: list[AlertLevel]) -> pd.DataFrame:
-    """Label every scored cell as outbreak and alert at every level of a policy.
+def label_cells(observations: pd.DataFrame, forecasts: pd.DataFrame, levels: list[ThresholdLevel]) -> pd.DataFrame:
+    """Label every scored cell as outbreak and signal at every level of a policy.
 
     Args:
         observations: Observed cases, with columns ``[location, time_period, disease_cases]``.
@@ -53,7 +53,7 @@ def label_cells(observations: pd.DataFrame, forecasts: pd.DataFrame, levels: lis
 
     Returns:
         One row per ``(location, time_period, horizon_distance, level)`` with boolean
-        ``outbreak`` and ``alert`` columns. Cells without an observation, or without
+        ``outbreak`` and ``signal`` columns. Cells without an observation, or without
         a threshold at every level, are dropped, so every level is scored on the
         same cells.
 
@@ -61,7 +61,7 @@ def label_cells(observations: pd.DataFrame, forecasts: pd.DataFrame, levels: lis
         ValueError: If no threshold can be computed from the observations before any
             split, or a strategy rejects the history.
     """
-    exceedance = pd.Series([level.exceedance_threshold for level in levels], name="exceedance_threshold")
+    exceedance = pd.Series([level.alarm_threshold for level in levels], name="alarm_threshold")
 
     obs = observations[["location", "time_period", "disease_cases"]].dropna(subset=["disease_cases"])
     obs = obs.assign(time_period=obs["time_period"].astype(str))
@@ -77,8 +77,8 @@ def label_cells(observations: pd.DataFrame, forecasts: pd.DataFrame, levels: lis
     cells = cells[cells.groupby(_CELL)["level"].transform("nunique") == len(levels)]
     cells = cells.merge(exceedance, left_on="level", right_index=True)
     cells["outbreak"] = cells["disease_cases"] > cells["threshold"]
-    cells["alert"] = cells["exceeds"] >= cells["exceedance_threshold"]
-    return pd.DataFrame(cells[[*_CELL, "level", "outbreak", "alert"]]).reset_index(drop=True)
+    cells["signal"] = cells["exceeds"] >= cells["alarm_threshold"]
+    return pd.DataFrame(cells[[*_CELL, "level", "outbreak", "signal"]]).reset_index(drop=True)
 
 
 def _splits(forecasts: pd.DataFrame) -> pd.DataFrame:
@@ -105,7 +105,7 @@ def _period_start(period_id: str, back: int = 0) -> datetime:
     return start
 
 
-def _thresholds(observations: pd.DataFrame, cells: pd.DataFrame, levels: list[AlertLevel]) -> pd.DataFrame:
+def _thresholds(observations: pd.DataFrame, cells: pd.DataFrame, levels: list[ThresholdLevel]) -> pd.DataFrame:
     """Every level's threshold per ``(location, time_period, split)``, from the observations before each split.
 
     ``cells`` is the output of :func:`_splits`.
@@ -129,7 +129,9 @@ def _thresholds(observations: pd.DataFrame, cells: pd.DataFrame, levels: list[Al
     return pd.concat(frames, ignore_index=True)
 
 
-def _level_thresholds(historical_observations: pd.DataFrame, period_ids: list[str], level: AlertLevel) -> pd.DataFrame:
+def _level_thresholds(
+    historical_observations: pd.DataFrame, period_ids: list[str], level: ThresholdLevel
+) -> pd.DataFrame:
     """One level's threshold per ``(location, time_period)``, from its registered strategy."""
     strategy_cls = get_threshold_strategy(level.threshold_strategy)
     if strategy_cls is None:
@@ -146,7 +148,7 @@ def categories(labelled: pd.DataFrame) -> pd.DataFrame:
     """
     ranked = labelled.assign(
         observed=np.where(labelled["outbreak"], labelled["level"] + 1, 0),
-        predicted=np.where(labelled["alert"], labelled["level"] + 1, 0),
+        predicted=np.where(labelled["signal"], labelled["level"] + 1, 0),
     )
     return ranked.groupby(_CELL, as_index=False)[["observed", "predicted"]].max()
 
@@ -209,12 +211,12 @@ def _score_group(group: dict[str, Any], cells: pd.DataFrame, ranked: pd.DataFram
 
 def binary_confusion(cells: pd.DataFrame) -> BinaryConfusion:
     """Confusion counts of one level's labelled cells."""
-    outbreak, alert = cells["outbreak"], cells["alert"]
+    outbreak, signal = cells["outbreak"], cells["signal"]
     return BinaryConfusion(
-        tp=int((outbreak & alert).sum()),
-        fp=int((~outbreak & alert).sum()),
-        fn=int((outbreak & ~alert).sum()),
-        tn=int((~outbreak & ~alert).sum()),
+        tp=int((outbreak & signal).sum()),
+        fp=int((~outbreak & signal).sum()),
+        fn=int((outbreak & ~signal).sum()),
+        tn=int((~outbreak & ~signal).sum()),
     )
 
 

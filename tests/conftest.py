@@ -444,7 +444,7 @@ def make_row_df():
 
 
 @pytest.fixture
-def alert_prediction():
+def signal_prediction():
     """Stored forecast with two years of 10/20 cases: median 15 for each month."""
     import datetime
 
@@ -452,7 +452,7 @@ def alert_prediction():
     from sqlmodel import Session
 
     from chap_core.assessment.thresholds.params import PercentileParams
-    from chap_core.database.alert_tables import AlertLevel, AlertPolicy
+    from chap_core.database.signal_tables import ThresholdLevel, ThresholdPolicy
     from chap_core.database.database import SessionWrapper
     from chap_core.database.model_template_seed import seed_builtin_models
     from chap_core.database.dataset_tables import DataSet, Observation
@@ -473,9 +473,9 @@ def alert_prediction():
 
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
-        template = ModelTemplateDB(name="alert-model", version="1")
+        template = ModelTemplateDB(name="signal-model", version="1")
         dataset = DataSet(
-            name="alert-history",
+            name="signal-history",
             covariates=["disease_cases"],
             observations=[
                 Observation(period=f"{year}-{month:02d}", org_unit=location, value=value, feature_name="disease_cases")
@@ -484,26 +484,26 @@ def alert_prediction():
                 for month in range(1, 13)
             ],
         )
-        policy = AlertPolicy(
-            name="alert-policy",
+        policy = ThresholdPolicy(
+            name="threshold-policy",
             levels=[
-                AlertLevel(
-                    name="monitor",
+                ThresholdLevel(
+                    name="level_1",
                     output_code="1",
                     threshold_params=PercentileParams(type="percentile", quantile=0.5),
-                    exceedance_threshold=0.5,
+                    alarm_threshold=0.5,
                 ),
-                AlertLevel(
-                    name="action",
+                ThresholdLevel(
+                    name="level_2",
                     output_code="2",
                     threshold_params=PercentileParams(type="percentile", quantile=1.0),
-                    exceedance_threshold=0.75,
+                    alarm_threshold=0.75,
                 ),
             ],
         )
         session.add_all([template, dataset, policy])
         session.flush()
-        model = ConfiguredModelDB(name="alert-model", model_template_id=template.id)
+        model = ConfiguredModelDB(name="signal-model", model_template_id=template.id)
         session.add(model)
         session.flush()
         backtest = Backtest(
@@ -515,16 +515,16 @@ def alert_prediction():
         session.add(backtest)
         session.flush()
         setup = PredictionSetup(
-            name="alert-setup", backtest_id=backtest.id, configured_model_id=model.id, alert_policy=policy
+            name="signal-setup", backtest_id=backtest.id, configured_model_id=model.id, threshold_policy=policy
         )
         prediction = Prediction(
             dataset_id=dataset.id,
             model_id=model.name,
             model_db_id=model.id,
             prediction_setup=setup,
-            alert_policy_id=policy.id,
+            threshold_policy_id=policy.id,
             n_periods=2,
-            name="alert-prediction",
+            name="signal-prediction",
             created=datetime.datetime.now(),
             forecasts=[
                 PredictionSamplesEntry(org_unit="A", period="2024-01", values=[15.0, 16.0]),
@@ -538,3 +538,57 @@ def alert_prediction():
         seed_builtin_models(SessionWrapper(session=session))
         yield session, prediction
     engine.dispose()
+
+
+@pytest.fixture
+def legacy_signal_database(engine, signal_prediction):
+    """A pre-rename PostgreSQL database with all release states and linked forecasts."""
+    from alembic import command
+    from alembic.config import Config
+    import sqlalchemy as sa
+
+    from chap_core.database.signal_tables import Signal, SignalReleaseStatus
+
+    source, prediction = signal_prediction
+    policy = prediction.threshold_policy
+    # These are user-defined names in old deployments and must not be rewritten.
+    policy.levels = [
+        level.model_copy(update={"name": name})
+        for level, name in zip(policy.levels, ["monitor", "action"], strict=True)
+    ]
+    source.add(policy)
+    for forecast, status in zip(prediction.forecasts, SignalReleaseStatus, strict=True):
+        source.add(
+            Signal(
+                threshold_policy_id=policy.id,
+                prediction_id=prediction.id,
+                org_unit=forecast.org_unit,
+                time_period=forecast.period,
+                level=policy.levels[-1].name,
+                created=prediction.created,
+                release_status=status,
+                reviewed_by=None if status is SignalReleaseStatus.PENDING else "reviewer",
+                reviewed_at=None if status is SignalReleaseStatus.PENDING else prediction.created,
+            )
+        )
+    source.commit()
+
+    with engine.begin() as conn:
+        conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+        conn.execute(sa.text("CREATE SCHEMA public"))
+    SQLModel.metadata.create_all(engine)
+    with engine.begin() as conn:
+        for table in SQLModel.metadata.sorted_tables:
+            rows = source.execute(sa.select(table)).mappings().all()
+            if rows:
+                conn.execute(table.insert(), [dict(row) for row in rows])
+    tables = [SQLModel.metadata.tables[name] for name in ("signal", "thresholdpolicy", "prediction", "predictionsetup")]
+    with engine.connect() as conn:
+        expected = {
+            table.name: conn.execute(sa.select(table).order_by(table.c.id)).mappings().all() for table in tables
+        }
+    cfg = Config(str(Path(__file__).parent.parent / "alembic.ini"))
+    cfg.attributes["connection"] = engine
+    command.stamp(cfg, "head")
+    command.downgrade(cfg, "b64628109792")
+    return cfg, tables, expected
