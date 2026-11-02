@@ -79,6 +79,8 @@ from .dependencies import (
     get_settings_manager,
     model_job_metadata,
     reject_mask_indicator_input,
+    require_dataset_target,
+    require_target_column,
 )
 
 router = APIRouter(prefix="/analytics")
@@ -111,11 +113,14 @@ def make_dataset(
     ``/v1/jobs/{id}`` to know when the dataset is queryable. Pass ``dryRun=true`` to run
     validation only and get the rejection summary without queuing an import.
 
+    ``targetColumn`` selects the column to predict (default ``disease_cases``). It is
+    saved with the dataset and reused by its runs; a different target needs a new dataset.
+
     ``maskedRanges`` deletes data: ``disease_cases`` inside the ranges is stored as empty
     and the submitted values are not kept. They cannot be recovered or unmasked later.
     """
     feature_names, provided_data, rejections = _read_and_validate_dataset(request, dry_run)
-    check_masked_ranges_match(request.masked_ranges, provided_data)
+    check_masked_ranges_match(request.masked_ranges, provided_data, request.target_column)
     imported_count = len(list(provided_data.locations()))
     if dry_run:
         return ImportSummaryResponse(id=None, imported_count=imported_count, rejected=rejections)
@@ -130,6 +135,7 @@ def make_dataset(
         request.type,
         data_sources=request.data_sources,
         masked_ranges=request.masked_ranges,
+        target_column=request.target_column,
         database_url=database_url,
         worker_config=worker_settings,
         **{
@@ -165,7 +171,7 @@ def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataS
     """
     try:
         feature_names, provided_data = _read_dataset(request)
-        provided_data, rejections = validate_full_dataset(feature_names, provided_data)
+        provided_data, rejections = validate_full_dataset(feature_names, provided_data, request.target_column)
     except HTTPException as exc:
         if not dry_run or exc.status_code != 400:
             raise
@@ -190,6 +196,7 @@ def _read_dataset(request):
         raise HTTPException(status_code=400, detail="No observation data provided.")
     feature_names = list({entry.feature_name for entry in request.provided_data})
     reject_mask_indicator_input(feature_names)
+    require_target_column(request.target_column, feature_names)
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
@@ -200,12 +207,15 @@ def _read_dataset(request):
 def _find_locations_with_complete_covariates(
     dataset: DataSet, feature_names: list[str], target_name: str = "disease_cases"
 ) -> tuple[set[str], list[ValidationError]]:
-    """Identify locations that have no NaN values in covariate features."""
+    """Identify locations that have no NaN values in covariate features.
+
+    Neither the target nor `disease_cases` is a covariate: runs replace `disease_cases` with the target.
+    """
     locations_to_keep = set()
     rejected_list = []
     for location, data in dataset.items():
         for feature_name in feature_names:
-            if feature_name == target_name:
+            if feature_name in (target_name, "disease_cases"):
                 continue
             isnan = np.isnan(getattr(data, feature_name))
             if np.any(isnan):
@@ -485,13 +495,13 @@ def create_backtest(
 
     Runs asynchronously; you get a job id and poll ``/v1/jobs/{id}`` (or
     ``/v1/jobs/{id}/evaluation_result`` once finished) to find the resulting backtest.
-    404 if the referenced dataset does not exist; 422 if targetColumn is not a dataset column.
+    Uses the dataset's saved target. A supplied targetColumn must match it, otherwise returns 422.
+    Returns 404 if the referenced dataset does not exist.
     """
     stored_dataset = session.get(DataSetTable, request.dataset_id)
     if stored_dataset is None:
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
-    if request.target_column not in stored_dataset.covariates:
-        raise HTTPException(status_code=422, detail=f"Dataset has no target column {request.target_column!r}")
+    target_column = require_dataset_target(stored_dataset, request.target_column)
     params = _resolve_backtest_params(settings_manager.get(), request, stored_dataset.period_type)
     if stored_dataset.masked_ranges:
         try:
@@ -501,7 +511,6 @@ def create_backtest(
                 params.n_periods,
                 params.n_splits,
                 params.stride,
-                target_column=request.target_column,
             )
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
@@ -510,7 +519,7 @@ def create_backtest(
         wf.run_backtest,
         BacktestCreate(name=request.name, dataset_id=request.dataset_id, model_id=model.id),
         **params.model_dump(),
-        target_column=request.target_column,
+        target_column=target_column,
         baseline_database_url=database_url,
         database_url=database_url,
         **{
@@ -519,7 +528,7 @@ def create_backtest(
             JOB_NAME_KW: request.name,
             JOB_METADATA_KW: model_job_metadata(
                 model,
-                {**params.model_dump(mode="json"), "target_column": request.target_column},
+                {**params.model_dump(mode="json"), "target_column": target_column},
                 request.dataset_id,
             ),
         },
@@ -548,18 +557,20 @@ def create_backtests(
     which every backtest of the run files, so the results can be fetched from
     ``GET /v1/crud/backtest-specifications/{id}`` without a second lookup, plus one job id
     per model to poll via ``/v1/jobs/{id}``. 404 if the dataset or a model does not exist,
-    422 if targetColumn is not a dataset column or no org unit has target data left to train on.
+    Uses the dataset's saved target. Returns 422 if a supplied targetColumn differs from it
+    or no org unit has target data left to train on.
     """
     stored_dataset = session.get(DataSetTable, request.dataset_id)
     if stored_dataset is None:
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
     wrapper = SessionWrapper(session=session)
+    target_column = require_dataset_target(stored_dataset, request.target_column)
     params = _resolve_backtest_params(settings_manager.get(), request, stored_dataset.period_type)
     models = [get_job_model(session, model_id) for model_id in request.model_ids]
     try:
-        dataset = wf.load_masked_dataset(session, request.dataset_id, request.target_column)
+        dataset, _ = wf.load_masked_dataset(session, request.dataset_id)
         _, specification = wf.resolve_backtest_specification(
-            wrapper, dataset, request.dataset_id, params, target_column=request.target_column
+            wrapper, dataset, request.dataset_id, params, target_column=target_column
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
@@ -571,7 +582,7 @@ def create_backtests(
             wf.run_backtest,
             BacktestCreate(name=name, dataset_id=request.dataset_id, model_id=model.id),
             **params.model_dump(),
-            target_column=request.target_column,
+            target_column=target_column,
             baseline_database_url=database_url,
             database_url=database_url,
             **{
@@ -580,7 +591,7 @@ def create_backtests(
                 JOB_NAME_KW: name,
                 JOB_METADATA_KW: model_job_metadata(
                     model,
-                    {**params.model_dump(mode="json"), "target_column": request.target_column},
+                    {**params.model_dump(mode="json"), "target_column": target_column},
                     request.dataset_id,
                 ),
             },
@@ -617,11 +628,12 @@ async def make_prediction(
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
     reject_mask_indicator_input(feature_names)
+    require_target_column(request.target_column, feature_names)
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
-    provided_data, _rejections = validate_full_dataset(feature_names, provided_data)
+    provided_data, _rejections = validate_full_dataset(feature_names, provided_data, request.target_column)
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     if request.data_to_be_fetched:
         raise HTTPException(status_code=404, detail="Data to be fetched is no longer supported by chap-core")
@@ -702,18 +714,17 @@ async def get_actual_cases(
     is_dataset_id: bool = Query(False, alias="isDatasetId"),
     session: Session = Depends(get_session),
 ):
-    """Pull the actual ``disease_cases`` series from the dataset that backs a backtest, so a plot can show forecast vs. reality on the same axes.
+    """Pull the actual target series from the dataset that backs a backtest, so a plot can show forecast vs. reality on the same axes.
 
     Filter to specific regions with ``orgUnits``, or pass ``orgUnits=["adm0"]`` to get
     one summed series across every region (useful for national-level views). Set
     ``isDatasetId=true`` to skip the backtest lookup and read directly from a dataset
-    id. 404 if the backtest is unknown (and ``isDatasetId`` is false).
+    id. 404 if the backtest, or with ``isDatasetId=true`` the dataset, is unknown.
     """
     return_summed = False
     if org_units is not None and len(org_units) == 1 and org_units[0] == "adm0":
         # returning sum of forecasts for all regions
         return_summed = True
-    target_column = "disease_cases"
     if not is_dataset_id:
         backtest = session.get(Backtest, backtest_id)
         logger.info(f"Backtest: {backtest}")
@@ -723,6 +734,10 @@ async def get_actual_cases(
         target_column = backtest.specification.target_column
     else:
         dataset_id = backtest_id
+        dataset = session.get(DataSetTable, dataset_id)
+        if dataset is None:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+        target_column = dataset.target_column
     observations = DataSetManager(session).observations(
         dataset_id,
         org_units=None if return_summed else org_units,
@@ -750,7 +765,7 @@ async def get_actual_cases(
                 summed_values[key] += element.value
         data_list = [DataElement(pe=pe, ou="adm0", value=value) for pe, value in summed_values.items()]
     logger.info(f"DataList: {len(data_list)}")
-    return DataList(featureId="disease_cases", dhis2Id="disease_cases", data=data_list)
+    return DataList(featureId=target_column, dhis2Id=target_column, data=data_list)
 
 
 data_sources = [
@@ -924,7 +939,7 @@ async def create_backtest_with_data(
     train_set, _ = train_test_generator(
         provided_data_processed, backtest_params.n_periods, backtest_params.n_splits, stride=backtest_params.stride
     )
-    locations_to_keep, target_rejections = _find_locations_with_target_data(train_set)
+    locations_to_keep, target_rejections = _find_locations_with_target_data(train_set, request.target_column)
     provided_data_processed = _filter_dataset_by_locations(provided_data_processed, locations_to_keep)
     rejections.extend(target_rejections)
     imported_count = len(list(provided_data_processed.locations()))
@@ -1134,19 +1149,27 @@ def list_threshold_strategy_types():
     summary="Compute thresholds (endemic channel) for a dataset",
 )
 def compute_thresholds(request: ThresholdRequest, session: Session = Depends(get_session)):
-    """Compute outbreak threshold lines per (period, org unit) from a dataset's historical disease_cases.
+    """Compute outbreak threshold lines per (period, org unit) from a dataset's historical target values.
 
     The `type` field of `params` selects the strategy; the strategy's line parameter
     (`quantile`, `stdMultiplier`, ...) accepts a scalar or a list, and each entry's `values`
     array holds one threshold per requested line, in the order of `lines`. Every requested
     (period, location) gets an entry; cells no threshold could be computed for are `null`.
     404 if the dataset has
-    no `disease_cases` observations. 400 if the requested periods do not match the dataset's
+    no target observations. 400 if the requested periods do not match the dataset's
     frequency, or if the dataset has no complete year to compute a baseline from.
     """
+    dataset = session.get(DataSetTable, request.dataset_id)
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
     try:
         result = threshold_service.compute_thresholds(
-            session, request.dataset_id, request.period_ids, request.params, request.locations
+            session,
+            request.dataset_id,
+            request.period_ids,
+            request.params,
+            request.locations,
+            target_column=dataset.target_column,
         )
     except threshold_service.NoObservationsError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e

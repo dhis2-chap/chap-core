@@ -13,7 +13,11 @@ from typing import cast
 
 from sqlmodel import col, select
 
-from chap_core.assessment.target_mask import MASK_INDICATOR_FIELD, without_mask_indicator
+from chap_core.assessment.target_mask import (
+    MASK_INDICATOR_FIELD,
+    check_target_column_allows_masking,
+    without_mask_indicator,
+)
 from chap_core.database.base_tables import utc_now
 from chap_core.datatypes import FullData, create_tsdataclass
 from chap_core.geometry import Polygons
@@ -99,6 +103,9 @@ class DataSetManager(DbManager[DataSet]):
         logger.info(f"Field names in dataset: {field_names}")
         if MASK_INDICATOR_FIELD in field_names:
             raise ValueError(f"{MASK_INDICATOR_FIELD!r} is added by masking for a run and is never stored")
+        if dataset_info.target_column not in field_names:
+            raise ValueError(f"Dataset has no target column {dataset_info.target_column!r}")
+        check_target_column_allows_masking(dataset_info.masked_ranges, dataset_info.target_column)
         period_type = period_type_of(orig_dataset.period_range[0])
         check_masked_ranges_match_dataset(dataset_info.masked_ranges, orig_dataset.period_range[0])
         if dataset_info.masked_ranges:
