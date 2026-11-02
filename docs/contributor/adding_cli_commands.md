@@ -17,7 +17,6 @@ chap_core/
   cli_endpoints/
     _common.py               # Shared helpers (load_dataset, get_estimator, ...)
     evaluate.py              # eval, evaluate-hpo
-    forecast.py              # forecast, multi-forecast
     convert.py               # convert-request
     explain.py               # explain-lime
     preference_learn.py      # preference-learn
