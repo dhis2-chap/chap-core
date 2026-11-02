@@ -55,6 +55,7 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("dataset", "created_manually"),
     ("alertpolicy", "no_alert_output_code"),
     ("dataset", "masked_ranges"),
+    ("dataset", "target_column"),
 ]
 
 # Tables added by alembic migrations (not in the baseline schema).
@@ -634,19 +635,27 @@ def test_target_column_migration_preserves_and_separates_specifications(engine):
     command.stamp(cfg, "head")
     command.downgrade(cfg, "d6e7f8a3b4c5")
     with engine.begin() as conn:
-        conn.execute(sa.text("INSERT INTO dataset (id, name) VALUES (1, 'targets')"))
+        conn.execute(sa.text("INSERT INTO dataset (id, name) VALUES (1, 'targets'), (2, 'custom')"))
         conn.execute(
             sa.text(
                 "INSERT INTO backtestspecification "
                 "(id, dataset_id, n_periods, n_splits, stride, n_retrain, future_weather_provider, org_units) "
-                "VALUES (1, 1, 3, 7, 1, 1, 'climatology', '[\"A\"]')"
+                "VALUES (1, 1, 3, 7, 1, 1, 'climatology', '[\"A\"]'), (2, 2, 3, 7, 1, 1, 'climatology', '[\"A\"]')"
             )
         )
-        conn.execute(sa.text("SELECT setval(pg_get_serial_sequence('backtestspecification', 'id'), 1)"))
+        conn.execute(sa.text("SELECT setval(pg_get_serial_sequence('backtestspecification', 'id'), 2)"))
         # Startup's generic migration adds the column as an empty string before Alembic runs.
         conn.execute(sa.text("ALTER TABLE backtestspecification ADD COLUMN target_column VARCHAR"))
         conn.execute(sa.text("UPDATE backtestspecification SET target_column = ''"))
+        # Dataset 2 was only ever backtested on a custom target, which it keeps.
+        conn.execute(sa.text("UPDATE backtestspecification SET target_column = 'cases' WHERE id = 2"))
+        # Startup's generic migration fills a new column with the model default before Alembic runs.
+        conn.execute(sa.text("ALTER TABLE dataset ADD COLUMN target_column VARCHAR"))
+        conn.execute(sa.text("UPDATE dataset SET target_column = 'disease_cases'"))
     command.upgrade(cfg, "head")
+    with engine.connect() as conn:
+        targets = conn.execute(sa.text("SELECT target_column FROM dataset ORDER BY id")).scalars().all()
+    assert targets == ["disease_cases", "cases"]
     with Session(engine) as session:
         wrapper = SessionWrapper(session=session)
         default = wrapper.get_or_create_backtest_specification(1, BacktestParams(), ["A"])
@@ -662,7 +671,7 @@ def test_target_column_migration_preserves_and_separates_specifications(engine):
         session.commit()
     command.downgrade(cfg, "d6e7f8a3b4c5")
     with engine.connect() as conn:
-        assert conn.execute(sa.text("SELECT id FROM backtestspecification")).scalars().all() == [1]
+        assert conn.execute(sa.text("SELECT id FROM backtestspecification ORDER BY id")).scalars().all() == [1, 2]
         assert conn.execute(sa.text("SELECT specification_id FROM backtest")).scalar_one() == 1
     command.upgrade(cfg, "head")
 
