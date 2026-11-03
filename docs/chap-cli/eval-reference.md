@@ -232,6 +232,16 @@ chap eval \
     --run-config.is-chapkit-model
 ```
 
+**From a container image (runs the image for the duration of the command):**
+```console
+chap eval \
+    --model-name docker://ghcr.io/chap-models/chapkit_ghr_model:sha-84fbe77 \
+    --dataset-csv ./data/vietnam.csv \
+    --output-file ./eval.nc
+```
+
+A `docker://` image is always a chapkit model, so it needs no `--run-config.is-chapkit-model`. Chap pulls the image if it is missing, runs it on a free local port and removes the container when the command ends, also when it is interrupted. This needs Docker.
+
 When providing a directory path with `--run-config.is-chapkit-model`, Chap automatically:
 1. Starts a FastAPI dev server using `uv run fastapi dev`
 2. Waits for the service to become healthy
