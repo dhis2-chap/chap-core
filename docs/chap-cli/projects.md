@@ -109,7 +109,7 @@ For each option, the first of these that gives a value wins:
 
 So `chap eval --backtest-params.n-periods 6` changes the forecast horizon for one run and leaves the project unchanged.
 
-The files in `input/` belong to the project's own dataset and model. When `--dataset-csv` is given on the command line, or `dataset_csv` in `chap.yaml` points at another file, `data_settings.yaml` and `column_mapping.json` are not used, and when `--model-name` is given, `model_config.yaml` is not used. This keeps masked ranges or model options written for the project from being applied to another dataset or model.
+The files in `input/` belong to the project's own dataset and model. When `--dataset-csv` is given on the command line, or `dataset_csv` in `chap.yaml` points at another file, `data_settings.yaml` and `column_mapping.json` are not used, and when `--model-name` is given, `model_config.yaml` and the `is_chapkit_model` and `as_chapkit` run options in `chap.yaml` are not used. This keeps masked ranges or model options written for the project from being applied to another dataset or model.
 
 Each run logs the project it uses and where each value came from.
 

@@ -120,6 +120,19 @@ def test_command_line_overrides_project_values_field_by_field(chap_project, monk
     assert arguments["run_config"].runs_dir == chap_project / ".chap" / "runs"
 
 
+def test_model_run_options_are_dropped_when_another_model_is_given(chap_project, monkeypatch):
+    edit_project_file(chap_project, run_config={"is_chapkit_model": True, "as_chapkit": True})
+    monkeypatch.chdir(chap_project)
+    assert parse("eval")[1]["run_config"].is_chapkit_model
+    run_config = parse("eval", "--model-name", "builtin:persistence")[1]["run_config"]
+    assert not run_config.is_chapkit_model
+    assert not run_config.as_chapkit
+    assert run_config.runs_dir == chap_project / ".chap" / "runs"
+    given = parse("eval", "--model-name", "../other", "--run-config.is-chapkit-model")[1]["run_config"]
+    assert given.is_chapkit_model
+    assert not given.as_chapkit
+
+
 def test_runs_started_in_the_same_second_get_different_output_files(chap_project, monkeypatch):
     monkeypatch.chdir(chap_project)
     first, second = parse("eval")[1]["output_file"], parse("eval")[1]["output_file"]

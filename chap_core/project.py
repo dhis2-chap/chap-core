@@ -54,6 +54,8 @@ INPUT_FILES = (
 
 # Options typed as plain strings that still hold a local path unless they are a URL or built-in model.
 STRING_PATH_OPTIONS = {"model_name", "dataset_csv"}
+# Run options that describe the project's model, so they do not apply to a model given on the command line.
+MODEL_RUN_OPTIONS = ("is_chapkit_model", "as_chapkit")
 
 
 @dataclass(frozen=True)
@@ -175,6 +177,8 @@ def project_values(
     _check_options(shared, section or {}, commands, arguments)
     values = _resolve_paths(_merge(shared, section or {}), project.root, arguments)
     sources = dict.fromkeys(values, PROJECT_FILE)
+    if _given(arguments, "model_name") and isinstance(values.get("run_config"), dict):
+        values["run_config"] = {k: v for k, v in values["run_config"].items() if k not in MODEL_RUN_OPTIONS}
 
     for filename, option, owner in INPUT_FILES:
         path = project.input_dir / filename
