@@ -52,6 +52,14 @@ def test_a_container_whose_port_is_taken_is_removed(fake_docker, monkeypatch):
     assert calls[-1] == f"rm -f {container}"
 
 
+def test_a_service_from_another_run_on_the_same_port_is_not_used(fake_docker, other_healthy_service, monkeypatch):
+    monkeypatch.setenv("FAKE_DOCKER_PORT_TAKEN", "1")
+    monkeypatch.setenv("FAKE_DOCKER_STARTUP_SECONDS", "2")
+    with pytest.raises(ChapkitServicePortInUseError):
+        with DockerChapkitServiceManager(IMAGE, port=other_healthy_service, startup_timeout=15):
+            pass
+
+
 def test_docker_source_gives_a_chapkit_template_that_runs_the_image(fake_docker):
     template = get_model_template_from_directory_or_github_url(f"docker://{IMAGE}")
     assert isinstance(template, ExternalChapkitModelTemplate)

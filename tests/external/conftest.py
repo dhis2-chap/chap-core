@@ -174,14 +174,18 @@ if args[0] == "pull":
         sys.exit(0)
     print("no matching manifest for linux/arm64/v8 in the manifest list entries", file=sys.stderr)
     sys.exit(1)
+if args[0] == "inspect":
+    print("true" if (state / f"running-{args[-1]}").exists() else "false")
+    sys.exit(0)
 if args[0] == "run":
     import time
 
+    time.sleep(float(os.environ.get("FAKE_DOCKER_STARTUP_SECONDS", "0")))
     if os.environ.get("FAKE_DOCKER_PORT_TAKEN"):
         print("Bind for 127.0.0.1 failed: port is already allocated", file=sys.stderr)
         sys.exit(125)
 
-    time.sleep(float(os.environ.get("FAKE_DOCKER_STARTUP_SECONDS", "0")))
+    name = args[args.index("--name") + 1]
     port = int(args[args.index("-p") + 1].split(":")[1])
 
     class Health(BaseHTTPRequestHandler):
@@ -194,7 +198,9 @@ if args[0] == "run":
         def log_message(self, *args):
             pass
 
-    HTTPServer(("127.0.0.1", port), Health).serve_forever()
+    server = HTTPServer(("127.0.0.1", port), Health)
+    (state / f"running-{name}").touch()
+    server.serve_forever()
 """
 
 
@@ -210,3 +216,27 @@ def fake_docker(tmp_path, monkeypatch):
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setenv("FAKE_DOCKER_STATE", str(tmp_path))
     return tmp_path / "calls.log"
+
+
+@pytest.fixture
+def other_healthy_service():
+    """A healthy chapkit /health endpoint on a free port, as another run's service. Returns the port."""
+    import json
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class Health(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "healthy"}).encode())
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Health)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield server.server_address[1]
+    server.shutdown()
+    server.server_close()

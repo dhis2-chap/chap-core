@@ -238,7 +238,7 @@ class ChapkitServiceManager:
                 response = httpx.get(health_url, timeout=2)
                 if response.status_code == 200:
                     data = response.json()
-                    if data.get("status") == "healthy":
+                    if data.get("status") == "healthy" and self._serves_port():
                         logger.info(f"Service at {self._url} is healthy")
                         return
             except (httpx.RequestError, httpx.HTTPStatusError):
@@ -258,6 +258,10 @@ class ChapkitServiceManager:
         raise ChapkitServiceStartupError(
             f"Service at {url} {reason} within {self.startup_timeout} seconds.\nRecent output:\n{self.recent_output()}"
         )
+
+    def _serves_port(self) -> bool:
+        """Whether the service answering on the port is this one, not another that bound it first."""
+        return True
 
     def _stop_service(self) -> None:
         """Stop the running service subprocess gracefully."""
@@ -403,6 +407,17 @@ class DockerChapkitServiceManager(ChapkitServiceManager):
             f"{self.host}:{self.port}:{CONTAINER_PORT}",
             self.image,
         ]
+
+    def _serves_port(self) -> bool:
+        # A container only runs once its ports are bound. Until then, a healthy answer on the port
+        # can come from another run that picked the same port and bound it first.
+        result = subprocess.run(
+            ["docker", "inspect", "--format", "{{.State.Running}}", self._container or ""],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return result.returncode == 0 and result.stdout.strip() == "true"
 
     def _stop_service(self) -> None:
         super()._stop_service()
