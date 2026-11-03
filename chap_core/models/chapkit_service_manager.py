@@ -306,6 +306,8 @@ class ChapkitServiceManager:
                 return self
             except ChapkitServicePortInUseError:
                 if not (auto_port and attempt < PORT_ATTEMPTS):
+                    # The except BaseException below does not catch this re-raise.
+                    self._stop_service()
                     raise
                 logger.info(f"Port {self.port} was taken before the service could bind it, retrying on another port")
                 self._stop_service()

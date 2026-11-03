@@ -177,6 +177,10 @@ if args[0] == "pull":
 if args[0] == "run":
     import time
 
+    if os.environ.get("FAKE_DOCKER_PORT_TAKEN"):
+        print("Bind for 127.0.0.1 failed: port is already allocated", file=sys.stderr)
+        sys.exit(125)
+
     time.sleep(float(os.environ.get("FAKE_DOCKER_STARTUP_SECONDS", "0")))
     port = int(args[args.index("-p") + 1].split(":")[1])
 

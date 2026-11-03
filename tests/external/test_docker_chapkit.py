@@ -7,6 +7,7 @@ import time
 import httpx
 import pytest
 
+from chap_core.exceptions import ChapkitServicePortInUseError
 from chap_core.models.chapkit_service_manager import DockerChapkitServiceManager, find_available_port
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.utils import get_model_template_from_directory_or_github_url
@@ -38,6 +39,17 @@ def test_each_launch_gets_its_own_container_name(fake_docker):
     names = {run.split("--name ")[1].split()[0] for run in runs}
     assert len(runs) == 2
     assert len(names) == 2
+
+
+def test_a_container_whose_port_is_taken_is_removed(fake_docker, monkeypatch):
+    monkeypatch.setenv("FAKE_DOCKER_PORT_TAKEN", "1")
+    with pytest.raises(ChapkitServicePortInUseError):
+        with DockerChapkitServiceManager(IMAGE, port=find_available_port(), startup_timeout=15):
+            pass
+    calls = fake_docker.read_text().splitlines()
+    run = next(call for call in calls if call.startswith("run "))
+    container = run.split("--name ")[1].split()[0]
+    assert calls[-1] == f"rm -f {container}"
 
 
 def test_docker_source_gives_a_chapkit_template_that_runs_the_image(fake_docker):
