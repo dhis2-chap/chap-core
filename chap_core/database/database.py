@@ -344,11 +344,11 @@ class SessionWrapper:
     ) -> list[ModelSpecRead]:
         # TODO: using ModelSpecRead for backwards compatibility, should in future return ConfiguredModelDB?
 
-        # get configured models from db, excluding archived ones and those with archived templates
+        # get configured models from db, excluding those with archived templates
         configured_models = self.session.exec(
             self._select_live_configured_models()
             .options(selectinload(ConfiguredModelDB.model_template))  # type: ignore[arg-type]
-            .where(col(ModelTemplateDB.archived).is_(False), col(ConfiguredModelDB.archived).is_(False))
+            .where(ModelTemplateDB.archived == False)
         ).all()
 
         # serialize to json and combine configured model with model template

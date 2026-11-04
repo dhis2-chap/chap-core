@@ -1211,10 +1211,11 @@ def add_configured_model(
 async def delete_configured_model(
     configured_model_id: Annotated[int, Path(alias="configuredModelId")], session: Session = Depends(get_session)
 ):
-    """Soft-delete a configured model so it stops showing up in pickers, while keeping the underlying row intact so historical backtests / predictions that reference it still resolve.
+    """Soft-delete a configured model so pickers can hide it, while keeping the underlying row intact so historical backtests / predictions that reference it still resolve.
 
-    The row stays in the database with ``archived=True``; existing references remain
-    valid, but new backtests and predictions on it are rejected with 409. 404 if the id is unknown.
+    The row stays in the database with ``archived=True`` and is still listed by
+    ``GET /v1/crud/configured-models`` with that flag, so clients can name old runs. New
+    backtests and predictions on it are rejected with 409. 404 if the id is unknown.
     """
     configured_model = session.get(ConfiguredModelDB, configured_model_id)
     if configured_model is None:
