@@ -17,7 +17,7 @@ This installs the `chap` command-line tool globally, making it available from an
 ## Running marketplace models
 
 With Docker and Docker Compose v2 installed, use a model ID from the
-[CHAP Model Marketplace](https://github.com/dhis2-chap/model-marketplace).
+[Chap Marketplace](https://chap-marketplace.dhis2.org).
 The commands below select `channels.stable` and require that version to be
 `verified`. They do not select the `latest` channel or an unreviewed version.
 Marketplace verification checks the model revision and chapkit service, not
@@ -112,7 +112,10 @@ services, so you can keep passing it to Docker Compose.
 
 ### A different model registry
 
-Set `CHAP_MARKETPLACE_URL` in your shell to resolve models from another registry,
+By default the commands read models from the
+[dhis2-chap/chap-marketplace](https://github.com/dhis2-chap/chap-marketplace)
+repository, which the Chap Marketplace site is also built from. Set
+`CHAP_MARKETPLACE_URL` in your shell to resolve models from another registry,
 such as one hosting your organisation's own models. The commands read it
 from the environment, not from a deployment's `.env` file. Its models are not
 marketplace-reviewed, so installation and updates require `--accept-risk`:

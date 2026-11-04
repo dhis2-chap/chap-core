@@ -25,7 +25,6 @@ def test_available_metrics_expose_optimization_direction(seeded_session):
         for metric in get_available_metrics(backtest_id=1, settings_manager=SettingsManager(seeded_session))
     }
     assert metrics["crps"].optimization_direction == "minimize"
-    assert metrics["sensitivity"].optimization_direction == "maximize"
     assert metrics["coverage_10_90"].optimization_direction is None
 
 

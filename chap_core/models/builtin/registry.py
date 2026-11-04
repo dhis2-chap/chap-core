@@ -12,7 +12,7 @@ Rules for built-in models:
   every sample is finite.
 - No state is shared between instances, and no files are written.
 - Any randomness uses a fixed seed.
-- Data the model cannot handle, such as too little history, raises
+- Data the model cannot handle, such as no observed cases at all, raises
   ``BaselineNotApplicable``.
 """
 

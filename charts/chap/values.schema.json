@@ -95,6 +95,19 @@
         }
       }
     },
+    "apiToken": {
+      "type": "object",
+      "properties": {
+        "token": { "type": "string" },
+        "existingSecret": { "type": "string" },
+        "secretKeys": {
+          "type": "object",
+          "properties": {
+            "token": { "type": "string" }
+          }
+        }
+      }
+    },
     "dhis2": {
       "type": "object",
       "properties": {

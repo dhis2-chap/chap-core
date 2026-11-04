@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, TypeVar, cast
+from urllib.parse import urlsplit
 
 import celery
 from celery import Celery, Task, shared_task
@@ -87,9 +88,20 @@ def read_environment_variables():
     return host
 
 
+def broker_host(url: str) -> str:
+    """Return host:port of a broker URL, leaving out credentials so it is safe to log."""
+    parts = urlsplit(url)
+    try:
+        port = parts.port
+    except ValueError:
+        # Not a plain integer port, e.g. kombu's ";"-separated failover URLs. This runs at import, so never raise.
+        port = None
+    return f"{parts.hostname}:{port}" if port else str(parts.hostname)
+
+
 # Setup celery
 url = read_environment_variables()
-logger.info(f"Connecting to {url}")
+logger.info(f"Connecting to Celery broker at {broker_host(url)}")
 app = Celery("worker", broker=url, backend=url)
 app.conf.update(
     # JSON only: a pickled message would let anyone who can write to the broker run code on the worker.
@@ -103,6 +115,9 @@ app.conf.update(
     task_track_started=True,
     task_send_sent_event=True,
     worker_send_task_events=True,
+    # A prefork child keeps the memory its first job allocated (about 240 MiB) for as long as it lives,
+    # so replace it after every job. Jobs run for minutes, so the fork is cheap by comparison.
+    worker_max_tasks_per_child=1,
 )
 
 
@@ -314,8 +329,8 @@ def worker_database_url() -> str:
 
 @app.task(base=TrackedTask)
 def celery_run_with_session(func_name: str, *args, **kwargs):
-    # A database URL in the message is ignored: anyone who can write to the broker could
-    # otherwise point the worker at a database holding a model that runs their code.
+    # Older versions put a database URL in the message. It stays ignored: anyone who can write to the
+    # broker could otherwise point the worker at a database holding a model that runs their code.
     kwargs.pop("database_url", None)
     database_url = worker_database_url()
     if database_url not in ENGINES_CACHE:
