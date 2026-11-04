@@ -511,6 +511,19 @@ def test_update_all_updates_only_models_whose_stable_version_changed(marketplace
     assert [(t["version"], t["isLive"]) for t in chap.templates] == [("0.1.0", False), ("0.2.0", True)]
 
 
+def test_update_all_moves_a_tag_only_install_to_the_digest_pin(marketplace_model, model_deployment):
+    install(marketplace_model["id"])
+    service_name = f"marketplace-{marketplace_model['service_id']}"
+    installed = yaml.safe_load(model_deployment.overlay.read_text())
+    pinned = installed["services"][service_name]["image"]
+    # An install from before digests stored only the tag.
+    installed["services"][service_name]["image"] = pinned.partition("@")[0]
+    model_deployment.overlay.write_text(yaml.safe_dump(installed))
+    update_all()
+    service = yaml.safe_load(model_deployment.overlay.read_text())["services"][service_name]
+    assert service["image"] == pinned and service["x-chap-version"] == "0.1.0"
+
+
 def test_update_all_leaves_models_that_are_not_installed(marketplace_model, model_deployment):
     update_all()
     model_deployment.runner.assert_not_called()
