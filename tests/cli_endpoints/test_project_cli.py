@@ -534,3 +534,39 @@ def test_init_explains_a_name_that_is_not_a_directory_when_the_registry_cannot_b
     with pytest.raises(ValueError, match="not a local directory, and not a Chap Hub model: Could not read the model"):
         init_cmd(tmp_path / "project", model="my_modle")
     assert not (tmp_path / "project").exists()
+
+
+@pytest.fixture
+def mask_in_the_last_months(tmp_path):
+    path = tmp_path / "data_settings.yaml"
+    path.write_text('maskedRanges:\n  - start: "2012-11"\n    end: "2012-11"\n')
+    return path
+
+
+def test_validate_outside_a_project_warns_about_a_masked_range_in_evals_default_window(
+    tmp_path, monkeypatch, laos_csv, mask_in_the_last_months, capsys
+):
+    monkeypatch.chdir(tmp_path)
+    command, arguments = parse(
+        "validate", "--dataset-csv", str(laos_csv), "--data-configuration", str(mask_in_the_last_months)
+    )
+    command(**arguments)
+    out = capsys.readouterr().out
+    assert "Warnings" in out
+    assert "give --backtest-params to check yours" in out
+
+
+def test_validate_with_backtest_params_reports_a_masked_range_in_their_window_as_an_error(
+    tmp_path, monkeypatch, laos_csv, mask_in_the_last_months, capsys
+):
+    monkeypatch.chdir(tmp_path)
+    tokens = ["--dataset-csv", str(laos_csv), "--data-configuration", str(mask_in_the_last_months)]
+    command, arguments = parse("validate", *tokens, "--backtest-params.n-splits", "2")
+    with pytest.raises(SystemExit):
+        command(**arguments)
+    assert "Masked period 201211 falls in the evaluation window" in capsys.readouterr().out
+    # A shorter window that ends before the masked month passes.
+    command, arguments = parse(
+        "validate", *tokens, "--backtest-params.n-periods", "1", "--backtest-params.n-splits", "1"
+    )
+    command(**arguments)

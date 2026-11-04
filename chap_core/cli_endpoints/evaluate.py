@@ -8,8 +8,9 @@ from typing import TYPE_CHECKING, Annotated
 
 from cyclopts import Parameter
 
-from chap_core.api_types import BacktestParams, EstimatorMode, EstimatorOptions, RunConfig
-from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
+from chap_core.api_types import EstimatorMode, EstimatorOptions, RunConfig
+from chap_core.cli_endpoints._args import (
+    EVAL_DEFAULT_BACKTEST,
     BacktestParamsArg,
     DataConfigurationArg,
     DatasetCsvArg,
@@ -46,7 +47,7 @@ def eval_cmd(
         Path,
         Parameter(help="Path for output NetCDF file containing evaluation results (.nc extension)"),
     ],
-    backtest_params: BacktestParamsArg = BacktestParams(n_periods=3, n_splits=7, stride=1),
+    backtest_params: BacktestParamsArg = EVAL_DEFAULT_BACKTEST,
     run_config: RunConfigArg = RunConfig(),
     model_configuration_yaml: ModelConfigYamlArg = None,
     historical_context_years: Annotated[
@@ -119,7 +120,7 @@ def _run_eval(
         Path,
         Parameter(help="Path for output NetCDF file containing evaluation results (.nc extension)"),
     ],
-    backtest_params: BacktestParamsArg = BacktestParams(n_periods=3, n_splits=7, stride=1),
+    backtest_params: BacktestParamsArg = EVAL_DEFAULT_BACKTEST,
     run_config: RunConfigArg = RunConfig(),
     model_configuration_yaml: ModelConfigYamlArg = None,
     historical_context_years: Annotated[

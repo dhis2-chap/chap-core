@@ -39,6 +39,9 @@ RunConfigArg = Annotated[
     ),
 ]
 
+# The backtest chap eval runs when no --backtest-params are given.
+EVAL_DEFAULT_BACKTEST = BacktestParams(n_periods=3, n_splits=7, stride=1)
+
 BacktestParamsArg = Annotated[
     BacktestParams,
     Parameter(

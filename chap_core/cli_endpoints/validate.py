@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING, Annotated
 from cyclopts import Parameter
 
 from chap_core.api_types import BacktestParams, RunConfig
-from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
-    BacktestParamsArg,
+from chap_core.cli_endpoints._args import (
+    EVAL_DEFAULT_BACKTEST,
     DataConfigurationArg,
     DatasetCsvArg,
     DataSourceMappingArg,
@@ -44,14 +44,22 @@ def validate_cmd(
     data_source_mapping: DataSourceMappingArg = None,
     data_configuration: DataConfigurationArg = None,
     run_config: RunConfigArg = RunConfig(),
-    backtest_params: BacktestParamsArg = BacktestParams(n_periods=3, n_splits=7, stride=1),
+    backtest_params: Annotated[
+        BacktestParams | None,
+        Parameter(
+            help="Backtest settings whose evaluation window masked ranges must stay out of. Given here or by a "
+            "Chap project, a masked range in the window is an error; otherwise it is a warning for the window "
+            "of chap eval's defaults."
+        ),
+    ] = None,
 ):
     """Validate a CSV dataset for CHAP compatibility.
 
     Checks dataset structure and content, reporting any issues found.
     Optionally validates that the dataset meets a specific model's requirements.
-    Masked ranges are checked against the evaluation window of a backtest with --backtest-params,
-    which default to those of `chap eval`; in a Chap project, to the project's eval settings.
+    Masked ranges are checked against the evaluation window of a backtest. With --backtest-params, or
+    in a Chap project (its eval settings), a masked range in the window is an error, as `chap eval`
+    refuses it; without them, it is a warning for the window of `chap eval`'s defaults.
 
     Examples:
         # Basic validation
@@ -125,17 +133,27 @@ def validate_cmd(
         print("Validation passed: no issues found.")
 
 
-def _check_masked_ranges(dataset: DataSet, backtest_params: BacktestParams) -> list[ValidationIssue]:
-    """The error `chap eval` would stop with when a masked range falls in its evaluation window."""
+def _check_masked_ranges(dataset: DataSet, backtest_params: BacktestParams | None) -> list[ValidationIssue]:
+    """The error `chap eval` would stop with when a masked range falls in its evaluation window.
+
+    Without ``backtest_params``, the window of `chap eval`'s defaults is checked, as a warning, since
+    the backtest that will be run is not known.
+    """
     from chap_core.assessment.target_mask import check_mask_outside_evaluation_window
     from chap_core.services.dataset_validation import ValidationIssue
 
+    params = backtest_params or EVAL_DEFAULT_BACKTEST
     try:
-        check_mask_outside_evaluation_window(
-            dataset, backtest_params.n_periods, backtest_params.n_splits, backtest_params.stride
-        )
+        check_mask_outside_evaluation_window(dataset, params.n_periods, params.n_splits, params.stride)
     except ValueError as e:
-        return [ValidationIssue(level="error", message=str(e))]
+        if backtest_params is not None:
+            return [ValidationIssue(level="error", message=str(e))]
+        return [
+            ValidationIssue(
+                level="warning",
+                message=f"{e} This is for chap eval's default backtest; give --backtest-params to check yours.",
+            )
+        ]
     return []
 
 
