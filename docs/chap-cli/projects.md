@@ -25,6 +25,8 @@ chap export-metrics --input-files output/*.nc --output-file metrics.csv
 
 Chap commands find the project from the current directory or any directory below it, the same way `git` finds a repository. The search stops at the root of a git repository and at your home directory, so a `chap.yaml` further up does not change commands run elsewhere, and a `chap.yaml` owned by another user is ignored.
 
+`chap init laos` creates the directory `laos` if it does not exist. Without a directory, `chap init` asks before making the current directory the project, for example a directory that already holds your data or your model's code; `--yes` (`-y`) skips the question, and so does naming the directory, as in `chap init .`. In both cases an existing `chap.yaml` is only replaced with `--force`.
+
 `chap init` loads the model once to check that it can be found and to read its options, and loads the dataset with its column mapping and data settings to check that they fit together. Nothing is written when a check fails. A local model directory inside the project or next to it is stored in `chap.yaml` relative to the project, so the two can be moved together. A model directory further away is stored as an absolute path.
 
 A GitHub model is pinned to the commit its default branch points at when you run `chap init`, written as `https://github.com/org/model@<commit>`. Every run then uses the same model code, so results in `output/` stay comparable. Use `--no-pin` to have each run use the latest commit instead, or edit the commit in `chap.yaml` to move to a newer version.

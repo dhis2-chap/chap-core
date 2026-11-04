@@ -139,6 +139,8 @@ nav:
           - report Reference: chap-cli/report-reference.md
           - simulate Reference: chap-cli/simulate-reference.md
           - explain-lime Reference: chap-cli/explain-lime-reference.md
+          - sanity-check-model Reference: chap-cli/sanity-check-model-reference.md
+          - plot-dataset Reference: chap-cli/plot-dataset-reference.md
 
   #- Modeling App:
   #  - '!import https://github.com/dhis2-chap/chap-frontend?branch=main&docs_dir=apps/modeling-app/docs'

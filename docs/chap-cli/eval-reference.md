@@ -187,7 +187,7 @@ The same option is available on `chap evaluate-ensemble` (with `--dataset-csv`) 
 
 - A range must use the same period type as the dataset: week ranges on monthly data are rejected.
 - Ranges may not overlap, and `start` may not be after `end`.
-- A masked period may not fall in the evaluation window, the last `n_periods + (n_splits - 1) * stride` periods. The backtest is rejected before any model runs.
+- A masked period may not fall in the evaluation window, the last `n_periods + (n_splits - 1) * stride` periods. The backtest is rejected before any model runs. `chap validate --data-configuration` reports this too, for the window of its `--backtest-params`, which default to those of `chap eval`.
 - The CSV may not contain a `target_masked` column of its own; that name is reserved.
 - Future data passed to the model has no `disease_cases`. It does have `target_masked`, always 0, because a forecast period is never masked.
 

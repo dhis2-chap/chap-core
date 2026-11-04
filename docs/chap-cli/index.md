@@ -26,3 +26,5 @@ To set up a model and dataset once and then run `chap eval` without options, cre
 - [report](report-reference.md) - Generate a PDF report from a trained model
 - [explain-lime](explain-lime-reference.md) - Generate a LIME importance weighting for a single prediction
 - [simulate](simulate-reference.md) - Generate a synthetic dataset from a simulation model
+- [sanity-check-model](sanity-check-model-reference.md) - Check quickly that a model can be trained and make forecasts
+- [plot-dataset](plot-dataset-reference.md) - Plot a dataset's columns over time, in a browser or to a file
