@@ -171,9 +171,6 @@ def run_backtest(
     info.future_weather_provider = future_weather_provider
 
     status_logger.info(f"Validating dataset with {len(list(dataset.locations()))} locations")
-    require_model_covariates(
-        dataset, configured_model.model_template.required_covariates, configured_model.additional_continuous_covariates
-    )
     backtest_params = BacktestParams(
         n_periods=n_periods,
         n_splits=n_splits,
@@ -196,6 +193,10 @@ def run_backtest(
             logger.warning(f"Could not request baselines for specification {specification.id}", exc_info=True)
             session.session.rollback()
     dataset = _use_as_disease_cases(dataset, target_column)
+    # Checked after the target is moved to disease_cases, since the model never sees the target column.
+    require_model_covariates(
+        dataset, configured_model.model_template.required_covariates, configured_model.additional_continuous_covariates
+    )
 
     status_logger.info(f"Running {n_splits} evaluation splits with prediction length {n_periods}")
     assert configured_model.id is not None, "configured_model.id is required"
