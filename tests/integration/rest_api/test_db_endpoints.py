@@ -462,6 +462,33 @@ def test_create_backtest_forwards_params_and_accepts_int_model_id(override_sessi
     assert (captured["n_periods"], captured["n_splits"], captured["stride"], captured["n_retrain"]) == (3, 4, 1, 2)
 
 
+def test_deleted_configured_model_is_hidden_and_cannot_start_a_backtest(override_session, seeded_session, monkeypatch):
+    """Deleting a configured model drops it from the list and rejects new runs on it (CLIM-1200)."""
+    from chap_core.rest_api.v1.routers import analytics
+
+    queued: list = []
+
+    class _RecordingWorker:
+        def queue_db(self, func, info, **kwargs):
+            queued.append(info)
+
+    monkeypatch.setattr(analytics, "worker", _RecordingWorker())
+    model = seeded_session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == "naive_model")).first()
+    dataset_id = seeded_session.exec(select(DataSet.id)).first()
+
+    response = client.delete(f"/v1/crud/configured-models/{model.id}")
+    assert response.status_code == 200, response.text
+
+    listed_ids = [m["id"] for m in get_content("/v1/crud/configured-models")]
+    assert model.id not in listed_ids
+
+    payload = {"name": "x", "datasetId": dataset_id, "modelId": model.id}
+    response = client.post("/v1/analytics/create-backtest", json=payload)
+    assert response.status_code == 409, response.text
+    assert "archived" in response.json()["detail"]
+    assert queued == []
+
+
 class _JobIdWorker:
     """Records every queued job and hands out distinct job ids, so a test can check what was submitted."""
 

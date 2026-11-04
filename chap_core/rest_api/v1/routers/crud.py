@@ -1214,7 +1214,7 @@ async def delete_configured_model(
     """Soft-delete a configured model so it stops showing up in pickers, while keeping the underlying row intact so historical backtests / predictions that reference it still resolve.
 
     The row stays in the database with ``archived=True``; existing references remain
-    valid. 404 if the id is unknown.
+    valid, but new backtests and predictions on it are rejected with 409. 404 if the id is unknown.
     """
     configured_model = session.get(ConfiguredModelDB, configured_model_id)
     if configured_model is None:
