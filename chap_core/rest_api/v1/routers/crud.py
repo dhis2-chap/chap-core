@@ -133,6 +133,7 @@ from .dependencies import (
     model_job_metadata,
     reject_mask_indicator_input,
     require_target_column,
+    within_model_horizon,
 )
 
 logger = logging.getLogger(__name__)
@@ -1682,13 +1683,7 @@ async def delete_prediction_setup(
 
 def _setup_horizon(setup: PredictionSetup) -> int:
     """The horizon of the setup's backtest, kept within the range the model supports."""
-    template = setup.configured_model.model_template
-    n_periods = setup.backtest.specification.n_periods
-    if template.min_prediction_periods is not None:
-        n_periods = max(n_periods, template.min_prediction_periods)
-    if template.max_prediction_periods is not None:
-        n_periods = min(n_periods, template.max_prediction_periods)
-    return n_periods
+    return within_model_horizon(setup.backtest.specification.n_periods, setup.configured_model.model_template)
 
 
 @router.post(

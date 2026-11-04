@@ -1859,20 +1859,39 @@ def test_run_prediction_setup_horizon(
     assert captured["prediction_params"].n_periods == expected
 
 
+_WEEKS = [f"2020W{week:02d}" for week in range(1, 53)]
+
+
 @pytest.mark.parametrize(
-    "periods, requested, expected",
+    "periods, requested, min_periods, max_periods, expected",
     [
-        (None, None, 5),  # The stored monthly default.
-        ([f"2020W{week:02d}" for week in range(1, 53)], None, 12),  # The stored weekly default.
-        (None, 4, 4),  # An explicit horizon is used as given.
+        (None, None, None, None, 5),  # The stored monthly default.
+        (_WEEKS, None, None, None, 12),  # The stored weekly default.
+        (_WEEKS, None, None, 3, 3),  # Too long for the model.
+        (None, None, 9, None, 9),  # Too short for the model.
+        (None, 4, None, 2, 4),  # An explicit horizon is used as given.
     ],
 )
 def test_make_prediction_horizon(
-    override_session, seeded_session, example_polygons, baseline_worker, monkeypatch, periods, requested, expected
+    override_session,
+    seeded_session,
+    example_polygons,
+    baseline_worker,
+    monkeypatch,
+    periods,
+    requested,
+    min_periods,
+    max_periods,
+    expected,
 ):
     from chap_core.rest_api.v1.routers import analytics
 
     monkeypatch.setattr(analytics, "worker", baseline_worker)
+    model = seeded_session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == "naive_model")).one()
+    model.model_template.min_prediction_periods = min_periods
+    model.model_template.max_prediction_periods = max_periods
+    seeded_session.add(model.model_template)
+    seeded_session.commit()
     defaults = default_settings()
     SettingsManager(seeded_session).update(
         defaults.model_copy(update={"monthly_backtest_params": BacktestParams(n_periods=5)})
