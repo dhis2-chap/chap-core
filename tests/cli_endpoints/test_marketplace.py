@@ -21,7 +21,8 @@ def test_resolves_stable_not_latest(marketplace_model, marketplace_http):
     )
     pin = resolve_model(marketplace_model["id"])
     assert pin.version == "0.1.0"
-    assert pin.image == f"{marketplace_model['source']['image']}:sha-57eeb78"
+    digest = marketplace_model["versions"][1]["image_digest"]
+    assert pin.image == f"{marketplace_model['source']['image']}:sha-57eeb78@{digest}"
     assert pin.commit == marketplace_model["versions"][1]["commit"]
     assert len(marketplace_http) == 2
 
@@ -43,6 +44,19 @@ def test_refuses_missing_stable(marketplace_model, marketplace_http):
 def test_refuses_invalid_pin(marketplace_model, marketplace_http, tag):
     marketplace_model["versions"][0]["image_tag"] = tag
     with pytest.raises(ValueError, match="invalid stable image pin"):
+        resolve_model(marketplace_model["id"])
+
+
+def test_refuses_stable_version_without_digest(marketplace_model, marketplace_http):
+    del marketplace_model["versions"][0]["image_digest"]
+    with pytest.raises(ValueError, match="no image digest"):
+        resolve_model(marketplace_model["id"])
+
+
+@pytest.mark.parametrize("digest", ["sha256:abc", "md5:" + "0" * 64, "sha256:" + "G" * 64])
+def test_rejects_malformed_digest(marketplace_model, marketplace_http, digest):
+    marketplace_model["versions"][0]["image_digest"] = digest
+    with pytest.raises(ValueError, match="image_digest"):
         resolve_model(marketplace_model["id"])
 
 
@@ -74,7 +88,7 @@ def test_custom_registry_requires_risk_acceptance(marketplace_model, marketplace
 def test_accepts_full_length_sha_tag(marketplace_model, marketplace_http):
     commit = marketplace_model["versions"][0]["commit"]
     marketplace_model["versions"][0]["image_tag"] = f"sha-{commit}"
-    assert resolve_model(marketplace_model["id"]).image.endswith(f":sha-{commit}")
+    assert f":sha-{commit}@sha256:" in resolve_model(marketplace_model["id"]).image
 
 
 def test_unknown_model_never_fetches_arbitrary_path(marketplace_http):
@@ -128,7 +142,7 @@ def test_install_and_update_register_the_model_and_preserve_settings_and_data(
     installed = yaml.safe_load(model_deployment.overlay.read_text())
     service_name = f"marketplace-{marketplace_model['service_id']}"
     service = installed["services"][service_name]
-    assert service["image"].endswith(":sha-57eeb78")
+    assert service["image"].endswith(f":sha-57eeb78@{marketplace_model['versions'][0]['image_digest']}")
     assert service["environment"]["SERVICEKIT_ORCHESTRATOR_URL"].endswith("/$$register")
     assert service["environment"]["SERVICEKIT_HOST"] == service_name
     assert service["x-chap-template"] == marketplace_model["service_id"]
@@ -151,15 +165,18 @@ def test_install_and_update_register_the_model_and_preserve_settings_and_data(
     service["cpus"] = 2
     model_deployment.overlay.write_text(yaml.safe_dump(installed))
 
-    marketplace_model["versions"][0].update(version="0.2.0", commit="a" * 40, image_tag="sha-aaaaaaa")
+    marketplace_model["versions"][0].update(
+        version="0.2.0", commit="a" * 40, image_tag="sha-aaaaaaa", image_digest="sha256:" + "a" * 64
+    )
     marketplace_model["channels"]["stable"] = "0.2.0"
     admin_app(["update", model], result_action="return_value")
     updated = yaml.safe_load(model_deployment.overlay.read_text())
-    assert updated["services"][service_name]["image"].endswith(":sha-aaaaaaa")
+    assert updated["services"][service_name]["image"].endswith(":sha-aaaaaaa@sha256:" + "a" * 64)
     assert updated["services"][service_name]["cpus"] == 2
     assert updated["services"][service_name]["volumes"] == service["volumes"]
     assert updated["volumes"] == installed["volumes"]
-    assert model_deployment.runner.call_count == 6
+    # A digest-pinned previous image cannot move, so no image ID is kept for a rollback.
+    assert model_deployment.runner.call_count == 5
     assert "--no-deps" in model_deployment.runner.call_args.args[0]
     # The new version is a new template row with its own configurations; the old row stays.
     assert [(t["version"], t["isLive"]) for t in chap.templates] == [("0.1.0", False), ("0.2.0", True)]
@@ -482,13 +499,15 @@ def test_update_all_updates_only_models_whose_stable_version_changed(marketplace
     assert model_deployment.runner.call_count == calls
     assert f"Skipping {marketplace_model['id']}: already on the stable version 0.1.0" in caplog.text
 
-    marketplace_model["versions"][0].update(version="0.2.0", commit="a" * 40, image_tag="sha-aaaaaaa")
+    marketplace_model["versions"][0].update(
+        version="0.2.0", commit="a" * 40, image_tag="sha-aaaaaaa", image_digest="sha256:" + "a" * 64
+    )
     marketplace_model["channels"]["stable"] = "0.2.0"
     update_all()
     service = yaml.safe_load(model_deployment.overlay.read_text())["services"][
         f"marketplace-{marketplace_model['service_id']}"
     ]
-    assert service["image"].endswith(":sha-aaaaaaa") and service["x-chap-version"] == "0.2.0"
+    assert service["image"].endswith(":sha-aaaaaaa@sha256:" + "a" * 64) and service["x-chap-version"] == "0.2.0"
     assert [(t["version"], t["isLive"]) for t in chap.templates] == [("0.1.0", False), ("0.2.0", True)]
 
 
