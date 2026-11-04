@@ -27,7 +27,7 @@ The Chap Core team has an example of a Chap Core LXC setup, which can be found a
 
 Within your LXC container, you need to clone the Chap Core repo. Information about **how to install Chap Core**, is located in next session [Installing Chap Core for use with the Modeling app](./installation.md)
 
-Chap Core publishes its REST API on port 8000 of `127.0.0.1` by default, so only the LXC container itself can reach it. DHIS2 runs in another container, so before starting Chap Core, set `CHAP_BIND_ADDRESS` in Chap's `.env` to the LXC container's private IP from the next section (for instance `CHAP_BIND_ADDRESS=192.168.0.174`). Do not use a public address.
+Chap Core publishes its REST API on port 8000 of `127.0.0.1` by default, so only the LXC container itself can reach it. DHIS2 runs in another container, so before starting Chap Core, set `CHAP_BIND_ADDRESS` in Chap's `.env` to the LXC container's private IP from the next section (for instance `CHAP_BIND_ADDRESS=192.168.0.174`). Do not use a public address or `0.0.0.0`: ports published by Docker bypass ufw, so the firewall would not block them. Chap then answers only on that IP, not on `localhost:8000`, so use the IP for any checks you run inside the LXC container too.
 
 After you have started Chap Core, the Chap Core REST API will be available at port 8000 on that address, and you should continue this guide.
 
