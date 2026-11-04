@@ -116,6 +116,14 @@ def test_uv_runner_prepends_uv_run():
         mock_execute.assert_called_once_with("uv run python main.py train data.csv model.pkl", Path("."), env=ANY)
 
 
+def test_uv_runner_puts_the_venv_in_a_relative_working_directory(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    with patch("chap_core.runners.command_line_runner.run_command") as mock_run:
+        UvRunner(Path("runs/model/run1")).run_command("python main.py")
+    env = mock_run.call_args.kwargs["env"]
+    assert env["UV_PROJECT_ENVIRONMENT"] == str(tmp_path.resolve() / "runs/model/run1/.venv")
+
+
 def test_uv_train_predict_runner_formats_commands():
     """Test that UvTrainPredictRunner formats train and predict commands correctly"""
     with patch.object(UvRunner, "_execute") as mock_execute:
