@@ -83,13 +83,13 @@ class SeasonalShiftPersistence(BuiltinModel):
     """
 
     spec = BuiltinModelSpec(
-        name="persistence",
+        name="seasonal_shift_persistence",
         display_name="Seasonal shift persistence",
         description=(
             "Baseline that forecasts the last observed value for the same location, scaled by how cases "
             "changed over the same horizon and time of year in the training data."
         ),
-        version="2",
+        version="1",
         role=ModelTemplateRole.baseline,
     )
 

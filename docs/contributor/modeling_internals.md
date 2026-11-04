@@ -92,7 +92,7 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
     period of the year that was never observed for the location. A location without
     observations gets the median of the other locations' samples for the same
     period of the year.
-  - `persistence` (`SeasonalShiftPersistence`): the last observed value, scaled by
+  - `seasonal_shift_persistence`: the last observed value, scaled by
     the changes over the same horizon and time of year in earlier years, so the
     spread widens with horizon. Training keeps these changes for horizons up to one
     year. Missing changes fall back to those of the nearest periods of the year, then

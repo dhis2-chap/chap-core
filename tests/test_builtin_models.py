@@ -22,7 +22,7 @@ from chap_core.models.builtin import (
     get_builtin_models,
 )
 from chap_core.models.builtin.empirical import period_of_year, quantile_samples
-from chap_core.models.builtin.persistence import SeasonalShifts
+from chap_core.models.builtin.seasonal_shift_persistence import SeasonalShifts
 from chap_core.models.model_template import ModelTemplate
 from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.rest_api.db_worker_functions import run_backtest, run_prediction
@@ -197,7 +197,7 @@ def _forecast(name, train, historic, future):
             ],
         ),
         (
-            "persistence",
+            "seasonal_shift_persistence",
             [
                 [56.0746, 109.9117, 109.9117, 217.5599],
                 [50.8149, 99.0098, 99.0098, 246.4415],
@@ -290,8 +290,8 @@ def test_persistence_scales_the_last_historic_value(weekly_split):
     df.loc[(df.location == "boaco") & (df.time_period == df.time_period.max()), "disease_cases"] = 2 * last_value
     doubled = SpatioTemporalDataSet.from_pandas(df, FullData)
 
-    median = _forecast("persistence", train, historic, future)["boaco"].samples[:, 49]
-    doubled_median = _forecast("persistence", train, doubled, future)["boaco"].samples[:, 49]
+    median = _forecast("seasonal_shift_persistence", train, historic, future)["boaco"].samples[:, 49]
+    doubled_median = _forecast("seasonal_shift_persistence", train, doubled, future)["boaco"].samples[:, 49]
 
     np.testing.assert_allclose(doubled_median + 1, (median + 1) * (2 * last_value + 1) / (last_value + 1))
 
@@ -301,7 +301,7 @@ def test_persistence_forecasts_with_spread_beyond_a_short_history(weekly_full_da
     short_train = weekly_full_data.restrict_time_period(slice(periods[0], periods[9]))
     future = weekly_full_data.restrict_time_period(slice(periods[10], periods[21]))
 
-    forecasts = _forecast("persistence", short_train, short_train, future)
+    forecasts = _forecast("seasonal_shift_persistence", short_train, short_train, future)
 
     assert set(forecasts.keys()) == set(future.keys())
     for samples in forecasts.values():
@@ -316,7 +316,9 @@ def test_persistence_forecasts_with_spread_more_than_a_year_after_the_last_value
     gap = df.time_period.isin(df.time_period.unique()[-60:])
     df.loc[(df.location == "boaco") & gap, "disease_cases"] = np.nan
 
-    samples = _forecast("persistence", train, SpatioTemporalDataSet.from_pandas(df, FullData), future)["boaco"].samples
+    samples = _forecast("seasonal_shift_persistence", train, SpatioTemporalDataSet.from_pandas(df, FullData), future)[
+        "boaco"
+    ].samples
 
     assert np.all(np.ptp(samples, axis=1) > 0)
 
@@ -329,7 +331,7 @@ def test_persistence_uses_the_ratios_of_all_locations_for_an_unseen_location(wee
         for data in others.values()
     )
 
-    samples = _forecast("persistence", others, historic, future)["boaco"].samples
+    samples = _forecast("seasonal_shift_persistence", others, historic, future)["boaco"].samples
 
     last_value = historic["boaco"].disease_cases[-1]
     first_week = period_of_year(future["boaco"].time_period)[0]
@@ -342,7 +344,7 @@ def test_persistence_forecasts_the_last_value_without_any_ratios(weekly_full_dat
     single_period = weekly_full_data.restrict_time_period(slice(periods[0], periods[0]))
     future = weekly_full_data.restrict_time_period(slice(periods[1], periods[2]))
 
-    forecasts = _forecast("persistence", single_period, single_period, future)
+    forecasts = _forecast("seasonal_shift_persistence", single_period, single_period, future)
 
     for location, samples in forecasts.items():
         assert np.all(samples.samples == single_period[location].disease_cases[-1])
@@ -353,7 +355,7 @@ def test_persistence_is_not_applicable_without_a_historic_value(weekly_split):
     df = historic.to_pandas()
     df.loc[df.location == "boaco", "disease_cases"] = np.nan
     with pytest.raises(BaselineNotApplicable, match="boaco"):
-        _forecast("persistence", train, SpatioTemporalDataSet.from_pandas(df, FullData), future)
+        _forecast("seasonal_shift_persistence", train, SpatioTemporalDataSet.from_pandas(df, FullData), future)
 
 
 SHIFTS = SeasonalShifts({1: {2: np.array([1.0, 3.0]), 3: np.array([2.0]), 5: np.array([4.0]), 8: np.array([6.0])}})
