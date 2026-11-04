@@ -64,7 +64,7 @@ def test_old_chapkit_is_rejected():
     ["naive_python_model_with_mlproject_file_and_docker", "naive_python_model_with_mlproject_file"],
 )
 def test_unsupported_env_is_rejected(models_path, model_dir):
-    with pytest.raises(InvalidModelException, match="not supported"):
+    with pytest.raises(InvalidModelException, match=r"not supported.*renv_env \(R\) or uv_env \(Python\)"):
         chapkit_service_launch(models_path / model_dir / "MLproject")
 
 
