@@ -34,8 +34,11 @@ jobs:
           helm dep update charts/chap
 
       - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.7.0
+        uses: helm/chart-releaser-action@v1.8.0
         with:
           config: cr.yaml
+          # The action passes this input as --mark-as-latest, which overrides
+          # cr.yaml, and it defaults to true.
+          mark_as_latest: false
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

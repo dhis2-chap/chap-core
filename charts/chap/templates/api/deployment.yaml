@@ -62,6 +62,9 @@ spec:
           env:
             {{- include "chap.valkeyEnv" . | nindent 12 }}
             {{- include "chap.databaseEnv" . | nindent 12 }}
+            {{- if include "chap.apiToken.enabled" . }}
+            {{- include "chap.apiTokenEnv" . | nindent 12 }}
+            {{- end }}
             - name: CHAP_LOGS_DIR
               value: /data/logs
           volumeMounts:

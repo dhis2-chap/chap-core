@@ -308,3 +308,21 @@ def test_worker_without_a_database_url_refuses_the_job(monkeypatch, tmp_path):
 
     assert result.status == "FAILURE"
     assert isinstance(result.result, RuntimeError)
+
+
+def test_worker_replaces_each_child_after_one_job():
+    # A child never gives back the memory its first job allocated (CLIM-1192).
+    assert celery_tasks.app.conf.worker_max_tasks_per_child == 1
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("redis://:s3cret@redis.internal:6379/0", "redis.internal:6379"),
+        ("redis://user:s3cret@redis.internal/0", "redis.internal"),
+        ("redis://localhost:6379", "localhost:6379"),
+        ("redis://:s3cret@h1:6379;redis://:s3cret@h2:6379", "h1"),
+    ],
+)
+def test_broker_host_drops_credentials(url, expected):
+    assert celery_tasks.broker_host(url) == expected

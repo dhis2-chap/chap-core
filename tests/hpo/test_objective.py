@@ -201,7 +201,7 @@ def test_objective_accepts_proper_scoring_rules(metric: str) -> None:
     assert objective.direction.value == "minimize"
 
 
-@pytest.mark.parametrize("metric", ["coverage_10_90", "sensitivity", "mape"])
+@pytest.mark.parametrize("metric", ["coverage_10_90", "mape"])
 def test_objective_rejects_metric_not_supported_as_direct_hpo_objective(metric: str) -> None:
     """Metrics that are not proper scoring rules fail before a backtest starts."""
     template, _, _ = make_template()

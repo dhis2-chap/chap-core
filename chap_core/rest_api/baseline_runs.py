@@ -38,7 +38,7 @@ STALE_CLAIM_AFTER = datetime.timedelta(hours=24)
 RETRIED_STATUSES = (SpecificationBaselineStatus.pending, SpecificationBaselineStatus.failed)
 
 
-def request_baselines(session: SessionWrapper, specification_id: int, database_url: str) -> list[int]:
+def request_baselines(session: SessionWrapper, specification_id: int) -> list[int]:
     """Queue every baseline that has no run on this specification yet, and return the ids of the queued runs.
 
     A baseline's run is looked up by its configured model, so a new baseline version is
@@ -72,7 +72,6 @@ def request_baselines(session: SessionWrapper, specification_id: int, database_u
             worker.queue_db(
                 run_baseline,
                 baseline.id,
-                database_url=database_url,
                 **{JOB_TYPE_KW: JobType.BASELINE, JOB_NAME_KW: f"baseline/{model.name}"},
             )
         except Exception:
@@ -123,13 +122,13 @@ def _reclaim(
     return claim
 
 
-def request_baselines_after_response(bind: Engine | Connection, specification_id: int, database_url: str) -> None:
+def request_baselines_after_response(bind: Engine | Connection, specification_id: int) -> None:
     """`request_baselines` for a read endpoint's background tasks, so the response never waits on the broker.
 
     It runs after the response is sent, when the request's session is closed, so it opens its own.
     """
     with SessionWrapper(bind) as session:
-        request_baselines(session, specification_id, database_url)
+        request_baselines(session, specification_id)
 
 
 @job_function

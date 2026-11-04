@@ -44,3 +44,10 @@ jobs:
             --set dhis2.enabled=true \
             --set dhis2.hostname=dhis2.example.org \
             --set dhis2.password=ci > /dev/null
+          helm template chap charts/chap --namespace chap \
+            --set db.password=ci \
+            --set valkey.auth.aclUsers.default.password=ci \
+            --set apiToken.token=ci \
+            --set dhis2.enabled=true \
+            --set dhis2.hostname=dhis2.example.org \
+            --set dhis2.password=ci > /dev/null

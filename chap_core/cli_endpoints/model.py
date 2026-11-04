@@ -90,7 +90,7 @@ def schema_cmd(
     """Print the model configuration schema for a model.
 
     The schema describes the structure of a ``--model-configuration-yaml`` file accepted by
-    commands like ``chap evaluate`` and ``chap forecast``. The ``user_options`` declared by
+    commands like ``chap evaluate``. The ``user_options`` declared by
     the model template are wrapped inside the ``user_option_values`` field, and the schema
     also includes the ``additional_continuous_covariates`` field.
 

@@ -171,6 +171,12 @@ class DataSetCreateInfoBase(DBModel):
     """Dataset metadata shared by every request that creates a dataset, including the inline-data ones."""
 
     name: str = Field(description="Name of dataset")
+    target_column: str = Field(
+        default="disease_cases",
+        min_length=1,
+        sa_column_kwargs={"server_default": "disease_cases"},
+        description="Column to predict. Set when the dataset is created and reused by its runs.",
+    )
 
     data_sources: list[DataSource] | None = Field(
         default_factory=list,
