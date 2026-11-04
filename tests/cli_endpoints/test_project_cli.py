@@ -518,3 +518,19 @@ def test_init_without_a_directory_or_a_terminal_needs_yes(tmp_path, monkeypatch)
     _, arguments = parse("init", "--model", "builtin:persistence", "-y")
     init_cmd(**arguments)
     assert (tmp_path / "chap.yaml").is_file()
+
+
+def test_a_model_in_the_project_directory_is_labelled_with_the_directory_name(tmp_path, monkeypatch):
+    model = tmp_path / "my_model"
+    model.mkdir()
+    monkeypatch.chdir(model)
+    assert model_label(".") == "my_model"
+    assert model_label(str(model / ".")) == "my_model"
+    assert model_label(str(model / "sub" / "..")) == "my_model"
+
+
+def test_init_explains_a_name_that_is_not_a_directory_when_the_registry_cannot_be_reached(tmp_path, monkeypatch):
+    monkeypatch.setenv("CHAP_MARKETPLACE_URL", "http://127.0.0.1:9")
+    with pytest.raises(ValueError, match="not a local directory, and not a Chap Hub model: Could not read the model"):
+        init_cmd(tmp_path / "project", model="my_modle")
+    assert not (tmp_path / "project").exists()

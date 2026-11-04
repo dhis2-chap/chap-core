@@ -129,6 +129,9 @@ def model_label(source: str) -> str:
     """
     name = source.removeprefix("builtin:").split("@")[0].rstrip("/")
     name = name.rsplit("/", 1)[-1].removesuffix(".git")
+    if not name.strip("."):
+        # "." or "..": a model in the project directory itself or its parent, named after that directory
+        name = Path(source).resolve().name
     if source.startswith("docker://"):
         name = name.split(":")[0]
     return re.sub(r"[^A-Za-z0-9_.-]+", "-", name).strip("-") or "model"

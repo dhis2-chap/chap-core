@@ -420,7 +420,11 @@ class DockerChapkitServiceManager(ChapkitServiceManager):
         return result.returncode == 0 and result.stdout.strip() == "true"
 
     def _stop_service(self) -> None:
-        super()._stop_service()
-        if self._container is not None:
-            subprocess.run(["docker", "rm", "-f", self._container], capture_output=True, check=False)
-            self._container = None
+        # In a finally block, so a second Ctrl-C or a signal while the docker run process stops
+        # still removes the container.
+        try:
+            super()._stop_service()
+        finally:
+            if self._container is not None:
+                subprocess.run(["docker", "rm", "-f", self._container], capture_output=True, check=False)
+                self._container = None

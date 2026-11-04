@@ -3,6 +3,7 @@ import signal
 import subprocess
 import sys
 import time
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -115,6 +116,19 @@ def test_sanity_check_model_runs_a_docker_image_and_removes_it(fake_docker, tmp_
     with pytest.raises(Exception) as error:
         sanity_check_model(f"docker://{IMAGE}")
     assert "Template not initialized" not in str(error.value)
+    calls = fake_docker.read_text().splitlines()
+    run = next(call for call in calls if call.startswith("run "))
+    container = run.split("--name ")[1].split()[0]
+    assert calls[-1] == f"rm -f {container}"
+
+
+def test_the_container_is_removed_when_stopping_is_interrupted(fake_docker):
+    with pytest.raises(KeyboardInterrupt):
+        with DockerChapkitServiceManager(IMAGE, startup_timeout=15):
+            # A second Ctrl-C while chap waits for the docker run process to stop.
+            subprocess_wait = patch.object(subprocess.Popen, "wait", side_effect=KeyboardInterrupt)
+            subprocess_wait.start()
+    subprocess_wait.stop()
     calls = fake_docker.read_text().splitlines()
     run = next(call for call in calls if call.startswith("run "))
     container = run.split("--name ")[1].split()[0]
