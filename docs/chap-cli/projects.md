@@ -31,9 +31,9 @@ Chap commands use the `chap.yaml` in the current directory, so run them in the p
 
 A GitHub model is pinned to the commit its default branch points at when you run `chap init`, written as `https://github.com/org/model@<commit>`. Every run then uses the same model code, so results in `output/` stay comparable. Use `--no-pin` to have each run use the latest commit instead, or edit the commit in `chap.yaml` to move to a newer version.
 
-## Chap Hub models
+## Chap Marketplace models
 
-`--model` also takes the ID of a model in [Chap Hub](https://github.com/dhis2-chap/chap-hub). `chap init` looks up the model's verified stable version and stores its container image:
+`--model` also takes the ID of a model in [Chap Marketplace](https://chap-marketplace.dhis2.org). `chap init` looks up the model's verified stable version and stores its container image:
 
 ```console
 chap init study --model chapkit_ghr_model --dataset ./data.csv
@@ -52,7 +52,7 @@ chap init study --model ../chapkit_minimalist_example_py --run-config.is-chapkit
 # An MLproject model served as a chapkit service for the duration of each run
 chap init study --model https://github.com/chap-models/mlproject_template_python --run-config.as-chapkit
 
-# A chapkit container image, such as a Chap Hub model, run as a container by each command
+# A chapkit container image, such as a Chap Marketplace model, run as a container by each command
 chap init study --model docker://ghcr.io/chap-models/chapkit_ghr_model:sha-84fbe77
 
 # A chapkit service that is already running

@@ -205,24 +205,24 @@ def test_model_label(source, label):
     assert model_label(source) == label
 
 
-def test_init_stores_a_chap_hub_model_as_its_stable_image(marketplace_model):
+def test_init_stores_a_chap_marketplace_model_as_its_stable_image(marketplace_model):
     from chap_core.cli_endpoints.init import resolve_model_source
     from chap_core.services.model_marketplace import MarketplaceModel, stable_pin
 
-    hub_pin = stable_pin(MarketplaceModel.model_validate(marketplace_model))
-    with patch("chap_core.services.model_marketplace.resolve_model", return_value=hub_pin) as resolve:
-        source = resolve_model_source(hub_pin.entry.id, pin=True)
-    resolve.assert_called_once_with(hub_pin.entry.id)
-    assert source == f"docker://{hub_pin.image}"
+    marketplace_pin = stable_pin(MarketplaceModel.model_validate(marketplace_model))
+    with patch("chap_core.services.model_marketplace.resolve_model", return_value=marketplace_pin) as resolve:
+        source = resolve_model_source(marketplace_pin.entry.id, pin=True)
+    resolve.assert_called_once_with(marketplace_pin.entry.id)
+    assert source == f"docker://{marketplace_pin.image}"
 
 
-def test_init_refuses_a_name_that_is_neither_a_directory_nor_a_chap_hub_model():
+def test_init_refuses_a_name_that_is_neither_a_directory_nor_a_chap_marketplace_model():
     from chap_core.cli_endpoints.init import resolve_model_source
 
     unlisted = ValueError("Model 'no_such_model' is not listed in the marketplace.")
     with (
         patch("chap_core.services.model_marketplace.resolve_model", side_effect=unlisted),
-        pytest.raises(ValueError, match="not a local directory, and not a Chap Hub model"),
+        pytest.raises(ValueError, match="not a local directory, and not a Chap Marketplace model"),
     ):
         resolve_model_source("no_such_model", pin=True)
 
@@ -538,7 +538,9 @@ def test_a_model_in_the_project_directory_is_labelled_with_the_directory_name(tm
 
 def test_init_explains_a_name_that_is_not_a_directory_when_the_registry_cannot_be_reached(tmp_path, monkeypatch):
     monkeypatch.setenv("CHAP_MARKETPLACE_URL", "http://127.0.0.1:9")
-    with pytest.raises(ValueError, match="not a local directory, and not a Chap Hub model: Could not read the model"):
+    with pytest.raises(
+        ValueError, match="not a local directory, and not a Chap Marketplace model: Could not read the model"
+    ):
         init_cmd(tmp_path / "project", model="my_modle")
     assert not (tmp_path / "project").exists()
 

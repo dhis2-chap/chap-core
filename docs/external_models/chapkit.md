@@ -147,7 +147,7 @@ If the model is already running as a service, for example one you started yourse
 chap eval --model-name http://localhost:5001 --run-config.is-chapkit-model --dataset-csv ./data.csv --output-file eval.nc
 ```
 
-A model from [Chap Hub](https://github.com/dhis2-chap/chap-hub) can also be set up once in a [Chap project](../chap-cli/projects.md#chap-hub-models), which stores its verified image so that `chap eval` runs without options.
+A model from [Chap Marketplace](https://chap-marketplace.dhis2.org) can also be set up once in a [Chap project](../chap-cli/projects.md#chap-marketplace-models), which stores its verified image so that `chap eval` runs without options.
 
 
 ## How to use chapkit models in chap with the modeling app

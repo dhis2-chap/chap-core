@@ -67,7 +67,7 @@ def init_cmd(
     model: Annotated[
         str | None,
         Parameter(
-            help="Model to evaluate: a Chap Hub model ID (stored as its verified stable image), local directory, "
+            help="Model to evaluate: a Chap Marketplace model ID (stored as its verified stable image), local directory, "
             "GitHub URL, chapkit service URL, chapkit container image (docker://<image>) or built-in model "
             "(builtin:<name>). Can also be set later as model_name in chap.yaml."
         ),
@@ -253,7 +253,7 @@ def _previous_model(directory: Path) -> str | None:
 def resolve_model_source(model: str, pin: bool) -> str:
     """The model source to store in chap.yaml for the ``--model`` given to chap init.
 
-    A Chap Hub model ID becomes ``docker://`` with its verified stable image. With ``pin``, a GitHub URL
+    A Chap Marketplace model ID becomes ``docker://`` with its verified stable image. With ``pin``, a GitHub URL
     without a commit gets the commit its default branch points at now. Other sources are kept as given.
     """
     from chap_core.models.chapkit_service_manager import DOCKER_SOURCE_PREFIX
@@ -262,11 +262,11 @@ def resolve_model_source(model: str, pin: bool) -> str:
         from chap_core.services.model_marketplace import resolve_model
 
         try:
-            hub_pin = resolve_model(model)
+            marketplace_pin = resolve_model(model)
         except ValueError as e:
-            raise ValueError(f"{model!r} is not a local directory, and not a Chap Hub model: {e}") from e
-        logger.info(f"Chap Hub model {model} {hub_pin.version} is {hub_pin.image}")
-        return f"{DOCKER_SOURCE_PREFIX}{hub_pin.image}"
+            raise ValueError(f"{model!r} is not a local directory, and not a Chap Marketplace model: {e}") from e
+        logger.info(f"Chap Marketplace model {model} {marketplace_pin.version} is {marketplace_pin.image}")
+        return f"{DOCKER_SOURCE_PREFIX}{marketplace_pin.image}"
     if pin and model.startswith("https://github.com/") and "@" not in model:
         url = model.rstrip("/")
         commit = remote_head_commit(url)
