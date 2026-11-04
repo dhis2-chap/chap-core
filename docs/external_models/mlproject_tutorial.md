@@ -1,6 +1,11 @@
 # Build a new model from a template
 
-This tutorial takes you from a template to your own model running in Chap. You write a train and a predict script, in R or Python, and a short `MLproject` file that describes them. Chap runs the model as a [chapkit](chapkit.md) service, but you do not write any service code, and you do not need to install chapkit or run a Chap server.
+This tutorial takes you from a template to your own model running in Chap. You write a train and a predict script, in R or Python, and a short `MLproject` file that describes them. Chap runs the model as a [chapkit](chapkit.md) service, but you do not write any service code.
+
+!!! info "What you do not need"
+    - **No separate chapkit install.** Installing Chap also installs chapkit, and `chap eval` starts and stops the chapkit service for you. There is no `brew install chapkit`.
+    - **No Chap server.** You do not need to clone chap-core or run its `docker compose up`. That stack runs Chap for the Modeling App, and is not needed to develop or evaluate a model.
+    - **No `chapkit mlproject migrate`** and no `main.py`. They turn a model into a chapkit service project with its own service code, which most models do not need.
 
 If you already have a model, follow [Bring your existing model to Chap](existing_model.md) instead.
 

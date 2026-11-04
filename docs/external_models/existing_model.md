@@ -6,7 +6,12 @@ This guide is for you if you already have a forecasting model in R or Python and
 2. **Make it Chap-compatible.** Add a short `MLproject` file and evaluate the model with `chap eval`.
 3. **Package it as a Docker image**, so that it can run next to a Chap installation.
 
-You do not need to install chapkit or run a Chap server, and you only need Docker for the last stage.
+You only need Docker for the last stage.
+
+!!! info "What you do not need"
+    - **No separate chapkit install.** Installing Chap also installs chapkit, and `chap eval` starts and stops the chapkit service for you. There is no `brew install chapkit`.
+    - **No Chap server.** You do not need to clone chap-core or run its `docker compose up`. That stack runs Chap for the Modeling App, and is not needed to develop or evaluate a model.
+    - **No `chapkit mlproject migrate`** and no `main.py`. They turn a model into a chapkit service project with its own service code, which most models do not need.
 
 If you do not have a model yet, see [Build a new model from a template](mlproject_tutorial.md) instead.
 
