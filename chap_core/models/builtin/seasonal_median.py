@@ -32,6 +32,16 @@ class SeasonalMedianSamples:
     def get(self, location: str, season: int) -> np.ndarray | None:
         return self.by_location.get(location, {}).get(season)
 
+    def is_observed(self, location: str) -> bool:
+        return bool(self.by_location.get(location))
+
+    def across_locations(self, season: int) -> np.ndarray | None:
+        """The median per quantile level of all locations' samples for the period of year, None when none has any."""
+        samples = [by_season[season] for by_season in self.by_location.values() if season in by_season]
+        if not samples:
+            return None
+        return np.asarray(np.median(np.stack(samples), axis=0))
+
 
 @builtin_model()
 class SeasonalMedian(BuiltinModel):
@@ -39,7 +49,9 @@ class SeasonalMedian(BuiltinModel):
 
     The samples are quantiles of those observations, so their median is the median of
     the observations. Week 53 is pooled with week 52. A period of year that was never
-    observed for the location is forecast with the global median.
+    observed for the location is forecast with the global median. A location without
+    observations gets the median of the other locations' samples for the same period of
+    year, and the global median when no location observed it.
     """
 
     spec = BuiltinModelSpec(
@@ -59,6 +71,8 @@ class SeasonalMedian(BuiltinModel):
 
     def _seasonal_samples(self, location: str, season: int) -> np.ndarray:
         samples = self._samples.get(location, season)
+        if samples is None and not self._samples.is_observed(location):
+            samples = self._samples.across_locations(season)
         if samples is None:
             return self._global_median.for_location(location)
         return samples

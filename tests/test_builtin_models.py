@@ -275,7 +275,12 @@ def test_seasonal_median_uses_other_locations_for_an_unseen_location(weekly_spli
 
     samples = _forecast("seasonal_median", train.filter_locations(others), historic, future)["boaco"].samples
 
-    assert np.all(samples[:, 49] == _other_locations_median(train, "boaco"))
+    for row, week in zip(samples, period_of_year(future["boaco"].time_period)):
+        same_week_medians = [
+            np.nanmedian(train[other].disease_cases[period_of_year(train[other].time_period) == week])
+            for other in others
+        ]
+        assert row[49] == np.median(same_week_medians)
 
 
 def test_persistence_scales_the_last_historic_value(weekly_split):
