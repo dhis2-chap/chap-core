@@ -14,11 +14,15 @@ The Chap platform brings several advantages to you as a model developer:
 
 ## How a model runs in Chap
 
-A Chap model is a train script and a predict script, in R or Python, plus a short `MLproject` file that tells Chap how to run them. You do not need to write any service or web code, and you do not need to install chapkit or run a Chap server. You evaluate the model on your own machine with one command:
+A Chap model is a train script and a predict script, in R or Python, plus a short `MLproject` file that tells Chap how to run them. Once your model is Chap-compatible, you can use it in two ways:
 
-```console
-chap eval --model-name . --dataset-csv data.csv --output-file eval.nc --plot --run-config.as-chapkit
-```
+- **On your own machine**, with the `chap` command-line tool. One command evaluates the model on a dataset and plots its forecasts:
+
+    ```console
+    chap eval --model-name . --dataset-csv data.csv --output-file eval.nc --plot --run-config.as-chapkit
+    ```
+
+- **In the Chap Modeling App**, where users can evaluate it on DHIS2 data, compare it with other models and make forecasts. For this, you package the model as a Docker image and add it to a Chap installation, see [Running Your Own Model](../modeling-app/running-your-own-model.md).
 
 ## Where to start
 
