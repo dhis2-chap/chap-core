@@ -17,10 +17,17 @@ def quantile_samples(values: np.ndarray) -> np.ndarray:
     return np.asarray(np.quantile(values, QUANTILE_LEVELS))
 
 
+def periods_per_year(time_period: PeriodRange) -> int:
+    """12 for monthly and 52 for weekly periods, the number of distinct values of ``period_of_year``."""
+    if isinstance(time_period[0], Month):
+        return 12
+    if isinstance(time_period[0], Week):
+        return 52
+    raise BaselineNotApplicable(f"Seasonal baselines need monthly or weekly data, got {type(time_period[0]).__name__}")
+
+
 def period_of_year(time_period: PeriodRange) -> np.ndarray:
     """The month (1-12) or week (1-52) of each period. Week 53 counts as week 52."""
-    if isinstance(time_period[0], Month):
+    if periods_per_year(time_period) == 12:
         return np.asarray(time_period.month)
-    if isinstance(time_period[0], Week):
-        return np.asarray(np.minimum(time_period.week, 52))
-    raise BaselineNotApplicable(f"Seasonal baselines need monthly or weekly data, got {type(time_period[0]).__name__}")
+    return np.asarray(np.minimum(time_period.week, 52))
