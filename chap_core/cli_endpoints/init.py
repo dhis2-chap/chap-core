@@ -34,7 +34,7 @@ from chap_core.project import (
 logger = logging.getLogger(__name__)
 
 PROJECT_FILE_HEADER = f"""\
-# Chap project. Run chap commands in this directory or in any directory below it.
+# Chap project. Run chap commands in this directory.
 # Every key is a command-line option: `--backtest-params.n-periods 3` is `backtest_params: {{n_periods: 3}}`.
 # An option given on the command line overrides this file. Relative paths are relative to this directory.
 # A section named after a command, such as `eval:`, applies to that command only.
@@ -214,10 +214,12 @@ def init_cmd(
         print(f"  {name}")
     todo = [f"set model_name in {PROJECT_FILE}"] if model is None else []
     todo += [f"copy your dataset to input/{DATASET_FILE}"] if not (project.input_dir / DATASET_FILE).is_file() else []
+    # Project commands only use the chap.yaml in the current directory.
+    cd = f"`cd {directory}`, then " if project.root != Path.cwd().resolve() else ""
     if todo:
-        print(f"Next: {' and '.join(todo)}, then run `chap eval`.")
+        print(f"Next: {cd}{' and '.join(todo)}, then run `chap eval`.")
     else:
-        print("Next: `chap validate` to check the dataset against the model, then `chap eval`.")
+        print(f"Next: {cd}`chap validate` to check the dataset against the model, then `chap eval`.")
 
 
 def _confirm_current_directory() -> None:

@@ -99,9 +99,7 @@ def test_validate_leaves_no_model_copy_behind(chap_project, models_path, monkeyp
 
 
 def test_eval_runs_with_no_options_inside_a_project(chap_project, monkeypatch):
-    subdirectory = chap_project / "notes"
-    subdirectory.mkdir()
-    monkeypatch.chdir(subdirectory)
+    monkeypatch.chdir(chap_project)
     command, arguments = parse("eval")
     command(**arguments)
     outputs = sorted(path.name for path in (chap_project / "output").iterdir())
@@ -166,8 +164,7 @@ def test_input_files_are_skipped_when_their_owner_is_given(chap_project, monkeyp
 
 def test_relative_paths_in_the_project_file_are_relative_to_the_project(chap_project, monkeypatch):
     edit_project_file(chap_project, dataset_csv="../shared.csv")
-    (chap_project / "notes").mkdir()
-    monkeypatch.chdir(chap_project / "notes")
+    monkeypatch.chdir(chap_project)
     _, arguments = parse("validate")
     assert arguments["dataset_csv"] == str(chap_project / "../shared.csv")
     assert arguments["model_name"] == "builtin:seasonal_median"
@@ -265,14 +262,24 @@ def test_init_with_force_keeps_model_options_for_the_same_model_and_drops_them_f
     assert not model_config.exists()
 
 
-def test_project_search_stops_at_a_git_repository_root(tmp_path):
-    (tmp_path / "chap.yaml").write_text("model_name: builtin:persistence\n")
-    (tmp_path / "repo" / ".git").mkdir(parents=True)
-    (tmp_path / "repo" / "src").mkdir()
-    assert find_project(tmp_path / "repo" / "src") is None
-    project = find_project(tmp_path)
+def test_only_a_project_file_in_the_current_directory_is_used(chap_project, monkeypatch):
+    project = find_project(chap_project)
     assert project is not None
-    assert project.root == tmp_path.resolve()
+    assert project.root == chap_project.resolve()
+    assert find_project(chap_project / "output") is None
+    assert find_project(chap_project.parent) is None
+    monkeypatch.chdir(chap_project / "output")
+    with pytest.raises(CycloptsError, match="--model-name"):
+        parse("eval")
+
+
+def test_init_says_to_change_to_a_new_project_directory(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    init_cmd(Path("laos"), model="builtin:persistence")
+    assert "Next: `cd laos`, then" in capsys.readouterr().out
+    monkeypatch.chdir(tmp_path / "laos")
+    init_cmd(Path("."), model="builtin:persistence", force=True)
+    assert "cd " not in capsys.readouterr().out
 
 
 def test_project_file_owned_by_another_user_is_ignored(chap_project):

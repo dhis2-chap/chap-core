@@ -98,26 +98,22 @@ class Project:
 
 
 def find_project(start: Path | None = None) -> Project | None:
-    """Return the project whose ``chap.yaml`` is in ``start`` (default: the current directory) or above it.
+    """Return the project whose ``chap.yaml`` is in ``start`` (default: the current directory), or None.
 
-    The search stops at the root of a git repository and at the home directory, so a ``chap.yaml``
-    further up does not change commands run elsewhere. A ``chap.yaml`` owned by another user is ignored.
+    Only that directory is looked at, so a ``chap.yaml`` in another directory, such as a parent or the
+    home directory, never changes a command. A ``chap.yaml`` owned by another user is ignored.
     """
     import os
 
     directory = (start or Path.cwd()).resolve()
-    home = Path.home().resolve()
-    for candidate in (directory, *directory.parents):
-        path = candidate / PROJECT_FILE
-        if path.is_file():
-            getuid = getattr(os, "getuid", None)  # not on Windows
-            if getuid is not None and path.stat().st_uid != getuid():
-                logger.warning("Ignoring %s: it belongs to another user", path)
-                return None
-            return Project.load(candidate)
-        if candidate == home or (candidate / ".git").exists():
-            return None
-    return None
+    path = directory / PROJECT_FILE
+    if not path.is_file():
+        return None
+    getuid = getattr(os, "getuid", None)  # not on Windows
+    if getuid is not None and path.stat().st_uid != getuid():
+        logger.warning("Ignoring %s: it belongs to another user", path)
+        return None
+    return Project.load(directory)
 
 
 def model_label(source: str) -> str:

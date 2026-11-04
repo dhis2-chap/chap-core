@@ -23,7 +23,7 @@ chap eval
 chap export-metrics --input-files output/*.nc --output-file metrics.csv
 ```
 
-Chap commands find the project from the current directory or any directory below it, the same way `git` finds a repository. The search stops at the root of a git repository and at your home directory, so a `chap.yaml` further up does not change commands run elsewhere, and a `chap.yaml` owned by another user is ignored.
+Chap commands use the `chap.yaml` in the current directory, so run them in the project directory, not in `input/` or `output/`. A `chap.yaml` in any other directory, such as a parent or your home directory, never changes a command, and a `chap.yaml` owned by another user is ignored.
 
 `chap init laos` creates the directory `laos` if it does not exist. Without a directory, `chap init` asks before making the current directory the project, for example a directory that already holds your data or your model's code; `--yes` (`-y`) skips the question, and so does naming the directory, as in `chap init .`. In both cases an existing `chap.yaml` is only replaced with `--force`.
 
