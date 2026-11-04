@@ -291,15 +291,29 @@ def test_persistence_scales_the_last_historic_value(weekly_split):
     np.testing.assert_allclose(doubled_median + 1, (median + 1) * (2 * last_value + 1) / (last_value + 1))
 
 
-def test_persistence_forecasts_with_less_than_a_year_of_history(weekly_full_data):
+def test_persistence_forecasts_with_spread_beyond_a_short_history(weekly_full_data):
     periods = weekly_full_data.period_range
     short_train = weekly_full_data.restrict_time_period(slice(periods[0], periods[9]))
-    future = weekly_full_data.restrict_time_period(slice(periods[10], periods[11]))
+    future = weekly_full_data.restrict_time_period(slice(periods[10], periods[21]))
 
     forecasts = _forecast("persistence", short_train, short_train, future)
 
     assert set(forecasts.keys()) == set(future.keys())
-    assert all(np.all(np.isfinite(samples.samples)) for samples in forecasts.values())
+    for samples in forecasts.values():
+        assert np.all(np.isfinite(samples.samples))
+        # Ten periods have one pair nine periods apart, so horizon 9 and later need all locations' ratios.
+        assert np.all(np.ptp(samples.samples[8:], axis=1) > 0)
+
+
+def test_persistence_forecasts_with_spread_more_than_a_year_after_the_last_value(weekly_split):
+    train, historic, future = weekly_split
+    df = historic.to_pandas()
+    gap = df.time_period.isin(df.time_period.unique()[-60:])
+    df.loc[(df.location == "boaco") & gap, "disease_cases"] = np.nan
+
+    samples = _forecast("persistence", train, SpatioTemporalDataSet.from_pandas(df, FullData), future)["boaco"].samples
+
+    assert np.all(np.ptp(samples, axis=1) > 0)
 
 
 def test_persistence_uses_the_ratios_of_all_locations_for_an_unseen_location(weekly_split):

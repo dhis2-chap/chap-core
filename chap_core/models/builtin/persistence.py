@@ -75,9 +75,11 @@ class SeasonalShiftPersistence(BuiltinModel):
 
     Training keeps the ratios for horizons up to one year. Missing ratios fall back to
     those of the nearest periods of year (see ``SeasonalShifts.ratios``), then to those of
-    all locations, and without any ratio the last value is forecast unchanged. A location
-    without an observed value in the historic data has no value to persist, so it is not
-    applicable.
+    all locations. A horizon without ratios, such as one longer than the training data
+    or than a year, uses the longest shorter horizon that has them. A single ratio gives
+    no spread, so more ratios found further down this order are preferred. Without any
+    ratio the last value is forecast unchanged. A location without an observed value in
+    the historic data has no value to persist, so it is not applicable.
     """
 
     spec = BuiltinModelSpec(
@@ -104,12 +106,21 @@ class SeasonalShiftPersistence(BuiltinModel):
         self._pooled_shifts = SeasonalShifts.pooled(self._shifts.values())
 
     def _ratios(self, location: str, season: int, horizon: int) -> np.ndarray:
-        """The ratios of the location, else of all locations, else 1."""
-        location_shifts = self._shifts.get(location)
-        ratios = location_shifts.ratios(season, horizon) if location_shifts is not None else None
-        if ratios is None:
-            ratios = self._pooled_shifts.ratios(season, horizon)
-        return np.ones(1) if ratios is None else ratios
+        """The ratios of the location, else of all locations, at the horizon or else the longest shorter one.
+
+        A single ratio gives no spread, so the first candidate with more than one is used, else
+        the first single ratio, else 1.
+        """
+        candidates = [shifts for shifts in (self._shifts.get(location), self._pooled_shifts) if shifts is not None]
+        single = None
+        for shorter_horizon in range(horizon, 0, -1):
+            for shifts in candidates:
+                ratios = shifts.ratios(season, shorter_horizon)
+                if ratios is not None and len(ratios) > 1:
+                    return ratios
+                if single is None:
+                    single = ratios
+        return np.ones(1) if single is None else single
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         forecasts = {}

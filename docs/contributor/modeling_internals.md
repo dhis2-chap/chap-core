@@ -94,7 +94,10 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
     the changes over the same horizon and time of year in earlier years, so the
     spread widens with horizon. Training keeps these changes for horizons up to one
     year. Missing changes fall back to those of the nearest periods of the year, then
-    of all locations, and without any the last value is forecast unchanged.
+    of all locations. A horizon without changes, such as one longer than the training
+    data or than a year, uses the longest shorter horizon that has them. A single
+    change gives no spread, so more changes further down this order are preferred.
+    Without any, the last value is forecast unchanged.
 
   All three use deterministic quantile samples whose two middle values are both
   the median, so the sample median is exactly the point forecast.
