@@ -8,7 +8,7 @@ import httpx
 import yaml
 from pydantic import BaseModel, Field
 
-DEFAULT_REGISTRY_URL = "https://raw.githubusercontent.com/dhis2-chap/model-marketplace/main"
+DEFAULT_REGISTRY_URL = "https://raw.githubusercontent.com/dhis2-chap/chap-marketplace/main"
 
 # BaseConfig fields chapkit reserves. CHAP supplies them itself at run time, so they are not
 # user options of a template and not option values of a configuration.
