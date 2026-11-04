@@ -484,3 +484,28 @@ def test_command_line_runner_simulate_raises_when_no_command():
     )
     with pytest.raises(NotImplementedError):
         runner.simulate("covariates.csv", "simulated.csv")
+
+
+def test_mlflow_runner_keeps_its_run_records_in_the_working_directory(tmp_path, monkeypatch):
+    import os
+
+    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
+    seen = []
+    runner = MlFlowTrainPredictRunner(model_path=tmp_path / "run")
+    with patch("mlflow.projects.run", side_effect=lambda *a, **k: seen.append(os.environ.get("MLFLOW_TRACKING_URI"))):
+        runner.train("train.csv", "model")
+        runner.predict("model", "historic.csv", "future.csv", "out.csv")
+    assert seen == [f"sqlite:///{(tmp_path / 'run' / 'mlflow.db').resolve().as_posix()}"] * 2
+    assert "MLFLOW_TRACKING_URI" not in os.environ
+
+
+def test_mlflow_runner_uses_a_tracking_uri_you_set(tmp_path, monkeypatch):
+    import os
+
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "file:///somewhere/mlruns")
+    seen = []
+    runner = MlFlowTrainPredictRunner(model_path=tmp_path)
+    with patch("mlflow.projects.run", side_effect=lambda *a, **k: seen.append(os.environ.get("MLFLOW_TRACKING_URI"))):
+        runner.train("train.csv", "model")
+    assert seen == ["file:///somewhere/mlruns"]
+    assert os.environ["MLFLOW_TRACKING_URI"] == "file:///somewhere/mlruns"
