@@ -172,6 +172,10 @@ class RunConfig(BaseModel):
         description="When True, serve an MLproject model with `chapkit mlproject run` for the duration of the run.",
     )
     track: bool = Field(default=False, description="When True, log params/metrics/artifacts to the tracking backend.")
+    runs_dir: Path | None = Field(
+        default=None,
+        description="Directory for the per-run model working copies; `None` means CHAP_RUNS_DIR (default `runs/`).",
+    )
 
 
 class EvaluationResponse(BaseModel):

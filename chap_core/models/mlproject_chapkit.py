@@ -53,6 +53,19 @@ def _require_tool(tool: str, env_key: str) -> None:
         )
 
 
+def check_servable_as_chapkit(mlproject: dict) -> None:
+    """Raise InvalidModelException when the MLproject's environment cannot be set up for ``chapkit mlproject run``."""
+    unsupported = [key for key in UNSUPPORTED_ENVS if mlproject.get(key) is not None]
+    if unsupported:
+        raise InvalidModelException(
+            f"Running an MLproject with {unsupported[0]} as a chapkit service is not supported. "
+            "Use --run-config.ignore-environment to run its commands in the current environment, "
+            "or start a chapkit image yourself (for example "
+            "docker run -p 8000:8000 -v $(pwd):/work ghcr.io/dhis2-chap/chapkit-r-inla-cli) "
+            "and pass its URL as --model-name."
+        )
+
+
 def chapkit_service_launch(mlproject_file: Path, ignore_env: bool = False) -> tuple[list[str], dict[str, str]]:
     """Prepare the model environment and return the command and environment that start the service.
 
@@ -73,15 +86,7 @@ def chapkit_service_launch(mlproject_file: Path, ignore_env: bool = False) -> tu
     if ignore_env:
         return list(CHAPKIT_MLPROJECT_RUN), env
 
-    unsupported = [key for key in UNSUPPORTED_ENVS if mlproject.get(key) is not None]
-    if unsupported:
-        raise InvalidModelException(
-            f"Running an MLproject with {unsupported[0]} as a chapkit service is not supported. "
-            "Use --run-config.ignore-environment to run its commands in the current environment, "
-            "or start a chapkit image yourself (for example "
-            "docker run -p 8000:8000 -v $(pwd):/work ghcr.io/dhis2-chap/chapkit-r-inla-cli) "
-            "and pass its URL as --model-name."
-        )
+    check_servable_as_chapkit(mlproject)
 
     if mlproject.get("uv_env") is not None:
         _require_tool("uv", "uv_env")

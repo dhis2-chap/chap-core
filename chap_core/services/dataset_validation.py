@@ -54,11 +54,18 @@ def validate_dataset(
         issues.extend(_check_location_completeness(raw_df))
 
     if model_template_config is not None:
-        issues.extend(_check_required_covariates(dataset, model_template_config))
-        issues.extend(_check_period_type(dataset, model_template_config))
+        issues.extend(check_model_requirements(dataset, model_template_config))
         issues.extend(check_unused_covariates(dataset, model_template_config, additional_continuous_covariates))
 
     return issues
+
+
+def check_model_requirements(dataset: DataSet, config: ModelTemplateConfigV2) -> list[ValidationIssue]:
+    """The checks a model's own requirements make: its required covariates and its period type.
+
+    ``chap validate`` reports them, and ``chap eval`` refuses to run when one of them is an error.
+    """
+    return [*_check_required_covariates(dataset, config), *_check_period_type(dataset, config)]
 
 
 # `target_masked` is added by masking (CLIM-1300) and is never part of input data.

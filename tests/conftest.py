@@ -217,6 +217,12 @@ def health_population_data(data_path):
 
 
 @pytest.fixture
+def laos_csv(data_path):
+    """Monthly data for three provinces, 2010-01 to 2012-12, with a sibling .geojson."""
+    return data_path / "laos_subset.csv"
+
+
+@pytest.fixture
 def nicaragua_path(data_path):
     return (data_path / "nicaragua_weekly_data").with_suffix(".csv")
 
