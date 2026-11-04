@@ -400,7 +400,7 @@ def check_dataset_for_model(dataset: DataSet, template_config: ModelTemplateConf
 def _report(message: str, strict: bool) -> None:
     if strict:
         raise ValueError(message)
-    logger.warning(f"{message}\nThe command continues; use --validate to stop on this instead.")
+    logger.warning(f"{message}\nThe command continues; use --strict to stop on this instead.")
 
 
 def get_estimator(

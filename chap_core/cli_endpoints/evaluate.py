@@ -62,7 +62,7 @@ def eval_cmd(
         EstimatorOptions | None,
         Parameter(help="Estimator behavior (normal | hpo | ensemble), optional metric."),
     ] = None,
-    validate: Annotated[
+    strict: Annotated[
         bool,
         Parameter(
             help="Stop before running when the dataset does not meet the model's requirements (as reported by "
@@ -105,7 +105,7 @@ def eval_cmd(
             dry_run=dry_run,
             plot=plot,
             estimator_options=estimator_options,
-            validate=validate,
+            strict=strict,
         )
         tracker.log_outputs_from_files(
             output_file,
@@ -157,7 +157,7 @@ def _run_eval(
             "Optionally --estimator-options.seed=<seed> for hpo."
         ),
     ] = None,
-    validate: Annotated[
+    strict: Annotated[
         bool,
         Parameter(
             help="Stop before running when the dataset does not meet the model's requirements (as reported by "
@@ -262,9 +262,9 @@ def _run_eval(
     with template:
         configuration = get_configuration(model_configuration_yaml)
         check_model_configuration(
-            configuration, template.model_template_config, model_configuration_yaml, strict=validate
+            configuration, template.model_template_config, model_configuration_yaml, strict=strict
         )
-        check_dataset_for_model(dataset, template.model_template_config, strict=validate)
+        check_dataset_for_model(dataset, template.model_template_config, strict=strict)
         estimator: ExternalModel | MetaLearner | ExtendedPredictor
         if estimator_options.mode == EstimatorMode.NORMAL:
             estimator = get_estimator(

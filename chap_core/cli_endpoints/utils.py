@@ -35,6 +35,7 @@ class AreaPolygons: ...
 
 def sanity_check_model(
     model_name: Annotated[ModelNameArg, Parameter(alias="--model-url")],
+    *,
     dataset_csv: Annotated[
         str | None,
         Parameter(

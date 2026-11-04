@@ -15,7 +15,7 @@ This checks for:
 - Missing values (NaN) in covariate columns
 - Location completeness (every location has the same set of time periods)
 
-With `--model-name`, it also checks that the dataset has the covariates and period type the model requires. `chap eval` warns about these problems and runs anyway; `chap eval --validate` stops on them.
+With `--model-name`, it also checks that the dataset has the covariates and period type the model requires. `chap eval` warns about these problems and runs anyway; `chap eval --strict` stops on them.
 
 With `--data-configuration`, it also checks that no masked range falls in the evaluation window of a backtest, which `chap eval` refuses. Give the backtest you will run with `--backtest-params`, and a masked range in its window is an error; in a [Chap project](../../chap-cli/projects.md), the project's eval settings are used. Without them, `chap validate` checks the window of `chap eval`'s default backtest and only warns.
 

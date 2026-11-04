@@ -17,7 +17,7 @@ chap validate
 chap eval
 ```
 
-`chap validate` checks the dataset against the model, including that masked ranges end before the project's evaluation window, and `chap eval` runs the backtest. `chap eval` warns about the problems `chap validate` reports as errors and runs anyway; `chap eval --validate` stops on them instead. `chap sanity-check-model` trains the model once on the project's dataset and makes two forecasts, which is a quick check that it runs at all. Each `chap eval` writes a new NetCDF file and an HTML plot to `output/`, named after the model and the time of the run, so you can compare runs afterwards:
+`chap validate` checks the dataset against the model, including that masked ranges end before the project's evaluation window, and `chap eval` runs the backtest. `chap eval` warns about the problems `chap validate` reports as errors and runs anyway; `chap eval --strict` (or `strict: true` in `chap.yaml`) stops on them instead. `chap sanity-check-model` trains the model once on the project's dataset and makes two forecasts, which is a quick check that it runs at all. Each `chap eval` writes a new NetCDF file and an HTML plot to `output/`, named after the model and the time of the run, so you can compare runs afterwards:
 
 ```console
 chap export-metrics --input-files output/*.nc --output-file metrics.csv

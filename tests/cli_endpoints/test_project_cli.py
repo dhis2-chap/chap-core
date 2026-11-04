@@ -411,7 +411,7 @@ def test_sanity_check_model_keeps_its_old_option_names(tmp_path, monkeypatch, la
     }
 
 
-def test_eval_with_validate_refuses_model_options_the_model_does_not_have(tmp_path, models_path, laos_csv):
+def test_eval_with_strict_refuses_model_options_the_model_does_not_have(tmp_path, models_path, laos_csv):
     from chap_core.cli_endpoints.evaluate import eval_cmd
 
     model_config = tmp_path / "options.yaml"
@@ -423,7 +423,7 @@ def test_eval_with_validate_refuses_model_options_the_model_does_not_have(tmp_pa
             output_file=tmp_path / "eval.nc",
             model_configuration_yaml=model_config,
             run_config=RunConfig(runs_dir=tmp_path / "runs"),
-            validate=True,
+            strict=True,
         )
 
 
@@ -436,7 +436,7 @@ def model_requiring_humidity(tmp_path, models_path):
     return model
 
 
-def test_eval_with_validate_refuses_a_dataset_without_a_covariate_the_model_requires(
+def test_eval_with_strict_refuses_a_dataset_without_a_covariate_the_model_requires(
     tmp_path, model_requiring_humidity, laos_csv
 ):
     from chap_core.cli_endpoints.evaluate import eval_cmd
@@ -447,11 +447,11 @@ def test_eval_with_validate_refuses_a_dataset_without_a_covariate_the_model_requ
             dataset_csv=str(laos_csv),
             output_file=tmp_path / "eval.nc",
             run_config=RunConfig(runs_dir=tmp_path / "runs", ignore_environment=True),
-            validate=True,
+            strict=True,
         )
 
 
-def test_eval_without_validate_warns_about_a_missing_covariate_and_continues(
+def test_eval_without_strict_warns_about_a_missing_covariate_and_continues(
     tmp_path, model_requiring_humidity, laos_csv, caplog
 ):
     from chap_core.api_types import BacktestParams
@@ -467,7 +467,7 @@ def test_eval_without_validate_warns_about_a_missing_covariate_and_continues(
         )
     assert (tmp_path / "eval.nc").is_file()
     assert "Required covariate 'mean_relative_humidity' not found" in caplog.text
-    assert "use --validate to stop" in caplog.text
+    assert "use --strict to stop" in caplog.text
 
 
 def test_validate_reports_a_masked_range_in_the_projects_evaluation_window(chap_project, monkeypatch, capsys):
@@ -577,3 +577,18 @@ def test_validate_with_backtest_params_reports_a_masked_range_in_their_window_as
         "validate", *tokens, "--backtest-params.n-periods", "1", "--backtest-params.n-splits", "1"
     )
     command(**arguments)
+
+
+def test_strict_can_be_set_in_the_project_file(chap_project, monkeypatch):
+    monkeypatch.chdir(chap_project)
+    assert parse("eval")[1].get("strict") is None
+    edit_project_file(chap_project, strict=True)
+    assert parse("eval")[1]["strict"] is True
+    edit_project_file(chap_project, strict=False, eval={"strict": True})
+    assert parse("eval")[1]["strict"] is True
+
+
+def test_sanity_check_model_takes_only_the_model_positionally(tmp_path, monkeypatch, laos_csv):
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(CycloptsError):
+        parse("sanity-check-model", "builtin:persistence", "False", str(laos_csv))
