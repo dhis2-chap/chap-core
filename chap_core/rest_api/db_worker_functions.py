@@ -23,12 +23,12 @@ from chap_core.database.dataset_tables import DataSetCreateInfo, DataSource, Mas
 from chap_core.database.tables import BacktestSpecification, PredictionSetup
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
+from chap_core.models.builtin import BaselineNotApplicable
 from chap_core.rest_api.data_models import BacktestCreate, FetchRequest, PredictionParams
 from chap_core.rest_api.job_registry import job_function
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
 from chap_core.services.alert_service import raise_alerts_for_prediction
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core.time_period import Month
 
 logger = logging.getLogger(__name__)
 status_logger = get_status_logger()
@@ -81,10 +81,14 @@ def validate_and_filter_dataset_for_evaluation(
     return DataSet(new_data, metadata=dataset.metadata, polygons=dataset.polygons)
 
 
-def _use_as_disease_cases(dataset: DataSet, column: str) -> DataSet:
-    """Expose `column` as `disease_cases` for models and scoring, dropping the original one."""
+def check_target_column(dataset: DataSet, column: str) -> None:
+    """Raise if the dataset has no `column` to use as the target."""
     if column not in dataset.field_names():
         raise ValueError(f"Dataset has no target column {column!r}")
+
+
+def _use_as_disease_cases(dataset: DataSet, column: str) -> DataSet:
+    """Expose `column` as `disease_cases` for models and scoring, dropping the original one."""
     if column == "disease_cases":
         return dataset
     fields = {name: name for name in dataset.field_names() if name not in (column, "disease_cases")}
@@ -117,35 +121,30 @@ def load_masked_dataset(session: Session, dataset_id: int, target_column: str | 
 def check_backtest_on_masked_dataset(
     session: Session,
     dataset_id: int,
-    n_periods: int | None,
+    n_periods: int,
     n_splits: int,
     stride: int,
 ) -> None:
-    """Raise before queueing if a backtest on a masked dataset cannot run.
-
-    Without `n_periods`, the default `run_backtest` would pick is used.
-    """
+    """Raise before queueing if a backtest on a masked dataset cannot run."""
     dataset, _ = load_masked_dataset(session, dataset_id)
-    if n_periods is None:
-        n_periods = _get_n_periods(dataset)
     check_mask_outside_evaluation_window(dataset, n_periods, n_splits, stride)
 
 
 @job_function
 def run_backtest(
     info: BacktestCreate,
-    n_periods: int | None = None,
+    n_periods: int,
     n_splits: int = _DEFAULT_PARAMS.n_splits,
     stride: int = _DEFAULT_PARAMS.stride,
     n_retrain: int = _DEFAULT_PARAMS.n_retrain,
     session: SessionWrapper | None = None,
     future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
     target_column: str | None = None,
-    baseline_database_url: str | None = None,
+    queue_baselines: bool = False,
 ):
     """Run and store a backtest, and return its id.
 
-    With `baseline_database_url`, the baselines missing on the backtest's specification
+    With `queue_baselines`, the baselines missing on the backtest's specification
     are queued as soon as it is resolved. The REST endpoints pass it. Baseline runs do
     not, so they never trigger more baseline runs.
     """
@@ -160,9 +159,6 @@ def run_backtest(
     # reads `info.model_id` as a string (job metadata, logs, etc.) sees the
     # canonical value rather than the raw integer primary key.
     info.model_id = configured_model.name
-
-    if n_periods is None:
-        n_periods = _get_n_periods(dataset)
 
     # Carry the resolved values, not the requested ones, so everything downstream of
     # here sees what actually ran. The persisted copy is the specification resolved
@@ -184,14 +180,14 @@ def run_backtest(
     dataset, specification = resolve_backtest_specification(
         session, dataset, info.dataset_id, backtest_params, target_column=target_column
     )
-    if baseline_database_url is not None:
+    if queue_baselines:
         # Imported here because baseline_runs imports this module for its jobs.
         from chap_core.rest_api.baseline_runs import request_baselines
 
         assert specification.id is not None
         # The baselines must never cost the user their own backtest.
         try:
-            request_baselines(session, specification.id, baseline_database_url)
+            request_baselines(session, specification.id)
         except Exception:
             logger.warning(f"Could not request baselines for specification {specification.id}", exc_info=True)
             session.session.rollback()
@@ -246,8 +242,7 @@ def resolve_backtest_specification(
     and the multi-model endpoint, which resolves the specification up front so its id
     can be returned before any job has run.
     """
-    if target_column not in dataset.field_names():
-        raise ValueError(f"Dataset has no target column {target_column!r}")
+    check_target_column(dataset, target_column)
     check_mask_outside_evaluation_window(dataset, params.n_periods, params.n_splits, params.stride)
     dataset = validate_and_filter_dataset_for_evaluation(
         dataset,
@@ -274,7 +269,7 @@ def resolve_backtest_specification(
 def run_prediction(
     model_id: str,
     dataset_id: str,
-    n_periods: int | None,
+    n_periods: int,
     name: str,
     session: SessionWrapper,
     prediction_setup_id: int | None = None,
@@ -291,9 +286,8 @@ def run_prediction(
         ).one()
 
     dataset, target_column = load_masked_dataset(session.session, int(dataset_id))
+    check_target_column(dataset, target_column)
     dataset = _use_as_disease_cases(dataset, target_column)
-    if n_periods is None:
-        n_periods = _get_n_periods(dataset)
 
     status_logger.info(f"Training model and generating {n_periods} period forecast")
     # A name resolves to the live configuration. Callers with a pinned row, such as a
@@ -317,7 +311,48 @@ def run_prediction(
     status_logger.info(f"Prediction completed successfully. Results saved with ID {db_id}")
     if prediction_setup_id is not None:
         raise_alerts_for_prediction(session.session, db_id)
+        _predict_baselines(session, dataset, dataset_id, n_periods, name, db_id, future_weather_provider)
     return db_id
+
+
+def _predict_baselines(
+    session: SessionWrapper,
+    dataset: DataSet,
+    dataset_id: str,
+    n_periods: int,
+    name: str,
+    prediction_id: int,
+    future_weather_provider: str,
+) -> list[int]:
+    """Store every baseline's forecast on the same data, so monitoring can compare the prediction with them.
+
+    Returns the ids of the stored baseline forecasts. As with backtests, a baseline never
+    costs the user their prediction: one that fails, whether it rejects the data with
+    `BaselineNotApplicable` or for another reason, is logged and stores nothing, and
+    monitoring then leaves the prediction out of the comparison with that baseline.
+    """
+    stored = []
+    for baseline in session.get_baseline_models():
+        assert baseline.id is not None, "configured_model.id is required"
+        try:
+            estimator = session.get_configured_model_with_code(baseline.id, prediction_length=n_periods)
+            forecasts = forecast_ahead(estimator, dataset, n_periods, weather_provider=future_weather_provider)
+            stored.append(
+                session.add_predictions(
+                    forecasts,
+                    dataset_id,
+                    baseline.name,
+                    f"{name} ({baseline.name})",
+                    baseline.id,
+                    baseline_for_prediction_id=prediction_id,
+                )
+            )
+        except BaselineNotApplicable as e:
+            logger.warning(f"Baseline {baseline.name!r} is not applicable to prediction {prediction_id}: {e}")
+        except Exception:
+            logger.warning(f"Baseline {baseline.name!r} failed for prediction {prediction_id}", exc_info=True)
+            session.session.rollback()
+    return stored
 
 
 @job_function
@@ -378,12 +413,6 @@ def harmonize_and_add_dataset(
     return db_id
 
 
-def _get_n_periods(health_dataset):
-    frequency = "ME" if isinstance(health_dataset.period_range[0], Month) else "W"
-    n_periods = 3 if frequency == "ME" else 12
-    return n_periods
-
-
 @job_function
 @convert_dicts_to_models
 def predict_pipeline_from_composite_dataset(
@@ -431,7 +460,7 @@ def run_backtest_from_dataset(
     backtest_params: BacktestParams,
     session: SessionWrapper,
     worker_config: WorkerConfig = WorkerConfig(),
-    baseline_database_url: str | None = None,
+    queue_baselines: bool = False,
 ) -> int:
     ds = InMemoryDataSet.from_dict(provided_data_model_dump, create_tsdataclass(feature_names))
     dataset_id = DataSetManager(session.session).save_dataset(
@@ -446,6 +475,6 @@ def run_backtest_from_dataset(
         n_retrain=backtest_params.n_retrain,
         session=session,
         future_weather_provider=backtest_params.future_weather_provider,
-        baseline_database_url=baseline_database_url,
+        queue_baselines=queue_baselines,
     )
     return result

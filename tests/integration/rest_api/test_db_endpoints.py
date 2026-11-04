@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 import chap_core
+from chap_core.assessment.metrics import get_comparison_description
 from chap_core.api_types import DataList, EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
@@ -32,6 +33,10 @@ from chap_core.database.tables import (
     BacktestSpecification,
     Prediction,
     PredictionInfo,
+    PredictionSamplesEntry,
+    PredictionSetupObservation,
+    SpecificationBaseline,
+    SpecificationBaselineStatus,
 )
 from chap_core.rest_api.data_models import (
     BacktestCreate,
@@ -503,7 +508,8 @@ def test_create_backtests_resolves_the_specification_and_queues_one_job_per_mode
     for func, _, kwargs in worker.queued:
         assert func is run_backtest
         assert (kwargs["n_periods"], kwargs["n_splits"], kwargs["stride"], kwargs["n_retrain"]) == (3, 4, 1, 2)
-        assert kwargs["baseline_database_url"] == kwargs["database_url"]
+        assert kwargs["queue_baselines"] is True
+        assert "database_url" not in kwargs
 
     specification = client.get(f"/v1/crud/backtest-specifications/{data['specificationId']}").json()
     assert (specification["dataset"]["id"], specification["nSplits"], specification["nRetrain"]) == (dataset_id, 4, 2)
@@ -562,14 +568,13 @@ def test_create_backtests_rejects_a_window_that_leaves_no_org_unit_to_train_on(
 
 
 def test_run_backtest_persists_resolved_params(override_session, p_seeded_engine):
-    """The stored row records the parameters that actually ran: n_periods=None is
-    resolved from the (monthly) dataset, and an integer model id is resolved to its name."""
+    """The stored row records the parameters that actually ran, and an integer model id is resolved to its name."""
     with SessionWrapper(p_seeded_engine) as session:
         dataset_id = session.session.exec(select(DataSet.id)).first()
         model = session.get_configured_model_by_id_or_name("naive_model")
         backtest_id = run_backtest(
             BacktestCreate(name="params", dataset_id=dataset_id, model_id=model.id),
-            n_periods=None,
+            n_periods=3,
             n_splits=2,
             stride=1,
             n_retrain=2,
@@ -1351,6 +1356,132 @@ def test_get_prediction_setup_includes_linked_predictions(override_session, seed
     assert body["predictions"][0]["predictionSetupId"] == setup_id
 
 
+def test_prediction_setup_monitoring_compares_with_the_default_baseline(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Monitored")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+    prediction = seeded_session.exec(select(Prediction)).first()
+    assert prediction is not None
+    prediction.prediction_setup_id = setup_id
+    seeded_session.add(prediction)
+    # Stand-in for a later run uploading the observed cases for the prediction's periods.
+    for entry in prediction.forecasts:
+        seeded_session.add(
+            PredictionSetupObservation(
+                prediction_setup_id=setup_id, org_unit=entry.org_unit, period=entry.period, disease_cases=1.0
+            )
+        )
+    backtest.aggregate_metrics = {"mae": 1.5}
+    # Stand-ins for the baseline's runs that forecast exactly what the model did, so every comparison is 0.
+    baseline = SessionWrapper(session=seeded_session).get_configured_model_by_id_or_name("persistence")
+    seeded_session.add(
+        SpecificationBaseline(
+            specification_id=backtest.specification_id,
+            configured_model_id=baseline.id,
+            status=SpecificationBaselineStatus.done,
+            backtest_id=backtest.id,
+        )
+    )
+    seeded_session.add(
+        Prediction(
+            **prediction.model_dump(
+                exclude={"id", "prediction_setup_id", "model_id", "model_db_id", "baseline_for_prediction_id"}
+            ),
+            model_id=baseline.name,
+            model_db_id=baseline.id,
+            baseline_for_prediction_id=prediction.id,
+            forecasts=[
+                PredictionSamplesEntry(period=entry.period, org_unit=entry.org_unit, values=entry.values)
+                for entry in prediction.forecasts
+            ],
+        )
+    )
+    seeded_session.commit()
+
+    response = client.get(f"/v1/crud/prediction-setups/{setup_id}/monitoring", params={"metric": "mae"})
+
+    assert response.status_code == 200, response.json()
+    body = response.json()
+    assert (body["metricId"], body["baselineModel"]) == ("mae", "persistence")
+    assert body["comparisonDescription"] == get_comparison_description("skill_ratio")
+    assert body["evaluationValue"] == 0.0
+    sources = [point["source"] for point in body["points"]]
+    # Evaluation points come first, one per backtest split, then one per prediction.
+    assert sources == sorted(sources)
+    assert sources.count("evaluation") == len({forecast.last_seen_period for forecast in backtest.forecasts})
+    assert {point["value"] for point in body["points"]} == {0.0}
+    first_forecast_period = TimePeriod.parse(min(entry.period for entry in prediction.forecasts))
+    [prediction_point] = [point for point in body["points"] if point["source"] == "prediction"]
+    assert prediction_point["period"] == (first_forecast_period - first_forecast_period.time_delta).id
+    assert prediction_point["nObserved"] == len(prediction.forecasts)
+
+
+@pytest.mark.parametrize("baseline", ["persistence", "global_median"])
+def test_prediction_setup_monitoring_has_no_points_before_the_baseline_has_run(
+    override_session, seeded_session, baseline
+):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Monitored")
+    assert created.status_code == 200, created.json()
+
+    response = client.get(
+        f"/v1/crud/prediction-setups/{created.json()['id']}/monitoring",
+        params={"metric": "mae", "baseline": baseline},
+    )
+
+    assert response.status_code == 200, response.json()
+    body = response.json()
+    assert (body["baselineModel"], body["evaluationValue"], body["points"]) == (baseline, None, [])
+
+
+def test_prediction_setup_monitoring_unknown_baseline_returns_422(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Monitored")
+    assert created.status_code == 200, created.json()
+
+    response = client.get(
+        f"/v1/crud/prediction-setups/{created.json()['id']}/monitoring",
+        params={"metric": "mae", "baseline": "naive_model"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_flat_prediction_forecasts_counts_horizons_from_first_forecast_period(seeded_session):
+    from chap_core.services.prediction_monitoring_service import flat_prediction_forecasts
+
+    prediction = seeded_session.exec(select(Prediction)).first()
+    assert prediction is not None
+
+    forecasts = flat_prediction_forecasts([prediction])
+
+    forecast_periods = sorted({entry.period for entry in prediction.forecasts})
+    assert sorted(forecasts.horizon_distance.unique()) == list(range(1, len(forecast_periods) + 1))
+    assert set(forecasts[forecasts.horizon_distance == 1].time_period) == {forecast_periods[0]}
+
+
+def test_prediction_setup_monitoring_unknown_metric_returns_422(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Monitored")
+    assert created.status_code == 200, created.json()
+
+    response = client.get(
+        f"/v1/crud/prediction-setups/{created.json()['id']}/monitoring", params={"metric": "not_a_metric"}
+    )
+
+    assert response.status_code == 422
+
+
+def test_prediction_setup_monitoring_not_found_returns_404(clean_engine, dependency_overrides):
+    response = client.get("/v1/crud/prediction-setups/99999/monitoring", params={"metric": "mae"})
+    assert response.status_code == 404
+
+
 @pytest.mark.parametrize("list_predictions", [False, True])
 def test_prediction_response_exposes_setup_id(override_session, seeded_session, list_predictions):
     prediction = seeded_session.exec(select(Prediction)).first()
@@ -1841,7 +1972,7 @@ def test_run_prediction_setup_forecasts_the_backtest_target(
     payload["nPeriods"] = 3
 
     def run_inline(func, *args, **kwargs):
-        for key in ("database_url", JOB_TYPE_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_METADATA_KW):
+        for key in (JOB_TYPE_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_METADATA_KW):
             kwargs.pop(key)
         kwargs["prediction_params"] = kwargs["prediction_params"].model_dump()
         with SessionWrapper(p_seeded_engine) as session:

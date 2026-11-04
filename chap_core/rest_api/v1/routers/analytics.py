@@ -71,7 +71,6 @@ from ...data_models import (
 )
 from .dependencies import (
     check_masked_ranges_match,
-    get_database_url,
     get_job_model,
     get_job_request,
     get_session,
@@ -101,7 +100,6 @@ def make_dataset(
     dry_run: bool = Query(
         False, description="If True, only run validation and do not import the dataset", alias="dryRun"
     ),
-    database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
 ):
     """Persist observations (with polygons) as a named dataset you can reuse across backtests and predictions.
@@ -136,7 +134,6 @@ def make_dataset(
         data_sources=request.data_sources,
         masked_ranges=request.masked_ranges,
         target_column=request.target_column,
-        database_url=database_url,
         worker_config=worker_settings,
         **{
             JOB_REQUEST_KW: original_request,
@@ -487,7 +484,6 @@ async def get_evaluation_entries(
 def create_backtest(
     request: MakeBacktestRequest,
     original_request: dict = Depends(get_job_request),
-    database_url: str = Depends(get_database_url),
     session: Session = Depends(get_session),
     settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
@@ -520,8 +516,7 @@ def create_backtest(
         BacktestCreate(name=request.name, dataset_id=request.dataset_id, model_id=model.id),
         **params.model_dump(),
         target_column=target_column,
-        baseline_database_url=database_url,
-        database_url=database_url,
+        queue_baselines=True,
         **{
             JOB_REQUEST_KW: original_request,
             JOB_TYPE_KW: JobType.EVALUATION_LEGACY,
@@ -546,7 +541,6 @@ def create_backtest(
 def create_backtests(
     request: MakeBacktestsRequest,
     original_request: dict = Depends(get_job_request),
-    database_url: str = Depends(get_database_url),
     session: Session = Depends(get_session),
     settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
@@ -583,8 +577,7 @@ def create_backtests(
             BacktestCreate(name=name, dataset_id=request.dataset_id, model_id=model.id),
             **params.model_dump(),
             target_column=target_column,
-            baseline_database_url=database_url,
-            database_url=database_url,
+            queue_baselines=True,
             **{
                 JOB_REQUEST_KW: original_request,
                 JOB_TYPE_KW: JobType.EVALUATION_LEGACY,
@@ -611,7 +604,6 @@ def create_backtests(
 async def make_prediction(
     request: MakePredictionRequest,
     original_request: dict = Depends(get_job_request),
-    database_url=Depends(get_database_url),
     worker_settings=Depends(get_settings),
     session: Session = Depends(get_session),
 ):
@@ -649,7 +641,6 @@ async def make_prediction(
         dataset_create_info=dataset_info,
         prediction_params=prediction_params,
         configured_model_id=model.id,
-        database_url=database_url,
         worker_config=worker_settings,
         **{
             JOB_REQUEST_KW: original_request,
@@ -915,7 +906,6 @@ async def create_backtest_with_data(
     dry_run: bool = Query(
         False, description="If True, only run validation and do not create a backtest", alias="dryRun"
     ),
-    database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
     session: Session = Depends(get_session),
     settings_manager: SettingsManager = Depends(get_settings_manager),
@@ -969,9 +959,8 @@ async def create_backtest_with_data(
         backtest_name=request.name,
         model_id=model.id,
         backtest_params=bt_params,
-        database_url=database_url,
         worker_config=worker_settings,
-        baseline_database_url=database_url,
+        queue_baselines=True,
         **{
             JOB_REQUEST_KW: original_request,
             JOB_TYPE_KW: JobType.EVALUATION,
