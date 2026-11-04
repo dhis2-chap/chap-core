@@ -150,9 +150,10 @@ chap eval --model-name http://localhost:5001 --dataset-csv https://raw.githubuse
 
 ## How to use chapkit models in chap with the modeling app
 
-Model services from the marketplace are installed with `chap-admin install-all`,
-which starts the services and registers their templates and configurations with
-chap, so they appear in the modeling app. See
+Model services from the [Chap Marketplace](https://chap-marketplace.dhis2.org)
+are installed with `chap-admin install-all`, which starts the services and
+registers their templates and configurations with chap, so they appear in the
+modeling app. See
 [Install the Models](../modeling-app/fresh-installation.md#5-install-the-models)
 for the commands.
 

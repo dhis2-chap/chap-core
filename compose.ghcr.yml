@@ -50,7 +50,7 @@ services:
       - default
       - backend
     ports:
-      - "8000:8000"
+      - "${CHAP_BIND_ADDRESS:-127.0.0.1}:8000:8000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 5s
@@ -129,6 +129,10 @@ services:
   redis:
     restart: unless-stopped
     image: valkey/valkey:8
+    # Job status and logs live here; append-only on a volume keeps them across restarts.
+    command: ["valkey-server", "--appendonly", "yes"]
+    volumes:
+      - valkey-data:/data
     networks:
       - backend
     healthcheck:
@@ -160,6 +164,7 @@ services:
 
 volumes:
   chap-db: {}
+  valkey-data: {}
   logs: {}
   renv: {}
   uv: {}

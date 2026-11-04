@@ -21,7 +21,7 @@ def test_fresh_settings_are_code_defaults_and_not_stored(override_session, seede
     assert settings["metricSortOrder"][:6] == selected
     assert set(settings["metricSortOrder"]) == set(available_metrics)
     assert settings["selectedMetrics"] == selected
-    assert settings["defaultBaselineModel"] == "persistence"
+    assert settings["defaultBaselineModel"] == "seasonal_shift_persistence"
     assert settings["monthlyBacktestParams"] == BacktestParams().model_dump(by_alias=True)
     assert settings["weeklyBacktestParams"] == BacktestParams(n_periods=12, stride=4).model_dump(by_alias=True)
     assert seeded_session.get(BackendSettings, 1) is None
@@ -77,7 +77,7 @@ def test_stored_settings_with_removed_metric_and_baseline_still_load(
     assert settings["metricSortOrder"][0] == "mae"
     assert "removed_metric" not in settings["metricSortOrder"]
     assert settings["selectedMetrics"] == ["mae"]
-    assert settings["defaultBaselineModel"] == "persistence"
+    assert settings["defaultBaselineModel"] == "seasonal_shift_persistence"
 
 
 def test_otherwise_invalid_stored_settings_fall_back_to_defaults(

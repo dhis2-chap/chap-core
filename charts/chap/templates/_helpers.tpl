@@ -198,3 +198,19 @@ default-password
 - name: CELERY_BROKER
   value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
 {{- end }}
+
+{{- define "chap.apiToken.enabled" -}}
+{{- if or .Values.apiToken.token .Values.apiToken.existingSecret -}}true{{- end -}}
+{{- end }}
+
+{{- define "chap.apiToken.secretName" -}}
+{{ default (printf "%s-api-token" (include "chap.fullname" .)) .Values.apiToken.existingSecret }}
+{{- end }}
+
+{{- define "chap.apiTokenEnv" -}}
+- name: CHAP_API_TOKEN
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "chap.apiToken.secretName" . }}
+      key: {{ .Values.apiToken.secretKeys.token }}
+{{- end }}
