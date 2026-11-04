@@ -96,7 +96,7 @@ eval:
 
 Top-level keys apply to every command that takes them. A section named after a command, such as `eval:`, applies to that command only. Relative paths are relative to the project root, so `dataset_csv: ../shared/vietnam.csv` uses a dataset outside the project instead of `input/data.csv`.
 
-A misspelled option inside a known option or a command section, such as `backtest_params: {n_period: 3}`, stops the command with an error, and so does a single value where options are expected, such as `run_config: true` or `model: builtin:persistence` (`model:` is the section for `chap model schema`; the model is `model_name`). A top-level key that no project command takes gives a warning.
+A misspelled option inside a known option or a command section, such as `backtest_params: {n_period: 3}`, stops the command with an error, and so does a single value where options are expected, such as `run_config: true` or `model: builtin:global_median` (`model:` is the section for `chap model schema`; the model is `model_name`). A top-level key that no project command takes gives a warning.
 
 ## Which value is used
 

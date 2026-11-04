@@ -51,15 +51,15 @@ def test_init_writes_a_data_settings_example_that_sets_nothing(chap_project):
 def test_init_with_force_keeps_edited_data_settings(chap_project):
     data_settings = chap_project / "input" / "data_settings.yaml"
     data_settings.write_text('maskedRanges:\n  - start: "2011-06"\n    end: "2011-08"\n')
-    init_cmd(chap_project, model="builtin:persistence", force=True)
+    init_cmd(chap_project, model="builtin:global_median", force=True)
     assert "2011-06" in data_settings.read_text()
 
 
 def test_init_refuses_an_existing_project_without_force(chap_project):
     with pytest.raises(ValueError, match="already exists"):
         init_cmd(chap_project)
-    init_cmd(chap_project, model="builtin:persistence", force=True)
-    assert Project.load(chap_project).settings["model_name"] == "builtin:persistence"
+    init_cmd(chap_project, model="builtin:global_median", force=True)
+    assert Project.load(chap_project).settings["model_name"] == "builtin:global_median"
 
 
 def test_init_copies_configuration_files_to_their_fixed_names(tmp_path):
@@ -122,7 +122,7 @@ def test_model_run_options_are_dropped_when_another_model_is_given(chap_project,
     edit_project_file(chap_project, run_config={"is_chapkit_model": True, "as_chapkit": True})
     monkeypatch.chdir(chap_project)
     assert parse("eval")[1]["run_config"].is_chapkit_model
-    run_config = parse("eval", "--model-name", "builtin:persistence")[1]["run_config"]
+    run_config = parse("eval", "--model-name", "builtin:global_median")[1]["run_config"]
     assert not run_config.is_chapkit_model
     assert not run_config.as_chapkit
     assert run_config.runs_dir == chap_project / ".chap" / "runs"
@@ -156,10 +156,10 @@ def test_input_files_are_skipped_when_their_owner_is_given(chap_project, monkeyp
     assert arguments["data_configuration"] == input_dir / "data_settings.yaml"
     assert arguments["model_configuration_yaml"] == input_dir / "model_config.yaml"
 
-    _, arguments = parse("eval", "--dataset-csv", str(laos_csv), "--model-name", "builtin:persistence")
+    _, arguments = parse("eval", "--dataset-csv", str(laos_csv), "--model-name", "builtin:global_median")
     assert "data_configuration" not in arguments
     assert "model_configuration_yaml" not in arguments
-    assert arguments["output_file"].name.startswith("persistence-")
+    assert arguments["output_file"].name.startswith("global_median-")
 
 
 def test_relative_paths_in_the_project_file_are_relative_to_the_project(chap_project, monkeypatch):
@@ -258,7 +258,7 @@ def test_init_with_force_keeps_model_options_for_the_same_model_and_drops_them_f
     init_cmd(root, model=model, force=True)
     assert "'99'" in model_config.read_text()
 
-    init_cmd(root, model="builtin:persistence", force=True)
+    init_cmd(root, model="builtin:global_median", force=True)
     assert not model_config.exists()
 
 
@@ -275,10 +275,10 @@ def test_only_a_project_file_in_the_current_directory_is_used(chap_project, monk
 
 def test_init_says_to_change_to_a_new_project_directory(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
-    init_cmd(Path("laos"), model="builtin:persistence")
+    init_cmd(Path("laos"), model="builtin:global_median")
     assert "Next: `cd laos`, then" in capsys.readouterr().out
     monkeypatch.chdir(tmp_path / "laos")
-    init_cmd(Path("."), model="builtin:persistence", force=True)
+    init_cmd(Path("."), model="builtin:global_median", force=True)
     assert "cd " not in capsys.readouterr().out
 
 
@@ -303,7 +303,7 @@ def test_dataset_files_in_input_are_skipped_when_the_project_file_names_another_
     ("settings", "message"),
     [
         ({"run_config": True}, "'run_config' in chap.yaml must be a mapping"),
-        ({"model": "builtin:persistence"}, "To choose the model, write model_name"),
+        ({"model": "builtin:global_median"}, "To choose the model, write model_name"),
     ],
 )
 def test_single_value_where_options_are_expected_is_an_error(chap_project, monkeypatch, settings, message):
@@ -341,7 +341,7 @@ def test_init_refuses_a_file_that_is_not_a_chap_dataset(tmp_path):
     not_a_dataset = tmp_path / "data.csv"
     not_a_dataset.write_text("periodname\tvalue\n2020-01\t3\n")
     with pytest.raises(ValueError, match="Could not load"):
-        init_cmd(tmp_path / "project", model="builtin:persistence", dataset=str(not_a_dataset))
+        init_cmd(tmp_path / "project", model="builtin:global_median", dataset=str(not_a_dataset))
     assert not (tmp_path / "project").exists()
 
 
@@ -350,11 +350,11 @@ def test_init_with_a_new_dataset_checks_the_kept_data_settings(chap_project, nic
         'maskedRanges:\n  - start: "2011-06"\n    end: "2011-08"\n'
     )
     with pytest.raises(ValueError, match="data_settings.yaml"):
-        init_cmd(chap_project, model="builtin:persistence", dataset=str(nicaragua_path), force=True)
+        init_cmd(chap_project, model="builtin:global_median", dataset=str(nicaragua_path), force=True)
 
 
 def test_init_without_a_dataset_does_not_ask_for_one_the_project_has(chap_project, capsys):
-    init_cmd(chap_project, model="builtin:persistence", force=True)
+    init_cmd(chap_project, model="builtin:global_median", force=True)
     assert "copy your dataset" not in capsys.readouterr().out
 
 
@@ -387,7 +387,7 @@ def test_sanity_check_model_applies_a_column_mapping(tmp_path, monkeypatch, data
 
     monkeypatch.chdir(tmp_path)
     sanity_check_model(
-        "builtin:persistence",
+        "builtin:global_median",
         dataset_csv=str(data_path / "laos_subset_custom_columns.csv"),
         data_source_mapping=data_path / "column_mapping.json",
     )
@@ -399,13 +399,13 @@ def test_sanity_check_model_keeps_its_old_option_names(tmp_path, monkeypatch, la
     _, arguments = parse(
         "sanity-check-model",
         "--model-url",
-        "builtin:persistence",
+        "builtin:global_median",
         "--dataset-path",
         str(laos_csv),
         "--use-local-environement",
     )
     assert arguments == {
-        "model_name": "builtin:persistence",
+        "model_name": "builtin:global_median",
         "dataset_csv": str(laos_csv),
         "use_local_environment": True,
     }
@@ -508,11 +508,11 @@ def test_init_without_a_directory_asks_before_using_the_current_one(tmp_path, mo
     monkeypatch.setattr("sys.stdin.isatty", lambda: True)
     monkeypatch.setattr("builtins.input", lambda _prompt: "n")
     with pytest.raises(ValueError, match="Cancelled"):
-        init_cmd(model="builtin:persistence")
+        init_cmd(model="builtin:global_median")
     assert not (tmp_path / "chap.yaml").exists()
 
     monkeypatch.setattr("builtins.input", lambda _prompt: "y")
-    init_cmd(model="builtin:persistence")
+    init_cmd(model="builtin:global_median")
     assert (tmp_path / "chap.yaml").is_file()
 
 
@@ -520,9 +520,9 @@ def test_init_without_a_directory_or_a_terminal_needs_yes(tmp_path, monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("sys.stdin.isatty", lambda: False)
     with pytest.raises(ValueError, match="--yes"):
-        init_cmd(model="builtin:persistence")
+        init_cmd(model="builtin:global_median")
     assert not (tmp_path / "chap.yaml").exists()
-    _, arguments = parse("init", "--model", "builtin:persistence", "-y")
+    _, arguments = parse("init", "--model", "builtin:global_median", "-y")
     init_cmd(**arguments)
     assert (tmp_path / "chap.yaml").is_file()
 
@@ -591,4 +591,4 @@ def test_strict_can_be_set_in_the_project_file(chap_project, monkeypatch):
 def test_sanity_check_model_takes_only_the_model_positionally(tmp_path, monkeypatch, laos_csv):
     monkeypatch.chdir(tmp_path)
     with pytest.raises(CycloptsError):
-        parse("sanity-check-model", "builtin:persistence", "False", str(laos_csv))
+        parse("sanity-check-model", "builtin:global_median", "False", str(laos_csv))
