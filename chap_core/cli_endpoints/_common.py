@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import logging
 import re
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     import pandas as pd
 
     from chap_core.api_types import BacktestParams, EstimatorOptions, RunConfig
@@ -319,10 +322,85 @@ def load_dataset_and_template(
     logger.info(f"Loading model template from {model_name}")
     template = ModelTemplate.from_directory_or_github_url(
         model_name,
+        base_working_dir=run_config.runs_dir,
         ignore_env=run_config.ignore_environment,
         run_dir_type=run_config.run_directory_type,
     )
     return dataset, template, configuration
+
+
+@contextmanager
+def inspect_model_template(model_name: str, run_config: RunConfig) -> Iterator[ModelTemplate]:
+    """Load a model template only to read its configuration, and clean up afterwards.
+
+    The model is copied into a temporary working directory that is removed on exit, and its
+    environment is not set up. A chapkit model in a local directory is started for the duration
+    and stopped on exit. A model run with ``as_chapkit`` is read from its MLproject file directly.
+    """
+    import tempfile
+
+    from chap_core.models.model_template import ModelTemplate
+    from chap_core.models.utils import check_run_options
+
+    check_run_options(model_name, is_chapkit_model=run_config.is_chapkit_model, as_chapkit=run_config.as_chapkit)
+    logger.info(f"Loading model template from {model_name}")
+    with tempfile.TemporaryDirectory(prefix="chap-model-") as working_dir:
+        template = ModelTemplate.from_directory_or_github_url(
+            model_name,
+            base_working_dir=Path(working_dir),
+            ignore_env=True,
+            dry_run=True,
+            is_chapkit_model=run_config.is_chapkit_model,
+        )
+        if run_config.as_chapkit and not run_config.ignore_environment:
+            from chap_core.models.mlproject_chapkit import check_servable_as_chapkit
+
+            check_servable_as_chapkit(template.model_template_config.model_dump())
+        with template:
+            yield template
+
+
+def check_model_configuration(
+    configuration: ModelConfiguration | None,
+    template_config: ModelTemplateConfigV2,
+    source: object,
+    strict: bool = True,
+) -> None:
+    """Report options in the model configuration from ``source`` that the model does not have.
+
+    A misspelled option is otherwise ignored and the model runs with its default. With ``strict``,
+    raises ValueError; otherwise logs a warning.
+    """
+    if configuration is None:
+        return
+    known = set(template_config.user_options or {})
+    unknown = sorted(set(configuration.user_option_values or {}) - known)
+    if unknown:
+        options = ", ".join(sorted(known)) or "none"
+        _report(f"{source} sets options the model does not have: {', '.join(unknown)}. Its options: {options}", strict)
+
+
+def check_dataset_for_model(dataset: DataSet, template_config: ModelTemplateConfigV2, strict: bool = True) -> None:
+    """Report where the dataset does not meet the model's requirements, as ``chap validate`` does.
+
+    With ``strict``, raises ValueError; otherwise logs a warning.
+    """
+    from chap_core.services.dataset_validation import check_model_requirements
+
+    errors = [issue.message for issue in check_model_requirements(dataset, template_config) if issue.level == "error"]
+    if errors:
+        _report(
+            "The dataset does not meet the model's requirements:\n  - "
+            + "\n  - ".join(errors)
+            + "\nRun `chap validate` for a full report.",
+            strict,
+        )
+
+
+def _report(message: str, strict: bool) -> None:
+    if strict:
+        raise ValueError(message)
+    logger.warning(f"{message}\nThe command continues; use --strict to stop on this instead.")
 
 
 def get_estimator(

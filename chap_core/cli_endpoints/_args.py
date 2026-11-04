@@ -16,8 +16,10 @@ from chap_core.api_types import BacktestParams, RunConfig
 ModelNameArg = Annotated[
     str,
     Parameter(
-        help="Model path (local directory), GitHub URL, chapkit service URL, or built-in model (builtin:<name>). "
-        "Examples: /path/to/model, https://github.com/org/model, http://localhost:8000"
+        help="Model path (local directory), GitHub URL, chapkit service URL, chapkit container image "
+        "(docker://<image>, run for the duration of the command) or built-in model (builtin:<name>). "
+        "Examples: /path/to/model, https://github.com/org/model, http://localhost:8000, "
+        "docker://ghcr.io/chap-models/chapkit_ghr_model:sha-84fbe77"
     ),
 ]
 
@@ -36,6 +38,9 @@ RunConfigArg = Annotated[
         "--run-config.debug for verbose logging, --run-config.ignore-environment to skip env setup"
     ),
 ]
+
+# The backtest chap eval runs when no --backtest-params are given.
+EVAL_DEFAULT_BACKTEST = BacktestParams(n_periods=3, n_splits=7, stride=1)
 
 BacktestParamsArg = Annotated[
     BacktestParams,
