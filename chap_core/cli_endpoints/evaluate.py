@@ -19,6 +19,8 @@ from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime v
     RunConfigArg,
 )
 from chap_core.cli_endpoints._common import (
+    check_dataset_for_model,
+    check_model_configuration,
     discover_geojson,
     get_configuration,
     get_estimator,
@@ -59,6 +61,14 @@ def eval_cmd(
         EstimatorOptions | None,
         Parameter(help="Estimator behavior (normal | hpo | ensemble), optional metric."),
     ] = None,
+    validate: Annotated[
+        bool,
+        Parameter(
+            help="Stop before running when the dataset does not meet the model's requirements (as reported by "
+            "chap validate) or the model configuration sets options the model does not have. "
+            "Without it, these are warnings."
+        ),
+    ] = False,
 ):
     """Evaluate a model using backtesting and export results to NetCDF format.
 
@@ -94,6 +104,7 @@ def eval_cmd(
             dry_run=dry_run,
             plot=plot,
             estimator_options=estimator_options,
+            validate=validate,
         )
         tracker.log_outputs_from_files(
             output_file,
@@ -145,6 +156,14 @@ def _run_eval(
             "Optionally --estimator-options.seed=<seed> for hpo."
         ),
     ] = None,
+    validate: Annotated[
+        bool,
+        Parameter(
+            help="Stop before running when the dataset does not meet the model's requirements (as reported by "
+            "chap validate) or the model configuration sets options the model does not have. "
+            "Without it, these are warnings."
+        ),
+    ] = False,
 ):
     """Evaluate a model using backtesting and export results to NetCDF format.
 
@@ -241,6 +260,10 @@ def _run_eval(
 
     with template:
         configuration = get_configuration(model_configuration_yaml)
+        check_model_configuration(
+            configuration, template.model_template_config, model_configuration_yaml, strict=validate
+        )
+        check_dataset_for_model(dataset, template.model_template_config, strict=validate)
         estimator: ExternalModel | MetaLearner | ExtendedPredictor
         if estimator_options.mode == EstimatorMode.NORMAL:
             estimator = get_estimator(

@@ -6,7 +6,7 @@ option that is not given on the command line from, in order:
 1. the section of ``chap.yaml`` named after the command, such as ``eval:``
 2. the top-level keys of ``chap.yaml``
 3. the files with fixed names in ``input/``, such as ``input/data.csv``
-4. project defaults: a new file in ``output/``, and ``.chap/runs`` for model working copies
+4. project defaults: a new file in ``output/``, and one working copy of each model in ``.chap/runs``
 
 Every key in ``chap.yaml`` is a command-line option: ``--backtest-params.n-periods 3`` is
 ``backtest_params: {n_periods: 3}``. Relative paths in it are relative to the project root.
@@ -39,7 +39,9 @@ COLUMN_MAPPING_FILE = "column_mapping.json"
 MODEL_CONFIG_FILE = "model_config.yaml"
 
 # Commands that take their defaults from a project.
-PROJECT_COMMANDS = {("eval",), ("validate",), ("model", "schema")}
+PROJECT_COMMANDS = {("eval",), ("validate",), ("model", "schema"), ("sanity-check-model",)}
+# Commands that run the model, so they get the project's runs directory.
+RUNNING_COMMANDS = {("eval",), ("sanity-check-model",)}
 SECTION_NAMES = {command[0] for command in PROJECT_COMMANDS}
 
 # Each fixed-name file in input/, the option it fills, and the option it belongs to. A file is
@@ -75,7 +77,11 @@ class Project:
 
     @property
     def runs_dir(self) -> Path:
-        """Where model working copies go, instead of ``runs/`` in the current directory."""
+        """Where model working copies go, instead of ``runs/`` in the current directory.
+
+        Each model has one working copy, ``<model>/latest``, replaced on every run, so the directory
+        does not grow with each run. ``run_config: {run_directory_type: timestamp}`` keeps one per run.
+        """
         return self.root / STATE_DIR / "runs"
 
     @classmethod
@@ -189,16 +195,27 @@ def project_values(
         values[option] = str(path)
         sources[option] = f"{INPUT_DIR}/{filename}"
 
-    if commands == ("eval",):
-        if "output_file" not in values:
-            model = _given(arguments, "model_name") or str(values.get("model_name", "model"))
-            # The random part keeps two runs started in the same second from writing the same file.
-            stamp = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
-            values["output_file"] = str(project.output_dir / f"{model_label(model)}-{stamp}.nc")
-            sources["output_file"] = f"{OUTPUT_DIR}/"
+    eval_section = settings.get("eval")
+    if (
+        commands == ("validate",)
+        and "backtest_params" not in values
+        and isinstance(eval_section, dict)
+        and isinstance(eval_section.get("backtest_params"), dict)
+    ):
+        # Masked ranges are checked against the evaluation window chap eval uses in this project.
+        values["backtest_params"] = eval_section["backtest_params"]
+        sources["backtest_params"] = f"{PROJECT_FILE} eval section"
+    if commands == ("eval",) and "output_file" not in values:
+        model = _given(arguments, "model_name") or str(values.get("model_name", "model"))
+        # The random part keeps two runs started in the same second from writing the same file.
+        stamp = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+        values["output_file"] = str(project.output_dir / f"{model_label(model)}-{stamp}.nc")
+        sources["output_file"] = f"{OUTPUT_DIR}/"
+    if commands in RUNNING_COMMANDS:
         run_config = values.get("run_config")
         if run_config is None or isinstance(run_config, dict):
-            values["run_config"] = {"runs_dir": str(project.runs_dir), **(run_config or {})}
+            defaults = {"runs_dir": str(project.runs_dir), "run_directory_type": "latest"}
+            values["run_config"] = {**defaults, **(run_config or {})}
             sources.setdefault("run_config", f"{STATE_DIR}/")
     return values, sources
 
@@ -269,9 +286,11 @@ def project_options() -> set[str]:
 
     from chap_core.cli_endpoints.evaluate import eval_cmd
     from chap_core.cli_endpoints.model import schema_cmd
+    from chap_core.cli_endpoints.utils import sanity_check_model
     from chap_core.cli_endpoints.validate import validate_cmd
 
-    return {name for command in (eval_cmd, validate_cmd, schema_cmd) for name in inspect.signature(command).parameters}
+    commands = (eval_cmd, validate_cmd, schema_cmd, sanity_check_model)
+    return {name for command in commands for name in inspect.signature(command).parameters}
 
 
 def _merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:

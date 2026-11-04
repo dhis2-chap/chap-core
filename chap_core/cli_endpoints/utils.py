@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import json
 import logging
@@ -10,6 +11,14 @@ from typing import TYPE_CHECKING, Annotated
 
 from cyclopts import Parameter
 
+from chap_core.api_types import RunConfig
+from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
+    DataConfigurationArg,
+    DataSourceMappingArg,
+    ModelConfigYamlArg,
+    ModelNameArg,
+    RunConfigArg,
+)
 from chap_core.cli_endpoints.generated_plot_ids import BACKTEST_PLOT_IDS
 
 if TYPE_CHECKING:
@@ -25,59 +34,106 @@ class AreaPolygons: ...
 
 
 def sanity_check_model(
-    model_url: str, use_local_environement: bool = False, dataset_path=None, model_config_path: str | None = None
+    model_name: Annotated[ModelNameArg, Parameter(alias="--model-url")],
+    dataset_csv: Annotated[
+        str | None,
+        Parameter(
+            alias="--dataset-path",
+            help="Path or URL to a dataset CSV to check the model on. Default: a small example dataset.",
+        ),
+    ] = None,
+    model_configuration_yaml: Annotated[ModelConfigYamlArg, Parameter(alias="--model-config-path")] = None,
+    data_source_mapping: DataSourceMappingArg = None,
+    data_configuration: DataConfigurationArg = None,
+    run_config: RunConfigArg = RunConfig(),
+    use_local_environment: Annotated[
+        bool,
+        Parameter(alias="--use-local-environement", help="Same as --run-config.ignore-environment."),
+    ] = False,
 ):
-    """
-    Check that a model can be loaded, trained and used to make predictions
+    """Check that a model can be loaded, trained and used to make predictions.
+
+    Inside a Chap project (see ``chap init``), options not given on the command line are read
+    from the project, so ``chap sanity-check-model`` alone checks the project's model on its dataset.
     """
     import numpy as np
 
     from chap_core.assessment.dataset_splitting import train_test_generator
-    from chap_core.cli_endpoints._common import get_configuration
-    from chap_core.datatypes import FullData
+    from chap_core.cli_endpoints._common import (
+        check_model_configuration,
+        discover_geojson,
+        get_configuration,
+        get_estimator,
+        load_data_configuration,
+        load_dataset_from_csv,
+        resolve_csv_path,
+    )
     from chap_core.file_io.example_data_set import datasets
-    from chap_core.models.utils import get_model_template_from_directory_or_github_url
-    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+    from chap_core.models.model_template import ModelTemplate
+    from chap_core.models.utils import CHAP_RUNS_DIR
 
-    if dataset_path is None:
+    if dataset_csv is None:
         dataset = datasets["hydromet_5_filtered"].load()
     else:
-        dataset = DataSet.from_csv(dataset_path, FullData)
-    train, tests = train_test_generator(dataset, 3, n_test_sets=2)
+        column_mapping = None
+        if data_source_mapping is not None:
+            with open(data_source_mapping) as f:
+                column_mapping = json.load(f)
+        csv_path, url_geojson_path = resolve_csv_path(dataset_csv)
+        dataset = load_dataset_from_csv(
+            csv_path,
+            url_geojson_path or discover_geojson(csv_path),
+            column_mapping,
+            load_data_configuration(data_configuration),
+        )
+    prediction_length = 3
+    train, tests = train_test_generator(dataset, prediction_length, n_test_sets=2)
     context, future, _truth = next(tests)
 
-    model_config = get_configuration(Path(model_config_path) if model_config_path is not None else None)
-    try:
-        model_template = get_model_template_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
-        model = model_template.get_model(model_config)  # type: ignore[arg-type]
-        estimator = model()
-    except Exception as e:
-        logger.error(f"Error while creating model: {e}")
-        raise e
-    try:
-        predictor = estimator.train(train)
-    except Exception as e:
-        logger.error(f"Error while training model: {e}")
-        raise e
-    try:
-        predictions = predictor.predict(context, future)
-    except Exception as e:
-        logger.error(f"Error while forecasting: {e}")
-        raise e
-    for location, prediction in predictions.items():
-        assert not np.isnan(prediction.samples).any(), (
-            f"NaNs in predictions for location {location}, {prediction.samples}"
-        )
-    context, future, _truth = next(tests)
-    try:
-        predictions = predictor.predict(context, future)
-    except Exception as e:
-        logger.error(f"Error while forecasting from a future time point: {e}")
-        raise e
-    for location, prediction in predictions.items():
-        assert not np.isnan(prediction.samples).any(), (
-            f"NaNs in futuresplit predictions for location {location}, {prediction.samples}"
-        )
+    model_config = get_configuration(model_configuration_yaml)
+    template = ModelTemplate.from_directory_or_github_url(
+        model_name,
+        base_working_dir=run_config.runs_dir or CHAP_RUNS_DIR,
+        ignore_env=run_config.ignore_environment or use_local_environment,
+        run_dir_type=run_config.run_directory_type,
+        is_chapkit_model=run_config.is_chapkit_model,
+        as_chapkit=run_config.as_chapkit,
+    )
+    with template:
+        try:
+            check_model_configuration(
+                model_config, template.model_template_config, model_configuration_yaml, strict=False
+            )
+            estimator = get_estimator(template, model_config, prediction_length=prediction_length)
+        except Exception as e:
+            logger.error(f"Error while creating model: {e}")
+            raise e
+        try:
+            predictor = estimator.train(train)
+        except Exception as e:
+            logger.error(f"Error while training model: {e}")
+            raise e
+        try:
+            predictions = predictor.predict(context, future)
+        except Exception as e:
+            logger.error(f"Error while forecasting: {e}")
+            raise e
+        for location, prediction in predictions.items():
+            assert not np.isnan(prediction.samples).any(), (
+                f"NaNs in predictions for location {location}, {prediction.samples}"
+            )
+        context, future, _truth = next(tests)
+        try:
+            predictions = predictor.predict(context, future)
+        except Exception as e:
+            logger.error(f"Error while forecasting from a future time point: {e}")
+            raise e
+        for location, prediction in predictions.items():
+            assert not np.isnan(prediction.samples).any(), (
+                f"NaNs in futuresplit predictions for location {location}, {prediction.samples}"
+            )
+
+    print(f"{model_name} passed the sanity check: it was trained and made predictions twice.")
 
 
 def write_open_api_spec(out_path: str):
@@ -151,7 +207,26 @@ def test():
         raise SystemExit(1)
 
 
-def plot_dataset(data_filename: Path, plot_name: str = "standardized-feature-plot"):
+def plot_dataset(
+    data_filename: Annotated[Path, Parameter(help="Dataset CSV to plot.")],
+    plot_name: Annotated[str, Parameter(help="Type of plot to make.")] = "standardized-feature-plot",
+    output_file: Annotated[
+        Path | None,
+        Parameter(help="Save the plot to this file (.html, .png, .svg or .pdf) instead of showing it."),
+    ] = None,
+    browser: Annotated[
+        bool,
+        Parameter(
+            help="Open the plot in a web browser. With --no-browser, the plot is served on a local URL "
+            "that is printed, until Ctrl-C."
+        ),
+    ] = True,
+):
+    """Plot the features of a dataset over time, one panel per location.
+
+    Opens the plot in a web browser, prints a local URL for it with --no-browser, or saves it with
+    --output-file.
+    """
     from chap_core.plotting.dataset_plot import get_dataset_plots_registry
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -163,7 +238,35 @@ def plot_dataset(data_filename: Path, plot_name: str = "standardized-feature-plo
     ds: DataSet = DataSet.from_csv(data_filename)
     plotter = plot_cls.from_dataset(ds)
     fig = plotter.plot()
-    fig.show()
+    if output_file is not None:
+        fig.save(str(output_file))
+        print(f"Plot saved to {output_file}")
+    elif browser:
+        fig.show()
+    else:
+        serve_html(fig.to_html())
+
+
+def serve_html(html: str) -> None:
+    """Serve an HTML page on a free local port and print its URL, until Ctrl-C."""
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    content = html.encode("utf-8")
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.send_header("Content-type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(content)
+
+        def log_message(self, format, *args):  # noqa: A002 — the name BaseHTTPRequestHandler uses
+            pass
+
+    with HTTPServer(("127.0.0.1", 0), Handler) as server:
+        print(f"Plot at http://127.0.0.1:{server.server_port}/ (Ctrl-C to stop)", flush=True)
+        with contextlib.suppress(KeyboardInterrupt):
+            server.serve_forever()
 
 
 def plot_backtest(

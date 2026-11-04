@@ -352,8 +352,55 @@ def inspect_model_template(model_name: str, run_config: RunConfig) -> Iterator[M
             dry_run=True,
             is_chapkit_model=run_config.is_chapkit_model,
         )
+        if run_config.as_chapkit and not run_config.ignore_environment:
+            from chap_core.models.mlproject_chapkit import check_servable_as_chapkit
+
+            check_servable_as_chapkit(template.model_template_config.model_dump())
         with template:
             yield template
+
+
+def check_model_configuration(
+    configuration: ModelConfiguration | None,
+    template_config: ModelTemplateConfigV2,
+    source: object,
+    strict: bool = True,
+) -> None:
+    """Report options in the model configuration from ``source`` that the model does not have.
+
+    A misspelled option is otherwise ignored and the model runs with its default. With ``strict``,
+    raises ValueError; otherwise logs a warning.
+    """
+    if configuration is None:
+        return
+    known = set(template_config.user_options or {})
+    unknown = sorted(set(configuration.user_option_values or {}) - known)
+    if unknown:
+        options = ", ".join(sorted(known)) or "none"
+        _report(f"{source} sets options the model does not have: {', '.join(unknown)}. Its options: {options}", strict)
+
+
+def check_dataset_for_model(dataset: DataSet, template_config: ModelTemplateConfigV2, strict: bool = True) -> None:
+    """Report where the dataset does not meet the model's requirements, as ``chap validate`` does.
+
+    With ``strict``, raises ValueError; otherwise logs a warning.
+    """
+    from chap_core.services.dataset_validation import check_model_requirements
+
+    errors = [issue.message for issue in check_model_requirements(dataset, template_config) if issue.level == "error"]
+    if errors:
+        _report(
+            "The dataset does not meet the model's requirements:\n  - "
+            + "\n  - ".join(errors)
+            + "\nRun `chap validate` for a full report.",
+            strict,
+        )
+
+
+def _report(message: str, strict: bool) -> None:
+    if strict:
+        raise ValueError(message)
+    logger.warning(f"{message}\nThe command continues; use --validate to stop on this instead.")
 
 
 def get_estimator(

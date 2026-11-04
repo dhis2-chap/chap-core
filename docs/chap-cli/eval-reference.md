@@ -83,6 +83,7 @@ Control model execution environment:
 | `--data-source-mapping` | Path to JSON file for column name mapping | None |
 | `--data-configuration` | Path to JSON or YAML file with data settings, such as masked ranges | None |
 | `--dry-run` | Write data files and print commands without executing the model | false |
+| `--validate` | Stop before running when the dataset does not meet the model's requirements, as `chap validate` reports them, or the model configuration sets options the model does not have. Without it, these are warnings | false |
 
 ## Dry Run
 

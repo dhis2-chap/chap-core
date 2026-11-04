@@ -307,19 +307,15 @@ def _check_model_config(path: Path, template_config: ModelTemplateConfigV2 | Non
     import yaml
     from pydantic import ValidationError
 
+    from chap_core.cli_endpoints._common import check_model_configuration
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 
     try:
         configuration = ModelConfiguration.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
     except (yaml.YAMLError, ValidationError) as e:
         raise ValueError(f"Could not read the model configuration {path}: {e}") from e
-    if template_config is None:
-        return
-    known = set(template_config.user_options or {})
-    unknown = sorted(set(configuration.user_option_values or {}) - known)
-    if unknown:
-        options = ", ".join(sorted(known)) or "none"
-        raise ValueError(f"{path} sets options the model does not have: {', '.join(unknown)}. Its options: {options}")
+    if template_config is not None:
+        check_model_configuration(configuration, template_config, path)
 
 
 def _relative_to_project(model: str, project: Project) -> str:

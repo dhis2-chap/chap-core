@@ -105,3 +105,17 @@ def test_a_command_started_with_sighup_ignored_survives_sighup(fake_docker, monk
     assert process.poll() is None
     process.send_signal(signal.SIGTERM)
     assert process.wait(timeout=30) == 128 + signal.SIGTERM
+
+
+def test_sanity_check_model_runs_a_docker_image_and_removes_it(fake_docker, tmp_path, monkeypatch):
+    from chap_core.cli_endpoints.utils import sanity_check_model
+
+    monkeypatch.chdir(tmp_path)
+    # The fake image only answers /health, so the check fails once it asks the service to train.
+    with pytest.raises(Exception) as error:
+        sanity_check_model(f"docker://{IMAGE}")
+    assert "Template not initialized" not in str(error.value)
+    calls = fake_docker.read_text().splitlines()
+    run = next(call for call in calls if call.startswith("run "))
+    container = run.split("--name ")[1].split()[0]
+    assert calls[-1] == f"rm -f {container}"

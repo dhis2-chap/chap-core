@@ -349,3 +349,152 @@ def test_init_with_a_new_dataset_checks_the_kept_data_settings(chap_project, nic
 def test_init_without_a_dataset_does_not_ask_for_one_the_project_has(chap_project, capsys):
     init_cmd(chap_project, model="builtin:persistence", force=True)
     assert "copy your dataset" not in capsys.readouterr().out
+
+
+def test_init_refuses_to_serve_a_model_whose_environment_chapkit_cannot_set_up(tmp_path, models_path):
+    from chap_core.exceptions import InvalidModelException
+
+    model = str(models_path / "naive_python_model_with_mlproject_file")
+    with pytest.raises(InvalidModelException, match="python_env"):
+        init_cmd(tmp_path / "project", model=model, run_config=RunConfig(as_chapkit=True))
+    assert not (tmp_path / "project").exists()
+
+
+def test_running_commands_keep_one_working_copy_per_model_in_the_project(chap_project, monkeypatch):
+    monkeypatch.chdir(chap_project)
+    for command in ("eval", "sanity-check-model"):
+        run_config = parse(command)[1]["run_config"]
+        assert run_config.runs_dir == chap_project / ".chap" / "runs"
+        assert run_config.run_directory_type == "latest"
+    edit_project_file(chap_project, run_config={"run_directory_type": "timestamp"})
+    assert parse("eval")[1]["run_config"].run_directory_type == "timestamp"
+
+
+def test_sanity_check_model_runs_with_no_options_inside_a_project(chap_project, monkeypatch, capsys):
+    monkeypatch.chdir(chap_project)
+    command, arguments = parse("sanity-check-model")
+    assert arguments["model_name"] == "builtin:seasonal_median"
+    assert arguments["dataset_csv"] == str(chap_project / "input" / "data.csv")
+    command(**arguments)
+    assert "passed the sanity check" in capsys.readouterr().out
+
+
+def test_sanity_check_model_applies_a_column_mapping(tmp_path, monkeypatch, data_path, capsys):
+    from chap_core.cli_endpoints.utils import sanity_check_model
+
+    monkeypatch.chdir(tmp_path)
+    sanity_check_model(
+        "builtin:persistence",
+        dataset_csv=str(data_path / "laos_subset_custom_columns.csv"),
+        data_source_mapping=data_path / "column_mapping.json",
+    )
+    assert "passed the sanity check" in capsys.readouterr().out
+
+
+def test_sanity_check_model_keeps_its_old_option_names(tmp_path, monkeypatch, laos_csv):
+    monkeypatch.chdir(tmp_path)
+    _, arguments = parse(
+        "sanity-check-model",
+        "--model-url",
+        "builtin:persistence",
+        "--dataset-path",
+        str(laos_csv),
+        "--use-local-environement",
+    )
+    assert arguments == {
+        "model_name": "builtin:persistence",
+        "dataset_csv": str(laos_csv),
+        "use_local_environment": True,
+    }
+
+
+def test_eval_with_validate_refuses_model_options_the_model_does_not_have(tmp_path, models_path, laos_csv):
+    from chap_core.cli_endpoints.evaluate import eval_cmd
+
+    model_config = tmp_path / "options.yaml"
+    model_config.write_text("user_option_values:\n  some_optoin: '5'\n")
+    with pytest.raises(ValueError, match="some_optoin. Its options: some_option"):
+        eval_cmd(
+            model_name=str(models_path / "naive_python_model_with_mlproject_file_and_docker"),
+            dataset_csv=str(laos_csv),
+            output_file=tmp_path / "eval.nc",
+            model_configuration_yaml=model_config,
+            run_config=RunConfig(runs_dir=tmp_path / "runs"),
+            validate=True,
+        )
+
+
+@pytest.fixture
+def model_requiring_humidity(tmp_path, models_path):
+    model = tmp_path / "model"
+    shutil.copytree(models_path / "naive_python_model_with_mlproject_file", model)
+    with open(model / "MLproject", "a") as mlproject:
+        mlproject.write("required_covariates:\n  - mean_relative_humidity\n")
+    return model
+
+
+def test_eval_with_validate_refuses_a_dataset_without_a_covariate_the_model_requires(
+    tmp_path, model_requiring_humidity, laos_csv
+):
+    from chap_core.cli_endpoints.evaluate import eval_cmd
+
+    with pytest.raises(ValueError, match="Required covariate 'mean_relative_humidity' not found"):
+        eval_cmd(
+            model_name=str(model_requiring_humidity),
+            dataset_csv=str(laos_csv),
+            output_file=tmp_path / "eval.nc",
+            run_config=RunConfig(runs_dir=tmp_path / "runs", ignore_environment=True),
+            validate=True,
+        )
+
+
+def test_eval_without_validate_warns_about_a_missing_covariate_and_continues(
+    tmp_path, model_requiring_humidity, laos_csv, caplog
+):
+    from chap_core.api_types import BacktestParams
+    from chap_core.cli_endpoints.evaluate import eval_cmd
+
+    with caplog.at_level(logging.WARNING):
+        eval_cmd(
+            model_name=str(model_requiring_humidity),
+            dataset_csv=str(laos_csv),
+            output_file=tmp_path / "eval.nc",
+            backtest_params=BacktestParams(n_periods=3, n_splits=2),
+            run_config=RunConfig(runs_dir=tmp_path / "runs", ignore_environment=True),
+        )
+    assert (tmp_path / "eval.nc").is_file()
+    assert "Required covariate 'mean_relative_humidity' not found" in caplog.text
+    assert "use --validate to stop" in caplog.text
+
+
+def test_validate_reports_a_masked_range_in_the_projects_evaluation_window(chap_project, monkeypatch, capsys):
+    (chap_project / "input" / "data_settings.yaml").write_text(
+        'maskedRanges:\n  - start: "2012-11"\n    end: "2012-11"\n'
+    )
+    monkeypatch.chdir(chap_project)
+    command, arguments = parse("validate")
+    assert arguments["backtest_params"].n_splits == 2
+    with pytest.raises(SystemExit):
+        command(**arguments)
+    assert "Masked period 201211 falls in the evaluation window" in capsys.readouterr().out
+
+
+def test_plot_dataset_saves_the_plot_to_a_file(tmp_path, laos_csv):
+    from chap_core.cli_endpoints.utils import plot_dataset
+
+    plot_dataset(laos_csv, output_file=tmp_path / "plot.html")
+    assert "vega" in (tmp_path / "plot.html").read_text()
+
+
+def test_plot_dataset_without_a_browser_prints_its_url(laos_csv, capsys):
+    from http.server import HTTPServer
+
+    from chap_core.cli_endpoints.utils import plot_dataset
+
+    with (
+        patch.object(HTTPServer, "serve_forever", side_effect=KeyboardInterrupt),
+        patch("webbrowser.open") as open_browser,
+    ):
+        plot_dataset(laos_csv, browser=False)
+    assert "Plot at http://127.0.0.1:" in capsys.readouterr().out
+    open_browser.assert_not_called()
