@@ -56,7 +56,13 @@ DATA_SETTINGS_TEMPLATE = """\
 
 
 def init_cmd(
-    directory: Annotated[Path, Parameter(help="Project directory. Created if it does not exist.")] = Path(),
+    directory: Annotated[
+        Path | None,
+        Parameter(
+            help="Project directory. Created if it does not exist. Without it, the current directory becomes "
+            "the project, after you confirm."
+        ),
+    ] = None,
     *,
     model: Annotated[
         str | None,
@@ -95,6 +101,14 @@ def init_cmd(
         ),
     ] = True,
     force: Annotated[bool, Parameter(help="Overwrite an existing chap.yaml.")] = False,
+    yes: Annotated[
+        bool,
+        Parameter(
+            alias="-y",
+            negative="",
+            help="Make the current directory the project without asking, when no directory is given.",
+        ),
+    ] = False,
 ) -> None:
     """Create a Chap project, so that `chap eval` runs without options inside it.
 
@@ -113,6 +127,10 @@ def init_cmd(
 
     initialize_logging()
 
+    if directory is None:
+        directory = Path()
+        if not yes:
+            _confirm_current_directory()
     if directory.exists() and not directory.is_dir():
         raise ValueError(f"{directory} is a file, not a directory")
     if (directory / PROJECT_FILE).exists() and not force:
@@ -200,6 +218,23 @@ def init_cmd(
         print(f"Next: {' and '.join(todo)}, then run `chap eval`.")
     else:
         print("Next: `chap validate` to check the dataset against the model, then `chap eval`.")
+
+
+def _confirm_current_directory() -> None:
+    """Ask before turning the current directory into a project; raise ValueError if the answer is no."""
+    import sys
+
+    cwd = Path.cwd()
+    if not sys.stdin.isatty():
+        raise ValueError(
+            f"chap init without a directory makes the current directory ({cwd}) a Chap project. "
+            "Give a directory name, or --yes to use the current directory."
+        )
+    answer = input(
+        f"Make the current directory {cwd} a Chap project? It writes chap.yaml, input/ and output/ here. [y/N] "
+    )
+    if answer.strip().lower() not in ("y", "yes"):
+        raise ValueError("Cancelled; nothing was written. Give a directory name, such as `chap init my-project`.")
 
 
 def _previous_model(directory: Path) -> str | None:

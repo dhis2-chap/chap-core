@@ -494,3 +494,27 @@ def test_plot_dataset_without_a_browser_prints_its_url(laos_csv, capsys):
         plot_dataset(laos_csv, browser=False)
     assert "Plot at http://127.0.0.1:" in capsys.readouterr().out
     open_browser.assert_not_called()
+
+
+def test_init_without_a_directory_asks_before_using_the_current_one(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda _prompt: "n")
+    with pytest.raises(ValueError, match="Cancelled"):
+        init_cmd(model="builtin:persistence")
+    assert not (tmp_path / "chap.yaml").exists()
+
+    monkeypatch.setattr("builtins.input", lambda _prompt: "y")
+    init_cmd(model="builtin:persistence")
+    assert (tmp_path / "chap.yaml").is_file()
+
+
+def test_init_without_a_directory_or_a_terminal_needs_yes(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+    with pytest.raises(ValueError, match="--yes"):
+        init_cmd(model="builtin:persistence")
+    assert not (tmp_path / "chap.yaml").exists()
+    _, arguments = parse("init", "--model", "builtin:persistence", "-y")
+    init_cmd(**arguments)
+    assert (tmp_path / "chap.yaml").is_file()
