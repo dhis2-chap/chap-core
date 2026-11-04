@@ -508,7 +508,8 @@ def test_create_backtests_resolves_the_specification_and_queues_one_job_per_mode
     for func, _, kwargs in worker.queued:
         assert func is run_backtest
         assert (kwargs["n_periods"], kwargs["n_splits"], kwargs["stride"], kwargs["n_retrain"]) == (3, 4, 1, 2)
-        assert kwargs["baseline_database_url"] == kwargs["database_url"]
+        assert kwargs["queue_baselines"] is True
+        assert "database_url" not in kwargs
 
     specification = client.get(f"/v1/crud/backtest-specifications/{data['specificationId']}").json()
     assert (specification["dataset"]["id"], specification["nSplits"], specification["nRetrain"]) == (dataset_id, 4, 2)
@@ -567,14 +568,13 @@ def test_create_backtests_rejects_a_window_that_leaves_no_org_unit_to_train_on(
 
 
 def test_run_backtest_persists_resolved_params(override_session, p_seeded_engine):
-    """The stored row records the parameters that actually ran: n_periods=None is
-    resolved from the (monthly) dataset, and an integer model id is resolved to its name."""
+    """The stored row records the parameters that actually ran, and an integer model id is resolved to its name."""
     with SessionWrapper(p_seeded_engine) as session:
         dataset_id = session.session.exec(select(DataSet.id)).first()
         model = session.get_configured_model_by_id_or_name("naive_model")
         backtest_id = run_backtest(
             BacktestCreate(name="params", dataset_id=dataset_id, model_id=model.id),
-            n_periods=None,
+            n_periods=3,
             n_splits=2,
             stride=1,
             n_retrain=2,
@@ -1972,7 +1972,7 @@ def test_run_prediction_setup_forecasts_the_backtest_target(
     payload["nPeriods"] = 3
 
     def run_inline(func, *args, **kwargs):
-        for key in ("database_url", JOB_TYPE_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_METADATA_KW):
+        for key in (JOB_TYPE_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_METADATA_KW):
             kwargs.pop(key)
         kwargs["prediction_params"] = kwargs["prediction_params"].model_dump()
         with SessionWrapper(p_seeded_engine) as session:

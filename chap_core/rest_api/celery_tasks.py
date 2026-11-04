@@ -115,6 +115,9 @@ app.conf.update(
     task_track_started=True,
     task_send_sent_event=True,
     worker_send_task_events=True,
+    # A prefork child keeps the memory its first job allocated (about 240 MiB) for as long as it lives,
+    # so replace it after every job. Jobs run for minutes, so the fork is cheap by comparison.
+    worker_max_tasks_per_child=1,
 )
 
 
@@ -326,8 +329,8 @@ def worker_database_url() -> str:
 
 @app.task(base=TrackedTask)
 def celery_run_with_session(func_name: str, *args, **kwargs):
-    # A database URL in the message is ignored: anyone who can write to the broker could
-    # otherwise point the worker at a database holding a model that runs their code.
+    # Older versions put a database URL in the message. It stays ignored: anyone who can write to the
+    # broker could otherwise point the worker at a database holding a model that runs their code.
     kwargs.pop("database_url", None)
     database_url = worker_database_url()
     if database_url not in ENGINES_CACHE:

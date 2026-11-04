@@ -226,6 +226,7 @@ def test_chapkit_backtest_via_worker_function(chapkit_service):
         # Run backtest directly (bypasses Celery)
         backtest_id = run_backtest(
             BacktestCreate(dataset_id=dataset_id, model_id="chapkit-test-model"),
+            n_periods=3,
             n_splits=2,
             session=session,
         )
@@ -286,6 +287,7 @@ def test_chapkit_model_receives_the_mask_indicator(chapkit_service, chapkit_call
         )
         backtest_id = run_backtest(
             BacktestCreate(dataset_id=dataset_id, model_id="chapkit-test-model"),
+            n_periods=3,
             n_splits=2,
             session=session,
         )
@@ -310,7 +312,12 @@ def test_chapkit_model_gets_no_mask_indicator_on_an_unmasked_dataset(chapkit_ser
 
     with SessionWrapper(_in_memory_engine()) as session:
         dataset_id = _register_service_and_dataset(session, chapkit_service)
-        run_backtest(BacktestCreate(dataset_id=dataset_id, model_id="chapkit-test-model"), n_splits=2, session=session)
+        run_backtest(
+            BacktestCreate(dataset_id=dataset_id, model_id="chapkit-test-model"),
+            n_periods=3,
+            n_splits=2,
+            session=session,
+        )
 
     logged = _logged_calls(chapkit_call_log)
     assert logged

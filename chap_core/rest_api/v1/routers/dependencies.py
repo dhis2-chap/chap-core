@@ -1,5 +1,4 @@
 import json
-import os
 from collections.abc import Iterable
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, cast
@@ -38,10 +37,6 @@ def get_settings_manager(session: Session = Depends(get_session)) -> SettingsMan
 @lru_cache
 def get_settings():
     return WorkerConfig()
-
-
-def get_database_url():
-    return os.getenv("CHAP_DATABASE_URL")
 
 
 async def get_job_request(request: Request) -> dict[str, Any]:
