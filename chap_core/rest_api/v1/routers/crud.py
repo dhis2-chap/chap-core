@@ -36,7 +36,6 @@ from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import compare_aggregated_metrics, compute_all_detailed_metrics
 from chap_core.assessment.weather_providers import resolve_weather_provider
 from chap_core.data import DataSet as InMemoryDataSet
-from chap_core.database.alert_tables import Alert, AlertApproval, AlertPolicyRead, AlertRead
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetInUseError, DataSetManager
 from chap_core.database.dataset_tables import (
@@ -54,6 +53,7 @@ from chap_core.database.model_templates_and_config_tables import (
     chapkit_revision_conflict,
 )
 from chap_core.database.settings import SettingsManager
+from chap_core.database.signal_tables import Signal, SignalRead, SignalReleaseStatus, ThresholdPolicyRead
 from chap_core.database.tables import (
     Backtest,
     BacktestRead,
@@ -87,19 +87,14 @@ from chap_core.rest_api.services.orchestrator import Orchestrator, ServiceNotFou
 from chap_core.rest_api.services.schemas import MLServiceInfo
 from chap_core.rest_api.v2.dependencies import get_orchestrator, get_registry_reader
 from chap_core.services import (
-    alert_policy_service,
-    alert_service,
     prediction_monitoring_service,
     prediction_setup_service,
+    signal_service,
+    threshold_policy_service,
 )
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import (
-    AlertApprovalRequest,
-    AlertIdsResponse,
-    AlertPolicyCodesUpdate,
-    AlertPolicyCreate,
-    AlertsCreate,
     BacktestSpecificationFilter,
     BacktestSpecificationSummary,
     BacktestUpdate,
@@ -114,6 +109,11 @@ from ...data_models import (
     PredictionSetupCreate,
     PredictionSetupUpdate,
     RunPredictionSetupRequest,
+    SignalIdsResponse,
+    SignalReleaseStatusRequest,
+    SignalsCreate,
+    ThresholdPolicyCodesUpdate,
+    ThresholdPolicyCreate,
 )
 from ...leaderboard_models import (
     BacktestSpecificationRead,
@@ -795,18 +795,18 @@ async def delete_prediction(
 ):
     """Permanently delete a prediction and every forecast row it contains. Use this to clean up obsolete or test forecasts from the listing.
 
-    Refused with 409 while alerts raised from this prediction still exist: an alert
-    only means something alongside the forecast that justified it, so the alerts have
+    Refused with 409 while signals raised from this prediction still exist: a signal
+    only means something alongside the forecast that justified it, so the signals have
     to go first. 404 if the id is unknown.
     """
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
         raise HTTPException(status_code=404, detail="Prediction not found")
-    alerts = alert_service.list_alerts(session, prediction_id=prediction_id)
-    if alerts:
+    signals = signal_service.list_signals(session, prediction_id=prediction_id)
+    if signals:
         raise HTTPException(
             status_code=409,
-            detail=f"Prediction {prediction_id} has {len(alerts)} alert(s) raised from it; delete those first",
+            detail=f"Prediction {prediction_id} has {len(signals)} signal(s) raised from it; delete those first",
         )
     session.delete(prediction)
     session.commit()
@@ -1226,249 +1226,249 @@ async def delete_configured_model(
 
 
 ###########
-# alerts
+# signals
 
 
 @router.post(
-    "/alerts",
-    response_model=AlertIdsResponse,
-    tags=["Alerts"],
-    summary="Record alerts raised against a policy",
+    "/signals",
+    response_model=SignalIdsResponse,
+    tags=["Signals"],
+    summary="Record signals raised against a policy",
 )
 @api_experimental
-async def create_alerts(request: AlertsCreate, session: Session = Depends(get_session)):
-    """Record a batch of alerts — one run raises many at once, so they are written together.
+async def create_signals(request: SignalsCreate, session: Session = Depends(get_session)):
+    """Record a batch of signals — one run raises many at once, so they are written together.
 
-    Every alert names a level its policy actually defines; a level name only means
-    something against its policy. Alerts land in the `pending` state, waiting for a
+    Every signal names a level its policy actually defines; a level name only means
+    something against its policy. Signals land in the `pending` state, waiting for a
     reviewer to clear them for dissemination. The batch is validated before anything is
-    written, so it fails whole. A prediction raises at most one alert per org unit and
+    written, so it fails whole. A prediction raises at most one signal per org unit and
     period, carrying the most severe level breached. 422 if a policy, level or
-    prediction is unknown, or the prediction already has an alert for that org unit and
+    prediction is unknown, or the prediction already has a signal for that org unit and
     period.
     """
-    # AlertCreate and Alert share AlertBase, so the row is the create body plus the
+    # SignalCreate and Signal share SignalBase, so the row is the create body plus the
     # server-owned fields the service fills in.
-    alerts = [Alert(**entry.model_dump()) for entry in request.alerts]
+    signals = [Signal(**entry.model_dump()) for entry in request.signals]
     try:
-        created = alert_service.create_alerts(session, alerts)
-    except alert_service.InvalidAlertError as e:
+        created = signal_service.create_signals(session, signals)
+    except signal_service.InvalidSignalError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
-    return AlertIdsResponse(ids=[alert.id for alert in created if alert.id is not None])
+    return SignalIdsResponse(ids=[signal.id for signal in created if signal.id is not None])
 
 
 @router.get(
-    "/alerts",
-    response_model=list[AlertRead],
-    tags=["Alerts"],
-    summary="Browse alerts, or pull the review queue",
+    "/signals",
+    response_model=list[SignalRead],
+    tags=["Signals"],
+    summary="Browse signals, or pull the review queue",
 )
 @api_experimental
-async def list_alerts(
-    alert_policy_id: Annotated[int | None, Query(alias="alertPolicyId")] = None,
+async def list_signals(
+    threshold_policy_id: Annotated[int | None, Query(alias="thresholdPolicyId")] = None,
     prediction_id: Annotated[int | None, Query(alias="predictionId")] = None,
     org_unit: Annotated[str | None, Query(alias="orgUnit")] = None,
-    approved: Annotated[AlertApproval | None, Query()] = None,
+    release_status: Annotated[SignalReleaseStatus | None, Query(alias="releaseStatus")] = None,
     session: Session = Depends(get_session),
 ):
-    """List alerts, narrowed by whichever filters you pass.
+    """List signals, narrowed by whichever filters you pass.
 
-    `approved=pending` is the review queue: everything nobody has decided on yet.
-    `approved=approved` is what dissemination should be sending.
+    `releaseStatus=pending` is the review queue: everything nobody has decided on yet.
+    `releaseStatus=released` is what dissemination should be sending.
     """
-    return alert_service.list_alerts(
+    return signal_service.list_signals(
         session,
-        alert_policy_id=alert_policy_id,
+        threshold_policy_id=threshold_policy_id,
         prediction_id=prediction_id,
         org_unit=org_unit,
-        approved=approved,
+        release_status=release_status,
     )
 
 
 @router.get(
-    "/alerts/{alertId}",
-    response_model=AlertRead,
-    tags=["Alerts"],
-    summary="View one alert",
+    "/signals/{signalId}",
+    response_model=SignalRead,
+    tags=["Signals"],
+    summary="View one signal",
 )
 @api_experimental
-async def get_alert(
-    alert_id: Annotated[int, Path(alias="alertId")],
+async def get_signal(
+    signal_id: Annotated[int, Path(alias="signalId")],
     session: Session = Depends(get_session),
 ):
-    """Read a single alert, including where it stands in the release gate. 404 if the id is unknown."""
+    """Read a single signal, including where it stands in the release gate. 404 if the id is unknown."""
     try:
-        return alert_service.get_alert(session, alert_id)
-    except alert_service.AlertNotFoundError as e:
+        return signal_service.get_signal(session, signal_id)
+    except signal_service.SignalNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.delete(
-    "/alerts/{alertId}",
-    tags=["Alerts"],
-    summary="Remove an alert",
+    "/signals/{signalId}",
+    tags=["Signals"],
+    summary="Remove a signal",
 )
 @api_experimental
-async def delete_alert(
-    alert_id: Annotated[int, Path(alias="alertId")],
+async def delete_signal(
+    signal_id: Annotated[int, Path(alias="signalId")],
     session: Session = Depends(get_session),
 ):
-    """Delete an alert, e.g. one raised by a bad run, so its prediction or policy can be deleted.
+    """Delete a signal, e.g. one raised by a bad run, so its prediction or policy can be deleted.
 
-    Refused with 409 once the alert is approved: it has been cleared for dissemination
+    Refused with 409 once the signal is released: it has been cleared for dissemination
     and stays on record. 404 if the id is unknown.
     """
     try:
-        alert_service.delete_alert(session, alert_id)
-    except alert_service.AlertNotFoundError as e:
+        signal_service.delete_signal(session, signal_id)
+    except signal_service.SignalNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    except alert_service.AlertApprovedError as e:
+    except signal_service.SignalReleasedError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
     return {"message": "deleted"}
 
 
 @router.post(
-    "/alerts/$approve",
-    response_model=list[AlertRead],
-    tags=["Alerts"],
-    summary="Clear a set of alerts for release, or decline them",
+    "/signals/$set-release-status",
+    response_model=list[SignalRead],
+    tags=["Signals"],
+    summary="Clear a set of signals for release, or withhold them",
 )
 @api_experimental
-async def approve_alerts(request: AlertApprovalRequest, session: Session = Depends(get_session)):
-    """Move a set of alerts through the release gate in one go.
+async def set_signal_release_status(request: SignalReleaseStatusRequest, session: Session = Depends(get_session)):
+    """Move a set of signals through the release gate in one go.
 
-    Reviewers work through a queue and decide on several alerts at a time, so the whole
+    Reviewers work through a queue and decide on several signals at a time, so the whole
     set is applied atomically — if any id is unknown, nothing is written and you get a
-    404. `approved` clears them for dissemination; `declined` records a deliberate
-    decision not to release, so they do not come back around for re-triage.
+    404. `released` clears them for dissemination; `withheld` records a deliberate
+    decision not to release, so they do not come back around for another release review.
 
     This gate is about dissemination, not epidemiology: it says a human cleared the
-    alert to go out, not that the outbreak turned out to be real.
+    signal to go out, not that the outbreak turned out to be real.
     """
     try:
-        return alert_service.set_approval(
+        return signal_service.set_release_status(
             session,
-            alert_ids=request.alert_ids,
-            approved=request.approved,
-            approved_by=request.approved_by,
+            signal_ids=request.signal_ids,
+            release_status=request.release_status,
+            reviewed_by=request.reviewed_by,
         )
-    except alert_service.AlertNotFoundError as e:
+    except signal_service.SignalNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    except alert_service.InvalidAlertError as e:
+    except signal_service.InvalidSignalError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
 
-# alert policies
+# threshold policies
 
 
 @router.post(
-    "/alert-policies",
+    "/threshold-policies",
     response_model=DataBaseResponse,
-    tags=["Alert Policies"],
-    summary="Define the tiers at which forecasts raise alerts",
+    tags=["Threshold Policies"],
+    summary="Define the tiers at which forecasts raise signals",
 )
 @api_experimental
-async def create_alert_policy(request: AlertPolicyCreate, session: Session = Depends(get_session)):
-    """Create a named ladder of alert levels — a `monitor` tier, an `alert` tier, an `action` tier — that a prediction setup can be pointed at.
+async def create_threshold_policy(request: ThresholdPolicyCreate, session: Session = Depends(get_session)):
+    """Create a named ladder of threshold levels — `level_1` and `level_2`, for example — that a prediction setup can be pointed at.
 
-    Each level pairs an epidemic channel (the same strategy and parameters
+    Each level pairs an outbreak threshold (the same strategy and parameters
     `POST /v1/analytics/thresholds` takes, with a single threshold line) with the
     exceedance probability at or above which that tier fires, so one policy expresses a
     whole escalation ladder. Levels are ordered from least to most severe. 422 if the
     policy has no levels, an unnamed level, a level with more than one threshold line,
     or two levels sharing a name. Output codes must be non-empty and unique across
-    all levels and the no-alert state. Codes do not affect severity ordering.
-    Omitted level codes default to `1`, `2`, etc. in level order; no alert defaults to `0`.
+    all levels and the no-signal state. Codes do not affect severity ordering.
+    Omitted level codes default to `1`, `2`, etc. in level order; no signal defaults to `0`.
     """
     try:
-        policy = alert_policy_service.create_alert_policy(
-            session, name=request.name, levels=request.levels, no_alert_output_code=request.no_alert_output_code
+        policy = threshold_policy_service.create_threshold_policy(
+            session, name=request.name, levels=request.levels, no_signal_output_code=request.no_signal_output_code
         )
-    except alert_policy_service.InvalidAlertPolicyError as e:
+    except threshold_policy_service.InvalidThresholdPolicyError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     if policy.id is None:
-        raise HTTPException(status_code=500, detail="AlertPolicy creation produced no id")
+        raise HTTPException(status_code=500, detail="ThresholdPolicy creation produced no id")
     return DataBaseResponse(id=policy.id)
 
 
 @router.get(
-    "/alert-policies",
-    response_model=list[AlertPolicyRead],
-    tags=["Alert Policies"],
-    summary="Browse saved alert policies",
+    "/threshold-policies",
+    response_model=list[ThresholdPolicyRead],
+    tags=["Threshold Policies"],
+    summary="Browse saved threshold policies",
 )
 @api_experimental
-async def list_alert_policies(session: Session = Depends(get_session)):
-    """List every alert policy, so a UI can offer them when configuring a prediction setup."""
-    return alert_policy_service.list_alert_policies(session)
+async def list_threshold_policies(session: Session = Depends(get_session)):
+    """List every threshold policy, so a UI can offer them when configuring a prediction setup."""
+    return threshold_policy_service.list_threshold_policies(session)
 
 
 @router.get(
-    "/alert-policies/{alertPolicyId}",
-    response_model=AlertPolicyRead,
-    tags=["Alert Policies"],
-    summary="View one alert policy and its levels",
+    "/threshold-policies/{thresholdPolicyId}",
+    response_model=ThresholdPolicyRead,
+    tags=["Threshold Policies"],
+    summary="View one threshold policy and its levels",
 )
 @api_experimental
-async def get_alert_policy(
-    alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
+async def get_threshold_policy(
+    threshold_policy_id: Annotated[int, Path(alias="thresholdPolicyId")],
     session: Session = Depends(get_session),
 ):
     """Read a policy's levels, each with its channel parameters and the probability at which it fires. 404 if the id is unknown."""
     try:
-        return alert_policy_service.get_alert_policy(session, alert_policy_id)
-    except alert_policy_service.AlertPolicyNotFoundError as e:
+        return threshold_policy_service.get_threshold_policy(session, threshold_policy_id)
+    except threshold_policy_service.ThresholdPolicyNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.patch(
-    "/alert-policies/{alertPolicyId}",
-    response_model=AlertPolicyRead,
-    tags=["Alert Policies"],
+    "/threshold-policies/{thresholdPolicyId}",
+    response_model=ThresholdPolicyRead,
+    tags=["Threshold Policies"],
     summary="Update a policy's output codes",
 )
 @api_experimental
-async def update_alert_policy_codes(
-    alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
-    request: AlertPolicyCodesUpdate,
+async def update_threshold_policy_codes(
+    threshold_policy_id: Annotated[int, Path(alias="thresholdPolicyId")],
+    request: ThresholdPolicyCodesUpdate,
     session: Session = Depends(get_session),
 ):
-    """Update codes by level name. Existing alerts resolve to the new codes through their policy.
+    """Update codes by level name. Existing signals resolve to the new codes through their policy.
 
     Names, order and thresholds cannot change. The resulting codes must be non-empty
-    and unique, including unchanged codes and no alert. 404 for an unknown policy;
+    and unique, including unchanged codes and no signal. 404 for an unknown policy;
     422 for unknown levels or invalid codes. Invalid updates leave the policy unchanged.
     """
     try:
-        return alert_policy_service.update_alert_policy_codes(
-            session, alert_policy_id, request.level_output_codes, request.no_alert_output_code
+        return threshold_policy_service.update_threshold_policy_codes(
+            session, threshold_policy_id, request.level_output_codes, request.no_signal_output_code
         )
-    except alert_policy_service.AlertPolicyNotFoundError as e:
+    except threshold_policy_service.ThresholdPolicyNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    except alert_policy_service.InvalidAlertPolicyError as e:
+    except threshold_policy_service.InvalidThresholdPolicyError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 @router.delete(
-    "/alert-policies/{alertPolicyId}",
-    tags=["Alert Policies"],
-    summary="Remove an alert policy",
+    "/threshold-policies/{thresholdPolicyId}",
+    tags=["Threshold Policies"],
+    summary="Remove a threshold policy",
 )
 @api_experimental
-async def delete_alert_policy(
-    alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
+async def delete_threshold_policy(
+    threshold_policy_id: Annotated[int, Path(alias="thresholdPolicyId")],
     session: Session = Depends(get_session),
 ):
     """Delete a policy no prediction setup points at.
 
     Refused with 409 while a setup still references it, so a running forecast cannot
-    lose the definition of what counts as an alert. 404 if the id is unknown.
+    lose the definition of what counts as a signal. 404 if the id is unknown.
     """
     try:
-        alert_policy_service.delete_alert_policy(session, alert_policy_id)
-    except alert_policy_service.AlertPolicyNotFoundError as e:
+        threshold_policy_service.delete_threshold_policy(session, threshold_policy_id)
+    except threshold_policy_service.ThresholdPolicyNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    except alert_policy_service.AlertPolicyInUseError as e:
+    except threshold_policy_service.ThresholdPolicyInUseError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
     return {"message": "deleted"}
 
@@ -1498,11 +1498,11 @@ async def create_prediction_setup(request: PredictionSetupCreate, session: Sessi
             schedule_cron_expression=request.schedule_cron_expression,
             schedule_enabled=request.schedule_enabled,
             quantile_targets=request.quantile_targets,
-            alert_policy_id=request.alert_policy_id,
+            threshold_policy_id=request.threshold_policy_id,
         )
     except prediction_setup_service.BacktestNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    except prediction_setup_service.AlertPolicyNotFoundError as e:
+    except prediction_setup_service.ThresholdPolicyNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except prediction_setup_service.DuplicateSetupError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
@@ -1613,7 +1613,7 @@ async def update_prediction_setup(
         return prediction_setup_service.update_prediction_setup(session, prediction_setup_id, update_data)
     except prediction_setup_service.PredictionSetupNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    except prediction_setup_service.AlertPolicyNotFoundError as e:
+    except prediction_setup_service.ThresholdPolicyNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except prediction_setup_service.InvalidSetupError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e

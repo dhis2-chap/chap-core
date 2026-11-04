@@ -5,7 +5,6 @@ from pydantic.alias_generators import to_camel
 
 from chap_core.api_types import BacktestParams, BacktestParamsBase, FeatureCollectionModel
 from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID, resolve_weather_provider
-from chap_core.database.alert_tables import AlertApproval, AlertBase, AlertLevel, AlertPolicyBase
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSetCreateInfo, DataSetCreateInfoBase, ObservationBase
 from chap_core.database.model_templates_and_config_tables import (
@@ -13,6 +12,7 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateMetaData,
     ModelTemplateRole,
 )
+from chap_core.database.signal_tables import SignalBase, SignalReleaseStatus, ThresholdLevel, ThresholdPolicyBase
 from chap_core.database.tables import (
     BacktestBase,
     DataSetMeta,
@@ -418,21 +418,21 @@ class BacktestUpdate(DBModel):
     name: str | None = Field(default=None, description="New human-friendly name; `None` leaves it unchanged.")
 
 
-class AlertPolicyCreate(AlertPolicyBase):
-    """Request body for creating an alert policy.
+class ThresholdPolicyCreate(ThresholdPolicyBase):
+    """Request body for creating a threshold policy.
 
     Redeclares `levels` as required with at least one entry, so an empty ladder is
     a schema error rather than something the service has to catch.
     """
 
-    levels: list[AlertLevel] = Field(
+    levels: list[ThresholdLevel] = Field(
         min_length=1,
-        description="The tiers of this policy, e.g. a `monitor` level and an `action` level. "
+        description="The tiers of this policy, e.g. a `level_1` level and a `level_2` level. "
         "Names must be unique within a policy. Omitted output codes default to `1`, `2`, etc. in level order.",
     )
 
 
-class AlertPolicyCodesUpdate(DBModel):
+class ThresholdPolicyCodesUpdate(DBModel):
     """Change output codes without changing the policy's ladder."""
 
     model_config = ConfigDict(extra="forbid")  # type: ignore[assignment]
@@ -441,42 +441,42 @@ class AlertPolicyCodesUpdate(DBModel):
         default_factory=dict,
         description="New output codes keyed by existing level name. Omitted levels keep their codes.",
     )
-    no_alert_output_code: str | None = Field(
+    no_signal_output_code: str | None = Field(
         default=None,
         min_length=1,
-        description="New no-alert output code; omitted or null leaves it unchanged.",
+        description="New no-signal output code; omitted or null leaves it unchanged.",
     )
 
 
-class AlertCreate(AlertBase):
-    """One alert to record.
+class SignalCreate(SignalBase):
+    """One signal to record.
 
-    Exactly :class:`~chap_core.database.alert_tables.AlertBase`: the release-gate
-    fields are deliberately not settable, so every alert starts in `pending`.
+    Exactly :class:`~chap_core.database.signal_tables.SignalBase`: the release-gate
+    fields are deliberately not settable, so every signal starts in `pending`.
     """
 
 
-class AlertsCreate(DBModel):
-    """Request body for recording a batch of alerts. One run raises many at once."""
+class SignalsCreate(DBModel):
+    """Request body for recording a batch of signals. One run raises many at once."""
 
-    alerts: list[AlertCreate] = Field(min_length=1, description="The alerts to record.")
+    signals: list[SignalCreate] = Field(min_length=1, description="The signals to record.")
 
 
-class AlertApprovalRequest(DBModel):
-    """Request body for moving a set of alerts through the release gate."""
+class SignalReleaseStatusRequest(DBModel):
+    """Request body for moving a set of signals through the release gate."""
 
-    alert_ids: list[int] = Field(min_length=1, description="Alerts to review, applied together.")
-    approved: AlertApproval = Field(
-        description="New gate state. `approved` clears the alerts for dissemination; `declined` records "
+    signal_ids: list[int] = Field(min_length=1, description="Signals to review, applied together.")
+    release_status: SignalReleaseStatus = Field(
+        description="New gate state. `released` clears the signals for dissemination; `withheld` records "
         "a deliberate decision not to release them, so they do not return to the queue."
     )
-    approved_by: str = Field(description="Identifier of whoever reviewed them.")
+    reviewed_by: str = Field(description="Identifier of whoever reviewed them.")
 
 
-class AlertIdsResponse(DBModel):
-    """Ids of the alerts a batch call created."""
+class SignalIdsResponse(DBModel):
+    """Ids of the signals a batch call created."""
 
-    ids: list[int] = Field(description="Primary keys of the created alerts, in request order.")
+    ids: list[int] = Field(description="Primary keys of the created signals, in request order.")
 
 
 class PredictionSetupCreate(DBModel):
@@ -484,9 +484,9 @@ class PredictionSetupCreate(DBModel):
 
     backtest_id: int = Field(description="Foreign key to the parent `Backtest` the setup will run forward in time.")
     name: str = Field(description="Human-friendly name for the setup.")
-    alert_policy_id: int | None = Field(
+    threshold_policy_id: int | None = Field(
         default=None,
-        description="Foreign key to the `AlertPolicy` the setup raises alerts against; `None` means no alerting.",
+        description="Foreign key to the `ThresholdPolicy` the setup raises signals against; `None` means no signaling.",
     )
     schedule_cron_expression: str | None = Field(
         default=None, description="Standard cron expression for when to run; `None` means manual-only."
@@ -515,8 +515,8 @@ class PredictionSetupUpdate(DBModel):
     quantile_targets: list[QuantileTarget] | None = Field(
         default=None, description="New full quantile-targets list; `None` leaves it unchanged."
     )
-    alert_policy_id: int | None = Field(
-        default=None, description="New alert policy to raise alerts against; `None` leaves it unchanged."
+    threshold_policy_id: int | None = Field(
+        default=None, description="New threshold policy to raise signals against; `None` leaves it unchanged."
     )
 
 

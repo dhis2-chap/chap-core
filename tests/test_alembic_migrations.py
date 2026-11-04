@@ -49,12 +49,11 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("configuredmodeldb", "is_live"),
     ("prediction", "prediction_setup_id"),
     ("prediction", "baseline_for_prediction_id"),
-    ("prediction", "alert_policy_id"),
+    ("prediction", "threshold_policy_id"),
     ("backtest", "max_horizon_distance"),
     ("backtest", "specification_id"),
     ("backtest", "chap_version"),
     ("dataset", "created_manually"),
-    ("alertpolicy", "no_alert_output_code"),
     ("dataset", "masked_ranges"),
     ("dataset", "target_column"),
 ]
@@ -62,9 +61,11 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
 # Tables added by alembic migrations (not in the baseline schema).
 # These are dropped after create_all so the migration can re-create them.
 _TABLES_ADDED_BY_MIGRATIONS = [
+    "signal",
     "predictionsetupobservation",
     "backendsettings",
     "predictionsetup",
+    "thresholdpolicy",
     "specificationbaseline",
     "backtestspecification",
 ]
@@ -679,10 +680,10 @@ def test_target_column_migration_preserves_and_separates_specifications(engine):
 
 
 @pytest.mark.slow
-def test_prediction_alert_policy_migration_clears_startup_placeholders(engine, alert_prediction):
+def test_prediction_alert_policy_migration_clears_startup_placeholders(engine, signal_prediction):
     from alembic import command
 
-    source, _ = alert_prediction
+    source, _ = signal_prediction
     with engine.begin() as conn:
         conn.execute(sa.text("DROP SCHEMA public CASCADE"))
         conn.execute(sa.text("CREATE SCHEMA public"))
@@ -703,31 +704,31 @@ def test_prediction_alert_policy_migration_clears_startup_placeholders(engine, a
 
     command.upgrade(cfg, "head")
     with engine.begin() as conn:
-        assert conn.execute(sa.text("SELECT alert_policy_id FROM prediction")).scalar_one() is None
+        assert conn.execute(sa.text("SELECT threshold_policy_id FROM prediction")).scalar_one() is None
     foreign_keys = sa.inspect(engine).get_foreign_keys("prediction")
-    assert any(fk["referred_table"] == "alertpolicy" for fk in foreign_keys)
+    assert any(fk["referred_table"] == "thresholdpolicy" for fk in foreign_keys)
 
 
 @pytest.mark.slow
 @pytest.mark.parametrize("generic_migration_ran_first", [False, True])
-def test_alert_policy_output_codes_migration(engine, alert_prediction, generic_migration_ran_first):
+def test_alert_policy_output_codes_migration(engine, signal_prediction, generic_migration_ran_first):
     from alembic import command
-    from chap_core.database.alert_tables import Alert, AlertPolicy
-    from chap_core.services.alert_policy_service import get_alert_policy
+    from chap_core.database.signal_tables import Signal, ThresholdPolicy
+    from chap_core.services.threshold_policy_service import get_threshold_policy
     from sqlmodel import Session, select
 
-    _, prediction = alert_prediction
-    original = prediction.prediction_setup.alert_policy
+    _, prediction = signal_prediction
+    original = prediction.prediction_setup.threshold_policy
     with engine.begin() as conn:
         conn.execute(sa.text("DROP SCHEMA public CASCADE"))
         conn.execute(sa.text("CREATE SCHEMA public"))
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
-        policy = AlertPolicy.model_validate(original.model_dump(exclude={"id"}))
+        policy = ThresholdPolicy.model_validate(original.model_dump(exclude={"id"}))
         session.add(policy)
         session.flush()
         policy_id = policy.id
-        session.add(Alert(time_period="2024-01", org_unit="A", alert_policy_id=policy_id, level="action"))
+        session.add(Signal(time_period="2024-01", org_unit="A", threshold_policy_id=policy_id, level="level_2"))
         session.commit()
 
     cfg = _make_alembic_cfg(engine)
@@ -742,11 +743,56 @@ def test_alert_policy_output_codes_migration(engine, alert_prediction, generic_m
 
     command.upgrade(cfg, "head")
     with Session(engine) as session:
-        policy = get_alert_policy(session, policy_id)
-        assert policy.no_alert_output_code == "0"
+        policy = get_threshold_policy(session, policy_id)
+        assert policy.no_signal_output_code == "0"
         assert [level.output_code for level in policy.levels] == ["1", "2"]
         assert [level.model_dump(exclude={"output_code"}) for level in policy.levels] == [
             level.model_dump(exclude={"output_code"}) for level in original.levels
         ]
-        alert = session.exec(select(Alert)).one()
+        alert = session.exec(select(Signal)).one()
         assert next(level.output_code for level in policy.levels if level.name == alert.level) == "2"
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("startup_ran_first", [False, True])
+def test_signal_rename_preserves_records_and_reverses(engine, legacy_signal_database, startup_ran_first):
+    from alembic import command
+
+    cfg, tables, expected = legacy_signal_database
+    with engine.connect() as conn:
+        legacy_signals = conn.execute(sa.text("SELECT * FROM alert ORDER BY id")).mappings().all()
+        legacy_policies = conn.execute(sa.text("SELECT * FROM alertpolicy ORDER BY id")).mappings().all()
+    assert {row["approved"] for row in legacy_signals} == {"pending", "approved", "declined"}
+    assert all("exceedance_threshold" in level for level in legacy_policies[0]["levels"])
+    if startup_ran_first:
+        # Startup adds the new policy columns with 0 and creates empty new tables.
+        with engine.begin() as conn:
+            for name in ("prediction", "predictionsetup"):
+                conn.execute(sa.text(f"ALTER TABLE {name} ADD COLUMN threshold_policy_id INTEGER"))
+                conn.execute(sa.text(f"UPDATE {name} SET threshold_policy_id = 0"))
+        SQLModel.metadata.create_all(engine)
+
+    command.upgrade(cfg, "head")
+    with engine.connect() as conn:
+        for table in tables:
+            assert conn.execute(sa.select(table).order_by(table.c.id)).mappings().all() == expected[table.name]
+    inspector = sa.inspect(engine)
+    assert not {"alert", "alertpolicy"} & set(inspector.get_table_names())
+    for table_name in ("signal", "prediction", "predictionsetup"):
+        assert any(
+            fk["referred_table"] == "thresholdpolicy"
+            and fk["constrained_columns"] == ["threshold_policy_id"]
+            and fk["options"]["ondelete"] == "RESTRICT"
+            for fk in inspector.get_foreign_keys(table_name)
+        )
+    assert {tuple(index["column_names"]) for index in inspector.get_indexes("signal")} >= {
+        ("threshold_policy_id",),
+        ("release_status",),
+    }
+    assert any(c["name"] == "uq_signal_prediction_org_unit_period" for c in inspector.get_unique_constraints("signal"))
+
+    command.downgrade(cfg, "b64628109792")
+    with engine.connect() as conn:
+        assert conn.execute(sa.text("SELECT * FROM alert ORDER BY id")).mappings().all() == legacy_signals
+        assert conn.execute(sa.text("SELECT * FROM alertpolicy ORDER BY id")).mappings().all() == legacy_policies
+    command.upgrade(cfg, "head")
