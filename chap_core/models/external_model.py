@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from pydantic_core import ValidationError
 
 from chap_core.assessment.target_mask import MASK_INDICATOR_FIELD
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
@@ -11,7 +12,7 @@ from chap_core.datatypes import HealthData, Samples
 from chap_core.exceptions import CommandLineException, InvalidModelException, ModelFailedException, NoPredictionsError
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.geometry import Polygons
-from chap_core.models.configured_model import ConfiguredModel
+from chap_core.models.configured_model import ConfiguredModel, ModelInfo
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period.date_util_wrapper import Month, TimePeriod
 
@@ -406,3 +407,43 @@ class ExternalModel(ExternalModelBase):
         if covariates.polygons is not None:
             simulated.set_polygons(covariates.polygons)
         return simulated
+
+    def model_info(self) -> ModelInfo | None:
+        """Retrieves model information by running the model_info entry point.
+
+        The entry point runs on the untrained model with only the model config available, so the information
+        can't depend on a trained model. If the model does not have a model_info entry point implemented
+        it will return None.
+        """
+        if self._model_information is None or self._model_information.entry_points is None:
+            return None
+        if self._model_information.entry_points.model_info is None:
+            return None
+
+        file_name = "model_info.json"
+        file_path = Path(self._working_dir) / file_name
+
+        with open(file_path, "w") as _:
+            pass
+
+        try:
+            self._runner.model_info(
+                file_name,
+            )
+        except CommandLineException as e:
+            logger.error("Error getting model info, command failed")
+            raise ModelFailedException(str(e)) from e
+
+        if self._dry_run:
+            return None
+
+        file_content = file_path.read_text()
+
+        self._runner.teardown()
+
+        try:
+            model_info = ModelInfo.model_validate_json(file_content)
+        except ValidationError as e:
+            raise ModelFailedException(str(e)) from e
+
+        return model_info

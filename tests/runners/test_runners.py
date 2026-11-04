@@ -415,6 +415,38 @@ def test_mlflow_runner_report_wraps_execution_errors(tmp_path):
             runner.report("model", "historic.csv", "out.pdf")
 
 
+def test_mlflow_runner_invokes_model_info_entry_point(tmp_path):
+    """Test that MlflowTrainPredictRunner finds and invokes model_info endpoint"""
+    runner = MlFlowTrainPredictRunner(model_path=tmp_path)
+    with patch("mlflow.projects.run") as mock_run:
+        mock_run.return_value = MagicMock()
+        runner.model_info(
+            output_file="/abs/out/model_info.json",
+        )
+        mock_run.assert_called_once()
+        _, kwargs = mock_run.call_args
+        assert kwargs["entry_point"] == "model_info"
+        assert kwargs["parameters"] == {
+            "out_file": "/abs/out/model_info.json",
+        }
+
+
+def test_command_line_runner_model_info_formats_command():
+    """Test that CommandLineTrainPredictRunner.model_info() formats and runs the model_info command."""
+    with patch.object(CommandLineRunner, "run_command") as mock_run:
+        mock_run.return_value = "done"
+        from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner
+
+        runner = CommandLineTrainPredictRunner(
+            CommandLineRunner(Path(".")),
+            train_command="python train.py {train_data} {model}",
+            predict_command="python predict.py {model} {historic_data} {future_data} {out_file}",
+            model_info_command="python model_info.py {out_file}",
+        )
+        runner.model_info("model_info.json")
+        mock_run.assert_called_once_with("python model_info.py model_info.json")
+
+
 def test_mlflow_runner_predict_wraps_execution_errors(tmp_path):
     # predict() must convert mlflow execution failures into ModelFailedException
     # (like train()/report() do) so callers — e.g. explainability's per-location

@@ -92,12 +92,14 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
         model_configuration_filename: str | None = None,
         report_command: str | None = None,
         simulate_command: str | None = None,
+        model_info_command: str | None = None,
     ):
         self._runner = runner
         self._train_command = train_command
         self._predict_command = predict_command
         self._model_configuration_filename = model_configuration_filename
         self._report_command = report_command
+        self._model_info_command = model_info_command
         self._simulate_command = simulate_command
 
     def _format_command(self, command, keys):
@@ -167,4 +169,20 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
         keys = self._handle_config(self._simulate_command, keys)
         command = self._format_command(self._simulate_command, keys)
         logger.debug(f"Running command {command}")
+
+        return self._runner.run_command(command)
+
+    def model_info(self, output_file):
+        if self._model_info_command is None:
+            raise NotImplementedError("This runner does not support model info")
+
+        keys = {
+            "out_file": output_file,
+        }
+
+        keys = self._handle_config(self._model_info_command, keys)
+
+        command = self._format_command(self._model_info_command, keys)
+        logger.debug(f"Running command {command}")
+
         return self._runner.run_command(command)
