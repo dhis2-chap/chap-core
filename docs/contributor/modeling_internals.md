@@ -86,11 +86,20 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
   `tests/test_builtin_models.py` runs each one through all of these paths. The
   baselines, all with role `baseline` and all per location:
   - `global_median`: all past observations as forecast samples for every period.
+    A location without observations gets the median of the other locations' samples.
   - `seasonal_median`: all past observations of the same month or week of the
-    year (week 53 pooled with week 52). Fails if a forecast period of the year was
-    never observed.
-  - `persistence`: the last observed value, scaled by the changes over the same
-    horizon and time of year in earlier years, so the spread widens with horizon.
+    year (week 53 pooled with week 52). Uses the `global_median` samples for a
+    period of the year that was never observed for the location. A location without
+    observations gets the median of the other locations' samples for the same
+    period of the year.
+  - `seasonal_shift_persistence`: the last observed value, scaled by
+    the changes over the same horizon and time of year in earlier years, so the
+    spread widens with horizon. Training keeps these changes for horizons up to one
+    year. Missing changes fall back to those of the nearest periods of the year, then
+    of all locations. A horizon without changes, such as one longer than the training
+    data or than a year, uses the longest shorter horizon that has them. A single
+    change gives no spread, so more changes further down this order are preferred.
+    Without any, the last value is forecast unchanged.
 
   All three use deterministic quantile samples whose two middle values are both
   the median, so the sample median is exactly the point forecast.

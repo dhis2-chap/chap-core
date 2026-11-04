@@ -1375,7 +1375,7 @@ def test_prediction_setup_monitoring_compares_with_the_default_baseline(override
         )
     backtest.aggregate_metrics = {"mae": 1.5}
     # Stand-ins for the baseline's runs that forecast exactly what the model did, so every comparison is 0.
-    baseline = SessionWrapper(session=seeded_session).get_configured_model_by_id_or_name("persistence")
+    baseline = SessionWrapper(session=seeded_session).get_configured_model_by_id_or_name("seasonal_shift_persistence")
     seeded_session.add(
         SpecificationBaseline(
             specification_id=backtest.specification_id,
@@ -1404,7 +1404,7 @@ def test_prediction_setup_monitoring_compares_with_the_default_baseline(override
 
     assert response.status_code == 200, response.json()
     body = response.json()
-    assert (body["metricId"], body["baselineModel"]) == ("mae", "persistence")
+    assert (body["metricId"], body["baselineModel"]) == ("mae", "seasonal_shift_persistence")
     assert body["comparisonDescription"] == get_comparison_description("skill_ratio")
     assert body["evaluationValue"] == 0.0
     sources = [point["source"] for point in body["points"]]
@@ -1418,7 +1418,7 @@ def test_prediction_setup_monitoring_compares_with_the_default_baseline(override
     assert prediction_point["nObserved"] == len(prediction.forecasts)
 
 
-@pytest.mark.parametrize("baseline", ["persistence", "global_median"])
+@pytest.mark.parametrize("baseline", ["seasonal_shift_persistence", "global_median"])
 def test_prediction_setup_monitoring_has_no_points_before_the_baseline_has_run(
     override_session, seeded_session, baseline
 ):
