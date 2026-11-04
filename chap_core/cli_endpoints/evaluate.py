@@ -264,7 +264,7 @@ def _run_eval(
         check_model_configuration(
             configuration, template.model_template_config, model_configuration_yaml, strict=strict
         )
-        check_dataset_for_model(dataset, template.model_template_config, strict=strict)
+        check_dataset_for_model(dataset, template.model_template_config, strict=strict, configuration=configuration)
         estimator: ExternalModel | MetaLearner | ExtendedPredictor
         if estimator_options.mode == EstimatorMode.NORMAL:
             estimator = get_estimator(
@@ -284,13 +284,6 @@ def _run_eval(
                 "Ensemble mode is not implemented for `chap evaluate`; use the `chap evaluate-ensemble` command"
             )
 
-        from chap_core.services.dataset_validation import require_model_covariates
-
-        require_model_covariates(
-            dataset,
-            template.model_template_config.required_covariates,
-            configuration.additional_continuous_covariates if configuration is not None else [],
-        )
         warn_unused_covariates(dataset, template.model_template_config, configuration, estimator)
 
         model_info = estimator.model_information
