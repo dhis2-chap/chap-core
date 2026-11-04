@@ -81,7 +81,7 @@ The Chap Core REST API will be available at `http://localhost:8000` once all ser
 
 ## 5. Install the Models
 
-Model services are installed from the [CHAP Model Marketplace](https://github.com/dhis2-chap/model-marketplace) with `chap-admin`, which comes with the `chap-core` package. Install the same `chap-core` version as the Chap you checked out in step 2, since `chap-admin` uses REST API endpoints of that version. Then install every model with a verified stable version from the repository directory:
+Model services are installed from the [Chap Marketplace](https://chap-marketplace.dhis2.org) with `chap-admin`, which comes with the `chap-core` package. Install the same `chap-core` version as the Chap you checked out in step 2, since `chap-admin` uses REST API endpoints of that version. Then install every model with a verified stable version from the repository directory:
 
 ```console
 uv tool install chap-core==[VERSION] --python 3.13  # e.g. chap-core==2.4.0 (chap-admin needs 2.4.0 or later)
