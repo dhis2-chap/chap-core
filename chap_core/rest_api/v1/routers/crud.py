@@ -1564,7 +1564,7 @@ async def get_prediction_setup_monitoring(
     baseline: Annotated[
         str | None,
         Query(
-            description="Name of the baseline model to compare with, e.g. 'persistence'. Defaults to the "
+            description="Name of the baseline model to compare with, e.g. 'seasonal_shift_persistence'. Defaults to the "
             "installation's default baseline model."
         ),
     ] = None,

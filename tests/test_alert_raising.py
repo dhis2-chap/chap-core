@@ -136,7 +136,11 @@ def test_run_prediction_stores_every_baseline_forecast(alert_prediction):
     prediction_id = _run_prediction(session, original)
     prediction = session.get(Prediction, prediction_id)
     baselines = prediction.baseline_predictions
-    assert {baseline.model_id for baseline in baselines} == {"global_median", "persistence", "seasonal_median"}
+    assert {baseline.model_id for baseline in baselines} == {
+        "global_median",
+        "seasonal_shift_persistence",
+        "seasonal_median",
+    }
     assert {baseline.prediction_setup_id for baseline in baselines} == {None}
     assert baselines[0].forecasts[0].values == [21.0, 21.0]
 
