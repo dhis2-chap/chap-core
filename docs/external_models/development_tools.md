@@ -1,3 +1,7 @@
+---
+description: "The terminal, git, GitHub and virtual environments: the tools you need before developing a Chap model."
+---
+
 # Development tools
 
 To develop a model for Chap, you work in the terminal, get code from GitHub and install packages for your model. If these are new to you, work through the guides below in order. Each one ends with an exercise to check that it works.

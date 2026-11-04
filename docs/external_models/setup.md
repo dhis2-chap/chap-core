@@ -1,3 +1,7 @@
+---
+description: "Install what you need to develop a Chap model: uv, the chap command-line tool, R, and Docker for deployment."
+---
+
 # Set up your machine
 
 This page lists what you need to develop a model and evaluate it with Chap on your own machine. You do not need a Chap server, a database, the Modeling App or a separate chapkit install.

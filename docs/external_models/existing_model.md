@@ -1,3 +1,7 @@
+---
+description: "Make an existing R or Python forecasting model Chap-compatible: write an MLproject file, evaluate it with chap eval --run-config.as-chapkit, and package it as a chapkit Docker image. No chapkit install or Chap server needed."
+---
+
 # Bring your existing model to Chap
 
 This guide is for you if you already have a forecasting model in R or Python and want to run it in Chap. You keep your code. The guide has three stages:

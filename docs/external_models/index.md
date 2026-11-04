@@ -1,3 +1,7 @@
+---
+description: "How to make a forecasting model in R or Python work with Chap: train and predict scripts, an MLproject file, chap eval, and the Chap Modeling App."
+---
+
 <script>
 if (window.location.hostname === "dhis2-chap.github.io") {
     window.location.href = "https://chap.dhis2.org/chap-modeling-platform/";

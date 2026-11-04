@@ -1,3 +1,7 @@
+---
+description: "Build a new Chap model from the R or Python MLproject template, evaluate it with chap eval, and publish it as a chapkit Docker image with GitHub Actions."
+---
+
 # Build a new model from a template
 
 This tutorial takes you from a template to your own model running in Chap. You write a train and a predict script, in R or Python, and a short `MLproject` file that describes them. Chap runs the model as a [chapkit](chapkit.md) service, but you do not write any service code.

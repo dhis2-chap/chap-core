@@ -1,3 +1,7 @@
+---
+description: "How Chap runs models as chapkit REST services, the three ways to make a model, and the data format Chap sends to a chapkit model."
+---
+
 # Running models with chapkit
 
 Chapkit is one of two ways chap runs models. Chap is gradually migrating models to chapkit; both chapkit and the older approach are supported.
