@@ -6,7 +6,7 @@ option that is not given on the command line from, in order:
 1. the section of ``chap.yaml`` named after the command, such as ``eval:``
 2. the top-level keys of ``chap.yaml``
 3. the files with fixed names in ``input/``, such as ``input/data.csv``
-4. project defaults: a new file in ``output/``, and one working copy of each model in ``.chap/runs``
+4. project defaults: a new file in ``output/``, and ``.chap/runs`` for model working copies
 
 Every key in ``chap.yaml`` is a command-line option: ``--backtest-params.n-periods 3`` is
 ``backtest_params: {n_periods: 3}``. Relative paths in it are relative to the project root.
@@ -77,11 +77,7 @@ class Project:
 
     @property
     def runs_dir(self) -> Path:
-        """Where model working copies go, instead of ``runs/`` in the current directory.
-
-        Each model has one working copy, ``<model>/latest``, replaced on every run, so the directory
-        does not grow with each run. ``run_config: {run_directory_type: timestamp}`` keeps one per run.
-        """
+        """Where model working copies go, instead of ``runs/`` in the current directory."""
         return self.root / STATE_DIR / "runs"
 
     @classmethod
@@ -214,8 +210,7 @@ def project_values(
     if commands in RUNNING_COMMANDS:
         run_config = values.get("run_config")
         if run_config is None or isinstance(run_config, dict):
-            defaults = {"runs_dir": str(project.runs_dir), "run_directory_type": "latest"}
-            values["run_config"] = {**defaults, **(run_config or {})}
+            values["run_config"] = {"runs_dir": str(project.runs_dir), **(run_config or {})}
             sources.setdefault("run_config", f"{STATE_DIR}/")
     return values, sources
 

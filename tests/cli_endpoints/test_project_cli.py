@@ -360,14 +360,10 @@ def test_init_refuses_to_serve_a_model_whose_environment_chapkit_cannot_set_up(t
     assert not (tmp_path / "project").exists()
 
 
-def test_running_commands_keep_one_working_copy_per_model_in_the_project(chap_project, monkeypatch):
+def test_commands_that_run_the_model_use_the_projects_runs_directory(chap_project, monkeypatch):
     monkeypatch.chdir(chap_project)
     for command in ("eval", "sanity-check-model"):
-        run_config = parse(command)[1]["run_config"]
-        assert run_config.runs_dir == chap_project / ".chap" / "runs"
-        assert run_config.run_directory_type == "latest"
-    edit_project_file(chap_project, run_config={"run_directory_type": "timestamp"})
-    assert parse("eval")[1]["run_config"].run_directory_type == "timestamp"
+        assert parse(command)[1]["run_config"].runs_dir == chap_project / ".chap" / "runs"
 
 
 def test_sanity_check_model_runs_with_no_options_inside_a_project(chap_project, monkeypatch, capsys):

@@ -72,7 +72,7 @@ A `docker://` image needs Docker. Each command pulls the image if it is missing,
 | `input/column_mapping.json` | Optional covariate-to-column mapping, as for `--data-source-mapping`. |
 | `input/model_config.yaml` | The model's options. `chap init --model` writes it with the model's default values when the model has options, with each option's description and allowed values as comments. |
 | `output/` | Evaluation results. |
-| `.chap/` | Chap's working copy of each model, `.chap/runs/<model>/latest`, in place of `runs/`. It is replaced on every run, so it does not grow; set `run_config: {run_directory_type: timestamp}` in `chap.yaml` to keep one per run. Listed in `.gitignore`. |
+| `.chap/` | Chap's working copies of the model, one per run, in place of `runs/`. Listed in `.gitignore`. |
 
 `chap init --data-settings`, `--column-mapping` and `--model-config` copy existing files to these names. `--model-config` may only set options the model has. You can also add or edit the files by hand: a file in `input/` is used whenever it exists.
 
@@ -104,7 +104,7 @@ For each option, the first of these that gives a value wins:
 2. The command's section in `chap.yaml`.
 3. A top-level key in `chap.yaml`.
 4. The matching file in `input/`.
-5. Project defaults: a new file in `output/` for `--output-file`, `.chap/runs` for `--run-config.runs-dir` with `latest` for `--run-config.run-directory-type`, and for `chap validate`, the `backtest_params` of the `eval:` section.
+5. Project defaults: a new file in `output/` for `--output-file`, `.chap/runs` for `--run-config.runs-dir`, and for `chap validate`, the `backtest_params` of the `eval:` section.
 6. The command's own default.
 
 So `chap eval --backtest-params.n-periods 6` changes the forecast horizon for one run and leaves the project unchanged.
