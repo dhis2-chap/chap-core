@@ -31,6 +31,19 @@ def test_image_is_pulled_run_and_removed(fake_docker):
     assert calls[-1] == f"rm -f {container}"
 
 
+def test_digest_pinned_image_runs_by_digest_under_a_short_name(fake_docker):
+    image = f"{IMAGE}@sha256:{'5' * 64}"
+    with DockerChapkitServiceManager(image, startup_timeout=15):
+        pass
+    calls = fake_docker.read_text().splitlines()
+    assert f"pull -q {image}" in calls
+    run = next(call for call in calls if call.startswith("run "))
+    assert image in run.split()
+    container = run.split("--name ")[1].split()[0]
+    assert container.startswith("chap-some_model-sha-1234567-")
+    assert "sha256" not in container
+
+
 def test_each_launch_gets_its_own_container_name(fake_docker):
     port = find_available_port()
     for _ in range(2):
