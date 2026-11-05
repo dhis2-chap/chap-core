@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -45,3 +47,43 @@ jobs:
           mark_as_latest: false
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+
+      # chart-releaser repackages a changed chart even when its version already
+      # has a release, and then skips the upload. Only sign packages that are
+      # the exact bytes attached to their release in this run.
+      - name: Find newly released charts
+        id: released
+        run: |
+          mkdir -p to-sign
+          for pkg in .cr-release-packages/*.tgz; do
+            [[ -e "$pkg" ]] || continue
+            name=$(basename "$pkg" .tgz)
+            gh release download "$name" --pattern "$name.tgz" --dir remote --clobber
+            if cmp -s "$pkg" "remote/$name.tgz"; then
+              cp "$pkg" to-sign/
+            fi
+          done
+          if compgen -G "to-sign/*.tgz" > /dev/null; then
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate artifact attestation
+        id: attest
+        if: steps.released.outputs.any == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: to-sign/*.tgz
+
+      - name: Attach attestation to releases
+        if: steps.released.outputs.any == 'true'
+        run: |
+          for pkg in to-sign/*.tgz; do
+            name=$(basename "$pkg" .tgz)
+            cp "$BUNDLE" "$name.tgz.sigstore.json"
+            gh release upload "$name" "$name.tgz.sigstore.json" --clobber
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
