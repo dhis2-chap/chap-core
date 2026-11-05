@@ -148,7 +148,7 @@ def test_backtest_plot(override_session, tmp_path):
 def test_threshold_strategies_discovery(override_session):
     strategies = client.get_json("/v1/analytics/thresholds/strategies")
     ids = {s["id"] for s in strategies}
-    assert {"seasonal", "percentile"}.issubset(ids)
+    assert {"seasonal", "percentile", "c_sum"}.issubset(ids)
     seasonal = next(s for s in strategies if s["id"] == "seasonal")
     assert seasonal["displayName"]
     assert seasonal["description"]
@@ -162,12 +162,13 @@ def test_threshold_params_schema_is_discriminated_union():
         assert "oneOf" in params, params
         assert params["discriminator"]["propertyName"] == "type"
         mapping = params["discriminator"]["mapping"]
-        assert set(mapping) == {"seasonal", "percentile"}
+        assert set(mapping) == {"seasonal", "percentile", "c_sum"}
         # the discriminator must be required, or generated clients get `type?: string` and cannot narrow the union
         for ref in mapping.values():
             member = schema["components"]["schemas"][ref.rsplit("/", 1)[-1]]
             assert "type" in member.get("required", []), member
-    assert schema["components"]["schemas"]["ThresholdResponse"]["properties"]["lines"]["type"] == "array"
+    lines_schema = schema["components"]["schemas"]["ThresholdResponse"]["properties"]["lines"]
+    assert lines_schema["type"] == "array"
 
 
 def test_weather_provider_discovery(override_session):
