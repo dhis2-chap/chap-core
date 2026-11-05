@@ -22,9 +22,9 @@ jobs:
       docs: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true' }}
       tests: ${{ github.event_name != 'pull_request' || steps.filter.outputs.code == 'true' || steps.filter.outputs.docs == 'true' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: filter
-        uses: dorny/paths-filter@v4
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
           predicate-quantifier: every
           filters: |
@@ -56,14 +56,14 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         python-version: ["3.13"]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up environment variables
         if: needs.changes.outputs.tests == 'true'
         run: |
           echo "Service Account Private Key is set"
       - name: Install uv
         if: needs.changes.outputs.tests == 'true'
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       - name: Set up Python ${{ matrix.python-version }}
         if: needs.changes.outputs.tests == 'true'
         run: uv python install ${{ matrix.python-version }}

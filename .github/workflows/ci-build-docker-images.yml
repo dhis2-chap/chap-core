@@ -16,6 +16,9 @@ on:
 env:
   REGISTRY: ghcr.io
 
+permissions:
+  contents: read
+
 # prepare works out the tags (and rejects a version tag outside master) before
 # anything is pushed. Each platform is then built natively on its own runner
 # and pushed by digest only. The merge job combines the digests of each image
