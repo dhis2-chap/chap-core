@@ -391,7 +391,8 @@ class DockerChapkitServiceManager(ChapkitServiceManager):
         self._platform = ensure_docker_image(self.image)
 
     def _launch_command(self) -> list[str]:
-        name = re.sub(r"[^a-zA-Z0-9_.-]+", "-", self.image.rsplit("/", 1)[-1])
+        # Leave a digest out of the name; the tag before it already names the build.
+        name = re.sub(r"[^a-zA-Z0-9_.-]+", "-", self.image.partition("@")[0].rsplit("/", 1)[-1])
         # Unique per launch: two launches can pick the same free port, and removing the losing
         # launch's container by name must not remove the winning one.
         self._container = f"chap-{name}-{self.port}-{uuid.uuid4().hex[:8]}"

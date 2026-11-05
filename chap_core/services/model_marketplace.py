@@ -29,6 +29,8 @@ class ModelVersion(BaseModel):
     version: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.+-]{0,63}$")
     commit: str = Field(pattern=r"^[0-9a-f]{40}$")
     image_tag: str = Field(pattern=r"^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$")
+    # Content hash of the reviewed image; tags can be moved, a digest cannot.
+    image_digest: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
     status: str
 
 
@@ -144,14 +146,15 @@ def stable_pin(entry: MarketplaceModel) -> ModelPin:
     version = next((version for version in entry.versions if version.version == stable), None)
     if version is None or version.status != "verified":
         raise ValueError(f"Model '{model}' has no verified stable version.")
-    # Only an immutable sha- tag naming this version's commit is accepted; tags such as
-    # latest, main or v1 can be moved to different code after the version was verified.
+    # The tag must name this version's commit, so the pin stays readable.
     prefix = version.image_tag[4:] if version.image_tag.startswith("sha-") else ""
     if len(prefix) < 7 or not version.commit.startswith(prefix):
         raise ValueError(f"Model '{model}' has an invalid stable image pin; expected a sha-<commit> tag.")
-    return ModelPin(
-        image=f"{entry.source.image}:{version.image_tag}", version=version.version, commit=version.commit, entry=entry
-    )
+    # Any registry tag can be moved after review, so the image is pulled by its reviewed digest.
+    if version.image_digest is None:
+        raise ValueError(f"Model '{model}' has no image digest for its stable version.")
+    image = f"{entry.source.image}:{version.image_tag}@{version.image_digest}"
+    return ModelPin(image=image, version=version.version, commit=version.commit, entry=entry)
 
 
 def configured_model_requests(pin: ModelPin, model_template_id: int) -> list[dict[str, Any]]:
