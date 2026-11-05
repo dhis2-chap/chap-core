@@ -699,20 +699,22 @@ def test_target_column_is_scored_and_separates_specifications(override_session, 
 
     with SessionWrapper(p_seeded_engine) as session:
         dataset_id = session.session.exec(select(DataSet.id)).first()
-        for observation in session.session.exec(select(Observation).where(Observation.feature_name == "rainfall")):
+        for observation in session.session.exec(select(Observation).where(Observation.feature_name == "population")):
             observation.value = 7.0
         session.session.commit()
         params = {"n_periods": 3, "n_splits": 2}
         default = session.session.get(Backtest, _run(session, "default", dataset_id, **params))
-        rainfall = session.session.get(Backtest, _run(session, "rain", dataset_id, target_column="rainfall", **params))
+        target = session.session.get(
+            Backtest, _run(session, "population", dataset_id, target_column="population", **params)
+        )
 
-        assert default.specification_id != rainfall.specification_id
-        assert set(Evaluation.from_backtest(rainfall).to_flat().observations.disease_cases) == {7.0}
-    rows = client.get("/v1/crud/backtest-specifications", params={"targetColumn": "rainfall"}).json()
-    assert [row["id"] for row in rows] == [rainfall.specification_id]
-    actual_cases = DataList.model_validate(client.get(f"/v1/analytics/actual-cases/{rainfall.id}").json())
+        assert default.specification_id != target.specification_id
+        assert set(Evaluation.from_backtest(target).to_flat().observations.disease_cases) == {7.0}
+    rows = client.get("/v1/crud/backtest-specifications", params={"targetColumn": "population"}).json()
+    assert [row["id"] for row in rows] == [target.specification_id]
+    actual_cases = DataList.model_validate(client.get(f"/v1/analytics/actual-cases/{target.id}").json())
     assert {entry.value for entry in actual_cases.data} == {7.0}
-    assert actual_cases.featureId == actual_cases.dhis2Id == "rainfall"
+    assert actual_cases.featureId == actual_cases.dhis2Id == "population"
 
 
 def test_dataset_target_is_saved_and_used_by_runs(
@@ -733,9 +735,9 @@ def test_dataset_target_is_saved_and_used_by_runs(
     monkeypatch.setattr(db_worker_functions, "forecast_ahead", record_forecast)
     monkeypatch.setattr(analytics, "worker", baseline_worker)
     request = dataset_make_request
-    request.target_column = "rainfall"
+    request.target_column = "population"
     for observation in request.provided_data:
-        if observation.feature_name == "rainfall":
+        if observation.feature_name == "population":
             observation.value = None if observation.period == "2020-01" else 7.0
         # Gaps in the target and in disease_cases, which runs replace with the target, reject nothing.
         if observation.feature_name == "disease_cases" and observation.period == "2020-02":
@@ -750,26 +752,26 @@ def test_dataset_target_is_saved_and_used_by_runs(
         )
         # Worker callers which omit the target also inherit it from the dataset.
         backtest_id = run_backtest(
-            BacktestCreate(name="rain", dataset_id=dataset_id, model_id="naive_model"),
+            BacktestCreate(name="population", dataset_id=dataset_id, model_id="naive_model"),
             n_periods=3,
             n_splits=2,
             session=session,
         )
         backtest = session.session.get(Backtest, backtest_id)
-        assert backtest.specification.target_column == "rainfall"
+        assert backtest.specification.target_column == "population"
         assert set(Evaluation.from_backtest(backtest).to_flat().observations.disease_cases) == {7.0}
-        prediction_id = run_prediction("naive_model", str(dataset_id), 3, "rain", session)
+        prediction_id = run_prediction("naive_model", str(dataset_id), 3, "population", session)
         prediction = session.session.get(Prediction, prediction_id)
         assert prediction.forecasts
-        assert "rainfall" not in trained_on[0].field_names()
+        assert "population" not in trained_on[0].field_names()
         for data in trained_on[0].values():
             assert set(data.disease_cases[~np.isnan(data.disease_cases)]) == {7.0}
 
-    assert client.get(f"/v1/crud/datasets/{dataset_id}").json()["targetColumn"] == "rainfall"
+    assert client.get(f"/v1/crud/datasets/{dataset_id}").json()["targetColumn"] == "population"
     rows = client.get("/v1/crud/datasets").json()
-    assert next(row for row in rows if row["id"] == dataset_id)["targetColumn"] == "rainfall"
+    assert next(row for row in rows if row["id"] == dataset_id)["targetColumn"] == "population"
     actual = client.get(f"/v1/analytics/actual-cases/{dataset_id}", params={"isDatasetId": True}).json()
-    assert actual["featureId"] == actual["dhis2Id"] == "rainfall"
+    assert actual["featureId"] == actual["dhis2Id"] == "population"
     assert {entry["value"] for entry in actual["data"] if entry["value"] is not None} == {7.0}
     thresholds = client.post(
         "/v1/analytics/thresholds",
@@ -778,12 +780,12 @@ def test_dataset_target_is_saved_and_used_by_runs(
     assert thresholds.status_code == 200, thresholds.text
     assert all(entry["values"] == [7.0] for entry in thresholds.json()["entries"])
 
-    payload = {"name": "rain", "datasetId": dataset_id, "modelId": "naive_model", "modelIds": ["naive_model"]}
+    payload = {"name": "population", "datasetId": dataset_id, "modelId": "naive_model", "modelIds": ["naive_model"]}
     for endpoint in ("create-backtest", "create-backtests"):
-        for target in ({}, {"targetColumn": "rainfall"}):
+        for target in ({}, {"targetColumn": "population"}):
             response = client.post(f"/v1/analytics/{endpoint}", json=payload | target)
             assert response.status_code == 200, response.text
-            assert baseline_worker.queued[-1][2]["target_column"] == "rainfall"
+            assert baseline_worker.queued[-1][2]["target_column"] == "population"
         baseline_worker.queued.clear()
         response = client.post(f"/v1/analytics/{endpoint}", json=payload | {"targetColumn": "disease_cases"})
         assert response.status_code == 422, response.text
@@ -1920,7 +1922,7 @@ def test_prediction_pipeline_stores_the_ranges_and_trains_masked(
         return forecast_ahead(estimator, dataset, *args, **kwargs)
 
     monkeypatch.setattr(db_worker_functions, "forecast_ahead", recording_forecast_ahead)
-    features = ["rainfall", "disease_cases", "population"]
+    features = ["rainfall", "mean_temperature", "disease_cases", "population"]
     request = create_make_data_request(example_polygons, [], features)
     provided = observations_to_dataset(create_tsdataclass(features), request.provided_data, fill_missing=True)
     provided.set_polygons(request.geojson)
@@ -1961,10 +1963,12 @@ def test_run_prediction_setup_forecasts_the_backtest_target(
     seeded_session.commit()
     setup_id = _create_prediction_setup(backtest.id, "Target forecast").json()["id"]
 
-    request = create_make_data_request(example_polygons, [], ["rainfall", "hospitalisations", "disease_cases"])
+    request = create_make_data_request(
+        example_polygons, [], ["rainfall", "mean_temperature", "hospitalisations", "disease_cases"]
+    )
     for observation in request.provided_data:
         observation.value = 0.0 if observation.feature_name == "hospitalisations" else 1000.0
-        if observation.feature_name != "rainfall" and observation.period == "2020-01":
+        if observation.feature_name in ("hospitalisations", "disease_cases") and observation.period == "2020-01":
             observation.value = None  # Target gaps must not reject otherwise valid locations.
     payload = request.model_dump(
         mode="json", exclude={"data_to_be_fetched", "data_sources", "masked_ranges", "target_column"}

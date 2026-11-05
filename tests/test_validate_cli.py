@@ -9,7 +9,12 @@ import pytest
 from chap_core.datatypes import FullData
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.cli_endpoints.validate import _format_period_ranges, _report_period_gaps
-from chap_core.services.dataset_validation import ValidationIssue, check_unused_covariates, validate_dataset
+from chap_core.services.dataset_validation import (
+    ValidationIssue,
+    check_unused_covariates,
+    require_model_covariates,
+    validate_dataset,
+)
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 from chap_core.model_spec import PeriodType
@@ -85,6 +90,17 @@ def test_validate_with_model_missing_covariate():
     errors = [i for i in issues if i.level == "error"]
     assert len(errors) > 0
     assert any("humidity" in e.message for e in errors)
+
+
+def test_require_model_covariates_names_each_missing_covariate():
+    dataset = DataSet.from_csv(LAOS_SUBSET, FullData)
+    with pytest.raises(ValueError, match=r"\['humidity', 'RH'\]"):
+        require_model_covariates(dataset, ["rainfall", "humidity", "gen:month_dummies"], ["mean_temperature", "RH"])
+
+
+def test_require_model_covariates_accepts_a_dataset_with_every_covariate():
+    dataset = DataSet.from_csv(LAOS_SUBSET, FullData)
+    require_model_covariates(dataset, ["rainfall"], ["mean_temperature"])
 
 
 def test_validate_valid_weekly_dataset():

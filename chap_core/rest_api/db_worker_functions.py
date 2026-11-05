@@ -28,6 +28,7 @@ from chap_core.rest_api.data_models import BacktestCreate, FetchRequest, Predict
 from chap_core.rest_api.job_registry import job_function
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
 from chap_core.services.alert_service import raise_alerts_for_prediction
+from chap_core.services.dataset_validation import require_model_covariates
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger(__name__)
@@ -192,6 +193,10 @@ def run_backtest(
             logger.warning(f"Could not request baselines for specification {specification.id}", exc_info=True)
             session.session.rollback()
     dataset = _use_as_disease_cases(dataset, target_column)
+    # Checked after the target is moved to disease_cases, since the model never sees the target column.
+    require_model_covariates(
+        dataset, configured_model.model_template.required_covariates, configured_model.additional_continuous_covariates
+    )
 
     status_logger.info(f"Running {n_splits} evaluation splits with prediction length {n_periods}")
     assert configured_model.id is not None, "configured_model.id is required"
@@ -294,6 +299,9 @@ def run_prediction(
     # prediction setup, must give the id so a newer version does not take over the run.
     configured_model = session.get_configured_model_by_id_or_name(
         model_id if configured_model_id is None else configured_model_id
+    )
+    require_model_covariates(
+        dataset, configured_model.model_template.required_covariates, configured_model.additional_continuous_covariates
     )
     assert configured_model.id is not None, "configured_model.id is required"
     estimator = session.get_configured_model_with_code(configured_model.id, prediction_length=n_periods)
