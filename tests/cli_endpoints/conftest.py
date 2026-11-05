@@ -7,10 +7,26 @@ import httpx
 import pytest
 import yaml
 
+from chap_core.api_types import BacktestParams
+from chap_core.cli_endpoints.init import init_cmd
+
+
+@pytest.fixture
+def chap_project(tmp_path, laos_csv):
+    """A Chap project with a built-in model, the Laos dataset and a short backtest."""
+    root = tmp_path / "laos"
+    init_cmd(
+        root,
+        model="builtin:seasonal_median",
+        dataset=str(laos_csv),
+        backtest_params=BacktestParams(n_periods=3, n_splits=2),
+    )
+    return root
+
 
 @pytest.fixture
 def marketplace_model():
-    # Registry schema v2 example from dhis2-chap/model-marketplace.
+    # Registry schema v2 example from dhis2-chap/chap-marketplace.
     path = Path(__file__).parents[1] / "fixtures/marketplace/chapkit_simple_multistep_model.yaml"
     return yaml.safe_load(path.read_text())
 

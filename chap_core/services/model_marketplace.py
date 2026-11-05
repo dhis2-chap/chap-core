@@ -8,7 +8,7 @@ import httpx
 import yaml
 from pydantic import BaseModel, Field
 
-DEFAULT_REGISTRY_URL = "https://raw.githubusercontent.com/dhis2-chap/model-marketplace/main"
+DEFAULT_REGISTRY_URL = "https://raw.githubusercontent.com/dhis2-chap/chap-marketplace/main"
 
 # BaseConfig fields chapkit reserves. CHAP supplies them itself at run time, so they are not
 # user options of a template and not option values of a configuration.
@@ -104,14 +104,20 @@ def list_models(base_url: str | None = None) -> tuple[list[MarketplaceModel], di
 
 
 def resolve_model(model: str, base_url: str | None = None) -> ModelPin:
-    """Return only the registry's verified stable pin, never the latest channel."""
+    """Return only the registry's verified stable pin, never the latest channel.
+
+    Raises ValueError when the model is not usable, or the registry cannot be reached.
+    """
     base_url = (base_url or registry_url()).rstrip("/")
     with httpx.Client(timeout=30, follow_redirects=True) as client:
-        registry = _fetch_registry(client, base_url)
-        model_file = f"models/{model}.yaml"
-        if model_file not in registry.models:
-            raise ValueError(f"Model '{model}' is not listed in the marketplace.")
-        entry = _fetch_entry(client, base_url, model_file)
+        try:
+            registry = _fetch_registry(client, base_url)
+            model_file = f"models/{model}.yaml"
+            if model_file not in registry.models:
+                raise ValueError(f"Model '{model}' is not listed in the marketplace.")
+            entry = _fetch_entry(client, base_url, model_file)
+        except httpx.HTTPError as e:
+            raise ValueError(f"Could not read the model registry at {base_url}: {e}") from e
     if entry.id != model or entry.service_id != model.replace("_", "-"):
         raise ValueError(f"Marketplace identity does not match '{model}'.")
     return stable_pin(entry)

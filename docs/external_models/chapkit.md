@@ -140,7 +140,7 @@ accepts that spelling.
 
 ## How to run a chapkit model from the command line
 
-To test that the model is working with chap, you can use the `chap eval` command. Instead of a github url or model name, you simply specify the REST API url to the model and add `--run-config.is-chapkit-model` to the command to tell chap that the model is a chapkit model.
+To test that the model works with Chap, use the `chap eval` command. Give the model's container image with `docker://` in front, and Chap starts the image as a container for the duration of the command and removes it afterwards. This needs Docker.
 
 **Example:**
 
@@ -151,17 +151,19 @@ user_option_values:
   max_epochs: 2
 ```
 
-Then start the chtorch command on port 5001:
+Then evaluate the chtorch model from its image:
 
 ```console
-docker run -p 5001:8000 ghcr.io/dhis2-chap/chtorch:chapkit2-8f17ee3
+chap eval --model-name docker://ghcr.io/dhis2-chap/chtorch:chapkit2-8f17ee3 --dataset-csv https://raw.githubusercontent.com/dhis2/climate-health-data/refs/heads/main/lao/chap_LAO_admin1_monthly.csv --output-file eval.nc --plot --backtest-params.n-splits 2 --backtest-params.n-periods 3 --model-configuration-yaml testconfig.yaml
 ```
 
-Then we can run the following command to evaluate the model. Note the http://localhost:5001 url, which tells chap to look for the model at that url.
+If the model is already running as a service, for example one you started yourself with `docker run -p 5001:8000 <image>`, give its URL instead and add `--run-config.is-chapkit-model`:
 
 ```console
-chap eval --model-name http://localhost:5001 --dataset-csv https://raw.githubusercontent.com/dhis2/climate-health-data/refs/heads/main/lao/chap_LAO_admin1_monthly.csv --output-file eval.nc --plot --run-config.debug --backtest-params.n-splits 2 --backtest-params.n-periods 3 --model-configuration-yaml testconfig.yaml --run-config.is-chapkit-model
+chap eval --model-name http://localhost:5001 --run-config.is-chapkit-model --dataset-csv ./data.csv --output-file eval.nc
 ```
+
+A model from [Chap Marketplace](https://chap-marketplace.dhis2.org) can also be set up once in a [Chap project](../chap-cli/projects.md#chap-marketplace-models), which stores its verified image so that `chap eval` runs without options.
 
 
 ## How to use chapkit models in chap with the modeling app

@@ -269,7 +269,7 @@ def _evaluate_ensemble_core(
             logger.info("Loading base model template from %s", name)
             template = ModelTemplate.from_directory_or_github_url(
                 name,
-                base_working_dir=CHAP_RUNS_DIR,
+                base_working_dir=run_config.runs_dir or CHAP_RUNS_DIR,
                 ignore_env=run_config.ignore_environment,
                 run_dir_type=run_config.run_directory_type,
                 is_chapkit_model=run_config.is_chapkit_model,

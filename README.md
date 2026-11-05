@@ -50,7 +50,7 @@ slate. `make chap-version` is also printed automatically at the end of
 ### Running marketplace models
 
 Chapkit-based models are installed from the
-[CHAP Model Marketplace](https://github.com/dhis2-chap/model-marketplace)
+[Chap Marketplace](https://github.com/dhis2-chap/chap-marketplace)
 with `chap-admin`, once chap is running. A fresh deployment needs this manual
 step after the first `docker compose up -d`:
 

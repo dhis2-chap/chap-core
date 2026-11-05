@@ -69,6 +69,8 @@ def _patched_eval_chain(fake_estimator, patch_filter=True, dataset=None):
         )
     )
     stack.enter_context(patch("chap_core.cli_endpoints.evaluate.discover_geojson", return_value=None))
+    stack.enter_context(patch("chap_core.cli_endpoints.evaluate.check_model_configuration"))
+    stack.enter_context(patch("chap_core.cli_endpoints.evaluate.check_dataset_for_model"))
     stack.enter_context(
         patch(
             "chap_core.cli_endpoints.evaluate.load_dataset_from_csv",

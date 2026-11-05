@@ -1,13 +1,36 @@
 import logging
+import os
+from contextlib import contextmanager
+from pathlib import Path
 
 import mlflow.exceptions
 import mlflow.projects
+import mlflow.tracking
 from mlflow.utils.process import ShellCommandException
 
 from chap_core.exceptions import ModelFailedException
 from chap_core.runners.runner import TrainPredictRunner
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def tracking_in_working_directory(working_dir):
+    """Keep MLflow's run records in the model's working directory, unless a tracking URI is set.
+
+    ``mlflow.projects.run`` records every run in the tracking store, which defaults to
+    ``mlflow.db`` in the current directory, so running a model would leave that file wherever
+    chap was started, such as in a Chap project. An ``MLFLOW_TRACKING_URI`` you set is used as is.
+    """
+    if mlflow.tracking.is_tracking_uri_set():
+        yield
+        return
+    database = Path(working_dir).resolve() / "mlflow.db"
+    os.environ["MLFLOW_TRACKING_URI"] = f"sqlite:///{database.as_posix()}"
+    try:
+        yield
+    finally:
+        os.environ.pop("MLFLOW_TRACKING_URI", None)
 
 
 class MlFlowTrainPredictRunner(TrainPredictRunner):
@@ -34,12 +57,13 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
             keys.update(
                 {key: val for key, val in possible_extra.items() if key in self.extra_params and val is not None}
             )
-            return mlflow.projects.run(
-                str(self.model_path),
-                entry_point="train",
-                parameters=keys,
-                build_image=True,
-            )
+            with tracking_in_working_directory(self.model_path):
+                return mlflow.projects.run(
+                    str(self.model_path),
+                    entry_point="train",
+                    parameters=keys,
+                    build_image=True,
+                )
         except ShellCommandException as e:
             logger.error(
                 "Error running mlflow project, might be due to missing pyenv (See: https://github.com/pyenv/pyenv#installation)"
@@ -65,11 +89,12 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
         }
         params.update({key: val for key, val in extra_params.items() if key in self.extra_params and val is not None})
         try:
-            return mlflow.projects.run(
-                str(self.model_path),
-                entry_point="predict",
-                parameters=params,
-            )
+            with tracking_in_working_directory(self.model_path):
+                return mlflow.projects.run(
+                    str(self.model_path),
+                    entry_point="predict",
+                    parameters=params,
+                )
         except ShellCommandException as e:
             logger.error(
                 "Error running mlflow project, might be due to missing pyenv (See: https://github.com/pyenv/pyenv#installation)"
@@ -91,11 +116,12 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
         }
         params.update({key: val for key, val in extra_params.items() if key in self.extra_params and val is not None})
         try:
-            return mlflow.projects.run(
-                str(self.model_path),
-                entry_point="report",
-                parameters=params,
-            )
+            with tracking_in_working_directory(self.model_path):
+                return mlflow.projects.run(
+                    str(self.model_path),
+                    entry_point="report",
+                    parameters=params,
+                )
         except ShellCommandException as e:
             logger.error(
                 "Error running mlflow project, might be due to missing pyenv (See: https://github.com/pyenv/pyenv#installation)"
