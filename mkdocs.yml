@@ -94,14 +94,14 @@ nav:
       - Troubleshooting:
           - Viewing Logs: modeling-app/troubleshooting/logs.md
           - Accessing the Database: modeling-app/troubleshooting/database-access.md
-  - For Newcomers:
-      - For newcomers: external_models/newcomer.md
-      - Learning Modelling: external_models/learn_modelling.md
   - Model Developers:
-      - Overview: external_models/index.md
       - Getting Started:
-          - For Experienced Modellers: external_models/experienced_modeller.md
-          - Build a Model from an MLproject File: external_models/mlproject_tutorial.md
+          - Overview: external_models/index.md
+          - Set Up Your Machine: external_models/setup.md
+          - Bring Your Existing Model: external_models/existing_model.md
+          - Build a New Model from a Template: external_models/mlproject_tutorial.md
+          - Development Tools: external_models/development_tools.md
+          - Learning Modelling: external_models/learn_modelling.md
 
       - Installing Chap Core:
           - Prepare for installation: external_models/prepare-for-installation.md
@@ -163,7 +163,6 @@ nav:
           - Pull Request Review: contributor/pr_review.md
           - Database Migrations: contributor/database_migrations.md
           - Documentation: contributor/writing_building_documentation.md
-          - Development Tools: contributor/development_tools.md
           - Evaluation Pipeline: contributor/evaluation_pipeline.md
           - Evaluation Walkthrough: contributor/evaluation_walkthrough.md
           - Evaluation Abstraction: contributor/evaluation_abstraction.md

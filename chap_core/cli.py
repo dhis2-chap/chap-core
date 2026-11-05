@@ -2,6 +2,7 @@
 
 import logging
 import signal
+import sys
 import warnings
 
 # Suppress GluonTS deprecation warning about pandas frequency aliases
@@ -27,6 +28,13 @@ from chap_core.cli_endpoints import (
     utils,
     validate,
 )
+from chap_core.exceptions import (
+    ChapkitServiceStartupError,
+    DockerUnavailableError,
+    InvalidModelException,
+    ModelConfigurationException,
+)
+from chap_core.log_config import is_debug_mode
 from chap_core.project import project_defaults
 
 logging.basicConfig(
@@ -55,6 +63,15 @@ generate_modelcard.register_commands(app)
 ensemble.register_commands(app)
 
 
+# Errors caused by the model or the local setup rather than by a bug in Chap.
+USER_FACING_ERRORS = (
+    ChapkitServiceStartupError,
+    DockerUnavailableError,
+    InvalidModelException,
+    ModelConfigurationException,
+)
+
+
 def exit_on_signal(signum, frame):
     """Exit like Ctrl-C does, so context managers run and stop model services and containers."""
     raise SystemExit(128 + signum)
@@ -68,7 +85,14 @@ def main():
         signum = getattr(signal, name, None)
         if signum is not None and signal.getsignal(signum) is not signal.SIG_IGN:
             signal.signal(signum, exit_on_signal)
-    app()
+    try:
+        app()
+    except USER_FACING_ERRORS as error:
+        # The message says what to fix, and a traceback would bury it. CHAP_DEBUG=1 shows the traceback.
+        if is_debug_mode():
+            raise
+        print(f"Error: {error}\n\nSet CHAP_DEBUG=1 to see the full traceback.", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
