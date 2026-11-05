@@ -24,3 +24,11 @@ updates:
       - "/tests/runners/docker_example_image"
     schedule:
       interval: "weekly"
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    ignore:
+      # Major versions of the bundled services need a deliberate upgrade.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
