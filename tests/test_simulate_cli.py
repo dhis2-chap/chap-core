@@ -138,3 +138,18 @@ def test_simulate_with_unsupported_runner_raises(mock_simulator, covariates_csv)
     model = mock_simulator(runner)
     with pytest.raises(InvalidModelException, match="cannot simulate"):
         model.simulate(DataSet.from_csv(covariates_csv))
+
+
+def test_simulate_accepts_missing_simulated_cases(mock_simulator, covariates_csv, tmp_path):
+    def leave_some_missing(covariates, output_file, polygons_file_name):
+        df = pd.read_csv(tmp_path / covariates, index_col=0)
+        df["disease_cases"] = 1.0
+        df["disease_cases"] = df["disease_cases"].mask(np.arange(len(df)) < 5)
+        df.to_csv(tmp_path / output_file, index=False)
+
+    runner = MagicMock()
+    runner.simulate.side_effect = leave_some_missing
+    model = mock_simulator(runner)
+    simulated = model.simulate(DataSet.from_csv(covariates_csv)).to_pandas()
+    assert simulated.disease_cases.isna().sum() == 5
+    assert (simulated.disease_cases.dropna() == 1.0).all()

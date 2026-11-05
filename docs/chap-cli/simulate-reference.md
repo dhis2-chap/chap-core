@@ -15,7 +15,7 @@ chap simulate <MODEL_NAME> <DATASET_CSV> <OUT_FILE> [OPTIONS]
 1. Loads the model template from a local MLProject directory or a GitHub URL.
 2. Loads covariates from a CSV file (auto-discovering the matching `.geojson` if present). The CSV does not need a `disease_cases` column; rows that have one are kept as observed history.
 3. Invokes the MLProject's `simulate` entry point.
-4. Checks that the output covers the same locations and periods, has the target for every row, and keeps the observed values unchanged.
+4. Checks that the output covers the same locations and periods, has the target column, and keeps the observed values unchanged. The target may be missing for some rows, for example to simulate unreported periods.
 5. Writes the result to `out_file`, plus a `.geojson` next to it if the input had polygons.
 
 Each parameter can also be passed as a keyword flag (`--model-name`, `--dataset-csv`, `--out-file`). The output is a regular Chap dataset and can be used with `chap eval`. See [Additional Configuration → Simulate Entry Point](../external_models/additional_configuration.md#simulate-entry-point) for how to define the entry point.
