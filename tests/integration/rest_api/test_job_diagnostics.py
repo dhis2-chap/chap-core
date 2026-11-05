@@ -1,4 +1,4 @@
-"""Failure bundles expose metadata without copying dataset values or requests."""
+"""Debug bundles expose metadata without copying dataset values or requests."""
 
 from types import SimpleNamespace
 
@@ -86,8 +86,9 @@ def test_failed_job_diagnostics_contains_metadata_but_no_data_values(
     assert "providedData" not in response.text
 
 
-def test_diagnostics_non_failed_job_returns_409(request_store, override_session):
-    request_store.hset("job_meta:job-1", mapping={"status": "SUCCESS"})
+@pytest.mark.parametrize("status", ["PENDING", "STARTED"])
+def test_diagnostics_active_job_returns_409(request_store, override_session, status):
+    request_store.hset("job_meta:job-1", mapping={"status": status})
     assert client.get(path).status_code == 409
 
 
@@ -96,14 +97,18 @@ def test_diagnostics_unknown_job_returns_404(request_store, override_session):
 
 
 @pytest.mark.parametrize("references", [{}, {"model_id": "999999", "dataset_id": "999999"}])
-def test_diagnostics_missing_metadata_and_logs(request_store, override_session, monkeypatch, tmp_path, references):
+@pytest.mark.parametrize("status", ["FAILURE", "SUCCESS", "REVOKED"])
+def test_diagnostics_missing_metadata_and_logs(
+    request_store, override_session, monkeypatch, tmp_path, references, status
+):
     monkeypatch.setattr(celery_tasks, "CHAP_LOGS_DIR", tmp_path)
-    request_store.hset("job_meta:job-1", mapping={"status": "FAILURE", **references})
+    request_store.hset("job_meta:job-1", mapping={"status": status, **references})
 
     response = client.get(path)
 
     assert response.status_code == 200, response.text
     body = response.json()
+    assert body["job"]["status"] == status
     assert body["model"] is None
     assert body["dataset"] is None
     assert body["job"]["parameters"] == {}
