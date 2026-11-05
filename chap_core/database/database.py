@@ -263,24 +263,9 @@ class SessionWrapper:
 
         # check if this exact configuration already exists
         digest = compute_configuration_digest(configuration)
-        identical_configured_model = self.session.exec(
-            select(ConfiguredModelDB).where(
-                ConfiguredModelDB.model_template_id == model_template_id,
-                ConfiguredModelDB.name == name,
-                ConfiguredModelDB.configuration_digest == digest,
-            )
-        ).first()
+        identical_configured_model = self._identical_configured_model(model_template_id, name, digest)
         if identical_configured_model:
-            logger.info(
-                f"Configured model {name} with an identical configuration already exists. Returning existing id"
-            )
-            reactivated_model_id = cast("int", identical_configured_model.id)
-            # Re-adding an archived configuration shows it again.
-            identical_configured_model.archived = False
-            # Still flip is_live so that re-adding a previous configuration makes it live again.
-            self._make_live_configured_model(model_template_id, name, reactivated_model_id)
-            self._make_live_template_version(template_name, model_template_id)
-            return reactivated_model_id
+            return self._reuse_configured_model(identical_configured_model, template_name)
 
         # create and add db entry
         configured_model = ConfiguredModelDB(
@@ -300,11 +285,42 @@ class SessionWrapper:
         # configured_model.validate_user_options(model_template)
         logger.info(f"Adding configured model: {configured_model}")
         self.session.add(configured_model)
-        self.session.commit()
+        try:
+            self.session.commit()
+        except sqlalchemy.exc.IntegrityError:
+            # A concurrent request can insert the same configuration between the existence
+            # check and this commit. Losing that race re-reads the winner's row.
+            self.session.rollback()
+            identical_configured_model = self._identical_configured_model(model_template_id, name, digest)
+            if identical_configured_model is None:
+                raise
+            return self._reuse_configured_model(identical_configured_model, template_name)
         configured_model_id = cast("int", configured_model.id)
 
         self._make_live_configured_model(model_template_id, name, configured_model_id)
         self._make_live_template_version(template_name, model_template_id)
+        return configured_model_id
+
+    def _identical_configured_model(self, model_template_id: int, name: str, digest: str) -> ConfiguredModelDB | None:
+        return self.session.exec(
+            select(ConfiguredModelDB).where(
+                ConfiguredModelDB.model_template_id == model_template_id,
+                ConfiguredModelDB.name == name,
+                ConfiguredModelDB.configuration_digest == digest,
+            )
+        ).first()
+
+    def _reuse_configured_model(self, configured_model: ConfiguredModelDB, template_name: str) -> int:
+        logger.info(
+            f"Configured model {configured_model.name} with an identical configuration already exists. "
+            "Returning existing id"
+        )
+        configured_model_id = cast("int", configured_model.id)
+        # Re-adding an archived configuration shows it again.
+        configured_model.archived = False
+        # Still flip is_live so that re-adding a previous configuration makes it live again.
+        self._make_live_configured_model(configured_model.model_template_id, configured_model.name, configured_model_id)
+        self._make_live_template_version(template_name, configured_model.model_template_id)
         return configured_model_id
 
     def _make_live_configured_model(self, model_template_id: int, name: str, configured_model_id: int) -> None:
