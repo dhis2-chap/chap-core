@@ -18,3 +18,9 @@ updates:
       # which needs code changes and a Postgres migration (CLIM-1245).
       - dependency-name: "sqlmodel"
         versions: [">=0.0.44"]
+  - package-ecosystem: "docker"
+    directories:
+      - "/"
+      - "/tests/runners/docker_example_image"
+    schedule:
+      interval: "weekly"
