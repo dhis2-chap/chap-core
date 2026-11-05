@@ -492,7 +492,7 @@ def create_backtest(
     Runs asynchronously; you get a job id and poll ``/v1/jobs/{id}`` (or
     ``/v1/jobs/{id}/evaluation_result`` once finished) to find the resulting backtest.
     Uses the dataset's saved target. A supplied targetColumn must match it, otherwise returns 422.
-    Returns 404 if the referenced dataset does not exist.
+    Returns 404 if the referenced dataset does not exist, and 409 if the configured model has been deleted.
     """
     stored_dataset = session.get(DataSetTable, request.dataset_id)
     if stored_dataset is None:
