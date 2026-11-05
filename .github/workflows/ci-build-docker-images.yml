@@ -16,19 +16,92 @@ on:
 env:
   REGISTRY: ghcr.io
 
+# Each platform is built natively on its own runner and pushed by digest only.
+# The merge job then combines the digests of each image into one multi-arch
+# image under the published tags, and attests it.
 jobs:
-  build-and-push:
+  build:
     if: github.repository == 'dhis2-chap/chap-core'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: chap-core
+            dockerfile: Dockerfile
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - name: chap-core
+            dockerfile: Dockerfile
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+          # The worker base image (chap-worker-with-inla) is amd64 only.
+          - name: chap-worker
+            dockerfile: Dockerfile.worker
+            platform: linux/amd64
+            runner: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set platform slug
+        id: platform
+        run: echo "slug=${PLATFORM//\//-}" >> "$GITHUB_OUTPUT"
+        env:
+          PLATFORM: ${{ matrix.platform }}
+
+      - name: Build and push by digest
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=${{ env.REGISTRY }}/dhis2-chap/${{ matrix.name }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/dhis2-chap/${{ matrix.name }}:buildcache-${{ steps.platform.outputs.slug }}
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/dhis2-chap/${{ matrix.name }}:buildcache-${{ steps.platform.outputs.slug }},mode=max
+          build-args: |
+            GIT_REVISION=${{ github.sha }}
+
+      - name: Export digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          touch "${{ runner.temp }}/digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+
+      - name: Upload digest
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: digests-${{ matrix.name }}-${{ steps.platform.outputs.slug }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    if: github.repository == 'dhis2-chap/chap-core'
+    needs: build
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          - dockerfile: Dockerfile
-            image_name: dhis2-chap/chap-core
-          # - dockerfile: Dockerfile.inla
-          #   image_name: dhis2-chap/chap-core-with-inla
-          - dockerfile: Dockerfile.worker
-            image_name: dhis2-chap/chap-worker
+        name: [chap-core, chap-worker]
 
     permissions:
       contents: read
@@ -38,15 +111,22 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
 
+      - name: Download digests
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-${{ matrix.name }}-*
+          merge-multiple: true
+
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -55,7 +135,7 @@ jobs:
       - name: Determine Docker image tag
         id: tag
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ matrix.image_name }}"
+          IMAGE="${{ env.REGISTRY }}/dhis2-chap/${{ matrix.name }}"
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             TAGS="$IMAGE:${{ github.event.inputs.tag }}"
           elif [[ "$GITHUB_REF" == "refs/heads/dev" ]]; then
@@ -77,26 +157,30 @@ jobs:
               TAGS="$TAGS,$IMAGE:latest"
             fi
           fi
+          echo "IMAGE=$IMAGE" >> "$GITHUB_OUTPUT"
           echo "TAGS=$TAGS" >> "$GITHUB_OUTPUT"
         shell: bash
 
-      - name: Build and push Docker image (amd64)
-        id: push
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          platforms: linux/amd64
-          tags: ${{ steps.tag.outputs.TAGS }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ matrix.image_name }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ matrix.image_name }}:buildcache,mode=max
-          build-args: |
-            GIT_REVISION=${{ github.sha }}
+      - name: Create multi-arch image and push tags
+        id: manifest
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          tag_args=()
+          IFS=',' read -ra tags <<< "$TAGS"
+          for t in "${tags[@]}"; do tag_args+=(-t "$t"); done
+          sources=()
+          for d in *; do sources+=("$IMAGE@sha256:$d"); done
+          docker buildx imagetools create "${tag_args[@]}" "${sources[@]}"
+          digest=$(docker buildx imagetools inspect "${tags[0]}" --format '{{json .Manifest}}' | jq -r .digest)
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          docker buildx imagetools inspect "${tags[0]}"
+        env:
+          IMAGE: ${{ steps.tag.outputs.IMAGE }}
+          TAGS: ${{ steps.tag.outputs.TAGS }}
 
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-name: ${{ env.REGISTRY }}/${{ matrix.image_name }}
-          subject-digest: ${{ steps.push.outputs.digest }}
+          subject-name: ${{ steps.tag.outputs.IMAGE }}
+          subject-digest: ${{ steps.manifest.outputs.digest }}
           push-to-registry: true
