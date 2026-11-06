@@ -66,6 +66,7 @@ from ...data_models import (
     MakeBacktestsResponse,
     MakeBacktestWithDataRequest,
     MakePredictionRequest,
+    ObservationColumns,
     PredictionParams,
     ValidationError,
 )
@@ -140,7 +141,9 @@ def make_dataset(
             JOB_TYPE_KW: JobType.DATASET,
             JOB_NAME_KW: request.name,
             JOB_METADATA_KW: {
-                "parameters": request.model_dump(mode="json", exclude={"name", "geojson", "provided_data"})
+                "parameters": request.model_dump(
+                    mode="json", exclude={"name", "geojson", "provided_data", "provided_data_columns"}
+                )
             },
         },
     )
@@ -189,16 +192,44 @@ def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataS
 
 
 def _read_dataset(request):
-    if not request.provided_data:
+    # Only make-dataset accepts columnar observations; create-backtest-with-data shares this reader.
+    columns = getattr(request, "provided_data_columns", None)
+    if not request.provided_data and (columns is None or not columns.org_unit):
         raise HTTPException(status_code=400, detail="No observation data provided.")
-    feature_names = list({entry.feature_name for entry in request.provided_data})
+    if columns is not None:
+        feature_names = list(columns.values)
+    else:
+        feature_names = list({entry.feature_name for entry in request.provided_data})
     reject_mask_indicator_input(feature_names)
     require_target_column(request.target_column, feature_names)
     dataclass = create_tsdataclass(feature_names)
-    provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
+    if columns is not None:
+        provided_data = _columns_to_dataset(dataclass, columns)
+    else:
+        provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
     return feature_names, provided_data
+
+
+def _columns_to_dataset(dataclass, columns: ObservationColumns) -> DataSet:
+    """Build the dataset straight from columnar observations, without one model per observation."""
+    frame = pd.DataFrame(
+        {
+            "location": columns.org_unit,
+            "time_period": columns.period,
+            **{name: np.array(values, dtype=float) for name, values in columns.values.items()},
+        }
+    )
+    duplicated = frame.duplicated(["location", "time_period"])
+    if duplicated.any():
+        first = frame[duplicated].iloc[0]
+        raise HTTPException(
+            status_code=422,
+            detail=f"providedDataColumns has more than one row for org unit {first.location!r}, "
+            f"period {first.time_period!r}",
+        )
+    return DataSet.from_pandas(frame, dataclass, fill_missing=True)
 
 
 def _find_locations_with_complete_covariates(
