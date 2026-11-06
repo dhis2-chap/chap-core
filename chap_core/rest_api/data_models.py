@@ -51,8 +51,47 @@ class ObservationPayload(DBModel):
     )
 
 
+class ObservationColumns(DBModel):
+    """Observations in wide, columnar form: position ``i`` of every list together makes one (org unit, period) row.
+
+    Much smaller and faster to read than one object per observation, for facility-level datasets.
+    """
+
+    org_unit: list[str] = Field(description="Org unit of each row.")
+    period: list[str] = Field(description="Period of each row, e.g. `2024W12` or `202403`.")
+    values: dict[str, list[float | None]] = Field(
+        description="Feature name to one value per row, in row order. `null` marks a missing value."
+    )
+
+    @model_validator(mode="after")
+    def _columns_have_equal_length(self) -> "ObservationColumns":
+        n_rows = len(self.org_unit)
+        lengths = {"period": len(self.period)} | {name: len(column) for name, column in self.values.items()}
+        uneven = {name: length for name, length in lengths.items() if length != n_rows}
+        if uneven:
+            raise ValueError(f"Every column must have {n_rows} rows, like orgUnit; got {uneven}")
+        return self
+
+
 class DatasetMakeRequest(DataSetCreateInfo, ObservationPayload):
-    """Request body for building a dataset: metadata + polygons + observations (provided or fetched)."""
+    """Request body for building a dataset: metadata + polygons + observations (provided or fetched).
+
+    Send the observations either as ``providedData`` (one object per observation) or as
+    ``providedDataColumns`` (columnar), not both.
+    """
+
+    provided_data: list[ObservationBase] = Field(
+        default_factory=list, description="Observations, one object per (org unit, period, feature)."
+    )
+    provided_data_columns: ObservationColumns | None = Field(
+        default=None, description="Observations in columnar form; use instead of `providedData` for large datasets."
+    )
+
+    @model_validator(mode="after")
+    def _one_observation_format(self) -> "DatasetMakeRequest":
+        if self.provided_data and self.provided_data_columns is not None:
+            raise ValueError("Send observations as providedData or providedDataColumns, not both")
+        return self
 
 
 class InlineDataRequest(DataSetCreateInfoBase, ObservationPayload):
