@@ -128,7 +128,7 @@ services:
         target: /data/pytensor
   redis:
     restart: unless-stopped
-    image: valkey/valkey:8
+    image: valkey/valkey:8@sha256:8f836008e0986c36adf50da714c7060cf689dbb335f61fe077939d90fa650809
     # Job status and logs live here; append-only on a volume keeps them across restarts.
     command: ["valkey-server", "--appendonly", "yes"]
     volumes:
@@ -144,7 +144,7 @@ services:
 
   postgres:
     restart: unless-stopped
-    image: postgres:17
+    image: postgres:17@sha256:3b0cda93be7c8dba2ed484d19393d93845dc3dafb88973e248ba8e6d99d784e1
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-chap}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chap}
