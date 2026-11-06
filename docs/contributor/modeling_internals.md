@@ -87,6 +87,10 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
   baselines, all with role `baseline` and all per location:
   - `global_median`: all past observations as forecast samples for every period.
     A location without observations gets the median of the other locations' samples.
+  - `persistence`: the last observed value, with a spread from the differences in
+    log space over the same horizon at any time of year. The differences are centred
+    on their median, so the median forecast is exactly the last value. They fall back
+    to those of all locations, and then to the longest shorter horizon.
   - `seasonal_median`: all past observations of the same month or week of the
     year (week 53 pooled with week 52). Uses the `global_median` samples for a
     period of the year that was never observed for the location. A location without
@@ -101,7 +105,7 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
     change gives no spread, so more changes further down this order are preferred.
     Without any, the last value is forecast unchanged.
 
-  All three use deterministic quantile samples whose two middle values are both
+  All four use deterministic quantile samples whose two middle values are both
   the median, so the sample median is exactly the point forecast.
 
   The REST API runs every live baseline once on each backtest specification
