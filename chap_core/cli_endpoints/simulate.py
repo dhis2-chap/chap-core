@@ -38,7 +38,7 @@ def simulate(
         simulated = model().simulate(covariates)
     assert simulated is not None
 
-    simulated.to_csv(str(out_file))
+    simulated.to_pandas().to_csv(out_file, index=False)
     if simulated.polygons is not None:
         from chap_core.geometry import Polygons
 
