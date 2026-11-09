@@ -64,7 +64,11 @@ class ObservationColumns(DBModel):
     )
 
     @model_validator(mode="after")
-    def _columns_have_equal_length(self) -> "ObservationColumns":
+    def _check_columns(self) -> "ObservationColumns":
+        # These are the names of the org unit and period columns once the rows are read into a table.
+        reserved = sorted({"location", "time_period"} & set(self.values))
+        if reserved:
+            raise ValueError(f"values cannot have a feature named {', '.join(reserved)}")
         n_rows = len(self.org_unit)
         lengths = {"period": len(self.period)} | {name: len(column) for name, column in self.values.items()}
         uneven = {name: length for name, length in lengths.items() if length != n_rows}

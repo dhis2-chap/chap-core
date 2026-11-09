@@ -1024,6 +1024,30 @@ def test_make_dataset_rejects_duplicate_rows_in_columns(dependency_overrides, da
     assert "more than one row" in response.text
 
 
+def test_make_dataset_rejects_two_spellings_of_one_week_in_columns(dependency_overrides, dataset_make_request):
+    payload = _as_columns(dataset_make_request.model_dump(mode="json", by_alias=True))
+    columns = payload["providedDataColumns"]
+    columns["period"] = [f"{period[:4]}W{int(period[5:])}" for period in columns["period"]]  # 2020-01 -> 2020W1
+    for column in [columns["orgUnit"], *columns["values"].values()]:
+        column.append(column[0])
+    columns["period"].append(columns["period"][0].replace("W", "W0"))
+    response = client.post("/v1/analytics/make-dataset?dryRun=true", json=payload)
+    assert response.status_code == 422, response.text
+    assert "more than one row" in response.text
+
+
+@pytest.mark.parametrize("name", ["location", "time_period"])
+def test_make_dataset_rejects_a_column_feature_named_like_the_row_keys(
+    dependency_overrides, dataset_make_request, name
+):
+    payload = _as_columns(dataset_make_request.model_dump(mode="json", by_alias=True))
+    values = payload["providedDataColumns"]["values"]
+    values[name] = values["rainfall"]
+    response = client.post("/v1/analytics/make-dataset?dryRun=true", json=payload)
+    assert response.status_code == 422, response.text
+    assert f"feature named {name}" in response.text
+
+
 @pytest.mark.parametrize(
     "endpoint, extra",
     [

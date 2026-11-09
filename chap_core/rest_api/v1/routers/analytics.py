@@ -50,6 +50,7 @@ from chap_core.services import threshold_service
 from chap_core.services.dataset_validation import RESERVED_FIELDS
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.time_period.date_util_wrapper import clean_timestring
 
 from ...celery_tasks import JOB_METADATA_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW, CeleryPool, JobType
 from ...data_models import (
@@ -221,6 +222,8 @@ def _columns_to_dataset(dataclass, columns: ObservationColumns) -> DataSet:
             **{name: np.array(values, dtype=float) for name, values in columns.values.items()},
         }
     )
+    # `2024W1` and `2024W01` are the same week, so compare periods as they will be parsed.
+    frame["time_period"] = frame["time_period"].map(clean_timestring)
     duplicated = frame.duplicated(["location", "time_period"])
     if duplicated.any():
         first = frame[duplicated].iloc[0]
