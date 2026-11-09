@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -53,6 +54,7 @@ class FlatMetric(FlatDataWithHorizon):
     metric: pa.typing.Series[float] = pa.Field(nullable=True)
 
 
+@functools.lru_cache(maxsize=4096)
 def horizon_diff(period: str, period2: str) -> int:
     """Calculate the 1-based horizon distance between two time periods.
 

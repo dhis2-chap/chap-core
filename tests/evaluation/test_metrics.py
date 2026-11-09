@@ -506,3 +506,42 @@ def test_crps_matrix_rejects_shape_mismatch(crps_example_data):
         crps_matrix(observations[:-1], forecasts)
     with pytest.raises(ValueError, match="must be 2D"):
         crps_matrix(observations, forecasts[0])
+
+
+ROW_METRIC_FACTORIES = [
+    CRPSMetric,
+    CRPSLog1pMetric,
+    RatioAboveTruthMetric,
+    Coverage10_90Metric,
+    Coverage25_75Metric,
+    WinklerScore10_90Metric,
+    WinklerScore10_90Log1pMetric,
+    WinklerScore25_75Metric,
+    WinklerScore25_75Log1pMetric,
+]
+
+
+@pytest.mark.parametrize("metric_factory", ROW_METRIC_FACTORIES)
+def test_compute_sample_metric_rows_matches_compute_sample_metric(metric_factory):
+    rng = np.random.default_rng(0)
+    samples = rng.poisson(20, size=(50, 100)).astype(float)
+    observed = rng.poisson(20, size=50).astype(float)
+    observed[0] = np.nan
+    metric = metric_factory()
+    expected = [metric.compute_sample_metric(row, obs) for row, obs in zip(samples, observed)]
+    np.testing.assert_allclose(metric.compute_sample_metric_rows(samples, observed), expected, rtol=1e-12)
+
+
+@pytest.mark.parametrize("metric_factory", ROW_METRIC_FACTORIES)
+def test_compute_detailed_gives_the_metric_of_each_group(
+    metric_factory, flat_forecasts_multiple_samples, flat_observations
+):
+    metric = metric_factory()
+    detailed = metric.compute_detailed(flat_observations, flat_forecasts_multiple_samples)
+    merged = flat_forecasts_multiple_samples.merge(flat_observations, on=["location", "time_period"])
+    for row in detailed.itertuples():
+        group = merged[(merged.location == row.location) & (merged.time_period == row.time_period)]
+        assert row.metric == pytest.approx(
+            metric.compute_sample_metric(group.forecast.to_numpy(), group.disease_cases.iloc[0])
+        )
+    assert len(detailed) == len(merged.groupby(["location", "time_period", "horizon_distance"]))

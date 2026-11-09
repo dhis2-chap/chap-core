@@ -27,6 +27,30 @@ def get_climate_predictor(train_data: DataSet[ClimateData]):
     return estimator
 
 
+@dataclasses.dataclass(frozen=True)
+class _SeasonMeans:
+    """The mean of each season (column of the one-hot feature matrix)."""
+
+    means: np.ndarray
+
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        return np.asarray(x @ self.means)
+
+
+def _fit_climatology(x: np.ndarray, y: np.ndarray):
+    """A regression of ``y`` on the one-hot seasons ``x``, which predicts each season's mean.
+
+    When every season is observed that mean is computed directly, which is much faster
+    than fitting. Otherwise the regression decides what an unobserved season gets.
+    """
+    counts = x.sum(axis=0)
+    if counts.all() and (x.sum(axis=1) == 1).all():
+        return _SeasonMeans((y @ x) / counts)
+    model = linear_model.LinearRegression()
+    model.fit(x, y[:, None])
+    return model
+
+
 class MonthlyClimatePredictor:
     def __init__(self):
         self._models: defaultdict[str, dict[str, Any]] = defaultdict(dict)
@@ -53,9 +77,7 @@ class MonthlyClimatePredictor:
                     raise ValueError(
                         f"Cannot fit a climatology for '{field.name}' in {location}: every value is missing."
                     )
-                model = linear_model.LinearRegression()
-                model.fit(x[observed], y[observed, None])
-                self._models[location][field.name] = model
+                self._models[location][field.name] = _fit_climatology(x[observed], y[observed])
 
     def predict(self, time_period: PeriodRange):
         x = self._feature_matrix(time_period)

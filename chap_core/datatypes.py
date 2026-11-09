@@ -363,16 +363,26 @@ def add_field(data: BNPDataClass, new_class: type, **field_data):
     return new_class(**{field.name: getattr(data, field.name) for field in dataclasses.fields(data)} | field_data)
 
 
+@functools.cache
+def _class_without_field(cls: type, field_name: str) -> type:
+    """The time series class of ``cls`` without ``field_name``, created once for each class and field.
+
+    Creating a class is slow, and a dataset applies this to the data of every location.
+    """
+    new_class: type = tsdataclass(
+        dataclasses.make_dataclass(
+            cls.__name__,
+            [(field.name, field.type) for field in dataclasses.fields(cls) if field.name != field_name],
+            bases=(TimeSeriesData,),
+        )
+    )
+    return new_class
+
+
 def remove_field(data: BNPDataClass, field_name, new_class=None):
     is_type = isinstance(data, type)
     if new_class is None:
-        new_class = tsdataclass(
-            dataclasses.make_dataclass(
-                data.__class__.__name__,
-                [(field.name, field.type) for field in dataclasses.fields(data) if field.name != field_name],
-                bases=(TimeSeriesData,),
-            )
-        )
+        new_class = _class_without_field(data if is_type else data.__class__, field_name)
         if is_type:
             return new_class
     return new_class(
