@@ -545,3 +545,13 @@ def test_compute_detailed_gives_the_metric_of_each_group(
             metric.compute_sample_metric(group.forecast.to_numpy(), group.disease_cases.iloc[0])
         )
     assert len(detailed) == len(merged.groupby(["location", "time_period", "horizon_distance"]))
+
+
+@pytest.mark.parametrize("metric_factory", ROW_METRIC_FACTORIES)
+def test_compute_detailed_is_empty_when_no_forecast_is_observed(metric_factory, flat_forecasts_multiple_samples):
+    observations = pd.DataFrame({"location": ["loc1"], "time_period": ["2022-W01"], "disease_cases": [1.0]})
+
+    detailed = metric_factory().compute_detailed(observations, flat_forecasts_multiple_samples)
+
+    assert detailed.empty
+    assert list(detailed.columns) == ["location", "time_period", "horizon_distance", "metric"]

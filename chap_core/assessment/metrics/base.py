@@ -370,7 +370,9 @@ class ProbabilisticMetric(Metric):
         result = merged.loc[starts, keys].reset_index(drop=True)
         forecast = merged["forecast"].to_numpy(dtype=float)
         observed = merged["disease_cases"].to_numpy(dtype=float)[starts]
-        if len(starts) and (sizes == sizes[0]).all():
+        if not len(starts):
+            result["metric"] = np.empty(0)
+        elif (sizes == sizes[0]).all():
             result["metric"] = self.compute_sample_metric_rows(forecast.reshape(len(starts), sizes[0]), observed)
         else:
             result["metric"] = [
