@@ -302,6 +302,8 @@ def record_lost_worker(sender=None, task_id=None, exception=None, **_kwargs):
                 f"The worker process running this job was killed ({exception}). It may have run out of "
                 "memory: try with less data, or ask an administrator to check the worker's memory limit."
             )[:JOB_ERROR_MAX_CHARS],
+            # The job's log ends where the process died; the logs endpoint appends this to say why.
+            "traceback": f"{type(exception).__name__}: {exception}",
             "end_time": datetime.now(UTC).isoformat(),
         },
     )

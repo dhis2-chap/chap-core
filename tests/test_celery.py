@@ -331,6 +331,14 @@ def test_broker_host_drops_credentials(url, expected):
     assert celery_tasks.broker_host(url) == expected
 
 
+@pytest.fixture
+def fake_redis(monkeypatch):
+    """Job metadata in fakeredis instead of the Redis server ``celery_tasks.r`` connects to."""
+    client = fakeredis.FakeRedis(decode_responses=True)
+    monkeypatch.setattr(celery_tasks, "r", client)
+    return client
+
+
 def _send_task_failure(task_id, exception):
     """Send `task_failure` the way Celery's main worker process does when a worker process dies."""
     signals.task_failure.send(
@@ -345,10 +353,10 @@ def _send_task_failure(task_id, exception):
 
 
 @pytest.mark.parametrize("status", ["PENDING", "STARTED"])
-def test_lost_worker_marks_running_job_as_failed(monkeypatch, status):
-    fake_redis = fakeredis.FakeRedis(decode_responses=True)
-    monkeypatch.setattr(celery_tasks, "r", fake_redis)
+def test_lost_worker_marks_running_job_as_failed(fake_redis, monkeypatch, tmp_path, status):
+    monkeypatch.setattr(celery_tasks, "CHAP_LOGS_DIR", tmp_path)
     fake_redis.hset("job_meta:job-1", mapping={"job_name": "import", "status": status})
+    (tmp_path / "task_job-1.debug.txt").write_text("loading data\n")
 
     _send_task_failure("job-1", WorkerLostError("Worker exited prematurely: signal 9 (SIGKILL) Job: 1."))
 
@@ -358,6 +366,8 @@ def test_lost_worker_marks_running_job_as_failed(monkeypatch, status):
     assert "killed" in error and "SIGKILL" in error
     assert meta["end_time"]
     assert meta["job_name"] == "import"
+    logs = celery_tasks.CeleryJob(SimpleNamespace(id="job-1"), app=celery_tasks.app).get_logs()
+    assert logs == "loading data\n\nWorkerLostError: Worker exited prematurely: signal 9 (SIGKILL) Job: 1."
 
 
 @pytest.mark.parametrize(
@@ -368,9 +378,7 @@ def test_lost_worker_marks_running_job_as_failed(monkeypatch, status):
         ("STARTED", ValueError("an ordinary failure, recorded by TrackedTask.on_failure")),
     ],
 )
-def test_lost_worker_handler_leaves_other_jobs_alone(monkeypatch, status, exception):
-    fake_redis = fakeredis.FakeRedis(decode_responses=True)
-    monkeypatch.setattr(celery_tasks, "r", fake_redis)
+def test_lost_worker_handler_leaves_other_jobs_alone(fake_redis, status, exception):
     fake_redis.hset("job_meta:job-1", mapping={"status": status})
 
     _send_task_failure("job-1", exception)
@@ -378,9 +386,7 @@ def test_lost_worker_handler_leaves_other_jobs_alone(monkeypatch, status, except
     assert celery_tasks.get_job_meta("job-1") == {"status": status}
 
 
-def test_lost_worker_handler_ignores_untracked_tasks(monkeypatch):
-    fake_redis = fakeredis.FakeRedis(decode_responses=True)
-    monkeypatch.setattr(celery_tasks, "r", fake_redis)
+def test_lost_worker_handler_ignores_untracked_tasks(fake_redis):
 
     _send_task_failure("not-a-job", WorkerLostError("Worker exited prematurely: signal 9 (SIGKILL) Job: 1."))
 
