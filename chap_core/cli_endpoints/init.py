@@ -20,6 +20,7 @@ from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime v
     RunConfigArg,
 )
 from chap_core.cli_endpoints.model import example_configuration_yaml
+from chap_core.exceptions import ChapProjectError
 from chap_core.project import (
     COLUMN_MAPPING_FILE,
     DATA_SETTINGS_FILE,
@@ -132,17 +133,20 @@ def init_cmd(
         if not yes:
             _confirm_current_directory()
     if directory.exists() and not directory.is_dir():
-        raise ValueError(f"{directory} is a file, not a directory")
+        raise ChapProjectError(f"{directory} is a file, not a directory")
     if (directory / PROJECT_FILE).exists() and not force:
-        raise ValueError(f"{directory / PROJECT_FILE} already exists. Use --force to overwrite it.")
+        raise ChapProjectError(f"{directory / PROJECT_FILE} already exists. Use --force to overwrite it.")
     for path in (data_settings, column_mapping, model_config):
         if path is not None and not path.is_file():
-            raise ValueError(f"{path} is not a file")
+            raise ChapProjectError(f"{path} is not a file")
     if data_settings is not None:
-        load_data_configuration(data_settings)
+        try:
+            load_data_configuration(data_settings)
+        except ValueError as e:
+            raise ChapProjectError(str(e)) from e
     csv_path, geojson_path = resolve_csv_path(dataset) if dataset is not None else (None, None)
     if csv_path is not None and not csv_path.is_file():
-        raise ValueError(f"{dataset} is not a file")
+        raise ChapProjectError(f"{dataset} is not a file")
     input_dir = directory / INPUT_DIR
     _check_dataset(
         csv_path or input_dir / DATASET_FILE,
@@ -223,12 +227,12 @@ def init_cmd(
 
 
 def _confirm_current_directory() -> None:
-    """Ask before turning the current directory into a project; raise ValueError if the answer is no."""
+    """Ask before turning the current directory into a project; raise ChapProjectError if the answer is no."""
     import sys
 
     cwd = Path.cwd()
     if not sys.stdin.isatty():
-        raise ValueError(
+        raise ChapProjectError(
             f"chap init without a directory makes the current directory ({cwd}) a Chap project. "
             "Give a directory name, or --yes to use the current directory."
         )
@@ -236,7 +240,7 @@ def _confirm_current_directory() -> None:
         f"Make the current directory {cwd} a Chap project? It writes chap.yaml, input/ and output/ here. [y/N] "
     )
     if answer.strip().lower() not in ("y", "yes"):
-        raise ValueError("Cancelled; nothing was written. Give a directory name, such as `chap init my-project`.")
+        raise ChapProjectError("Cancelled; nothing was written. Give a directory name, such as `chap init my-project`.")
 
 
 def _previous_model(directory: Path) -> str | None:
@@ -264,7 +268,7 @@ def resolve_model_source(model: str, pin: bool) -> str:
         try:
             marketplace_pin = resolve_model(model)
         except ValueError as e:
-            raise ValueError(f"{model!r} is not a local directory, and not a Chap Marketplace model: {e}") from e
+            raise ChapProjectError(f"{model!r} is not a local directory, and not a Chap Marketplace model: {e}") from e
         logger.info(f"Chap Marketplace model {model} {marketplace_pin.version} is {marketplace_pin.image}")
         return f"{DOCKER_SOURCE_PREFIX}{marketplace_pin.image}"
     if pin and model.startswith("https://github.com/") and "@" not in model:
@@ -282,10 +286,10 @@ def remote_head_commit(repository: str) -> str:
             ["git", "ls-remote", repository, "HEAD"], capture_output=True, text=True, check=True, timeout=60
         )
     except (OSError, subprocess.SubprocessError) as e:
-        raise ValueError(f"Could not read the current commit of {repository}: {e}") from e
+        raise ChapProjectError(f"Could not read the current commit of {repository}: {e}") from e
     commit = result.stdout.split()[0] if result.stdout.split() else ""
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
-        raise ValueError(f"Could not read the current commit of {repository}: {result.stdout.strip()!r}")
+        raise ChapProjectError(f"Could not read the current commit of {repository}: {result.stdout.strip()!r}")
     return commit
 
 
@@ -321,7 +325,7 @@ def _check_dataset(
         load_dataset_from_csv(csv_path, column_mapping=mapping, data_configuration=settings)
     except (ValueError, TypeError, KeyError, OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
         with_files = f" with {' and '.join(str(path) for path in used)}" if used else ""
-        raise ValueError(
+        raise ChapProjectError(
             f"Could not load {csv_path} as a Chap dataset{with_files}: {e}\n"
             f"Run `chap validate --dataset-csv {csv_path}` for a full report."
         ) from e
@@ -333,9 +337,9 @@ def _read_column_mapping(path: Path) -> dict[str, str]:
     try:
         mapping = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
-        raise ValueError(f"Could not read the column mapping {path}: {e}") from e
+        raise ChapProjectError(f"Could not read the column mapping {path}: {e}") from e
     if not isinstance(mapping, dict):
-        raise ValueError(f"The column mapping {path} must be a JSON object of covariate names to column names")
+        raise ChapProjectError(f"The column mapping {path} must be a JSON object of covariate names to column names")
     return mapping
 
 
@@ -350,9 +354,12 @@ def _check_model_config(path: Path, template_config: ModelTemplateConfigV2 | Non
     try:
         configuration = ModelConfiguration.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
     except (yaml.YAMLError, ValidationError) as e:
-        raise ValueError(f"Could not read the model configuration {path}: {e}") from e
+        raise ChapProjectError(f"Could not read the model configuration {path}: {e}") from e
     if template_config is not None:
-        check_model_configuration(configuration, template_config, path)
+        try:
+            check_model_configuration(configuration, template_config, path)
+        except ValueError as e:
+            raise ChapProjectError(str(e)) from e
 
 
 def _relative_to_project(model: str, project: Project) -> str:
