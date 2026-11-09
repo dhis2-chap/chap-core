@@ -67,6 +67,8 @@ spec:
             {{- end }}
             - name: CHAP_LOGS_DIR
               value: /data/logs
+            - name: WEB_CONCURRENCY
+              value: {{ .Values.api.workers | quote }}
           volumeMounts:
             - name: tmpfs
               mountPath: /tmp

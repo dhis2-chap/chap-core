@@ -17,6 +17,7 @@
         "image": { "$ref": "#/$defs/image" },
         "replicaCount": { "type": "integer", "minimum": 0 },
         "command": { "type": "array", "items": { "type": "string" } },
+        "workers": { "type": "integer", "minimum": 1 },
         "labels": { "type": "object" },
         "podLabels": { "type": "object" },
         "service": {
