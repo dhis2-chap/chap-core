@@ -30,6 +30,7 @@ from chap_core.cli_endpoints import (
 )
 from chap_core.exceptions import (
     ChapkitServiceStartupError,
+    ChapProjectError,
     DockerUnavailableError,
     InvalidModelException,
     ModelConfigurationException,
@@ -66,6 +67,7 @@ ensemble.register_commands(app)
 # Errors caused by the model or the local setup rather than by a bug in Chap.
 USER_FACING_ERRORS = (
     ChapkitServiceStartupError,
+    ChapProjectError,
     DockerUnavailableError,
     InvalidModelException,
     ModelConfigurationException,
