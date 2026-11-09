@@ -1024,13 +1024,24 @@ def test_make_dataset_rejects_duplicate_rows_in_columns(dependency_overrides, da
     assert "more than one row" in response.text
 
 
-def test_make_dataset_rejects_two_spellings_of_one_week_in_columns(dependency_overrides, dataset_make_request):
+@pytest.mark.parametrize(
+    "weekly, other_spelling",
+    [
+        (True, lambda period: period.replace("W", "W0")),  # 2020W1 and 2020W01
+        (True, lambda period: period.replace("W", "-W")),  # 2020W1 and 2020-W1
+        (False, lambda period: period.replace("-", "")),  # 2020-01 and 202001
+    ],
+)
+def test_make_dataset_rejects_two_spellings_of_one_period_in_columns(
+    dependency_overrides, dataset_make_request, weekly, other_spelling
+):
     payload = _as_columns(dataset_make_request.model_dump(mode="json", by_alias=True))
     columns = payload["providedDataColumns"]
-    columns["period"] = [f"{period[:4]}W{int(period[5:])}" for period in columns["period"]]  # 2020-01 -> 2020W1
+    if weekly:
+        columns["period"] = [f"{period[:4]}W{int(period[5:])}" for period in columns["period"]]  # 2020-01 -> 2020W1
     for column in [columns["orgUnit"], *columns["values"].values()]:
         column.append(column[0])
-    columns["period"].append(columns["period"][0].replace("W", "W0"))
+    columns["period"].append(other_spelling(columns["period"][0]))
     response = client.post("/v1/analytics/make-dataset?dryRun=true", json=payload)
     assert response.status_code == 422, response.text
     assert "more than one row" in response.text
