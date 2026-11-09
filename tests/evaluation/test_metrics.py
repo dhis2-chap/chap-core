@@ -555,3 +555,18 @@ def test_compute_detailed_is_empty_when_no_forecast_is_observed(metric_factory, 
 
     assert detailed.empty
     assert list(detailed.columns) == ["location", "time_period", "horizon_distance", "metric"]
+
+
+@pytest.mark.parametrize("metric_factory", ROW_METRIC_FACTORIES)
+def test_compute_detailed_leaves_out_forecasts_with_a_missing_key(
+    metric_factory, flat_forecasts_multiple_samples, flat_observations
+):
+    with_missing = pd.concat(
+        [flat_forecasts_multiple_samples, flat_forecasts_multiple_samples.head(3).assign(horizon_distance=np.nan)]
+    )
+    metric = metric_factory()
+
+    detailed = metric.compute_detailed(flat_observations, with_missing)
+
+    expected = metric.compute_detailed(flat_observations, flat_forecasts_multiple_samples)
+    pd.testing.assert_frame_equal(detailed, expected, check_dtype=False)

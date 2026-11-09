@@ -363,7 +363,8 @@ class ProbabilisticMetric(Metric):
         )
 
         keys = ["location", "time_period", "horizon_distance"]
-        merged = merged.sort_values(keys, kind="stable", ignore_index=True)
+        # groupby drops rows with a missing key, so they get no group here either.
+        merged = merged.dropna(subset=keys).sort_values(keys, kind="stable", ignore_index=True)
         group_ids = merged.groupby(keys, sort=False).ngroup().to_numpy()
         starts = np.flatnonzero(np.diff(group_ids, prepend=-1))
         sizes = np.diff(np.append(starts, len(merged)))
