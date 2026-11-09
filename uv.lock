@@ -3037,18 +3037,19 @@ wheels = [
 
 [[package]]
 name = "pyts"
-version = "0.13.0"
+version = "0.14.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "joblib" },
     { name = "numba" },
     { name = "numpy" },
+    { name = "platformdirs" },
     { name = "scikit-learn" },
     { name = "scipy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/97/2e/ecb645d86e0e2d0b5d107b25a7e89e965f7e20befe0dfdcae26eeffe62c8/pyts-0.13.0.tar.gz", hash = "sha256:aca0ecc315f4cc782be363f3b62384a24a02d23a5a7d549b839b2c40a7fbed02", size = 2448631, upload-time = "2023-06-18T12:35:25.648Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/88/18/fc138abdfbfd1cb35dc2f14f4bcc02d49657e063d65e574fa02606798707/pyts-0.14.1.tar.gz", hash = "sha256:55df4fdcad5df6b1a2ca66572c1e851ac3e4688168bb5d665e915e10023cbfdc", size = 2503699, upload-time = "2026-10-21T13:32:20.672Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b3/e3/da2042a20782b105631abe273ca5fef4390e7bdb6f5377c596891262437b/pyts-0.13.0-py3-none-any.whl", hash = "sha256:b49608267b686ea693dba31316ef2b22ad73ea29b27144696c347809ecd5ad62", size = 2546897, upload-time = "2023-06-18T12:35:23.496Z" },
+    { url = "https://files.pythonhosted.org/packages/41/b9/8873950861117dcefb7d38f99eea54d39b5a3b4f46c3683dc8f1f6c60868/pyts-0.14.1-py3-none-any.whl", hash = "sha256:1af820fc3f1dad16830bb6561c4f6451dd16f5706dc282b5257f9ba6308d1e8c", size = 2609334, upload-time = "2026-10-21T13:32:18.74Z" },
 ]
 
 [[package]]
