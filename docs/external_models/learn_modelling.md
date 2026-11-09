@@ -9,7 +9,7 @@ We provide guides and example models in both *Python* and *R*.
 The hands-on work relies on Chap, which is designed to allow model developers to focus on their core modelling idea, and then rely on Chap for rich support of data, evaluation, interoperability and more. 
 This helps you learn effectively - by being hands-on and concrete, while still focusing on the core concepts.  
 
-If you are already experienced in spatiotemporal modelling, and just want to integrate a model of yours with a professional framework, please see our separate guide for [experienced modellers](experienced_modeller.md).
+If you already have a model and want to run it in Chap, see [Bring your existing model to Chap](existing_model.md).
 # Prerequisites
 
 - Programming: you must know some programming, in either Python or R, to be able to follow our exercises and tutorials. 

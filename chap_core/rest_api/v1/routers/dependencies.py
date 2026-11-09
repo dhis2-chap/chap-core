@@ -49,11 +49,17 @@ async def get_job_request(request: Request) -> dict[str, Any]:
 
 
 def get_job_model(session: Session, model_id: int | str) -> ConfiguredModelDB:
-    """Resolve the configured model before queuing, so its version can be recorded."""
+    """Resolve the configured model before queuing, so its version can be recorded.
+
+    A deleted (archived) configured model cannot start new runs and is rejected with 409.
+    """
     try:
-        return SessionWrapper(session=session).get_configured_model_by_id_or_name(model_id)
+        model = SessionWrapper(session=session).get_configured_model_by_id_or_name(model_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if model.archived:
+        raise HTTPException(status_code=409, detail=f"Configured model '{model.name}' is archived")
+    return model
 
 
 def within_model_horizon(n_periods: int, template: ModelTemplateDB) -> int:
