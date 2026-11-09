@@ -1,4 +1,5 @@
 import dataclasses
+import functools
 from warnings import deprecated
 
 import bionumpy as bnp
@@ -10,6 +11,17 @@ from .api_types import PeriodObservation
 from .time_period import PeriodRange
 from .time_period.date_util_wrapper import TimeStamp
 from .util import interpolate_nans
+
+
+@functools.lru_cache(maxsize=16)
+def _period_range_from_strings(period_strings: tuple[str, ...], fill_missing: bool):
+    """``PeriodRange.from_strings``, parsed once for each distinct list of period strings.
+
+    Every location of a dataset usually has the same periods, and parsing them dominated
+    ``DataSet.from_pandas`` for datasets with many locations. ``PeriodRange`` is immutable, so
+    locations can share one.
+    """
+    return PeriodRange.from_strings(period_strings, fill_missing=fill_missing)
 
 
 def tsdataclass(cls):
@@ -93,7 +105,7 @@ class TimeSeriesData:
             time_strings = data.time_period.astype(str)
             # check unique
             assert len(time_strings) == len(set(time_strings)), f"{time_strings} has duplicates"
-            time = PeriodRange.from_strings(time_strings, fill_missing=fill_missing)
+            time = _period_range_from_strings(tuple(time_strings), fill_missing)
         except Exception:
             raise
 

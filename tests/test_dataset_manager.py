@@ -1,11 +1,13 @@
 """Tests for DataSetManager observation filtering and the flat-frame converter."""
 
 import dataclasses
+import math
 from pathlib import Path
 
 import pytest
 from sqlmodel import Session
 
+from chap_core.database import dataset_manager
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo, Observation
 from chap_core.datatypes import create_tsdataclass
@@ -30,6 +32,21 @@ def manager(engine):
 
 def test_save_dataset_is_not_created_manually_by_default(manager, dataset_id):
     assert not manager.session.get(DataSet, dataset_id).created_manually
+
+
+def test_save_dataset_stores_every_cell_across_insert_batches(engine, health_population_data, monkeypatch):
+    monkeypatch.setattr(dataset_manager, "OBSERVATION_INSERT_BATCH_SIZE", 7)
+    with Session(engine) as session:
+        manager = DataSetManager(session)
+        dataset_id = manager.save_dataset(DataSetCreateInfo(name="batched"), health_population_data, None)
+        stored = {(o.org_unit, o.period, o.feature_name): o.value for o in manager.observations(dataset_id)}
+    expected = {
+        (location, period.id, field): None if math.isnan(value := float(getattr(data, field)[i])) else value
+        for location, data in health_population_data.items()
+        for i, period in enumerate(data.time_period)
+        for field in ("disease_cases", "population")
+    }
+    assert stored == expected
 
 
 def _sorted_periods(observations):

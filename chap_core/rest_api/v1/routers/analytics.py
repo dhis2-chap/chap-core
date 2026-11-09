@@ -46,10 +46,13 @@ from chap_core.database.tables import (
     is_not_baseline_backtest,
 )
 from chap_core.datatypes import create_tsdataclass
+from chap_core.exceptions import InvalidDateError
 from chap_core.services import threshold_service
 from chap_core.services.dataset_validation import RESERVED_FIELDS
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.time_period import TimePeriod
+from chap_core.time_period.date_util_wrapper import clean_timestring
 
 from ...celery_tasks import JOB_METADATA_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW, CeleryPool, JobType
 from ...data_models import (
@@ -66,6 +69,7 @@ from ...data_models import (
     MakeBacktestsResponse,
     MakeBacktestWithDataRequest,
     MakePredictionRequest,
+    ObservationColumns,
     PredictionParams,
     ValidationError,
 )
@@ -140,7 +144,9 @@ def make_dataset(
             JOB_TYPE_KW: JobType.DATASET,
             JOB_NAME_KW: request.name,
             JOB_METADATA_KW: {
-                "parameters": request.model_dump(mode="json", exclude={"name", "geojson", "provided_data"})
+                "parameters": request.model_dump(
+                    mode="json", exclude={"name", "geojson", "provided_data", "provided_data_columns"}
+                )
             },
         },
     )
@@ -189,16 +195,57 @@ def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataS
 
 
 def _read_dataset(request):
-    if not request.provided_data:
+    # Only make-dataset accepts columnar observations; create-backtest-with-data shares this reader.
+    columns = getattr(request, "provided_data_columns", None)
+    if not request.provided_data and (columns is None or not columns.org_unit):
         raise HTTPException(status_code=400, detail="No observation data provided.")
-    feature_names = list({entry.feature_name for entry in request.provided_data})
+    if columns is not None:
+        feature_names = list(columns.values)
+    else:
+        feature_names = list({entry.feature_name for entry in request.provided_data})
     reject_mask_indicator_input(feature_names)
     require_target_column(request.target_column, feature_names)
     dataclass = create_tsdataclass(feature_names)
-    provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
+    if columns is not None:
+        provided_data = _columns_to_dataset(dataclass, columns)
+    else:
+        provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
     return feature_names, provided_data
+
+
+def _columns_to_dataset(dataclass, columns: ObservationColumns) -> DataSet:
+    """Build the dataset straight from columnar observations, without one model per observation."""
+    frame = pd.DataFrame(
+        {
+            "location": columns.org_unit,
+            "time_period": columns.period,
+            **{name: np.array(values, dtype=float) for name, values in columns.values.items()},
+        }
+    )
+    # `2024W1`, `2024W01` and `2024-W01` are the same week, so compare periods in their parsed form.
+    frame["time_period"] = frame["time_period"].map({period: _period_id(period) for period in set(columns.period)})
+    duplicated = frame.duplicated(["location", "time_period"])
+    if duplicated.any():
+        first = frame[duplicated].iloc[0]
+        raise HTTPException(
+            status_code=422,
+            detail=f"providedDataColumns has more than one row for org unit {first.location!r}, "
+            f"period {first.time_period!r}",
+        )
+    return DataSet.from_pandas(frame, dataclass, fill_missing=True)
+
+
+def _period_id(period: str) -> str:
+    """The canonical id of a period string, or the string itself when it does not parse.
+
+    A period that does not parse is left for `DataSet.from_pandas` to reject, as before.
+    """
+    try:
+        return str(TimePeriod.parse(clean_timestring(period)).id)
+    except (ValueError, InvalidDateError):
+        return period
 
 
 def _find_locations_with_complete_covariates(

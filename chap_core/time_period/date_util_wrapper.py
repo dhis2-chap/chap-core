@@ -367,6 +367,8 @@ class Week(TimePeriod):
         return pd.Period(self._date, freq=("W"))
 
 
+# A dataset repeats the same few hundred period strings for every location.
+@functools.lru_cache(maxsize=4096)
 def clean_timestring(timestring: str):
     """Normalize time string format, ensuring 2-digit week numbers."""
     if isinstance(timestring, Number):

@@ -962,6 +962,103 @@ def test_make_dataset_rejects_input_carrying_the_mask_indicator(dependency_overr
     assert "is reserved" in response.text
 
 
+def _as_columns(payload: dict) -> dict:
+    """The same make-dataset payload with its observations sent as `providedDataColumns`."""
+    wide = pd.DataFrame(payload.pop("providedData")).pivot(
+        index=["orgUnit", "period"], columns="featureName", values="value"
+    )
+    wide = wide.astype(object).where(wide.notna(), None).reset_index()
+    payload["providedDataColumns"] = {
+        "orgUnit": wide["orgUnit"].tolist(),
+        "period": wide["period"].tolist(),
+        "values": {name: wide[name].tolist() for name in wide.columns if name not in ("orgUnit", "period")},
+    }
+    return payload
+
+
+def test_make_dataset_columns_import_the_same_as_observations(
+    dependency_overrides, dataset_make_request, baseline_worker, monkeypatch
+):
+    from chap_core.rest_api.v1.routers import analytics
+
+    monkeypatch.setattr(analytics, "worker", baseline_worker)
+    payload = dataset_make_request.model_dump(mode="json", by_alias=True)
+    rainfall = next(o for o in payload["providedData"] if o["featureName"] == "rainfall")
+    rainfall["value"] = None  # one rejected location, so the rejection summary is compared too
+    responses = []
+    for body in (payload, _as_columns(json.loads(json.dumps(payload)))):
+        response = client.post("/v1/analytics/make-dataset", json=body)
+        assert response.status_code == 200, response.text
+        responses.append({key: value for key, value in response.json().items() if key != "id"})
+    assert responses[0] == responses[1]
+    assert responses[0]["rejected"]
+    (_, from_columns, _), (_, from_observations, _) = baseline_worker.queued.pop(), baseline_worker.queued.pop()
+    assert from_columns[2] == from_observations[2]
+
+
+def test_make_dataset_rejects_both_observation_formats(dependency_overrides, dataset_make_request):
+    payload = dataset_make_request.model_dump(mode="json", by_alias=True)
+    payload["providedDataColumns"] = _as_columns(dataset_make_request.model_dump(mode="json", by_alias=True))[
+        "providedDataColumns"
+    ]
+    response = client.post("/v1/analytics/make-dataset?dryRun=true", json=payload)
+    assert response.status_code == 422, response.text
+    assert "not both" in response.text
+
+
+def test_make_dataset_rejects_uneven_columns(dependency_overrides, dataset_make_request):
+    payload = _as_columns(dataset_make_request.model_dump(mode="json", by_alias=True))
+    payload["providedDataColumns"]["period"].pop()
+    response = client.post("/v1/analytics/make-dataset?dryRun=true", json=payload)
+    assert response.status_code == 422, response.text
+    assert "Every column must have" in response.text
+
+
+def test_make_dataset_rejects_duplicate_rows_in_columns(dependency_overrides, dataset_make_request):
+    payload = _as_columns(dataset_make_request.model_dump(mode="json", by_alias=True))
+    columns = payload["providedDataColumns"]
+    for column in [columns["orgUnit"], columns["period"], *columns["values"].values()]:
+        column.append(column[0])
+    response = client.post("/v1/analytics/make-dataset?dryRun=true", json=payload)
+    assert response.status_code == 422, response.text
+    assert "more than one row" in response.text
+
+
+@pytest.mark.parametrize(
+    "weekly, other_spelling",
+    [
+        (True, lambda period: period.replace("W", "W0")),  # 2020W1 and 2020W01
+        (True, lambda period: period.replace("W", "-W")),  # 2020W1 and 2020-W1
+        (False, lambda period: period.replace("-", "")),  # 2020-01 and 202001
+    ],
+)
+def test_make_dataset_rejects_two_spellings_of_one_period_in_columns(
+    dependency_overrides, dataset_make_request, weekly, other_spelling
+):
+    payload = _as_columns(dataset_make_request.model_dump(mode="json", by_alias=True))
+    columns = payload["providedDataColumns"]
+    if weekly:
+        columns["period"] = [f"{period[:4]}W{int(period[5:])}" for period in columns["period"]]  # 2020-01 -> 2020W1
+    for column in [columns["orgUnit"], *columns["values"].values()]:
+        column.append(column[0])
+    columns["period"].append(other_spelling(columns["period"][0]))
+    response = client.post("/v1/analytics/make-dataset?dryRun=true", json=payload)
+    assert response.status_code == 422, response.text
+    assert "more than one row" in response.text
+
+
+@pytest.mark.parametrize("name", ["location", "time_period"])
+def test_make_dataset_rejects_a_column_feature_named_like_the_row_keys(
+    dependency_overrides, dataset_make_request, name
+):
+    payload = _as_columns(dataset_make_request.model_dump(mode="json", by_alias=True))
+    values = payload["providedDataColumns"]["values"]
+    values[name] = values["rainfall"]
+    response = client.post("/v1/analytics/make-dataset?dryRun=true", json=payload)
+    assert response.status_code == 422, response.text
+    assert f"feature named {name}" in response.text
+
+
 @pytest.mark.parametrize(
     "endpoint, extra",
     [
@@ -1759,6 +1856,7 @@ def test_run_prediction_setup_not_found_returns_404(clean_engine, dependency_ove
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
+    payload.pop("provided_data_columns", None)
     payload["nPeriods"] = 3
     response = client.post("/v1/crud/prediction-setups/99999/run", json=payload)
     assert response.status_code == 404, response.json()
@@ -1812,6 +1910,7 @@ def test_run_prediction_setup_inherits_the_backtest_provider(
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
+    payload.pop("provided_data_columns", None)
     payload["nPeriods"] = 3
 
     from chap_core.rest_api.v1.routers import crud as crud_router
@@ -1837,7 +1936,8 @@ def _run_setup_capturing_the_job(setup_id, example_polygons, monkeypatch):
     """Post a monthly 2020-01..2023-12 run to a prediction setup and return the response and the queued kwargs."""
     request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
     payload = request.model_dump(
-        mode="json", exclude={"data_to_be_fetched", "data_sources", "masked_ranges", "target_column"}
+        mode="json",
+        exclude={"data_to_be_fetched", "data_sources", "masked_ranges", "target_column", "provided_data_columns"},
     )
     payload["nPeriods"] = 3
 
@@ -1898,7 +1998,8 @@ def test_run_prediction_setup_rejects_input_carrying_the_mask_indicator(
         example_polygons, [], ["rainfall", "disease_cases", "population", "target_masked"]
     )
     payload = request.model_dump(
-        mode="json", exclude={"data_to_be_fetched", "data_sources", "masked_ranges", "target_column"}
+        mode="json",
+        exclude={"data_to_be_fetched", "data_sources", "masked_ranges", "target_column", "provided_data_columns"},
     )
     payload["nPeriods"] = 3
 
@@ -1995,7 +2096,8 @@ def test_run_prediction_setup_forecasts_the_backtest_target(
         if observation.feature_name != "rainfall" and observation.period == "2020-01":
             observation.value = None  # Target gaps must not reject otherwise valid locations.
     payload = request.model_dump(
-        mode="json", exclude={"data_to_be_fetched", "data_sources", "masked_ranges", "target_column"}
+        mode="json",
+        exclude={"data_to_be_fetched", "data_sources", "masked_ranges", "target_column", "provided_data_columns"},
     )
     payload["nPeriods"] = 3
 
@@ -2023,7 +2125,8 @@ def test_run_prediction_setup_rejects_missing_target(override_session, seeded_se
     setup_id = _create_prediction_setup(backtest.id, "Missing target").json()["id"]
     request = create_make_data_request(example_polygons, [], ["rainfall"])
     payload = request.model_dump(
-        mode="json", exclude={"data_to_be_fetched", "data_sources", "masked_ranges", "target_column"}
+        mode="json",
+        exclude={"data_to_be_fetched", "data_sources", "masked_ranges", "target_column", "provided_data_columns"},
     )
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
@@ -2044,6 +2147,7 @@ def test_run_prediction_setup_rejects_a_look_ahead_provider(override_session, se
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
+    payload.pop("provided_data_columns", None)
     payload["nPeriods"] = 3
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
@@ -2070,6 +2174,7 @@ def test_run_prediction_setup_non_positive_n_periods_returns_422(
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
+    payload.pop("provided_data_columns", None)
     payload["nPeriods"] = n_periods
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
@@ -2114,6 +2219,7 @@ def test_run_prediction_setup_archived_model_returns_409(override_session, seede
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
+    payload.pop("provided_data_columns", None)
     payload["nPeriods"] = 3
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
@@ -2150,6 +2256,7 @@ def test_run_prediction_setup_queues_the_pinned_configured_model(
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
+    payload.pop("provided_data_columns", None)
     payload["nPeriods"] = 3
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
@@ -2193,6 +2300,7 @@ def test_run_prediction_setup_logs_rejection_count(
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
+    payload.pop("provided_data_columns", None)
     payload["nPeriods"] = 3
 
     caplog.set_level(logging.WARNING, logger="chap_core.rest_api.v1.routers.crud")
@@ -2265,6 +2373,7 @@ def test_run_prediction_setup_normalizes_dataset_type_to_prediction(
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
+    payload.pop("provided_data_columns", None)
     payload["nPeriods"] = 3
     payload["type"] = "forecasting"  # what chap-scheduler currently sends; should be overridden server-side
 
@@ -2317,6 +2426,7 @@ def test_run_prediction_setup_full_flow(
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
+    payload.pop("provided_data_columns", None)
     payload["nPeriods"] = 3
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
