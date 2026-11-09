@@ -125,6 +125,15 @@ jobs:
         with:
           default: "3.13"
           command: ""
+      # Dockerfile.worker builds on ghcr.io/dhis2-chap/chap-worker-with-inla, which is
+      # private, so the build needs a login; the workflow token has packages: read.
+      - name: Log in to GitHub Container Registry
+        if: needs.changes.outputs.code == 'true'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Run full suite
         if: needs.changes.outputs.code == 'true'
         run: |
