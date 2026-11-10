@@ -13,6 +13,7 @@ from cyclopts import CycloptsError
 from chap_core.api_types import RunConfig
 from chap_core.cli import app
 from chap_core.cli_endpoints.init import init_cmd
+from chap_core.exceptions import ChapProjectError
 from chap_core.project import Project, find_project, model_label
 
 
@@ -56,7 +57,7 @@ def test_init_with_force_keeps_edited_data_settings(chap_project):
 
 
 def test_init_refuses_an_existing_project_without_force(chap_project):
-    with pytest.raises(ValueError, match="already exists"):
+    with pytest.raises(ChapProjectError, match="already exists"):
         init_cmd(chap_project)
     init_cmd(chap_project, model="builtin:global_median", force=True)
     assert Project.load(chap_project).settings["model_name"] == "builtin:global_median"
@@ -173,7 +174,7 @@ def test_relative_paths_in_the_project_file_are_relative_to_the_project(chap_pro
 def test_misspelled_nested_key_is_an_error(chap_project, monkeypatch):
     edit_project_file(chap_project, backtest_params={"n_period": 6})
     monkeypatch.chdir(chap_project)
-    with pytest.raises(ValueError, match="backtest_params.n_period"):
+    with pytest.raises(ChapProjectError, match="backtest_params.n_period"):
         parse("eval")
 
 
@@ -222,7 +223,7 @@ def test_init_refuses_a_name_that_is_neither_a_directory_nor_a_chap_marketplace_
     unlisted = ValueError("Model 'no_such_model' is not listed in the marketplace.")
     with (
         patch("chap_core.services.model_marketplace.resolve_model", side_effect=unlisted),
-        pytest.raises(ValueError, match="not a local directory, and not a Chap Marketplace model"),
+        pytest.raises(ChapProjectError, match="not a local directory, and not a Chap Marketplace model"),
     ):
         resolve_model_source("no_such_model", pin=True)
 
@@ -309,7 +310,7 @@ def test_dataset_files_in_input_are_skipped_when_the_project_file_names_another_
 def test_single_value_where_options_are_expected_is_an_error(chap_project, monkeypatch, settings, message):
     edit_project_file(chap_project, **settings)
     monkeypatch.chdir(chap_project)
-    with pytest.raises(ValueError, match=message):
+    with pytest.raises(ChapProjectError, match=message):
         parse("eval")
 
 
@@ -332,7 +333,7 @@ def test_init_refuses_model_options_the_model_does_not_have(tmp_path, models_pat
     model_config = tmp_path / "options.yaml"
     model_config.write_text("user_option_values:\n  some_optoin: '5'\n")
     model = str(models_path / "naive_python_model_with_mlproject_file_and_docker")
-    with pytest.raises(ValueError, match="some_optoin. Its options: some_option"):
+    with pytest.raises(ChapProjectError, match="some_optoin. Its options: some_option"):
         init_cmd(tmp_path / "project", model=model, model_config=model_config)
     assert not (tmp_path / "project").exists()
 
@@ -340,7 +341,7 @@ def test_init_refuses_model_options_the_model_does_not_have(tmp_path, models_pat
 def test_init_refuses_a_file_that_is_not_a_chap_dataset(tmp_path):
     not_a_dataset = tmp_path / "data.csv"
     not_a_dataset.write_text("periodname\tvalue\n2020-01\t3\n")
-    with pytest.raises(ValueError, match="Could not load"):
+    with pytest.raises(ChapProjectError, match="Could not load"):
         init_cmd(tmp_path / "project", model="builtin:global_median", dataset=str(not_a_dataset))
     assert not (tmp_path / "project").exists()
 
@@ -349,7 +350,7 @@ def test_init_with_a_new_dataset_checks_the_kept_data_settings(chap_project, nic
     (chap_project / "input" / "data_settings.yaml").write_text(
         'maskedRanges:\n  - start: "2011-06"\n    end: "2011-08"\n'
     )
-    with pytest.raises(ValueError, match="data_settings.yaml"):
+    with pytest.raises(ChapProjectError, match="data_settings.yaml"):
         init_cmd(chap_project, model="builtin:global_median", dataset=str(nicaragua_path), force=True)
 
 
@@ -507,7 +508,7 @@ def test_init_without_a_directory_asks_before_using_the_current_one(tmp_path, mo
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("sys.stdin.isatty", lambda: True)
     monkeypatch.setattr("builtins.input", lambda _prompt: "n")
-    with pytest.raises(ValueError, match="Cancelled"):
+    with pytest.raises(ChapProjectError, match="Cancelled"):
         init_cmd(model="builtin:global_median")
     assert not (tmp_path / "chap.yaml").exists()
 
@@ -519,7 +520,7 @@ def test_init_without_a_directory_asks_before_using_the_current_one(tmp_path, mo
 def test_init_without_a_directory_or_a_terminal_needs_yes(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("sys.stdin.isatty", lambda: False)
-    with pytest.raises(ValueError, match="--yes"):
+    with pytest.raises(ChapProjectError, match="--yes"):
         init_cmd(model="builtin:global_median")
     assert not (tmp_path / "chap.yaml").exists()
     _, arguments = parse("init", "--model", "builtin:global_median", "-y")
@@ -539,7 +540,7 @@ def test_a_model_in_the_project_directory_is_labelled_with_the_directory_name(tm
 def test_init_explains_a_name_that_is_not_a_directory_when_the_registry_cannot_be_reached(tmp_path, monkeypatch):
     monkeypatch.setenv("CHAP_MARKETPLACE_URL", "http://127.0.0.1:9")
     with pytest.raises(
-        ValueError, match="not a local directory, and not a Chap Marketplace model: Could not read the model"
+        ChapProjectError, match="not a local directory, and not a Chap Marketplace model: Could not read the model"
     ):
         init_cmd(tmp_path / "project", model="my_modle")
     assert not (tmp_path / "project").exists()
@@ -594,3 +595,35 @@ def test_sanity_check_model_takes_only_the_model_positionally(tmp_path, monkeypa
     monkeypatch.chdir(tmp_path)
     with pytest.raises(CycloptsError):
         parse("sanity-check-model", "builtin:global_median", "False", str(laos_csv))
+
+
+@pytest.mark.filterwarnings("ignore:Cyclopts application invoked without tokens")
+def test_chap_prints_a_misspelled_project_key_without_a_traceback(chap_project, monkeypatch, capsys):
+    from chap_core.cli import main
+
+    edit_project_file(chap_project, eval={"n_splitz": 3})
+    monkeypatch.chdir(chap_project)
+    monkeypatch.delenv("CHAP_DEBUG", raising=False)
+    monkeypatch.setattr("sys.argv", ["chap", "eval"])
+    with pytest.raises(SystemExit) as excinfo:
+        main()
+    assert excinfo.value.code == 1
+    err = capsys.readouterr().err
+    assert err.startswith("Error: Unknown option 'n_splitz' in the eval section of chap.yaml")
+    assert "Traceback" not in err
+
+
+@pytest.mark.filterwarnings("ignore:Cyclopts application invoked without tokens")
+def test_chap_prints_a_cancelled_init_without_a_traceback(tmp_path, monkeypatch, capsys):
+    from chap_core.cli import main
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("CHAP_DEBUG", raising=False)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda _prompt: "n")
+    monkeypatch.setattr("sys.argv", ["chap", "init", "--model", "builtin:global_median"])
+    with pytest.raises(SystemExit) as excinfo:
+        main()
+    assert excinfo.value.code == 1
+    assert capsys.readouterr().err.startswith("Error: Cancelled; nothing was written.")
+    assert not (tmp_path / "chap.yaml").exists()

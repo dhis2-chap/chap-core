@@ -202,7 +202,7 @@ def model_deployment(tmp_path, monkeypatch, mocker, fake_chap, marketplace_model
     def reported_info(service: dict) -> dict[str, Any]:
         if service["x-chap-custom"]:
             return CUSTOM_SERVICE_INFO
-        tag = service["image"].rsplit(":", 1)[-1]
+        tag = service["image"].partition("@")[0].rsplit(":", 1)[-1]
         version = next(v for v in marketplace_model["versions"] if v["image_tag"] == tag)
         return {
             "id": marketplace_model["service_id"],

@@ -85,7 +85,6 @@ dev = [
     "mktestdocs>=0.2.5",
     "tabulate>=0.10.0",
     "wheel>=0.47.0",
-    "ipython>=9.13.0",
     "mypy>=2.1.0",
     "pyright>=1.1.410",
     "pandas-stubs>=3.0.0.260204",
