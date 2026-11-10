@@ -31,6 +31,16 @@ def test_image_is_pulled_run_and_removed(fake_docker):
     assert calls[-1] == f"rm -f {container}"
 
 
+def test_a_multi_platform_image_with_only_its_amd64_build_present_runs_as_amd64(fake_docker, monkeypatch):
+    monkeypatch.setenv("FAKE_DOCKER_INDEX_WITH_AMD64_ONLY", "1")
+    with DockerChapkitServiceManager(IMAGE, startup_timeout=15):
+        pass
+    calls = fake_docker.read_text().splitlines()
+    assert not any(call.startswith("pull ") for call in calls)
+    run = next(call for call in calls if call.startswith("run "))
+    assert "--platform linux/amd64" in run
+
+
 def test_digest_pinned_image_runs_by_digest_under_a_short_name(fake_docker):
     image = f"{IMAGE}@sha256:{'5' * 64}"
     with DockerChapkitServiceManager(image, startup_timeout=15):
