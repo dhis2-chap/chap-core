@@ -93,7 +93,7 @@ def test_get_visualizations(celery_session_worker, clean_engine, dependency_over
     assert response.status_code == 200
     assert any(plot["id"] == "metric_by_horizon_mean" for plot in response.json())
     plot_map = next(plot for plot in response.json() if plot["id"] == "metric_map")
-    assert plot_map["required_dimensions"] == ["location"]
+    assert plot_map["requiredDimensions"] == ["location"]
 
 
 def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_overrides):
