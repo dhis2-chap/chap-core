@@ -53,6 +53,29 @@ def test_actual_cases_dataset(override_session):
     assert len(actual_cases) >= 3
 
 
+def test_actual_cases_all_locations_sums_per_period(override_session, caplog):
+    per_location = client.get_json("/v1/analytics/actual-cases/1")
+    expected: dict[str, float] = {}
+    for entry in per_location["data"]:
+        expected[entry["pe"]] = expected.get(entry["pe"], 0.0) + (entry["value"] or 0.0)
+
+    with caplog.at_level("DEBUG"):
+        summed = client.get_json("/v1/analytics/actual-cases/1", params={"orgUnits": ["adm0"]})
+
+    assert {entry["ou"] for entry in summed["data"]} == {"adm0"}
+    assert [entry["pe"] for entry in summed["data"]] == list(expected)
+    assert {entry["pe"]: entry["value"] for entry in summed["data"]} == pytest.approx(expected)
+    assert "Observation(" not in caplog.text
+    assert "period=" not in caplog.text
+
+
+def test_actual_cases_filters_org_units(override_session):
+    all_rows = client.get_json("/v1/analytics/actual-cases/1")["data"]
+    org_unit = all_rows[0]["ou"]
+    filtered = client.get_json("/v1/analytics/actual-cases/1", params={"orgUnits": [org_unit]})["data"]
+    assert filtered == [row for row in all_rows if row["ou"] == org_unit]
+
+
 def test_actual_cases_alias(override_session):
     actual_cases = client.get_json("/v1/analytics/actual-cases/1")
     assert len(actual_cases) >= 3
