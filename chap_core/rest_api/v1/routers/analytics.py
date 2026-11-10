@@ -757,7 +757,7 @@ def get_prediction_entries(
         "matches the rest of the API's URL style."
     ),
 )
-async def get_actual_cases(
+def get_actual_cases(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     org_units: list[str] = Query(None, alias="orgUnits"),
     is_dataset_id: bool = Query(False, alias="isDatasetId"),
@@ -770,13 +770,8 @@ async def get_actual_cases(
     ``isDatasetId=true`` to skip the backtest lookup and read directly from a dataset
     id. 404 if the backtest, or with ``isDatasetId=true`` the dataset, is unknown.
     """
-    return_summed = False
-    if org_units is not None and len(org_units) == 1 and org_units[0] == "adm0":
-        # returning sum of forecasts for all regions
-        return_summed = True
     if not is_dataset_id:
         backtest = session.get(Backtest, backtest_id)
-        logger.info(f"Backtest: {backtest}")
         if backtest is None:
             raise HTTPException(status_code=404, detail="Backtest not found")
         dataset_id = backtest.dataset_id
@@ -787,33 +782,19 @@ async def get_actual_cases(
         if dataset is None:
             raise HTTPException(status_code=404, detail="Dataset not found")
         target_column = dataset.target_column
-    observations = DataSetManager(session).observations(
-        dataset_id,
-        org_units=None if return_summed else org_units,
-        feature_names=[target_column],
-    )
-    logger.info(f"Observations: {observations}")
-    data_list = [
-        DataElement(
-            pe=observation.period,
-            ou=observation.org_unit,
-            value=float(observation.value)
-            if not (observation.value is None or np.isnan(observation.value) or observation.value is None)
-            else None,
-        )
-        for observation in observations
-    ]
-    if return_summed:
-        # sum over all regions
-        summed_values = {}
-        for element in data_list:
-            key = element.pe
-            if key not in summed_values:
-                summed_values[key] = 0.0
-            if element.value is not None:
-                summed_values[key] += element.value
-        data_list = [DataElement(pe=pe, ou="adm0", value=value) for pe, value in summed_values.items()]
-    logger.info(f"DataList: {len(data_list)}")
+    manager = DataSetManager(session)
+    if org_units == ["adm0"]:
+        # One series summed over every region, computed in the database (CLIM-1790).
+        data_list = [
+            DataElement(pe=period, ou="adm0", value=total)
+            for period, total in manager.summed_feature_values(dataset_id, target_column)
+        ]
+    else:
+        data_list = [
+            DataElement(pe=period, ou=org_unit, value=None if value is None or np.isnan(value) else float(value))
+            for period, org_unit, value in manager.feature_values(dataset_id, target_column, org_units=org_units)
+        ]
+    logger.info("Actual cases for dataset %s: %d values", dataset_id, len(data_list))
     return DataList(featureId=target_column, dhis2Id=target_column, data=data_list)
 
 
