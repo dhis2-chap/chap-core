@@ -188,6 +188,15 @@ def _forecast(name, train, historic, future):
     [
         ("global_median", [[0.0, 18.0, 18.0, 196.303]] * 4),
         (
+            "persistence",
+            [
+                [7.4167, 100.0, 100.0, 1315.3621],
+                [9.1673, 100.0, 100.0, 973.5357],
+                [6.9737, 100.0, 100.0, 1697.5694],
+                [5.5545, 100.0, 100.0, 1873.2973],
+            ],
+        ),
+        (
             "seasonal_median",
             [
                 [2.2576, 25.5, 25.5, 150.7424],
@@ -283,7 +292,45 @@ def test_seasonal_median_uses_other_locations_for_an_unseen_location(weekly_spli
         assert row[49] == np.median(same_week_medians)
 
 
-def test_persistence_scales_the_last_historic_value(weekly_split):
+def test_persistence_median_is_the_last_historic_value(weekly_split):
+    train, historic, future = weekly_split
+    forecasts = _forecast("persistence", train, historic, future)
+
+    for location, samples in forecasts.items():
+        assert np.all(samples.samples[:, [49, 50]] == historic[location].disease_cases[-1])
+        assert np.all(np.ptp(samples.samples, axis=1) > 0)
+
+
+def test_persistence_uses_the_differences_of_all_locations_for_an_unseen_location(weekly_split):
+    train, historic, future = weekly_split
+    others = train.filter_locations([location for location in train.keys() if location != "boaco"])
+
+    samples = _forecast("persistence", others, historic, future)["boaco"].samples
+
+    assert np.all(samples[:, 49] == historic["boaco"].disease_cases[-1])
+    assert np.all(np.ptp(samples, axis=1) > 0)
+
+
+def test_persistence_forecasts_the_last_value_without_differences(weekly_full_data):
+    periods = weekly_full_data.period_range
+    single_period = weekly_full_data.restrict_time_period(slice(periods[0], periods[0]))
+    future = weekly_full_data.restrict_time_period(slice(periods[1], periods[2]))
+
+    forecasts = _forecast("persistence", single_period, single_period, future)
+
+    for location, samples in forecasts.items():
+        assert np.all(samples.samples == single_period[location].disease_cases[-1])
+
+
+def test_persistence_is_not_applicable_without_a_historic_value(weekly_split):
+    train, historic, future = weekly_split
+    df = historic.to_pandas()
+    df.loc[df.location == "boaco", "disease_cases"] = np.nan
+    with pytest.raises(BaselineNotApplicable, match="boaco"):
+        _forecast("persistence", train, SpatioTemporalDataSet.from_pandas(df, FullData), future)
+
+
+def test_seasonal_shift_persistence_scales_the_last_historic_value(weekly_split):
     train, historic, future = weekly_split
     last_value = historic["boaco"].disease_cases[-1]
     df = historic.to_pandas()
@@ -296,7 +343,7 @@ def test_persistence_scales_the_last_historic_value(weekly_split):
     np.testing.assert_allclose(doubled_median + 1, (median + 1) * (2 * last_value + 1) / (last_value + 1))
 
 
-def test_persistence_forecasts_with_spread_beyond_a_short_history(weekly_full_data):
+def test_seasonal_shift_persistence_forecasts_with_spread_beyond_a_short_history(weekly_full_data):
     periods = weekly_full_data.period_range
     short_train = weekly_full_data.restrict_time_period(slice(periods[0], periods[9]))
     future = weekly_full_data.restrict_time_period(slice(periods[10], periods[21]))
@@ -310,7 +357,7 @@ def test_persistence_forecasts_with_spread_beyond_a_short_history(weekly_full_da
         assert np.all(np.ptp(samples.samples[8:], axis=1) > 0)
 
 
-def test_persistence_forecasts_with_spread_more_than_a_year_after_the_last_value(weekly_split):
+def test_seasonal_shift_persistence_forecasts_with_spread_more_than_a_year_after_the_last_value(weekly_split):
     train, historic, future = weekly_split
     df = historic.to_pandas()
     gap = df.time_period.isin(df.time_period.unique()[-60:])
@@ -323,7 +370,7 @@ def test_persistence_forecasts_with_spread_more_than_a_year_after_the_last_value
     assert np.all(np.ptp(samples, axis=1) > 0)
 
 
-def test_persistence_uses_the_ratios_of_all_locations_for_an_unseen_location(weekly_split):
+def test_seasonal_shift_persistence_uses_the_ratios_of_all_locations_for_an_unseen_location(weekly_split):
     train, historic, future = weekly_split
     others = train.filter_locations([location for location in train.keys() if location != "boaco"])
     pooled = SeasonalShifts.pooled(
@@ -339,7 +386,7 @@ def test_persistence_uses_the_ratios_of_all_locations_for_an_unseen_location(wee
     np.testing.assert_allclose(samples[0], expected)
 
 
-def test_persistence_forecasts_the_last_value_without_any_ratios(weekly_full_data):
+def test_seasonal_shift_persistence_forecasts_the_last_value_without_any_ratios(weekly_full_data):
     periods = weekly_full_data.period_range
     single_period = weekly_full_data.restrict_time_period(slice(periods[0], periods[0]))
     future = weekly_full_data.restrict_time_period(slice(periods[1], periods[2]))
@@ -350,7 +397,7 @@ def test_persistence_forecasts_the_last_value_without_any_ratios(weekly_full_dat
         assert np.all(samples.samples == single_period[location].disease_cases[-1])
 
 
-def test_persistence_is_not_applicable_without_a_historic_value(weekly_split):
+def test_seasonal_shift_persistence_is_not_applicable_without_a_historic_value(weekly_split):
     train, historic, future = weekly_split
     df = historic.to_pandas()
     df.loc[df.location == "boaco", "disease_cases"] = np.nan
