@@ -1,3 +1,4 @@
+import json
 import runpy
 import sys
 from pathlib import Path
@@ -10,6 +11,15 @@ if sys.platform == "win32":
 from gunicorn.config import Config  # noqa: E402
 
 GUNICORN_CONF = Path(__file__).parent.parent / "gunicorn.conf.py"
+DOCKERFILE = Path(__file__).parent.parent / "Dockerfile"
+
+
+def _dockerfile_cmd() -> list[str]:
+    """The exec-form CMD of the Dockerfile, as the argument list Docker runs."""
+    text = DOCKERFILE.read_text()
+    start = text.index("CMD [")
+    end = text.index("]", start)
+    return json.loads(text[start + len("CMD ") : end + 1].replace("\\\n", ""))
 
 
 def _load_config() -> Config:
@@ -22,6 +32,14 @@ def _load_config() -> Config:
 
 def test_gunicorn_conf_disables_control_socket():
     assert _load_config().control_socket_disable is True
+
+
+def test_image_command_has_no_arguments_gunicorn_ignores():
+    """A flag with its value in one token is taken as a stray positional and ignored (CLIM-1809)."""
+    command = _dockerfile_cmd()
+    assert command[0] == "gunicorn"
+    parsed = Config().parser().parse_args(command[1:])
+    assert parsed.args == ["chap_core.rest_api.app:app"]
 
 
 def test_post_fork_gives_the_worker_its_own_connections(clean_engine, monkeypatch):

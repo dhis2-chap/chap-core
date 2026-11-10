@@ -84,6 +84,7 @@ inline on the command line: Compose reads `.env` on every command, so a later
 | `CHAP_ROOT_PATH` | empty | Path prefix when serving behind a reverse proxy. |
 | `CHAP_API_TOKEN` | empty | API token. Unset means no authentication. |
 | `CHAP_CORS_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins allowed by CORS. Not needed when the Modeling App connects through the DHIS2 Route API. |
+| `CHAP_API_WORKERS` | `1` | Number of API worker processes. With one, a slow request, such as a plot of a large backtest, holds up every other request. More workers answer requests side by side, but each heavy request needs its own memory: in a load test one plot request used about 3.3 GB at 500 locations and about 6 GB at 1,500. Choose the number by the server's memory as well as its cores, for example 2 on a small server and more on a large one. |
 
 Pinning a release and setting a password with reserved characters:
 
