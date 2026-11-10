@@ -627,3 +627,29 @@ def test_chap_prints_a_cancelled_init_without_a_traceback(tmp_path, monkeypatch,
     assert excinfo.value.code == 1
     assert capsys.readouterr().err.startswith("Error: Cancelled; nothing was written.")
     assert not (tmp_path / "chap.yaml").exists()
+
+
+def test_init_prints_no_alembic_plugin_setup(tmp_path, laos_csv):
+    """Loading the model imports alembic in a fresh process; its plugin setup is not CLI output (CLIM-1833)."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "chap_core.cli",
+            "init",
+            str(tmp_path / "laos"),
+            "--model",
+            "builtin:seasonal_median",
+            "--dataset",
+            str(laos_csv),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, "CHAP_DEBUG": "false"},
+    )
+    assert "Created Chap project" in result.stdout
+    assert "setup plugin" not in result.stdout + result.stderr
