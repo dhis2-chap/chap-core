@@ -47,7 +47,12 @@ def test_metric_plot_decorator_sets_attributes(monkeypatch):
     isolated_registry: dict = {}
     monkeypatch.setattr(_mp, "_metric_plots_registry", isolated_registry)
 
-    @metric_plot(plot_id="test_decorator_plot", name="Test Plot", description="For testing only")
+    @metric_plot(
+        plot_id="test_decorator_plot",
+        name="Test Plot",
+        description="For testing only",
+        required_dimensions=["location"],
+    )
     class _TestPlot(MetricPlotBase):
         def plot_from_df(self, title: str = "") -> alt.Chart:
             return alt.Chart()
@@ -55,13 +60,14 @@ def test_metric_plot_decorator_sets_attributes(monkeypatch):
     assert _TestPlot.id == "test_decorator_plot"
     assert _TestPlot.name == "Test Plot"
     assert _TestPlot.description == "For testing only"
+    assert _TestPlot.required_dimensions == ["location"]
     assert "test_decorator_plot" in get_metric_plots_registry()
 
 
 def test_metric_plot_decorator_rejects_non_subclass():
     with pytest.raises(TypeError):
 
-        @metric_plot(plot_id="bad_plot", name="Bad")
+        @metric_plot(plot_id="bad_plot", name="Bad", required_dimensions=[])
         class _NotAPlot:
             pass
 

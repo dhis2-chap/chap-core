@@ -48,7 +48,13 @@ def get_avilable_metric_plots(backtest_id: int):
     ``backtest_id`` — the path takes it for symmetry with the render endpoint.
     """
     return [
-        VisualizationInfo(id=p["id"], display_name=p["name"], description=p["description"]) for p in list_metric_plots()
+        VisualizationInfo(
+            id=p["id"],
+            display_name=p["name"],
+            description=p["description"],
+            required_dimensions=p["required_dimensions"],
+        )
+        for p in list_metric_plots()
     ]
 
 

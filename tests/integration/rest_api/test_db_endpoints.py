@@ -84,12 +84,16 @@ def test_get_metrics(celery_session_worker, clean_engine, dependency_overrides):
     response = client.get("/v1/visualization/metrics/1")
     assert response.status_code == 200
     assert any(metric["id"] == "crps" for metric in response.json())
+    ranking = next(metric for metric in response.json() if metric["id"] == "org_unit_ranking")
+    assert ranking["dimensions"] == ["time_period", "horizon_distance"]
 
 
 def test_get_visualizations(celery_session_worker, clean_engine, dependency_overrides):
     response = client.get("/v1/visualization/metric-plots/1")
     assert response.status_code == 200
     assert any(plot["id"] == "metric_by_horizon_mean" for plot in response.json())
+    plot_map = next(plot for plot in response.json() if plot["id"] == "metric_map")
+    assert plot_map["required_dimensions"] == ["location"]
 
 
 def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_overrides):

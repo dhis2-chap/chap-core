@@ -14,6 +14,12 @@ class VisualizationInfo(DBModel):
     id: str = Field(description="Canonical plot identifier used in URLs.")
     display_name: str = Field(description="Human-friendly plot name shown in pickers.")
     description: str = Field(description="Short paragraph explaining what the plot shows.")
+    required_dimensions: list[str] = Field(
+        description=(
+            "Metric dimensions the plot needs ('location', 'time_period', 'horizon_distance'). "
+            "Only metrics whose ``dimensions`` include all of them can be shown in it."
+        )
+    )
 
 
 def make_plot_from_backtest_object(
