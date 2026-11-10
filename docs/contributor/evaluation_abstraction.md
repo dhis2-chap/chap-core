@@ -1,5 +1,7 @@
 # Evaluation Abstraction Design
 
+> **Status:** historical design document. The `EvaluationBase` ABC and the separate `InMemoryEvaluation` class it describes were replaced by a single `Evaluation` class that holds its results as an `xr.Dataset` (CLIM-1837). See [evaluation_pipeline.md](evaluation_pipeline.md) for the current design.
+
 ## Overview
 
 This document describes the proposed refactoring to create a database-agnostic Evaluation abstraction. The goal is to unify how evaluations/backtests are represented throughout the codebase, enabling better code reuse between the REST API and CLI evaluation workflows.

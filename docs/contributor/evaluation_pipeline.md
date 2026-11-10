@@ -144,7 +144,7 @@ Step-by-step walkthrough of what happens when `Evaluation.create()` is called (e
      - The forecasts and observations, as an `xr.Dataset` in the layout of the NetCDF file below
      - A `Backtest` header with the metadata (org units, split periods, specification)
      - Historical observations for plotting context
-7. The `Evaluation` can then be **exported** to NetCDF, used for metric computation, or visualized. `to_flat()` builds the flat tables the metrics and plots read. `to_backtest()` builds the `BacktestForecast` rows only when called, which the REST API does to persist the backtest.
+7. The `Evaluation` can then be **exported** to NetCDF, used for metric computation, or visualized. `to_flat()` builds the flat tables the metrics and plots read. `to_backtest()` builds `BacktestForecast` objects only when called. The REST API instead stores a backtest by bulk-inserting `forecast_rows()`, and `from_backtest()` reads a stored one back with column queries rather than through the ORM relationships.
 
 ## NetCDF file layout
 
