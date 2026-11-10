@@ -4,6 +4,7 @@ from chap_core.assessment.metrics import (
     RMSEMetric,
     MAEMetric,
     MAPEMetric,
+    OrgUnitRankingMetric,
     CRPSMetric,
     CRPSLog1pMetric,
     CRPSNormMetric,
@@ -206,6 +207,79 @@ def test_compute_all_detailed_metrics(backtest_weeks):
     assert len(df) > 0
     assert "crps" in set(df["metric_id"])
     assert not {"sample_count", "example_metric"} & set(df["metric_id"])
+
+
+def test_compute_all_detailed_metrics_skips_location_free_metrics(backtest_weeks):
+    df = compute_all_detailed_metrics(Evaluation.from_backtest(backtest_weeks))
+    assert "org_unit_ranking" not in set(df["metric_id"])
+
+
+def test_compute_all_detailed_metrics_by_chosen_dimensions(backtest_weeks_with_population):
+    dimensions = (DataDimension.time_period, DataDimension.horizon_distance)
+    df = compute_all_detailed_metrics(Evaluation.from_backtest(backtest_weeks_with_population), dimensions)
+    assert list(df.columns) == ["metric_id", "time_period", "horizon_distance", "metric"]
+    assert {"org_unit_ranking", "crps"} <= set(df["metric_id"])
+    assert not df.duplicated(["metric_id", "time_period", "horizon_distance"]).any()
+
+
+def test_flat_observations_carry_population(backtest_weeks, backtest_weeks_with_population):
+    assert "population" not in Evaluation.from_backtest(backtest_weeks).to_flat().observations.columns
+    observations = Evaluation.from_backtest(backtest_weeks_with_population).to_flat().observations
+    assert observations["population"].notna().all()
+
+
+def test_org_unit_ranking_skipped_without_population(backtest_weeks):
+    metrics = compute_all_aggregated_metrics_from_backtest(backtest_weeks)
+    assert "org_unit_ranking" not in metrics
+
+
+def test_org_unit_ranking_ranks_incidence_not_counts(
+    flat_forecasts_multiple_samples, flat_observations_with_population
+):
+    result = OrgUnitRankingMetric().get_detailed_metric(
+        flat_observations_with_population, flat_forecasts_multiple_samples
+    )
+    assert result.columns.tolist() == ["time_period", "horizon_distance", "metric"]
+    by_period = dict(zip(result["time_period"], result["metric"], strict=True))
+    assert by_period["2023-W01"] == pytest.approx(-1.0)
+    assert by_period["2023-W02"] == pytest.approx(1.0)
+
+
+def test_org_unit_ranking_global_is_mean_over_periods(
+    flat_forecasts_multiple_samples, flat_observations_with_population
+):
+    result = OrgUnitRankingMetric().get_global_metric(
+        flat_observations_with_population, flat_forecasts_multiple_samples
+    )
+    assert result["metric"].iloc[0] == pytest.approx(0.0)
+
+
+def test_org_unit_ranking_per_horizon(flat_forecasts_multiple_samples, flat_observations_with_population):
+    result = OrgUnitRankingMetric().get_metric(
+        flat_observations_with_population,
+        flat_forecasts_multiple_samples,
+        dimensions=(DataDimension.horizon_distance,),
+    )
+    assert result.columns.tolist() == ["horizon_distance", "metric"]
+    assert len(result) == 2
+
+
+def test_org_unit_ranking_cannot_break_down_by_location(
+    flat_forecasts_multiple_samples, flat_observations_with_population
+):
+    with pytest.raises(ValueError, match="location"):
+        OrgUnitRankingMetric().get_metric(
+            flat_observations_with_population,
+            flat_forecasts_multiple_samples,
+            dimensions=(DataDimension.location,),
+        )
+
+
+def test_org_unit_ranking_needs_population_for_two_org_units(flat_observations, flat_observations_with_population):
+    single = flat_observations_with_population[flat_observations_with_population["location"] == "loc1"]
+    assert OrgUnitRankingMetric().is_applicable(flat_observations_with_population)
+    assert not OrgUnitRankingMetric().is_applicable(single)
+    assert not OrgUnitRankingMetric().is_applicable(flat_observations)
 
 
 def test_rmse_uses_median_of_samples(flat_forecasts_multiple_samples, flat_observations):

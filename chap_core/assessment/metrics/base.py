@@ -176,6 +176,10 @@ class Metric(ABC):
         if dimensions == self.spec.output_dimensions:
             return detailed
 
+        unsupported = [d.value for d in dimensions if d not in self.spec.output_dimensions]
+        if unsupported:
+            raise ValueError(f"{self.__class__.__name__} cannot be broken down by {unsupported}")
+
         group_cols = [d.value for d in dimensions]
 
         if not group_cols:

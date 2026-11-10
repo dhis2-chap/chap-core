@@ -84,12 +84,16 @@ def test_get_metrics(celery_session_worker, clean_engine, dependency_overrides):
     response = client.get("/v1/visualization/metrics/1")
     assert response.status_code == 200
     assert any(metric["id"] == "crps" for metric in response.json())
+    ranking = next(metric for metric in response.json() if metric["id"] == "org_unit_ranking")
+    assert ranking["dimensions"] == ["time_period", "horizon_distance"]
 
 
 def test_get_visualizations(celery_session_worker, clean_engine, dependency_overrides):
     response = client.get("/v1/visualization/metric-plots/1")
     assert response.status_code == 200
     assert any(plot["id"] == "metric_by_horizon_mean" for plot in response.json())
+    plot_map = next(plot for plot in response.json() if plot["id"] == "metric_map")
+    assert plot_map["requiredDimensions"] == ["location"]
 
 
 def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_overrides):
@@ -2802,6 +2806,10 @@ def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run
     for plot_name in ["metric_by_horizon_mean", "metric_map"]:
         response = client.get(f"/v1/visualization/metric-plots/{plot_name}/{db_id}/crps")
         assert response.status_code == 200, response.json()
+    response = client.get(f"/v1/visualization/metric-plots/metric_by_horizon_mean/{db_id}/org_unit_ranking")
+    assert response.status_code == 200, response.json()
+    response = client.get(f"/v1/visualization/metric-plots/metric_map/{db_id}/org_unit_ranking")
+    assert response.status_code == 400, response.json()
 
 
 def test_add_configured_model_flow(celery_session_worker, dependency_overrides):

@@ -9,6 +9,7 @@ from chap_core.assessment.metric_plots import MetricPlotBase, metric_plot
     plot_id="metric_by_horizon_and_location_mean",
     name="Horizon and Location Plot",
     description="Shows the aggregated metric by both forecast horizon and location",
+    required_dimensions=["horizon_distance", "location"],
 )
 class MetricByHorizonAndLocationMean(MetricPlotBase):
     """Mean metric grouped by both horizon distance and location."""

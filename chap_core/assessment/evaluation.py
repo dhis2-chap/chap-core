@@ -98,6 +98,8 @@ def _flat_data_to_xarray(flat_data: FlatEvaluationData, model_metadata: dict) ->
         "forecast": forecast_da,
         "observed": observed_da,
     }
+    if "population" in observations_indexed.columns and observations_indexed["population"].notna().any():
+        data_vars["population"] = observations_indexed["population"].to_xarray()
 
     # Add historical observations if present
     if flat_data.historical_observations is not None:
@@ -157,6 +159,11 @@ def _xarray_to_flat_data(ds: xr.Dataset) -> FlatEvaluationData:
 
     # Drop NaN forecasts (missing data)
     forecasts_df = forecasts_df.dropna(subset=["forecast"])
+
+    # Population is stored on the same (location, time_period) grid when present (backwards compatible)
+    if "population" in ds:
+        population_df = ds["population"].to_dataframe().reset_index()
+        observations_df = observations_df.merge(population_df, on=["location", "time_period"], how="left")
 
     # Drop NaN observations
     observations_df = observations_df.dropna(subset=["disease_cases"])
@@ -345,6 +352,7 @@ class Evaluation(EvaluationBase):
         historical_context_periods: int = 0,
         specification: BacktestSpecification | None = None,
         hpo: HyperparameterOptimization | None = None,
+        population_observations: list[Observation] | None = None,
     ) -> Evaluation:
         info.created = utc_now()
         # The parameters live on the specification now and are computed fields on
@@ -419,9 +427,11 @@ class Evaluation(EvaluationBase):
             # Populate the period metadata so frontends that sort/format periods
             # (which need a non-null period_type) can render the evaluation.
             periods = [obs.period for obs in unique_observations]
+            # Population for the evaluated periods, for incidence-based metrics
+            population = [o for o in population_observations or [] if (o.period, o.org_unit) in seen]
             backtest.dataset = DataSet(
                 name="cli_evaluation_dataset",
-                observations=unique_observations,
+                observations=unique_observations + population,
                 period_type=period_type,
                 org_units=list(org_units),
                 first_period=min(periods) if periods else None,
@@ -547,7 +557,24 @@ class Evaluation(EvaluationBase):
             historical_context_periods=historical_context_periods,
             specification=specification,
             hpo=hpo_data,
+            population_observations=cls.extract_population_observations(dataset),
         )
+
+    @staticmethod
+    def extract_population_observations(dataset: _DataSet) -> list[Observation]:
+        """Population of every location and period in the dataset, empty when it has no population field."""
+        observations = []
+        for location in dataset.keys():  # noqa: SIM118
+            location_data = dataset[location]
+            population = getattr(location_data, "population", None)
+            if population is None:
+                continue
+            for period, value in zip(location_data.time_period, population, strict=True):
+                if value is not None and not np.isnan(value):
+                    observations.append(
+                        Observation(period=period.id, org_unit=location, value=float(value), feature_name="population")
+                    )
+        return observations
 
     @classmethod
     def calculate_periods_from_years(cls, dataset: _DataSet, years: int) -> int:
@@ -811,6 +838,15 @@ class Evaluation(EvaluationBase):
                 feature_name="disease_cases",
             )
             observations.append(observation)
+            if "population" in observations_df.columns and pd.notna(row["population"]):
+                observations.append(
+                    Observation(
+                        period=row["time_period"],
+                        org_unit=row["location"],
+                        value=float(row["population"]),
+                        feature_name="population",
+                    )
+                )
 
         # Create in-memory dataset with observations. Populate the period metadata
         # (period_type must be non-null) so frontends that sort/format periods can

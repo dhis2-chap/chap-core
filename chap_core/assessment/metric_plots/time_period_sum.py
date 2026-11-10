@@ -9,6 +9,7 @@ from chap_core.assessment.metric_plots import MetricPlotBase, metric_plot
     plot_id="metric_by_time_period_sum",
     name="Time Period Plot (Sum)",
     description="Shows the sum of the metric by time period",
+    required_dimensions=["time_period", "location"],
 )
 class MetricByTimePeriodV2Sum(MetricPlotBase):
     """Sum of metric across locations per time period."""
