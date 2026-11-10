@@ -125,6 +125,32 @@ class TestEvaluation:
         assert from_samples.call_args.kwargs["info"] is info
         assert from_samples.call_args.kwargs["specification"] is specification
 
+    def test_from_samples_with_truth_skips_a_location_without_rows(self, mocker):
+        """A location with no forecast rows gets no forecasts instead of crashing the split."""
+        import numpy as np
+
+        from chap_core.datatypes import SamplesWithTruth
+        from chap_core.rest_api.data_models import BacktestCreate
+        from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+        from chap_core.time_period import PeriodRange
+
+        periods = PeriodRange.from_strings(["2022-01", "2022-02"])
+        result = DataSet(
+            {
+                "A": SamplesWithTruth(time_period=periods, samples=np.ones((2, 3)), disease_cases=np.ones(2)),
+                "B": SamplesWithTruth(time_period=periods[:0], samples=np.ones((0, 3)), disease_cases=np.ones(0)),
+            }
+        )
+
+        evaluation = Evaluation.from_samples_with_truth(
+            [result],
+            periods[0],
+            mocker.MagicMock(id=1),
+            BacktestCreate(name="cli", dataset_id=0, model_id="model"),
+        )
+
+        assert set(pd.DataFrame(evaluation.to_flat().forecasts)["location"]) == {"A"}
+
     class TestModelCard:
         """Tests for ModelCard class"""
 

@@ -319,11 +319,15 @@ def _samples_with_truth_to_xarray(evaluation_results: Iterable[_DataSet[SamplesW
     split_entries: list[dict[str, tuple[np.ndarray, np.ndarray]]] = []
     for eval_result in evaluation_results:
         period_ids = [period.id for period in eval_result.period_range]
+        if not period_ids:
+            continue
         entries = {}
         for location, samples_with_truth in eval_result.items():
             samples = np.asarray(samples_with_truth.samples, dtype=float)
             cases = np.asarray(samples_with_truth.disease_cases, dtype=float)
             n = min(len(period_ids), len(samples), len(cases))
+            if n == 0:
+                continue
             entries[str(location)] = (samples[:n].reshape(n, -1), cases[:n])
         splits.append(period_ids[0])
         split_periods.append(period_ids)

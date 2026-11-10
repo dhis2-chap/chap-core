@@ -408,7 +408,11 @@ def generate_pdf_from_evaluation(evaluation, pdf_filename: str) -> None:
             obs_df = obs_df.sort_index()
 
             sorted_periods = sorted(period_forecasts.keys())
-            samples_matrix = np.array([period_forecasts[p] for p in sorted_periods])
+            # Flat forecasts leave out NaN samples, so periods can hold different numbers of samples.
+            n_samples = max(len(period_forecasts[p]) for p in sorted_periods)
+            samples_matrix = np.full((len(sorted_periods), n_samples), np.nan)
+            for i, p in enumerate(sorted_periods):
+                samples_matrix[i, : len(period_forecasts[p])] = period_forecasts[p]
 
             forecast = ForecastAdaptor.from_samples(
                 Samples(  # type: ignore[call-arg]
