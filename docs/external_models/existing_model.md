@@ -12,12 +12,7 @@ The guide has three parts:
 2. **Reshape your code** into a train and a predict script that meet them, and check them on example data.
 3. **Make it Chap-compatible.** Add a short `MLproject` file and evaluate the model with `chap eval`.
 
-When `chap eval` works, [Package and publish your model](package_and_publish.md) takes it the rest of the way to a Chap installation. You do not need Docker before that.
-
-!!! info "What you do not need"
-    - **No separate chapkit install.** Installing Chap also installs chapkit, and `chap eval` starts and stops the chapkit service for you. There is no `brew install chapkit`.
-    - **No Chap server.** You do not need to clone chap-core or run its `docker compose up`. That stack runs Chap for the Modeling App, and is not needed to develop or evaluate a model.
-    - **No `chapkit mlproject migrate`** and no `main.py`. They turn a model into a chapkit service project with its own service code, which most models do not need.
+When `chap eval` works, [Package and publish your model](package_and_publish.md) takes it the rest of the way to a Chap installation. You need Docker only for that last step, and you never need a running Chap server to develop or evaluate a model.
 
 If you do not have a model yet, see [Build a new model from a template](mlproject_tutorial.md) instead.
 
@@ -57,7 +52,7 @@ Chap fills in the file paths and runs your commands on them. How it passes the p
     This is fine. The train script can be empty: it is called, does nothing and exits. The predict script receives the full historic data anyway, together with the future data, and does all the work. Programmers call a step that does nothing a no-op. The cost is that the model is fitted on every predict call, which Chap does once per test period in an evaluation. For most models this takes seconds to minutes and is not a problem.
 
 !!! note "Scripts are a recommendation, not a requirement"
-    Strictly, Chap requires only that the model exposes the chapkit REST API, which it uses to send data and get forecasts back. The two scripts and the `MLproject` file are the easiest way to get there: chapkit reads them and provides the API for you. If you are comfortable writing a web service, you can implement the API yourself, in any language. See the [chapkit documentation](https://dhis2-chap.github.io/chapkit/) and its [API reference](https://dhis2-chap.github.io/chapkit/guides/ml-workflows/#api-reference).
+    Strictly, Chap requires only that the model answers a small web API, which Chap uses to send data and get forecasts back. The two scripts and the `MLproject` file are the easiest way to get there: a tool called chapkit, which comes with Chap, reads them and provides the API for you. If you are comfortable writing a web service, you can implement the API yourself, in any language. See the [chapkit documentation](https://dhis2-chap.github.io/chapkit/) and its [API reference](https://dhis2-chap.github.io/chapkit/guides/ml-workflows/#api-reference).
 
 !!! tip "Let an AI coding agent do the work"
     AI coding agents, such as Claude Code, Codex or GitHub Copilot, are good at reshaping a model like this. Open the agent in your model's folder and give it this page and the template for your language. For example:
@@ -254,6 +249,9 @@ To run anywhere other than your machine, the model has to say which packages it 
 - **Python:** list the packages in a `pyproject.toml` with uv (`uv init`, then `uv add <package>`) and add `uv_env: pyproject.toml`.
 
 Run `chap eval` again without `--run-config.ignore-environment`. Chap now installs the packages itself before it runs the model. The Docker image you build next installs them the same way.
+
+??? note "If you have been reading the chapkit documentation"
+    Chap runs your model through [chapkit](chapkit.md), which provides the REST API Chap talks to. You do not need to install chapkit separately: installing Chap installs it, and `chap eval` starts and stops the chapkit service for you. There is no `brew install chapkit`. You also do not need `chapkit mlproject migrate` or a `main.py`. They turn a model into a chapkit service project with its own service code, which most models do not need.
 
 ## Next steps
 

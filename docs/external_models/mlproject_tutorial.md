@@ -4,12 +4,7 @@ description: "Build a new Chap model from the R or Python MLproject template, ev
 
 # Build a new model from a template
 
-This tutorial takes you from a template to your own model running in Chap. You write a train and a predict script, in R or Python, and a short `MLproject` file that describes them. Chap runs the model as a [chapkit](chapkit.md) service, but you do not write any service code.
-
-!!! info "What you do not need"
-    - **No separate chapkit install.** Installing Chap also installs chapkit, and `chap eval` starts and stops the chapkit service for you. There is no `brew install chapkit`.
-    - **No Chap server.** You do not need to clone chap-core or run its `docker compose up`. That stack runs Chap for the Modeling App, and is not needed to develop or evaluate a model.
-    - **No `chapkit mlproject migrate`** and no `main.py`. They turn a model into a chapkit service project with its own service code, which most models do not need.
+This tutorial takes you from a template to your own model running in Chap. You write a train and a predict script, in R or Python, and a short `MLproject` file that describes them. You need Docker only for the last step, and you never need a running Chap server to develop or evaluate a model.
 
 If you already have a model, follow [Bring your existing model to Chap](existing_model.md) instead.
 
@@ -137,6 +132,9 @@ To make parts of the model configurable, for example the number of lags, declare
 ## 5. Package the model as a Docker image
 
 To run next to a Chap installation, the model is packaged as a Docker image and published on GitHub. Your repository already has the files for this: `Dockerfile` describes the image, `compose.yml` builds and starts it, and the workflows in `.github/workflows` build and publish it on GitHub. Follow [Package and publish your model](package_and_publish.md), which also explains what the files do. You need [Docker](setup.md#4-docker-only-to-deploy) for this step.
+
+??? note "If you have been reading the chapkit documentation"
+    Chap runs your model through [chapkit](chapkit.md), which provides the REST API Chap talks to. You do not need to install chapkit separately: installing Chap installs it, and `chap eval` starts and stops the chapkit service for you. There is no `brew install chapkit`. You also do not need `chapkit mlproject migrate` or a `main.py`. They turn a model into a chapkit service project with its own service code, which most models do not need.
 
 ## Next steps
 
