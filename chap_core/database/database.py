@@ -772,6 +772,19 @@ def _run_alembic_migrations(engine):
         raise
 
 
+def dispose_engine_after_fork() -> None:
+    """Give a forked process its own database connections (CLIM-1808).
+
+    gunicorn runs `create_db_and_tables` in its main process and then forks the API
+    workers, which inherit the engine's pool and its open connections. Two processes on
+    one Postgres connection corrupt each other's protocol state (`lost synchronization
+    with server`). `close=False` drops the inherited pool without closing those
+    connections, which still belong to the main process.
+    """
+    if engine is not None:
+        engine.dispose(close=False)
+
+
 def create_db_and_tables():
     # TODO: Read config for options on how to create the database migrate/update/seed/seed_and_update
     if engine is not None:
