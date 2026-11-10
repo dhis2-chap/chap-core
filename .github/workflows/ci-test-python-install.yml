@@ -36,7 +36,6 @@ jobs:
               - '**'
               - '!docs/**'
               - '!mkdocs.yml'
-              - '!charts/**'
               - '!README.md'
               - '!AGENTS.md'
               - '!LICENSE'

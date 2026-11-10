@@ -72,4 +72,4 @@ configurations, so it cannot be run. Those overlays are kept for development.
 
 ## Deploy on Kubernetes
 
-CHAP can be deployed on Kubernetes using our helm chart which can be found [here](./charts/chap).
+The Helm chart for Kubernetes lives in [chap-kubernetes](https://github.com/dhis2-chap/chap-kubernetes).
