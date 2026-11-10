@@ -34,10 +34,12 @@ class FlatDataWithHorizon(FlatData):
 
 class FlatObserved(FlatData):
     """
-    Observed disease cases
+    Observed disease cases, with the population of each location and period when the
+    dataset has one (needed by incidence-based metrics).
     """
 
     disease_cases: pa.typing.Series[float] = pa.Field(nullable=True)  # float to also allow nan
+    population: pa.typing.Series[float] | None = pa.Field(nullable=True)
 
 
 class FlatForecasts(FlatDataWithHorizon):
@@ -148,18 +150,26 @@ def convert_backtest_observations_to_flat_observations(
                          If None, horizon_distance will be set to 0 for all observations.
 
     Returns:
-        pd.DataFrame with columns: location, time_period, horizon_distance, disease_cases
+        pd.DataFrame with columns: location, time_period, disease_cases, plus population
+        when the observations include a ``population`` feature
     """
     rows = []
+    population: dict[tuple[str, str], float] = {}
 
     for obs in observations:
-        if obs.feature_name == target_column and obs.value is not None:
-            # Calculate horizon distance if reference period is provided
-            row = {"location": str(obs.org_unit), "time_period": str(obs.period), "disease_cases": float(obs.value)}
-            rows.append(row)
+        if obs.value is None:
+            continue
+        key = (str(obs.org_unit), str(obs.period))
+        if obs.feature_name == target_column:
+            rows.append({"location": key[0], "time_period": key[1], "disease_cases": float(obs.value)})
+        elif obs.feature_name == "population":
+            population[key] = float(obs.value)
 
     # Create DataFrame from rows
     df = pd.DataFrame(rows)
+    if population and not df.empty:
+        df["population"] = [population.get(key) for key in zip(df["location"], df["time_period"], strict=True)]
+        df["population"] = df["population"].astype(float)
 
     if not df.empty:
         # Validate against schema

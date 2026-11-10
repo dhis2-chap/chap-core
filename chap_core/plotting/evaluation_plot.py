@@ -22,11 +22,17 @@ class VisualizationInfo(DBModel):
     )
 
 
+class MetricNotApplicableError(ValueError):
+    """The metric cannot be computed for this evaluation, e.g. an incidence metric without population data."""
+
+
 def make_plot_from_backtest_object(
     backtest: Backtest, plotting_class: type[MetricPlotBase], metric: Metric, geojson: dict | None = None
 ) -> dict:
     evaluation = Evaluation.from_backtest(backtest)
     flat_data = evaluation.to_flat()
+    if not metric.is_applicable(flat_data.observations):
+        raise MetricNotApplicableError(f"Metric {metric.get_id()} cannot be computed for this backtest")
     metric_data = metric.get_detailed_metric(flat_data.observations, flat_data.forecasts)
     # Served to the frontend, which embeds the spec in a flexible-width container;
     # fill it horizontally while keeping the plot's fixed height.

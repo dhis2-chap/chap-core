@@ -224,6 +224,39 @@ def backtest_weeks(dataset_weeks, forecasts_weeks):
 
 
 @pytest.fixture
+def backtest_weeks_with_population(dataset_weeks, forecasts_weeks):
+    """Like backtest_weeks, but the dataset also has a population for every cases observation."""
+    # Fresh Observation objects: reusing dataset_weeks' would move them out of that dataset.
+    observations = [
+        Observation(feature_name=feature, dataset_id=1, period=obs.period, org_unit=obs.org_unit, value=value)
+        for i, obs in enumerate(dataset_weeks.observations)
+        for feature, value in (("disease_cases", obs.value), ("population", 1000.0 * (i + 1)))
+    ]
+    dataset = DataSet(
+        id=dataset_weeks.id,
+        name=dataset_weeks.name,
+        type=dataset_weeks.type,
+        geojson=None,
+        covariates=[],
+        observations=observations,
+        created=None,
+    )
+    return Backtest(
+        id=1,
+        dataset_id=dataset.id,
+        dataset=dataset,
+        model_id="Test Model",
+        model_db_id=1,
+        specification=BacktestSpecification(dataset_id=1),
+        name="Test Backtest",
+        created=None,
+        aggregate_metrics={},
+        forecasts=forecasts_weeks,
+        metrics=[],
+    )
+
+
+@pytest.fixture
 def backtest_weeks_large(dataset_weeks_large, forecasts_weeks_large):
     """Large backtest with 5 years of weekly forecasts for 20 org units."""
     return Backtest(
@@ -422,6 +455,18 @@ def flat_observations():
             }
         )
     )
+
+
+@pytest.fixture
+def flat_observations_with_population(flat_observations):
+    """flat_observations with loc2 twice as populous as loc1.
+
+    Observed incidence: 2023-W01 loc1 11.0, loc2 9.5; 2023-W02 loc1 13.0, loc2 10.5.
+    With flat_forecasts_multiple_samples (medians 10/21 and 12/23) the forecast incidence
+    is loc1 10.0, loc2 10.5 in W01 (wrong order, although the counts are in the right
+    order) and loc1 12.0, loc2 11.5 in W02 (right order).
+    """
+    return FlatObserved(flat_observations.assign(population=[1.0, 1.0, 2.0, 2.0]))
 
 
 @pytest.fixture
