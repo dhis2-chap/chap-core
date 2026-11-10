@@ -3,7 +3,7 @@
 Some models require an external service to be running alongside Chap. These services are not started by default but can be enabled using a Docker Compose overlay file.
 
 !!! note
-    This page covers models that are **not** in the [CHAP Model Marketplace](https://github.com/dhis2-chap/model-marketplace). Marketplace models are installed with `chap-admin install-all` (see [First-time Setup](fresh-installation.md#5-install-the-models)) and need no config edits or rebuild. Use the steps below only for additional services like `ewars_plus` or `chtorch`. `chtorch` is a chapkit service: it registers a model template on its own but gets no configuration, so add one as described in [Give it a configuration](running-your-own-model.md#5-give-it-a-configuration).
+    This page covers models that are **not** in the [Chap Marketplace](https://chap-marketplace.dhis2.org). Marketplace models are installed with `chap-admin install-all` (see [First-time Setup](fresh-installation.md#5-install-the-models)) and need no config edits or rebuild. Use the steps below only for additional services like `ewars_plus` or `chtorch`. `chtorch` is a chapkit service: it registers a model template on its own but gets no configuration, so add one as described in [Give it a configuration](running-your-own-model.md#5-give-it-a-configuration).
 
     To add a model service of your **own**, see [Running Your Own Model](running-your-own-model.md).
 

@@ -60,6 +60,7 @@ from chap_core.database.tables import (
     BacktestSpecification,
     Prediction,
     PredictionInfo,
+    PredictionSetup,
     PredictionSetupMonitoring,
     PredictionSetupRead,
     PredictionSetupReadWithPredictions,
@@ -125,7 +126,6 @@ from ...leaderboard_models import (
 from .analytics import validate_full_dataset
 from .dependencies import (
     check_masked_ranges_match,
-    get_database_url,
     get_job_request,
     get_session,
     get_settings,
@@ -133,6 +133,7 @@ from .dependencies import (
     model_job_metadata,
     reject_mask_indicator_input,
     require_target_column,
+    within_model_horizon,
 )
 
 logger = logging.getLogger(__name__)
@@ -409,7 +410,6 @@ def get_backtest_specification(
     include_comparison_models: Annotated[bool, Query(alias="includeComparisonModels")] = False,
     include_archived_models: Annotated[bool, Query(alias="includeArchivedModels")] = False,
     session: Session = Depends(get_session),
-    database_url: str = Depends(get_database_url),
     settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
     """Read one specification together with every backtest that ran under it, newest first, in a single response.
@@ -435,7 +435,7 @@ def get_backtest_specification(
     ).first()
     if specification is None:
         raise HTTPException(status_code=404, detail="Backtest specification not found")
-    background_tasks.add_task(request_baselines_after_response, session.get_bind(), specification_id, database_url)
+    background_tasks.add_task(request_baselines_after_response, session.get_bind(), specification_id)
     conditions = [Backtest.specification_id == specification_id, is_not_baseline_backtest()]
     if not include_archived_models:
         conditions.append(is_not_archived_model_backtest())
@@ -862,7 +862,6 @@ async def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], sessi
 async def create_dataset(
     data: DatasetCreate,
     original_request: dict = Depends(get_job_request),
-    datababase_url=Depends(get_database_url),
     worker_settings=Depends(get_settings),
 ) -> JobResponse:
     """Import a dataset that carries just disease cases and population (no climate covariates inline), with polygons attached.
@@ -892,7 +891,6 @@ async def create_dataset(
         data.name,
         masked_ranges=data.masked_ranges,
         target_column=data.target_column,
-        database_url=datababase_url,
         worker_config=worker_settings,
         **{JOB_REQUEST_KW: original_request},
     )
@@ -1215,10 +1213,11 @@ def add_configured_model(
 async def delete_configured_model(
     configured_model_id: Annotated[int, Path(alias="configuredModelId")], session: Session = Depends(get_session)
 ):
-    """Soft-delete a configured model so it stops showing up in pickers, while keeping the underlying row intact so historical backtests / predictions that reference it still resolve.
+    """Soft-delete a configured model so pickers can hide it, while keeping the underlying row intact so historical backtests / predictions that reference it still resolve.
 
-    The row stays in the database with ``archived=True``; existing references remain
-    valid. 404 if the id is unknown.
+    The row stays in the database with ``archived=True`` and is still listed by
+    ``GET /v1/crud/configured-models`` with that flag, so clients can name old runs. New
+    backtests and predictions on it are rejected with 409. 404 if the id is unknown.
     """
     configured_model = session.get(ConfiguredModelDB, configured_model_id)
     if configured_model is None:
@@ -1567,7 +1566,7 @@ async def get_prediction_setup_monitoring(
     baseline: Annotated[
         str | None,
         Query(
-            description="Name of the baseline model to compare with, e.g. 'persistence'. Defaults to the "
+            description="Name of the baseline model to compare with, e.g. 'seasonal_shift_persistence'. Defaults to the "
             "installation's default baseline model."
         ),
     ] = None,
@@ -1683,6 +1682,11 @@ async def delete_prediction_setup(
     return {"message": "deleted"}
 
 
+def _setup_horizon(setup: PredictionSetup) -> int:
+    """The horizon of the setup's backtest, kept within the range the model supports."""
+    return within_model_horizon(setup.backtest.specification.n_periods, setup.configured_model.model_template)
+
+
 @router.post(
     "/prediction-setups/{predictionSetupId}/run",
     response_model=JobResponse,
@@ -1694,7 +1698,6 @@ async def run_prediction_setup(
     request: RunPredictionSetupRequest,
     original_request: dict = Depends(get_job_request),
     session: Session = Depends(get_session),
-    database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
 ):
     """Run a forecast from a saved setup using observations supplied directly in the request body — the manual equivalent of what the cron schedule does automatically.
@@ -1707,6 +1710,8 @@ async def run_prediction_setup(
     the backtest's target column, or of a different period type than the backtest
     dataset's masked ranges. Forecasts use the same target, future-weather provider and
     masked ranges as the backtest: the ranges are copied onto the run's new dataset.
+    Without ``nPeriods``, they also use the backtest's horizon, kept within the range the
+    model supports.
     """
     try:
         setup = prediction_setup_service.get_prediction_setup(session, prediction_setup_id)
@@ -1770,7 +1775,9 @@ async def run_prediction_setup(
             ),
         )
     prediction_params = PredictionParams(
-        model_id=model_id, n_periods=request.n_periods, future_weather_provider=provider
+        model_id=model_id,
+        n_periods=_setup_horizon(setup) if request.n_periods is None else request.n_periods,
+        future_weather_provider=provider,
     )
     job = worker.queue_db(
         wf.predict_pipeline_from_composite_dataset,
@@ -1781,7 +1788,6 @@ async def run_prediction_setup(
         prediction_params=prediction_params,
         prediction_setup_id=prediction_setup_id,
         configured_model_id=setup.configured_model_id,
-        database_url=database_url,
         worker_config=worker_settings,
         **{
             JOB_REQUEST_KW: original_request,

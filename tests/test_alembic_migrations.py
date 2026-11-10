@@ -263,7 +263,7 @@ class TestAlembicMigrations:
         from chap_core.database.settings import SettingsManager
 
         with Session(engine) as session:
-            assert SettingsManager(session).get().default_baseline_model == "persistence"
+            assert SettingsManager(session).get().default_baseline_model == "seasonal_shift_persistence"
 
     def test_downgrade_to_base_and_upgrade_again(self, engine):
         """

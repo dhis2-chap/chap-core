@@ -48,14 +48,19 @@ def crps_matrix(observations: np.ndarray, forecasts: np.ndarray) -> float:
         raise ValueError(
             f"observations length {observations.shape[0]} does not match forecast rows {forecasts.shape[0]}"
         )
+    return float(np.mean(crps_rows(observations, forecasts)))
+
+
+def crps_rows(observations: np.ndarray, forecasts: np.ndarray) -> np.ndarray:
+    """CRPS of each row of ``forecasts`` (n_rows, n_samples) against ``observations`` (n_rows,)."""
     n = forecasts.shape[1]
     term1 = np.mean(np.abs(forecasts - observations[:, None]), axis=1)
     if n == 0:
-        return float(np.mean(term1))
+        return term1
     xs = np.sort(forecasts, axis=1)
     coeffs = 2.0 * np.arange(1, n + 1) - n - 1
     term2 = np.sum(coeffs * xs, axis=1) / (n * n)
-    return float(np.mean(term1 - term2))
+    return np.asarray(term1 - term2)
 
 
 @metric()
@@ -90,6 +95,9 @@ class CRPSMetric(ProbabilisticMetric):
         """Compute CRPS from all samples and the observation."""
         return _crps_sample(samples, observed)
 
+    def compute_sample_metric_rows(self, samples: np.ndarray, observed: np.ndarray) -> np.ndarray:
+        return crps_rows(observed, samples)
+
 
 @metric()
 class CRPSLog1pMetric(ProbabilisticMetric):
@@ -114,3 +122,6 @@ class CRPSLog1pMetric(ProbabilisticMetric):
     def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:
         """Compute CRPS on log1p-transformed values."""
         return _crps_sample(np.log1p(samples), float(np.log1p(observed)))
+
+    def compute_sample_metric_rows(self, samples: np.ndarray, observed: np.ndarray) -> np.ndarray:
+        return crps_rows(np.log1p(observed), np.log1p(samples))

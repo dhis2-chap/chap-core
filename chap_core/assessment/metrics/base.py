@@ -323,9 +323,12 @@ class DeterministicMetric(Metric):
         )
 
         # Compute metric for each row
-        merged["metric"] = merged.apply(
-            lambda row: self.compute_point_metric(row["forecast"], row["disease_cases"]), axis=1
-        )
+        merged["metric"] = [
+            self.compute_point_metric(forecast, observed)
+            for forecast, observed in zip(
+                merged["forecast"].to_numpy(dtype=float), merged["disease_cases"].to_numpy(dtype=float), strict=True
+            )
+        ]
 
         return pd.DataFrame(merged[["location", "time_period", "horizon_distance", "metric"]])
 
@@ -359,22 +362,32 @@ class ProbabilisticMetric(Metric):
             observations[["location", "time_period", "disease_cases"]], on=["location", "time_period"], how="inner"
         )
 
-        # Group by location, time_period, and horizon_distance to compute metric
-        results = []
-        for (location, time_period, horizon), group in merged.groupby(["location", "time_period", "horizon_distance"]):
-            # Get all sample values for this combination
-            sample_values = group["forecast"].values
-            # Get the observation (should be the same for all samples)
-            obs_value = group["disease_cases"].iloc[0]
+        keys = ["location", "time_period", "horizon_distance"]
+        # groupby drops rows with a missing key, so they get no group here either.
+        merged = merged.dropna(subset=keys).sort_values(keys, kind="stable", ignore_index=True)
+        group_ids = merged.groupby(keys, sort=False).ngroup().to_numpy()
+        starts = np.flatnonzero(np.diff(group_ids, prepend=-1))
+        sizes = np.diff(np.append(starts, len(merged)))
+        result = merged.loc[starts, keys].reset_index(drop=True)
+        forecast = merged["forecast"].to_numpy(dtype=float)
+        observed = merged["disease_cases"].to_numpy(dtype=float)[starts]
+        if not len(starts):
+            result["metric"] = np.empty(0)
+        elif (sizes == sizes[0]).all():
+            result["metric"] = self.compute_sample_metric_rows(forecast.reshape(len(starts), sizes[0]), observed)
+        else:
+            result["metric"] = [
+                self.compute_sample_metric(samples, obs)
+                for samples, obs in zip(np.split(forecast, starts[1:]), observed, strict=True)
+            ]
+        return result
 
-            # Compute the metric
-            metric_value = self.compute_sample_metric(np.asarray(sample_values), obs_value)
+    def compute_sample_metric_rows(self, samples: np.ndarray, observed: np.ndarray) -> np.ndarray:
+        """The metric of each row of ``samples`` (rows x samples) against ``observed`` (one value per row).
 
-            results.append(
-                {"location": location, "time_period": time_period, "horizon_distance": horizon, "metric": metric_value}
-            )
-
-        return pd.DataFrame(results)
+        Override with a vectorised version; the default calls ``compute_sample_metric`` once per row.
+        """
+        return np.array([self.compute_sample_metric(row, obs) for row, obs in zip(samples, observed, strict=True)])
 
     @abstractmethod
     def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:

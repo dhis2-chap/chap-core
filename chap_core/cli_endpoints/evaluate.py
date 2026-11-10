@@ -8,8 +8,9 @@ from typing import TYPE_CHECKING, Annotated
 
 from cyclopts import Parameter
 
-from chap_core.api_types import BacktestParams, EstimatorMode, EstimatorOptions, RunConfig
-from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
+from chap_core.api_types import EstimatorMode, EstimatorOptions, RunConfig
+from chap_core.cli_endpoints._args import (
+    EVAL_DEFAULT_BACKTEST,
     BacktestParamsArg,
     DataConfigurationArg,
     DatasetCsvArg,
@@ -19,6 +20,8 @@ from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime v
     RunConfigArg,
 )
 from chap_core.cli_endpoints._common import (
+    check_dataset_for_model,
+    check_model_configuration,
     discover_geojson,
     get_configuration,
     get_estimator,
@@ -44,7 +47,7 @@ def eval_cmd(
         Path,
         Parameter(help="Path for output NetCDF file containing evaluation results (.nc extension)"),
     ],
-    backtest_params: BacktestParamsArg = BacktestParams(n_periods=3, n_splits=7, stride=1),
+    backtest_params: BacktestParamsArg = EVAL_DEFAULT_BACKTEST,
     run_config: RunConfigArg = RunConfig(),
     model_configuration_yaml: ModelConfigYamlArg = None,
     historical_context_years: Annotated[
@@ -59,8 +62,19 @@ def eval_cmd(
         EstimatorOptions | None,
         Parameter(help="Estimator behavior (normal | hpo | ensemble), optional metric."),
     ] = None,
+    strict: Annotated[
+        bool,
+        Parameter(
+            help="Stop before running when the dataset does not meet the model's requirements (as reported by "
+            "chap validate) or the model configuration sets options the model does not have. "
+            "Without it, these are warnings."
+        ),
+    ] = False,
 ):
     """Evaluate a model using backtesting and export results to NetCDF format.
+
+    Inside a Chap project (see ``chap init``), options not given on the command line are read
+    from the project, so ``chap eval`` alone runs the project's model on its dataset.
 
     Thin wrapper around :func:`_run_eval` that optionally records the run to
     MLflow when ``run_config.track`` is True. See :func:`_run_eval` for the
@@ -91,6 +105,7 @@ def eval_cmd(
             dry_run=dry_run,
             plot=plot,
             estimator_options=estimator_options,
+            strict=strict,
         )
         tracker.log_outputs_from_files(
             output_file,
@@ -105,7 +120,7 @@ def _run_eval(
         Path,
         Parameter(help="Path for output NetCDF file containing evaluation results (.nc extension)"),
     ],
-    backtest_params: BacktestParamsArg = BacktestParams(n_periods=3, n_splits=7, stride=1),
+    backtest_params: BacktestParamsArg = EVAL_DEFAULT_BACKTEST,
     run_config: RunConfigArg = RunConfig(),
     model_configuration_yaml: ModelConfigYamlArg = None,
     historical_context_years: Annotated[
@@ -142,6 +157,14 @@ def _run_eval(
             "Optionally --estimator-options.seed=<seed> for hpo."
         ),
     ] = None,
+    strict: Annotated[
+        bool,
+        Parameter(
+            help="Stop before running when the dataset does not meet the model's requirements (as reported by "
+            "chap validate) or the model configuration sets options the model does not have. "
+            "Without it, these are warnings."
+        ),
+    ] = False,
 ):
     """Evaluate a model using backtesting and export results to NetCDF format.
 
@@ -228,7 +251,7 @@ def _run_eval(
     logger.info(f"Loading model template from {model_name}")
     template = ModelTemplate.from_directory_or_github_url(
         model_name,
-        base_working_dir=CHAP_RUNS_DIR,
+        base_working_dir=run_config.runs_dir or CHAP_RUNS_DIR,
         ignore_env=run_config.ignore_environment,
         run_dir_type=run_config.run_directory_type,
         is_chapkit_model=run_config.is_chapkit_model,
@@ -238,6 +261,10 @@ def _run_eval(
 
     with template:
         configuration = get_configuration(model_configuration_yaml)
+        check_model_configuration(
+            configuration, template.model_template_config, model_configuration_yaml, strict=strict
+        )
+        check_dataset_for_model(dataset, template.model_template_config, strict=strict)
         estimator: ExternalModel | MetaLearner | ExtendedPredictor
         if estimator_options.mode == EstimatorMode.NORMAL:
             estimator = get_estimator(
@@ -326,6 +353,7 @@ def _run_eval(
         )
 
         logger.info(f"Exporting evaluation to {output_file}")
+        output_file.parent.mkdir(parents=True, exist_ok=True)
         evaluation.to_file(
             filepath=output_file,
             model_name=model_name,

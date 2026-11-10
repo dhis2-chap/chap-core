@@ -46,10 +46,13 @@ from chap_core.database.tables import (
     is_not_baseline_backtest,
 )
 from chap_core.datatypes import create_tsdataclass
+from chap_core.exceptions import InvalidDateError
 from chap_core.services import threshold_service
 from chap_core.services.dataset_validation import RESERVED_FIELDS
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.time_period import TimePeriod
+from chap_core.time_period.date_util_wrapper import clean_timestring
 
 from ...celery_tasks import JOB_METADATA_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW, CeleryPool, JobType
 from ...data_models import (
@@ -66,12 +69,12 @@ from ...data_models import (
     MakeBacktestsResponse,
     MakeBacktestWithDataRequest,
     MakePredictionRequest,
+    ObservationColumns,
     PredictionParams,
     ValidationError,
 )
 from .dependencies import (
     check_masked_ranges_match,
-    get_database_url,
     get_job_model,
     get_job_request,
     get_session,
@@ -81,6 +84,7 @@ from .dependencies import (
     reject_mask_indicator_input,
     require_dataset_target,
     require_target_column,
+    within_model_horizon,
 )
 
 router = APIRouter(prefix="/analytics")
@@ -101,7 +105,6 @@ def make_dataset(
     dry_run: bool = Query(
         False, description="If True, only run validation and do not import the dataset", alias="dryRun"
     ),
-    database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
 ):
     """Persist observations (with polygons) as a named dataset you can reuse across backtests and predictions.
@@ -136,14 +139,15 @@ def make_dataset(
         data_sources=request.data_sources,
         masked_ranges=request.masked_ranges,
         target_column=request.target_column,
-        database_url=database_url,
         worker_config=worker_settings,
         **{
             JOB_REQUEST_KW: original_request,
             JOB_TYPE_KW: JobType.DATASET,
             JOB_NAME_KW: request.name,
             JOB_METADATA_KW: {
-                "parameters": request.model_dump(mode="json", exclude={"name", "geojson", "provided_data"})
+                "parameters": request.model_dump(
+                    mode="json", exclude={"name", "geojson", "provided_data", "provided_data_columns"}
+                )
             },
         },
     )
@@ -192,16 +196,57 @@ def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataS
 
 
 def _read_dataset(request):
-    if not request.provided_data:
+    # Only make-dataset accepts columnar observations; create-backtest-with-data shares this reader.
+    columns = getattr(request, "provided_data_columns", None)
+    if not request.provided_data and (columns is None or not columns.org_unit):
         raise HTTPException(status_code=400, detail="No observation data provided.")
-    feature_names = list({entry.feature_name for entry in request.provided_data})
+    if columns is not None:
+        feature_names = list(columns.values)
+    else:
+        feature_names = list({entry.feature_name for entry in request.provided_data})
     reject_mask_indicator_input(feature_names)
     require_target_column(request.target_column, feature_names)
     dataclass = create_tsdataclass(feature_names)
-    provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
+    if columns is not None:
+        provided_data = _columns_to_dataset(dataclass, columns)
+    else:
+        provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
     return feature_names, provided_data
+
+
+def _columns_to_dataset(dataclass, columns: ObservationColumns) -> DataSet:
+    """Build the dataset straight from columnar observations, without one model per observation."""
+    frame = pd.DataFrame(
+        {
+            "location": columns.org_unit,
+            "time_period": columns.period,
+            **{name: np.array(values, dtype=float) for name, values in columns.values.items()},
+        }
+    )
+    # `2024W1`, `2024W01` and `2024-W01` are the same week, so compare periods in their parsed form.
+    frame["time_period"] = frame["time_period"].map({period: _period_id(period) for period in set(columns.period)})
+    duplicated = frame.duplicated(["location", "time_period"])
+    if duplicated.any():
+        first = frame[duplicated].iloc[0]
+        raise HTTPException(
+            status_code=422,
+            detail=f"providedDataColumns has more than one row for org unit {first.location!r}, "
+            f"period {first.time_period!r}",
+        )
+    return DataSet.from_pandas(frame, dataclass, fill_missing=True)
+
+
+def _period_id(period: str) -> str:
+    """The canonical id of a period string, or the string itself when it does not parse.
+
+    A period that does not parse is left for `DataSet.from_pandas` to reject, as before.
+    """
+    try:
+        return str(TimePeriod.parse(clean_timestring(period)).id)
+    except (ValueError, InvalidDateError):
+        return period
 
 
 def _find_locations_with_complete_covariates(
@@ -487,7 +532,6 @@ async def get_evaluation_entries(
 def create_backtest(
     request: MakeBacktestRequest,
     original_request: dict = Depends(get_job_request),
-    database_url: str = Depends(get_database_url),
     session: Session = Depends(get_session),
     settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
@@ -496,7 +540,7 @@ def create_backtest(
     Runs asynchronously; you get a job id and poll ``/v1/jobs/{id}`` (or
     ``/v1/jobs/{id}/evaluation_result`` once finished) to find the resulting backtest.
     Uses the dataset's saved target. A supplied targetColumn must match it, otherwise returns 422.
-    Returns 404 if the referenced dataset does not exist.
+    Returns 404 if the referenced dataset does not exist, and 409 if the configured model has been deleted.
     """
     stored_dataset = session.get(DataSetTable, request.dataset_id)
     if stored_dataset is None:
@@ -520,8 +564,7 @@ def create_backtest(
         BacktestCreate(name=request.name, dataset_id=request.dataset_id, model_id=model.id),
         **params.model_dump(),
         target_column=target_column,
-        baseline_database_url=database_url,
-        database_url=database_url,
+        queue_baselines=True,
         **{
             JOB_REQUEST_KW: original_request,
             JOB_TYPE_KW: JobType.EVALUATION_LEGACY,
@@ -546,7 +589,6 @@ def create_backtest(
 def create_backtests(
     request: MakeBacktestsRequest,
     original_request: dict = Depends(get_job_request),
-    database_url: str = Depends(get_database_url),
     session: Session = Depends(get_session),
     settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
@@ -583,8 +625,7 @@ def create_backtests(
             BacktestCreate(name=name, dataset_id=request.dataset_id, model_id=model.id),
             **params.model_dump(),
             target_column=target_column,
-            baseline_database_url=database_url,
-            database_url=database_url,
+            queue_baselines=True,
             **{
                 JOB_REQUEST_KW: original_request,
                 JOB_TYPE_KW: JobType.EVALUATION_LEGACY,
@@ -611,9 +652,9 @@ def create_backtests(
 async def make_prediction(
     request: MakePredictionRequest,
     original_request: dict = Depends(get_job_request),
-    database_url=Depends(get_database_url),
     worker_settings=Depends(get_settings),
     session: Session = Depends(get_session),
+    settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
     """Run a forecast against observations supplied directly in the request body — no stored dataset needed.
 
@@ -623,7 +664,8 @@ async def make_prediction(
 
     Forecasting happens in the background; the response carries a job id you poll via
     ``/v1/jobs/{id}`` for the result. The legacy ``data_to_be_fetched`` field is
-    rejected — supply the observations directly.
+    rejected — supply the observations directly. Without ``nPeriods``, the stored default
+    for the data's period type is used, kept within the range the model supports.
     """
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
@@ -633,14 +675,22 @@ async def make_prediction(
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
+    model = get_job_model(session, request.model_id)
+    n_periods = request.n_periods
+    if n_periods is None:
+        try:
+            period_type = period_type_of(provided_data.period_range[0])
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+        stored_default = settings_manager.get().backtest_params(period_type).n_periods
+        n_periods = within_model_horizon(stored_default, model.model_template)
     provided_data, _rejections = validate_full_dataset(feature_names, provided_data, request.target_column)
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     if request.data_to_be_fetched:
         raise HTTPException(status_code=404, detail="Data to be fetched is no longer supported by chap-core")
     dump = request.model_dump()
     dataset_info = DataSetCreateInfo(**dump).model_dump()
-    prediction_params = PredictionParams(**dump)
-    model = get_job_model(session, request.model_id)
+    prediction_params = PredictionParams(**(dump | {"n_periods": n_periods}))
     job = worker.queue_db(
         wf.predict_pipeline_from_composite_dataset,
         feature_names,
@@ -649,7 +699,6 @@ async def make_prediction(
         dataset_create_info=dataset_info,
         prediction_params=prediction_params,
         configured_model_id=model.id,
-        database_url=database_url,
         worker_config=worker_settings,
         **{
             JOB_REQUEST_KW: original_request,
@@ -915,7 +964,6 @@ async def create_backtest_with_data(
     dry_run: bool = Query(
         False, description="If True, only run validation and do not create a backtest", alias="dryRun"
     ),
-    database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
     session: Session = Depends(get_session),
     settings_manager: SettingsManager = Depends(get_settings_manager),
@@ -969,9 +1017,8 @@ async def create_backtest_with_data(
         backtest_name=request.name,
         model_id=model.id,
         backtest_params=bt_params,
-        database_url=database_url,
         worker_config=worker_settings,
-        baseline_database_url=database_url,
+        queue_baselines=True,
         **{
             JOB_REQUEST_KW: original_request,
             JOB_TYPE_KW: JobType.EVALUATION,

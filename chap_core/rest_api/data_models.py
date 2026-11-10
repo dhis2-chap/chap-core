@@ -51,8 +51,51 @@ class ObservationPayload(DBModel):
     )
 
 
+class ObservationColumns(DBModel):
+    """Observations in wide, columnar form: position ``i`` of every list together makes one (org unit, period) row.
+
+    Much smaller and faster to read than one object per observation, for facility-level datasets.
+    """
+
+    org_unit: list[str] = Field(description="Org unit of each row.")
+    period: list[str] = Field(description="Period of each row, e.g. `2024W12` or `202403`.")
+    values: dict[str, list[float | None]] = Field(
+        description="Feature name to one value per row, in row order. `null` marks a missing value."
+    )
+
+    @model_validator(mode="after")
+    def _check_columns(self) -> "ObservationColumns":
+        # These are the names of the org unit and period columns once the rows are read into a table.
+        reserved = sorted({"location", "time_period"} & set(self.values))
+        if reserved:
+            raise ValueError(f"values cannot have a feature named {', '.join(reserved)}")
+        n_rows = len(self.org_unit)
+        lengths = {"period": len(self.period)} | {name: len(column) for name, column in self.values.items()}
+        uneven = {name: length for name, length in lengths.items() if length != n_rows}
+        if uneven:
+            raise ValueError(f"Every column must have {n_rows} rows, like orgUnit; got {uneven}")
+        return self
+
+
 class DatasetMakeRequest(DataSetCreateInfo, ObservationPayload):
-    """Request body for building a dataset: metadata + polygons + observations (provided or fetched)."""
+    """Request body for building a dataset: metadata + polygons + observations (provided or fetched).
+
+    Send the observations either as ``providedData`` (one object per observation) or as
+    ``providedDataColumns`` (columnar), not both.
+    """
+
+    provided_data: list[ObservationBase] = Field(
+        default_factory=list, description="Observations, one object per (org unit, period, feature)."
+    )
+    provided_data_columns: ObservationColumns | None = Field(
+        default=None, description="Observations in columnar form; use instead of `providedData` for large datasets."
+    )
+
+    @model_validator(mode="after")
+    def _one_observation_format(self) -> "DatasetMakeRequest":
+        if self.provided_data and self.provided_data_columns is not None:
+            raise ValueError("Send observations as providedData or providedDataColumns, not both")
+        return self
 
 
 class InlineDataRequest(DataSetCreateInfoBase, ObservationPayload):
@@ -211,6 +254,11 @@ class MakePredictionRequest(InlineDataRequest, PredictionParams):
 
     meta_data: dict = Field(
         default={}, description="Free-form metadata bag stored alongside the resulting prediction row."
+    )
+    n_periods: int | None = Field(  # type: ignore[assignment]
+        default=None,
+        gt=0,
+        description="Number of future periods to forecast. Defaults to the stored default for the data's period type.",
     )
 
 
@@ -532,4 +580,9 @@ class RunPredictionSetupRequest(DBModel):
     geojson: FeatureCollectionModel = Field(description="GeoJSON polygon set for the org units in the run.")
     provided_data: list[ObservationBase] = Field(description="Observations supplied directly by the caller.")
     type: str | None = Field(default=None, description="Free-form run-type marker stored alongside the prediction.")
-    n_periods: int = Field(default=3, gt=0, description="Number of future periods to forecast.")
+    n_periods: int | None = Field(
+        default=None,
+        gt=0,
+        description="Number of future periods to forecast. Defaults to the horizon of the setup's backtest, "
+        "kept within the range the model supports.",
+    )

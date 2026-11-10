@@ -22,7 +22,8 @@ class UvRunner(Runner):
         # Override UV_PROJECT_ENVIRONMENT to use a model-specific venv in the working directory.
         # This prevents UV from trying to install packages into the main application's venv.
         env = os.environ.copy()
-        env["UV_PROJECT_ENVIRONMENT"] = str(self._working_dir / ".venv")
+        # Absolute, since uv resolves a relative path from the working directory it runs in.
+        env["UV_PROJECT_ENVIRONMENT"] = str((self._working_dir / ".venv").resolve())
         return self._execute(uv_command, self._working_dir, env=env)
 
     def store_file(self, file_path: str | None = None) -> None:

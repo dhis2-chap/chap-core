@@ -129,6 +129,8 @@ The command checks for:
 - Missing or NaN values in covariate columns
 - Consecutive time periods (no gaps)
 - Location completeness (every location covers the same time periods)
+- With `--model-name`: the covariates and period type the model requires
+- With `--data-configuration`: masked ranges that fall in the evaluation window of a backtest
 
 The command exits with code 0 when no errors are found, or code 1 if any errors are detected.
 

@@ -5,6 +5,7 @@
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Documentation](https://img.shields.io/badge/docs-mkdocs-blue.svg)](https://chap.dhis2.org/chap-modeling-platform/)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/dhis2-chap/chap-core/badge)](https://scorecard.dev/viewer/?uri=github.com/dhis2-chap/chap-core)
 
 This is the main repository for the Chap modelling platform.
 
@@ -50,7 +51,7 @@ slate. `make chap-version` is also printed automatically at the end of
 ### Running marketplace models
 
 Chapkit-based models are installed from the
-[CHAP Model Marketplace](https://github.com/dhis2-chap/model-marketplace)
+[Chap Marketplace](https://github.com/dhis2-chap/chap-marketplace)
 with `chap-admin`, once chap is running. A fresh deployment needs this manual
 step after the first `docker compose up -d`:
 

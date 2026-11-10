@@ -69,6 +69,8 @@ def _patched_eval_chain(fake_estimator, patch_filter=True, dataset=None):
         )
     )
     stack.enter_context(patch("chap_core.cli_endpoints.evaluate.discover_geojson", return_value=None))
+    stack.enter_context(patch("chap_core.cli_endpoints.evaluate.check_model_configuration"))
+    stack.enter_context(patch("chap_core.cli_endpoints.evaluate.check_dataset_for_model"))
     stack.enter_context(
         patch(
             "chap_core.cli_endpoints.evaluate.load_dataset_from_csv",
@@ -525,3 +527,30 @@ def test_sanity_check_default_dataset_ships_in_the_package():
 
     assert filepath.is_relative_to(Path(chap_core.__file__).parent)
     assert filepath.exists()
+
+
+def test_main_prints_user_facing_error_without_traceback(monkeypatch, capsys):
+    from chap_core import cli
+    from chap_core.exceptions import InvalidModelException
+
+    monkeypatch.delenv("CHAP_DEBUG", raising=False)
+    monkeypatch.setattr(cli, "app", MagicMock(side_effect=InvalidModelException("Replace docker_env in the MLproject")))
+
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main()
+
+    assert excinfo.value.code == 1
+    err = capsys.readouterr().err
+    assert err.startswith("Error: Replace docker_env in the MLproject")
+    assert "Traceback" not in err
+
+
+def test_main_raises_user_facing_error_in_debug_mode(monkeypatch):
+    from chap_core import cli
+    from chap_core.exceptions import InvalidModelException
+
+    monkeypatch.setenv("CHAP_DEBUG", "1")
+    monkeypatch.setattr(cli, "app", MagicMock(side_effect=InvalidModelException("bad model")))
+
+    with pytest.raises(InvalidModelException):
+        cli.main()

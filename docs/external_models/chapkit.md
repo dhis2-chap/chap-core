@@ -1,3 +1,7 @@
+---
+description: "How Chap runs models as chapkit REST services, the three ways to make a model, and the data format Chap sends to a chapkit model."
+---
+
 # Running models with chapkit
 
 Chapkit is one of two ways chap runs models. Chap is gradually migrating models to chapkit; both chapkit and the older approach are supported.
@@ -15,7 +19,19 @@ This document describes very briefly how to make a model compatible with chapkit
 
 ## How to make a model compatible with chapkit
 
-The simplest way is to describe the model in an `MLproject` file and let chapkit serve it, with no service code. See [Build a model from an MLproject file](mlproject_tutorial.md). For writing a chapkit service directly, see the chapkit documentation: [https://dhis2-chap.github.io/chapkit/](https://dhis2-chap.github.io/chapkit/).
+The simplest way is to describe the model in an `MLproject` file and let chapkit serve it, with no service code. See [Bring your existing model to Chap](existing_model.md) or [Build a new model from a template](mlproject_tutorial.md). For writing a chapkit service directly, see the chapkit documentation: [https://dhis2-chap.github.io/chapkit/](https://dhis2-chap.github.io/chapkit/).
+
+### Three ways to make a model
+
+| | MLproject, built-in Chap runner | MLproject served by chapkit (recommended) | chapkit service |
+|---|---|---|---|
+| **You write** | Train and predict scripts, and an `MLproject` file | The same files | Train and predict code, a `main.py` that defines the service, and a Dockerfile |
+| **How Chap runs it** | Chap reads the `MLproject` and runs the train and predict commands itself | chapkit reads the `MLproject` and serves the model as a REST service. Chap sends it data over HTTP | Your service runs on its own. Chap sends it data over HTTP |
+| **Evaluate with** | `chap eval --model-name <directory or GitHub URL>` | `chap eval --model-name <directory or GitHub URL> --run-config.as-chapkit` | `chap eval --model-name <service URL> --run-config.is-chapkit-model` |
+| **Add to a Chap installation** | Chap fetches the model from GitHub, see [Getting new models into the modeling app](../modeling-app/managing-model-templates.md) | Run a Docker image built from a chapkit base image. It registers itself with Chap | Run the service's Docker image. It registers itself with Chap |
+| **Where to start** | [Connect your model to the Chap standard](describe_model.md) | [Bring your existing model to Chap](existing_model.md) or [Build a new model from a template](mlproject_tutorial.md) | The [chapkit documentation](https://dhis2-chap.github.io/chapkit/) |
+
+The first two use the same `MLproject` format, so a model written for one usually runs with the other. The exception is the environment: chapkit sets up `uv_env` and `renv_env`, but not `docker_env`, `conda_env` or `python_env`. What differs is who runs the model: Chap itself, or chapkit as a separate service. The second and third run the same way in Chap. The difference is whether chapkit builds the service from your `MLproject`, or you write the service code. A model can move from the second to the third with `chapkit mlproject migrate`, see [MLproject Migrate](https://dhis2-chap.github.io/chapkit/guides/mlproject-migrate/) in the chapkit docs.
 
 
 ## Data format sent to chapkit models
@@ -124,7 +140,7 @@ accepts that spelling.
 
 ## How to run a chapkit model from the command line
 
-To test that the model is working with chap, you can use the `chap eval` command. Instead of a github url or model name, you simply specify the REST API url to the model and add `--run-config.is-chapkit-model` to the command to tell chap that the model is a chapkit model.
+To test that the model works with Chap, use the `chap eval` command. Give the model's container image with `docker://` in front, and Chap starts the image as a container for the duration of the command and removes it afterwards. This needs Docker.
 
 **Example:**
 
@@ -135,24 +151,27 @@ user_option_values:
   max_epochs: 2
 ```
 
-Then start the chtorch command on port 5001:
+Then evaluate the chtorch model from its image:
 
 ```console
-docker run -p 5001:8000 ghcr.io/dhis2-chap/chtorch:chapkit2-8f17ee3
+chap eval --model-name docker://ghcr.io/dhis2-chap/chtorch:chapkit2-8f17ee3 --dataset-csv https://raw.githubusercontent.com/dhis2/climate-health-data/refs/heads/main/lao/chap_LAO_admin1_monthly.csv --output-file eval.nc --plot --backtest-params.n-splits 2 --backtest-params.n-periods 3 --model-configuration-yaml testconfig.yaml
 ```
 
-Then we can run the following command to evaluate the model. Note the http://localhost:5001 url, which tells chap to look for the model at that url.
+If the model is already running as a service, for example one you started yourself with `docker run -p 5001:8000 <image>`, give its URL instead and add `--run-config.is-chapkit-model`:
 
 ```console
-chap eval --model-name http://localhost:5001 --dataset-csv https://raw.githubusercontent.com/dhis2/climate-health-data/refs/heads/main/lao/chap_LAO_admin1_monthly.csv --output-file eval.nc --plot --run-config.debug --backtest-params.n-splits 2 --backtest-params.n-periods 3 --model-configuration-yaml testconfig.yaml --run-config.is-chapkit-model
+chap eval --model-name http://localhost:5001 --run-config.is-chapkit-model --dataset-csv ./data.csv --output-file eval.nc
 ```
+
+A model from [Chap Marketplace](https://chap-marketplace.dhis2.org) can also be set up once in a [Chap project](../chap-cli/projects.md#chap-marketplace-models), which stores its verified image so that `chap eval` runs without options.
 
 
 ## How to use chapkit models in chap with the modeling app
 
-Model services from the marketplace are installed with `chap-admin install-all`,
-which starts the services and registers their templates and configurations with
-chap, so they appear in the modeling app. See
+Model services from the [Chap Marketplace](https://chap-marketplace.dhis2.org)
+are installed with `chap-admin install-all`, which starts the services and
+registers their templates and configurations with chap, so they appear in the
+modeling app. See
 [Install the Models](../modeling-app/fresh-installation.md#5-install-the-models)
 for the commands.
 

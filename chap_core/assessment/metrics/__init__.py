@@ -200,7 +200,10 @@ def compute_all_aggregated_metrics_from_backtest(backtest: Backtest) -> dict[str
             raise ValueError(
                 f"Metric {metric_id} was expected to return a single aggregated value, but got {len(metric_df)} rows."
             )
-        results[metric_id] = float(metric_df["metric"].iloc[0])
+        value = float(metric_df["metric"].iloc[0])
+        # A metric with no observed forecast to score is undefined, and is left out like an inapplicable one.
+        if not math.isnan(value):
+            results[metric_id] = value
 
     logger.info(f"Computed metrics: {list(results.keys())}")
     return results
