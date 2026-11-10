@@ -69,7 +69,3 @@ for one model. Include the overlay it writes in later Compose commands:
 Do not start models with `compose.chapkit.yml` or `compose.ewars.yml` in a
 deployment. A service started that way registers a model template but gets no
 configurations, so it cannot be run. Those overlays are kept for development.
-
-## Deploy on Kubernetes
-
-CHAP can be deployed on Kubernetes using our helm chart which can be found [here](./charts/chap).
