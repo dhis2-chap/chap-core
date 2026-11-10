@@ -214,6 +214,14 @@ def test_compute_all_detailed_metrics_skips_location_free_metrics(backtest_weeks
     assert "org_unit_ranking" not in set(df["metric_id"])
 
 
+def test_compute_all_detailed_metrics_by_chosen_dimensions(backtest_weeks):
+    dimensions = (DataDimension.time_period, DataDimension.horizon_distance)
+    df = compute_all_detailed_metrics(Evaluation.from_backtest(backtest_weeks), dimensions)
+    assert list(df.columns) == ["metric_id", "time_period", "horizon_distance", "metric"]
+    assert {"org_unit_ranking", "crps"} <= set(df["metric_id"])
+    assert not df.duplicated(["metric_id", "time_period", "horizon_distance"]).any()
+
+
 def test_org_unit_ranking_perfect_order(flat_forecasts_multiple_samples, flat_observations):
     """Median forecasts order the two org units the same way as observations in every period."""
     result = OrgUnitRankingMetric().get_detailed_metric(flat_observations, flat_forecasts_multiple_samples)
