@@ -24,14 +24,14 @@ The [R template](https://github.com/chap-models/mlproject_template_r) and the [P
 
 ## 1. What Chap needs from your model
 
-Chap never calls your model as a whole. It runs two commands, each on files it has written:
+Chap never calls your model as a whole. It runs two commands, one after the other, and hands each of them file paths:
 
-| | `train` | `predict` |
+| Command | Files Chap passes to it | What it must write |
 |---|---|---|
-| **Gets** | a CSV file with historic data (`train_data`), and a path where it may save a model file (`model`) | the model file path (`model`), the same historic data (`historic_data`), a CSV with covariates for the periods to forecast (`future_data`), and a path to write the forecast to (`out_file`) |
-| **Must do** | nothing in particular. Most models fit here and save the fitted model to the `model` path. The script may also do nothing at all, see below | write a CSV file to `out_file` with a forecast for every row in `future_data` |
+| `train` | `train_data`: a CSV file with historic data.<br>`model`: a path where the script may save a file. | Nothing is required. Most models fit here and save the fitted model to the `model` path. The script may also do nothing at all, see below. |
+| `predict` | `model`: the path from `train`.<br>`historic_data`: the same historic data.<br>`future_data`: a CSV file with covariates for the periods to forecast.<br>`out_file`: the path to write the forecast to. | A CSV file at `out_file` with a forecast for every row in `future_data`. |
 
-Chap fills in the file paths and runs your commands on them. How it passes the paths to your scripts is up to you, see [Write the MLproject file](#write-the-mlproject-file).
+Chap writes the CSV files, fills in the paths and runs your commands. The order and form in which your scripts take the paths is up to you, see [Write the MLproject file](#write-the-mlproject-file).
 
 **The data your model receives** is one CSV file in the [Chap data format](prepare_data/index.md): one row per location and time period, with the columns `time_period`, `location`, `disease_cases` and the covariates the model asks for, such as `rainfall`, `mean_temperature` and `population`. `time_period` is `2023-01` for monthly or `2023-W05` for weekly data. The future data has the same columns, without `disease_cases`. If your code expects other column names, a wide table, or dates as `Date` objects, the conversion becomes part of your scripts.
 
