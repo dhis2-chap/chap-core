@@ -28,7 +28,9 @@ from chap_core.assessment.flat_representations import (
     FlatObserved,
     convert_backtest_observations_to_flat_observations,
     convert_backtest_to_flat_forecasts,
+    horizon_diff,
 )
+from chap_core.assessment.forecast_cells import ForecastCells, check_sample_counts
 from chap_core.assessment.weather_providers import (
     DEFAULT_WEATHER_PROVIDER_ID,
     LEGACY_WEATHER_PROVIDER_ID,
@@ -352,6 +354,10 @@ def _samples_with_truth_to_xarray(evaluation_results: Iterable[_DataSet[SamplesW
             observed[loc_i, cols[new]] = cases[new]
             seen[loc_i, cols[new]] = True
 
+    # A cell without samples is a forecast that was not made; one with only some is invalid.
+    missing = np.isnan(forecast.reshape(-1, n_samples)) if n_samples else np.zeros((0, 0), dtype=bool)
+    check_sample_counts((~missing[~missing.all(axis=1)]).sum(axis=1))
+
     observed_da = xr.DataArray(
         observed,
         dims=("location", "time_period"),
@@ -362,6 +368,43 @@ def _samples_with_truth_to_xarray(evaluation_results: Iterable[_DataSet[SamplesW
         forecast, locations, splits, list(range(1, n_horizons + 1)), list(range(n_samples))
     )
     return xr.Dataset({"forecast": forecast_da, "observed": observed_da})
+
+
+def _cells_from_dataset(dataset: xr.Dataset) -> ForecastCells:
+    """Forecast cells from a split-indexed Dataset: every cell with samples, and its observation."""
+    forecast = dataset["forecast"].transpose("location", "split", "horizon_distance", "sample")
+    values = np.asarray(forecast.values, dtype=float)
+    n_cells = int(np.prod(values.shape[:3]))
+    matrix = values.reshape(n_cells, values.shape[3])
+    missing = np.isnan(matrix)
+    has_samples = ~missing.all(axis=1)
+    check_sample_counts((~missing[has_samples]).sum(axis=1))
+    present = np.flatnonzero(has_samples)
+    loc_i, split_i, horizon_i = np.unravel_index(present, values.shape[:3])
+    target = np.asarray(forecast["target_period"].transpose("split", "horizon_distance").values).astype(str)
+    return ForecastCells.from_arrays(
+        np.asarray(forecast["location"].values).astype(str)[loc_i],
+        target[split_i, horizon_i],
+        np.asarray(forecast["horizon_distance"].values, dtype=np.int64)[horizon_i],
+        matrix[present],
+        _flat_observed(dataset["observed"]),
+    )
+
+
+def _cells_from_forecast_rows(forecasts: Sequence, observations: pd.DataFrame) -> ForecastCells:
+    """Forecast cells from stored forecast rows, one cell per row, without a row per sample."""
+    sizes = np.array([len(f.values) for f in forecasts], dtype=np.int64)
+    check_sample_counts(sizes)
+    samples = np.array([f.values for f in forecasts], dtype=float) if len(forecasts) else np.empty((0, 0))
+    periods = [str(f.period) for f in forecasts]
+    horizons = [horizon_diff(period, str(f.last_seen_period)) for period, f in zip(periods, forecasts, strict=True)]
+    return ForecastCells.from_arrays(
+        np.array([str(f.org_unit) for f in forecasts], dtype=object),
+        np.array(periods, dtype=object),
+        np.array(horizons, dtype=np.int64),
+        samples,
+        observations,
+    )
 
 
 @dataclass
@@ -417,6 +460,8 @@ class Evaluation:
         self._historical_context_periods = historical_context_periods
         self._hpo = hpo
         self._flat_data_cache: FlatEvaluationData | None = None
+        self._cells_cache: ForecastCells | None = None
+        self._stored_rows: tuple[Sequence, pd.DataFrame] | None = None
         # Set when the results are held as arrays. The backtest is then a header without
         # forecasts, filled in from the arrays the first time to_backtest() is called.
         self._dataset: xr.Dataset | None = None
@@ -788,7 +833,10 @@ class Evaluation:
                 self._flat_data_cache = self._flat_data_from_backtest()
         return self._flat_data_cache
 
-    def _flat_data_from_backtest(self) -> FlatEvaluationData:
+    def _stored_forecasts_and_observations(self) -> tuple[Sequence, pd.DataFrame]:
+        """The backtest's forecast rows and its target observations as flat rows, read once."""
+        if self._stored_rows is not None:
+            return self._stored_rows
         target_column = self._backtest.specification.target_column
         session = object_session(self._backtest)
         if session is not None and self._backtest.id is not None:
@@ -821,10 +869,15 @@ class Evaluation:
             # A backtest built in memory, not read from the database.
             forecasts = self._backtest.forecasts
             observations = self._backtest.dataset.observations
-        forecasts_df = convert_backtest_to_flat_forecasts(cast("list[BacktestForecast]", forecasts))
         observations_df = convert_backtest_observations_to_flat_observations(
             cast("list[ObservationBase]", observations), target_column=target_column
         )
+        self._stored_rows = (forecasts, observations_df)
+        return self._stored_rows
+
+    def _flat_data_from_backtest(self) -> FlatEvaluationData:
+        forecasts, observations_df = self._stored_forecasts_and_observations()
+        forecasts_df = convert_backtest_to_flat_forecasts(cast("list[BacktestForecast]", forecasts))
 
         # Convert historical observations if present
         historical_observations = None
@@ -841,6 +894,53 @@ class Evaluation:
             historical_observations=historical_observations,
             hpo=self._hpo.to_flat() if self._hpo is not None else None,
         )
+
+    def to_cells(self) -> ForecastCells:
+        """
+        The forecasts as one row per (location, time_period, horizon_distance) cell, with
+        the samples as a (cells x samples) matrix and the observation of each cell.
+
+        Metrics computed from these (``Metric.get_metric_from_cells``) give the same
+        result as from the flat tables, without building one row per sample.
+
+        Raises:
+            MissingSamplesError: if the forecasts do not all have the same number of samples
+        """
+        if self._cells_cache is None:
+            if self._dataset is not None:
+                self._cells_cache = _cells_from_dataset(self._dataset)
+            elif self._flat_data_cache is not None:
+                flat = self._flat_data_cache
+                self._cells_cache = ForecastCells.from_flat(
+                    pd.DataFrame(flat.observations), pd.DataFrame(flat.forecasts)
+                )
+            else:
+                forecasts, observations_df = self._stored_forecasts_and_observations()
+                self._cells_cache = _cells_from_forecast_rows(forecasts, observations_df)
+        return self._cells_cache
+
+    def get_observations(self) -> pd.DataFrame:
+        """The observations as flat rows (location, time_period, disease_cases), without building the forecasts."""
+        if self._flat_data_cache is not None:
+            return pd.DataFrame(self._flat_data_cache.observations)
+        if self._dataset is not None:
+            return _flat_observed(self._dataset["observed"])
+        return self._stored_forecasts_and_observations()[1]
+
+    def get_historical_observations(self) -> pd.DataFrame | None:
+        """The historical observations before the splits as flat rows, if any, without building the forecasts."""
+        if self._flat_data_cache is not None:
+            historical_observations = self._flat_data_cache.historical_observations
+            return pd.DataFrame(historical_observations) if historical_observations is not None else None
+        if self._dataset is not None:
+            if "historical_observed" not in self._dataset:
+                return None
+            historical = _flat_observed(self._dataset["historical_observed"], "historical_time_period")
+        else:
+            historical = convert_backtest_observations_to_flat_observations(
+                cast("list[ObservationBase]", self._historical_observations)
+            )
+        return historical if not historical.empty else None
 
     def get_org_units(self) -> list[str]:
         """

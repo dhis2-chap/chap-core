@@ -14,7 +14,7 @@ from typing import cast
 
 import pandas as pd
 
-from chap_core.assessment.evaluation import Evaluation, FlatEvaluationData
+from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.flat_representations import DataDimension, FlatForecasts, FlatObserved
 from chap_core.assessment.metrics.base import (
     DEFAULT_OUTPUT_DIMENSIONS,
@@ -180,30 +180,29 @@ def compute_all_aggregated_metrics_from_backtest(backtest: Backtest) -> dict[str
         Dictionary mapping metric_id to the aggregated metric value
     """
     logger.info(f"Computing aggregated metrics for backtest {backtest.id}")
-    return compute_all_aggregated_metrics(Evaluation.from_backtest(backtest).to_flat())
+    return compute_all_aggregated_metrics(Evaluation.from_backtest(backtest))
 
 
-def compute_all_aggregated_metrics(flat_data: FlatEvaluationData) -> dict[str, float]:
+def compute_all_aggregated_metrics(evaluation: Evaluation) -> dict[str, float]:
     """
-    Compute all available metrics as global aggregated values for flat evaluation data.
+    Compute all available metrics as global aggregated values for an evaluation.
 
     Args:
-        flat_data: Forecasts, observations and historical observations of an evaluation
+        evaluation: The evaluation to score
 
     Returns:
         Dictionary mapping metric_id to the aggregated metric value
     """
-    historical_obs = flat_data.historical_observations
-    historical_df: pd.DataFrame | None = (
-        pd.DataFrame(cast("pd.DataFrame", historical_obs)) if historical_obs is not None else None
-    )
+    historical_df = evaluation.get_historical_observations()
+    observations = evaluation.get_observations()
+    cells = evaluation.to_cells()
 
     results = {}
     for metric_id, metric_factory in available_metrics.items():
         metric = metric_factory(historical_observations=historical_df)
-        if not metric.is_applicable(flat_data.observations):
+        if not metric.is_applicable(observations):  # type: ignore[arg-type]
             continue
-        metric_df = metric.get_global_metric(flat_data.observations, flat_data.forecasts)
+        metric_df = metric.get_global_metric_from_cells(cells)
         if len(metric_df) != 1:
             raise ValueError(
                 f"Metric {metric_id} was expected to return a single aggregated value, but got {len(metric_df)} rows."
@@ -243,20 +242,17 @@ def compute_all_detailed_metrics(evaluation: Evaluation) -> pd.DataFrame:
     are not applicable or fail to compute are skipped so a single broken
     metric doesn't take down the whole export.
     """
-    flat_data = evaluation.to_flat()
-
-    historical_obs = flat_data.historical_observations
-    historical_df: pd.DataFrame | None = (
-        pd.DataFrame(cast("pd.DataFrame", historical_obs)) if historical_obs is not None else None
-    )
+    historical_df = evaluation.get_historical_observations()
+    observations = evaluation.get_observations()
+    cells = evaluation.to_cells()
 
     frames: list[pd.DataFrame] = []
     for metric_id, metric_factory in available_metrics.items():
         metric = metric_factory(historical_observations=historical_df)
-        if not metric.is_applicable(flat_data.observations):
+        if not metric.is_applicable(observations):  # type: ignore[arg-type]
             continue
         try:
-            detailed = metric.get_detailed_metric(flat_data.observations, flat_data.forecasts)
+            detailed = metric.get_detailed_metric_from_cells(cells)
         except Exception:
             logger.exception("Failed to compute detailed metric %s", metric_id)
             continue
@@ -288,20 +284,17 @@ def calculate_metrics(
         {} if row is None else dict(row)
     )  # create new dict to avoid mutating input row
 
-    flat_data = evaluation.to_flat()
-
-    historical_obs = flat_data.historical_observations
-    historical_df: pd.DataFrame | None = (
-        pd.DataFrame(cast("pd.DataFrame", historical_obs)) if historical_obs is not None else None
-    )
+    historical_df = evaluation.get_historical_observations()
+    observations = evaluation.get_observations()
+    cells = evaluation.to_cells()
 
     for metric_id in metric_ids:
         metric_cls = available_metrics[metric_id]
         metric = metric_cls(historical_observations=historical_df)
-        if not metric.is_applicable(flat_data.observations):
+        if not metric.is_applicable(observations):  # type: ignore[arg-type]
             result[metric_id] = None
             continue
-        metric_df = metric.get_global_metric(flat_data.observations, flat_data.forecasts)
+        metric_df = metric.get_global_metric_from_cells(cells)
         if len(metric_df) == 1:
             result[metric_id] = float(metric_df["metric"].iloc[0])
         else:

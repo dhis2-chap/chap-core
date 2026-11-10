@@ -1,6 +1,7 @@
 """Storing an evaluation's forecasts as rows, and reading a stored backtest back with column queries."""
 
 import pandas as pd
+import pytest
 from sqlalchemy import inspect
 from sqlmodel import Session
 
@@ -84,3 +85,25 @@ def test_forecast_rows_match_the_backtest_forecasts(backtest, tmp_path):
     ]
     assert rows == as_rows
     assert len(rows) == len(backtest.forecasts)
+
+
+def test_metrics_of_a_stored_backtest_match_the_flat_tables(file_engine, backtest, tmp_path):
+    from chap_core.assessment.metrics import available_metrics, compute_all_aggregated_metrics
+
+    path = tmp_path / "evaluation.nc"
+    Evaluation.from_backtest(backtest).to_file(path)
+    observations = [
+        Observation(period=o.period, org_unit=o.org_unit, feature_name=o.feature_name, value=o.value)
+        for o in backtest.dataset.observations
+    ]
+    backtest_id = _store(file_engine, Evaluation.from_file(path), observations)
+
+    with Session(file_engine) as session:
+        stored = session.get(Backtest, backtest_id)
+        from_cells = compute_all_aggregated_metrics(Evaluation.from_backtest(stored))
+        flat = Evaluation.from_backtest(stored).to_flat()
+
+    for metric_id, value in from_cells.items():
+        expected = available_metrics[metric_id]().get_global_metric(flat.observations, flat.forecasts)
+        assert value == pytest.approx(float(expected["metric"].iloc[0])), metric_id
+    assert from_cells
