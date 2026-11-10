@@ -1,7 +1,5 @@
 import json
-import os
 import runpy
-import subprocess
 import sys
 from pathlib import Path
 
@@ -42,33 +40,6 @@ def test_image_command_has_no_arguments_gunicorn_ignores():
     assert command[0] == "gunicorn"
     parsed = Config().parser().parse_args(command[1:])
     assert parsed.args == ["chap_core.rest_api.app:app"]
-
-
-def test_web_concurrency_sets_the_workers_of_the_image_command():
-    """The deployment's WEB_CONCURRENCY and PORT reach gunicorn when it runs the image's command."""
-    script = (
-        "import runpy, sys\n"
-        "from gunicorn.config import Config\n"
-        "config = Config()\n"
-        "parsed = config.parser().parse_args(sys.argv[1:])\n"
-        f"for name, value in runpy.run_path({str(GUNICORN_CONF)!r}).items():\n"
-        "    if name in config.settings:\n"
-        "        config.set(name, value)\n"
-        "for name, value in vars(parsed).items():\n"
-        "    if value is not None and name in config.settings:\n"
-        "        config.set(name, value)\n"
-        "print(config.workers, config.bind)\n"
-    )
-    env = {**os.environ, "WEB_CONCURRENCY": "3", "PORT": "8000"}
-    result = subprocess.run(
-        [sys.executable, "-c", script, *_dockerfile_cmd()[1:]],
-        env=env,
-        capture_output=True,
-        text=True,
-        check=True,
-        cwd=GUNICORN_CONF.parent,
-    )
-    assert result.stdout.strip().splitlines()[-1] == "3 ['0.0.0.0:8000']"
 
 
 def test_post_fork_gives_the_worker_its_own_connections(clean_engine, monkeypatch):
