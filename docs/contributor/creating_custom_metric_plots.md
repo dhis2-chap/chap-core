@@ -78,6 +78,7 @@ from chap_core.assessment.metric_plots import MetricPlotBase, metric_plot
     plot_id="my_metric_plot",
     name="My Metric Plot",
     description="Shows mean metric value per forecast horizon.",
+    required_dimensions=["horizon_distance"],
 )
 class MyMetricPlot(MetricPlotBase):
     def plot_from_df(self, title: str = "My Metric Plot") -> alt.Chart:
@@ -108,6 +109,7 @@ from chap_core.assessment.metric_plots import MetricPlotBase, metric_plot
     plot_id="metric_by_location_time",
     name="Metric by Location over Time",
     description="Line chart showing mean metric per location across time periods.",
+    required_dimensions=["time_period", "location"],
 )
 class MetricByLocationTimePlot(MetricPlotBase):
     def plot_from_df(self, title: str = "Metric by Location over Time") -> alt.Chart:
@@ -238,7 +240,7 @@ Metric plots and backtest plots serve different purposes:
 | **Input** | Pre-computed metric DataFrame | Raw observations & forecasts DataFrames |
 | **Metric choice** | Delegated to the caller (chosen at request time) | Baked into the plot class |
 | **Typical use** | Compare a single metric across dimensions | Richer visualizations combining observations and forecasts |
-| **Decorator** | `@metric_plot(plot_id, name, description)` | `@backtest_plot(plot_id, name, description, needs_historical)` |
+| **Decorator** | `@metric_plot(plot_id, name, description, required_dimensions=...)` | `@backtest_plot(plot_id, name, description, needs_historical)` |
 | **Base class** | `MetricPlotBase` | `BacktestPlotBase` |
 
 Use a MetricPlot when the visualization is purely about displaying a computed metric value. Use a BacktestPlot when you need access to the raw forecast samples or observations directly.
