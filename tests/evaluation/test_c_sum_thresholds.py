@@ -12,7 +12,6 @@ import pandas as pd
 import pytest
 
 from chap_core.assessment.thresholds.c_sum import (
-    _line_value,
     _population_std,
     _shift_season,
     collect_window_values,
@@ -41,15 +40,6 @@ def test_population_std_edge_cases():
     assert _population_std([42.0]) == 0.0
 
 
-def test_line_value_golden_caps_window():
-    """CAPS statistics.test.ts window [10..60]: mean=35, pop SD≈17.078, upper≈68.473."""
-    window = [10.0, 20.0, 30.0, 40.0, 50.0, 60.0]
-    assert _line_value("mean", window) == 35.0
-    assert _line_value("sd", window) == pytest.approx(17.07825127659933)
-    assert _line_value("mean_plus_1_96_sd", window) == pytest.approx(68.47337250213468)
-    assert math.isnan(_line_value("mean", []))
-
-
 def test_collect_window_values_prev_current_next():
     lookup = {
         ("A", 2021, 12): 10.0,
@@ -60,7 +50,10 @@ def test_collect_window_values_prev_current_next():
 
 
 def test_compute_c_sum_thresholds_pools_three_period_window():
-    """June threshold pools May/June/July across two baseline years."""
+    """June threshold pools May/June/July across two baseline years.
+
+    The pooled window [10..60] is the CAPS statistics.test.ts golden case: mean=35, upper=68.473.
+    """
     rows = []
     # Year 2021: May=10, June=20, July=30
     rows.extend(
@@ -87,12 +80,10 @@ def test_compute_c_sum_thresholds_pools_three_period_window():
             rows.append({"location": "A", "time_period": f"{year}-{month:02d}", "disease_cases": 0.0})
 
     df = pd.DataFrame(rows)
-    result = compute_c_sum_thresholds(df, ["mean", "sd", "mean_plus_1_96_sd"])
+    result = compute_c_sum_thresholds(df, [0.0, 1.96])
     june = result[result["month"] == 6].set_index("line")["threshold"]
-    window = [10.0, 20.0, 30.0, 40.0, 50.0, 60.0]
-    assert june[0] == pytest.approx(_line_value("mean", window))
-    assert june[1] == pytest.approx(_line_value("sd", window))
-    assert june[2] == pytest.approx(_line_value("mean_plus_1_96_sd", window))
+    assert june[0] == pytest.approx(35.0)
+    assert june[1] == pytest.approx(68.47337250213468)
 
 
 def test_compute_c_sum_omits_sparse_windows():
@@ -103,7 +94,7 @@ def test_compute_c_sum_omits_sparse_windows():
             {"location": "A", "time_period": "2022-06", "disease_cases": 20.0},
         ]
     )
-    result = compute_c_sum_thresholds(df, ["mean"])
+    result = compute_c_sum_thresholds(df, [0.0])
     assert result.empty
 
 
@@ -122,7 +113,7 @@ def test_compute_c_sum_uses_lookup_for_year_boundary():
         ],
         ignore_index=True,
     )
-    result = compute_c_sum_thresholds(baseline, ["mean"], lookup_observations=full)
+    result = compute_c_sum_thresholds(baseline, [0.0], lookup_observations=full)
     jan = result[result["month"] == 1]
     assert len(jan) == 1
     assert jan.iloc[0]["threshold"] == pytest.approx(20.0)  # mean of [10, 20, 30]
@@ -130,8 +121,8 @@ def test_compute_c_sum_uses_lookup_for_year_boundary():
 
 def test_c_sum_params_defaults_and_lines_order():
     params = CSumParams(type="c_sum")
-    assert params.lines == ["mean_plus_1_96_sd"]
-    assert CSumParams(type="c_sum", statistic=["mean", "sd"]).lines == ["mean", "sd"]
+    assert params.lines == [1.96]
+    assert CSumParams(type="c_sum", std_multiplier=[0.0, 1.96]).lines == [0.0, 1.96]
 
 
 def test_c_sum_params_type_required():
@@ -141,8 +132,8 @@ def test_c_sum_params_type_required():
 
 def test_c_sum_params_validation():
     with pytest.raises(ValueError):
-        CSumParams(type="c_sum", statistic=[])  # type: ignore[arg-type]
+        CSumParams(type="c_sum", std_multiplier=[])
     with pytest.raises(ValueError):
         CSumParams(type="c_sum", baseline_years=0)
     with pytest.raises(ValueError):
-        CSumParams(type="c_sum", statistic="not_a_line")  # type: ignore[arg-type]
+        CSumParams(type="c_sum", std_multiplier="not_a_number")  # type: ignore[arg-type]

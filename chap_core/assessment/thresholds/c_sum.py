@@ -2,8 +2,9 @@
 
 Malaria programmes form a cumulative-sum (C-SUM) endemic channel by pooling case counts
 from a three-period window — the previous, target, and next sub-period — across several
-baseline years, then taking the mean (and optionally the population SD or the upper 95%
-limit mean + 1.96 * SD). This is not a running sum within a single year.
+baseline years. Each threshold line is mean + k * population SD of that pool, where
+k = 1.96 is the WHO upper 95% limit and k = 0 is the C-SUM mean. This is not a running
+sum within a single year.
 
 Like :mod:`percentile`, the channel is static: one dataset defines one threshold per
 ``(location, season)``, and requested periods only select which rows come back.
@@ -18,7 +19,7 @@ import pandas as pd
 
 from chap_core.assessment.thresholds import threshold
 from chap_core.assessment.thresholds.base import ThresholdStrategyBase, align_seasonal_to_periods
-from chap_core.assessment.thresholds.params import CSumLine, CSumParams
+from chap_core.assessment.thresholds.params import CSumParams
 from chap_core.assessment.thresholds.percentile import filter_to_baseline
 from chap_core.time_period.vectorized import extract_year, season_column
 
@@ -51,19 +52,6 @@ def _population_std(values: list[float]) -> float:
     return math.sqrt(variance)
 
 
-def _line_value(kind: CSumLine, window_values: list[float]) -> float:
-    """Map a C-SUM line kind onto the pooled window values."""
-    if len(window_values) == 0:
-        return float("nan")
-    mean = sum(window_values) / len(window_values)
-    if kind == "mean":
-        return mean
-    sd = _population_std(window_values)
-    if kind == "sd":
-        return sd
-    return mean + 1.96 * sd
-
-
 def collect_window_values(
     lookup: dict[tuple[str, int, int], float],
     location: str,
@@ -83,7 +71,7 @@ def collect_window_values(
 
 def compute_c_sum_thresholds(
     historical_observations: pd.DataFrame,
-    line_kinds: list[CSumLine],
+    std_multipliers: list[float],
     *,
     lookup_observations: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
@@ -95,8 +83,8 @@ def compute_c_sum_thresholds(
         Baseline observations used to decide which ``(location, year, season)``
         combinations contribute to the pool. Columns
         ``[location, time_period, disease_cases]``.
-    line_kinds :
-        Ordered list of statistics to emit (``mean``, ``sd``, ``mean_plus_1_96_sd``).
+    std_multipliers :
+        Ordered list of multipliers k; each emits one line, mean + k * population SD.
     lookup_observations :
         Frame used to resolve adjacent-period values. Defaults to
         ``historical_observations``. Pass a wider frame so January of the first
@@ -106,7 +94,7 @@ def compute_c_sum_thresholds(
     -------
     pd.DataFrame
         Columns ``[location, month|week, line, threshold]``, where ``line`` is the
-        zero-based index into ``line_kinds``. Seasons with fewer than three pooled
+        zero-based index into ``std_multipliers``. Seasons with fewer than three pooled
         window values are omitted.
     """
     if historical_observations.empty:
@@ -158,13 +146,15 @@ def compute_c_sum_thresholds(
             window_values.extend(collect_window_values(lookup, location, year, season, n_seasons))
         if len(window_values) < _MIN_WINDOW_VALUES:
             continue
-        for line_index, kind in enumerate(line_kinds):
+        mean = sum(window_values) / len(window_values)
+        sd = _population_std(window_values)
+        for line_index, multiplier in enumerate(std_multipliers):
             rows.append(
                 {
                     "location": location,
                     season_name: season,
                     "line": line_index,
-                    "threshold": _line_value(kind, window_values),
+                    "threshold": mean + multiplier * sd,
                 }
             )
 
@@ -177,12 +167,12 @@ def compute_c_sum_thresholds(
     "c_sum",
     "C-SUM (WHO)",
     CSumParams,
-    "WHO cumulative-sum endemic channel: mean (and optionally population SD or mean + 1.96 "
-    "population SD) of a three-period window (previous, target, and next sub-period) pooled "
-    "across the most recent complete baseline years. Defaults to the upper 95% limit over 5 years.",
+    "WHO cumulative-sum endemic channel: mean + k * population SD of a three-period window "
+    "(previous, target, and next sub-period) pooled across the most recent complete baseline years. "
+    "Unlike the seasonal strategy, the SD divides by N. Defaults to the upper 95% limit (k = 1.96) over 5 years.",
 )
 class CSumThresholdStrategy(ThresholdStrategyBase[CSumParams]):
-    """Registered strategy computing one C-SUM line per requested statistic."""
+    """Registered strategy computing one C-SUM line per requested std multiplier."""
 
     def compute(
         self,

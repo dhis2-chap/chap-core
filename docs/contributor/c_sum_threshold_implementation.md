@@ -31,9 +31,8 @@ Downstream CAPS can later call `POST /v1/analytics/thresholds` instead of comput
 
 | File | Change |
 |------|--------|
-| `chap_core/assessment/thresholds/params.py` | `CSumParams`, `CSumLine`; extend `ThresholdParams` union; widen `lines` to allow string statistics |
+| `chap_core/assessment/thresholds/params.py` | `CSumParams`; extend `ThresholdParams` union |
 | `chap_core/assessment/thresholds/__init__.py` | Import `c_sum` in `_discover_strategies()` |
-| `chap_core/rest_api/v1/routers/analytics.py` | `ThresholdResponse.lines` is `list[float \| str]` so C-SUM statistic names can be echoed |
 | `tests/integration/rest_api/test_threshold_strategies.py` | Registry, shape, multi-line, baseline, validation for `c_sum` |
 | `tests/integration/rest_api/test_from_seeded_engine.py` | OpenAPI discriminator mapping includes `c_sum` |
 
@@ -52,7 +51,7 @@ For each (location, season):
   pool prev + current + next sub-period values across baseline years
         │
         ▼
-statistic line(s): mean | sd | mean_plus_1_96_sd
+line(s): mean + k × population SD, one per std_multiplier
         │
         ▼
 align_seasonal_to_periods → [period_id, location, line, threshold]
@@ -60,9 +59,9 @@ align_seasonal_to_periods → [period_id, location, line, threshold]
 
 ### Semantics
 
-- **C-SUM mean** — mean of the pooled three-period window (not a running sum within one year).
-- **C-SUM SD** — **population** SD (divide by N), matching CAPS / WHO practice (not pandas sample SD).
-- **C-SUM + 1.96SD** — upper 95% limit: mean + 1.96 × population SD.
+- **Lines** — each line is mean + k × population SD of the pooled three-period window (not a running sum within one year). `std_multiplier` k = 0 gives the C-SUM mean, k = 1.96 the upper 95% limit.
+- **Population SD** — divides by N, matching CAPS / WHO practice. The `seasonal` strategy uses the sample SD (N - 1).
+- **Alarm levels** — which line counts as a warning or an alarm is chosen by the threshold policy, one line per level, not by this strategy.
 - **Static channel** — like `percentile`: one line per `(location, season)` from the dataset baseline; requested `period_ids` only select which rows are returned.
 - **Sparse windows** — fewer than 3 pooled values → row omitted; the API fills `null`.
 - **Frequencies in v1** — month and week only (same as seasonal / percentile).
@@ -75,15 +74,15 @@ align_seasonal_to_periods → [period_id, location, line, threshold]
   "period_ids": ["2023-01", "2023-06"],
   "params": {
     "type": "c_sum",
-    "statistic": ["mean", "mean_plus_1_96_sd"],
+    "std_multiplier": [0, 1.96],
     "baseline_years": 5
   }
 }
 ```
 
 - `type` is required (no default) so OpenAPI clients can discriminate the union.
-- `statistic` defaults to `"mean_plus_1_96_sd"`.
-- `lines` in the response echoes the resolved statistic names in request order (e.g. `["mean", "mean_plus_1_96_sd"]`).
+- `std_multiplier` defaults to `1.96`.
+- `lines` in the response echoes the resolved multipliers in request order (e.g. `[0, 1.96]`).
 
 ### Discovery
 
@@ -95,7 +94,7 @@ After registration:
 ## Plugin checklist (contributor guide)
 
 1. `CSumParams` with `type: Literal["c_sum"]` (no default on `type`)
-2. `lines` property (from `statistic`)
+2. `lines` property (from `std_multiplier`)
 3. `CSumThresholdStrategy` subclasses `ThresholdStrategyBase` and implements `compute`
 4. `@threshold("c_sum", ...)` — id matches the `type` literal
 5. Module imported in `_discover_strategies()`

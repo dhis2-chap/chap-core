@@ -9,33 +9,29 @@ discriminator cannot tell the union members apart in generated code. The
 :func:`~chap_core.assessment.thresholds.threshold` registry decorator asserts
 each strategy's model literal matches its registered id.
 
-Line parameters (``std_multiplier``, ``quantile``, ``statistic``) accept a scalar
-or a list; each list entry produces one threshold line in the response, computed
-over the same historical window. Every model exposes the normalized list as
+Line parameters (``std_multiplier``, ``quantile``) accept a scalar or a list;
+each list entry produces one threshold line in the response, computed over the
+same historical window. Every model exposes the normalized list as
 :attr:`ThresholdParamsBase.lines`, which the strategies compute from and the
 endpoint echoes so clients can label lines without knowing the strategy.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import Annotated, Literal
 
 from pydantic import Field
 
 from chap_core.database.base_tables import DBModel
 
-if TYPE_CHECKING:
-    from collections.abc import Sequence
-
 Fraction = Annotated[float, Field(ge=0.0, le=1.0)]
-CSumLine = Literal["mean", "sd", "mean_plus_1_96_sd"]
 
 
 class ThresholdParamsBase(DBModel):
     """Common interface of the per-strategy params models."""
 
     @property
-    def lines(self) -> Sequence[float | str]:
+    def lines(self) -> list[float]:
         """The line parameter as a list, one value per threshold line, in request order."""
         raise NotImplementedError
 
@@ -80,11 +76,11 @@ class CSumParams(ThresholdParamsBase):
     """Parameters for the WHO C-SUM (three-period smoothed baseline) strategy."""
 
     type: Literal["c_sum"]
-    statistic: CSumLine | Annotated[list[CSumLine], Field(min_length=1)] = Field(
-        "mean_plus_1_96_sd",
-        description="Which C-SUM statistic(s) to emit as threshold lines: "
-        "`mean` (smoothed baseline), `sd` (population SD of the pooled window), or "
-        "`mean_plus_1_96_sd` (upper 95% limit). A list produces one threshold line per entry.",
+    std_multiplier: float | Annotated[list[float], Field(min_length=1)] = Field(
+        1.96,
+        description="Number of population standard deviations above the C-SUM mean. "
+        "The default 1.96 is the WHO upper 95% limit, and 0 gives the C-SUM mean. "
+        "A list produces one threshold line per entry.",
     )
     baseline_years: int | None = Field(
         5,
@@ -94,14 +90,14 @@ class CSumParams(ThresholdParamsBase):
     )
 
     @property
-    def lines(self) -> list[CSumLine]:
-        return line_values(self.statistic)
+    def lines(self) -> list[float]:
+        return line_values(self.std_multiplier)
 
 
 ThresholdParams = Annotated[SeasonalParams | PercentileParams | CSumParams, Field(discriminator="type")]
 
 
-def line_values[T](scalar_or_list: T | list[T]) -> list[T]:
+def line_values(scalar_or_list: float | list[float]) -> list[float]:
     """Normalize a line parameter to the list of per-line values."""
     if isinstance(scalar_or_list, list):
         return scalar_or_list
