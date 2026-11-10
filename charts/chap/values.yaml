@@ -27,9 +27,6 @@ api:
     - chap_core.rest_api.app:app
     - --bind
     - 0.0.0.0:8000
-  # -- Number of API worker processes in each pod (WEB_CONCURRENCY). Each heavy request
-  # needs its own memory, so set resources to match. See the chart README.
-  workers: 1
   resources: {}
   volumeMounts: []
   podAnnotations: {}

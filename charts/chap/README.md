@@ -87,18 +87,6 @@ With `dhis2.enabled=true`, the registration job adds the token to the DHIS2 rout
 
 The token also covers `/v2/services`, so a chapkit service deployed outside this chart that registers itself with Chap must set `SERVICEKIT_REGISTRATION_KEY` to the token, or registration is rejected. See [Relation to the service registration key](../../docs/webapi/api-authentication.md#relation-to-the-service-registration-key).
 
-## API workers
-
-Each API pod runs `api.workers` worker processes (default 1). With one, a slow request, such as a plot of a large backtest, holds up every other request to that pod. More workers answer requests side by side, but each heavy request needs its own memory: in a load test one plot request used about 3.3 GB at 500 locations and about 6 GB at 1,500. Set `api.resources` to match.
-
-```yaml
-api:
-  workers: 4
-  resources:
-    limits:
-      memory: 16Gi
-```
-
 ## Instance Manager
 
 When deploying via IM, set the IM-required labels once under `global.commonLabels` (and `valkey.commonLabels`, since the valkey subchart does not read global values). They propagate to all resources, pods and PVCs of every component. Components are distinguished by the `app.kubernetes.io/component` label (`api`, `worker`, `db`), and labels that differ per component, such as the `im-type` IM addresses a workload by, go in `api.labels`, `worker.labels` and `db.labels`. Those land on the component's own resources as well as its pods, which is what lets IM restart a single component. `api.podLabels`, `worker.podLabels`, `db.podLabels` and `valkey.podLabels` add labels to the pods only:
