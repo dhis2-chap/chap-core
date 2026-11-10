@@ -6,7 +6,13 @@ from alembic import op
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
-from chap_core.database.migration_helpers import foreign_key_name, has_column, has_table, has_unique_constraint
+from chap_core.database.migration_helpers import (
+    foreign_key_name,
+    has_column,
+    has_index,
+    has_table,
+    has_unique_constraint,
+)
 
 
 @pytest.fixture
@@ -29,6 +35,11 @@ def test_has_column(operations):
 def test_has_unique_constraint(operations):
     assert has_unique_constraint("backtestspecification", "uq_backtestspecification_params")
     assert not has_unique_constraint("backtestspecification", "no_such_constraint")
+
+
+def test_has_index(operations):
+    assert has_index("observation", "ix_observation_dataset_feature_org_unit")
+    assert not has_index("observation", "no_such_index")
 
 
 def test_foreign_key_name(operations):

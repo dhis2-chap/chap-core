@@ -90,6 +90,15 @@ _COLUMNS_RENAMED_BY_MIGRATIONS = [
 ]
 
 
+# Indexes added by migrations, as (table, name). create_all makes them from the model
+# declarations, so the baseline drops them for the migration to create them again.
+_INDEXES_ADDED_BY_MIGRATIONS = [
+    ("observation", "ix_observation_dataset_feature_org_unit"),
+    ("backtestforecast", "ix_backtestforecast_backtest_org_unit"),
+    ("predictionsamplesentry", "ix_predictionsamplesentry_prediction"),
+]
+
+
 def _pg_container():
     """Create and start a PostgreSQL testcontainer."""
     try:
@@ -159,6 +168,8 @@ def _create_baseline_schema(engine):
             conn.execute(sa.text(f"ALTER TABLE {table} ALTER COLUMN {column} DROP NOT NULL"))
         for table, baseline_name, current_name in _COLUMNS_RENAMED_BY_MIGRATIONS:
             conn.execute(sa.text(f"ALTER TABLE {table} RENAME COLUMN {current_name} TO {baseline_name}"))
+        for _, name in _INDEXES_ADDED_BY_MIGRATIONS:
+            conn.execute(sa.text(f"DROP INDEX IF EXISTS {name}"))
         conn.commit()
 
 
@@ -258,6 +269,10 @@ class TestAlembicMigrations:
         columns = {col["name"] for col in sa.inspect(engine).get_columns("backtest")}
         assert not columns & {"n_periods", "n_splits", "stride", "n_retrain", "future_weather_provider"}
         assert "chap_version" in columns
+
+        inspector = sa.inspect(engine)
+        for table, name in _INDEXES_ADDED_BY_MIGRATIONS:
+            assert name in {index["name"] for index in inspector.get_indexes(table)}, f"{name} missing on {table}"
 
         from sqlmodel import Session
         from chap_core.database.settings import SettingsManager
