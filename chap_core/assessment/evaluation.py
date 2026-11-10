@@ -10,7 +10,6 @@ from __future__ import annotations
 import datetime
 import json
 import logging
-from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -19,6 +18,9 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from packaging.version import Version
+from sqlalchemy import select
+from sqlalchemy.orm import object_session
+from sqlmodel import col
 
 from chap_core.api_types import BacktestParams
 from chap_core.assessment.flat_representations import (
@@ -40,7 +42,7 @@ from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.time_period import Month, TimePeriod
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
 
     import pandera.pandas as pa
 
@@ -379,81 +381,15 @@ class FlatEvaluationData:
     hpo: FlatHyperparameterOptimization | None = None
 
 
-class EvaluationBase(ABC):
+class Evaluation:
     """
-    Abstract base class for evaluation results.
-
-    An Evaluation represents the complete results of evaluating a model:
-    - Forecasts (with samples/quantiles)
-    - Observations (ground truth)
-    - Metadata (locations, split periods)
-
-    This abstraction is database-agnostic and can be implemented by
-    different concrete classes (database-backed, in-memory, etc.).
-    """
-
-    @abstractmethod
-    def to_flat(self) -> FlatEvaluationData:
-        """
-        Export evaluation data as flat representations.
-
-        Returns:
-            FlatEvaluationData containing FlatForecasts and FlatObserved objects
-        """
-
-    @abstractmethod
-    def get_org_units(self) -> list[str]:
-        """
-        Get list of locations included in this evaluation.
-
-        Returns:
-            List of location identifiers (org_units)
-        """
-
-    @abstractmethod
-    def get_split_periods(self) -> list[str]:
-        """
-        Get list of train/test split periods used in evaluation.
-
-        Returns:
-            List of period identifiers (e.g., ["2024-01", "2024-02"])
-        """
-
-    @classmethod
-    @abstractmethod
-    def from_backtest(cls, backtest: Backtest) -> EvaluationBase:
-        """
-        Create Evaluation from database Backtest object.
-
-        All implementations must support loading from database.
-
-        Args:
-            backtest: Database Backtest object (with relationships loaded)
-
-        Returns:
-            Evaluation instance
-        """
-
-    @classmethod
-    @abstractmethod
-    def from_samples_with_truth(
-        cls,
-        evaluation_results: Iterable[_DataSet[SamplesWithTruth]],
-        last_train_period: TimePeriod,
-        configured_model: ConfiguredModelDB,
-        info: BacktestCreate,
-        historical_observations: list[Observation] | None = None,
-        historical_context_periods: int = 0,
-    ) -> EvaluationBase: ...
-
-
-class Evaluation(EvaluationBase):
-    """
-    Evaluation results, held either as arrays or as a database Backtest.
+    Evaluation results: forecasts, observations and the backtest's metadata.
 
     The CLI paths (``create``, ``from_samples_with_truth`` and ``from_file``) keep the
     forecasts and observations in an ``xr.Dataset`` and only build ORM objects when
-    ``to_backtest()`` asks for them. ``from_backtest`` wraps an existing database row.
+    ``to_backtest()`` asks for them. ``from_backtest`` reads a stored backtest's forecasts
+    and observations with column queries when ``to_flat()`` is first called. The REST API
+    persists a new backtest by inserting ``forecast_rows()``.
     """
 
     def __init__(
@@ -740,28 +676,49 @@ class Evaluation(EvaluationBase):
         """
         return _historical_observations_frame(dataset, up_to_period, n_periods)
 
-    def to_backtest(self) -> Backtest:
+    def to_backtest(self, include_forecasts: bool = True) -> Backtest:
         """
         Get the database Backtest object.
 
         For results held as arrays, this builds the backtest's forecasts (and, outside the
         database, an in-memory dataset with the observations) on the first call.
 
+        Args:
+            include_forecasts: False returns the backtest without building its forecasts,
+                for callers that insert them from ``forecast_rows()`` instead.
+
         Returns:
             Backtest database model
         """
-        if self._backtest_pending:
+        if self._backtest_pending and include_forecasts:
             self._fill_backtest_from_dataset()
             self._backtest_pending = False
         return self._backtest
 
-    def _fill_backtest_from_dataset(self) -> None:
-        assert self._dataset is not None
+    def forecast_rows(self) -> list[dict]:
+        """
+        The backtest's forecasts as plain rows for a bulk insert, without the backtest id.
+
+        Each row has ``org_unit``, ``period``, ``last_train_period``, ``last_seen_period``
+        and ``values``. A forecast's NaN samples are left out, and so are forecasts with none left.
+        """
+        if self._dataset is None:
+            return [
+                {
+                    "org_unit": f.org_unit,
+                    "period": f.period,
+                    "last_train_period": f.last_train_period,
+                    "last_seen_period": f.last_seen_period,
+                    "values": f.values,
+                }
+                for f in self._backtest.forecasts
+            ]
         forecast = self._dataset["forecast"].transpose("location", "split", "horizon_distance", "sample")
         values = np.asarray(forecast.values, dtype=float)
         locations = [str(location) for location in forecast["location"].values]
         splits = [str(split) for split in forecast["split"].values]
         target = np.asarray(forecast["target_period"].transpose("split", "horizon_distance").values).astype(str)
+        rows = []
         for loc_i, location in enumerate(locations):
             for split_i, split in enumerate(splits):
                 for horizon_i in range(values.shape[2]):
@@ -769,15 +726,21 @@ class Evaluation(EvaluationBase):
                     cell = cell[~np.isnan(cell)]
                     if cell.size == 0:
                         continue
-                    self._backtest.forecasts.append(
-                        BacktestForecast(
-                            period=str(target[split_i, horizon_i]),
-                            org_unit=location,
-                            last_train_period=self._last_train_period or split,
-                            last_seen_period=split,
-                            values=cell.tolist(),
-                        )
+                    rows.append(
+                        {
+                            "org_unit": location,
+                            "period": str(target[split_i, horizon_i]),
+                            "last_train_period": self._last_train_period or split,
+                            "last_seen_period": split,
+                            "values": cell.tolist(),
+                        }
                     )
+        return rows
+
+    def _fill_backtest_from_dataset(self) -> None:
+        assert self._dataset is not None
+        for row in self.forecast_rows():
+            self._backtest.forecasts.append(BacktestForecast(**row))
 
         # Backtests persisted to the database reach their observations through dataset_id.
         if self._backtest.dataset_id != 0:
@@ -822,10 +785,41 @@ class Evaluation(EvaluationBase):
         return self._flat_data_cache
 
     def _flat_data_from_backtest(self) -> FlatEvaluationData:
-        forecasts_df = convert_backtest_to_flat_forecasts(self._backtest.forecasts)
+        target_column = self._backtest.specification.target_column
+        session = object_session(self._backtest)
+        if session is not None and self._backtest.id is not None:
+            # Read the columns the flat tables need instead of loading the forecasts and every
+            # observation of the dataset as ORM objects through the relationships (CLIM-1837).
+            forecasts: Sequence = session.execute(
+                select(
+                    col(BacktestForecast.org_unit),
+                    col(BacktestForecast.period),
+                    col(BacktestForecast.last_seen_period),
+                    col(BacktestForecast.values),
+                )
+                .where(col(BacktestForecast.backtest_id) == self._backtest.id)
+                .order_by(col(BacktestForecast.id))
+            ).all()
+            observations: Sequence = session.execute(
+                select(
+                    col(Observation.org_unit),
+                    col(Observation.period),
+                    col(Observation.value),
+                    col(Observation.feature_name),
+                )
+                .where(
+                    col(Observation.dataset_id) == self._backtest.dataset_id,
+                    col(Observation.feature_name) == target_column,
+                )
+                .order_by(col(Observation.id))
+            ).all()
+        else:
+            # A backtest built in memory, not read from the database.
+            forecasts = self._backtest.forecasts
+            observations = self._backtest.dataset.observations
+        forecasts_df = convert_backtest_to_flat_forecasts(cast("list[BacktestForecast]", forecasts))
         observations_df = convert_backtest_observations_to_flat_observations(
-            cast("list[ObservationBase]", self._backtest.dataset.observations),
-            target_column=self._backtest.specification.target_column,
+            cast("list[ObservationBase]", observations), target_column=target_column
         )
 
         # Convert historical observations if present

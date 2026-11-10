@@ -9,6 +9,7 @@ from typing import Literal, cast
 
 import psycopg2
 import sqlalchemy
+from sqlalchemy import insert
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, SQLModel, col, create_engine, select
 from sqlmodel.sql.expression import SelectOfScalar
@@ -33,7 +34,14 @@ from .model_templates_and_config_tables import (
     compute_configuration_digest,
     drifted_template_content_fields,
 )
-from .tables import Backtest, BacktestSpecification, Prediction, PredictionSamplesEntry, PredictionSetupObservation
+from .tables import (
+    Backtest,
+    BacktestForecast,
+    BacktestSpecification,
+    Prediction,
+    PredictionSamplesEntry,
+    PredictionSetupObservation,
+)
 
 logger = logging.getLogger(__name__)
 engine = None
@@ -43,6 +51,9 @@ database_url = os.getenv("CHAP_DATABASE_URL", default=None)
 # this revision for databases that predate Alembic. The following revision must
 # still run because it contains data backfills and constraint replacements.
 _GENERIC_SCHEMA_ALEMBIC_REVISION = "a7b8c9d0e1f2"
+
+# Forecast rows inserted per statement when storing a backtest; each carries its samples.
+FORECAST_INSERT_BATCH_SIZE = 5_000
 
 # Log database URL with credentials masked for security
 if database_url:
@@ -586,8 +597,19 @@ class SessionWrapper:
             raise ValueError(f"Model template with id {model_template_id} not found")
         return model_template
 
-    def add_backtest(self, backtest: Backtest) -> None:
+    def add_backtest(self, backtest: Backtest, forecast_rows: list[dict] | None = None) -> None:
+        """Store a backtest, with its forecasts inserted from plain rows if given.
+
+        The rows are inserted in batches in the same transaction as the backtest, instead of
+        building a ``BacktestForecast`` object per row, which costs minutes for facility-level
+        backtests (CLIM-1837).
+        """
         self.session.add(backtest)
+        if forecast_rows:
+            self.session.flush()
+            for start in range(0, len(forecast_rows), FORECAST_INSERT_BATCH_SIZE):
+                batch = forecast_rows[start : start + FORECAST_INSERT_BATCH_SIZE]
+                self.session.execute(insert(BacktestForecast), [row | {"backtest_id": backtest.id} for row in batch])
         self.session.commit()
 
     def get_or_create_backtest_specification(
