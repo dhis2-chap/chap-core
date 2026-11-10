@@ -9,6 +9,7 @@ from chap_core.assessment.metric_plots import MetricPlotBase, metric_plot
     plot_id="metric_by_time_period_mean",
     name="Time Period Plot",
     description="Shows the aggregated metric by time period",
+    required_dimensions=["time_period"],
 )
 class MetricByTimePeriodV2Mean(MetricPlotBase):
     """Mean metric across locations and horizons per time period."""

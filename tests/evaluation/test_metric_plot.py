@@ -14,18 +14,13 @@ from chap_core.assessment.metric_plots.metric_map import MetricMapV2
 from chap_core.assessment.metric_plots.regional_distribution import RegionalMetricDistributionPlot
 from chap_core.assessment.metric_plots.time_period_mean import MetricByTimePeriodV2Mean
 from chap_core.assessment.metric_plots.time_period_sum import MetricByTimePeriodV2Sum
+from chap_core.assessment.flat_representations import DataDimension
 from chap_core.assessment.metrics.crps import CRPSMetric
-from chap_core.assessment.metrics.org_unit_ranking import OrgUnitRankingMetric
 
 
 @pytest.fixture
 def metric_data(flat_observations, flat_forecasts):
     return CRPSMetric().get_detailed_metric(flat_observations, flat_forecasts)
-
-
-@pytest.fixture
-def location_free_metric_data(flat_observations, flat_forecasts):
-    return OrgUnitRankingMetric().get_detailed_metric(flat_observations, flat_forecasts)
 
 
 def test_metric_plot_registry():
@@ -102,10 +97,18 @@ def test_regional_metric_distribution_empty_data(metric_data):
     assert any(isinstance(m, dict) and m.get("type") == "text" for m in (spec.get("marks") or []))
 
 
-@pytest.mark.parametrize(
-    "plot_cls",
-    [cls for cls in get_metric_plots_registry().values() if not cls.requires_location],
-)
-def test_plots_not_requiring_location_handle_location_free_metrics(plot_cls, location_free_metric_data, dummy_geojson):
-    chart = plot_cls(location_free_metric_data, dummy_geojson).plot_from_df()
-    assert chart is not None
+@pytest.mark.parametrize("plot_cls", get_metric_plots_registry().values())
+def test_plot_needs_only_its_required_dimensions(plot_cls, metric_data, dummy_geojson):
+    """A plot renders from metric data that has only the dimensions it declares."""
+    unused = [d.value for d in DataDimension if d.value not in plot_cls.required_dimensions]
+    chart = plot_cls(metric_data.drop(columns=unused), dummy_geojson).plot()
+    assert chart.to_dict() is not None
+
+
+def test_metric_plot_decorator_rejects_unknown_dimension():
+    with pytest.raises(ValueError, match="org_unit"):
+
+        @metric_plot(plot_id="bad_dims", name="Bad", required_dimensions=["org_unit"])
+        class _BadDims(MetricPlotBase):
+            def plot_from_df(self, title: str = "") -> alt.Chart:
+                return alt.Chart()
