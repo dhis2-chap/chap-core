@@ -8,6 +8,7 @@ from chap_core.assessment.metric_plots import MetricPlotBase, metric_plot
     plot_id="regional_metric_distribution",
     name="Regional Metric Distribution",
     description="Boxplots showing metric distributions by location with mean points",
+    requires_location=True,
 )
 class RegionalMetricDistributionPlot(MetricPlotBase):
     """Location-level metric distributions with mean markers."""

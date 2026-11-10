@@ -2802,6 +2802,10 @@ def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run
     for plot_name in ["metric_by_horizon_mean", "metric_map"]:
         response = client.get(f"/v1/visualization/metric-plots/{plot_name}/{db_id}/crps")
         assert response.status_code == 200, response.json()
+    response = client.get(f"/v1/visualization/metric-plots/metric_by_horizon_mean/{db_id}/org_unit_ranking")
+    assert response.status_code == 200, response.json()
+    response = client.get(f"/v1/visualization/metric-plots/metric_map/{db_id}/org_unit_ranking")
+    assert response.status_code == 400, response.json()
 
 
 def test_add_configured_model_flow(celery_session_worker, dependency_overrides):

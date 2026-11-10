@@ -4,6 +4,7 @@ from chap_core.assessment.metrics import (
     RMSEMetric,
     MAEMetric,
     MAPEMetric,
+    OrgUnitRankingMetric,
     CRPSMetric,
     CRPSLog1pMetric,
     CRPSNormMetric,
@@ -206,6 +207,46 @@ def test_compute_all_detailed_metrics(backtest_weeks):
     assert len(df) > 0
     assert "crps" in set(df["metric_id"])
     assert not {"sample_count", "example_metric"} & set(df["metric_id"])
+
+
+def test_compute_all_detailed_metrics_skips_location_free_metrics(backtest_weeks):
+    df = compute_all_detailed_metrics(Evaluation.from_backtest(backtest_weeks))
+    assert "org_unit_ranking" not in set(df["metric_id"])
+
+
+def test_org_unit_ranking_perfect_order(flat_forecasts_multiple_samples, flat_observations):
+    """Median forecasts order the two org units the same way as observations in every period."""
+    result = OrgUnitRankingMetric().get_detailed_metric(flat_observations, flat_forecasts_multiple_samples)
+    assert result.columns.tolist() == ["time_period", "horizon_distance", "metric"]
+    assert len(result) == 2
+    assert result["metric"].tolist() == pytest.approx([1.0, 1.0])
+
+
+def test_org_unit_ranking_reversed_order(flat_forecasts_multiple_samples, flat_observations):
+    reversed_forecasts = flat_forecasts_multiple_samples.assign(forecast=-flat_forecasts_multiple_samples["forecast"])
+    result = OrgUnitRankingMetric().get_global_metric(flat_observations, reversed_forecasts)
+    assert result["metric"].iloc[0] == pytest.approx(-1.0)
+
+
+def test_org_unit_ranking_per_horizon(flat_forecasts_multiple_samples, flat_observations):
+    result = OrgUnitRankingMetric().get_metric(
+        flat_observations, flat_forecasts_multiple_samples, dimensions=(DataDimension.horizon_distance,)
+    )
+    assert result.columns.tolist() == ["horizon_distance", "metric"]
+    assert len(result) == 2
+
+
+def test_org_unit_ranking_cannot_break_down_by_location(flat_forecasts_multiple_samples, flat_observations):
+    with pytest.raises(ValueError, match="location"):
+        OrgUnitRankingMetric().get_metric(
+            flat_observations, flat_forecasts_multiple_samples, dimensions=(DataDimension.location,)
+        )
+
+
+def test_org_unit_ranking_needs_two_org_units(flat_observations):
+    single = flat_observations[flat_observations["location"] == "loc1"]
+    assert OrgUnitRankingMetric().is_applicable(flat_observations)
+    assert not OrgUnitRankingMetric().is_applicable(single)
 
 
 def test_rmse_uses_median_of_samples(flat_forecasts_multiple_samples, flat_observations):

@@ -16,6 +16,7 @@ from chap_core.assessment.backtest_plots import (
 )
 from chap_core.assessment.backtest_plots.db_dimensions import DBFacetDimension, load_filtered_flat_data
 from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.flat_representations import DataDimension
 from chap_core.assessment.metric_plots import get_metric_plots_registry, list_metric_plots
 from chap_core.assessment.metrics import available_metrics
 from chap_core.database.base_tables import DBModel
@@ -86,7 +87,7 @@ def generate_visualization(
 
     The response is a Vega/Vega-Lite spec you can hand straight to a frontend renderer.
     404 if the backtest or plot style is unknown; 400 if the metric id is not one of the
-    registered metrics.
+    registered metrics, or if the plot style needs per-location values the metric does not have.
     """
     backtest = session.get(Backtest, backtest_id)
     if not backtest:
@@ -99,10 +100,16 @@ def generate_visualization(
     if visualization_name not in registry:
         raise HTTPException(status_code=404, detail=f"Visualization {visualization_name} not found")
 
-    geojson_str = backtest.dataset.geojson
-    geojson = json.loads(geojson_str) if geojson_str else None
     plot_class = registry[visualization_name]
     metric = available_metrics[metric_id]()
+    if plot_class.requires_location and DataDimension.location not in metric.spec.output_dimensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Metric {metric_id} has no per-location values and cannot be shown in {visualization_name}",
+        )
+
+    geojson_str = backtest.dataset.geojson
+    geojson = json.loads(geojson_str) if geojson_str else None
     plot_spec = make_plot_from_backtest_object(backtest, plot_class, metric, geojson)
     return JSONResponse(plot_spec)
 

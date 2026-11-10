@@ -9,6 +9,7 @@ from chap_core.assessment.metric_plots import MetricPlotBase, metric_plot
     plot_id="metric_by_time_period_and_location_mean",
     name="Time Period and Location Plot",
     description="Shows the aggregated metric by both time period and location",
+    requires_location=True,
 )
 class MetricByTimePeriodAndLocationV2Mean(MetricPlotBase):
     """Mean metric grouped by time period and location."""
