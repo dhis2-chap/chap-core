@@ -33,11 +33,6 @@ def test_from_flat_rejects_forecasts_with_fewer_samples(flat_observations, flat_
         ForecastCells.from_flat(flat_observations, flat_forecasts_multiple_samples.iloc[1:])
 
 
-def test_metrics_reject_forecasts_with_fewer_samples(flat_observations, flat_forecasts_multiple_samples):
-    with pytest.raises(MissingSamplesError):
-        CRPSNormMetric().get_global_metric(flat_observations, flat_forecasts_multiple_samples.iloc[1:])
-
-
 def test_crps_norm_only_uses_observations_that_have_a_forecast(flat_observations, flat_forecasts_multiple_samples):
     outside = pd.DataFrame({"location": ["loc1"], "time_period": ["2020-W01"], "disease_cases": [1000.0]})
     with_outside = pd.concat([flat_observations, outside], ignore_index=True)

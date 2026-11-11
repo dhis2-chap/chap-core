@@ -32,7 +32,6 @@ from chap_core.assessment.metrics.comparison import (
     get_comparison_op,
     list_comparison_ops,
 )
-from chap_core.database.tables import Backtest
 
 logger = logging.getLogger(__name__)
 
@@ -167,20 +166,6 @@ __all__ = [
     "list_metrics",
     "metric",
 ]
-
-
-def compute_all_aggregated_metrics_from_backtest(backtest: Backtest) -> dict[str, float]:
-    """
-    Compute all available metrics as global aggregated values for a backtest.
-
-    Args:
-        backtest: The Backtest object to compute metrics for
-
-    Returns:
-        Dictionary mapping metric_id to the aggregated metric value
-    """
-    logger.info(f"Computing aggregated metrics for backtest {backtest.id}")
-    return compute_all_aggregated_metrics(Evaluation.from_backtest(backtest))
 
 
 def compute_all_aggregated_metrics(evaluation: Evaluation) -> dict[str, float]:
