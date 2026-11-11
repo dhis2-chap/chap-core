@@ -78,7 +78,7 @@ RECORDED_CHAP_VERSION = _recorded_version(CHAP_VERSION)
 EVALUATION_FORMAT_VERSION = 2
 
 
-def _split_period(period: str, horizon_distance: int) -> str:
+def split_period(period: str, horizon_distance: int) -> str:
     """The split (last seen) period of a forecast for ``period`` at a 1-based horizon distance."""
     parsed = TimePeriod.parse(period)
     return str((parsed - (horizon_distance - 1) * parsed.time_delta).id)
@@ -131,7 +131,7 @@ def _flat_forecasts_to_dataarray(forecasts_df: pd.DataFrame) -> xr.DataArray:
     time_period = forecasts_df["time_period"].astype(str).to_numpy()
     horizon = forecasts_df["horizon_distance"].astype(np.int64).to_numpy()
     pairs = pd.MultiIndex.from_arrays([time_period, horizon]).unique()
-    pair_split = np.array([_split_period(str(p), int(h)) for p, h in pairs], dtype=object)
+    pair_split = np.array([split_period(str(p), int(h)) for p, h in pairs], dtype=object)
     split = pair_split[pairs.get_indexer(pd.MultiIndex.from_arrays([time_period, horizon]))]
 
     location = forecasts_df["location"].astype(str).to_numpy()

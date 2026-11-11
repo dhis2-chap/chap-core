@@ -366,6 +366,7 @@ def generate_pdf_from_evaluation(evaluation, pdf_filename: str) -> None:
         evaluation: Evaluation object (from Evaluation.from_file or Evaluation.from_backtest)
         pdf_filename: Path to output PDF file
     """
+    from chap_core.assessment.evaluation import split_period
     from chap_core.time_period import TimePeriod
 
     flat_data = evaluation.to_flat()
@@ -390,8 +391,7 @@ def generate_pdf_from_evaluation(evaluation, pdf_filename: str) -> None:
     for (location, period, horizon), group in forecasts_df.groupby(["location", "time_period", "horizon_distance"]):
         cell = (str(period), int(str(horizon)))
         if cell not in split_by_cell:
-            parsed = TimePeriod.parse(cell[0])
-            split_by_cell[cell] = (parsed - (cell[1] - 1) * parsed.time_delta).id
+            split_by_cell[cell] = split_period(*cell)
         forecasts_by_loc_split[(str(location), split_by_cell[cell])][str(period)] = group["forecast"].tolist()
 
     with PdfPages(pdf_filename) as pdf:
