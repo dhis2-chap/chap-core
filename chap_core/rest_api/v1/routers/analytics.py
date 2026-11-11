@@ -1043,9 +1043,10 @@ class ThresholdResponse(DBModel):
     params: ThresholdParams = PydanticField(
         description="The resolved parameters the thresholds were computed with, defaults applied."
     )
-    lines: list[float] = Field(
-        description="The line parameter value each threshold was computed from (a quantile, a std multiplier, ...), "
-        "one per line, in the order of every entry's `values`. A scalar or default request yields one element."
+    lines: list[float | str] = Field(
+        description="The line parameter value each threshold was computed from (a quantile, a std multiplier, "
+        "a C-SUM statistic name, ...), one per line, in the order of every entry's `values`. "
+        "A scalar or default request yields one element."
     )
     entries: list[ThresholdEntry] = Field(
         description="One entry per requested (period, location), including combinations no threshold "
