@@ -366,34 +366,33 @@ def generate_pdf_from_evaluation(evaluation, pdf_filename: str) -> None:
         evaluation: Evaluation object (from Evaluation.from_file or Evaluation.from_backtest)
         pdf_filename: Path to output PDF file
     """
+    from chap_core.assessment.evaluation import split_period
     from chap_core.time_period import TimePeriod
 
-    backtest = evaluation.to_backtest()
     flat_data = evaluation.to_flat()
 
     # Build observations dict from test period observations
-    observations = backtest.dataset.observations
     obs_by_location: defaultdict[str, dict[str, float]] = defaultdict(dict)
-    for obs in observations:
-        if obs.feature_name == "disease_cases" and obs.value is not None:
-            obs_by_location[obs.org_unit][obs.period] = obs.value
+    observed_df = pd.DataFrame(flat_data.observations)[["location", "time_period", "disease_cases"]]
+    for location, period, value in observed_df.itertuples(index=False):
+        obs_by_location[location][period] = value
 
     # Add historical observations if available
     if flat_data.historical_observations is not None:
-        historical_df = pd.DataFrame(flat_data.historical_observations)
-        for _, row in historical_df.iterrows():
-            location = row["location"]
-            period = row["time_period"]
-            value = row["disease_cases"]
+        historical_df = pd.DataFrame(flat_data.historical_observations)[["location", "time_period", "disease_cases"]]
+        for location, period, value in historical_df.itertuples(index=False):
             if value is not None and not np.isnan(value):
                 obs_by_location[location][period] = value
 
-    forecasts_by_loc_split: defaultdict[tuple[str, str], defaultdict[str, list[float]]] = defaultdict(
-        lambda: defaultdict(list)
-    )
-    for fc in backtest.forecasts:
-        key = (fc.org_unit, fc.last_seen_period)
-        forecasts_by_loc_split[key][fc.period] = fc.values
+    # One page per location and split, the split being the last seen period of the forecasts.
+    forecasts_df = pd.DataFrame(flat_data.forecasts).sort_values("sample")
+    split_by_cell: dict[tuple[str, int], str] = {}
+    forecasts_by_loc_split: defaultdict[tuple[str, str], dict[str, list[float]]] = defaultdict(dict)
+    for (location, period, horizon), group in forecasts_df.groupby(["location", "time_period", "horizon_distance"]):
+        cell = (str(period), int(str(horizon)))
+        if cell not in split_by_cell:
+            split_by_cell[cell] = split_period(*cell)
+        forecasts_by_loc_split[(str(location), split_by_cell[cell])][str(period)] = group["forecast"].tolist()
 
     with PdfPages(pdf_filename) as pdf:
         for (location, last_seen_period), period_forecasts in sorted(forecasts_by_loc_split.items()):
@@ -409,7 +408,11 @@ def generate_pdf_from_evaluation(evaluation, pdf_filename: str) -> None:
             obs_df = obs_df.sort_index()
 
             sorted_periods = sorted(period_forecasts.keys())
-            samples_matrix = np.array([period_forecasts[p] for p in sorted_periods])
+            # Flat forecasts leave out NaN samples, so periods can hold different numbers of samples.
+            n_samples = max(len(period_forecasts[p]) for p in sorted_periods)
+            samples_matrix = np.full((len(sorted_periods), n_samples), np.nan)
+            for i, p in enumerate(sorted_periods):
+                samples_matrix[i, : len(period_forecasts[p])] = period_forecasts[p]
 
             forecast = ForecastAdaptor.from_samples(
                 Samples(  # type: ignore[call-arg]

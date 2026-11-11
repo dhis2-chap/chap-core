@@ -164,3 +164,26 @@ def test_aggregate_eval_preserves_nan_for_all_nan_cells(tmp_path):
         np.testing.assert_array_equal(partial, expected_b)
     finally:
         result.close()
+
+
+def test_aggregate_eval_sums_children_in_split_layout(tmp_path):
+    """Files written by Evaluation.to_file store forecasts by split; aggregation still sums the children."""
+    import pandas as pd
+
+    from chap_core.assessment.evaluation import Evaluation
+
+    old_path, _ = _build_eval_dataset(tmp_path)
+    nc_path = tmp_path / "split_layout.nc"
+    Evaluation.from_file(old_path).to_file(nc_path)
+    geojson_path = tmp_path / "areas.geojson"
+    _write_geojson(geojson_path, [("a", "P"), ("b", "P"), ("c", "Q")])
+    out_path = tmp_path / "aggregated.nc"
+
+    aggregate_eval_cmd(nc_path, geojson_path, out_path)
+
+    keys = ["time_period", "horizon_distance", "sample"]
+    children = pd.DataFrame(Evaluation.from_file(nc_path).to_flat().forecasts)
+    expected = children[children.location.isin(["a", "b"])].groupby(keys)["forecast"].sum().reset_index()
+    aggregated = pd.DataFrame(Evaluation.from_file(out_path).to_flat().forecasts)
+    result = aggregated[aggregated.location == "P"].sort_values(keys)[keys + ["forecast"]].reset_index(drop=True)
+    pd.testing.assert_frame_equal(result, expected.sort_values(keys).reset_index(drop=True))

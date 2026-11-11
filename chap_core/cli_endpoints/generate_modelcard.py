@@ -12,7 +12,6 @@ from cyclopts import Parameter
 
 if TYPE_CHECKING:
     from chap_core.assessment.evaluation import Evaluation
-    from chap_core.database.tables import Backtest
     from chap_core.external.model_configuration import ModelTemplateConfigV2
 
 CHAP_VERSION = importlib.metadata.version("chap-core")
@@ -311,11 +310,11 @@ def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_pat
         mape_map_plot.save(output_dir / "mape_map.html", scale_factor=3.0)
 
 
-def _build_results_summary(backtest: Backtest) -> str:
+def _build_results_summary(evaluation: Evaluation) -> str:
 
-    from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
+    from chap_core.assessment.metrics import compute_all_aggregated_metrics
 
-    metrics = compute_all_aggregated_metrics_from_backtest(backtest)
+    metrics = compute_all_aggregated_metrics(evaluation.to_flat())
     return "\n".join(
         [
             f"Ratio above truth: {metrics.get('ratio_above_truth')}\n",
@@ -607,8 +606,7 @@ def generate_modelcard(
 
     org_units = evaluation.get_org_units()
     split_periods = evaluation.get_split_periods()
-    backtest = evaluation.to_backtest()
-    created_date = backtest.created or created_date_attr
+    created_date = created_date_attr
 
     meta_data = model_info.meta_data if model_info else None
     author = _normalize_metadata_value(meta_data.author, "author") if meta_data else None
@@ -624,7 +622,7 @@ def generate_modelcard(
 
     logger.info(f"Saving evaluation plots to {output_dir.absolute()}")
     _save_evaluation_plots(evaluation, output_dir, geojson_path)
-    results_summary = _build_results_summary(backtest)
+    results_summary = _build_results_summary(evaluation)
 
     model_version = model_info.version if model_info and model_info.version else (model_version_attr or MISSING)
     developed_by = ", ".join(value for value in [author, organization] if value) or MISSING

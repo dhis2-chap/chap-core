@@ -141,6 +141,20 @@ Step-by-step walkthrough of what happens when `Evaluation.create()` is called (e
 4. For each test split, the most recently trained predictor generates samples and they are **merged with ground truth** into `SamplesWithTruth` objects
 5. The last training period used as evaluation metadata is taken from the initial training set
 6. **`from_samples_with_truth()`** assembles an `Evaluation` object containing:
-     - `Backtest` with all forecasts and observations
+     - The forecasts and observations, as an `xr.Dataset` in the layout of the NetCDF file below
+     - A `Backtest` header with the metadata (org units, split periods, specification)
      - Historical observations for plotting context
-7. The `Evaluation` can then be **exported** to NetCDF, used for metric computation, or visualized
+7. The `Evaluation` can then be **exported** to NetCDF, used for metric computation, or visualized. `to_flat()` builds the flat tables the metrics and plots read. `to_backtest()` builds `BacktestForecast` objects only when called. The REST API instead stores a backtest by bulk-inserting `forecast_rows()`, and `from_backtest()` reads a stored one back with column queries rather than through the ORM relationships.
+
+## NetCDF file layout
+
+`Evaluation.to_file()` writes format version 2, recorded in the `evaluation_format_version` attribute:
+
+| Variable | Dimensions |
+| --- | --- |
+| `forecast` | `(location, split, horizon_distance, sample)` |
+| `target_period` (coordinate) | `(split, horizon_distance)`, the period each forecast is for |
+| `observed` | `(location, time_period)` |
+| `historical_observed` | `(location, historical_time_period)`, optional |
+
+`split` is the last seen period of each backtest split, and `horizon_distance` counts from 1, so `target_period` is the split plus `horizon_distance - 1` periods. Files without a `split` dimension are version 1, which stored `forecast` on `(location, time_period, horizon_distance, sample)`. Most of that array was NaN, since each split forecasts only a few of the `(time_period, horizon_distance)` cells. `from_file()` still reads them and converts them on load.

@@ -10,7 +10,6 @@ from __future__ import annotations
 import datetime
 import json
 import logging
-from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -19,6 +18,9 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from packaging.version import Version
+from sqlalchemy import select
+from sqlalchemy.orm import object_session
+from sqlmodel import col
 
 from chap_core.api_types import BacktestParams
 from chap_core.assessment.flat_representations import (
@@ -26,7 +28,6 @@ from chap_core.assessment.flat_representations import (
     FlatObserved,
     convert_backtest_observations_to_flat_observations,
     convert_backtest_to_flat_forecasts,
-    max_horizon_distance,
 )
 from chap_core.assessment.weather_providers import (
     DEFAULT_WEATHER_PROVIDER_ID,
@@ -41,7 +42,7 @@ from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.time_period import Month, TimePeriod
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
 
     import pandera.pandas as pa
 
@@ -69,51 +70,113 @@ def _recorded_version(version: str | None) -> str | None:
 RECORDED_CHAP_VERSION = _recorded_version(CHAP_VERSION)
 
 
-def _flat_data_to_xarray(flat_data: FlatEvaluationData, model_metadata: dict) -> xr.Dataset:
+# Version 2 stores forecasts on (location, split, horizon_distance, sample), with the
+# forecast period as a ``target_period`` coordinate on (split, horizon_distance).
+# Version 1 files (no ``split`` dimension) stored them on (location, time_period,
+# horizon_distance, sample), mostly NaN because each split covers only a few of the
+# (time_period, horizon_distance) cells (CLIM-1838).
+EVALUATION_FORMAT_VERSION = 2
+
+
+def split_period(period: str, horizon_distance: int) -> str:
+    """The split (last seen) period of a forecast for ``period`` at a 1-based horizon distance."""
+    parsed = TimePeriod.parse(period)
+    return str((parsed - (horizon_distance - 1) * parsed.time_delta).id)
+
+
+def _target_periods(splits: list[str], horizons: list[int]) -> np.ndarray:
+    """The forecast period for each (split, horizon_distance) cell, as strings."""
+    target = np.empty((len(splits), len(horizons)), dtype=object)
+    for i, split in enumerate(splits):
+        parsed = TimePeriod.parse(split)
+        for j, horizon in enumerate(horizons):
+            target[i, j] = (parsed + (horizon - 1) * parsed.time_delta).id
+    return target
+
+
+def _forecast_dataarray(
+    values: np.ndarray,
+    locations: list[str],
+    splits: list[str],
+    horizons: list[int],
+    samples: list[int],
+    target_periods: np.ndarray | None = None,
+) -> xr.DataArray:
+    return xr.DataArray(
+        values,
+        dims=("location", "split", "horizon_distance", "sample"),
+        coords={
+            "location": np.asarray(locations, dtype=object),
+            "split": np.asarray(splits, dtype=object),
+            "horizon_distance": np.asarray(horizons, dtype=np.int64),
+            "sample": np.asarray(samples, dtype=np.int64),
+            "target_period": (
+                ("split", "horizon_distance"),
+                _target_periods(splits, horizons) if target_periods is None else target_periods,
+            ),
+        },
+        name="forecast",
+    )
+
+
+def _observed_dataarray(observations_df: pd.DataFrame, period_dim: str = "time_period") -> xr.DataArray:
+    indexed = observations_df.set_index(["location", "time_period"]).rename_axis(index={"time_period": period_dim})
+    return indexed["disease_cases"].to_xarray()
+
+
+def _flat_forecasts_to_dataarray(forecasts_df: pd.DataFrame) -> xr.DataArray:
+    """Index flat forecast rows by split instead of time period, so the array holds no padding."""
+    if forecasts_df.empty:
+        return _forecast_dataarray(np.empty((0, 0, 0, 0)), [], [], [], [])
+    time_period = forecasts_df["time_period"].astype(str).to_numpy()
+    horizon = forecasts_df["horizon_distance"].astype(np.int64).to_numpy()
+    pairs = pd.MultiIndex.from_arrays([time_period, horizon]).unique()
+    pair_split = np.array([split_period(str(p), int(h)) for p, h in pairs], dtype=object)
+    split = pair_split[pairs.get_indexer(pd.MultiIndex.from_arrays([time_period, horizon]))]
+
+    location = forecasts_df["location"].astype(str).to_numpy()
+    sample = forecasts_df["sample"].astype(np.int64).to_numpy()
+    axes = [pd.Index(np.unique(column)) for column in (location, split, horizon, sample)]
+    values = np.full(tuple(len(a) for a in axes), np.nan)
+    codes = tuple(
+        a.get_indexer(pd.Index(column)) for a, column in zip(axes, (location, split, horizon, sample), strict=True)
+    )
+    values[codes] = forecasts_df["forecast"].to_numpy(dtype=float)
+    # Keep the period strings as given; cells no split forecasts get computed ones.
+    target = _target_periods(axes[1].tolist(), axes[2].tolist())
+    pair_codes = (axes[1].get_indexer(pd.Index(pair_split)), axes[2].get_indexer(pairs.get_level_values(1)))
+    target[pair_codes] = np.asarray(pairs.get_level_values(0), dtype=object)
+    locations, splits, horizons, samples = (a.tolist() for a in axes)
+    return _forecast_dataarray(values, locations, splits, horizons, samples, target_periods=target)
+
+
+def _flat_data_to_xarray(flat_data: FlatEvaluationData) -> xr.Dataset:
     """
-    Convert FlatEvaluationData to xarray.Dataset.
+    Convert FlatEvaluationData to an xarray.Dataset in the split-indexed layout.
 
     Args:
         flat_data: FlatEvaluationData containing forecasts and observations
-        model_metadata: Dictionary with model information (name, configuration, version)
 
     Returns:
-        xarray.Dataset with dimensions (location, time_period, horizon_distance, sample)
+        xarray.Dataset with ``forecast`` on (location, split, horizon_distance, sample) and
+        ``observed`` on (location, time_period)
     """
-    forecasts_df = pd.DataFrame(cast("pd.DataFrame", flat_data.forecasts)).copy()
-    observations_df = pd.DataFrame(cast("pd.DataFrame", flat_data.observations)).copy()
-
-    # Set multi-index for forecasts: location, time_period, horizon_distance, sample
-    forecasts_indexed = forecasts_df.set_index(["location", "time_period", "horizon_distance", "sample"])
-
-    # Convert to xarray - this creates a DataArray with the index levels as dimensions
-    forecast_da = forecasts_indexed["forecast"].to_xarray()
-
-    # Set multi-index for observations: location, time_period
-    observations_indexed = observations_df.set_index(["location", "time_period"])
-    observed_da = observations_indexed["disease_cases"].to_xarray()
-
-    # Combine into a single dataset
     data_vars = {
-        "forecast": forecast_da,
-        "observed": observed_da,
+        "forecast": _flat_forecasts_to_dataarray(pd.DataFrame(cast("pd.DataFrame", flat_data.forecasts))),
+        "observed": _observed_dataarray(pd.DataFrame(cast("pd.DataFrame", flat_data.observations))),
     }
-
-    # Add historical observations if present
     if flat_data.historical_observations is not None:
-        historical_df = pd.DataFrame(cast("pd.DataFrame", flat_data.historical_observations)).copy()
+        historical_df = pd.DataFrame(cast("pd.DataFrame", flat_data.historical_observations))
         if not historical_df.empty:
-            # Use different dimension name to avoid conflicts with test period observations
-            historical_indexed = historical_df.set_index(["location", "time_period"])
-            historical_indexed = historical_indexed.rename_axis(index={"time_period": "historical_time_period"})
-            historical_da = historical_indexed["disease_cases"].to_xarray()
-            data_vars["historical_observed"] = historical_da
+            # Different dimension name, to avoid conflicts with test period observations
+            data_vars["historical_observed"] = _observed_dataarray(historical_df, "historical_time_period")
+    return xr.Dataset(data_vars)
 
-    ds = xr.Dataset(data_vars)
 
-    # Add global attributes
+def _file_attrs(model_metadata: dict, hpo: FlatHyperparameterOptimization | None) -> dict:
     attrs = {
         "title": "CHAP Model Evaluation Results",
+        "evaluation_format_version": EVALUATION_FORMAT_VERSION,
         "model_name": model_metadata.get("model_name", ""),
         "model_configuration": json.dumps(model_metadata.get("model_configuration", {})),
         "model_version": model_metadata.get("model_version", ""),
@@ -124,21 +187,55 @@ def _flat_data_to_xarray(flat_data: FlatEvaluationData, model_metadata: dict) ->
         "future_weather_provider": model_metadata.get("future_weather_provider", DEFAULT_WEATHER_PROVIDER_ID),
         "chap_version": CHAP_VERSION,
     }
-
     if "model_info" in model_metadata:
         attrs["model_info"] = model_metadata["model_info"]
+    if hpo is not None:
+        attrs["hpo"] = json.dumps(asdict(hpo))
+    return attrs
 
-    if flat_data.hpo is not None:
-        attrs["hpo"] = json.dumps(asdict(flat_data.hpo))
 
-    ds.attrs.update(attrs)
+def _flat_forecasts_from_split_layout(forecast: xr.DataArray) -> pd.DataFrame:
+    """Flat forecast rows from a split-indexed forecast array, skipping empty cells."""
+    forecast = forecast.transpose("location", "split", "horizon_distance", "sample")
+    values = np.asarray(forecast.values, dtype=float)
+    flat = values.reshape(-1)
+    present = np.flatnonzero(~np.isnan(flat))
+    loc_i, split_i, horizon_i, sample_i = np.unravel_index(present, values.shape)
+    locations = np.asarray(forecast["location"].values).astype(str).astype(object)
+    target = np.asarray(forecast["target_period"].transpose("split", "horizon_distance").values).astype(str)
+    return pd.DataFrame(
+        {
+            "location": locations[loc_i],
+            "time_period": target.astype(object)[split_i, horizon_i],
+            "horizon_distance": np.asarray(forecast["horizon_distance"].values, dtype=np.int64)[horizon_i],
+            "sample": np.asarray(forecast["sample"].values, dtype=np.int64)[sample_i],
+            "forecast": flat[present],
+        }
+    )
 
-    return ds
+
+def _flat_forecasts_from_period_layout(forecast: xr.DataArray) -> pd.DataFrame:
+    """Flat forecast rows from a version 1 file, indexed by time period."""
+    forecasts_df = forecast.to_dataframe().reset_index().dropna(subset=["forecast"])
+    # NetCDF may have stored these as int32
+    forecasts_df["horizon_distance"] = forecasts_df["horizon_distance"].astype(np.int64)
+    forecasts_df["sample"] = forecasts_df["sample"].astype(np.int64)
+    return forecasts_df
+
+
+def _flat_observed(observed: xr.DataArray, period_dim: str = "time_period") -> pd.DataFrame:
+    df = observed.to_dataframe(name="disease_cases").reset_index()
+    df = df.rename(columns={period_dim: "time_period"})[["location", "time_period", "disease_cases"]]
+    df["location"] = df["location"].astype(str)
+    df["time_period"] = df["time_period"].astype(str)
+    return df.dropna(subset=["disease_cases"])
 
 
 def _xarray_to_flat_data(ds: xr.Dataset) -> FlatEvaluationData:
     """
     Convert xarray.Dataset back to FlatEvaluationData.
+
+    Reads both the split-indexed layout and the time-period-indexed layout of older files.
 
     Args:
         ds: xarray.Dataset with forecast and observed variables
@@ -146,37 +243,15 @@ def _xarray_to_flat_data(ds: xr.Dataset) -> FlatEvaluationData:
     Returns:
         FlatEvaluationData with reconstructed forecasts and observations
     """
-    # Convert forecast DataArray to DataFrame - pandas will handle multi-index automatically
-    forecasts_df = ds["forecast"].to_dataframe().reset_index()
-
-    # Convert observed DataArray to DataFrame
-    # The DataArray name is 'observed' but we need it as 'disease_cases' for FlatObserved
-    observations_df = ds["observed"].to_dataframe().reset_index()
-    if "observed" in observations_df.columns:
-        observations_df = observations_df.rename(columns={"observed": "disease_cases"})
-
-    # Drop NaN forecasts (missing data)
-    forecasts_df = forecasts_df.dropna(subset=["forecast"])
-
-    # Drop NaN observations
-    observations_df = observations_df.dropna(subset=["disease_cases"])
-
-    # Convert horizon_distance and sample to int64 (NetCDF may have stored as int32)
-    if "horizon_distance" in forecasts_df.columns:
-        forecasts_df["horizon_distance"] = forecasts_df["horizon_distance"].astype(np.int64)
-    if "sample" in forecasts_df.columns:
-        forecasts_df["sample"] = forecasts_df["sample"].astype(np.int64)
+    if "split" in ds["forecast"].dims:
+        forecasts_df = _flat_forecasts_from_split_layout(ds["forecast"])
+    else:
+        forecasts_df = _flat_forecasts_from_period_layout(ds["forecast"])
 
     # Load historical observations if present (backwards compatible)
     historical_observations = None
     if "historical_observed" in ds:
-        historical_df = ds["historical_observed"].to_dataframe().reset_index()
-        if "historical_observed" in historical_df.columns:
-            historical_df = historical_df.rename(columns={"historical_observed": "disease_cases"})
-        # Rename dimension back to time_period for consistency
-        if "historical_time_period" in historical_df.columns:
-            historical_df = historical_df.rename(columns={"historical_time_period": "time_period"})
-        historical_df = historical_df.dropna(subset=["disease_cases"])
+        historical_df = _flat_observed(ds["historical_observed"], "historical_time_period")
         if not historical_df.empty:
             historical_observations = FlatObserved.validate(historical_df)
 
@@ -187,10 +262,106 @@ def _xarray_to_flat_data(ds: xr.Dataset) -> FlatEvaluationData:
 
     return FlatEvaluationData(
         forecasts=FlatForecasts.validate(forecasts_df),
-        observations=FlatObserved.validate(observations_df),
+        observations=FlatObserved.validate(_flat_observed(ds["observed"])),
         historical_observations=historical_observations,
         hpo=hpo,
     )
+
+
+def _max_horizon_distance(forecast: xr.DataArray) -> int | None:
+    """Largest horizon distance with any forecast in a split-indexed array, or None if empty."""
+    present = forecast.notnull().any(dim=[d for d in forecast.dims if d != "horizon_distance"]).values
+    if not present.any():
+        return None
+    return int(forecast["horizon_distance"].values[present].max())
+
+
+def _historical_observations_frame(dataset: _DataSet, up_to_period: TimePeriod, n_periods: int) -> pd.DataFrame:
+    """Up to ``n_periods`` observed disease cases per location, ending at ``up_to_period``, as flat rows."""
+    period_ids_by_range: dict[tuple[str, int], list[str]] = {}
+    locations, periods, values = [], [], []
+    for location in dataset.keys():  # noqa: SIM118
+        location_data = dataset[location]
+        time_periods = location_data.time_period
+        # Locations usually share one period range, so its ids are only listed once.
+        key = (time_periods[0].id, len(time_periods)) if len(time_periods) else ("", 0)
+        if key not in period_ids_by_range:
+            period_ids_by_range[key] = [period.id for period in time_periods]
+        period_ids = period_ids_by_range[key]
+        end = sum(1 for period_id in period_ids if period_id <= up_to_period.id)
+        if end == 0:
+            continue
+        start = max(0, end - n_periods)
+        cases = np.asarray(location_data.disease_cases[start:end], dtype=float)
+        keep = ~np.isnan(cases)
+        locations.extend([location] * int(keep.sum()))
+        periods.extend(np.asarray(period_ids[start:end], dtype=object)[keep].tolist())
+        values.extend(cases[keep].tolist())
+    return pd.DataFrame({"location": locations, "time_period": periods, "disease_cases": values})
+
+
+def _observations_frame(observations: list[Observation] | pd.DataFrame | None) -> pd.DataFrame | None:
+    if observations is None:
+        return None
+    if isinstance(observations, pd.DataFrame):
+        return observations
+    return convert_backtest_observations_to_flat_observations(cast("list[ObservationBase]", observations))
+
+
+def _samples_with_truth_to_xarray(evaluation_results: Iterable[_DataSet[SamplesWithTruth]]) -> xr.Dataset:
+    """Forecast samples and observed cases of each backtest split, in the split-indexed layout.
+
+    Each split forecasts from the first period of its result. An observation seen in
+    several splits keeps the value from the first.
+    """
+    splits: list[str] = []
+    split_periods: list[list[str]] = []
+    split_entries: list[dict[str, tuple[np.ndarray, np.ndarray]]] = []
+    for eval_result in evaluation_results:
+        period_ids = [period.id for period in eval_result.period_range]
+        if not period_ids:
+            continue
+        entries = {}
+        for location, samples_with_truth in eval_result.items():
+            samples = np.asarray(samples_with_truth.samples, dtype=float)
+            cases = np.asarray(samples_with_truth.disease_cases, dtype=float)
+            n = min(len(period_ids), len(samples), len(cases))
+            if n == 0:
+                continue
+            entries[str(location)] = (samples[:n].reshape(n, -1), cases[:n])
+        splits.append(period_ids[0])
+        split_periods.append(period_ids)
+        split_entries.append(entries)
+
+    locations = sorted({location for entries in split_entries for location in entries})
+    n_horizons = max((len(s) for e in split_entries for s, _ in e.values()), default=0)
+    n_samples = max((s.shape[1] for e in split_entries for s, _ in e.values()), default=0)
+    periods = sorted({period for ids in split_periods for period in ids})
+    loc_index = {location: i for i, location in enumerate(locations)}
+    period_index = {period: i for i, period in enumerate(periods)}
+
+    forecast = np.full((len(locations), len(splits), n_horizons, n_samples), np.nan)
+    observed = np.full((len(locations), len(periods)), np.nan)
+    seen = np.zeros(observed.shape, dtype=bool)
+    for split_i, (period_ids, entries) in enumerate(zip(split_periods, split_entries, strict=True)):
+        for location, (samples, cases) in entries.items():
+            loc_i = loc_index[location]
+            forecast[loc_i, split_i, : samples.shape[0], : samples.shape[1]] = samples
+            cols = np.array([period_index[p] for p in period_ids[: len(cases)]], dtype=np.int64)
+            new = ~seen[loc_i, cols]
+            observed[loc_i, cols[new]] = cases[new]
+            seen[loc_i, cols[new]] = True
+
+    observed_da = xr.DataArray(
+        observed,
+        dims=("location", "time_period"),
+        coords={"location": np.asarray(locations, dtype=object), "time_period": np.asarray(periods, dtype=object)},
+        name="observed",
+    )
+    forecast_da = _forecast_dataarray(
+        forecast, locations, splits, list(range(1, n_horizons + 1)), list(range(n_samples))
+    )
+    return xr.Dataset({"forecast": forecast_da, "observed": observed_da})
 
 
 @dataclass
@@ -214,80 +385,15 @@ class FlatEvaluationData:
     hpo: FlatHyperparameterOptimization | None = None
 
 
-class EvaluationBase(ABC):
+class Evaluation:
     """
-    Abstract base class for evaluation results.
+    Evaluation results: forecasts, observations and the backtest's metadata.
 
-    An Evaluation represents the complete results of evaluating a model:
-    - Forecasts (with samples/quantiles)
-    - Observations (ground truth)
-    - Metadata (locations, split periods)
-
-    This abstraction is database-agnostic and can be implemented by
-    different concrete classes (database-backed, in-memory, etc.).
-    """
-
-    @abstractmethod
-    def to_flat(self) -> FlatEvaluationData:
-        """
-        Export evaluation data as flat representations.
-
-        Returns:
-            FlatEvaluationData containing FlatForecasts and FlatObserved objects
-        """
-
-    @abstractmethod
-    def get_org_units(self) -> list[str]:
-        """
-        Get list of locations included in this evaluation.
-
-        Returns:
-            List of location identifiers (org_units)
-        """
-
-    @abstractmethod
-    def get_split_periods(self) -> list[str]:
-        """
-        Get list of train/test split periods used in evaluation.
-
-        Returns:
-            List of period identifiers (e.g., ["2024-01", "2024-02"])
-        """
-
-    @classmethod
-    @abstractmethod
-    def from_backtest(cls, backtest: Backtest) -> EvaluationBase:
-        """
-        Create Evaluation from database Backtest object.
-
-        All implementations must support loading from database.
-
-        Args:
-            backtest: Database Backtest object (with relationships loaded)
-
-        Returns:
-            Evaluation instance
-        """
-
-    @classmethod
-    @abstractmethod
-    def from_samples_with_truth(
-        cls,
-        evaluation_results: Iterable[_DataSet[SamplesWithTruth]],
-        last_train_period: TimePeriod,
-        configured_model: ConfiguredModelDB,
-        info: BacktestCreate,
-        historical_observations: list[Observation] | None = None,
-        historical_context_periods: int = 0,
-    ) -> EvaluationBase: ...
-
-
-class Evaluation(EvaluationBase):
-    """
-    Evaluation implementation backed by database Backtest model.
-
-    This wraps an existing Backtest object and provides the
-    EvaluationBase interface without modifying the database schema.
+    The CLI paths (``create``, ``from_samples_with_truth`` and ``from_file``) keep the
+    forecasts and observations in an ``xr.Dataset`` and only build ORM objects when
+    ``to_backtest()`` asks for them. ``from_backtest`` reads a stored backtest's forecasts
+    and observations with column queries when ``to_flat()`` is first called. The REST API
+    persists a new backtest by inserting ``forecast_rows()``.
     """
 
     def __init__(
@@ -311,6 +417,30 @@ class Evaluation(EvaluationBase):
         self._historical_context_periods = historical_context_periods
         self._hpo = hpo
         self._flat_data_cache: FlatEvaluationData | None = None
+        # Set when the results are held as arrays. The backtest is then a header without
+        # forecasts, filled in from the arrays the first time to_backtest() is called.
+        self._dataset: xr.Dataset | None = None
+        self._backtest_pending = False
+        self._last_train_period: str | None = None
+        self._in_memory_dataset_name = "cli_evaluation_dataset"
+
+    @classmethod
+    def _from_dataset(
+        cls,
+        backtest: Backtest,
+        dataset: xr.Dataset,
+        historical_context_periods: int,
+        hpo: HyperparameterOptimization | None = None,
+        last_train_period: str | None = None,
+        in_memory_dataset_name: str = "cli_evaluation_dataset",
+    ) -> Evaluation:
+        evaluation = cls(backtest, historical_context_periods=historical_context_periods, hpo=hpo)
+        evaluation._dataset = dataset
+        evaluation._backtest_pending = True
+        evaluation._last_train_period = last_train_period
+        evaluation._in_memory_dataset_name = in_memory_dataset_name
+        backtest.max_horizon_distance = _max_horizon_distance(dataset["forecast"])
+        return evaluation
 
     @property
     def future_weather_provider(self) -> str:
@@ -341,7 +471,7 @@ class Evaluation(EvaluationBase):
         last_train_period: TimePeriod,
         configured_model: ConfiguredModelDB,
         info: BacktestCreate,
-        historical_observations: list[Observation] | None = None,
+        historical_observations: list[Observation] | pd.DataFrame | None = None,
         historical_context_periods: int = 0,
         specification: BacktestSpecification | None = None,
         hpo: HyperparameterOptimization | None = None,
@@ -364,75 +494,19 @@ class Evaluation(EvaluationBase):
         backtest.specification = specification or BacktestSpecification(
             dataset_id=info.dataset_id, **info.model_dump(include=set(BacktestParams.model_fields))
         )
-        org_units = set()
-        split_points = set()
-        observations = []
-        period_type: str | None = None
+        dataset = _samples_with_truth_to_xarray(evaluation_results)
+        historical_df = _observations_frame(historical_observations)
+        if historical_df is not None and not historical_df.empty:
+            dataset["historical_observed"] = _observed_dataarray(historical_df, "historical_time_period")
 
-        for eval_result in evaluation_results:
-            first_period: TimePeriod = eval_result.period_range[0]
-            split_points.add(first_period.id)
-            period_type = "month" if isinstance(first_period, Month) else "week"
-            for location, samples_with_truth in eval_result.items():
-                # NOTE: samples_with_truth is class datatypes.SamplesWithTruth
-                org_units.add(location)
-                for period, sample_values, disease_cases in zip(  # type: ignore[call-overload]
-                    eval_result.period_range, samples_with_truth.samples, samples_with_truth.disease_cases, strict=False
-                ):
-                    # add forecast series for this period
-                    forecast = BacktestForecast(
-                        period=period.id,
-                        org_unit=location,
-                        last_train_period=last_train_period.id,
-                        last_seen_period=first_period.id,
-                        values=sample_values.tolist(),
-                    )
-                    backtest.forecasts.append(forecast)
-
-                    # add observation for this period/location
-                    observation = Observation(
-                        period=period.id,
-                        org_unit=location,
-                        value=float(disease_cases) if disease_cases is not None else None,
-                        feature_name="disease_cases",
-                    )
-                    observations.append(observation)
-
-        backtest.org_units = list(org_units)
-        backtest.split_periods = list(split_points)
-        backtest.max_horizon_distance = max_horizon_distance(backtest.forecasts)
-
-        # Deduplicate observations by (period, org_unit) - keep first occurrence
-        seen = set()
-        unique_observations = []
-        for obs in observations:
-            key = (obs.period, obs.org_unit)
-            if key not in seen:
-                seen.add(key)
-                unique_observations.append(obs)
-
-        # Create a minimal in-memory dataset with observations
-        # Only create this if there's no existing dataset (CLI path)
-        # For database path, the dataset relationship will be loaded via dataset_id
-        # Check if dataset_id is 0 (CLI dummy value) to determine if we need an in-memory dataset
-        if info.dataset_id == 0:
-            # Populate the period metadata so frontends that sort/format periods
-            # (which need a non-null period_type) can render the evaluation.
-            periods = [obs.period for obs in unique_observations]
-            backtest.dataset = DataSet(
-                name="cli_evaluation_dataset",
-                observations=unique_observations,
-                period_type=period_type,
-                org_units=list(org_units),
-                first_period=min(periods) if periods else None,
-                last_period=max(periods) if periods else None,
-            )
-
-        return cls(
+        backtest.org_units = [str(location) for location in dataset["forecast"]["location"].values]
+        backtest.split_periods = [str(split) for split in dataset["forecast"]["split"].values]
+        return cls._from_dataset(
             backtest,
-            historical_observations=historical_observations,
+            dataset,
             historical_context_periods=historical_context_periods,
             hpo=hpo,
+            last_train_period=last_train_period.id,
         )
 
     @classmethod
@@ -592,7 +666,7 @@ class Evaluation(EvaluationBase):
         dataset: _DataSet,
         up_to_period: TimePeriod,
         n_periods: int,
-    ) -> list[Observation]:
+    ) -> pd.DataFrame:
         """
         Extract historical observations from a dataset for plotting context.
 
@@ -602,56 +676,102 @@ class Evaluation(EvaluationBase):
             n_periods: Maximum number of periods to include
 
         Returns:
-            List of Observation objects for historical context
+            Flat observations (location, time_period, disease_cases), without missing values
         """
-        observations = []
+        return _historical_observations_frame(dataset, up_to_period, n_periods)
 
-        for location in dataset.keys():  # noqa: SIM118
-            location_data = dataset[location]
-            time_periods = location_data.time_period
-            disease_cases = location_data.disease_cases
-
-            # Find the index of up_to_period (inclusive)
-            end_idx = None
-            for i, period in enumerate(time_periods):
-                if period.id <= up_to_period.id:
-                    end_idx = i
-
-            if end_idx is None:
-                continue
-
-            # Calculate start index based on n_periods
-            start_idx = max(0, end_idx - n_periods + 1)
-
-            # Extract observations for this location
-            for i in range(start_idx, end_idx + 1):
-                period = time_periods[i]
-                value = disease_cases[i]
-
-                # Skip NaN values
-                if value is not None and not np.isnan(value):
-                    observation = Observation(
-                        period=period.id,
-                        org_unit=location,
-                        value=float(value),
-                        feature_name="disease_cases",
-                    )
-                    observations.append(observation)
-
-        return observations
-
-    def to_backtest(self) -> Backtest:
+    def to_backtest(self, include_forecasts: bool = True) -> Backtest:
         """
-        Get underlying database Backtest object.
+        Get the database Backtest object.
+
+        For results held as arrays, this builds the backtest's forecasts (and, outside the
+        database, an in-memory dataset with the observations) on the first call.
+
+        Args:
+            include_forecasts: False returns the backtest without building its forecasts,
+                for callers that insert them from ``forecast_rows()`` instead.
 
         Returns:
             Backtest database model
         """
+        if self._backtest_pending and include_forecasts:
+            self._fill_backtest_from_dataset()
+            self._backtest_pending = False
         return self._backtest
+
+    def forecast_rows(self) -> list[dict]:
+        """
+        The backtest's forecasts as plain rows for a bulk insert, without the backtest id.
+
+        Each row has ``org_unit``, ``period``, ``last_train_period``, ``last_seen_period``
+        and ``values``. A forecast's NaN samples are left out, and so are forecasts with none left.
+        """
+        if self._dataset is None:
+            return [
+                {
+                    "org_unit": f.org_unit,
+                    "period": f.period,
+                    "last_train_period": f.last_train_period,
+                    "last_seen_period": f.last_seen_period,
+                    "values": f.values,
+                }
+                for f in self._backtest.forecasts
+            ]
+        forecast = self._dataset["forecast"].transpose("location", "split", "horizon_distance", "sample")
+        values = np.asarray(forecast.values, dtype=float)
+        locations = [str(location) for location in forecast["location"].values]
+        splits = [str(split) for split in forecast["split"].values]
+        target = np.asarray(forecast["target_period"].transpose("split", "horizon_distance").values).astype(str)
+        rows = []
+        for loc_i, location in enumerate(locations):
+            for split_i, split in enumerate(splits):
+                for horizon_i in range(values.shape[2]):
+                    cell = values[loc_i, split_i, horizon_i]
+                    cell = cell[~np.isnan(cell)]
+                    if cell.size == 0:
+                        continue
+                    rows.append(
+                        {
+                            "org_unit": location,
+                            "period": str(target[split_i, horizon_i]),
+                            "last_train_period": self._last_train_period or split,
+                            "last_seen_period": split,
+                            "values": cell.tolist(),
+                        }
+                    )
+        return rows
+
+    def _fill_backtest_from_dataset(self) -> None:
+        assert self._dataset is not None
+        for row in self.forecast_rows():
+            self._backtest.forecasts.append(BacktestForecast(**row))
+
+        # Backtests persisted to the database reach their observations through dataset_id.
+        if self._backtest.dataset_id != 0:
+            return
+        observed = _flat_observed(self._dataset["observed"])
+        observations = [
+            Observation(period=period, org_unit=location, value=float(value), feature_name="disease_cases")
+            for location, period, value in observed.itertuples(index=False)
+        ]
+        periods = sorted(observed["time_period"].unique().tolist())
+        period_type = None
+        if periods:
+            period_type = "month" if isinstance(TimePeriod.parse(periods[0]), Month) else "week"
+        # Populate the period metadata so frontends that sort/format periods (which need a
+        # non-null period_type) can render the evaluation.
+        self._backtest.dataset = DataSet(
+            name=self._in_memory_dataset_name,
+            observations=observations,
+            period_type=period_type,
+            org_units=self._backtest.org_units,
+            first_period=periods[0] if periods else None,
+            last_period=periods[-1] if periods else None,
+        )
 
     def to_flat(self) -> FlatEvaluationData:
         """
-        Export evaluation data using existing conversion functions.
+        Export evaluation data as flat tables.
 
         Results are cached for performance. Repeated calls return the cached result.
 
@@ -659,28 +779,68 @@ class Evaluation(EvaluationBase):
             FlatEvaluationData containing forecasts, observations, and historical observations
         """
         if self._flat_data_cache is None:
-            forecasts_df = convert_backtest_to_flat_forecasts(self._backtest.forecasts)
-            observations_df = convert_backtest_observations_to_flat_observations(
-                cast("list[ObservationBase]", self._backtest.dataset.observations),
-                target_column=self._backtest.specification.target_column,
-            )
-
-            # Convert historical observations if present
-            historical_observations = None
-            if self._historical_observations:
-                historical_df = convert_backtest_observations_to_flat_observations(
-                    cast("list[ObservationBase]", self._historical_observations)
-                )
-                if not historical_df.empty:
-                    historical_observations = FlatObserved.validate(historical_df)
-
-            self._flat_data_cache = FlatEvaluationData(
-                forecasts=FlatForecasts.validate(forecasts_df),
-                observations=FlatObserved.validate(observations_df),
-                historical_observations=historical_observations,
-                hpo=self._hpo.to_flat() if self._hpo is not None else None,
-            )
+            if self._dataset is not None:
+                flat_data = _xarray_to_flat_data(self._dataset)
+                if self._hpo is not None:
+                    flat_data.hpo = self._hpo.to_flat()
+                self._flat_data_cache = flat_data
+            else:
+                self._flat_data_cache = self._flat_data_from_backtest()
         return self._flat_data_cache
+
+    def _flat_data_from_backtest(self) -> FlatEvaluationData:
+        target_column = self._backtest.specification.target_column
+        session = object_session(self._backtest)
+        if session is not None and self._backtest.id is not None:
+            # Read the columns the flat tables need instead of loading the forecasts and every
+            # observation of the dataset as ORM objects through the relationships (CLIM-1837).
+            forecasts: Sequence = session.execute(
+                select(
+                    col(BacktestForecast.org_unit),
+                    col(BacktestForecast.period),
+                    col(BacktestForecast.last_seen_period),
+                    col(BacktestForecast.values),
+                )
+                .where(col(BacktestForecast.backtest_id) == self._backtest.id)
+                .order_by(col(BacktestForecast.id))
+            ).all()
+            observations: Sequence = session.execute(
+                select(
+                    col(Observation.org_unit),
+                    col(Observation.period),
+                    col(Observation.value),
+                    col(Observation.feature_name),
+                )
+                .where(
+                    col(Observation.dataset_id) == self._backtest.dataset_id,
+                    col(Observation.feature_name) == target_column,
+                )
+                .order_by(col(Observation.id))
+            ).all()
+        else:
+            # A backtest built in memory, not read from the database.
+            forecasts = self._backtest.forecasts
+            observations = self._backtest.dataset.observations
+        forecasts_df = convert_backtest_to_flat_forecasts(cast("list[BacktestForecast]", forecasts))
+        observations_df = convert_backtest_observations_to_flat_observations(
+            cast("list[ObservationBase]", observations), target_column=target_column
+        )
+
+        # Convert historical observations if present
+        historical_observations = None
+        if self._historical_observations:
+            historical_df = convert_backtest_observations_to_flat_observations(
+                cast("list[ObservationBase]", self._historical_observations)
+            )
+            if not historical_df.empty:
+                historical_observations = FlatObserved.validate(historical_df)
+
+        return FlatEvaluationData(
+            forecasts=FlatForecasts.validate(forecasts_df),
+            observations=FlatObserved.validate(observations_df),
+            historical_observations=historical_observations,
+            hpo=self._hpo.to_flat() if self._hpo is not None else None,
+        )
 
     def get_org_units(self) -> list[str]:
         """
@@ -718,8 +878,6 @@ class Evaluation(EvaluationBase):
             model_version: Model version string (optional)
             model_info: ModelTemplateConfigV2 object containing model metadata (optional)
         """
-        flat_data = self.to_flat()
-
         model_metadata = {
             "model_name": model_name or "",
             "model_configuration": model_configuration or {},
@@ -733,15 +891,31 @@ class Evaluation(EvaluationBase):
         if model_info is not None:
             model_metadata["model_info"] = model_info.model_dump_json(exclude_none=True)
 
-        ds = _flat_data_to_xarray(flat_data, model_metadata)
+        if self._dataset is not None:
+            ds = self._dataset.copy()
+            hpo = self._hpo.to_flat() if self._hpo is not None else None
+        else:
+            flat_data = self.to_flat()
+            ds = _flat_data_to_xarray(flat_data)
+            hpo = flat_data.hpo
+        ds.attrs = _file_attrs(model_metadata, hpo)
+        if hpo is None and "hpo" in self._dataset_attrs():
+            ds.attrs["hpo"] = self._dataset_attrs()["hpo"]
+        if self._last_train_period is not None:
+            ds.attrs["last_train_period"] = self._last_train_period
         ds.to_netcdf(filepath)
+
+    def _dataset_attrs(self) -> dict:
+        return dict(self._dataset.attrs) if self._dataset is not None else {}
 
     @classmethod
     def from_file(cls, filepath: str | Path) -> Evaluation:
         """
         Load evaluation from NetCDF file.
 
-        Creates an in-memory Backtest object without database persistence.
+        Reads the arrays without building database objects; ``to_backtest()`` builds a
+        detached Backtest from them when asked. Files written before the split-indexed
+        layout are converted on load.
 
         Args:
             filepath: Path to NetCDF file
@@ -749,11 +923,15 @@ class Evaluation(EvaluationBase):
         Returns:
             Evaluation instance
         """
-        ds = xr.open_dataset(filepath)
-
-        ds = cls._ensure_backcompatibility(ds)
-
-        flat_data = _xarray_to_flat_data(ds)
+        with xr.open_dataset(filepath) as opened:
+            ds = cls._ensure_backcompatibility(opened)
+            flat_data = None
+            if "split" not in ds["forecast"].dims:
+                flat_data = _xarray_to_flat_data(ds)
+                converted = _flat_data_to_xarray(flat_data)
+                converted.attrs = dict(ds.attrs)
+                ds = converted
+            ds = ds.load()
 
         split_periods = json.loads(ds.attrs.get("split_periods", "[]"))
         org_units = json.loads(ds.attrs.get("org_units", "[]"))
@@ -775,86 +953,19 @@ class Evaluation(EvaluationBase):
                 future_weather_provider=str(ds.attrs["future_weather_provider"]),
             ),
         )
-
-        forecasts_df = pd.DataFrame(cast("pd.DataFrame", flat_data.forecasts))
-
-        # Group by (location, time_period, horizon_distance) to create BacktestForecast objects
-        for (location, time_period, horizon_distance), group in forecasts_df.groupby(
-            ["location", "time_period", "horizon_distance"]
-        ):
-            # Calculate last_seen_period from 1-based horizon_distance
-            period = TimePeriod.parse(str(time_period))
-            last_seen_period = period - ((int(str(horizon_distance)) - 1) * period.time_delta)
-
-            # Get all sample values for this forecast, sorted by sample number
-            values = group.sort_values("sample")["forecast"].tolist()
-
-            forecast = BacktestForecast(
-                period=time_period,
-                org_unit=location,
-                last_seen_period=last_seen_period.id,
-                last_train_period=last_seen_period.id,
-                values=values,
-            )
-            backtest.forecasts.append(forecast)
-
-        backtest.max_horizon_distance = max_horizon_distance(backtest.forecasts)
-
-        # Create observations from flat data
-        observations_df = pd.DataFrame(cast("pd.DataFrame", flat_data.observations))
-        observations = []
-        for _, row in observations_df.iterrows():
-            observation = Observation(
-                period=row["time_period"],
-                org_unit=row["location"],
-                value=float(row["disease_cases"]) if row["disease_cases"] is not None else None,
-                feature_name="disease_cases",
-            )
-            observations.append(observation)
-
-        # Create in-memory dataset with observations. Populate the period metadata
-        # (period_type must be non-null) so frontends that sort/format periods can
-        # render the loaded evaluation.
-        periods = [obs.period for obs in observations]
-        period_type = None
-        if periods:
-            period_type = "month" if isinstance(TimePeriod.parse(str(periods[0])), Month) else "week"
-        backtest.dataset = DataSet(
-            name=f"dataset_from_{Path(filepath).name}",
-            observations=observations,
-            period_type=period_type,
-            org_units=org_units,
-            first_period=min(periods) if periods else None,
-            last_period=max(periods) if periods else None,
-        )
-
-        # Load historical observations if present
-        historical_observations = []
-        if flat_data.historical_observations is not None:
-            historical_df = pd.DataFrame(cast("pd.DataFrame", flat_data.historical_observations))
-            for _, row in historical_df.iterrows():
-                observation = Observation(
-                    period=row["time_period"],
-                    org_unit=row["location"],
-                    value=float(row["disease_cases"]) if row["disease_cases"] is not None else None,
-                    feature_name="disease_cases",
-                )
-                historical_observations.append(observation)
-
-        ds.close()
-
-        evaluation = cls(
+        last_train_period = ds.attrs.get("last_train_period")
+        evaluation = cls._from_dataset(
             backtest,
-            historical_observations=historical_observations,
+            ds,
             historical_context_periods=historical_context_periods,
-            hpo=None,
+            last_train_period=str(last_train_period) if last_train_period is not None else None,
+            in_memory_dataset_name=f"dataset_from_{Path(filepath).name}",
         )
-
         evaluation._flat_data_cache = flat_data
-        if flat_data.hpo is not None:
+        if "hpo" in ds.attrs:
             logger.warning(
                 "HPO doesn't yet support converting flat representation back into HyperparameterOptimization, "
-                "but FlatHyperparameterOptimization will be available in flat data cache."
+                "but FlatHyperparameterOptimization will be available in flat data."
             )
 
         return evaluation

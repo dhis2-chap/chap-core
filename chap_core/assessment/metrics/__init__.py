@@ -14,7 +14,7 @@ from typing import cast
 
 import pandas as pd
 
-from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.evaluation import Evaluation, FlatEvaluationData
 from chap_core.assessment.flat_representations import DataDimension, FlatForecasts, FlatObserved
 from chap_core.assessment.metrics.base import (
     DEFAULT_OUTPUT_DIMENSIONS,
@@ -180,11 +180,19 @@ def compute_all_aggregated_metrics_from_backtest(backtest: Backtest) -> dict[str
         Dictionary mapping metric_id to the aggregated metric value
     """
     logger.info(f"Computing aggregated metrics for backtest {backtest.id}")
+    return compute_all_aggregated_metrics(Evaluation.from_backtest(backtest).to_flat())
 
-    # Use Evaluation abstraction to get flat representation
-    evaluation = Evaluation.from_backtest(backtest)
-    flat_data = evaluation.to_flat()
 
+def compute_all_aggregated_metrics(flat_data: FlatEvaluationData) -> dict[str, float]:
+    """
+    Compute all available metrics as global aggregated values for flat evaluation data.
+
+    Args:
+        flat_data: Forecasts, observations and historical observations of an evaluation
+
+    Returns:
+        Dictionary mapping metric_id to the aggregated metric value
+    """
     historical_obs = flat_data.historical_observations
     historical_df: pd.DataFrame | None = (
         pd.DataFrame(cast("pd.DataFrame", historical_obs)) if historical_obs is not None else None
