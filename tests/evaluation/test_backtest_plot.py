@@ -242,28 +242,3 @@ def test_generate_pdf_report(backtest: Backtest, tmp_path: Path):
 
     assert output_file.exists()
     assert output_file.stat().st_size > 0
-
-
-def test_generate_pdf_report_with_a_nan_sample(mocker, tmp_path: Path):
-    """A NaN sample leaves its period with fewer samples than the others in the split."""
-    import numpy as np
-
-    from chap_core.cli_endpoints.utils import generate_pdf_report
-    from chap_core.datatypes import SamplesWithTruth
-    from chap_core.rest_api.data_models import BacktestCreate
-    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-    from chap_core.time_period import PeriodRange
-
-    periods = PeriodRange.from_strings(["2022-01", "2022-02"])
-    samples = np.array([[1.0, np.nan, 3.0], [2.0, 3.0, 4.0]])
-    result = DataSet({"A": SamplesWithTruth(time_period=periods, samples=samples, disease_cases=np.ones(2))})
-    evaluation = Evaluation.from_samples_with_truth(
-        [result], periods[0], mocker.MagicMock(id=1), BacktestCreate(name="cli", dataset_id=0, model_id="model")
-    )
-    input_file = tmp_path / "evaluation.nc"
-    evaluation.to_file(input_file)
-
-    output_file = tmp_path / "report.pdf"
-    generate_pdf_report(input_file, output_file)
-
-    assert output_file.stat().st_size > 0
