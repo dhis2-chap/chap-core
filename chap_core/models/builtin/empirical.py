@@ -5,16 +5,23 @@ import numpy as np
 from chap_core.models.builtin.registry import BaselineNotApplicable
 from chap_core.time_period import Month, PeriodRange, Week
 
-N_SAMPLES = 100
-# 99 quantile levels symmetric around 0.5, plus 0.5 once more. The two middle samples
-# are then both the median, so the median of the samples is exactly the median of
-# the values whichever median definition a metric uses.
-QUANTILE_LEVELS = np.sort(np.append((np.arange(N_SAMPLES - 1) + 0.5) / (N_SAMPLES - 1), 0.5))
 
+def even_samples(values: np.ndarray, n_samples: int) -> np.ndarray:
+    """``n_samples`` samples that are the sorted values, each repeated about equally often.
 
-def quantile_samples(values: np.ndarray) -> np.ndarray:
-    """``N_SAMPLES`` deterministic samples spread over the values, with their median in the middle."""
-    return np.asarray(np.quantile(values, QUANTILE_LEVELS))
+    Sample ``i`` is the sorted value at position ``floor((i + 0.5) * k / n_samples)`` of the
+    ``k`` values, mirrored around the middle so the samples are symmetric. With fewer values
+    than samples each value is repeated, with more the values are thinned evenly. So the
+    samples are always observed values, and with exactly ``n_samples`` values they are the
+    values themselves. With at least as many samples as values, the median of the samples is
+    the median of the values, except when ``n_samples`` is odd and ``k`` even, where it is the
+    larger of the two middle values.
+    """
+    values = np.sort(np.asarray(values, dtype=float))
+    positions = np.arange(n_samples)
+    lower = (2 * positions + 1) * len(values) // (2 * n_samples)
+    index = np.where(positions < n_samples / 2, lower, len(values) - 1 - lower[::-1])
+    return values[index]
 
 
 def periods_per_year(time_period: PeriodRange) -> int:

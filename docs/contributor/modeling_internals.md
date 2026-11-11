@@ -86,15 +86,16 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
   `tests/test_builtin_models.py` runs each one through all of these paths. The
   baselines, all with role `baseline` and all per location:
   - `global_median`: all past observations as forecast samples for every period.
-    A location without observations gets the median of the other locations' samples.
+    A location without observations gets the observations of all other locations.
   - `persistence`: the last observed value, with a spread from the differences in
-    log space over the same horizon at any time of year. The differences are centred
-    on their median, so the median forecast is exactly the last value. They fall back
-    to those of all locations, and then to the longest shorter horizon.
+    log space over the same horizon at any time of year. The samples are centred
+    on their median, so with an odd number of samples the median forecast is exactly
+    the last value. They fall back to those of all locations, and then to the longest
+    shorter horizon.
   - `seasonal_median`: all past observations of the same month or week of the
-    year (week 53 pooled with week 52). Uses the `global_median` samples for a
-    period of the year that was never observed for the location. A location without
-    observations gets the median of the other locations' samples for the same
+    year (week 53 pooled with week 52). Uses all observations of the location for a
+    period of the year that was never observed for it. A location without
+    observations gets the observations of all other locations for the same
     period of the year.
   - `seasonal_shift_persistence`: the last observed value, scaled by
     the changes over the same horizon and time of year in earlier years, so the
@@ -105,8 +106,14 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
     change gives no spread, so more changes further down this order are preferred.
     Without any, the last value is forecast unchanged.
 
-  All four use deterministic quantile samples whose two middle values are both
-  the median, so the sample median is exactly the point forecast.
+  All four forecast only observed values (or observed ratios and differences), with
+  no random sampling or interpolation. The number of samples is that of the largest
+  group in the training data (location, location and period of year, horizon, or
+  horizon and period of year), and `empirical.even_samples` spreads a smaller group
+  over as many samples by repeating each sorted value about equally often, or thins a
+  larger fallback group evenly. The sample median is then the median of the
+  observations, except for an even number of observations spread over an odd number
+  of samples, where it is the larger middle value.
 
   The REST API runs every live baseline once on each backtest specification
   (`chap_core/rest_api/baseline_runs.py`). A backtest queued through the API asks
