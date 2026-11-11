@@ -314,7 +314,7 @@ def _build_results_summary(evaluation: Evaluation) -> str:
 
     from chap_core.assessment.metrics import compute_all_aggregated_metrics
 
-    metrics = compute_all_aggregated_metrics(evaluation.to_flat())
+    metrics = compute_all_aggregated_metrics(evaluation)
     return "\n".join(
         [
             f"Ratio above truth: {metrics.get('ratio_above_truth')}\n",

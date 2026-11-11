@@ -367,6 +367,7 @@ def generate_pdf_from_evaluation(evaluation, pdf_filename: str) -> None:
         pdf_filename: Path to output PDF file
     """
     from chap_core.assessment.evaluation import split_period
+    from chap_core.assessment.forecast_cells import check_sample_counts
     from chap_core.time_period import TimePeriod
 
     flat_data = evaluation.to_flat()
@@ -408,11 +409,8 @@ def generate_pdf_from_evaluation(evaluation, pdf_filename: str) -> None:
             obs_df = obs_df.sort_index()
 
             sorted_periods = sorted(period_forecasts.keys())
-            # Flat forecasts leave out NaN samples, so periods can hold different numbers of samples.
-            n_samples = max(len(period_forecasts[p]) for p in sorted_periods)
-            samples_matrix = np.full((len(sorted_periods), n_samples), np.nan)
-            for i, p in enumerate(sorted_periods):
-                samples_matrix[i, : len(period_forecasts[p])] = period_forecasts[p]
+            check_sample_counts(np.array([len(period_forecasts[p]) for p in sorted_periods]))
+            samples_matrix = np.array([period_forecasts[p] for p in sorted_periods])
 
             forecast = ForecastAdaptor.from_samples(
                 Samples(  # type: ignore[call-arg]

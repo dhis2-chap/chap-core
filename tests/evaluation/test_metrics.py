@@ -15,7 +15,7 @@ from chap_core.assessment.metrics import (
     WinklerScore25_75Log1pMetric,
     WinklerScore25_75Metric,
     DataDimension,
-    compute_all_aggregated_metrics_from_backtest,
+    compute_all_aggregated_metrics,
     compute_all_detailed_metrics,
 )
 from chap_core.assessment.evaluation import Evaluation
@@ -191,9 +191,9 @@ def test_mape_aggregate(flat_forecasts, flat_observations):
     np.testing.assert_almost_equal(result["metric"].iloc[0], expected_mape, decimal=5)
 
 
-def test_get_all_aggregated_metrics_from_backtest(backtest_weeks):
-    """Test compute_all_aggregated_metrics_from_backtest returns expected metrics."""
-    metrics = compute_all_aggregated_metrics_from_backtest(backtest_weeks)
+def test_compute_all_aggregated_metrics(backtest_weeks):
+    """Test compute_all_aggregated_metrics returns expected metrics."""
+    metrics = compute_all_aggregated_metrics(Evaluation.from_backtest(backtest_weeks))
     assert "crps" in metrics
     assert not {"sample_count", "example_metric"} & set(metrics)
 

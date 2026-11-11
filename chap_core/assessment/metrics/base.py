@@ -16,6 +16,7 @@ from chap_core.assessment.flat_representations import (
     FlatForecasts,
     FlatObserved,
 )
+from chap_core.assessment.forecast_cells import ForecastCells
 
 
 class AggregationOp(StrEnum):
@@ -143,20 +144,35 @@ class Metric(ABC):
         Returns:
             DataFrame with metric values at the specified level
         """
-        # Filter out null observations
-        null_mask = observations.disease_cases.isnull()  # type: ignore[attr-defined]
-        observations = observations[~null_mask]  # type: ignore[index]
+        return self.get_metric_from_cells(ForecastCells.from_flat(observations, forecasts), dimensions)
 
-        # Compute at detailed level first
-        detailed = self.compute_detailed(observations, forecasts)  # type: ignore[arg-type]
+    def get_metric_from_cells(self, cells: ForecastCells, dimensions: tuple[DataDimension, ...] = ()) -> pd.DataFrame:
+        """
+        Compute the metric from forecast cells, keeping the specified dimensions.
 
-        # Aggregate to requested level
+        This is what ``get_metric`` does after turning the flat tables into cells, so
+        callers that hold an evaluation can use ``Evaluation.to_cells()`` instead.
+
+        Args:
+            cells: The forecast cells with their samples and observations
+            dimensions: Which dimensions to keep in the output. Empty tuple means
+                       aggregate to a single scalar value.
+
+        Returns:
+            DataFrame with metric values at the specified level
+        """
+        detailed = self.compute_detailed_from_cells(cells)
         result = self._aggregate_to_dimensions(detailed, dimensions)
-
-        # Validate output
         return self._validate_output(result, dimensions)
 
-    @abstractmethod
+    def get_global_metric_from_cells(self, cells: ForecastCells) -> pd.DataFrame:
+        """The metric of forecast cells as a single aggregated value."""
+        return self.get_metric_from_cells(cells, dimensions=())
+
+    def get_detailed_metric_from_cells(self, cells: ForecastCells) -> pd.DataFrame:
+        """The metric of forecast cells at the finest resolution (from spec.output_dimensions)."""
+        return self.get_metric_from_cells(cells, dimensions=self.spec.output_dimensions)
+
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
         """
         Compute the metric at the finest resolution (per location/time_period/horizon_distance).
@@ -167,6 +183,27 @@ class Metric(ABC):
 
         Returns:
             DataFrame with columns [location, time_period, horizon_distance, metric]
+        """
+        return self.compute_detailed_from_cells(ForecastCells.from_flat(observations, forecasts))
+
+    def compute_detailed_from_cells(self, cells: ForecastCells) -> pd.DataFrame:
+        """The metric of each observed cell, as [location, time_period, horizon_distance, metric]."""
+        scored = cells.observed_only()
+        result = scored.keys.copy()
+        result["metric"] = self.compute_cell_metrics(scored.samples, scored.observed) if len(scored) else np.empty(0)
+        return result
+
+    @abstractmethod
+    def compute_cell_metrics(self, samples: np.ndarray, observed: np.ndarray) -> np.ndarray:
+        """
+        The metric of each forecast cell.
+
+        Args:
+            samples: The samples of each scored cell, shape (cells, samples)
+            observed: The observed value of each scored cell, never NaN
+
+        Returns:
+            One metric value per cell
         """
         raise NotImplementedError
 
@@ -308,29 +345,19 @@ class DeterministicMetric(Metric):
     and observed value and returns the metric value.
     """
 
-    def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
-        """Compute detailed metric using median of samples."""
-        # Compute median forecast across samples
-        median_forecasts = forecasts.groupby(["location", "time_period", "horizon_distance"], as_index=False)[
-            "forecast"
-        ].median()
+    def compute_cell_metrics(self, samples: np.ndarray, observed: np.ndarray) -> np.ndarray:
+        """The point metric of each cell's median forecast."""
+        return self.compute_point_metric_rows(np.median(samples, axis=1), observed)
 
-        # Merge with observations
-        merged = median_forecasts.merge(
-            observations[["location", "time_period", "disease_cases"]],
-            on=["location", "time_period"],
-            how="inner",
+    def compute_point_metric_rows(self, forecast: np.ndarray, observed: np.ndarray) -> np.ndarray:
+        """The point metric of each forecast against its observation.
+
+        Override with a vectorised version; the default calls ``compute_point_metric`` once per row.
+        """
+        return np.array(
+            [self.compute_point_metric(f, o) for f, o in zip(forecast.tolist(), observed.tolist(), strict=True)],
+            dtype=float,
         )
-
-        # Compute metric for each row
-        merged["metric"] = [
-            self.compute_point_metric(forecast, observed)
-            for forecast, observed in zip(
-                merged["forecast"].to_numpy(dtype=float), merged["disease_cases"].to_numpy(dtype=float), strict=True
-            )
-        ]
-
-        return pd.DataFrame(merged[["location", "time_period", "horizon_distance", "metric"]])
 
     @abstractmethod
     def compute_point_metric(self, forecast: float, observed: float) -> float:
@@ -355,32 +382,9 @@ class ProbabilisticMetric(Metric):
     values and the observed value and returns the metric value.
     """
 
-    def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
-        """Compute detailed metric using all samples."""
-        # Merge observations with forecasts on location and time_period
-        merged = forecasts.merge(
-            observations[["location", "time_period", "disease_cases"]], on=["location", "time_period"], how="inner"
-        )
-
-        keys = ["location", "time_period", "horizon_distance"]
-        # groupby drops rows with a missing key, so they get no group here either.
-        merged = merged.dropna(subset=keys).sort_values(keys, kind="stable", ignore_index=True)
-        group_ids = merged.groupby(keys, sort=False).ngroup().to_numpy()
-        starts = np.flatnonzero(np.diff(group_ids, prepend=-1))
-        sizes = np.diff(np.append(starts, len(merged)))
-        result = merged.loc[starts, keys].reset_index(drop=True)
-        forecast = merged["forecast"].to_numpy(dtype=float)
-        observed = merged["disease_cases"].to_numpy(dtype=float)[starts]
-        if not len(starts):
-            result["metric"] = np.empty(0)
-        elif (sizes == sizes[0]).all():
-            result["metric"] = self.compute_sample_metric_rows(forecast.reshape(len(starts), sizes[0]), observed)
-        else:
-            result["metric"] = [
-                self.compute_sample_metric(samples, obs)
-                for samples, obs in zip(np.split(forecast, starts[1:]), observed, strict=True)
-            ]
-        return result
+    def compute_cell_metrics(self, samples: np.ndarray, observed: np.ndarray) -> np.ndarray:
+        """The sample metric of each cell."""
+        return self.compute_sample_metric_rows(samples, observed)
 
     def compute_sample_metric_rows(self, samples: np.ndarray, observed: np.ndarray) -> np.ndarray:
         """The metric of each row of ``samples`` (rows x samples) against ``observed`` (one value per row).
