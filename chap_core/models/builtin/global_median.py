@@ -4,7 +4,7 @@ import numpy as np
 
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.datatypes import Samples
-from chap_core.models.builtin.empirical import even_samples
+from chap_core.models.builtin.empirical import even_samples, sample_count
 from chap_core.models.builtin.registry import BaselineNotApplicable, BuiltinModel, BuiltinModelSpec, builtin_model
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -26,7 +26,7 @@ class GlobalObservations:
         return cls(by_location)
 
     @property
-    def n_samples(self) -> int:
+    def largest_group(self) -> int:
         """The number of observations of the location with the most."""
         return max((len(observed) for observed in self.by_location.values()), default=1)
 
@@ -43,10 +43,9 @@ class GlobalObservations:
 class GlobalMedian(BuiltinModel):
     """Forecasts every period with all observations of the same location in the training data.
 
-    The samples are the observations themselves, for the location with the most
-    observations, and the observations spread evenly over as many samples for the others
-    (see ``even_samples``). A location without observations gets the observations of all
-    other locations.
+    The samples are the observations, each repeated about equally often, with their exact
+    median as the middle sample (see ``even_samples`` and ``sample_count``). A location
+    without observations gets the observations of all other locations.
     """
 
     spec = BuiltinModelSpec(
@@ -62,7 +61,7 @@ class GlobalMedian(BuiltinModel):
 
     def train(self, data: DataSet) -> None:
         self._observations = GlobalObservations.from_data(data)
-        self._n_samples = self._observations.n_samples
+        self._n_samples = sample_count(self._observations.largest_group)
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         forecasts = {}

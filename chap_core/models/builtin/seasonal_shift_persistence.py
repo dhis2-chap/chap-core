@@ -6,7 +6,7 @@ import numpy as np
 
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.datatypes import Samples
-from chap_core.models.builtin.empirical import even_samples, period_of_year, periods_per_year
+from chap_core.models.builtin.empirical import even_samples, period_of_year, periods_per_year, sample_count
 from chap_core.models.builtin.registry import BaselineNotApplicable, BuiltinModel, BuiltinModelSpec, builtin_model
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -74,9 +74,9 @@ class SeasonalShiftPersistence(BuiltinModel):
     For a target ``h`` periods after the last observed value ``y``, the samples are
     ``(y + 1) * r - 1`` for the ratios ``r = (y_t + 1) / (y_{t-h} + 1)`` in the training
     data of the same location, over every ``t`` with the target's period of year. The
-    ratios are spread evenly over as many samples as the horizon and period of year with
-    the most ratios has (see ``even_samples``), so every sample uses an observed ratio and
-    the spread widens with the horizon. Adding one keeps zero counts usable. Week 53 is
+    ratios are repeated about equally often around their exact median as the middle sample
+    (see ``even_samples`` and ``sample_count``), so the median forecast is ``y`` scaled by the
+    median ratio, and the spread widens with the horizon. Adding one keeps zero counts usable. Week 53 is
     pooled with week 52.
 
     Training keeps the ratios for horizons up to one year. Missing ratios fall back to
@@ -110,7 +110,7 @@ class SeasonalShiftPersistence(BuiltinModel):
             for location, location_data in data.items()
         }
         self._pooled_shifts = SeasonalShifts.pooled(self._shifts.values())
-        self._n_samples = max([shifts.n_ratios for shifts in self._shifts.values()] + [1])
+        self._n_samples = sample_count(max((shifts.n_ratios for shifts in self._shifts.values()), default=0))
 
     def _ratios(self, location: str, season: int, horizon: int) -> np.ndarray:
         """The ratios of the location, else of all locations, at the horizon or else the longest shorter one.

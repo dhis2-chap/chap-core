@@ -89,8 +89,7 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
     A location without observations gets the observations of all other locations.
   - `persistence`: the last observed value, with a spread from the differences in
     log space over the same horizon at any time of year. The samples are centred
-    on their median, so with an odd number of samples the median forecast is exactly
-    the last value. They fall back to those of all locations, and then to the longest
+    on their median, so the median forecast is exactly the last value. They fall back to those of all locations, and then to the longest
     shorter horizon.
   - `seasonal_median`: all past observations of the same month or week of the
     year (week 53 pooled with week 52). Uses all observations of the location for a
@@ -106,14 +105,16 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
     change gives no spread, so more changes further down this order are preferred.
     Without any, the last value is forecast unchanged.
 
-  All four forecast only observed values (or observed ratios and differences), with
-  no random sampling or interpolation. The number of samples is that of the largest
-  group in the training data (location, location and period of year, horizon, or
-  horizon and period of year), and `empirical.even_samples` spreads a smaller group
-  over as many samples by repeating each sorted value about equally often, or thins a
-  larger fallback group evenly. The sample median is then the median of the
-  observations, except for an even number of observations spread over an odd number
-  of samples, where it is the larger middle value.
+  All four forecast with the observed values (or observed ratios and differences)
+  themselves, with no random sampling or interpolation. `empirical.sample_count` sets
+  an odd number of samples, at least 101 and more than the largest group in the
+  training data (location, location and period of year, horizon, or horizon and
+  period of year). `empirical.even_samples` makes the middle sample the exact median
+  of a group's values and repeats each sorted value about equally often around it, so
+  5 observations are used 20 times each. The middle sample is the only one that can be
+  a value that was not observed, the average of the two middle values of an even
+  number of observations. A fallback group with more values than samples is thinned
+  evenly.
 
   The REST API runs every live baseline once on each backtest specification
   (`chap_core/rest_api/baseline_runs.py`). A backtest queued through the API asks

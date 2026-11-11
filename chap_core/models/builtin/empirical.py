@@ -5,19 +5,39 @@ import numpy as np
 from chap_core.models.builtin.registry import BaselineNotApplicable
 from chap_core.time_period import Month, PeriodRange, Week
 
+MIN_SAMPLES = 101
+
+
+def sample_count(largest_group: int) -> int:
+    """The number of samples for groups of at most ``largest_group`` values.
+
+    It is odd, so there is a single middle sample, at least ``MIN_SAMPLES``, and at least one
+    more than the largest group, so no group is thinned.
+    """
+    spread = max(largest_group, MIN_SAMPLES - 1)
+    return spread + spread % 2 + 1
+
 
 def even_samples(values: np.ndarray, n_samples: int) -> np.ndarray:
-    """``n_samples`` samples that are the sorted values, each repeated about equally often.
+    """``n_samples`` sorted samples: the values, each repeated about equally often, around their median.
 
-    Sample ``i`` is the sorted value at position ``floor((i + 0.5) * k / n_samples)`` of the
-    ``k`` values, mirrored around the middle so the samples are symmetric. With fewer values
-    than samples each value is repeated, with more the values are thinned evenly. So the
-    samples are always observed values, and with exactly ``n_samples`` values they are the
-    values themselves. With at least as many samples as values, the median of the samples is
-    the median of the values, except when ``n_samples`` is odd and ``k`` even, where it is the
-    larger of the two middle values.
+    For an odd ``n_samples`` the middle sample is the exact median of the values, and the
+    ``n_samples - 1`` others spread the values evenly, half on each side. For an even
+    ``n_samples`` the values are spread evenly over all of them. Spreading takes sample ``i``
+    as the sorted value at position ``floor((i + 0.5) * k / n)`` of the ``k`` values, mirrored
+    around the middle so the samples are symmetric. With fewer values than samples each value
+    is repeated, with more the values are thinned evenly. So every sample except the middle
+    one is an observed value, and the middle one is too unless ``k`` is even.
     """
     values = np.sort(np.asarray(values, dtype=float))
+    if n_samples % 2 == 0:
+        return _spread(values, n_samples)
+    half = n_samples // 2
+    spread = _spread(values, n_samples - 1)
+    return np.concatenate([spread[:half], [np.median(values)], spread[half:]])
+
+
+def _spread(values: np.ndarray, n_samples: int) -> np.ndarray:
     positions = np.arange(n_samples)
     lower = (2 * positions + 1) * len(values) // (2 * n_samples)
     index = np.where(positions < n_samples / 2, lower, len(values) - 1 - lower[::-1])

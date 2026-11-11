@@ -6,7 +6,7 @@ import numpy as np
 
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.datatypes import Samples
-from chap_core.models.builtin.empirical import even_samples, periods_per_year
+from chap_core.models.builtin.empirical import even_samples, periods_per_year, sample_count
 from chap_core.models.builtin.registry import BaselineNotApplicable, BuiltinModel, BuiltinModelSpec, builtin_model
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -50,10 +50,10 @@ class Persistence(BuiltinModel):
     For a target ``h`` periods after the last observed value ``y``, the samples are
     ``(y + 1) * exp(d - median(d)) - 1`` for the differences
     ``d = log(y_t + 1) - log(y_{t-h} + 1)`` over every ``t`` in the training data of the
-    same location, spread evenly over as many samples as the horizon with the most
-    differences has (see ``even_samples``). Centring the samples on their median keeps a
-    trend in the training data from moving the forecast. With an odd number of samples the
-    middle sample is then exactly ``y``. The spread widens with the horizon.
+    same location, each repeated about equally often around their exact median as the middle
+    sample (see ``even_samples`` and ``sample_count``). Centring the samples on that median
+    keeps a trend in the training data from moving the forecast, and makes the middle sample
+    exactly ``y``. The spread widens with the horizon.
 
     Training keeps the differences for horizons up to one year. Missing differences fall
     back to those of all locations. A horizon without differences, such as one longer than
@@ -83,7 +83,9 @@ class Persistence(BuiltinModel):
             for location, location_data in data.items()
         }
         self._pooled_differences = LogDifferences.pooled(self._differences.values())
-        self._n_samples = max([differences.n_differences for differences in self._differences.values()] + [1])
+        self._n_samples = sample_count(
+            max((differences.n_differences for differences in self._differences.values()), default=0)
+        )
 
     def _centred_differences(self, location: str, horizon: int) -> np.ndarray:
         """Samples of the differences of the location, else of all locations, at the horizon.
