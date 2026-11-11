@@ -75,6 +75,7 @@ class SeasonalMedian(BuiltinModel):
 
     def train(self, data: DataSet) -> None:
         self._observations = SeasonalObservations.from_data(data)
+        self._n_samples = self._observations.n_samples
         self._global_observations = GlobalObservations.from_data(data)
 
     def _seasonal_observations(self, location: str, season: int) -> np.ndarray:
@@ -89,7 +90,7 @@ class SeasonalMedian(BuiltinModel):
         forecasts = {}
         for location, location_data in future_data.items():
             rows = [
-                even_samples(self._seasonal_observations(location, season), self._observations.n_samples)
+                even_samples(self._seasonal_observations(location, season), self._n_samples)
                 for season in period_of_year(location_data.time_period)
             ]
             forecasts[location] = Samples(location_data.time_period, np.array(rows))  # type: ignore[call-arg]

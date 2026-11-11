@@ -62,12 +62,13 @@ class GlobalMedian(BuiltinModel):
 
     def train(self, data: DataSet) -> None:
         self._observations = GlobalObservations.from_data(data)
+        self._n_samples = self._observations.n_samples
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         forecasts = {}
         for location, location_data in future_data.items():
             samples = np.tile(
-                even_samples(self._observations.for_location(location), self._observations.n_samples),
+                even_samples(self._observations.for_location(location), self._n_samples),
                 (len(location_data.time_period), 1),
             )
             forecasts[location] = Samples(location_data.time_period, samples)  # type: ignore[call-arg]
