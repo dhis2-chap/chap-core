@@ -8,7 +8,6 @@ import pandas as pd
 
 from chap_core.assessment.thresholds import get_threshold_strategy
 from chap_core.database.dataset_manager import DataSetManager
-from chap_core.spatio_temporal_data.converters import observations_to_dataframe
 
 if TYPE_CHECKING:
     from sqlmodel import Session
@@ -47,13 +46,11 @@ def compute_thresholds(
     if strategy_cls is None:
         raise UnknownStrategyError(f"Threshold strategy {params.type} is in the request schema but not registered")
 
-    observations = DataSetManager(session).observations(
-        dataset_id, org_units=locations or None, feature_names=[target_column]
-    )
-    if not observations:
+    rows = DataSetManager(session).feature_values(dataset_id, target_column, org_units=locations or None)
+    if not rows:
         raise NoObservationsError(f"No {target_column} observations found for dataset {dataset_id}")
     # Strategies read the history from a disease_cases column whatever the target is.
-    historical = observations_to_dataframe(observations).rename(columns={"value": "disease_cases"})[
+    historical = pd.DataFrame(rows, columns=["time_period", "location", "disease_cases"])[
         ["location", "time_period", "disease_cases"]
     ]
     try:

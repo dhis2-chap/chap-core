@@ -247,3 +247,28 @@ def test_percentile_params_validation():
         PercentileParams(type="percentile", quantile=[])
     with pytest.raises(ValueError):
         PercentileParams(type="percentile", baseline_years=0)
+
+
+def test_service_thresholds_match_strategy_on_stored_history(engine, dataset, dataset_observations):
+    from sqlmodel import Session
+
+    from chap_core.services.threshold_service import compute_thresholds
+
+    expected_history = _disease_cases_df(dataset_observations)
+    params = SeasonalParams(type="seasonal", std_multiplier=[1.0, 2.0])
+    period_ids = ["2023-01", "2023-02"]
+    with Session(engine) as session:
+        session.add(dataset)
+        session.commit()
+        result = compute_thresholds(session, dataset.id, period_ids, params, ["loc_2", "loc_1"])
+
+    expected = (
+        _strategy("seasonal")
+        .compute(expected_history, period_ids, params)
+        .set_index(["period_id", "location", "line"])["threshold"]
+    )
+    assert list(zip(result["period_id"], result["location"])) == [
+        (p, loc) for p in period_ids for loc in ("loc_2", "loc_1") for _ in range(2)
+    ]
+    actual = result.set_index(["period_id", "location", "line"])["threshold"]
+    pd.testing.assert_series_equal(actual, expected.reindex(actual.index))
