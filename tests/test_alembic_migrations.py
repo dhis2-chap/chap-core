@@ -838,3 +838,44 @@ def test_startup_still_adds_missing_columns_to_a_database_without_alembic(engine
 
     assert "Adding missing column target_column to table dataset" in messages
     assert _current_revision(engine) == ScriptDirectory.from_config(_make_alembic_cfg(engine)).get_current_head()
+
+
+# Tables and columns at _GENERIC_SCHEMA_ALEMBIC_REVISION, from the models at the commit that
+# added it. Startup adds no columns past this revision, so Alembic must add every later one.
+_SCHEMA_AT_GENERIC_REVISION = PROJECT_ROOT / "tests" / "fixtures" / "schema_at_generic_schema_revision.json"
+
+
+@pytest.mark.slow
+def test_migrations_add_every_model_column_after_the_generic_schema_revision(engine, monkeypatch, caplog):
+    """A model column without an Alembic revision would be missing in production (CLIM-1868)."""
+    from alembic import command
+    from alembic.autogenerate import compare_metadata
+    from alembic.migration import MigrationContext
+
+    schema_at_marker = json.loads(_SCHEMA_AT_GENERIC_REVISION.read_text())
+    with engine.begin() as conn:
+        conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+        conn.execute(sa.text("CREATE SCHEMA public"))
+    SQLModel.metadata.create_all(engine)
+    cfg = _make_alembic_cfg(engine)
+    command.stamp(cfg, "head")
+    command.downgrade(cfg, "a7b8c9d0e1f2")
+    # A downgrade only undoes what the migrations did, so a model column that no migration
+    # adds survives it. Dropping everything the marker did not have removes those too.
+    with engine.begin() as conn:
+        for table in sa.inspect(conn).get_table_names():
+            if table == "alembic_version":
+                continue
+            if table not in schema_at_marker:
+                conn.execute(sa.text(f"DROP TABLE {table} CASCADE"))
+                continue
+            for column in sa.inspect(conn).get_columns(table):
+                if column["name"] not in schema_at_marker[table]:
+                    conn.execute(sa.text(f'ALTER TABLE {table} DROP COLUMN "{column["name"]}" CASCADE'))
+
+    _start_up(engine, monkeypatch, caplog)
+
+    with engine.connect() as conn:
+        diffs = compare_metadata(MigrationContext.configure(conn), SQLModel.metadata)
+    missing_columns = [(diff[2], diff[3].name) for diff in diffs if diff[0] == "add_column"]
+    assert missing_columns == []
