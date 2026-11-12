@@ -765,3 +765,74 @@ def test_alert_policy_output_codes_migration(engine, alert_prediction, generic_m
         ]
         alert = session.exec(select(Alert)).one()
         assert next(level.output_code for level in policy.levels if level.name == alert.level) == "2"
+
+
+def _start_up(engine, monkeypatch, caplog):
+    """Run startup's schema steps against engine, without seeding models, and return its log messages.
+
+    Alembic's logging config replaces the root handlers, so caplog listens on the module logger.
+    """
+    import logging
+
+    from chap_core.database import database, model_template_seed
+
+    monkeypatch.setattr(database, "engine", engine)
+    monkeypatch.setattr(model_template_seed, "seed_configured_models_from_config_dir", lambda session: None)
+    logger = logging.getLogger(database.__name__)
+    logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.INFO, logger=database.__name__):
+            database.create_db_and_tables()
+    finally:
+        logger.removeHandler(caplog.handler)
+    return [record.getMessage() for record in caplog.records]
+
+
+def _current_revision(engine):
+    with engine.connect() as conn:
+        return conn.execute(sa.text("SELECT version_num FROM alembic_version")).scalar_one()
+
+
+@pytest.mark.slow
+def test_startup_leaves_columns_to_alembic_once_it_manages_the_schema(engine, monkeypatch, caplog):
+    """Startup must not add a column ahead of the Alembic revision that adds it (CLIM-1868).
+
+    The database is at the revision before dataset.target_column. If startup added the
+    column from model metadata first, the revision would find it filled with a placeholder.
+    """
+    from alembic import command
+    from alembic.script import ScriptDirectory
+
+    with engine.begin() as conn:
+        conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+        conn.execute(sa.text("CREATE SCHEMA public"))
+    SQLModel.metadata.create_all(engine)
+    cfg = _make_alembic_cfg(engine)
+    command.stamp(cfg, "head")
+    command.downgrade(cfg, "e99c0d1cc249")
+    with engine.begin() as conn:
+        conn.execute(sa.text("INSERT INTO dataset (name) VALUES ('stored')"))
+
+    messages = _start_up(engine, monkeypatch, caplog)
+
+    assert not [message for message in messages if message.startswith("Adding missing column")]
+    assert _current_revision(engine) == ScriptDirectory.from_config(cfg).get_current_head()
+    with engine.connect() as conn:
+        assert conn.execute(sa.text("SELECT target_column FROM dataset")).scalar_one() == "disease_cases"
+
+
+@pytest.mark.slow
+def test_startup_still_adds_missing_columns_to_a_database_without_alembic(engine, monkeypatch, caplog):
+    from alembic.script import ScriptDirectory
+
+    with engine.begin() as conn:
+        conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+        conn.execute(sa.text("CREATE SCHEMA public"))
+    SQLModel.metadata.create_all(engine)
+    with engine.begin() as conn:
+        conn.execute(sa.text("ALTER TABLE dataset DROP COLUMN target_column"))
+
+    messages = _start_up(engine, monkeypatch, caplog)
+
+    assert "Adding missing column target_column to table dataset" in messages
+    assert _current_revision(engine) == ScriptDirectory.from_config(_make_alembic_cfg(engine)).get_current_head()

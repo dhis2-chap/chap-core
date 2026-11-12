@@ -96,7 +96,7 @@ uv run alembic revision -m "migrate_old_data"
 
 When you run `docker compose up`, the system runs migrations in this order:
 
-1. **Custom migrations** - For backward compatibility with older database versions (v1.0.17 and earlier)
+1. **Custom migrations** - For backward compatibility with older database versions (v1.0.17 and earlier). They add missing columns from the models only on databases without an Alembic revision or at a revision before `_GENERIC_SCHEMA_ALEMBIC_REVISION`. On later databases a new column comes only from its Alembic migration, so a migration never finds it filled with placeholder values. A migration must still check that a column or table does not exist before adding it: on a new database, step 2 creates every table at the current schema, startup stamps it at `_GENERIC_SCHEMA_ALEMBIC_REVISION`, and every later migration then runs against that schema.
 2. **Table creation** - Creates any new tables
 3. **Alembic migrations** - Applies schema changes from `alembic/versions/`
 
