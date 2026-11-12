@@ -164,7 +164,7 @@ def _check_celery_db_roundtrip() -> str:
         },
     },
 )
-async def readiness() -> Response:
+def readiness() -> Response:
     checks = {
         "db": _check_db(),
         "redis": _check_redis(),
@@ -201,7 +201,7 @@ async def readiness() -> Response:
         },
     },
 )
-async def deep_probe() -> Response:
+def deep_probe() -> Response:
     roundtrip = _check_celery_db_roundtrip()
     healthy = roundtrip == "ok"
     body = ReadinessResponse(
