@@ -1,11 +1,13 @@
 import logging
 import os
 import uuid
+from contextlib import asynccontextmanager
 
 # pandera imports geopandas, and with it pyproj, the first time a schema is built. In a
 # sync route that happens on a threadpool thread, and once pyproj has been imported off
 # the main thread every later fork() child segfaults on macOS. Import it here instead.
 import pyproj  # noqa: F401
+from anyio import to_thread
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -13,6 +15,7 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer
 
 from chap_core import __version__ as chap_core_version
+from chap_core.database.database import DB_POOL_CONNECTIONS
 from chap_core.rest_api.auth import ApiTokenMiddleware, warn_on_weak_token
 from chap_core.rest_api.common_routes import router as common_router
 from chap_core.rest_api.v1.rest_api import router as v1_router
@@ -44,7 +47,16 @@ api_description = (
 )
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Sync handlers run in this threadpool. One thread per pooled database connection, so
+    # extra requests wait for a thread instead of failing on a QueuePool timeout.
+    to_thread.current_default_thread_limiter().total_tokens = DB_POOL_CONNECTIONS
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="CHAP Core API",
     description=api_description,
     version=chap_core_version,

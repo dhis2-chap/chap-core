@@ -55,6 +55,13 @@ _GENERIC_SCHEMA_ALEMBIC_REVISION = "a7b8c9d0e1f2"
 # Forecast rows inserted per statement when storing a backtest; each carries its samples.
 FORECAST_INSERT_BATCH_SIZE = 5_000
 
+# Connections per process. The API caps its threadpool at DB_POOL_CONNECTIONS, so a request
+# waits for a thread rather than timing out on the pool. Workers x DB_POOL_CONNECTIONS must
+# stay below Postgres max_connections.
+DB_POOL_SIZE = 5
+DB_MAX_OVERFLOW = 10
+DB_POOL_CONNECTIONS = DB_POOL_SIZE + DB_MAX_OVERFLOW
+
 # Log database URL with credentials masked for security
 if database_url:
     masked_url = database_url.split("@")[-1] if "@" in database_url else database_url
@@ -65,7 +72,9 @@ if database_url is not None:
     n = 0
     while n < 30:
         try:
-            engine = create_engine(database_url, echo=is_debug_mode())
+            engine = create_engine(
+                database_url, echo=is_debug_mode(), pool_size=DB_POOL_SIZE, max_overflow=DB_MAX_OVERFLOW
+            )
             break
         except sqlalchemy.exc.OperationalError as e:
             logger.error(f"Failed to connect to database: {e}. Trying again")

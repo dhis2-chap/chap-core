@@ -4,11 +4,14 @@ import inspect
 import threading
 import time
 
+import anyio
+from anyio import to_thread
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
+from chap_core.database.database import DB_POOL_CONNECTIONS
 from chap_core.rest_api import common_routes
-from chap_core.rest_api.app import app
+from chap_core.rest_api.app import app, lifespan
 
 # Async handlers that do no blocking work, or that await real async I/O.
 ASYNC_HANDLERS = {"health", "system_info", "favicon", "proxy_to_service"}
@@ -16,7 +19,7 @@ ASYNC_HANDLERS = {"health", "system_info", "favicon", "proxy_to_service"}
 
 class SlowRedis:
     def ping(self):
-        time.sleep(1.5)
+        time.sleep(3)
 
 
 def test_slow_handler_does_not_block_health_check(monkeypatch):
@@ -27,14 +30,22 @@ def test_slow_handler_does_not_block_health_check(monkeypatch):
     with TestClient(app) as client:
         slow = threading.Thread(target=client.get, args=("/health/ready",))
         slow.start()
-        time.sleep(0.2)
-        started = time.monotonic()
+        time.sleep(0.5)
         response = client.get("/health")
-        elapsed = time.monotonic() - started
+        # On the event loop, the slow check would have finished before /health could answer.
+        still_running = slow.is_alive()
         slow.join()
 
     assert response.status_code == 200
-    assert elapsed < 0.5
+    assert still_running
+
+
+def test_threadpool_matches_database_pool():
+    async def threadpool_size():
+        async with lifespan(app):
+            return to_thread.current_default_thread_limiter().total_tokens
+
+    assert anyio.run(threadpool_size) == DB_POOL_CONNECTIONS
 
 
 def api_routes(routes):
