@@ -90,6 +90,15 @@ _COLUMNS_RENAMED_BY_MIGRATIONS = [
 ]
 
 
+# Indexes added by migrations, as (table, name). create_all makes them from the model
+# declarations, so the baseline drops them for the migration to create them again.
+_INDEXES_ADDED_BY_MIGRATIONS = [
+    ("observation", "ix_observation_dataset_feature_org_unit"),
+    ("backtestforecast", "ix_backtestforecast_backtest_org_unit"),
+    ("predictionsamplesentry", "ix_predictionsamplesentry_prediction"),
+]
+
+
 def _pg_container():
     """Create and start a PostgreSQL testcontainer."""
     try:
@@ -159,6 +168,8 @@ def _create_baseline_schema(engine):
             conn.execute(sa.text(f"ALTER TABLE {table} ALTER COLUMN {column} DROP NOT NULL"))
         for table, baseline_name, current_name in _COLUMNS_RENAMED_BY_MIGRATIONS:
             conn.execute(sa.text(f"ALTER TABLE {table} RENAME COLUMN {current_name} TO {baseline_name}"))
+        for _, name in _INDEXES_ADDED_BY_MIGRATIONS:
+            conn.execute(sa.text(f"DROP INDEX IF EXISTS {name}"))
         conn.commit()
 
 
@@ -258,6 +269,10 @@ class TestAlembicMigrations:
         columns = {col["name"] for col in sa.inspect(engine).get_columns("backtest")}
         assert not columns & {"n_periods", "n_splits", "stride", "n_retrain", "future_weather_provider"}
         assert "chap_version" in columns
+
+        inspector = sa.inspect(engine)
+        for table, name in _INDEXES_ADDED_BY_MIGRATIONS:
+            assert name in {index["name"] for index in inspector.get_indexes(table)}, f"{name} missing on {table}"
 
         from sqlmodel import Session
         from chap_core.database.settings import SettingsManager
@@ -750,3 +765,117 @@ def test_alert_policy_output_codes_migration(engine, alert_prediction, generic_m
         ]
         alert = session.exec(select(Alert)).one()
         assert next(level.output_code for level in policy.levels if level.name == alert.level) == "2"
+
+
+def _start_up(engine, monkeypatch, caplog):
+    """Run startup's schema steps against engine, without seeding models, and return its log messages.
+
+    Alembic's logging config replaces the root handlers, so caplog listens on the module logger.
+    """
+    import logging
+
+    from chap_core.database import database, model_template_seed
+
+    monkeypatch.setattr(database, "engine", engine)
+    monkeypatch.setattr(model_template_seed, "seed_configured_models_from_config_dir", lambda session: None)
+    logger = logging.getLogger(database.__name__)
+    logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.INFO, logger=database.__name__):
+            database.create_db_and_tables()
+    finally:
+        logger.removeHandler(caplog.handler)
+    return [record.getMessage() for record in caplog.records]
+
+
+def _current_revision(engine):
+    with engine.connect() as conn:
+        return conn.execute(sa.text("SELECT version_num FROM alembic_version")).scalar_one()
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("stored_revision", ["a7b8c9d0e1f2", "e99c0d1cc249"])
+def test_startup_leaves_columns_to_alembic_once_it_manages_the_schema(engine, monkeypatch, caplog, stored_revision):
+    """Startup must not add a column ahead of the Alembic revision that adds it (CLIM-1868).
+
+    a7b8c9d0e1f2 is the marker every legacy and new database is stamped at; e99c0d1cc249
+    is the revision before dataset.target_column. If startup added the column from model
+    metadata first, the revision would find it filled with a placeholder.
+    """
+    from alembic import command
+    from alembic.script import ScriptDirectory
+
+    with engine.begin() as conn:
+        conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+        conn.execute(sa.text("CREATE SCHEMA public"))
+    SQLModel.metadata.create_all(engine)
+    cfg = _make_alembic_cfg(engine)
+    command.stamp(cfg, "head")
+    command.downgrade(cfg, stored_revision)
+    with engine.begin() as conn:
+        conn.execute(sa.text("INSERT INTO dataset (name) VALUES ('stored')"))
+
+    messages = _start_up(engine, monkeypatch, caplog)
+
+    assert not [message for message in messages if message.startswith("Adding missing column")]
+    assert _current_revision(engine) == ScriptDirectory.from_config(cfg).get_current_head()
+    with engine.connect() as conn:
+        assert conn.execute(sa.text("SELECT target_column FROM dataset")).scalar_one() == "disease_cases"
+
+
+@pytest.mark.slow
+def test_startup_still_adds_missing_columns_to_a_database_without_alembic(engine, monkeypatch, caplog):
+    from alembic.script import ScriptDirectory
+
+    with engine.begin() as conn:
+        conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+        conn.execute(sa.text("CREATE SCHEMA public"))
+    SQLModel.metadata.create_all(engine)
+    with engine.begin() as conn:
+        conn.execute(sa.text("ALTER TABLE dataset DROP COLUMN target_column"))
+
+    messages = _start_up(engine, monkeypatch, caplog)
+
+    assert "Adding missing column target_column to table dataset" in messages
+    assert _current_revision(engine) == ScriptDirectory.from_config(_make_alembic_cfg(engine)).get_current_head()
+
+
+# Tables and columns at _GENERIC_SCHEMA_ALEMBIC_REVISION, from the models at the commit that
+# added it. Startup adds no columns past this revision, so Alembic must add every later one.
+_SCHEMA_AT_GENERIC_REVISION = PROJECT_ROOT / "tests" / "fixtures" / "schema_at_generic_schema_revision.json"
+
+
+@pytest.mark.slow
+def test_migrations_add_every_model_column_after_the_generic_schema_revision(engine, monkeypatch, caplog):
+    """A model column without an Alembic revision would be missing in production (CLIM-1868)."""
+    from alembic import command
+    from alembic.autogenerate import compare_metadata
+    from alembic.migration import MigrationContext
+
+    schema_at_marker = json.loads(_SCHEMA_AT_GENERIC_REVISION.read_text())
+    with engine.begin() as conn:
+        conn.execute(sa.text("DROP SCHEMA public CASCADE"))
+        conn.execute(sa.text("CREATE SCHEMA public"))
+    SQLModel.metadata.create_all(engine)
+    cfg = _make_alembic_cfg(engine)
+    command.stamp(cfg, "head")
+    command.downgrade(cfg, "a7b8c9d0e1f2")
+    # A downgrade only undoes what the migrations did, so a model column that no migration
+    # adds survives it. Dropping everything the marker did not have removes those too.
+    with engine.begin() as conn:
+        for table in sa.inspect(conn).get_table_names():
+            if table == "alembic_version":
+                continue
+            if table not in schema_at_marker:
+                conn.execute(sa.text(f"DROP TABLE {table} CASCADE"))
+                continue
+            for column in sa.inspect(conn).get_columns(table):
+                if column["name"] not in schema_at_marker[table]:
+                    conn.execute(sa.text(f'ALTER TABLE {table} DROP COLUMN "{column["name"]}" CASCADE'))
+
+    _start_up(engine, monkeypatch, caplog)
+
+    with engine.connect() as conn:
+        diffs = compare_metadata(MigrationContext.configure(conn), SQLModel.metadata)
+    missing_columns = [(diff[2], diff[3].name) for diff in diffs if diff[0] == "add_column"]
+    assert missing_columns == []

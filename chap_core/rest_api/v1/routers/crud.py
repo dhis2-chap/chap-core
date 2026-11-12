@@ -60,6 +60,7 @@ from chap_core.database.tables import (
     BacktestSpecification,
     Prediction,
     PredictionInfo,
+    PredictionSetup,
     PredictionSetupMonitoring,
     PredictionSetupRead,
     PredictionSetupReadWithPredictions,
@@ -132,6 +133,7 @@ from .dependencies import (
     model_job_metadata,
     reject_mask_indicator_input,
     require_target_column,
+    within_model_horizon,
 )
 
 logger = logging.getLogger(__name__)
@@ -1680,6 +1682,11 @@ async def delete_prediction_setup(
     return {"message": "deleted"}
 
 
+def _setup_horizon(setup: PredictionSetup) -> int:
+    """The horizon of the setup's backtest, kept within the range the model supports."""
+    return within_model_horizon(setup.backtest.specification.n_periods, setup.configured_model.model_template)
+
+
 @router.post(
     "/prediction-setups/{predictionSetupId}/run",
     response_model=JobResponse,
@@ -1703,6 +1710,8 @@ async def run_prediction_setup(
     the backtest's target column, or of a different period type than the backtest
     dataset's masked ranges. Forecasts use the same target, future-weather provider and
     masked ranges as the backtest: the ranges are copied onto the run's new dataset.
+    Without ``nPeriods``, they also use the backtest's horizon, kept within the range the
+    model supports.
     """
     try:
         setup = prediction_setup_service.get_prediction_setup(session, prediction_setup_id)
@@ -1766,7 +1775,9 @@ async def run_prediction_setup(
             ),
         )
     prediction_params = PredictionParams(
-        model_id=model_id, n_periods=request.n_periods, future_weather_provider=provider
+        model_id=model_id,
+        n_periods=_setup_horizon(setup) if request.n_periods is None else request.n_periods,
+        future_weather_provider=provider,
     )
     job = worker.queue_db(
         wf.predict_pipeline_from_composite_dataset,

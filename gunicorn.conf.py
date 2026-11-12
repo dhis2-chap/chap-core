@@ -2,7 +2,7 @@
 import logging
 import sys
 import traceback
-from chap_core.database.database import create_db_and_tables
+from chap_core.database.database import create_db_and_tables, dispose_engine_after_fork
 
 # Configure logging to stdout/stderr for Docker
 logconfig_dict = {
@@ -66,6 +66,11 @@ def on_starting(server):
     log.info("Database migration and initialization starting...")
     create_db_and_tables()
     log.info("Database migration and initialization complete.")
+
+
+def post_fork(server, worker):
+    # Each worker opens its own database connections instead of sharing the main process's.
+    dispose_engine_after_fork()
 
 
 def worker_abort(worker):

@@ -9,6 +9,7 @@ from typing import Literal, cast
 
 import psycopg2
 import sqlalchemy
+from sqlalchemy import insert
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, SQLModel, col, create_engine, select
 from sqlmodel.sql.expression import SelectOfScalar
@@ -33,7 +34,14 @@ from .model_templates_and_config_tables import (
     compute_configuration_digest,
     drifted_template_content_fields,
 )
-from .tables import Backtest, BacktestSpecification, Prediction, PredictionSamplesEntry, PredictionSetupObservation
+from .tables import (
+    Backtest,
+    BacktestForecast,
+    BacktestSpecification,
+    Prediction,
+    PredictionSamplesEntry,
+    PredictionSetupObservation,
+)
 
 logger = logging.getLogger(__name__)
 engine = None
@@ -43,6 +51,11 @@ database_url = os.getenv("CHAP_DATABASE_URL", default=None)
 # this revision for databases that predate Alembic. The following revision must
 # still run because it contains data backfills and constraint replacements.
 _GENERIC_SCHEMA_ALEMBIC_REVISION = "a7b8c9d0e1f2"
+
+_ALEMBIC_INI_PATH = Path(__file__).parent.parent.parent / "alembic.ini"
+
+# Forecast rows inserted per statement when storing a backtest; each carries its samples.
+FORECAST_INSERT_BATCH_SIZE = 5_000
 
 # Log database URL with credentials masked for security
 if database_url:
@@ -586,8 +599,19 @@ class SessionWrapper:
             raise ValueError(f"Model template with id {model_template_id} not found")
         return model_template
 
-    def add_backtest(self, backtest: Backtest) -> None:
+    def add_backtest(self, backtest: Backtest, forecast_rows: list[dict] | None = None) -> None:
+        """Store a backtest, with its forecasts inserted from plain rows if given.
+
+        The rows are inserted in batches in the same transaction as the backtest, instead of
+        building a ``BacktestForecast`` object per row, which costs minutes for facility-level
+        backtests (CLIM-1837).
+        """
         self.session.add(backtest)
+        if forecast_rows:
+            self.session.flush()
+            for start in range(0, len(forecast_rows), FORECAST_INSERT_BATCH_SIZE):
+                batch = forecast_rows[start : start + FORECAST_INSERT_BATCH_SIZE]
+                self.session.execute(insert(BacktestForecast), [row | {"backtest_id": backtest.id} for row in batch])
         self.session.commit()
 
     def get_or_create_backtest_specification(
@@ -723,9 +747,7 @@ def _run_alembic_migrations(engine):
     logger.info("Running Alembic migrations")
 
     try:
-        # Get the path to alembic.ini relative to the project root
-        project_root = Path(__file__).parent.parent.parent
-        alembic_ini_path = project_root / "alembic.ini"
+        alembic_ini_path = _ALEMBIC_INI_PATH
 
         if not alembic_ini_path.exists():
             logger.warning(f"Alembic config not found at {alembic_ini_path}. Skipping Alembic migrations.")
@@ -770,6 +792,19 @@ def _run_alembic_migrations(engine):
         # every later revision skipped, so startup has to fail here.
         logger.error(f"Error during Alembic migrations: {e}", exc_info=True)
         raise
+
+
+def dispose_engine_after_fork() -> None:
+    """Give a forked process its own database connections (CLIM-1808).
+
+    gunicorn runs `create_db_and_tables` in its main process and then forks the API
+    workers, which inherit the engine's pool and its open connections. Two processes on
+    one Postgres connection corrupt each other's protocol state (`lost synchronization
+    with server`). `close=False` drops the inherited pool without closing those
+    connections, which still belong to the main process.
+    """
+    if engine is not None:
+        engine.dispose(close=False)
 
 
 def create_db_and_tables():
@@ -936,11 +971,44 @@ def _run_v1_0_17_migrations(conn, engine):
         raise
 
 
+def _schema_managed_by_alembic(engine) -> bool:
+    """Whether Alembic alone owns this database's schema (CLIM-1868).
+
+    True when the stored revision is _GENERIC_SCHEMA_ALEMBIC_REVISION or later, or one
+    this release does not know (a newer release migrated it). Columns added from model
+    metadata there would pre-empt the Alembic revisions that add them.
+    """
+    from alembic.config import Config
+    from alembic.migration import MigrationContext
+    from alembic.script import ScriptDirectory
+
+    if not _ALEMBIC_INI_PATH.exists():
+        return False
+    with engine.connect() as connection:
+        current_revision = MigrationContext.configure(connection).get_current_revision()
+    if current_revision is None:
+        return False
+    script = ScriptDirectory.from_config(Config(str(_ALEMBIC_INI_PATH)))
+    known_revisions = {revision.revision for revision in script.walk_revisions()}
+    managed_revisions = {
+        revision.revision
+        for revision in script.iterate_revisions("heads", _GENERIC_SCHEMA_ALEMBIC_REVISION, inclusive=True)
+    }
+    return current_revision in managed_revisions or current_revision not in known_revisions
+
+
 def _run_generic_migration(engine):
     """
     Generic migration function that adds missing columns to existing tables
     and sets default values for new columns in existing records.
+
+    Only databases from before _GENERIC_SCHEMA_ALEMBIC_REVISION need it; on later
+    ones Alembic adds every column.
     """
+    if _schema_managed_by_alembic(engine):
+        logger.info("Database schema is managed by Alembic, skipping generic migration")
+        return
+
     logger.info("Running generic migration for missing columns")
 
     with engine.connect() as conn:

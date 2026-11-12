@@ -22,6 +22,10 @@ def has_unique_constraint(table: str, name: str) -> bool:
     return any(item["name"] == name for item in sa.inspect(op.get_bind()).get_unique_constraints(table))
 
 
+def has_index(table: str, name: str) -> bool:
+    return any(item["name"] == name for item in sa.inspect(op.get_bind()).get_indexes(table))
+
+
 def foreign_key_name(table: str, referred_table: str) -> str | None:
     """Name of the constraint linking `table` to `referred_table`, whichever way it was created.
 

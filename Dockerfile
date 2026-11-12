@@ -36,8 +36,8 @@ HEALTHCHECK CMD curl --fail http://localhost:${PORT}/health || exit 1
 
 USER chap
 
+# gunicorn binds to 0.0.0.0:$PORT and starts $WEB_CONCURRENCY workers (1 when unset) by
+# default. Flags here would override those settings, so the deployment sets them instead.
 CMD [ \
-    "gunicorn", "-c", "gunicorn.conf.py", "-k", "uvicorn.workers.UvicornWorker", "chap_core.rest_api.app:app", \
-      "--bind 0.0.0.0:${PORT}", \
-      "--workers 1" \
+    "gunicorn", "-c", "gunicorn.conf.py", "-k", "uvicorn.workers.UvicornWorker", "chap_core.rest_api.app:app" \
   ]

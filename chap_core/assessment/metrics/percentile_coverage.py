@@ -34,6 +34,10 @@ class PercentileCoverageMetric(ProbabilisticMetric):
         low, high = np.percentile(samples, [self.low_percentile, self.high_percentile])
         return 1.0 if (low <= observed <= high) else 0.0
 
+    def compute_sample_metric_rows(self, samples: np.ndarray, observed: np.ndarray) -> np.ndarray:
+        low, high = np.percentile(samples, [self.low_percentile, self.high_percentile], axis=1)
+        return np.asarray((low <= observed) & (observed <= high), dtype=float)
+
 
 @metric()
 class Coverage10_90Metric(PercentileCoverageMetric):

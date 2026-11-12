@@ -1,5 +1,7 @@
 # Evaluation Abstraction Design
 
+> **Status:** historical design document. The `EvaluationBase` ABC and the separate `InMemoryEvaluation` class it describes were replaced by a single `Evaluation` class that holds its results as an `xr.Dataset` (CLIM-1837). See [evaluation_pipeline.md](evaluation_pipeline.md) for the current design.
+
 ## Overview
 
 This document describes the proposed refactoring to create a database-agnostic Evaluation abstraction. The goal is to unify how evaluations/backtests are represented throughout the codebase, enabling better code reuse between the REST API and CLI evaluation workflows.
@@ -80,14 +82,11 @@ flowchart TB
 
 2. **Metric Computation** (`assessment/metrics/__init__.py:84-102`):
    ```python
-   def compute_all_aggregated_metrics_from_backtest(backtest: Backtest):
-       flat_forecasts = convert_backtest_to_flat_forecasts(backtest.forecasts)
-       flat_observations = convert_backtest_observations_to_flat_observations(
-           backtest.dataset.observations
-       )
-       # Compute metrics using flat representations
+   def compute_all_aggregated_metrics(evaluation: Evaluation):
+       cells = evaluation.to_cells()
+       # Compute metrics from the forecast cells
        for metric in metrics:
-           result = metric.get_metric(flat_observations, flat_forecasts)
+           result = metric.get_metric_from_cells(cells)
    ```
 
 3. **Visualization** (`plotting/evaluation_plot.py:236-243`):

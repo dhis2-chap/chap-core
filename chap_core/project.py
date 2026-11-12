@@ -22,6 +22,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, get_args
 
+from chap_core.exceptions import ChapProjectError
+
 if TYPE_CHECKING:
     from cyclopts import App
     from cyclopts.argument import Argument, ArgumentCollection
@@ -82,18 +84,18 @@ class Project:
 
     @classmethod
     def load(cls, root: Path) -> Project:
-        """Read ``chap.yaml`` in ``root``. Raises ValueError when it cannot be read or is not a mapping."""
+        """Read ``chap.yaml`` in ``root``. Raises ChapProjectError when it cannot be read or is not a mapping."""
         import yaml
 
         path = root / PROJECT_FILE
         try:
             settings = yaml.safe_load(path.read_text(encoding="utf-8"))
         except (OSError, yaml.YAMLError) as e:
-            raise ValueError(f"Could not read {path}: {e}") from e
+            raise ChapProjectError(f"Could not read {path}: {e}") from e
         if settings is None:
             settings = {}
         if not isinstance(settings, dict):
-            raise ValueError(f"{path} must be a mapping of option names to values")
+            raise ChapProjectError(f"{path} must be a mapping of option names to values")
         return cls(root=root.resolve(), settings=settings)
 
 
@@ -165,7 +167,7 @@ def project_values(
         if name in SECTION_NAMES and value is not None and not isinstance(value, dict):
             command = " ".join(next(c for c in sorted(PROJECT_COMMANDS) if c[0] == name))
             hint = f" To choose the model, write model_name: {value}" if name == "model" else ""
-            raise ValueError(
+            raise ChapProjectError(
                 f"{name!r} in {project.root / PROJECT_FILE} is the section for chap {command}, "
                 f"so it must be a mapping of options.{hint}"
             )
@@ -173,7 +175,7 @@ def project_values(
     for command in commands:
         section = section.get(command) if isinstance(section, dict) else None
     if section is not None and not isinstance(section, dict):
-        raise ValueError(f"The {' '.join(commands)!r} section of {project.root / PROJECT_FILE} must be a mapping")
+        raise ChapProjectError(f"The {' '.join(commands)!r} section of {project.root / PROJECT_FILE} must be a mapping")
 
     _check_options(shared, section or {}, commands, arguments)
     values = _resolve_paths(_merge(shared, section or {}), project.root, arguments)
@@ -230,7 +232,7 @@ def _check_options(
 ) -> None:
     """Catch misspelled keys in ``chap.yaml``, which would otherwise leave an option at its default.
 
-    Raises ValueError for a key the command should take but does not: any key in its own section, and
+    Raises ChapProjectError for a key the command should take but does not: any key in its own section, and
     any nested key under a top-level option it takes. Warns about top-level keys no project command takes.
     """
     unknown_shared = []
@@ -264,11 +266,11 @@ def _check_leaves(
             continue
         argument = _match(arguments, path)
         if argument is None:
-            raise ValueError(
+            raise ChapProjectError(
                 f"Unknown option {'.'.join(path)!r} in {where}{PROJECT_FILE} for chap {' '.join(commands)}"
             )
         if argument.children:
-            raise ValueError(
+            raise ChapProjectError(
                 f"{'.'.join(path)!r} in {where}{PROJECT_FILE} must be a mapping of options, "
                 f"such as {key}: {{{argument.children[0].names[0].rsplit('.', 1)[-1].replace('-', '_')}: ...}}"
             )

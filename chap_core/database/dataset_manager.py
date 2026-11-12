@@ -11,6 +11,8 @@ import logging
 from pathlib import Path
 from typing import cast
 
+import numpy as np
+from sqlalchemy import func, insert
 from sqlmodel import col, select
 
 from chap_core.assessment.target_mask import (
@@ -30,6 +32,8 @@ from .manager import DbManager
 from .tables import Backtest, Prediction
 
 logger = logging.getLogger(__name__)
+
+OBSERVATION_INSERT_BATCH_SIZE = 10_000
 
 
 def _filtered_observation_query(
@@ -124,24 +128,46 @@ class DataSetManager(DbManager[DataSet]):
             **dataset_info.model_dump(),
         )
         dataset = DataSet(geojson=polygons, **full_info.model_dump())
+        self.session.add(dataset)
+        self.session.flush()
+        assert dataset.id is not None
+        self._bulk_insert_observations(dataset.id, orig_dataset)
+        self.session.commit()
+        assert (
+            self.session.exec(select(Observation).where(Observation.dataset_id == dataset.id).limit(1)).first()
+            is not None
+        )
+        return dataset.id
 
+    def _bulk_insert_observations(self, dataset_id: int, orig_dataset: _DataSet) -> None:
+        """Insert one row per (location, period, field) cell with batched bulk inserts.
+
+        Building an ORM ``Observation`` per cell costs gigabytes and minutes for facility-level
+        datasets, so rows go in as plain dicts, ``OBSERVATION_INSERT_BATCH_SIZE`` at a time.
+        """
+        batch: list[dict] = []
         for location, data in orig_dataset.items():
             field_names = [
                 field.name for field in dataclasses.fields(data) if field.name not in ["time_period", "location"]
             ]
-            for row in data:
-                for field in field_names:
-                    observation = Observation(
-                        period=row.time_period.id,
-                        org_unit=location,
-                        value=float(getattr(row, field)),
-                        feature_name=field,
+            periods = [period.id for period in data.time_period]
+            for field in field_names:
+                values = np.asarray(getattr(data, field), dtype=float).tolist()
+                for period, value in zip(periods, values, strict=True):
+                    batch.append(
+                        {
+                            "dataset_id": dataset_id,
+                            "period": period,
+                            "org_unit": location,
+                            "value": value,
+                            "feature_name": field,
+                        }
                     )
-                    dataset.observations.append(observation)
-
-        self.save(dataset)
-        assert self.session.exec(select(Observation).where(Observation.dataset_id == dataset.id)).first() is not None
-        return dataset.id
+                    if len(batch) >= OBSERVATION_INSERT_BATCH_SIZE:
+                        self.session.execute(insert(Observation), batch)
+                        batch = []
+        if batch:
+            self.session.execute(insert(Observation), batch)
 
     def observations(
         self,
@@ -167,6 +193,36 @@ class DataSetManager(DbManager[DataSet]):
             feature_names=feature_names,
         )
         return list(self.session.exec(expr).all())
+
+    def feature_values(
+        self, dataset_id: int, feature_name: str, *, org_units: list[str] | None = None
+    ) -> list[tuple[str, str, float | None]]:
+        """Read ``(period, org_unit, value)`` rows of one feature as plain tuples, without building ORM objects."""
+        expr = (
+            select(Observation.period, Observation.org_unit, Observation.value)
+            .where(Observation.dataset_id == dataset_id)
+            .where(Observation.feature_name == feature_name)
+            .order_by(col(Observation.id))
+        )
+        if org_units is not None:
+            expr = expr.where(col(Observation.org_unit).in_(org_units))
+        return [(period, org_unit, value) for period, org_unit, value in self.session.exec(expr).all()]
+
+    def summed_feature_values(self, dataset_id: int, feature_name: str) -> list[tuple[str, float]]:
+        """Sum one feature over all org units per period in the database.
+
+        Missing and NaN values count as 0, so a period where every value is missing sums to 0.
+        Periods come in the order they were stored.
+        """
+        value = func.nullif(Observation.value, float("nan"))
+        expr = (
+            select(Observation.period, func.coalesce(func.sum(value), 0.0))
+            .where(Observation.dataset_id == dataset_id)
+            .where(Observation.feature_name == feature_name)
+            .group_by(Observation.period)
+            .order_by(func.min(Observation.id))
+        )
+        return [(period, float(total)) for period, total in self.session.exec(expr).all()]
 
     def to_dataset(
         self,
