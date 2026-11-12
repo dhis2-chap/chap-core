@@ -99,33 +99,10 @@ _INDEXES_ADDED_BY_MIGRATIONS = [
 ]
 
 
-def _pg_container():
-    """Create and start a PostgreSQL testcontainer."""
-    try:
-        from testcontainers.postgres import PostgresContainer
-    except ImportError:
-        pytest.skip("testcontainers[postgres] not installed")
-
-    try:
-        container = PostgresContainer("postgres:17-alpine")
-        container.start()
-        return container
-    except Exception as e:
-        pytest.skip(f"Docker not available: {e}")
-
-
 @pytest.fixture(scope="module")
-def pg():
-    """Module-scoped PostgreSQL container fixture."""
-    container = _pg_container()
-    yield container
-    container.stop()
-
-
-@pytest.fixture(scope="module")
-def engine(pg):
+def engine(postgres_container):
     """SQLAlchemy engine connected to the test PostgreSQL database."""
-    eng = sa.create_engine(pg.get_connection_url())
+    eng = sa.create_engine(postgres_container.get_connection_url())
     yield eng
     eng.dispose()
 

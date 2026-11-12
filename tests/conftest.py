@@ -402,6 +402,31 @@ def engine():
     return eng
 
 
+@pytest.fixture(scope="module")
+def postgres_container():
+    """A PostgreSQL testcontainer, for code paths that only run on Postgres. Skips without Docker."""
+    try:
+        from testcontainers.postgres import PostgresContainer
+    except ImportError:
+        pytest.skip("testcontainers[postgres] not installed")
+    container = PostgresContainer("postgres:17-alpine")
+    try:
+        container.start()
+    except Exception as e:
+        pytest.skip(f"Docker not available: {e}")
+    yield container
+    container.stop()
+
+
+@pytest.fixture(scope="module")
+def postgres_engine(postgres_container):
+    """An engine on an empty Postgres database with the current schema."""
+    eng = create_engine(postgres_container.get_connection_url())
+    SQLModel.metadata.create_all(eng)
+    yield eng
+    eng.dispose()
+
+
 @pytest.fixture
 def file_engine(tmp_path):
     """A file-backed SQLite engine, so separate sessions get separate connections (e.g. to simulate concurrent runs)."""
