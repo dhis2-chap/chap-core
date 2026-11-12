@@ -9,6 +9,7 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 
+from anyio import CapacityLimiter, to_thread
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
@@ -143,6 +144,19 @@ def _check_celery_db_roundtrip() -> str:
         result.forget()
 
 
+# The health checks block, but get threads of their own: on the shared threadpool they would
+# queue behind slow requests and report a busy worker as not ready.
+HEALTH_CHECK_LIMITER = CapacityLimiter(2)
+
+
+def _readiness_checks() -> dict[str, str]:
+    return {
+        "db": _check_db(),
+        "redis": _check_redis(),
+        "celery": _check_celery(),
+    }
+
+
 @router.get(
     "/health/ready",
     summary="Readiness probe with dependency checks",
@@ -164,12 +178,8 @@ def _check_celery_db_roundtrip() -> str:
         },
     },
 )
-def readiness() -> Response:
-    checks = {
-        "db": _check_db(),
-        "redis": _check_redis(),
-        "celery": _check_celery(),
-    }
+async def readiness() -> Response:
+    checks = await to_thread.run_sync(_readiness_checks, limiter=HEALTH_CHECK_LIMITER)
     healthy = all(v == "ok" for v in checks.values())
     body = ReadinessResponse(status="success" if healthy else "unhealthy", checks=checks)
     status_code = 200 if healthy else 503
@@ -201,8 +211,8 @@ def readiness() -> Response:
         },
     },
 )
-def deep_probe() -> Response:
-    roundtrip = _check_celery_db_roundtrip()
+async def deep_probe() -> Response:
+    roundtrip = await to_thread.run_sync(_check_celery_db_roundtrip, limiter=HEALTH_CHECK_LIMITER)
     healthy = roundtrip == "ok"
     body = ReadinessResponse(
         status="success" if healthy else "unhealthy",
