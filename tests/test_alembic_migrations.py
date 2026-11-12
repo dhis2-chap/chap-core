@@ -794,11 +794,13 @@ def _current_revision(engine):
 
 
 @pytest.mark.slow
-def test_startup_leaves_columns_to_alembic_once_it_manages_the_schema(engine, monkeypatch, caplog):
+@pytest.mark.parametrize("stored_revision", ["a7b8c9d0e1f2", "e99c0d1cc249"])
+def test_startup_leaves_columns_to_alembic_once_it_manages_the_schema(engine, monkeypatch, caplog, stored_revision):
     """Startup must not add a column ahead of the Alembic revision that adds it (CLIM-1868).
 
-    The database is at the revision before dataset.target_column. If startup added the
-    column from model metadata first, the revision would find it filled with a placeholder.
+    a7b8c9d0e1f2 is the marker every legacy and new database is stamped at; e99c0d1cc249
+    is the revision before dataset.target_column. If startup added the column from model
+    metadata first, the revision would find it filled with a placeholder.
     """
     from alembic import command
     from alembic.script import ScriptDirectory
@@ -809,7 +811,7 @@ def test_startup_leaves_columns_to_alembic_once_it_manages_the_schema(engine, mo
     SQLModel.metadata.create_all(engine)
     cfg = _make_alembic_cfg(engine)
     command.stamp(cfg, "head")
-    command.downgrade(cfg, "e99c0d1cc249")
+    command.downgrade(cfg, stored_revision)
     with engine.begin() as conn:
         conn.execute(sa.text("INSERT INTO dataset (name) VALUES ('stored')"))
 

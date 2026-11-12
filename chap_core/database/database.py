@@ -991,7 +991,8 @@ def _schema_managed_by_alembic(engine) -> bool:
     script = ScriptDirectory.from_config(Config(str(_ALEMBIC_INI_PATH)))
     known_revisions = {revision.revision for revision in script.walk_revisions()}
     managed_revisions = {
-        revision.revision for revision in script.iterate_revisions("heads", _GENERIC_SCHEMA_ALEMBIC_REVISION)
+        revision.revision
+        for revision in script.iterate_revisions("heads", _GENERIC_SCHEMA_ALEMBIC_REVISION, inclusive=True)
     }
     return current_revision in managed_revisions or current_revision not in known_revisions
 
