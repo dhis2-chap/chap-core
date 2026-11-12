@@ -321,7 +321,7 @@ worker: CeleryPool[Any] = CeleryPool()
     tags=["Backtests"],
     summary="Browse stored evaluation runs",
 )  # This should be called list
-async def get_backtests(
+def get_backtests(
     specification_id: Annotated[int | None, Query(alias="specificationId")] = None,
     dataset_id: Annotated[int | None, Query(alias="datasetId")] = None,
     session: Session = Depends(get_session),
@@ -551,7 +551,7 @@ def _specification_params(specification: BacktestSpecification) -> dict[str, Any
     tags=["Backtests"],
     summary="Fetch a backtest with every forecast inline",
 )
-async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
+def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
     """Load the complete backtest payload — every forecast row and the dataset's GeoJSON — in a single response.
 
     Use this when a client genuinely needs the whole evaluation (e.g. exporting it,
@@ -604,7 +604,7 @@ def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], ses
     tags=["Metrics"],
     summary="Export backtest metrics for offline analysis",
 )
-async def get_metrics_csv(
+def get_metrics_csv(
     backtest_id: Annotated[int, Query(alias="backtestId")],
     session: Session = Depends(get_session),
 ):
@@ -637,9 +637,7 @@ async def get_metrics_csv(
     tags=["Backtests"],
     summary="Remove an evaluation run",
 )
-async def delete_backtest(
-    backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
-):
+def delete_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
     """Permanently delete a backtest and every forecast attached to it.
 
     Use this to clean up failed runs or evaluations that should no longer appear in the
@@ -659,7 +657,7 @@ async def delete_backtest(
     tags=["Backtests"],
     summary="Edit a backtest's editable fields",
 )
-async def update_backtest(
+def update_backtest(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     backtest_update: BacktestUpdate,
     session: Session = Depends(get_session),
@@ -700,7 +698,7 @@ async def update_backtest(
     tags=["Backtests"],
     summary="Bulk-remove several evaluation runs",
 )
-async def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session: Session = Depends(get_session)):
+def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session: Session = Depends(get_session)):
     """Permanently delete several backtests in one round-trip — pass their ids as a comma-separated ``ids`` query string.
 
     Useful for bulk cleanup from a UI's multi-select. Unknown ids are silently skipped;
@@ -751,7 +749,7 @@ async def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session
     tags=["Predictions"],
     summary="Browse stored forecasts",
 )
-async def get_predictions(session: Session = Depends(get_session)):
+def get_predictions(session: Session = Depends(get_session)):
     """List every prediction whose configured model row still exists in the database, so you can pick a forecast to inspect, plot, push back into DHIS2, or delete.
 
     Predictions whose configured model has been deleted outright are filtered out;
@@ -773,9 +771,7 @@ async def get_predictions(session: Session = Depends(get_session)):
     tags=["Predictions"],
     summary="View one forecast's metadata",
 )
-async def get_prediction(
-    prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
-):
+def get_prediction(prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)):
     """Read the identifying information for a single prediction — the model and dataset behind it, when it ran, what periods it covers — without pulling the forecast values themselves.
 
     Use ``GET /v1/analytics/prediction-entry/{id}`` once you actually need quantiles to
@@ -792,7 +788,7 @@ async def get_prediction(
     tags=["Predictions"],
     summary="Remove a forecast",
 )
-async def delete_prediction(
+def delete_prediction(
     prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
 ):
     """Permanently delete a prediction and every forecast row it contains. Use this to clean up obsolete or test forecasts from the listing.
@@ -825,7 +821,7 @@ async def delete_prediction(
     tags=["Datasets"],
     summary="Browse imported datasets",
 )
-async def get_datasets(session: Session = Depends(get_session)):
+def get_datasets(session: Session = Depends(get_session)):
     """List every imported dataset so you can pick one to back a backtest, run a prediction, or inspect its contents — metadata only, no observations inline."""
     datasets = session.exec(select(DataSet)).all()
     return datasets
@@ -837,7 +833,7 @@ async def get_datasets(session: Session = Depends(get_session)):
     tags=["Datasets"],
     summary="Inspect a dataset's observations",
 )
-async def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
     """Load a dataset together with every observation it contains, so you can audit what was imported or re-export it.
 
     NaN/inf values are coerced to JSON ``null`` so the response is always parseable.
@@ -859,7 +855,7 @@ async def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], sessi
     tags=["Datasets"],
     summary="Import a health-only dataset",
 )
-async def create_dataset(
+def create_dataset(
     data: DatasetCreate,
     original_request: dict = Depends(get_job_request),
     worker_settings=Depends(get_settings),
@@ -902,7 +898,7 @@ async def create_dataset(
     tags=["Datasets"],
     summary="Import a dataset from a CSV + geojson upload",
 )
-async def create_dataset_csv(
+def create_dataset_csv(
     csv_file: UploadFile = File(...),
     geojson_file: UploadFile = File(...),
     target_column: str = Form("disease_cases", alias="targetColumn"),
@@ -918,17 +914,14 @@ async def create_dataset_csv(
     The optional ``targetColumn`` form field selects the target (default ``disease_cases``)
     and must name a stored column.
     """
-    import io
-
-    frame = pd.read_csv(io.BytesIO(await csv_file.read()))
+    frame = pd.read_csv(csv_file.file)
     reject_mask_indicator_input(frame.columns.tolist())
     text_columns = [
         name for name in frame.columns if name not in ("time_period", "location") and not is_numeric_dtype(frame[name])
     ]
     dataset: InMemoryDataSet = InMemoryDataSet.from_pandas(frame.drop(columns=text_columns))
     require_target_column(target_column, dataset.field_names())
-    geo_json_content = await geojson_file.read()
-    features = Polygons.from_geojson(json.loads(geo_json_content), id_property="NAME_1").feature_collection()
+    features = Polygons.from_geojson(json.load(geojson_file.file), id_property="NAME_1").feature_collection()
     dataset_id = DataSetManager(session).save_dataset(
         DataSetCreateInfo(name="csv_file", target_column=target_column),
         dataset,
@@ -943,7 +936,7 @@ async def create_dataset_csv(
     tags=["Datasets"],
     summary="Read a dataset as tabular JSON rows",
 )
-async def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
     """Get a dataset shaped as a list of JSON rows (one row per region and time period), in the form pandas, Observable, or any tabular tool can consume directly.
 
     Use this when a UI needs to render the dataset as a table, or when a notebook
@@ -971,7 +964,7 @@ async def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], se
     tags=["Datasets"],
     summary="Export a dataset as a CSV download",
 )
-async def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
     """Download a dataset as a CSV file — one row per region and time period.
 
     Use this when a user wants to pull the imported data out for use in Excel, R,
@@ -996,7 +989,7 @@ async def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], s
     tags=["Datasets"],
     summary="Remove an imported dataset",
 )
-async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
     """Permanently delete a dataset and every observation in it. Use this to clean up obsolete imports.
 
     Refused with 409 while a backtest or a prediction still uses the dataset. The baseline
@@ -1210,7 +1203,7 @@ def add_configured_model(
     tags=["Models"],
     summary="Retire a configured model",
 )
-async def delete_configured_model(
+def delete_configured_model(
     configured_model_id: Annotated[int, Path(alias="configuredModelId")], session: Session = Depends(get_session)
 ):
     """Soft-delete a configured model so pickers can hide it, while keeping the underlying row intact so historical backtests / predictions that reference it still resolve.
@@ -1239,7 +1232,7 @@ async def delete_configured_model(
     summary="Record alerts raised against a policy",
 )
 @api_experimental
-async def create_alerts(request: AlertsCreate, session: Session = Depends(get_session)):
+def create_alerts(request: AlertsCreate, session: Session = Depends(get_session)):
     """Record a batch of alerts — one run raises many at once, so they are written together.
 
     Every alert names a level its policy actually defines; a level name only means
@@ -1267,7 +1260,7 @@ async def create_alerts(request: AlertsCreate, session: Session = Depends(get_se
     summary="Browse alerts, or pull the review queue",
 )
 @api_experimental
-async def list_alerts(
+def list_alerts(
     alert_policy_id: Annotated[int | None, Query(alias="alertPolicyId")] = None,
     prediction_id: Annotated[int | None, Query(alias="predictionId")] = None,
     org_unit: Annotated[str | None, Query(alias="orgUnit")] = None,
@@ -1295,7 +1288,7 @@ async def list_alerts(
     summary="View one alert",
 )
 @api_experimental
-async def get_alert(
+def get_alert(
     alert_id: Annotated[int, Path(alias="alertId")],
     session: Session = Depends(get_session),
 ):
@@ -1312,7 +1305,7 @@ async def get_alert(
     summary="Remove an alert",
 )
 @api_experimental
-async def delete_alert(
+def delete_alert(
     alert_id: Annotated[int, Path(alias="alertId")],
     session: Session = Depends(get_session),
 ):
@@ -1337,7 +1330,7 @@ async def delete_alert(
     summary="Clear a set of alerts for release, or decline them",
 )
 @api_experimental
-async def approve_alerts(request: AlertApprovalRequest, session: Session = Depends(get_session)):
+def approve_alerts(request: AlertApprovalRequest, session: Session = Depends(get_session)):
     """Move a set of alerts through the release gate in one go.
 
     Reviewers work through a queue and decide on several alerts at a time, so the whole
@@ -1371,7 +1364,7 @@ async def approve_alerts(request: AlertApprovalRequest, session: Session = Depen
     summary="Define the tiers at which forecasts raise alerts",
 )
 @api_experimental
-async def create_alert_policy(request: AlertPolicyCreate, session: Session = Depends(get_session)):
+def create_alert_policy(request: AlertPolicyCreate, session: Session = Depends(get_session)):
     """Create a named ladder of alert levels — a `monitor` tier, an `alert` tier, an `action` tier — that a prediction setup can be pointed at.
 
     Each level pairs an epidemic channel (the same strategy and parameters
@@ -1401,7 +1394,7 @@ async def create_alert_policy(request: AlertPolicyCreate, session: Session = Dep
     summary="Browse saved alert policies",
 )
 @api_experimental
-async def list_alert_policies(session: Session = Depends(get_session)):
+def list_alert_policies(session: Session = Depends(get_session)):
     """List every alert policy, so a UI can offer them when configuring a prediction setup."""
     return alert_policy_service.list_alert_policies(session)
 
@@ -1413,7 +1406,7 @@ async def list_alert_policies(session: Session = Depends(get_session)):
     summary="View one alert policy and its levels",
 )
 @api_experimental
-async def get_alert_policy(
+def get_alert_policy(
     alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
     session: Session = Depends(get_session),
 ):
@@ -1431,7 +1424,7 @@ async def get_alert_policy(
     summary="Update a policy's output codes",
 )
 @api_experimental
-async def update_alert_policy_codes(
+def update_alert_policy_codes(
     alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
     request: AlertPolicyCodesUpdate,
     session: Session = Depends(get_session),
@@ -1458,7 +1451,7 @@ async def update_alert_policy_codes(
     summary="Remove an alert policy",
 )
 @api_experimental
-async def delete_alert_policy(
+def delete_alert_policy(
     alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
     session: Session = Depends(get_session),
 ):
@@ -1485,7 +1478,7 @@ async def delete_alert_policy(
     tags=["Prediction Setups"],
     summary="Promote a backtest into a reusable prediction config",
 )
-async def create_prediction_setup(request: PredictionSetupCreate, session: Session = Depends(get_session)):
+def create_prediction_setup(request: PredictionSetupCreate, session: Session = Depends(get_session)):
     """Save a backtest as a prediction setup — a named configuration you can rerun on fresh data, either ad-hoc via ``/run`` or on a cron schedule.
 
     Use this after evaluating a model on historical data and deciding it's good enough
@@ -1522,7 +1515,7 @@ async def create_prediction_setup(request: PredictionSetupCreate, session: Sessi
     tags=["Prediction Setups"],
     summary="Browse saved prediction setups",
 )
-async def list_prediction_setups(session: Session = Depends(get_session)):
+def list_prediction_setups(session: Session = Depends(get_session)):
     """List every prediction setup so you can manage them, run them ad-hoc, or check which backtests have been promoted into a recurring forecast.
 
     Lightweight listing: each entry carries the setup's schedule, target backtest, and
@@ -1538,7 +1531,7 @@ async def list_prediction_setups(session: Session = Depends(get_session)):
     tags=["Prediction Setups"],
     summary="View a prediction setup with its forecast history",
 )
-async def get_prediction_setup(
+def get_prediction_setup(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     session: Session = Depends(get_session),
 ):
@@ -1558,7 +1551,7 @@ async def get_prediction_setup(
     tags=["Prediction Setups"],
     summary="Compare a prediction setup's live and backtest performance with a baseline model",
 )
-async def get_prediction_setup_monitoring(
+def get_prediction_setup_monitoring(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     metric: Annotated[
         str, Query(description="Id of a metric with a comparison operator, as listed by the metrics endpoint.")
@@ -1601,7 +1594,7 @@ async def get_prediction_setup_monitoring(
     tags=["Prediction Setups"],
     summary="Tweak a prediction setup's schedule or targets",
 )
-async def update_prediction_setup(
+def update_prediction_setup(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     request: PredictionSetupUpdate,
     session: Session = Depends(get_session),
@@ -1658,7 +1651,7 @@ def _cancel_jobs_for_prediction_setup(prediction_setup_id: int) -> None:
     tags=["Prediction Setups"],
     summary="Retire a prediction setup",
 )
-async def delete_prediction_setup(
+def delete_prediction_setup(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     session: Session = Depends(get_session),
 ):
@@ -1693,7 +1686,7 @@ def _setup_horizon(setup: PredictionSetup) -> int:
     tags=["Prediction Setups"],
     summary="Run a prediction setup against fresh observations",
 )
-async def run_prediction_setup(
+def run_prediction_setup(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     request: RunPredictionSetupRequest,
     original_request: dict = Depends(get_job_request),

@@ -415,7 +415,7 @@ def get_backtest_overlap(
     tags=["Predictions"],
     summary="Read forecast quantiles for a prediction (query parameter id)",
 )
-async def get_prediction_entry(
+def get_prediction_entry(
     prediction_id: Annotated[int, Query(alias="predictionId")],
     quantiles: list[float] = Query(...),
     session: Session = Depends(get_session),
@@ -447,7 +447,7 @@ async def get_prediction_entry(
     tags=["Backtests"],
     summary="Read forecast quantiles from a backtest",
 )
-async def get_evaluation_entries(
+def get_evaluation_entries(
     backtest_id: Annotated[int, Query(alias="backtestId")],
     quantiles: list[float] = Query(...),
     split_period: str = Query(None, alias="splitPeriod"),
@@ -649,7 +649,7 @@ def create_backtests(
     deprecated=True,
     summary="Run a one-off forecast from inline data (deprecated, use prediction setups)",
 )
-async def make_prediction(
+def make_prediction(
     request: MakePredictionRequest,
     original_request: dict = Depends(get_job_request),
     worker_settings=Depends(get_settings),
@@ -871,7 +871,7 @@ data_sources = [
     tags=["Datasets"],
     summary="Discover which external data sources can feed a dataset",
 )
-async def get_data_sources() -> list[ChapDataSource]:
+def get_data_sources() -> list[ChapDataSource]:
     """List the external covariate sources CHAP knows about (ERA5 temperature, precipitation, ...) and the dataset features each one maps to.
 
     Use this to power a data-source picker when authoring a dataset or a prediction
@@ -900,7 +900,7 @@ STRUCTURAL_FIELDS = RESERVED_FIELDS - {"disease_cases"}
     tags=["Datasets"],
     summary="Suggest covariate names for a model-independent dataset",
 )
-async def get_covariate_names(session: Session = Depends(get_session)) -> list[CovariateNameSuggestion]:
+def get_covariate_names(session: Session = Depends(get_session)) -> list[CovariateNameSuggestion]:
     """List covariate names to offer when naming the columns of a dataset that is not tied to a model.
 
     Models only run on a dataset whose covariate names match the names they ask for
@@ -939,7 +939,7 @@ async def get_covariate_names(session: Session = Depends(get_session)) -> list[C
     tags=["Backtests"],
     summary="Run a backtest from inline data",
 )
-async def create_backtest_with_data(
+def create_backtest_with_data(
     request: MakeBacktestWithDataRequest,
     original_request: dict = Depends(get_job_request),
     dry_run: bool = Query(
