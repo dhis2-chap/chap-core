@@ -206,7 +206,9 @@ class DataSetManager(DbManager[DataSet]):
         )
         if org_units is not None:
             expr = expr.where(col(Observation.org_unit).in_(org_units))
-        return [(period, org_unit, value) for period, org_unit, value in self.session.exec(expr).all()]
+        # Run as a Core statement: the ORM result path doubled the fetch time at facility scale (CLIM-1876).
+        rows = self.session.connection().execute(expr)
+        return [(period, org_unit, value) for period, org_unit, value in rows]
 
     def summed_feature_values(self, dataset_id: int, feature_name: str) -> list[tuple[str, float]]:
         """Sum one feature over all org units per period in the database.

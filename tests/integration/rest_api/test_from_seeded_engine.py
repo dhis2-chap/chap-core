@@ -6,6 +6,7 @@ import pytest
 from sqlmodel import Session, select
 from starlette.testclient import TestClient
 
+from chap_core.api_types import DataElement, DataList
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.tables import Backtest, BacktestRead, Prediction
 from chap_core.rest_api.app import app
@@ -74,6 +75,31 @@ def test_actual_cases_filters_org_units(override_session):
     org_unit = all_rows[0]["ou"]
     filtered = client.get_json("/v1/analytics/actual-cases/1", params={"orgUnits": [org_unit]})["data"]
     assert filtered == [row for row in all_rows if row["ou"] == org_unit]
+
+
+def test_actual_cases_body_matches_the_data_list_model(override_session, seeded_session):
+    dataset = seeded_session.exec(select(DataSet).where(DataSet.name == "dataset_with_nans")).one()
+    target_rows = sorted(
+        (obs for obs in dataset.observations if obs.feature_name == dataset.target_column), key=lambda obs: obs.id
+    )
+    expected = DataList(
+        featureId=dataset.target_column,
+        dhis2Id=dataset.target_column,
+        data=[
+            DataElement(pe=obs.period, ou=obs.org_unit, value=None if obs.value is None else float(obs.value))
+            for obs in target_rows
+        ],
+    )
+
+    response = client.get_json(f"/v1/analytics/actual-cases/{dataset.id}", params={"isDatasetId": True})
+
+    assert response == expected.model_dump()
+    assert any(entry["value"] is None for entry in response["data"])
+
+
+def test_actual_cases_without_observations_is_not_found(override_session):
+    response = client.get("/v1/analytics/actual-cases/1", params={"orgUnits": ["unknown-org-unit"]})
+    assert response.status_code == 404, response.text
 
 
 def test_actual_cases_alias(override_session):

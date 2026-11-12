@@ -92,7 +92,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+# Starlette defaults to level 9, which took 2.3 s on a 33 MB facility-scale response.
+# Level 4 took 0.3 s for an 8% larger body (CLIM-1876).
+app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=4)
 
 
 @app.exception_handler(Exception)
