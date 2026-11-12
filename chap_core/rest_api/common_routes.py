@@ -13,7 +13,8 @@ from anyio import CapacityLimiter, to_thread
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
+from sqlalchemy.pool import NullPool
 
 from chap_core.database.database import engine
 from chap_core.rest_api.auth import get_api_token
@@ -89,11 +90,16 @@ async def health(worker_config=Depends(get_settings)) -> HealthResponse:
     return HealthResponse(status="success", message="healthy")
 
 
+# The readiness check opens a connection of its own: from the shared pool it would wait up
+# to 30 s whenever busy requests hold every connection, and report a busy worker as not ready.
+HEALTH_CHECK_ENGINE = create_engine(engine.url, poolclass=NullPool) if engine is not None else None
+
+
 def _check_db() -> str:
-    if engine is None:
+    if HEALTH_CHECK_ENGINE is None:
         return "error: database not configured"
     try:
-        with engine.connect() as conn:
+        with HEALTH_CHECK_ENGINE.connect() as conn:
             conn.execute(text("SELECT 1"))
         return "ok"
     except Exception as exc:
