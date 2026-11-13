@@ -98,8 +98,8 @@ from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from ...data_models import (
     AlertApprovalRequest,
     AlertIdsResponse,
+    AlertPolicyCodesUpdate,
     AlertPolicyCreate,
-    AlertPolicyUpdate,
     AlertsCreate,
     BacktestSpecificationFilter,
     BacktestSpecificationSummary,
@@ -1413,7 +1413,7 @@ def get_alert_policy(
 ):
     """Read a policy's levels, including their current response actions.
 
-    Resolve a signal's action using its `alertPolicyId` and `level` name.
+    Resolve an alert's action using its `alertPolicyId` and `level` name.
     404 if the id is unknown.
     """
     try:
@@ -1429,12 +1429,12 @@ def get_alert_policy(
     summary="Update a policy's output codes and response actions",
 )
 @api_experimental
-def update_alert_policy(
+def update_alert_policy_codes(
     alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
-    request: AlertPolicyUpdate,
+    request: AlertPolicyCodesUpdate,
     session: Session = Depends(get_session),
 ):
-    """Update codes and response actions by level name. Existing signals resolve to the current values through their policy.
+    """Update codes and response actions by level name. Existing alerts resolve to the current values through their policy.
 
     Omitted actions stay unchanged; null clears an action.
 
@@ -1443,12 +1443,12 @@ def update_alert_policy(
     422 for unknown levels or invalid codes. Invalid updates leave the policy unchanged.
     """
     try:
-        return alert_policy_service.update_alert_policy(
+        return alert_policy_service.update_alert_policy_codes(
             session,
             alert_policy_id,
             request.level_output_codes,
-            request.no_alert_output_code,
             request.level_response_actions,
+            request.no_alert_output_code,
         )
     except alert_policy_service.AlertPolicyNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e

@@ -114,24 +114,23 @@ def list_alert_policies(session: Session) -> list[AlertPolicy]:
     return list(session.exec(select(AlertPolicy)).all())
 
 
-def update_alert_policy(
+def update_alert_policy_codes(
     session: Session,
     policy_id: int,
     level_output_codes: dict[str, str],
+    level_response_actions: dict[str, str | None],
     no_alert_output_code: str | None = None,
-    level_response_actions: dict[str, str | None] | None = None,
 ) -> AlertPolicy:
     """Update codes and actions by level name, validating the complete mapping before saving."""
     policy = get_alert_policy(session, policy_id)
-    actions = level_response_actions or {}
-    unknown = (set(level_output_codes) | set(actions)) - {level.name for level in policy.levels}
+    unknown = (set(level_output_codes) | set(level_response_actions)) - {level.name for level in policy.levels}
     if unknown:
         raise InvalidAlertPolicyError(f"Unknown alert levels: {sorted(unknown)}")
     levels = [
         level.model_copy(
             update={
                 "output_code": level_output_codes.get(level.name, level.output_code),
-                "response_action": actions.get(level.name, level.response_action),
+                "response_action": level_response_actions.get(level.name, level.response_action),
             }
         )
         for level in policy.levels

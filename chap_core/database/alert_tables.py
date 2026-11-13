@@ -41,7 +41,7 @@ class AlertLevel(DBModel):
     )
     response_action: str | None = Field(
         default=None,
-        description="Free-text action to take when a signal reaches this level. Existing signals use the "
+        description="Free-text action to take when an alert reaches this level. Existing alerts use the "
         "policy's current text; `None` means no action is specified.",
     )
     threshold_params: ThresholdParams = Field(

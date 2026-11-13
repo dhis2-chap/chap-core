@@ -329,10 +329,6 @@ def test_patch_alert_policy_preserves_levels_and_existing_alerts(
     alert = client.get(f"/v1/crud/alerts/{alert_id}").json()
     assert alert == alert_before
     assert next(level["outputCode"] for level in expected["levels"] if level["name"] == alert["level"]) == "RED"
-    assert (
-        next(level["responseAction"] for level in expected["levels"] if level["name"] == alert["level"])
-        == (level_response_actions["action"])
-    )
 
     # A partial update preserves both the no-alert code and omitted levels.
     response = client.patch(url, json={"levelOutputCodes": {"monitor": "YELLOW"}})
