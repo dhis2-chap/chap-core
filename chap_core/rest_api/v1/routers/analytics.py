@@ -3,10 +3,11 @@ from typing import Annotated, Any, Literal
 
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
 from fastapi.exceptions import RequestValidationError
 from pydantic import Field as PydanticField
 from pydantic import ValidationError as PydanticValidationError
+from pydantic_core import to_json
 from sqlalchemy.orm import selectinload
 from sqlmodel import Field, Session, select
 
@@ -14,7 +15,6 @@ import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import (
     BacktestParams,
     BacktestParamsBase,
-    DataElement,
     DataList,
     EvaluationEntry,
     FeatureCollectionModel,
@@ -768,7 +768,8 @@ def get_actual_cases(
     Filter to specific regions with ``orgUnits``, or pass ``orgUnits=["adm0"]`` to get
     one summed series across every region (useful for national-level views). Set
     ``isDatasetId=true`` to skip the backtest lookup and read directly from a dataset
-    id. 404 if the backtest, or with ``isDatasetId=true`` the dataset, is unknown.
+    id. 404 if the backtest, or with ``isDatasetId=true`` the dataset, is unknown, or if
+    the dataset has no observations of the target for the requested regions.
     """
     if not is_dataset_id:
         backtest = session.get(Backtest, backtest_id)
@@ -785,17 +786,23 @@ def get_actual_cases(
     manager = DataSetManager(session)
     if org_units == ["adm0"]:
         # One series summed over every region, computed in the database (CLIM-1790).
-        data_list = [
-            DataElement(pe=period, ou="adm0", value=total)
+        data = [
+            {"pe": period, "ou": "adm0", "value": total}
             for period, total in manager.summed_feature_values(dataset_id, target_column)
         ]
     else:
-        data_list = [
-            DataElement(pe=period, ou=org_unit, value=None if value is None or np.isnan(value) else float(value))
+        data = [
+            {"pe": period, "ou": org_unit, "value": value}
             for period, org_unit, value in manager.feature_values(dataset_id, target_column, org_units=org_units)
         ]
-    logger.info("Actual cases for dataset %s: %d values", dataset_id, len(data_list))
-    return DataList(featureId=target_column, dhis2Id=target_column, data=data_list)
+    logger.info("Actual cases for dataset %s: %d values", dataset_id, len(data))
+    if not data:
+        raise HTTPException(status_code=404, detail=f"Dataset {dataset_id} has no {target_column} observations")
+    # Plain dicts serialised in one call instead of a DataElement per row: building the
+    # models took over a second for a facility-scale dataset (CLIM-1876). NaN and infinity
+    # become null, since JSON has no literal for them.
+    body = {"featureId": target_column, "dhis2Id": target_column, "data": data}
+    return Response(content=to_json(body, inf_nan_mode="null"), media_type="application/json")
 
 
 data_sources = [

@@ -206,7 +206,21 @@ class DataSetManager(DbManager[DataSet]):
         )
         if org_units is not None:
             expr = expr.where(col(Observation.org_unit).in_(org_units))
-        return [(period, org_unit, value) for period, org_unit, value in self.session.exec(expr).all()]
+        connection = self.session.connection()
+        if connection.dialect.name == "postgresql":
+            # Facility-scale reads are hundreds of thousands of rows, and SQLAlchemy builds a Row
+            # object for each one. A plain DBAPI cursor returns tuples directly (CLIM-1876).
+            compiled = expr.compile(dialect=connection.dialect, compile_kwargs={"render_postcompile": True})
+            dbapi_connection = connection.connection.dbapi_connection
+            assert dbapi_connection is not None
+            cursor = dbapi_connection.cursor()
+            try:
+                cursor.execute(str(compiled), compiled.params)
+                return cast("list[tuple[str, str, float | None]]", cursor.fetchall())
+            finally:
+                cursor.close()
+        rows = connection.execute(expr)
+        return [(period, org_unit, value) for period, org_unit, value in rows]
 
     def summed_feature_values(self, dataset_id: int, feature_name: str) -> list[tuple[str, float]]:
         """Sum one feature over all org units per period in the database.
