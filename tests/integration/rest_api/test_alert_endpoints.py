@@ -35,9 +35,10 @@ def _create_alert_policy(name: str = "Dengue ladder"):
 
 
 @pytest.mark.parametrize("codes", [None, ("GREEN", "ORANGE", "RED")])
-def test_create_alert_policy_happy_path(clean_engine, dependency_overrides, codes):
+def test_create_alert_policy_happy_path(clean_engine, dependency_overrides, codes, level_response_actions):
     """A policy round-trips its tiers, each keeping its own strategy's params."""
     payload = _alert_policy_payload("Ladder A")
+    payload["levels"][0]["responseAction"] = level_response_actions["monitor"]
     if codes is not None:
         payload["noAlertOutputCode"] = codes[0]
         for level, code in zip(payload["levels"], codes[1:]):
@@ -52,6 +53,8 @@ def test_create_alert_policy_happy_path(clean_engine, dependency_overrides, code
     assert body["levels"][0]["thresholdParams"] == {"type": "seasonal", "stdMultiplier": 1.0}
     assert body["levels"][1]["thresholdParams"]["quantile"] == 0.9
     assert body["levels"][1]["exceedanceThreshold"] == 0.8
+    assert body["levels"][0]["responseAction"] == level_response_actions["monitor"]
+    assert body["levels"][1]["responseAction"] is None
     assert body["noAlertOutputCode"] == (codes[0] if codes else "0")
     assert [level["outputCode"] for level in body["levels"]] == (list(codes[1:]) if codes else ["1", "2"])
     listed = client.get("/v1/crud/alert-policies").json()
@@ -298,7 +301,9 @@ def test_deleting_a_prediction_without_alerts_still_works(override_session, seed
     assert client.delete(f"/v1/crud/predictions/{prediction.id}").status_code == 200
 
 
-def test_patch_alert_policy_codes_preserves_levels_and_existing_alerts(clean_engine, dependency_overrides):
+def test_patch_alert_policy_preserves_levels_and_existing_alerts(
+    clean_engine, dependency_overrides, level_response_actions
+):
     policy_id = _create_alert_policy("Alerts J").json()["id"]
     url = f"/v1/crud/alert-policies/{policy_id}"
     before = client.get(url).json()
@@ -307,16 +312,27 @@ def test_patch_alert_policy_codes_preserves_levels_and_existing_alerts(clean_eng
 
     response = client.patch(
         url,
-        json={"noAlertOutputCode": "GREEN", "levelOutputCodes": {"action": "RED", "monitor": "ORANGE"}},
+        json={
+            "noAlertOutputCode": "GREEN",
+            "levelOutputCodes": {"action": "RED", "monitor": "ORANGE"},
+            "levelResponseActions": level_response_actions,
+        },
     )
     assert response.status_code == 200, response.text
     expected = before | {"noAlertOutputCode": "GREEN"}
-    expected["levels"] = [level | {"outputCode": code} for level, code in zip(before["levels"], ["ORANGE", "RED"])]
+    expected["levels"] = [
+        level | {"outputCode": code, "responseAction": level_response_actions[level["name"]]}
+        for level, code in zip(before["levels"], ["ORANGE", "RED"])
+    ]
     assert response.json() == expected
     assert client.get(url).json() == expected
     alert = client.get(f"/v1/crud/alerts/{alert_id}").json()
     assert alert == alert_before
     assert next(level["outputCode"] for level in expected["levels"] if level["name"] == alert["level"]) == "RED"
+    assert (
+        next(level["responseAction"] for level in expected["levels"] if level["name"] == alert["level"])
+        == (level_response_actions["action"])
+    )
 
     # A partial update preserves both the no-alert code and omitted levels.
     response = client.patch(url, json={"levelOutputCodes": {"monitor": "YELLOW"}})
@@ -324,14 +340,23 @@ def test_patch_alert_policy_codes_preserves_levels_and_existing_alerts(clean_eng
     assert response.status_code == 200, response.text
     assert client.get(url).json() == expected
 
+    # An action-only update can clear one action while preserving the rest of the policy.
+    response = client.patch(url, json={"levelResponseActions": {"action": None}})
+    expected["levels"][1]["responseAction"] = None
+    assert response.status_code == 200, response.text
+    assert response.json() == expected
+    assert client.get(url).json() == expected
+
 
 @pytest.mark.parametrize(
     "update",
     [
         {"levelOutputCodes": {"unknown": "RED"}},
+        {"levelResponseActions": {"unknown": None}},
+        {"levelOutputCodes": {"monitor": "2"}, "levelResponseActions": {"action": "Do not save"}},
         {"levelOutputCodes": {"monitor": "2"}},  # collides with an unchanged level
         {"noAlertOutputCode": "1"},  # collides with an unchanged level
-        {"name": "renamed"},  # only codes are editable
+        {"name": "renamed"},  # only codes and response actions are editable
     ],
 )
 def test_patch_alert_policy_rejects_invalid_changes_without_saving(clean_engine, dependency_overrides, update):
