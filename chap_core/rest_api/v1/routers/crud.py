@@ -1375,6 +1375,7 @@ def create_alert_policy(request: AlertPolicyCreate, session: Session = Depends(g
     or two levels sharing a name. Output codes must be non-empty and unique across
     all levels and the no-alert state. Codes do not affect severity ordering.
     Omitted level codes default to `1`, `2`, etc. in level order; no alert defaults to `0`.
+    Each level may include a free-text `responseAction` describing what to do when it fires.
     """
     try:
         policy = alert_policy_service.create_alert_policy(
@@ -1410,7 +1411,11 @@ def get_alert_policy(
     alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
     session: Session = Depends(get_session),
 ):
-    """Read a policy's levels, each with its channel parameters and the probability at which it fires. 404 if the id is unknown."""
+    """Read a policy's levels, including their current response actions.
+
+    Resolve an alert's action using its `alertPolicyId` and `level` name.
+    404 if the id is unknown.
+    """
     try:
         return alert_policy_service.get_alert_policy(session, alert_policy_id)
     except alert_policy_service.AlertPolicyNotFoundError as e:
@@ -1421,7 +1426,7 @@ def get_alert_policy(
     "/alert-policies/{alertPolicyId}",
     response_model=AlertPolicyRead,
     tags=["Alert Policies"],
-    summary="Update a policy's output codes",
+    summary="Update a policy's output codes and response actions",
 )
 @api_experimental
 def update_alert_policy_codes(
@@ -1429,7 +1434,9 @@ def update_alert_policy_codes(
     request: AlertPolicyCodesUpdate,
     session: Session = Depends(get_session),
 ):
-    """Update codes by level name. Existing alerts resolve to the new codes through their policy.
+    """Update codes and response actions by level name. Existing alerts resolve to the current values through their policy.
+
+    Omitted actions stay unchanged; null clears an action.
 
     Names, order and thresholds cannot change. The resulting codes must be non-empty
     and unique, including unchanged codes and no alert. 404 for an unknown policy;
@@ -1437,7 +1444,11 @@ def update_alert_policy_codes(
     """
     try:
         return alert_policy_service.update_alert_policy_codes(
-            session, alert_policy_id, request.level_output_codes, request.no_alert_output_code
+            session,
+            alert_policy_id,
+            request.level_output_codes,
+            request.level_response_actions,
+            request.no_alert_output_code,
         )
     except alert_policy_service.AlertPolicyNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e

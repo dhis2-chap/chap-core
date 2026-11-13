@@ -475,6 +475,14 @@ def make_row_df():
 
 
 @pytest.fixture
+def level_response_actions():
+    return {
+        "monitor": "Review surveillance data.\nCheck reporting completeness.",
+        "action": "Notify the response team and investigate.",
+    }
+
+
+@pytest.fixture
 def alert_prediction():
     """Stored forecast with two years of 10/20 cases: median 15 for each month."""
     import datetime
