@@ -7,7 +7,8 @@ from sqlmodel import Session, select
 from starlette.testclient import TestClient
 
 from chap_core.api_types import DataElement, DataList
-from chap_core.database.dataset_tables import DataSet
+from chap_core.database.dataset_manager import DataSetManager
+from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo
 from chap_core.database.tables import Backtest, BacktestRead, Prediction
 from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.routers.dependencies import get_session
@@ -100,6 +101,31 @@ def test_actual_cases_body_matches_the_data_list_model(override_session, seeded_
 def test_actual_cases_without_observations_is_not_found(override_session):
     response = client.get("/v1/analytics/actual-cases/1", params={"orgUnits": ["unknown-org-unit"]})
     assert response.status_code == 404, response.text
+
+
+def test_actual_cases_returns_infinite_values_as_null(file_engine, health_population_data):
+    location, series = next(iter(health_population_data.items()))
+    series.disease_cases[0] = float("inf")
+    with Session(file_engine) as session:
+        dataset_id = DataSetManager(session).save_dataset(
+            DataSetCreateInfo(name="with_infinity"), health_population_data, None
+        )
+
+    def get_test_session():
+        with Session(file_engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = get_test_session
+    try:
+        response = client.get(
+            f"/v1/analytics/actual-cases/{dataset_id}", params={"orgUnits": [location], "isDatasetId": True}
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200, response.text
+    assert b"Infinity" not in response.content
+    assert response.json()["data"][0] == {"pe": series.time_period[0].id, "ou": location, "value": None}
 
 
 def test_actual_cases_alias(override_session):

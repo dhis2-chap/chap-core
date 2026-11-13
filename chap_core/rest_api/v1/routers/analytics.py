@@ -792,16 +792,17 @@ def get_actual_cases(
         ]
     else:
         data = [
-            {"pe": period, "ou": org_unit, "value": None if value is None or np.isnan(value) else float(value)}
+            {"pe": period, "ou": org_unit, "value": value}
             for period, org_unit, value in manager.feature_values(dataset_id, target_column, org_units=org_units)
         ]
     logger.info("Actual cases for dataset %s: %d values", dataset_id, len(data))
     if not data:
         raise HTTPException(status_code=404, detail=f"Dataset {dataset_id} has no {target_column} observations")
     # Plain dicts serialised in one call instead of a DataElement per row: building the
-    # models took over a second for a facility-scale dataset (CLIM-1876).
+    # models took over a second for a facility-scale dataset (CLIM-1876). NaN and infinity
+    # become null, since JSON has no literal for them.
     body = {"featureId": target_column, "dhis2Id": target_column, "data": data}
-    return Response(content=to_json(body), media_type="application/json")
+    return Response(content=to_json(body, inf_nan_mode="null"), media_type="application/json")
 
 
 data_sources = [
