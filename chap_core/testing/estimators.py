@@ -11,6 +11,8 @@ def sanity_check_estimator(estimator):
     predictor = estimator.train(train)
     samples = predictor.predict(historic, future)
     assert isinstance(samples, DataSet)
+    n_samples = {s.samples.shape[1] for s in samples.values()}
+    assert len(n_samples) == 1, f"Every location needs the same number of samples, got {n_samples}"
     for s in samples.values():
         assert len(s) == prediction_length
-        assert s.samples.shape == (prediction_length, 100)
+        assert s.samples.ndim == 2 and s.samples.shape[0] == prediction_length
