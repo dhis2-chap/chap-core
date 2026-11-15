@@ -18,6 +18,7 @@ alias_generator=to_camel and FastAPI's response_model_by_alias defaults to True.
 import dataclasses
 import json
 import logging
+from gettext import NullTranslations
 from typing import Annotated, Any, Final, Literal
 
 import numpy as np
@@ -84,6 +85,7 @@ from chap_core.rest_api.celery_tasks import (
 )
 from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.experimental import api_experimental
+from chap_core.rest_api.i18n import get_translations
 from chap_core.rest_api.services.orchestrator import Orchestrator, ServiceNotFoundError
 from chap_core.rest_api.services.schemas import MLServiceInfo
 from chap_core.rest_api.v2.dependencies import get_orchestrator, get_registry_reader
@@ -411,6 +413,7 @@ def get_backtest_specification(
     include_archived_models: Annotated[bool, Query(alias="includeArchivedModels")] = False,
     session: Session = Depends(get_session),
     settings_manager: SettingsManager = Depends(get_settings_manager),
+    translations: Annotated[NullTranslations | None, Depends(get_translations)] = None,
 ):
     """Read one specification together with every backtest that ran under it, newest first, in a single response.
 
@@ -465,7 +468,7 @@ def get_backtest_specification(
         ],
         baselines=baselines,
         comparison_models=comparison_models,
-        metrics=list_metric_info(settings),
+        metrics=list_metric_info(settings, translations),
         default_baseline_model=settings.default_baseline_model,
         **_specification_params(specification),
     )

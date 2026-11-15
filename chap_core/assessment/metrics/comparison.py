@@ -16,6 +16,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from chap_core.assessment.metrics.base import OptimizationDirection, TargetBehavior
+from chap_core.i18n import N_
 
 if TYPE_CHECKING:
     from chap_core.assessment.metrics.base import MetricSpec
@@ -63,7 +64,9 @@ def _require_direction(spec: "MetricSpec") -> OptimizationDirection:
     return spec.optimization_direction
 
 
-@comparison_op("skill_ratio", "Relative improvement over the reference: 0.2 means 20% better, -0.5 means 50% worse.")
+@comparison_op(
+    "skill_ratio", N_("Relative improvement over the reference: 0.2 means 20% better, -0.5 means 50% worse.")
+)
 def skill_ratio(score: float, reference_score: float, spec: "MetricSpec") -> float:
     """Relative improvement over the reference: 0.2 means 20% better.
 
@@ -78,7 +81,7 @@ def skill_ratio(score: float, reference_score: float, spec: "MetricSpec") -> flo
     return score / reference_score - 1
 
 
-@comparison_op("difference", "Improvement over the reference in the metric's own units.")
+@comparison_op("difference", N_("Improvement over the reference in the metric's own units."))
 def difference(score: float, reference_score: float, spec: "MetricSpec") -> float:
     """Absolute improvement over the reference in the metric's own units."""
     direction = _require_direction(spec)
@@ -95,7 +98,7 @@ def _distance_to_target(value: float, target: float, behavior: TargetBehavior) -
 
 @comparison_op(
     "target_distance",
-    "How much closer to the metric's target the score is than the reference's, in the metric's units.",
+    N_("How much closer to the metric's target the score is than the reference's, in the metric's units."),
 )
 def target_distance(score: float, reference_score: float, spec: "MetricSpec") -> float:
     """How much closer to the target the model is than the reference.

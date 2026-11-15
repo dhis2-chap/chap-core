@@ -1,6 +1,7 @@
 import json
 import logging
-from typing import Any, cast
+from gettext import NullTranslations
+from typing import Annotated, Any, cast
 
 import altair as alt
 from fastapi import APIRouter, Depends, HTTPException
@@ -27,6 +28,7 @@ from chap_core.plotting.evaluation_plot import (
     VisualizationInfo,
     make_plot_from_backtest_object,
 )
+from chap_core.rest_api.i18n import get_translations
 from chap_core.rest_api.leaderboard_models import MetricInfo, list_metric_info
 from chap_core.rest_api.v1.routers.dependencies import get_session, get_settings_manager
 
@@ -63,7 +65,11 @@ class VisualizationParams(DBModel):
     response_model=list[MetricInfo],
     summary="Discover which scoring metrics are available",
 )
-def get_available_metrics(backtest_id: int, settings_manager: SettingsManager = Depends(get_settings_manager)):
+def get_available_metrics(
+    backtest_id: int,
+    settings_manager: SettingsManager = Depends(get_settings_manager),
+    translations: Annotated[NullTranslations | None, Depends(get_translations)] = None,
+):
     """List the metrics you can score a backtest with (CRPS, MAE, ...), with a human-friendly name, description, optimization direction, unit and target for each.
 
     Use this to populate a metric picker in a UI before requesting a specific plot. The
@@ -72,7 +78,7 @@ def get_available_metrics(backtest_id: int, settings_manager: SettingsManager = 
     """
     logger.info(f"Getting available metrics for backtest {backtest_id}")
     logger.info(f"Available metrics: {available_metrics.keys()}")
-    return list_metric_info(settings_manager.get())
+    return list_metric_info(settings_manager.get(), translations)
 
 
 @router.get(

@@ -10,6 +10,7 @@ license = { text = "AGPLv3 license" }
 keywords = ["chap_core"]
 
 dependencies = [
+    "babel>=2.18.0",
     "bionumpy>=1.0.14",
     "cyclopts>=4.16.1",
     "docker>=7.1.0",

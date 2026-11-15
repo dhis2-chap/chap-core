@@ -11,6 +11,7 @@ from chap_core.assessment.metrics.base import (
     ProbabilisticMetric,
     TargetBehavior,
 )
+from chap_core.i18n import N_
 
 
 class PercentileCoverageMetric(ProbabilisticMetric):
@@ -45,9 +46,11 @@ class Coverage10_90Metric(PercentileCoverageMetric):
 
     spec = MetricSpec(
         metric_id="coverage_10_90",
-        metric_name="Coverage 10-90",
+        metric_name=N_("Coverage 10-90"),
         aggregation_op=AggregationOp.MEAN,
-        description="Proportion of observations within 10th-90th percentile (higher is better, up to the 0.8 target)",
+        description=N_(
+            "Proportion of observations within 10th-90th percentile (higher is better, up to the 0.8 target)"
+        ),
         optimization_direction=None,
         target=0.8,
         target_behavior=TargetBehavior.AT_LEAST,
@@ -63,9 +66,11 @@ class Coverage25_75Metric(PercentileCoverageMetric):
 
     spec = MetricSpec(
         metric_id="coverage_25_75",
-        metric_name="Coverage 25-75",
+        metric_name=N_("Coverage 25-75"),
         aggregation_op=AggregationOp.MEAN,
-        description="Proportion of observations within 25th-75th percentile (higher is better, up to the 0.5 target)",
+        description=N_(
+            "Proportion of observations within 25th-75th percentile (higher is better, up to the 0.5 target)"
+        ),
         optimization_direction=None,
         target=0.5,
         target_behavior=TargetBehavior.AT_LEAST,

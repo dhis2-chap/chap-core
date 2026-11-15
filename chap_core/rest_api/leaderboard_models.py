@@ -4,6 +4,8 @@ They live apart from `data_models` because they describe the metrics, and the me
 package imports the evaluation code, which imports `data_models`.
 """
 
+from gettext import NullTranslations
+
 from pydantic import Field
 
 from chap_core.api_types import BacktestParams
@@ -59,8 +61,9 @@ class MetricInfo(DBModel):
     )
 
 
-def list_metric_info(settings: Settings) -> list[MetricInfo]:
+def list_metric_info(settings: Settings, translations: NullTranslations | None = None) -> list[MetricInfo]:
     """Describe every metric in the configured order, retaining unselected metrics."""
+    gettext = (translations or NullTranslations()).gettext
     metrics = []
     for rank, metric_id in enumerate(settings.metric_sort_order):
         metric_cls = available_metrics[metric_id]
@@ -69,14 +72,14 @@ def list_metric_info(settings: Settings) -> list[MetricInfo]:
                 id=metric_id,
                 sort_order=rank,
                 is_selected=metric_id in settings.selected_metrics,
-                display_name=metric_cls().get_name(),
-                description=metric_cls().get_description(),
+                display_name=gettext(metric_cls().get_name()),
+                description=gettext(metric_cls().get_description()),
                 optimization_direction=metric_cls.spec.optimization_direction,
                 target_behavior=metric_cls.spec.target_behavior,
                 unit=metric_cls.spec.unit,
                 target=metric_cls.spec.target,
                 comparison_op=metric_cls.spec.comparison_op,
-                comparison_description=get_comparison_description(metric_cls.spec.comparison_op)
+                comparison_description=gettext(get_comparison_description(metric_cls.spec.comparison_op))
                 if metric_cls.spec.comparison_op
                 else None,
             )

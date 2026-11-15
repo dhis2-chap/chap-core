@@ -9,6 +9,7 @@ from chap_core.assessment.metrics.base import (
     MetricSpec,
     OptimizationDirection,
 )
+from chap_core.i18n import N_
 
 
 @metric()
@@ -28,9 +29,9 @@ class RMSEMetric(DeterministicMetric):
 
     spec = MetricSpec(
         metric_id="rmse",
-        metric_name="RMSE",
+        metric_name=N_("RMSE"),
         aggregation_op=AggregationOp.ROOT_MEAN_SQUARE,
-        description="Root Mean Squared Error - measures average prediction error magnitude",
+        description=N_("Root Mean Squared Error - measures average prediction error magnitude"),
         optimization_direction=OptimizationDirection.MINIMIZE,
         proper_scoring_rule=True,
         comparison_op="skill_ratio",

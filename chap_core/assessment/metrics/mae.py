@@ -9,6 +9,7 @@ from chap_core.assessment.metrics.base import (
     MetricSpec,
     OptimizationDirection,
 )
+from chap_core.i18n import N_
 
 
 @metric()
@@ -28,9 +29,9 @@ class MAEMetric(DeterministicMetric):
 
     spec = MetricSpec(
         metric_id="mae",
-        metric_name="MAE",
+        metric_name=N_("MAE"),
         aggregation_op=AggregationOp.MEAN,
-        description="Mean Absolute Error - measures average absolute prediction error",
+        description=N_("Mean Absolute Error - measures average absolute prediction error"),
         optimization_direction=OptimizationDirection.MINIMIZE,
         proper_scoring_rule=True,
         comparison_op="skill_ratio",

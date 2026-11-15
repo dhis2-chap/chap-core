@@ -160,6 +160,7 @@ nav:
           - MLproject Configuration: contributor/mlproject_configuration.md
           - Vocabulary: contributor/vocabulary.md
           - Testing: contributor/testing.md
+          - Translations: contributor/translations.md
           - Pull Request Review: contributor/pr_review.md
           - Database Migrations: contributor/database_migrations.md
           - Documentation: contributor/writing_building_documentation.md

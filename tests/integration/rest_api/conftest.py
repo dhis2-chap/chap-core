@@ -475,6 +475,30 @@ def backend_settings_payload():
 
 
 @pytest.fixture
+def french_metric_catalog(tmp_path, monkeypatch):
+    from babel.messages.catalog import Catalog
+    from babel.messages.pofile import write_po
+
+    from chap_core import i18n
+
+    messages = {
+        "CRPS Normalized": "CRPS normalisé",
+        "Mean Absolute Error - measures average absolute prediction error": "Erreur absolue moyenne - mesure l'erreur absolue moyenne des prévisions",
+        "Relative improvement over the reference: 0.2 means 20% better, -0.5 means 50% worse.": "Amélioration relative par rapport à la référence : 0,2 signifie 20 % de mieux, -0,5 signifie 50 % de moins.",
+    }
+    catalog = Catalog(locale="fr")
+    for source, translated in messages.items():
+        catalog.add(source, translated)
+    catalog.add("RMSE", "Unreviewed translation", flags=["fuzzy"])
+    with (tmp_path / "fr.po").open("wb") as output:
+        write_po(output, catalog)
+    monkeypatch.setattr(i18n, "LOCALES_DIR", tmp_path)
+    i18n.load_translations.cache_clear()
+    yield messages
+    i18n.load_translations.cache_clear()
+
+
+@pytest.fixture
 def analytics_worker(monkeypatch):
     from chap_core.rest_api.v1.routers import analytics
 

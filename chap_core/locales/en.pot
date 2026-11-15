@@ -1,0 +1,148 @@
+# Translations template for chap-core.
+# Copyright (C) 2026 Chap Team
+# This file is distributed under the same license as the chap-core project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: chap-core VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-15 16:51+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: assessment/metrics/crps.py
+msgid "CRPS"
+msgstr ""
+
+#: assessment/metrics/crps.py
+msgid "CRPS (log1p)"
+msgstr ""
+
+#: assessment/metrics/crps_norm.py
+msgid "CRPS Normalized"
+msgstr ""
+
+#: assessment/metrics/crps.py
+msgid "CRPS computed on log(1+x)-transformed forecasts and observations"
+msgstr ""
+
+#: assessment/metrics/crps.py
+msgid "Continuous Ranked Probability Score - measures calibration and sharpness"
+msgstr ""
+
+#: assessment/metrics/percentile_coverage.py
+msgid "Coverage 10-90"
+msgstr ""
+
+#: assessment/metrics/percentile_coverage.py
+msgid "Coverage 25-75"
+msgstr ""
+
+#: assessment/metrics/comparison.py
+msgid ""
+"How much closer to the metric's target the score is than the reference's,"
+" in the metric's units."
+msgstr ""
+
+#: assessment/metrics/comparison.py
+msgid "Improvement over the reference in the metric's own units."
+msgstr ""
+
+#: assessment/metrics/mae.py
+msgid "MAE"
+msgstr ""
+
+#: assessment/metrics/mape.py
+msgid "MAPE"
+msgstr ""
+
+#: assessment/metrics/mae.py
+msgid "Mean Absolute Error - measures average absolute prediction error"
+msgstr ""
+
+#: assessment/metrics/mape.py
+msgid ""
+"Mean Absolute Percentage Error - average absolute error as percent of "
+"observed"
+msgstr ""
+
+#: assessment/metrics/crps_norm.py
+msgid ""
+"Normalized CRPS - CRPS divided by the range of the observed values that "
+"have a forecast"
+msgstr ""
+
+#: assessment/metrics/above_truth.py
+msgid ""
+"Proportion of forecast samples exceeding the observed value (0.5 = "
+"unbiased)"
+msgstr ""
+
+#: assessment/metrics/percentile_coverage.py
+msgid ""
+"Proportion of observations within 10th-90th percentile (higher is better,"
+" up to the 0.8 target)"
+msgstr ""
+
+#: assessment/metrics/percentile_coverage.py
+msgid ""
+"Proportion of observations within 25th-75th percentile (higher is better,"
+" up to the 0.5 target)"
+msgstr ""
+
+#: assessment/metrics/rmse.py
+msgid "RMSE"
+msgstr ""
+
+#: assessment/metrics/above_truth.py
+msgid "Ratio Above Truth"
+msgstr ""
+
+#: assessment/metrics/comparison.py
+msgid ""
+"Relative improvement over the reference: 0.2 means 20% better, -0.5 means"
+" 50% worse."
+msgstr ""
+
+#: assessment/metrics/rmse.py
+msgid "Root Mean Squared Error - measures average prediction error magnitude"
+msgstr ""
+
+#: assessment/metrics/winkler_score.py
+msgid "Winkler 10-90 (log1p)"
+msgstr ""
+
+#: assessment/metrics/winkler_score.py
+msgid "Winkler 25-75 (log1p)"
+msgstr ""
+
+#: assessment/metrics/winkler_score.py
+msgid "Winkler Score 10-90"
+msgstr ""
+
+#: assessment/metrics/winkler_score.py
+msgid "Winkler Score 25-75"
+msgstr ""
+
+#: assessment/metrics/winkler_score.py
+msgid "Winkler score for 10th-90th percentile prediction interval"
+msgstr ""
+
+#: assessment/metrics/winkler_score.py
+msgid "Winkler score for 25th-75th percentile prediction interval"
+msgstr ""
+
+#: assessment/metrics/winkler_score.py
+msgid "Winkler score on log(1+x)-transformed values for 10-90 interval"
+msgstr ""
+
+#: assessment/metrics/winkler_score.py
+msgid "Winkler score on log(1+x)-transformed values for 25-75 interval"
+msgstr ""

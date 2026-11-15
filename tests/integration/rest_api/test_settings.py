@@ -27,8 +27,9 @@ def test_fresh_settings_are_code_defaults_and_not_stored(override_session, seede
     assert seeded_session.get(BackendSettings, 1) is None
 
 
+@pytest.mark.parametrize("language", ["en", "fr"])
 def test_saved_settings_store_only_changes_and_drive_leaderboard(
-    override_session, p_seeded_engine, seeded_session, backend_settings_payload
+    override_session, p_seeded_engine, seeded_session, backend_settings_payload, french_metric_catalog, language
 ):
     payload = backend_settings_payload
     # Partial order is allowed; unlisted metrics are appended in their default order.
@@ -48,7 +49,8 @@ def test_saved_settings_store_only_changes_and_drive_leaderboard(
     assert set(record.overrides) == {"metric_sort_order", "selected_metrics", "default_baseline_model"}
 
     specification = seeded_session.exec(select(BacktestSpecification)).first()
-    response = client.get(f"/v1/crud/backtest-specifications/{specification.id}")
+    headers = {"Accept-Language": language}
+    response = client.get(f"/v1/crud/backtest-specifications/{specification.id}", headers=headers)
     assert response.status_code == 200, response.text
     leaderboard = response.json()
     assert leaderboard["defaultBaselineModel"] == "global_median"
@@ -56,7 +58,10 @@ def test_saved_settings_store_only_changes_and_drive_leaderboard(
     assert [metric["id"] for metric in metrics] == saved["metricSortOrder"]
     assert [metric["id"] for metric in metrics if metric["isSelected"]] == saved["selectedMetrics"]
     assert [metric["sortOrder"] for metric in metrics] == list(range(len(metrics)))
-    assert client.get("/v1/visualization/metrics/1").json() == metrics
+    assert client.get("/v1/visualization/metrics/1", headers=headers).json() == metrics
+    mae = next(metric for metric in metrics if metric["id"] == "mae")
+    description = available_metrics["mae"]().get_description()
+    assert mae["description"] == (french_metric_catalog[description] if language == "fr" else description)
 
 
 def test_stored_settings_with_removed_metric_and_baseline_still_load(

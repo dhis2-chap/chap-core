@@ -11,6 +11,7 @@ from chap_core.assessment.metrics.base import (
     MetricSpec,
     OptimizationDirection,
 )
+from chap_core.i18n import N_
 
 
 @metric()
@@ -30,9 +31,9 @@ class MAPEMetric(DeterministicMetric):
 
     spec = MetricSpec(
         metric_id="mape",
-        metric_name="MAPE",
+        metric_name=N_("MAPE"),
         aggregation_op=AggregationOp.MEAN,
-        description="Mean Absolute Percentage Error - average absolute error as percent of observed",
+        description=N_("Mean Absolute Percentage Error - average absolute error as percent of observed"),
         optimization_direction=OptimizationDirection.MINIMIZE,
         unit="%",
         comparison_op="skill_ratio",

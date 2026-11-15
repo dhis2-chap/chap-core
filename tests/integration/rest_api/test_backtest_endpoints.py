@@ -35,10 +35,35 @@ from tests.integration.rest_api.db_endpoint_helpers import (
 )
 
 
-def test_get_metrics(celery_session_worker, clean_engine, dependency_overrides):
-    response = client.get("/v1/visualization/metrics/1")
+@pytest.mark.parametrize(
+    "accept_language,language",
+    [
+        ("fr", "fr"),
+        ("fr-CA, en;q=0.5", "fr"),
+        ("fr;q=0.4, en;q=0.8", "en"),
+        ("de, fr;q=0.8", "fr"),
+        ("fr;q=0, en", "en"),
+        ("fr;q=invalid", "en"),
+        ("de", "en"),
+        ("", "en"),
+    ],
+)
+def test_get_metrics(clean_engine, dependency_overrides, french_metric_catalog, accept_language, language):
+    url = "/v1/visualization/metrics/1"
+    english = client.get(url).json()
+    response = client.get(url, headers={"Accept-Language": accept_language})
     assert response.status_code == 200
     assert any(metric["id"] == "crps" for metric in response.json())
+    assert response.headers["Content-Language"] == language
+    assert "Accept-Language" in response.headers["Vary"]
+    expected = [dict(metric) for metric in english]
+    if language == "fr":
+        for metric in expected:
+            for field in ("displayName", "description", "comparisonDescription"):
+                metric[field] = french_metric_catalog.get(metric[field], metric[field])
+    assert response.json() == expected
+    # A translated request must not change shared metric specs or later English requests.
+    assert client.get(url).json() == english
 
 
 def test_get_visualizations(celery_session_worker, clean_engine, dependency_overrides):
