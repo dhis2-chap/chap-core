@@ -11,6 +11,7 @@ from chap_core.database.base_tables import DBModel
 from chap_core.database.manager import DbManager
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.database.tables import BackendSettings
+from chap_core.i18n import gettext
 from chap_core.models.builtin import get_builtin_models
 
 logger = logging.getLogger(__name__)
@@ -55,17 +56,17 @@ class Settings(DBModel):
     @classmethod
     def validate_metrics(cls, value: list[str]) -> list[str]:
         if len(value) != len(set(value)):
-            raise ValueError("Metric ids must be unique.")
+            raise ValueError(gettext("Metric ids must be unique."))
         unknown = set(value) - available_metrics.keys()
         if unknown:
-            raise ValueError(f"Unknown metrics: {', '.join(sorted(unknown))}")
+            raise ValueError(gettext("Unknown metrics: {metrics}").format(metrics=", ".join(sorted(unknown))))
         return value
 
     @field_validator("default_baseline_model")
     @classmethod
     def validate_baseline(cls, value: str) -> str:
         if not is_builtin_baseline(value):
-            raise ValueError("The default model must be a built-in baseline.")
+            raise ValueError(gettext("The default model must be a built-in baseline."))
         return value
 
     @model_validator(mode="after")

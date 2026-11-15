@@ -1,7 +1,6 @@
 import json
 import logging
-from gettext import NullTranslations
-from typing import Annotated, Any, cast
+from typing import Any, cast
 
 import altair as alt
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,12 +22,12 @@ from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.settings import SettingsManager
 from chap_core.database.tables import Backtest
+from chap_core.i18n import gettext
 from chap_core.plotting.dataset_plot import create_plot_from_dataset, get_dataset_plots_registry, list_dataset_plots
 from chap_core.plotting.evaluation_plot import (
     VisualizationInfo,
     make_plot_from_backtest_object,
 )
-from chap_core.rest_api.i18n import get_translations
 from chap_core.rest_api.leaderboard_models import MetricInfo, list_metric_info
 from chap_core.rest_api.v1.routers.dependencies import get_session, get_settings_manager
 
@@ -68,7 +67,6 @@ class VisualizationParams(DBModel):
 def get_available_metrics(
     backtest_id: int,
     settings_manager: SettingsManager = Depends(get_settings_manager),
-    translations: Annotated[NullTranslations | None, Depends(get_translations)] = None,
 ):
     """List the metrics you can score a backtest with (CRPS, MAE, ...), with a human-friendly name, description, optimization direction, unit and target for each.
 
@@ -78,7 +76,7 @@ def get_available_metrics(
     """
     logger.info(f"Getting available metrics for backtest {backtest_id}")
     logger.info(f"Available metrics: {available_metrics.keys()}")
-    return list_metric_info(settings_manager.get(), translations)
+    return list_metric_info(settings_manager.get())
 
 
 @router.get(
@@ -96,14 +94,19 @@ def generate_visualization(
     """
     backtest = session.get(Backtest, backtest_id)
     if not backtest:
-        raise HTTPException(status_code=404, detail="Backtest not found")
+        raise HTTPException(status_code=404, detail=gettext("Backtest not found"))
 
     if metric_id not in available_metrics:
-        raise HTTPException(status_code=400, detail=f"Metric {metric_id} not found")
+        raise HTTPException(status_code=400, detail=gettext("Metric {metric_id} not found").format(metric_id=metric_id))
 
     registry = get_metric_plots_registry()
     if visualization_name not in registry:
-        raise HTTPException(status_code=404, detail=f"Visualization {visualization_name} not found")
+        raise HTTPException(
+            status_code=404,
+            detail=gettext("Visualization {visualization_name} not found").format(
+                visualization_name=visualization_name
+            ),
+        )
 
     geojson_str = backtest.dataset.geojson
     geojson = json.loads(geojson_str) if geojson_str else None
@@ -152,12 +155,15 @@ def generate_data_plots(visualization_name: str, dataset_id: int, session: Sessi
     if visualization_name not in registry:
         available = ", ".join(registry.keys())
         raise HTTPException(
-            status_code=404, detail=f"Visualization {visualization_name} not found. Available: {available}"
+            status_code=404,
+            detail=gettext("Visualization {visualization_name} not found. Available: {available}").format(
+                visualization_name=visualization_name, available=available
+            ),
         )
 
     dataset = session.get(DataSet, dataset_id)
     if not dataset:
-        raise HTTPException(status_code=404, detail="Dataset not found")
+        raise HTTPException(status_code=404, detail=gettext("Dataset not found"))
 
     chart = create_plot_from_dataset(visualization_name, dataset)
     return JSONResponse(chart)
@@ -203,12 +209,15 @@ def generate_backtest_plots(visualization_name: str, backtest_id: int, session: 
     if visualization_name not in registry:
         available = ", ".join(registry.keys())
         raise HTTPException(
-            status_code=404, detail=f"Visualization {visualization_name} not found. Available: {available}"
+            status_code=404,
+            detail=gettext("Visualization {visualization_name} not found. Available: {available}").format(
+                visualization_name=visualization_name, available=available
+            ),
         )
 
     backtest = session.get(Backtest, backtest_id)
     if not backtest:
-        raise HTTPException(status_code=404, detail="Backtest not found")
+        raise HTTPException(status_code=404, detail=gettext("Backtest not found"))
 
     chart = create_plot_from_backtest(visualization_name, backtest)
     return JSONResponse(chart.to_dict(format="vega"))
@@ -248,14 +257,17 @@ def _get_faceted_plotter_and_backtest(
 ) -> tuple[FacetedBacktestPlot, Backtest]:
     plot_cls = get_backtest_plot(plot_id)
     if plot_cls is None:
-        raise HTTPException(status_code=404, detail=f"Plot {plot_id} not found")
+        raise HTTPException(status_code=404, detail=gettext("Plot {plot_id} not found").format(plot_id=plot_id))
 
     if not issubclass(plot_cls, FacetedBacktestPlot):
-        raise HTTPException(status_code=400, detail=f"Plot '{plot_id}' does not support faceting properties")
+        raise HTTPException(
+            status_code=400,
+            detail=gettext("Plot '{plot_id}' does not support faceting properties").format(plot_id=plot_id),
+        )
 
     backtest = session.get(Backtest, backtest_id)
     if not backtest:
-        raise HTTPException(status_code=404, detail="Backtest not found")
+        raise HTTPException(status_code=404, detail=gettext("Backtest not found"))
 
     return plot_cls(), backtest
 

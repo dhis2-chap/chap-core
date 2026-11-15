@@ -20,6 +20,7 @@ from chap_core.database.base_tables import utc_now
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import Backtest, Prediction, PredictionSetup, QuantileTarget
+from chap_core.i18n import gettext
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,9 @@ def _validate_alert_policy(session: Session, alert_policy_id: int | None) -> int
     if alert_policy_id is None:
         return None
     if session.get(AlertPolicy, alert_policy_id) is None:
-        raise AlertPolicyNotFoundError(f"AlertPolicy {alert_policy_id} not found")
+        raise AlertPolicyNotFoundError(
+            gettext("AlertPolicy {alert_policy_id} not found").format(alert_policy_id=alert_policy_id)
+        )
     return alert_policy_id
 
 
@@ -75,14 +78,14 @@ def _validate_schedule(cron_expression: str | None, enabled: bool) -> str | None
     cron = _normalize_cron_expression(cron_expression)
     if cron is None:
         if enabled:
-            raise InvalidSetupError("Enabled schedules require a cron expression")
+            raise InvalidSetupError(gettext("Enabled schedules require a cron expression"))
         return None
     if len(cron.split()) != 5:
-        raise InvalidSetupError("Schedule expression must be standard five-field cron")
+        raise InvalidSetupError(gettext("Schedule expression must be standard five-field cron"))
     try:
         croniter(cron)
     except Exception as e:
-        raise InvalidSetupError(f"Invalid schedule expression: {e}") from e
+        raise InvalidSetupError(gettext("Invalid schedule expression: {e}").format(e=e)) from e
     return cron
 
 
@@ -124,7 +127,7 @@ def create_prediction_setup(
         DuplicateSetupError: backtest already has a PredictionSetup.
     """
     if not name:
-        raise InvalidSetupError("name is required")
+        raise InvalidSetupError(gettext("name is required"))
     cron = _validate_schedule(schedule_cron_expression, schedule_enabled)
     _validate_alert_policy(session, alert_policy_id)
 
@@ -136,7 +139,7 @@ def create_prediction_setup(
         )
     ).first()
     if backtest is None:
-        raise BacktestNotFoundError(f"Backtest {backtest_id} not found")
+        raise BacktestNotFoundError(gettext("Backtest {backtest_id} not found").format(backtest_id=backtest_id))
 
     dataset = backtest.dataset
     setup = PredictionSetup(
@@ -158,7 +161,9 @@ def create_prediction_setup(
         session.commit()
     except IntegrityError as e:
         session.rollback()
-        raise DuplicateSetupError(f"Backtest {backtest_id} already has a PredictionSetup") from e
+        raise DuplicateSetupError(
+            gettext("Backtest {backtest_id} already has a PredictionSetup").format(backtest_id=backtest_id)
+        ) from e
     session.refresh(setup)
     return setup
 
@@ -175,7 +180,7 @@ def get_prediction_setup(
         .options(*_setup_read_options(include_predictions=include_predictions))
     ).first()
     if setup is None:
-        raise PredictionSetupNotFoundError(f"PredictionSetup {setup_id} not found")
+        raise PredictionSetupNotFoundError(gettext("PredictionSetup {setup_id} not found").format(setup_id=setup_id))
     return setup
 
 
@@ -201,17 +206,17 @@ def update_prediction_setup(
     """
     rejected = set(update_data.keys()) - _MUTABLE_FIELDS
     if rejected:
-        raise InvalidSetupError(f"Cannot update immutable fields: {sorted(rejected)}")
+        raise InvalidSetupError(gettext("Cannot update immutable fields: {fields}").format(fields=sorted(rejected)))
 
     setup = session.exec(
         select(PredictionSetup).where(PredictionSetup.id == setup_id).options(*_setup_read_options())
     ).first()
     if setup is None:
-        raise PredictionSetupNotFoundError(f"PredictionSetup {setup_id} not found")
+        raise PredictionSetupNotFoundError(gettext("PredictionSetup {setup_id} not found").format(setup_id=setup_id))
 
     if "name" in update_data:
         if not update_data["name"]:
-            raise InvalidSetupError("name cannot be null or empty")
+            raise InvalidSetupError(gettext("name cannot be null or empty"))
         setup.name = update_data["name"]
 
     if "alert_policy_id" in update_data:
@@ -221,7 +226,7 @@ def update_prediction_setup(
         new_cron = update_data.get("schedule_cron_expression", setup.schedule_cron_expression)
         new_enabled = update_data.get("schedule_enabled", setup.schedule_enabled)
         if new_enabled is None:
-            raise InvalidSetupError("schedule_enabled cannot be null")
+            raise InvalidSetupError(gettext("schedule_enabled cannot be null"))
         validated_cron = _validate_schedule(new_cron, new_enabled)
         setup.schedule_cron_expression = validated_cron
         setup.schedule_enabled = new_enabled
@@ -247,6 +252,6 @@ def delete_prediction_setup(session: Session, setup_id: int) -> None:
     """
     setup = session.get(PredictionSetup, setup_id)
     if setup is None:
-        raise PredictionSetupNotFoundError(f"PredictionSetup {setup_id} not found")
+        raise PredictionSetupNotFoundError(gettext("PredictionSetup {setup_id} not found").format(setup_id=setup_id))
     session.delete(setup)
     session.commit()

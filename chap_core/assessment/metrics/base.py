@@ -17,6 +17,7 @@ from chap_core.assessment.flat_representations import (
     FlatObserved,
 )
 from chap_core.assessment.forecast_cells import ForecastCells
+from chap_core.i18n import gettext
 
 
 class AggregationOp(StrEnum):
@@ -326,7 +327,7 @@ class Metric(ABC):
 
     def get_name(self) -> str:
         """Return the display name of the metric."""
-        return self.spec.metric_name
+        return gettext(self.spec.metric_name)
 
     def get_id(self) -> str:
         """Return the metric ID."""
@@ -334,7 +335,7 @@ class Metric(ABC):
 
     def get_description(self) -> str:
         """Return the metric description."""
-        return self.spec.description
+        return gettext(self.spec.description)
 
 
 class DeterministicMetric(Metric):

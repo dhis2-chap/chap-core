@@ -11,6 +11,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 from chap_core.database.base_tables import DBModel
 from chap_core.exceptions import ModelTemplateRevisionConflict
+from chap_core.i18n import gettext
 from chap_core.model_spec import PeriodType
 
 logger = logging.getLogger(__name__)
@@ -197,11 +198,13 @@ def chapkit_revision_conflict(
     if template.source_digest is not None and template.source_digest == reported_digest:
         return None
     if reported_digest is None:
-        how_to_fix = "build the image with the GIT_REVISION build arg, set a new info.version and register it again."
+        how_to_fix = gettext(
+            "build the image with the GIT_REVISION build arg, set a new info.version and register it again."
+        )
     elif template.source_digest is None:
-        how_to_fix = "set a new info.version in the chapkit service and register it again."
+        how_to_fix = gettext("set a new info.version in the chapkit service and register it again.")
     else:
-        how_to_fix = (
+        how_to_fix = gettext(
             "set a new info.version in the chapkit service (built with the GIT_REVISION build arg) "
             "and register it again."
         )

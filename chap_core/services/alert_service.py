@@ -16,6 +16,7 @@ from sqlmodel import Session, select
 from chap_core.database.alert_tables import Alert, AlertApproval, AlertPolicy
 from chap_core.database.base_tables import utc_now
 from chap_core.database.tables import Prediction
+from chap_core.i18n import gettext
 from chap_core.services import threshold_service
 
 if TYPE_CHECKING:
@@ -92,10 +93,16 @@ def _validate_level(session: Session, alert_policy_id: int, level: str) -> None:
     """
     policy = session.get(AlertPolicy, alert_policy_id)
     if policy is None:
-        raise InvalidAlertError(f"AlertPolicy {alert_policy_id} not found")
+        raise InvalidAlertError(
+            gettext("AlertPolicy {alert_policy_id} not found").format(alert_policy_id=alert_policy_id)
+        )
     known = [policy_level.name for policy_level in policy.levels]
     if level not in known:
-        raise InvalidAlertError(f"AlertPolicy {alert_policy_id} has no level {level!r}; it defines {sorted(known)}")
+        raise InvalidAlertError(
+            gettext("AlertPolicy {alert_policy_id} has no level {level!r}; it defines {levels}").format(
+                alert_policy_id=alert_policy_id, level=level, levels=sorted(known)
+            )
+        )
 
 
 def create_alerts(session: Session, alerts: Sequence[Alert]) -> list[Alert]:
@@ -122,7 +129,9 @@ def create_alerts(session: Session, alerts: Sequence[Alert]) -> list[Alert]:
         if alert.prediction_id is None:
             continue
         if session.get(Prediction, alert.prediction_id) is None:
-            raise InvalidAlertError(f"Prediction {alert.prediction_id} not found")
+            raise InvalidAlertError(
+                gettext("Prediction {prediction_id} not found").format(prediction_id=alert.prediction_id)
+            )
         key = (alert.prediction_id, alert.org_unit, alert.time_period)
         existing = session.exec(
             select(Alert.id).where(
@@ -133,7 +142,9 @@ def create_alerts(session: Session, alerts: Sequence[Alert]) -> list[Alert]:
         ).first()
         if key in seen or existing is not None:
             raise InvalidAlertError(
-                f"Prediction {alert.prediction_id} already has an alert for {alert.org_unit} in {alert.time_period}"
+                gettext("Prediction {prediction_id} already has an alert for {org_unit} in {time_period}").format(
+                    prediction_id=alert.prediction_id, org_unit=alert.org_unit, time_period=alert.time_period
+                )
             )
         seen.add(key)
 
@@ -145,7 +156,9 @@ def create_alerts(session: Session, alerts: Sequence[Alert]) -> list[Alert]:
         session.commit()
     except IntegrityError as e:
         session.rollback()
-        raise InvalidAlertError("The alerts conflict with a change made at the same time; none were recorded") from e
+        raise InvalidAlertError(
+            gettext("The alerts conflict with a change made at the same time; none were recorded")
+        ) from e
     for alert in alerts:
         session.refresh(alert)
     return list(alerts)
@@ -155,7 +168,7 @@ def get_alert(session: Session, alert_id: int) -> Alert:
     """Fetch an Alert by id. Raises AlertNotFoundError if missing."""
     alert = session.get(Alert, alert_id)
     if alert is None:
-        raise AlertNotFoundError(f"Alert {alert_id} not found")
+        raise AlertNotFoundError(gettext("Alert {alert_id} not found").format(alert_id=alert_id))
     return alert
 
 
@@ -168,7 +181,9 @@ def delete_alert(session: Session, alert_id: int) -> None:
     """
     alert = get_alert(session, alert_id)
     if alert.approved is AlertApproval.APPROVED:
-        raise AlertApprovedError(f"Alert {alert_id} is approved for dissemination and cannot be deleted")
+        raise AlertApprovedError(
+            gettext("Alert {alert_id} is approved for dissemination and cannot be deleted").format(alert_id=alert_id)
+        )
     session.delete(alert)
     session.commit()
 
@@ -212,9 +227,9 @@ def set_approval(
         InvalidAlertError: no ids, or an empty reviewer.
     """
     if not alert_ids:
-        raise InvalidAlertError("No alerts to review")
+        raise InvalidAlertError(gettext("No alerts to review"))
     if not approved_by or not approved_by.strip():
-        raise InvalidAlertError("approved_by is required")
+        raise InvalidAlertError(gettext("approved_by is required"))
 
     alerts = [get_alert(session, alert_id) for alert_id in alert_ids]
 

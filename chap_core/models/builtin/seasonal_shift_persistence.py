@@ -6,6 +6,7 @@ import numpy as np
 
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.datatypes import Samples
+from chap_core.i18n import N_
 from chap_core.models.builtin.empirical import period_of_year, periods_per_year, quantile_samples
 from chap_core.models.builtin.registry import BaselineNotApplicable, BuiltinModel, BuiltinModelSpec, builtin_model
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -84,8 +85,8 @@ class SeasonalShiftPersistence(BuiltinModel):
 
     spec = BuiltinModelSpec(
         name="seasonal_shift_persistence",
-        display_name="Seasonal shift persistence",
-        description=(
+        display_name=N_("Seasonal shift persistence"),
+        description=N_(
             "Baseline that forecasts the last observed value for the same location, scaled by how cases "
             "changed over the same horizon and time of year in the training data."
         ),

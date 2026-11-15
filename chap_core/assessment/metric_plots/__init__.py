@@ -33,6 +33,8 @@ from __future__ import annotations
 import abc
 from typing import TYPE_CHECKING
 
+from chap_core.i18n import gettext
+
 if TYPE_CHECKING:
     import altair as alt
     import pandas as pd
@@ -62,7 +64,7 @@ class MetricPlotBase(abc.ABC):
         self._metric_data = metric_data
 
     def plot(self, title: str = "") -> alt.Chart:
-        return self.plot_from_df(title=title)
+        return self.plot_from_df(title=gettext(title))
 
     @abc.abstractmethod
     def plot_from_df(self, title: str = "") -> alt.Chart:
@@ -115,7 +117,7 @@ def metric_plot(
 
     def decorator(cls: type[MetricPlotBase]) -> type[MetricPlotBase]:
         if not issubclass(cls, MetricPlotBase):
-            raise TypeError(f"{cls.__name__} must inherit from MetricPlotBase")
+            raise TypeError(gettext("{name} must inherit from MetricPlotBase").format(name=cls.__name__))
 
         cls.id = plot_id
         cls.name = name
@@ -141,7 +143,10 @@ def list_metric_plots() -> list[dict]:
     list[dict]
         List of dicts with id, name, description for each plot.
     """
-    return [{"id": cls.id, "name": cls.name, "description": cls.description} for cls in _metric_plots_registry.values()]
+    return [
+        {"id": cls.id, "name": gettext(cls.name), "description": gettext(cls.description)}
+        for cls in _metric_plots_registry.values()
+    ]
 
 
 def _discover_plots() -> None:

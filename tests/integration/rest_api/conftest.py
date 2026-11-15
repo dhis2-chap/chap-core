@@ -475,13 +475,26 @@ def backend_settings_payload():
 
 
 @pytest.fixture
-def french_metric_catalog(tmp_path, monkeypatch):
+def french_catalog(tmp_path, monkeypatch):
     from babel.messages.catalog import Catalog
     from babel.messages.pofile import write_po
 
     from chap_core import i18n
 
     messages = {
+        "Sensitivity": "Sensibilité",
+        "Share of outbreaks that were alerted: TP / (TP + FN).": "Part des épidémies ayant déclenché une alerte : TP / (TP + FN).",
+        "Global median": "Médiane globale",
+        "Baseline that uses all observed values for the same location as forecast samples for every period, without smoothing or model fitting.": "Modèle de référence utilisant les observations du même lieu, sans ajustement.",
+        "Evaluation Plot": "Graphique d'évaluation",
+        "Seasonality Comparison Plot": "Comparaison de la saisonnalité",
+        "Horizon Plot": "Graphique par horizon",
+        "Shows truth vs predictions over time with uncertainty bands and historical context.": "Compare les observations et les prévisions avec leurs intervalles d'incertitude.",
+        "Backtest Forecasts with Observations": "Prévisions rétrospectives et observations",
+        "Backtest not found": "Évaluation introuvable",
+        "Visualization {visualization_name} not found. Available: {available}": "Visualisation {visualization_name} introuvable. Disponibles : {available}",
+        "Internal server error": "Erreur interne du serveur",
+        "Missing or invalid API token": "Jeton d'API absent ou invalide",
         "CRPS Normalized": "CRPS normalisé",
         "Mean Absolute Error - measures average absolute prediction error": "Erreur absolue moyenne - mesure l'erreur absolue moyenne des prévisions",
         "Relative improvement over the reference: 0.2 means 20% better, -0.5 means 50% worse.": "Amélioration relative par rapport à la référence : 0,2 signifie 20 % de mieux, -0,5 signifie 50 % de moins.",

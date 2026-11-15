@@ -17,6 +17,7 @@ from typing import Any
 from redis import Redis
 from redis.client import Pipeline
 
+from chap_core.i18n import gettext
 from chap_core.rest_api.services.schemas import (
     PingResponse,
     RegistrationRequest,
@@ -154,7 +155,7 @@ class Orchestrator:
             nonlocal now, expires_at
             data = pipe.get(key)
             if data is None:
-                raise ServiceNotFoundError(f"Service {service_id} not found")
+                raise ServiceNotFoundError(gettext("Service {service_id} not found").format(service_id=service_id))
 
             service_data: dict[str, Any] = json.loads(data)  # type: ignore[arg-type]
             now = self._now_iso()
@@ -196,7 +197,7 @@ class Orchestrator:
         key = self._make_key(service_id)
         deleted = self.redis.delete(key)
         if deleted == 0:
-            raise ServiceNotFoundError(f"Service {service_id} not found")
+            raise ServiceNotFoundError(gettext("Service {service_id} not found").format(service_id=service_id))
         return True
 
     def get(self, service_id: str) -> ServiceDetail:
@@ -216,7 +217,7 @@ class Orchestrator:
         data = self.redis.get(key)
 
         if data is None:
-            raise ServiceNotFoundError(f"Service {service_id} not found")
+            raise ServiceNotFoundError(gettext("Service {service_id} not found").format(service_id=service_id))
 
         service_data: dict[str, Any] = json.loads(data)  # type: ignore[arg-type]
         return ServiceDetail(**service_data)

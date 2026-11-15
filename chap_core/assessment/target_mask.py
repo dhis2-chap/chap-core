@@ -21,6 +21,7 @@ from chap_core.database.dataset_tables import (
     check_masked_ranges_match_dataset,
     parse_masked_period,
 )
+from chap_core.i18n import gettext
 
 if TYPE_CHECKING:
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -43,7 +44,11 @@ def apply_target_mask(dataset: DataSet, masked_ranges: list[MaskedRange] | None)
     if not masked_ranges:
         return dataset
     if TARGET_FIELD not in dataset.field_names():
-        raise ValueError(f"Masked ranges mask {TARGET_FIELD!r}, but the dataset has no {TARGET_FIELD!r} column")
+        raise ValueError(
+            gettext("Masked ranges mask {target_field!r}, but the dataset has no {target_field!r} column").format(
+                target_field=TARGET_FIELD
+            )
+        )
     check_masked_ranges_match_dataset(masked_ranges, dataset.period_range[0])
     bounds = [(parse_masked_period(r.start), parse_masked_period(r.end)) for r in masked_ranges]
     names = [name for name in dataset.field_names() if name != MASK_INDICATOR_FIELD]
@@ -80,16 +85,22 @@ def check_mask_outside_evaluation_window(dataset: DataSet, n_periods: int, n_spl
         masked = np.flatnonzero(getattr(data, MASK_INDICATOR_FIELD)[-evaluation_length:] == 1)
         if len(masked):
             raise ValueError(
-                f"Masked period {window[int(masked[0])].id} falls in the evaluation window, which starts at "
-                f"{window[0].id}. Backtests cannot evaluate on masked data; use fewer periods or splits, "
-                "or a dataset whose masked ranges end before the window."
+                gettext(
+                    "Masked period {masked_period} falls in the evaluation window, which starts at {window_start}. "
+                    "Backtests cannot evaluate on masked data; use fewer periods or splits, or a dataset whose masked "
+                    "ranges end before the window."
+                ).format(masked_period=window[int(masked[0])].id, window_start=window[0].id)
             )
 
 
 def check_no_mask_indicator_input(feature_names: list[str] | list[str | None]) -> None:
     """Raise if input data carries the indicator column, which masking adds itself."""
     if MASK_INDICATOR_FIELD in feature_names:
-        raise ValueError(f"{MASK_INDICATOR_FIELD!r} is reserved: it is added by masking. Send maskedRanges instead.")
+        raise ValueError(
+            gettext("{indicator!r} is reserved: it is added by masking. Send maskedRanges instead.").format(
+                indicator=MASK_INDICATOR_FIELD
+            )
+        )
 
 
 def check_target_column_allows_masking(masked_ranges: list[MaskedRange] | None, target_column: str) -> None:
@@ -100,8 +111,10 @@ def check_target_column_allows_masking(masked_ranges: list[MaskedRange] | None, 
     """
     if masked_ranges and target_column != TARGET_FIELD:
         raise ValueError(
-            f"Target column {target_column!r} cannot be used on a dataset with masked ranges; "
-            f"masked ranges apply to {TARGET_FIELD!r} only"
+            gettext(
+                "Target column {target_column!r} cannot be used on a dataset with masked ranges; masked ranges apply "
+                "to {target_field!r} only"
+            ).format(target_column=target_column, target_field=TARGET_FIELD)
         )
 
 

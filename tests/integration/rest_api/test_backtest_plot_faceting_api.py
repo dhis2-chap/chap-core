@@ -49,7 +49,8 @@ def test_predicted_vs_actual_facet_coords_return_horizon_distance(override_sessi
     assert len(payload["horizon_distance"]) > 0
 
 
-def test_subplot_endpoint_returns_vega_spec_for_coords(override_session):
+@pytest.mark.parametrize("language", ["en", "fr"])
+def test_subplot_endpoint_returns_vega_spec_for_coords(override_session, french_catalog, language):
     coords_resp = client.get("/v1/visualization/backtest-plots/evaluation_plot/1/facet-coords")
     assert coords_resp.status_code == 200, coords_resp.text
     payload = coords_resp.json()
@@ -59,12 +60,18 @@ def test_subplot_endpoint_returns_vega_spec_for_coords(override_session):
     response = client.post(
         "/v1/visualization/backtest-plots/evaluation_plot/1/subplot",
         json=body,
+        headers={"Accept-Language": language},
     )
     assert response.status_code == 200, response.text
     spec = response.json()
     assert isinstance(spec, dict)
     # Vega specs always declare a schema URL.
     assert "$schema" in spec
+    title = "Backtest Forecasts with Observations"
+    assert spec["title"]["text"] == (french_catalog[title] if language == "fr" else title)
+    catalogue = client.get("/v1/visualization/backtest-plots/", headers={"Accept-Language": language}).json()
+    plot = next(plot for plot in catalogue if plot["id"] == "evaluation_plot")
+    assert plot["displayName"] == (french_catalog["Evaluation Plot"] if language == "fr" else "Evaluation Plot")
 
 
 def test_subplot_endpoint_uses_container_width(override_session):

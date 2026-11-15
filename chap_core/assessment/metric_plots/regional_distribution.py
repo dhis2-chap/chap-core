@@ -2,17 +2,18 @@ import altair as alt
 import pandas as pd
 
 from chap_core.assessment.metric_plots import MetricPlotBase, metric_plot
+from chap_core.i18n import N_, gettext
 
 
 @metric_plot(
     plot_id="regional_metric_distribution",
-    name="Regional Metric Distribution",
-    description="Boxplots showing metric distributions by location with mean points",
+    name=N_("Regional Metric Distribution"),
+    description=N_("Boxplots showing metric distributions by location with mean points"),
 )
 class RegionalMetricDistributionPlot(MetricPlotBase):
     """Location-level metric distributions with mean markers."""
 
-    def plot_from_df(self, title: str = "Metric Distribution by Location") -> alt.Chart:
+    def plot_from_df(self, title: str = N_("Metric Distribution by Location")) -> alt.Chart:
         df = self._metric_data
 
         if df.empty:
@@ -27,8 +28,8 @@ class RegionalMetricDistributionPlot(MetricPlotBase):
             alt.Chart(df)
             .mark_boxplot(extent=1.5, size=30, median={"stroke": "royalblue"})
             .encode(
-                x=alt.X("location:N", title="Location"),
-                y=alt.Y("metric:Q", title="Metric"),
+                x=alt.X("location:N", title=gettext("Location")),
+                y=alt.Y("metric:Q", title=gettext("Metric")),
                 tooltip=[
                     "location:N",
                     "time_period:N",
@@ -36,7 +37,7 @@ class RegionalMetricDistributionPlot(MetricPlotBase):
                     alt.Tooltip("metric:Q", format=".2f"),
                 ],
             )
-            .properties(width=700, height=280, title=title)
+            .properties(width=700, height=280, title=gettext(title))
         )
 
         mean_by_location = df.groupby("location", as_index=False).agg(mean_metric=("metric", "mean"))
@@ -45,9 +46,9 @@ class RegionalMetricDistributionPlot(MetricPlotBase):
             alt.Chart(mean_by_location)
             .mark_point(color="#F58518", size=50, filled=True)
             .encode(
-                x=alt.X("location:N", title="Location"),
-                y=alt.Y("mean_metric:Q", title="Metric"),
-                tooltip=["location:N", alt.Tooltip("mean_metric:Q", format=".2f", title="Mean Metric")],
+                x=alt.X("location:N", title=gettext("Location")),
+                y=alt.Y("mean_metric:Q", title=gettext("Metric")),
+                tooltip=["location:N", alt.Tooltip("mean_metric:Q", format=".2f", title=gettext("Mean Metric"))],
             )
         )
 

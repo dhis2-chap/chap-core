@@ -11,6 +11,7 @@ import pandas as pd
 
 from chap_core.assessment.backtest_plots import ChartType, FacetDimension, FacetedBacktestPlot, backtest_plot
 from chap_core.assessment.backtest_plots.db_dimensions import LocationDimension, SplitPeriodDimension
+from chap_core.i18n import N_, gettext
 from chap_core.plotting.backtest_plot import clean_time
 from chap_core.time_period import TimePeriod
 
@@ -50,16 +51,16 @@ def _infer_split_periods_vectorized(quantiles_df: pd.DataFrame) -> pd.DataFrame:
 
 @backtest_plot(
     plot_id="evaluation_plot",
-    name="Evaluation Plot",
-    description="Shows truth vs predictions over time with uncertainty bands and historical context.",
+    name=N_("Evaluation Plot"),
+    description=N_("Shows truth vs predictions over time with uncertainty bands and historical context."),
     needs_historical=True,
 )
 class EvaluationPlot(FacetedBacktestPlot):
     """Shows forecasts with uncertainty bands and observed values with historical context."""
 
     facet_dimensions: list[FacetDimension] = [
-        SplitPeriodDimension(field_name="split_period:O", display_name="Split Period"),
-        LocationDimension(field_name="location:N", display_name="Location"),
+        SplitPeriodDimension(field_name="split_period:O", display_name=N_("Split Period")),
+        LocationDimension(field_name="location:N", display_name=N_("Location")),
     ]
 
     def _preprocess(
@@ -150,4 +151,6 @@ class EvaluationPlot(FacetedBacktestPlot):
             )
         )
 
-        return (error1 + error2 + line + observations_layer).properties(title="Backtest Forecasts with Observations")  # type: ignore[no-any-return]
+        return (error1 + error2 + line + observations_layer).properties(  # type: ignore[no-any-return]
+            title=gettext("Backtest Forecasts with Observations")
+        )

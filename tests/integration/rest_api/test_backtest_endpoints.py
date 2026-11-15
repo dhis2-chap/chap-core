@@ -1,5 +1,7 @@
+import asyncio
 from datetime import datetime, timedelta
 
+import httpx
 import numpy as np
 import pytest
 from sqlmodel import Session, select
@@ -18,6 +20,7 @@ from chap_core.database.tables import (
     BacktestRead,
     BacktestSpecification,
 )
+from chap_core.rest_api.app import app
 from chap_core.rest_api.data_models import (
     BacktestCreate,
 )
@@ -48,7 +51,7 @@ from tests.integration.rest_api.db_endpoint_helpers import (
         ("", "en"),
     ],
 )
-def test_get_metrics(clean_engine, dependency_overrides, french_metric_catalog, accept_language, language):
+def test_get_metrics(clean_engine, dependency_overrides, french_catalog, accept_language, language):
     url = "/v1/visualization/metrics/1"
     english = client.get(url).json()
     response = client.get(url, headers={"Accept-Language": accept_language})
@@ -60,19 +63,25 @@ def test_get_metrics(clean_engine, dependency_overrides, french_metric_catalog, 
     if language == "fr":
         for metric in expected:
             for field in ("displayName", "description", "comparisonDescription"):
-                metric[field] = french_metric_catalog.get(metric[field], metric[field])
+                metric[field] = french_catalog.get(metric[field], metric[field])
     assert response.json() == expected
     # A translated request must not change shared metric specs or later English requests.
     assert client.get(url).json() == english
 
 
-def test_get_visualizations(celery_session_worker, clean_engine, dependency_overrides):
+def test_get_visualizations(clean_engine, dependency_overrides, french_catalog):
     response = client.get("/v1/visualization/metric-plots/1")
     assert response.status_code == 200
     assert any(plot["id"] == "metric_by_horizon_mean" for plot in response.json())
+    for url in ("/v1/visualization/metric-plots/1", "/v1/visualization/dataset-plots/"):
+        english = client.get(url).json()
+        translated = client.get(url, headers={"Accept-Language": "fr"}).json()
+        assert translated == [
+            {**plot, "displayName": french_catalog.get(plot["displayName"], plot["displayName"])} for plot in english
+        ]
 
 
-def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_overrides):
+def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_overrides, french_catalog):
     """Visualization endpoints used to return 200 with `{"error": ...}` bodies for
     unknown backtest/dataset ids and unknown plot names. Each should now produce a
     proper 4xx response."""
@@ -95,6 +104,27 @@ def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_ove
         plot_id = plot_types[0]["id"]
         response = client.get(f"/v1/visualization/dataset-plots/{plot_id}/999999")
         assert response.status_code == 404, response.text
+
+    response = client.get(
+        "/v1/visualization/metric-plots/metric_by_horizon/999999/crps", headers={"Accept-Language": "fr"}
+    )
+    assert response.status_code == 404
+    assert response.json()["detail"] == french_catalog["Backtest not found"]
+    response = client.get("/v1/visualization/dataset-plots/no_such_plot/1", headers={"Accept-Language": "fr"})
+    assert response.status_code == 404
+    assert response.json()["detail"].startswith("Visualisation no_such_plot introuvable. Disponibles : ")
+
+
+@pytest.mark.asyncio
+async def test_concurrent_requests_keep_their_language(clean_engine, dependency_overrides, french_catalog):
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as async_client:
+        french, english = await asyncio.gather(
+            async_client.get("/v1/visualization/metrics/1", headers={"Accept-Language": "fr"}),
+            async_client.get("/v1/visualization/metrics/1", headers={"Accept-Language": "en"}),
+        )
+    for response, name in ((french, french_catalog["CRPS Normalized"]), (english, "CRPS Normalized")):
+        assert response.status_code == 200
+        assert next(metric for metric in response.json() if metric["id"] == "crps_norm")["displayName"] == name
 
 
 def test_compatible_backtests(clean_engine, dependency_overrides):

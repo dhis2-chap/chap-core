@@ -16,8 +16,10 @@ from fastapi.security import HTTPBearer
 
 from chap_core import __version__ as chap_core_version
 from chap_core.database.database import DB_POOL_CONNECTIONS
+from chap_core.i18n import N_, load_translations, select_language
 from chap_core.rest_api.auth import ApiTokenMiddleware, warn_on_weak_token
 from chap_core.rest_api.common_routes import router as common_router
+from chap_core.rest_api.i18n import TranslationMiddleware
 from chap_core.rest_api.v1.rest_api import router as v1_router
 from chap_core.rest_api.v2.rest_api import router as v2_router
 
@@ -82,6 +84,7 @@ warn_on_weak_token()
 # Must stay before CORSMiddleware: add_middleware inserts at the front, so this keeps CORS
 # outermost and 401 responses still carry CORS headers.
 app.add_middleware(ApiTokenMiddleware)
+app.add_middleware(TranslationMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -105,7 +108,13 @@ async def global_exception_handler(request: Request, exc: Exception):
         f"Unhandled exception on {request.method} {request.url.path} (trace_id={trace_id})",
         exc_info=(type(exc), exc, exc.__traceback__),
     )
-    return JSONResponse(status_code=500, content={"detail": "Internal server error", "trace_id": trace_id})
+    translations = load_translations()
+    language = select_language(request.headers.get("accept-language", ""), translations)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": translations[language].gettext(N_("Internal server error")), "trace_id": trace_id},
+        headers={"Content-Language": language, "Vary": "Accept-Language"},
+    )
 
 
 app.include_router(common_router)

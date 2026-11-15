@@ -1,5 +1,6 @@
 """Gettext catalogs for API text. Source strings stay English until a response is built."""
 
+from contextvars import ContextVar
 from functools import cache
 from gettext import GNUTranslations, NullTranslations
 from io import BytesIO
@@ -9,6 +10,19 @@ from babel.messages.mofile import write_mo
 from babel.messages.pofile import read_po
 
 LOCALES_DIR = Path(__file__).parent / "locales"
+current_translations: ContextVar[NullTranslations | None] = ContextVar("translations", default=None)
+
+
+def gettext(message: str) -> str:
+    """Translate in the current request; CLI commands and workers default to English."""
+    translations = current_translations.get()
+    return translations.gettext(message) if translations is not None else message
+
+
+def translate_model_name(name: str) -> str:
+    """Translate the template part of a configured display name, preserving its user-chosen suffix."""
+    template, separator, configuration = name.partition(" [")
+    return gettext(template) + separator + configuration
 
 
 def N_(message: str) -> str:

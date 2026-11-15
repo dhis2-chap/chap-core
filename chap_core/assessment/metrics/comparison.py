@@ -16,7 +16,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from chap_core.assessment.metrics.base import OptimizationDirection, TargetBehavior
-from chap_core.i18n import N_
+from chap_core.i18n import N_, gettext
 
 if TYPE_CHECKING:
     from chap_core.assessment.metrics.base import MetricSpec
@@ -50,7 +50,7 @@ def get_comparison_op(name: str) -> ComparisonFn:
 def get_comparison_description(name: str) -> str:
     """Get the one-line description of a comparison operator's value."""
     get_comparison_op(name)
-    return _comparison_descriptions[name]
+    return gettext(_comparison_descriptions[name])
 
 
 def list_comparison_ops() -> list[str]:

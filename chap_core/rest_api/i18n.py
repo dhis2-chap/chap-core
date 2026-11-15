@@ -1,15 +1,31 @@
-"""Request-scoped translation dependency for endpoints returning localized text."""
+"""Select translations per request without buffering responses or changing stored data."""
 
-from gettext import NullTranslations
+from starlette.datastructures import Headers, MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from fastapi import Header, Response
-
-from chap_core.i18n import load_translations, select_language
+from chap_core.i18n import current_translations, load_translations, select_language
 
 
-def get_translations(response: Response, accept_language: str = Header(default="")) -> NullTranslations:
-    translations = load_translations()
-    language = select_language(accept_language, translations)
-    response.headers["Content-Language"] = language
-    response.headers["Vary"] = "Accept-Language"
-    return translations[language]
+class TranslationMiddleware:
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+
+        translations = load_translations()
+        language = select_language(Headers(scope=scope).get("accept-language", ""), translations)
+        token = current_translations.set(translations[language])
+
+        async def send_response(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers.setdefault("Content-Language", language)
+                headers.add_vary_header("Accept-Language")
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_response)
+        finally:
+            current_translations.reset(token)

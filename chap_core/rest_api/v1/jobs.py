@@ -12,6 +12,7 @@ from sqlmodel import Session, col, select
 from chap_core.database.dataset_tables import DataSet, Observation
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import Backtest, BacktestRead, Prediction, PredictionInfo
+from chap_core.i18n import gettext
 from chap_core.log_config import initialize_logging
 from chap_core.rest_api.celery_tasks import CeleryPool, JobDescription, get_job_meta, job_description
 from chap_core.rest_api.celery_tasks import r as redis
@@ -80,9 +81,9 @@ def get_job_diagnostics(job_id: str, session: Session = Depends(get_session)) ->
     """
     meta = get_job_meta(job_id)
     if not meta:
-        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+        raise HTTPException(status_code=404, detail=gettext("Job '{job_id}' not found").format(job_id=job_id))
     if meta["status"] not in {"SUCCESS", "FAILURE", "REVOKED"}:
-        raise HTTPException(status_code=409, detail="Diagnostics are only available for finished jobs")
+        raise HTTPException(status_code=409, detail=gettext("Diagnostics are only available for finished jobs"))
 
     job = job_description(job_id, meta)
     model_info = None
@@ -176,17 +177,19 @@ def _ensure_job_exists(job_id: str) -> None:
     Gate every job_id-scoped route on the Redis metadata that the worker
     records when a job is queued."""
     if not get_job_meta(job_id):
-        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+        raise HTTPException(status_code=404, detail=gettext("Job '{job_id}' not found").format(job_id=job_id))
 
 
 def _get_successful_job(job_id):
     _ensure_job_exists(job_id)
     job = worker.get_job(job_id)
     if job.status.lower() == "failed":
-        raise HTTPException(status_code=400, detail="Job failed. Check the exception endpoint for more information")
+        raise HTTPException(
+            status_code=400, detail=gettext("Job failed. Check the exception endpoint for more information")
+        )
 
     if not (job and job.is_finished):
-        raise HTTPException(status_code=400, detail="Job is still running, try again later")
+        raise HTTPException(status_code=400, detail=gettext("Job is still running, try again later"))
 
     return job
 
@@ -206,7 +209,7 @@ def get_job(job_id: str) -> JobDescription:
     """
     meta = get_job_meta(job_id)
     if not meta:
-        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+        raise HTTPException(status_code=404, detail=gettext("Job '{job_id}' not found").format(job_id=job_id))
     return job_description(job_id, meta)
 
 
@@ -224,7 +227,9 @@ def get_job_request(job_id: str) -> dict[str, Any]:
     """
     body = redis.get(f"job_request:{job_id}")
     if body is None:
-        raise HTTPException(status_code=404, detail=f"Request for job '{job_id}' not found")
+        raise HTTPException(
+            status_code=404, detail=gettext("Request for job '{job_id}' not found").format(job_id=job_id)
+        )
     return cast("dict[str, Any]", json.loads(cast("str", body)))
 
 
@@ -241,19 +246,19 @@ def delete_job(job_id: str) -> dict:
     """
     job = worker.get_job(job_id)
     if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail=gettext("Job not found"))
 
     job_status = job.status.lower()
     if job_status in ["pending", "started", "running"]:
-        raise HTTPException(status_code=400, detail="Cannot delete a running job. Cancel it first.")
+        raise HTTPException(status_code=400, detail=gettext("Cannot delete a running job. Cancel it first."))
 
     redis.delete(f"job_request:{job_id}")
     result = redis.delete(f"job_meta:{job_id}")
 
     if result == 0:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail=gettext("Job not found"))
 
-    return {"message": f"Job {job_id} deleted successfully"}
+    return {"message": gettext("Job {job_id} deleted successfully").format(job_id=job_id)}
 
 
 @router.post(
@@ -271,14 +276,18 @@ def cancel_job(job_id: str) -> dict:
     job_status = job.status.lower()
 
     if job_status in ["success", "failure", "revoked"]:
-        raise HTTPException(status_code=400, detail="Cannot cancel a job that has already finished or been cancelled")
+        raise HTTPException(
+            status_code=400, detail=gettext("Cannot cancel a job that has already finished or been cancelled")
+        )
 
     if job_status not in ["pending", "started", "running"]:
-        raise HTTPException(status_code=400, detail=f"Cannot cancel job with status '{job.status}'")
+        raise HTTPException(
+            status_code=400, detail=gettext("Cannot cancel job with status '{status}'").format(status=job.status)
+        )
 
     job.cancel()
 
-    return {"message": f"Job {job_id} has been cancelled"}
+    return {"message": gettext("Job {job_id} has been cancelled").format(job_id=job_id)}
 
 
 @router.get(
@@ -297,7 +306,9 @@ def get_logs(job_id: str) -> str:
     job = worker.get_job(job_id)
     logs: str = job.get_logs()
     if logs is None:
-        raise HTTPException(status_code=400, detail=f"Log file not found for job ID '{job_id}'")
+        raise HTTPException(
+            status_code=400, detail=gettext("Log file not found for job ID '{job_id}'").format(job_id=job_id)
+        )
     return logs
 
 
@@ -318,7 +329,9 @@ def get_prediction_result(
     prediction_id = _get_successful_job(job_id).result
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
-        raise HTTPException(status_code=404, detail=f"Prediction {prediction_id} not found")
+        raise HTTPException(
+            status_code=404, detail=gettext("Prediction {prediction_id} not found").format(prediction_id=prediction_id)
+        )
     return prediction
 
 
@@ -339,7 +352,9 @@ def get_evaluation_result(
     backtest_id = _get_successful_job(job_id).result
     backtest = session.get(Backtest, backtest_id)
     if backtest is None:
-        raise HTTPException(status_code=404, detail=f"Backtest {backtest_id} not found")
+        raise HTTPException(
+            status_code=404, detail=gettext("Backtest {backtest_id} not found").format(backtest_id=backtest_id)
+        )
     return backtest
 
 

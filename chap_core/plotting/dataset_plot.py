@@ -6,6 +6,7 @@ import pandas as pd
 from altair import HConcatChart
 from pydantic import BaseModel
 
+from chap_core.i18n import N_, gettext
 from chap_core.spatio_temporal_data.converters import dataset_model_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -115,7 +116,8 @@ def get_dataset_plot(plot_id: str) -> type[DatasetPlot] | None:
 def list_dataset_plots() -> list[dict]:
     """List all registered dataset plots with their metadata."""
     return [
-        {"id": cls.id, "name": cls.name, "description": cls.description} for cls in _dataset_plots_registry.values()
+        {"id": cls.id, "name": gettext(cls.name), "description": gettext(cls.description)}
+        for cls in _dataset_plots_registry.values()
     ]
 
 
@@ -149,8 +151,8 @@ def _get_periods_per_year(time_period_strings: pd.Series) -> int:
 
 @dataset_plot(
     plot_id="disease-cases-map",
-    name="Disease Cases Map",
-    description="Choropleth map showing annual incidence rate per 1000 by location.",
+    name=N_("Disease Cases Map"),
+    description=N_("Choropleth map showing annual incidence rate per 1000 by location."),
 )
 class DiseaseCasesMap(DatasetPlot):
     plot_variable: str = "disease_cases"
@@ -180,8 +182,8 @@ class DiseaseCasesMap(DatasetPlot):
             raise ValueError("GeoJSON data is required for DiseaseCasesMap")
 
         is_incidence = self.plot_variable == "annual_incidence_per_1000"
-        legend_title = "Annual Incidence per 1000" if is_incidence else "Mean Disease Cases"
-        chart_title = "Annual Incidence Rate per 1000" if is_incidence else "Disease Cases Map"
+        legend_title = gettext("Annual Incidence per 1000") if is_incidence else gettext("Mean Disease Cases")
+        chart_title = gettext("Annual Incidence Rate per 1000") if is_incidence else gettext("Disease Cases Map")
 
         geojson_data = alt.Data(values=self._geojson["features"])
 
@@ -196,7 +198,7 @@ class DiseaseCasesMap(DatasetPlot):
                     legend=alt.Legend(title=legend_title),
                 ),
                 tooltip=[
-                    alt.Tooltip("id:N", title="Location"),
+                    alt.Tooltip("id:N", title=gettext("Location")),
                     alt.Tooltip(
                         f"{self.plot_variable}:Q",
                         title=legend_title,
@@ -213,8 +215,8 @@ class DiseaseCasesMap(DatasetPlot):
 
 @dataset_plot(
     plot_id="standardized-feature-plot",
-    name="Standardized Feature Plot",
-    description="Standardized features over time for different locations with interactive selection.",
+    name=N_("Standardized Feature Plot"),
+    description=N_("Standardized features over time for different locations with interactive selection."),
 )
 class StandardizedFeaturePlot(DatasetPlot):
     """
@@ -276,11 +278,11 @@ class StandardizedFeaturePlot(DatasetPlot):
             .mark_circle(size=100)
             .add_params(checkbox_selection)
             .encode(
-                y=alt.Y("feature:N", axis=alt.Axis(orient="right", title="Select Features")),
+                y=alt.Y("feature:N", axis=alt.Axis(orient="right", title=gettext("Select Features"))),
                 color=alt.condition(checkbox_selection, alt.Color("feature:N", legend=None), alt.value("lightgray")),
                 tooltip=["feature:N"],
             )
-            .properties(width=100, title="Click to select/deselect")
+            .properties(width=100, title=gettext("Click to select/deselect"))
         )
 
         # Main chart with filtering
@@ -289,19 +291,19 @@ class StandardizedFeaturePlot(DatasetPlot):
             .add_params(alt.selection_interval(bind="scales", encodings=["x"]))
             .mark_line(point=False, strokeWidth=2)
             .encode(
-                x=alt.X("date:T", title="Date"),
-                y=alt.Y("value:Q", title="Standardized Value"),
-                color=alt.Color("feature:N", legend=alt.Legend(title="Feature")),
+                x=alt.X("date:T", title=gettext("Date")),
+                y=alt.Y("value:Q", title=gettext("Standardized Value")),
+                color=alt.Color("feature:N", legend=alt.Legend(title=gettext("Feature"))),
                 opacity=alt.condition(checkbox_selection, alt.value(1.0), alt.value(0.1)),
                 tooltip=["date:T", "feature:N", "value:Q", "location:N"],
             )
-            .facet(facet=alt.Facet("location:N", title="Location"), columns=3)
+            .facet(facet=alt.Facet("location:N", title=gettext("Location")), columns=3)
             .resolve_scale(y="shared")
         )
         return (  # type: ignore[no-any-return]
             alt.hconcat(legend_chart, main_chart)
             .resolve_legend(color="independent")
-            .properties(title="Multiple Feature Selection (Click legend items to toggle)")
+            .properties(title=gettext("Multiple Feature Selection (Click legend items to toggle)"))
         )
 
 

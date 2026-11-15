@@ -1,20 +1,32 @@
 # Translating API text
 
-Scoring metric names, descriptions and comparison descriptions are translated in
-the metric catalogue and benchmark leaderboard responses. Clients send the user's
-UI language in `Accept-Language`, for example `fr` or `fr-CA`. Chap honors quality
-weights and falls back to a base language, then English. Missing and fuzzy
-translations also fall back to the English source string. IDs and scores stay the
-same in every language.
+Chap translates scoring and outbreak metric metadata, model display names and
+descriptions, plot metadata and explicit chart labels, and Chap-authored API error
+messages. Clients send the user's UI language in `Accept-Language`, for example
+`fr` or `fr-CA`. Chap honors quality weights and falls back to a base language,
+then English. Missing and fuzzy translations also fall back to the English source
+string. Responses include `Content-Language` and `Vary: Accept-Language`.
 
-Model names, plot text, outbreak metrics and error messages are outside this first
-pass. French translations and HISP WCA review are tracked in CLIM-1895.
+Translation happens in the request context, including synchronous handlers.
+Model metadata is translated during response serialization; stored values, model
+versions, IDs, configuration names and scores stay unchanged. The catalog includes
+built-in model metadata. Text supplied by external models is translated only when
+the catalog contains its exact source string. User data, framework validation
+messages, external service errors and worker logs are not translated. CLI commands
+and workers default to English. French translations and HISP WCA review are tracked
+in [CLIM-1895](https://dhis2.atlassian.net/browse/CLIM-1895).
 
 ## Adding strings
 
-Wrap metric metadata in `N_("English text")` imported from `chap_core.i18n`.
-This marks it for Babel without translating shared specifications at import time.
-The REST endpoints translate the strings when building their responses.
+Use `N_("English text")` from `chap_core.i18n` for shared metadata, such as a
+metric specification or plot registration. It marks the text for Babel without
+translating it at import time. Use `gettext("English text")` when building a
+response, plot or error during a request.
+
+For parameterized text, translate a literal template before formatting, for example
+`gettext("Backtest {backtest_id} not found").format(backtest_id=backtest_id)`.
+Keep placeholder names unchanged in translations. Do not pass an f-string to
+`gettext`: Babel needs the literal source to extract it.
 
 `make lint` regenerates `chap_core/locales/en.pot`; commit it with the code change.
 `make check` rejects stale catalogs in CI. To extract without running other checks:
@@ -32,7 +44,11 @@ separate compilation step. Restart Chap after updating catalogs.
 
 The intended project is `hisp-uio/modeling-app`, shared with chap-frontend, with a
 separate resource for chap-core. The files alone do not enable remote syncing.
-A project maintainer must:
+The public project links to chap-frontend; its initial setup is in
+[chap-frontend PR #135](https://github.com/dhis2-chap/chap-frontend/pull/135).
+The chap-core connection and automatic translation PRs have not been verified;
+checking them requires a Transifex project maintainer and GitHub integration access.
+A maintainer must:
 
 1. Give the Transifex GitHub integration access to `dhis2-chap/chap-core`.
 2. In the project's GitHub integration, link this repository's `master` branch

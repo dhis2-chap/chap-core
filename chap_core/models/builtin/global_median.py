@@ -4,6 +4,7 @@ import numpy as np
 
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.datatypes import Samples
+from chap_core.i18n import N_
 from chap_core.models.builtin.empirical import quantile_samples
 from chap_core.models.builtin.registry import BaselineNotApplicable, BuiltinModel, BuiltinModelSpec, builtin_model
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -49,8 +50,8 @@ class GlobalMedian(BuiltinModel):
 
     spec = BuiltinModelSpec(
         name="global_median",
-        display_name="Global median",
-        description=(
+        display_name=N_("Global median"),
+        description=N_(
             "Baseline that uses all observed values for the same location as forecast samples for every "
             "period, without smoothing or model fitting."
         ),

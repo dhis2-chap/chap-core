@@ -15,6 +15,7 @@ from chap_core.database.database import SessionWrapper, engine
 from chap_core.database.dataset_tables import DataSetInfo, MaskedRange, check_masked_ranges_match_dataset
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 from chap_core.database.settings import SettingsManager
+from chap_core.i18n import gettext
 from chap_core.rest_api.worker_functions import WorkerConfig
 
 if TYPE_CHECKING:
@@ -58,7 +59,9 @@ def get_job_model(session: Session, model_id: int | str) -> ConfiguredModelDB:
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     if model.archived:
-        raise HTTPException(status_code=409, detail=f"Configured model '{model.name}' is archived")
+        raise HTTPException(
+            status_code=409, detail=gettext("Configured model '{name}' is archived").format(name=model.name)
+        )
     return model
 
 
@@ -89,7 +92,10 @@ def check_masked_ranges_match(
         return
     if TARGET_FIELD not in dataset.field_names():
         raise HTTPException(
-            status_code=422, detail=f"Masked ranges mask {TARGET_FIELD!r}, but the data has no {TARGET_FIELD!r} column"
+            status_code=422,
+            detail=gettext("Masked ranges mask {target_field!r}, but the data has no {target_field!r} column").format(
+                target_field=TARGET_FIELD
+            ),
         )
     try:
         check_target_column_allows_masking(masked_ranges, target_column)
@@ -101,7 +107,10 @@ def check_masked_ranges_match(
 def require_target_column(target_column: str, columns: Iterable[str | None]) -> None:
     """Reject a request whose data has no `target_column`."""
     if target_column not in columns:
-        raise HTTPException(status_code=422, detail=f"Dataset has no target column {target_column!r}")
+        raise HTTPException(
+            status_code=422,
+            detail=gettext("Dataset has no target column {target_column!r}").format(target_column=target_column),
+        )
 
 
 def require_dataset_target(dataset: DataSetInfo, requested_target: str | None) -> str:
@@ -109,7 +118,9 @@ def require_dataset_target(dataset: DataSetInfo, requested_target: str | None) -
     if requested_target is not None and requested_target != dataset.target_column:
         raise HTTPException(
             status_code=422,
-            detail=f"Dataset target is {dataset.target_column!r}. To use another target, create a new dataset.",
+            detail=gettext("Dataset target is {target_column!r}. To use another target, create a new dataset.").format(
+                target_column=dataset.target_column
+            ),
         )
     require_target_column(dataset.target_column, dataset.covariates)
     return dataset.target_column

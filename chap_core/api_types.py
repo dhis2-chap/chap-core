@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID, resolve_weather_provider
 from chap_core.database.base_tables import DBModel
+from chap_core.i18n import gettext
 
 
 class FeatureModel(_Feature):
@@ -149,7 +150,7 @@ class BacktestParams(BacktestParamsBase):
     @model_validator(mode="after")
     def _check_n_retrain(self) -> "BacktestParams":
         if self.n_retrain > self.n_splits:
-            raise ValueError("n_retrain cannot exceed n_splits.")
+            raise ValueError(gettext("n_retrain cannot exceed n_splits."))
         return self
 
 

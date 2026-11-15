@@ -1,6 +1,15 @@
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, create_model, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    create_model,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 from pydantic.alias_generators import to_camel
 
 from chap_core.api_types import BacktestParams, BacktestParamsBase, FeatureCollectionModel
@@ -18,6 +27,7 @@ from chap_core.database.tables import (
     DataSetMeta,
     QuantileTarget,
 )
+from chap_core.i18n import gettext, translate_model_name
 
 
 class PredictionBase(BaseModel):
@@ -68,12 +78,16 @@ class ObservationColumns(DBModel):
         # These are the names of the org unit and period columns once the rows are read into a table.
         reserved = sorted({"location", "time_period"} & set(self.values))
         if reserved:
-            raise ValueError(f"values cannot have a feature named {', '.join(reserved)}")
+            raise ValueError(gettext("values cannot have a feature named {names}").format(names=", ".join(reserved)))
         n_rows = len(self.org_unit)
         lengths = {"period": len(self.period)} | {name: len(column) for name, column in self.values.items()}
         uneven = {name: length for name, length in lengths.items() if length != n_rows}
         if uneven:
-            raise ValueError(f"Every column must have {n_rows} rows, like orgUnit; got {uneven}")
+            raise ValueError(
+                gettext("Every column must have {n_rows} rows, like orgUnit; got {uneven}").format(
+                    n_rows=n_rows, uneven=uneven
+                )
+            )
         return self
 
 
@@ -94,7 +108,7 @@ class DatasetMakeRequest(DataSetCreateInfo, ObservationPayload):
     @model_validator(mode="after")
     def _one_observation_format(self) -> "DatasetMakeRequest":
         if self.provided_data and self.provided_data_columns is not None:
-            raise ValueError("Send observations as providedData or providedDataColumns, not both")
+            raise ValueError(gettext("Send observations as providedData or providedDataColumns, not both"))
         return self
 
 
@@ -106,8 +120,10 @@ class InlineDataRequest(DataSetCreateInfoBase, ObservationPayload):
     def _reject_masked_ranges(cls, data: Any) -> Any:
         if isinstance(data, dict) and (data.get("maskedRanges") or data.get("masked_ranges")):
             raise ValueError(
-                "maskedRanges can only be set when a dataset is created (make-dataset or POST /v1/crud/datasets); "
-                "create the dataset with its ranges and run on it by id"
+                gettext(
+                    "maskedRanges can only be set when a dataset is created (make-dataset or POST /v1/crud/datasets); "
+                    "create the dataset with its ranges and run on it by id"
+                )
             )
         return data
 
@@ -136,8 +152,10 @@ class PredictionParams(DBModel):
     def _check_weather_provider(cls, value: str) -> str:
         if resolve_weather_provider(value).leaks_future_data:
             raise ValueError(
-                f"The '{value}' future-weather provider reads the forecast window's own observations "
-                "and so cannot forecast ahead. Use a forecasting provider such as 'climatology'."
+                gettext(
+                    "The '{value}' future-weather provider reads the forecast window's own observations and so cannot "
+                    "forecast ahead. Use a forecasting provider such as 'climatology'."
+                ).format(value=value)
             )
         return value
 
@@ -381,6 +399,10 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
         ),
     )
 
+    @field_serializer("display_name", "description", when_used="json")
+    def translate_metadata(self, value: str) -> str:
+        return gettext(value)
+
     # The horizon fields were renamed to match chapkit. Both spellings are served so a
     # client can move to `*PredictionPeriods` on its own schedule; drop these once none read them.
     # `deprecated=` is deliberately not used: it warns on every serialization, so each
@@ -443,6 +465,10 @@ class ConfiguredModelInfoRead(DBModel):
         default=False, description="Inherited from the template; True for chapkit-hosted models."
     )
     model_template: ModelTemplateRead = Field(description="Parent template the configuration extends.")
+
+    @field_serializer("display_name", when_used="json")
+    def translate_display_name(self, value: str) -> str:
+        return translate_model_name(value)
 
 
 class ModelConfigurationCreate(DBModel):

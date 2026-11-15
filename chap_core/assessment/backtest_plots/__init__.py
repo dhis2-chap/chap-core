@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import altair as alt
 
+from chap_core.i18n import gettext
+
 if TYPE_CHECKING:
     import pandas as pd
 
@@ -189,12 +191,12 @@ class FacetedBacktestPlot(BacktestPlotBase):
         # Handle native Altair types cleanly without local variable scoping issues
         if col_dim and row_dim:
             faceted_chart = chart.facet(
-                column=alt.Column(col_dim.field_name, header=alt.Header(title=col_dim.display_name)),
-                row=alt.Row(row_dim.field_name, header=alt.Header(title=row_dim.display_name)),
+                column=alt.Column(col_dim.field_name, header=alt.Header(title=gettext(col_dim.display_name))),
+                row=alt.Row(row_dim.field_name, header=alt.Header(title=gettext(row_dim.display_name))),
             )
         elif col_dim:
             faceted_chart = chart.facet(
-                column=alt.Column(col_dim.field_name, header=alt.Header(title=col_dim.display_name))
+                column=alt.Column(col_dim.field_name, header=alt.Header(title=gettext(col_dim.display_name)))
             )
         else:
             faceted_chart = chart
@@ -238,8 +240,8 @@ def list_backtest_plots() -> list[dict]:
     return [
         {
             "id": cls.id,
-            "name": cls.name,
-            "description": cls.description,
+            "name": gettext(cls.name),
+            "description": gettext(cls.description),
             "needs_historical": cls.needs_historical,
         }
         for cls in _backtest_plots_registry.values()

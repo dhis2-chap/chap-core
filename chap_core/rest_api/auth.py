@@ -19,6 +19,8 @@ import secrets
 from fastapi.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from chap_core.i18n import gettext
+
 logger = logging.getLogger(__name__)
 
 API_TOKEN_ENV_VAR = "CHAP_API_TOKEN"  # noqa: S105 — name of the env var, not a secret
@@ -108,7 +110,7 @@ class ApiTokenMiddleware:
         if not self._is_authorized(scope, path, expected):
             response = JSONResponse(
                 status_code=401,
-                content={"detail": "Missing or invalid API token"},
+                content={"detail": gettext("Missing or invalid API token")},
                 headers={"WWW-Authenticate": "Bearer"},
             )
             return await response(scope, receive, send)
