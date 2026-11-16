@@ -98,6 +98,7 @@ def _discover_metrics():
         crps_norm,
         mae,
         mape,
+        org_unit_ranking,
         percentile_coverage,
         rmse,
         winkler_score,
@@ -113,6 +114,7 @@ from chap_core.assessment.metrics.crps import CRPSLog1pMetric, CRPSMetric
 from chap_core.assessment.metrics.crps_norm import CRPSNormMetric
 from chap_core.assessment.metrics.mae import MAEMetric
 from chap_core.assessment.metrics.mape import MAPEMetric
+from chap_core.assessment.metrics.org_unit_ranking import OrgUnitRankingMetric
 from chap_core.assessment.metrics.percentile_coverage import (
     Coverage10_90Metric,
     Coverage25_75Metric,
@@ -145,6 +147,7 @@ __all__ = [
     "MAPEMetric",
     "Metric",
     "MetricSpec",
+    "OrgUnitRankingMetric",
     "PercentileCoverageMetric",
     "ProbabilisticMetric",
     "RMSEMetric",
@@ -218,14 +221,17 @@ def compare_aggregated_metrics(scores: dict[str, float], reference_scores: dict[
     return comparisons
 
 
-def compute_all_detailed_metrics(evaluation: Evaluation) -> pd.DataFrame:
+def compute_all_detailed_metrics(
+    evaluation: Evaluation,
+    dimensions: tuple[DataDimension, ...] = DEFAULT_OUTPUT_DIMENSIONS,
+) -> pd.DataFrame:
     """
-    Compute all applicable metrics at detailed resolution for an evaluation.
+    Compute all applicable metrics for an evaluation, broken down by the given dimensions.
 
-    Returns a long-format DataFrame with one row per
-    (metric_id, location, time_period, horizon_distance). Metrics that
-    are not applicable or fail to compute are skipped so a single broken
-    metric doesn't take down the whole export.
+    Returns a long-format DataFrame with one row per metric_id and combination of
+    ``dimensions`` (by default location, time_period and horizon_distance). Metrics
+    that lack one of the dimensions, are not applicable or fail to compute are
+    skipped, so a single broken metric doesn't take down the whole export.
     """
     historical_df = evaluation.get_historical_observations()
     observations = evaluation.get_observations()
@@ -233,11 +239,13 @@ def compute_all_detailed_metrics(evaluation: Evaluation) -> pd.DataFrame:
 
     frames: list[pd.DataFrame] = []
     for metric_id, metric_factory in available_metrics.items():
+        if not set(dimensions) <= set(metric_factory.spec.output_dimensions):
+            continue
         metric = metric_factory(historical_observations=historical_df)
         if not metric.is_applicable(observations):  # type: ignore[arg-type]
             continue
         try:
-            detailed = metric.get_detailed_metric_from_cells(cells)
+            detailed = metric.get_metric_from_cells(cells, dimensions)
         except Exception:
             logger.exception("Failed to compute detailed metric %s", metric_id)
             continue
@@ -246,7 +254,7 @@ def compute_all_detailed_metrics(evaluation: Evaluation) -> pd.DataFrame:
         frames.append(detailed)
 
     if not frames:
-        return pd.DataFrame(columns=["metric_id", "location", "time_period", "horizon_distance", "metric"])
+        return pd.DataFrame(columns=["metric_id", *(d.value for d in dimensions), "metric"])
     return pd.concat(frames, ignore_index=True)
 
 

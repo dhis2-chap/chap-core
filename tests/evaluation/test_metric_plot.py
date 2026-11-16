@@ -14,6 +14,7 @@ from chap_core.assessment.metric_plots.metric_map import MetricMapV2
 from chap_core.assessment.metric_plots.regional_distribution import RegionalMetricDistributionPlot
 from chap_core.assessment.metric_plots.time_period_mean import MetricByTimePeriodV2Mean
 from chap_core.assessment.metric_plots.time_period_sum import MetricByTimePeriodV2Sum
+from chap_core.assessment.flat_representations import DataDimension
 from chap_core.assessment.metrics.crps import CRPSMetric
 
 
@@ -46,7 +47,12 @@ def test_metric_plot_decorator_sets_attributes(monkeypatch):
     isolated_registry: dict = {}
     monkeypatch.setattr(_mp, "_metric_plots_registry", isolated_registry)
 
-    @metric_plot(plot_id="test_decorator_plot", name="Test Plot", description="For testing only")
+    @metric_plot(
+        plot_id="test_decorator_plot",
+        name="Test Plot",
+        description="For testing only",
+        required_dimensions=["location"],
+    )
     class _TestPlot(MetricPlotBase):
         def plot_from_df(self, title: str = "") -> alt.Chart:
             return alt.Chart()
@@ -54,13 +60,14 @@ def test_metric_plot_decorator_sets_attributes(monkeypatch):
     assert _TestPlot.id == "test_decorator_plot"
     assert _TestPlot.name == "Test Plot"
     assert _TestPlot.description == "For testing only"
+    assert _TestPlot.required_dimensions == ["location"]
     assert "test_decorator_plot" in get_metric_plots_registry()
 
 
 def test_metric_plot_decorator_rejects_non_subclass():
     with pytest.raises(TypeError):
 
-        @metric_plot(plot_id="bad_plot", name="Bad")
+        @metric_plot(plot_id="bad_plot", name="Bad", required_dimensions=[])
         class _NotAPlot:
             pass
 
@@ -94,3 +101,20 @@ def test_regional_metric_distribution_empty_data(metric_data):
     chart = RegionalMetricDistributionPlot(empty).plot_from_df()
     spec = chart.to_dict(format="vega")
     assert any(isinstance(m, dict) and m.get("type") == "text" for m in (spec.get("marks") or []))
+
+
+@pytest.mark.parametrize("plot_cls", get_metric_plots_registry().values())
+def test_plot_needs_only_its_required_dimensions(plot_cls, metric_data, dummy_geojson):
+    """A plot renders from metric data that has only the dimensions it declares."""
+    unused = [d.value for d in DataDimension if d.value not in plot_cls.required_dimensions]
+    chart = plot_cls(metric_data.drop(columns=unused), dummy_geojson).plot()
+    assert chart.to_dict() is not None
+
+
+def test_metric_plot_decorator_rejects_unknown_dimension():
+    with pytest.raises(ValueError, match="org_unit"):
+
+        @metric_plot(plot_id="bad_dims", name="Bad", required_dimensions=["org_unit"])
+        class _BadDims(MetricPlotBase):
+            def plot_from_df(self, title: str = "") -> alt.Chart:
+                return alt.Chart()

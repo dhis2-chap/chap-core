@@ -126,6 +126,11 @@ def _observed_dataarray(observations_df: pd.DataFrame, period_dim: str = "time_p
     return indexed["disease_cases"].to_xarray()
 
 
+def _population_dataarray(observations_df: pd.DataFrame) -> xr.DataArray:
+    """Population on the same (location, time_period) grid as the observed cases."""
+    return observations_df.set_index(["location", "time_period"])["population"].to_xarray()
+
+
 def _flat_forecasts_to_dataarray(forecasts_df: pd.DataFrame) -> xr.DataArray:
     """Index flat forecast rows by split instead of time period, so the array holds no padding."""
     if forecasts_df.empty:
@@ -163,10 +168,13 @@ def _flat_data_to_xarray(flat_data: FlatEvaluationData) -> xr.Dataset:
         xarray.Dataset with ``forecast`` on (location, split, horizon_distance, sample) and
         ``observed`` on (location, time_period)
     """
+    observations_df = pd.DataFrame(cast("pd.DataFrame", flat_data.observations))
     data_vars = {
         "forecast": _flat_forecasts_to_dataarray(pd.DataFrame(cast("pd.DataFrame", flat_data.forecasts))),
-        "observed": _observed_dataarray(pd.DataFrame(cast("pd.DataFrame", flat_data.observations))),
+        "observed": _observed_dataarray(observations_df),
     }
+    if "population" in observations_df.columns and observations_df["population"].notna().any():
+        data_vars["population"] = _population_dataarray(observations_df)
     if flat_data.historical_observations is not None:
         historical_df = pd.DataFrame(cast("pd.DataFrame", flat_data.historical_observations))
         if not historical_df.empty:
@@ -233,6 +241,16 @@ def _flat_observed(observed: xr.DataArray, period_dim: str = "time_period") -> p
     return df.dropna(subset=["disease_cases"])
 
 
+def _flat_observations(ds: xr.Dataset) -> pd.DataFrame:
+    """The observed cases of the test periods, with the population of each location and period when stored."""
+    observed = _flat_observed(ds["observed"])
+    if "population" not in ds:
+        return observed
+    population = ds["population"].to_dataframe(name="population").reset_index()
+    population = population[["location", "time_period", "population"]].astype({"location": str, "time_period": str})
+    return observed.merge(population, on=["location", "time_period"], how="left")
+
+
 def _xarray_to_flat_data(ds: xr.Dataset) -> FlatEvaluationData:
     """
     Convert xarray.Dataset back to FlatEvaluationData.
@@ -264,7 +282,7 @@ def _xarray_to_flat_data(ds: xr.Dataset) -> FlatEvaluationData:
 
     return FlatEvaluationData(
         forecasts=FlatForecasts.validate(forecasts_df),
-        observations=FlatObserved.validate(_flat_observed(ds["observed"])),
+        observations=FlatObserved.validate(_flat_observations(ds)),
         historical_observations=historical_observations,
         hpo=hpo,
     )
@@ -387,7 +405,7 @@ def _cells_from_dataset(dataset: xr.Dataset) -> ForecastCells:
         target[split_i, horizon_i],
         np.asarray(forecast["horizon_distance"].values, dtype=np.int64)[horizon_i],
         matrix[present],
-        _flat_observed(dataset["observed"]),
+        _flat_observations(dataset),
     )
 
 
@@ -520,6 +538,7 @@ class Evaluation:
         historical_context_periods: int = 0,
         specification: BacktestSpecification | None = None,
         hpo: HyperparameterOptimization | None = None,
+        population_observations: list[Observation] | None = None,
     ) -> Evaluation:
         info.created = utc_now()
         # The parameters live on the specification now and are computed fields on
@@ -543,6 +562,17 @@ class Evaluation:
         historical_df = _observations_frame(historical_observations)
         if historical_df is not None and not historical_df.empty:
             dataset["historical_observed"] = _observed_dataarray(historical_df, "historical_time_period")
+        if population_observations:
+            population_df = pd.DataFrame(
+                [(o.org_unit, o.period, o.value) for o in population_observations],
+                columns=["location", "time_period", "population"],
+            ).drop_duplicates(["location", "time_period"])
+            # Population for the evaluated periods, for incidence-based metrics
+            population = _population_dataarray(population_df).reindex(
+                location=dataset["observed"]["location"], time_period=dataset["observed"]["time_period"]
+            )
+            if population.notnull().any():
+                dataset["population"] = population
 
         backtest.org_units = [str(location) for location in dataset["forecast"]["location"].values]
         backtest.split_periods = [str(split) for split in dataset["forecast"]["split"].values]
@@ -666,7 +696,24 @@ class Evaluation:
             historical_context_periods=historical_context_periods,
             specification=specification,
             hpo=hpo_data,
+            population_observations=cls.extract_population_observations(dataset),
         )
+
+    @staticmethod
+    def extract_population_observations(dataset: _DataSet) -> list[Observation]:
+        """Population of every location and period in the dataset, empty when it has no population field."""
+        observations = []
+        for location in dataset.keys():  # noqa: SIM118
+            location_data = dataset[location]
+            population = getattr(location_data, "population", None)
+            if population is None:
+                continue
+            for period, value in zip(location_data.time_period, population, strict=True):
+                if value is not None and not np.isnan(value):
+                    observations.append(
+                        Observation(period=period.id, org_unit=location, value=float(value), feature_name="population")
+                    )
+        return observations
 
     @classmethod
     def calculate_periods_from_years(cls, dataset: _DataSet, years: int) -> int:
@@ -794,11 +841,21 @@ class Evaluation:
         # Backtests persisted to the database reach their observations through dataset_id.
         if self._backtest.dataset_id != 0:
             return
-        observed = _flat_observed(self._dataset["observed"])
+        observed = _flat_observations(self._dataset)
         observations = [
             Observation(period=period, org_unit=location, value=float(value), feature_name="disease_cases")
-            for location, period, value in observed.itertuples(index=False)
+            for location, period, value in observed[["location", "time_period", "disease_cases"]].itertuples(
+                index=False
+            )
         ]
+        if "population" in observed.columns:
+            population = observed.dropna(subset=["population"])
+            observations += [
+                Observation(period=period, org_unit=location, value=float(value), feature_name="population")
+                for location, period, value in population[["location", "time_period", "population"]].itertuples(
+                    index=False
+                )
+            ]
         periods = sorted(observed["time_period"].unique().tolist())
         period_type = None
         if periods:
@@ -861,7 +918,8 @@ class Evaluation:
                 )
                 .where(
                     col(Observation.dataset_id) == self._backtest.dataset_id,
-                    col(Observation.feature_name) == target_column,
+                    # Population is read too, for incidence-based metrics
+                    col(Observation.feature_name).in_([target_column, "population"]),
                 )
                 .order_by(col(Observation.id))
             ).all()
@@ -924,7 +982,7 @@ class Evaluation:
         if self._flat_data_cache is not None:
             return pd.DataFrame(self._flat_data_cache.observations)
         if self._dataset is not None:
-            return _flat_observed(self._dataset["observed"])
+            return _flat_observations(self._dataset)
         return self._stored_forecasts_and_observations()[1]
 
     def get_historical_observations(self) -> pd.DataFrame | None:

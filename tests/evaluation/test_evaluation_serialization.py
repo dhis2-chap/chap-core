@@ -273,6 +273,25 @@ class TestEvaluationSerialization:
         assert len(original_flat.forecasts) == len(loaded_flat.forecasts)
         assert len(original_flat.observations) == len(loaded_flat.observations)
 
+    def test_roundtrip_preserves_population(self, backtest_weeks_with_population, tmp_path):
+        output_file = tmp_path / "test_population.nc"
+        original = Evaluation.from_backtest(backtest_weeks_with_population).to_flat().observations
+        Evaluation.from_backtest(backtest_weeks_with_population).to_file(filepath=output_file)
+
+        loaded = Evaluation.from_file(output_file)
+        loaded_observations = loaded.to_flat().observations
+        rebuilt_observations = Evaluation.from_backtest(loaded.to_backtest()).to_flat().observations
+
+        keys = ["location", "time_period"]
+        expected = original.sort_values(keys)["population"].tolist()
+        assert loaded_observations.sort_values(keys)["population"].tolist() == expected
+        assert rebuilt_observations.sort_values(keys)["population"].tolist() == expected
+
+    def test_roundtrip_without_population_has_no_population_column(self, backtest_weeks, tmp_path):
+        output_file = tmp_path / "test_no_population.nc"
+        Evaluation.from_backtest(backtest_weeks).to_file(filepath=output_file)
+        assert "population" not in Evaluation.from_file(output_file).to_flat().observations.columns
+
     def test_from_file_populates_monthly_period_metadata(self, old_backtest):
         """from_file must populate dataset period metadata; a null period_type breaks frontends that sort periods."""
         dataset = old_backtest.dataset
