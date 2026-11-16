@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from chap_core.assessment.metrics import CRPSMetric, RMSEMetric
+from chap_core.assessment.metrics import CRPSMetric, OrgUnitRankingMetric, RMSEMetric
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.database.tables import BacktestMetric
 from chap_core.assessment.metric_plots.horizon_location_mean import MetricByHorizonAndLocationMean
@@ -12,6 +12,7 @@ from chap_core.assessment.metric_plots.horizon_mean import MetricByHorizonV2Mean
 from chap_core.assessment.metric_plots.metric_map import MetricMapV2
 from chap_core.assessment.metric_plots.regional_distribution import RegionalMetricDistributionPlot
 from chap_core.plotting.evaluation_plot import (
+    MetricNotApplicableError,
     make_plot_from_backtest_object,
     make_plot_from_evaluation_object,
 )
@@ -62,6 +63,12 @@ def test_evaluation_plot_from_backtest_object(backtest_weeks_large, plot_class):
     make_plot_from_backtest_object(
         simulated_backtest, plot_class, CRPSMetric(), geojson=simulated_backtest.dataset.geojson
     )
+
+
+def test_make_plot_from_backtest_object_rejects_non_applicable_metric(backtest_weeks, backtest_weeks_with_population):
+    with pytest.raises(MetricNotApplicableError):
+        make_plot_from_backtest_object(backtest_weeks, MetricByHorizonV2Mean, OrgUnitRankingMetric())
+    assert make_plot_from_backtest_object(backtest_weeks_with_population, MetricByHorizonV2Mean, OrgUnitRankingMetric())
 
 
 def test_make_plot_from_backtest_object_uses_container_width(backtest_weeks_large):

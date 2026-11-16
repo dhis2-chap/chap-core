@@ -481,13 +481,18 @@ class AlertPolicyCreate(AlertPolicyBase):
 
 
 class AlertPolicyCodesUpdate(DBModel):
-    """Change output codes without changing the policy's ladder."""
+    """Change output codes and response actions without changing the policy's ladder."""
 
     model_config = ConfigDict(extra="forbid")  # type: ignore[assignment]
 
     level_output_codes: dict[str, str] = Field(
         default_factory=dict,
         description="New output codes keyed by existing level name. Omitted levels keep their codes.",
+    )
+    level_response_actions: dict[str, str | None] = Field(
+        default_factory=dict,
+        description="Response actions keyed by existing level name. Omitted levels keep their actions; "
+        "null clears an action. Existing alerts use the updated text.",
     )
     no_alert_output_code: str | None = Field(
         default=None,

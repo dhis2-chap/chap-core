@@ -10,6 +10,7 @@ from chap_core.assessment.metric_plots import MetricPlotBase, metric_plot
     plot_id="metric_map",
     name="Map",
     description="Shows a map of aggregated metrics per org unit",
+    required_dimensions=["location"],
 )
 class MetricMapV2(MetricPlotBase):
     """Geospatial visualization of aggregated metric per location."""

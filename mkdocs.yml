@@ -100,6 +100,7 @@ nav:
           - Set Up Your Machine: external_models/setup.md
           - Bring Your Existing Model: external_models/existing_model.md
           - Build a New Model from a Template: external_models/mlproject_tutorial.md
+          - Package and Publish Your Model: external_models/package_and_publish.md
           - Development Tools: external_models/development_tools.md
           - Learning Modelling: external_models/learn_modelling.md
 
