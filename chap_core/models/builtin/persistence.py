@@ -6,7 +6,7 @@ import numpy as np
 
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.datatypes import Samples
-from chap_core.models.builtin.empirical import even_samples, periods_per_year, sample_count
+from chap_core.models.builtin.empirical import N_SAMPLES, even_samples, periods_per_year
 from chap_core.models.builtin.registry import BaselineNotApplicable, BuiltinModel, BuiltinModelSpec, builtin_model
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -37,11 +37,6 @@ class LogDifferences:
                 collected[horizon].append(values)
         return cls({horizon: np.concatenate(values) for horizon, values in collected.items()})
 
-    @property
-    def n_differences(self) -> int:
-        """The number of differences of the horizon with the most, 0 without any."""
-        return max((len(values) for values in self.by_horizon.values()), default=0)
-
 
 @builtin_model()
 class Persistence(BuiltinModel):
@@ -51,7 +46,7 @@ class Persistence(BuiltinModel):
     ``(y + 1) * exp(d - median(d)) - 1`` for the differences
     ``d = log(y_t + 1) - log(y_{t-h} + 1)`` over every ``t`` in the training data of the
     same location, each repeated about equally often around their exact median as the middle
-    sample (see ``even_samples`` and ``sample_count``). Centring the samples on that median
+    sample (see ``even_samples``). Centring the samples on that median
     keeps a trend in the training data from moving the forecast, and makes the middle sample
     exactly ``y``. The spread widens with the horizon.
 
@@ -83,9 +78,6 @@ class Persistence(BuiltinModel):
             for location, location_data in data.items()
         }
         self._pooled_differences = LogDifferences.pooled(self._differences.values())
-        self._n_samples = sample_count(
-            max((differences.n_differences for differences in self._differences.values()), default=0)
-        )
 
     def _centred_differences(self, location: str, horizon: int) -> np.ndarray:
         """Samples of the differences of the location, else of all locations, at the horizon.
@@ -104,9 +96,9 @@ class Persistence(BuiltinModel):
             for differences in candidates:
                 values = differences.by_horizon.get(shorter_horizon)
                 if values is not None and len(values) > 1:
-                    samples = even_samples(values, self._n_samples)
+                    samples = even_samples(values)
                     return np.asarray(samples - np.median(samples))
-        return np.zeros(self._n_samples)
+        return np.zeros(N_SAMPLES)
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         forecasts = {}

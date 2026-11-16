@@ -106,15 +106,12 @@ like "ML in chap_core" is actually tooling around models, or evaluation statisti
     Without any, the last value is forecast unchanged.
 
   All four forecast with the observed values (or observed ratios and differences)
-  themselves, with no random sampling or interpolation. `empirical.sample_count` sets
-  an odd number of samples, at least 101 and more than the largest group in the
-  training data (location, location and period of year, horizon, or horizon and
-  period of year). `empirical.even_samples` makes the middle sample the exact median
-  of a group's values and repeats each sorted value about equally often around it, so
-  5 observations are used 20 times each. The middle sample is the only one that can be
-  a value that was not observed, the average of the two middle values of an even
-  number of observations. A fallback group with more values than samples is thinned
-  evenly.
+  themselves, with no random sampling or interpolation, as 101 samples
+  (`empirical.N_SAMPLES`). `empirical.even_samples` makes the middle sample the exact
+  median of a group's values and repeats each sorted value about equally often around
+  it, so 5 observations are used 20 times each. The middle sample is the only one that
+  can be a value that was not observed, the average of the two middle values of an even
+  number of observations. A group of more than 100 values is thinned evenly.
 
   The REST API runs every live baseline once on each backtest specification
   (`chap_core/rest_api/baseline_runs.py`). A backtest queued through the API asks

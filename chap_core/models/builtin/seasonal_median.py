@@ -4,7 +4,7 @@ import numpy as np
 
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.datatypes import Samples
-from chap_core.models.builtin.empirical import even_samples, period_of_year, sample_count
+from chap_core.models.builtin.empirical import even_samples, period_of_year
 from chap_core.models.builtin.global_median import GlobalObservations
 from chap_core.models.builtin.registry import BuiltinModel, BuiltinModelSpec, builtin_model
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -28,13 +28,6 @@ class SeasonalObservations:
             }
         return cls(by_location)
 
-    @property
-    def largest_group(self) -> int:
-        """The number of observations of the location and period of year with the most."""
-        return max(
-            (len(observed) for by_season in self.by_location.values() for observed in by_season.values()), default=1
-        )
-
     def get(self, location: str, season: int) -> np.ndarray | None:
         return self.by_location.get(location, {}).get(season)
 
@@ -54,12 +47,11 @@ class SeasonalMedian(BuiltinModel):
     """Forecasts each period with all observations of the same location and period of year.
 
     The samples are the observations, each repeated about equally often, with their exact
-    median as the middle sample (see ``even_samples`` and ``sample_count``). Week 53 is
-    pooled with week 52. A period of year that was never observed for the location uses all
-    observations of the location, thinned evenly to the same number of samples if there are
-    more. A location without observations uses the
-    observations of all other locations for the same period of year, and the global median's
-    observations when no location observed it.
+    median as the middle sample (see ``even_samples``). Week 53 is pooled with week 52.
+    A period of year that was never observed for the location uses all observations of the
+    location. A location without observations uses the observations of all other locations
+    for the same period of year, and the global median's observations when no location
+    observed it.
     """
 
     spec = BuiltinModelSpec(
@@ -75,7 +67,6 @@ class SeasonalMedian(BuiltinModel):
 
     def train(self, data: DataSet) -> None:
         self._observations = SeasonalObservations.from_data(data)
-        self._n_samples = sample_count(self._observations.largest_group)
         self._global_observations = GlobalObservations.from_data(data)
 
     def _seasonal_observations(self, location: str, season: int) -> np.ndarray:
@@ -90,7 +81,7 @@ class SeasonalMedian(BuiltinModel):
         forecasts = {}
         for location, location_data in future_data.items():
             rows = [
-                even_samples(self._seasonal_observations(location, season), self._n_samples)
+                even_samples(self._seasonal_observations(location, season))
                 for season in period_of_year(location_data.time_period)
             ]
             forecasts[location] = Samples(location_data.time_period, np.array(rows))  # type: ignore[call-arg]

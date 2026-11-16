@@ -6,7 +6,7 @@ import numpy as np
 
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.datatypes import Samples
-from chap_core.models.builtin.empirical import even_samples, period_of_year, periods_per_year, sample_count
+from chap_core.models.builtin.empirical import even_samples, period_of_year, periods_per_year
 from chap_core.models.builtin.registry import BaselineNotApplicable, BuiltinModel, BuiltinModelSpec, builtin_model
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -44,11 +44,6 @@ class SeasonalShifts:
             }
         )
 
-    @property
-    def n_ratios(self) -> int:
-        """The number of ratios of the horizon and period of year with the most, 0 without any."""
-        return max((len(ratios) for by_season in self.by_horizon.values() for ratios in by_season.values()), default=0)
-
     def ratios(self, season: int, horizon: int) -> np.ndarray | None:
         """The ratios ending in the period of year, else in the nearest ones earlier and later in the year.
 
@@ -75,7 +70,7 @@ class SeasonalShiftPersistence(BuiltinModel):
     ``(y + 1) * r - 1`` for the ratios ``r = (y_t + 1) / (y_{t-h} + 1)`` in the training
     data of the same location, over every ``t`` with the target's period of year. The
     ratios are repeated about equally often around their exact median as the middle sample
-    (see ``even_samples`` and ``sample_count``), so the median forecast is ``y`` scaled by the
+    (see ``even_samples``), so the median forecast is ``y`` scaled by the
     median ratio, and the spread widens with the horizon. Adding one keeps zero counts usable. Week 53 is
     pooled with week 52.
 
@@ -110,7 +105,6 @@ class SeasonalShiftPersistence(BuiltinModel):
             for location, location_data in data.items()
         }
         self._pooled_shifts = SeasonalShifts.pooled(self._shifts.values())
-        self._n_samples = sample_count(max((shifts.n_ratios for shifts in self._shifts.values()), default=0))
 
     def _ratios(self, location: str, season: int, horizon: int) -> np.ndarray:
         """The ratios of the location, else of all locations, at the horizon or else the longest shorter one.
@@ -139,9 +133,7 @@ class SeasonalShiftPersistence(BuiltinModel):
             last_value = cases[observed[-1]]
             periods_since_last = len(cases) - observed[-1]
             rows = [
-                np.maximum(
-                    (last_value + 1) * even_samples(self._ratios(location, season, horizon), self._n_samples) - 1, 0
-                )
+                np.maximum((last_value + 1) * even_samples(self._ratios(location, season, horizon)) - 1, 0)
                 for horizon, season in enumerate(period_of_year(location_data.time_period), start=periods_since_last)
             ]
             forecasts[location] = Samples(location_data.time_period, np.array(rows))  # type: ignore[call-arg]

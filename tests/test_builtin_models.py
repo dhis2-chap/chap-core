@@ -21,7 +21,7 @@ from chap_core.models.builtin import (
     get_builtin_model,
     get_builtin_models,
 )
-from chap_core.models.builtin.empirical import even_samples, period_of_year, sample_count
+from chap_core.models.builtin.empirical import N_SAMPLES, even_samples, period_of_year
 from chap_core.models.builtin.seasonal_shift_persistence import SeasonalShifts
 from chap_core.models.model_template import ModelTemplate
 from chap_core.rest_api.data_models import BacktestCreate
@@ -61,6 +61,9 @@ def test_builtin_url_resolves_the_registered_version_only():
         ModelTemplate.from_directory_or_github_url("builtin:global_median@0")
 
 
+MIDDLE = N_SAMPLES // 2
+
+
 def test_global_median_samples_span_observations_of_the_same_location(health_population_data):
     train, test_generator = train_test_generator(health_population_data, prediction_length=3, n_test_sets=1)
     historic, future, _ = next(test_generator)
@@ -69,15 +72,13 @@ def test_global_median_samples_span_observations_of_the_same_location(health_pop
     repeated = _global_median().train(train).predict(historic, future)
 
     assert set(forecasts.keys()) == set(future.keys())
-    n_samples = sample_count(max(np.isfinite(data.disease_cases).sum() for data in train.values()))
     for location, samples in forecasts.items():
         assert np.array_equal(samples.samples, repeated[location].samples)
-        assert samples.samples.shape == (3, n_samples)
+        assert samples.samples.shape == (3, N_SAMPLES)
         observed = train[location].disease_cases
         observed = observed[np.isfinite(observed)]
-        middle = n_samples // 2
-        assert np.all(samples.samples[:, middle] == np.median(observed))
-        assert set(np.unique(np.delete(samples.samples, middle, axis=1))) == set(np.unique(observed))
+        assert np.all(samples.samples[:, MIDDLE] == np.median(observed))
+        assert np.all(np.isin(np.delete(samples.samples, MIDDLE, axis=1), observed))
 
 
 @pytest.mark.parametrize("name", BUILTIN_NAMES)
@@ -104,7 +105,7 @@ def test_unregistered_builtin_template_is_archived(engine):
 def test_builtin_model_passes_sanity_check(name):
     with ModelTemplate.from_directory_or_github_url(f"builtin:{name}") as template:
         assert isinstance(template, BuiltinModelTemplate)
-        sanity_check_estimator(template.get_model())
+        sanity_check_estimator(template.get_model(), N_SAMPLES)
 
 
 @pytest.mark.parametrize("name", BUILTIN_NAMES)
@@ -187,18 +188,29 @@ def _forecast(name, train, historic, future):
 
 
 @pytest.mark.parametrize(
-    ("name", "n_samples", "expected"),
+    ("name", "expected"),
     [
-        ("global_median", 977, [[0.0, 18.0, 322.0]] * 4),
+        ("global_median", [[0.0, 18.0, 200.0]] * 4),
         (
             "persistence",
-            973,
-            [[5.3125, 100.0, 4544.0], [1.525, 100.0, 2019.0], [1.2444, 100.0, 4039.0], [1.6579, 100.0, 2271.5]],
+            [
+                [7.4167, 100.0, 1345.6667],
+                [7.08, 100.0, 1110.0],
+                [6.9737, 100.0, 1783.3333],
+                [5.3125, 100.0, 1918.0],
+            ],
         ),
-        ("seasonal_median", 101, [[2.0, 25.5, 151.0], [2.0, 27.0, 163.0], [2.0, 42.5, 151.0], [2.0, 34.0, 180.0]]),
+        (
+            "seasonal_median",
+            [
+                [2.0, 25.5, 151.0],
+                [2.0, 27.0, 163.0],
+                [2.0, 42.5, 151.0],
+                [2.0, 34.0, 180.0],
+            ],
+        ),
         (
             "seasonal_shift_persistence",
-            101,
             [
                 [55.1111, 109.9117, 217.8333],
                 [50.6222, 99.0098, 251.5],
@@ -208,11 +220,11 @@ def _forecast(name, train, historic, future):
         ),
     ],
 )
-def test_baseline_fixed_output(name, n_samples, expected, weekly_split):
+def test_baseline_fixed_output(name, expected, weekly_split):
     samples = _forecast(name, *weekly_split)["boaco"].samples
-    assert samples.shape == (4, n_samples)
+    assert samples.shape == (4, N_SAMPLES)
     # Lowest, middle (the median) and highest sample of each future week.
-    np.testing.assert_allclose(samples[:, [0, n_samples // 2, -1]], expected, atol=1e-4)
+    np.testing.assert_allclose(samples[:, [0, MIDDLE, -1]], expected, atol=1e-4)
 
 
 def _observations(data, locations):
@@ -257,9 +269,8 @@ def test_seasonal_median_uses_all_observations_of_the_same_week(weekly_split):
         cases = train[location].disease_cases
         for week, row in zip(future[location].time_period.week, samples.samples, strict=True):
             same_week = cases[(train[location].time_period.week == week) & np.isfinite(cases)]
-            middle = len(row) // 2
-            assert row[middle] == np.median(same_week)
-            np.testing.assert_array_equal(np.unique(np.delete(row, middle)), np.unique(same_week))
+            assert row[MIDDLE] == np.median(same_week)
+            np.testing.assert_array_equal(np.unique(np.delete(row, MIDDLE)), np.unique(same_week))
 
 
 def test_seasonal_median_uses_the_global_median_for_an_unobserved_period_of_year(weekly_full_data):
@@ -270,7 +281,7 @@ def test_seasonal_median_uses_the_global_median_for_an_unobserved_period_of_year
     seasonal = _forecast("seasonal_median", short_train, short_train, future)
 
     for location, samples in seasonal.items():
-        expected = even_samples(_observations(short_train, [location]), samples.samples.shape[1])
+        expected = even_samples(_observations(short_train, [location]))
         np.testing.assert_array_equal(samples.samples, np.tile(expected, (len(samples.samples), 1)))
 
 
@@ -285,9 +296,8 @@ def test_seasonal_median_uses_other_locations_for_an_unseen_location(weekly_spli
             [train[other].disease_cases[period_of_year(train[other].time_period) == week] for other in others]
         )
         same_week = same_week[np.isfinite(same_week)]
-        middle = len(row) // 2
-        assert row[middle] == np.median(same_week)
-        assert np.all(np.isin(np.delete(row, middle), same_week))
+        assert row[MIDDLE] == np.median(same_week)
+        assert np.all(np.isin(np.delete(row, MIDDLE), same_week))
 
 
 def test_persistence_median_is_the_last_historic_value(weekly_split):
@@ -380,7 +390,7 @@ def test_seasonal_shift_persistence_uses_the_ratios_of_all_locations_for_an_unse
 
     last_value = historic["boaco"].disease_cases[-1]
     first_week = period_of_year(future["boaco"].time_period)[0]
-    expected = np.maximum((last_value + 1) * even_samples(pooled.ratios(first_week, 1), samples.shape[1]) - 1, 0)
+    expected = np.maximum((last_value + 1) * even_samples(pooled.ratios(first_week, 1)) - 1, 0)
     np.testing.assert_allclose(samples[0], expected)
 
 
@@ -426,36 +436,29 @@ def test_seasonal_shifts_have_no_ratios_for_an_unseen_horizon():
 
 
 @pytest.mark.parametrize(
-    ("values", "n_samples", "expected"),
+    ("values", "expected"),
     [
-        ([9.0, 2.0, 5.0], 3, [2.0, 5.0, 9.0]),
-        ([96.0, 26.0], 7, [26.0, 26.0, 26.0, 61.0, 96.0, 96.0, 96.0]),
-        ([9.0, 2.0, 5.0], 6, [2.0, 2.0, 5.0, 5.0, 9.0, 9.0]),
-        ([2.0, 5.0, 9.0, 14.0], 6, [2.0, 5.0, 5.0, 9.0, 9.0, 14.0]),
-        ([7.0], 5, [7.0] * 5),
-        (list(range(1, 11)), 3, [3.0, 5.5, 8.0]),
+        ([7.0], [7.0] * 101),
+        ([96.0, 26.0], [26.0] * 50 + [61.0] + [96.0] * 50),
+        ([9.0, 2.0, 5.0], [2.0] * 33 + [5.0] * 35 + [9.0] * 33),
     ],
-    ids=["as-many", "median-in-the-middle", "even", "uneven", "single", "thinned"],
+    ids=["single", "even", "odd"],
 )
-def test_even_samples_repeat_the_sorted_values_around_the_median(values, n_samples, expected):
-    np.testing.assert_array_equal(even_samples(np.array(values), n_samples), expected)
+def test_even_samples_repeat_the_sorted_values_around_the_median(values, expected):
+    np.testing.assert_array_equal(even_samples(np.array(values)), expected)
 
 
 def test_even_samples_use_each_value_equally_often():
-    samples = even_samples(np.array([5.0, 1.0, 4.0, 2.0, 3.0]), 101)
-    assert samples[50] == 3.0
-    np.testing.assert_array_equal(np.unique(np.delete(samples, 50), return_counts=True)[1], [20] * 5)
+    samples = even_samples(np.array([5.0, 1.0, 4.0, 2.0, 3.0]))
+    assert samples[MIDDLE] == 3.0
+    np.testing.assert_array_equal(np.unique(np.delete(samples, MIDDLE), return_counts=True)[1], [20] * 5)
 
 
-@pytest.mark.parametrize("n_samples", [101, 103, 151])
-@pytest.mark.parametrize("n_values", [1, 2, 3, 4, 5, 100, 102])
-def test_even_samples_have_the_median_in_the_middle(n_values, n_samples):
+@pytest.mark.parametrize("n_values", [1, 2, 3, 4, 5, 99, 100, 101, 102, 365])
+def test_even_samples_have_the_median_in_the_middle(n_values):
     values = np.arange(n_values, dtype=float) ** 2
-    samples = even_samples(values, n_samples)
-    assert samples[n_samples // 2] == np.median(values) == np.median(samples)
+    samples = even_samples(values)
+    assert samples.shape == (N_SAMPLES,)
+    assert samples[MIDDLE] == np.median(values) == np.median(samples)
     assert np.all(np.diff(samples) >= 0)
-
-
-@pytest.mark.parametrize(("largest_group", "expected"), [(0, 101), (5, 101), (100, 101), (101, 103), (252, 253)])
-def test_sample_count_is_odd_at_least_101_and_above_the_largest_group(largest_group, expected):
-    assert sample_count(largest_group) == expected
+    assert np.all(np.isin(np.delete(samples, MIDDLE), values))

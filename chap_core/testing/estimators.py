@@ -3,7 +3,7 @@ from ..data import DataSet
 from ..data.datasets import ISIMIP_dengue_harmonized
 
 
-def sanity_check_estimator(estimator):
+def sanity_check_estimator(estimator, n_samples: int = 100):
     prediction_length = 3
     dataset = ISIMIP_dengue_harmonized["vietnam"]
     train, test_generator = train_test_generator(dataset, prediction_length, n_test_sets=1)
@@ -11,8 +11,6 @@ def sanity_check_estimator(estimator):
     predictor = estimator.train(train)
     samples = predictor.predict(historic, future)
     assert isinstance(samples, DataSet)
-    n_samples = {s.samples.shape[1] for s in samples.values()}
-    assert len(n_samples) == 1, f"Every location needs the same number of samples, got {n_samples}"
     for s in samples.values():
         assert len(s) == prediction_length
-        assert s.samples.ndim == 2 and s.samples.shape[0] == prediction_length
+        assert s.samples.shape == (prediction_length, n_samples)
