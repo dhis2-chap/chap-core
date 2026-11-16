@@ -202,6 +202,8 @@ def run_backtest(
     assert configured_model.id is not None, "configured_model.id is required"
     estimator = session.get_configured_model_with_code(configured_model.id, prediction_length=n_periods)
     # Historical context is for CLI plots; persisted backtests reach it through their dataset.
+    # Invalid forecasts, such as NaN samples (MissingSamplesError), fail the job on purpose.
+    # Only the metrics below are best-effort.
     evaluation = Evaluation.create(
         configured_model=configured_model,
         estimator=estimator,

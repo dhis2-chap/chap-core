@@ -11,11 +11,9 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from chap_core.exceptions import MissingSamplesError
+
 CELL_KEYS = ["location", "time_period", "horizon_distance"]
-
-
-class MissingSamplesError(ValueError):
-    """Raised when forecast cells do not all have the same number of samples."""
 
 
 @dataclass
@@ -109,7 +107,15 @@ class ForecastCells:
 
 
 def check_sample_counts(sizes: np.ndarray) -> None:
-    """Raise unless every forecast cell has the same number of samples."""
+    """Raise unless every forecast cell has the same number of samples.
+
+    A NaN sample means the model failed to draw it, so a cell with fewer samples than the
+    others is a broken forecast. It is rejected rather than dropped: metrics take one
+    (cells x samples) matrix, and scoring cells on different numbers of samples would make
+    them incomparable and hide the model error. A cell with no samples at all is a forecast
+    that was not made (for example a location missing from a split), not a broken one, so
+    callers leave those cells out before calling this.
+    """
     if len(sizes) and not (sizes == sizes[0]).all():
         counts = np.unique(sizes)
         raise MissingSamplesError(
