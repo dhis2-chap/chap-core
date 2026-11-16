@@ -687,15 +687,13 @@ class PeriodRange(BNPDataClass):
 
     @classmethod
     def from_strings(cls, period_strings: Iterable[str], fill_missing=False):
-        periods = []
-        for period_string in period_strings:
-            try:
-                p = TimePeriod.parse(period_string)
-            except InvalidDateError:
-                logger.error(f"Invalid date {period_string}")
-                raise
-            periods.append(p)
-        return cls.from_period_list(fill_missing, periods)
+        # Every location of a dataset usually has the same periods, so the parsing and the
+        # consecutiveness check are cached per distinct sequence of period strings.
+        first, last, missing = _parse_period_strings(tuple(str(s) for s in period_strings), fill_missing)
+        ret = cls.from_time_periods(first, last)
+        if fill_missing:
+            return ret, np.array(missing, dtype=int)
+        return ret
 
     @classmethod
     def from_ids(cls, ids: Iterable[str], fill_missing=False):
@@ -785,6 +783,26 @@ delta_month = TimeDelta(relativedelta(months=1))
 delta_year = TimeDelta(relativedelta(years=1))
 delta_day = TimeDelta(relativedelta(days=1))
 delta_week = TimeDelta(relativedelta(weeks=1))
+
+
+@functools.lru_cache(maxsize=64)
+def _parse_period_strings(
+    period_strings: tuple[str, ...], fill_missing: bool
+) -> tuple[TimePeriod, TimePeriod, tuple[int, ...]]:
+    """Parse and check a sequence of period strings once: its first and last period and the missing positions.
+
+    Returns periods, never a `PeriodRange`, so callers do not share a mutable object.
+    """
+    periods = []
+    for period_string in period_strings:
+        try:
+            periods.append(TimePeriod.parse(period_string))
+        except InvalidDateError:
+            logger.error(f"Invalid date {period_string}")
+            raise
+    delta = PeriodRange._get_delta(periods)
+    missing = PeriodRange._check_consequtive(delta, periods, fill_missing)
+    return periods[0], periods[-1], tuple(int(i) for i in missing)
 
 
 def convert_time_period_string(row):
