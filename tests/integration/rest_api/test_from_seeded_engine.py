@@ -1,6 +1,7 @@
 import json
 
 import altair
+import numpy as np
 import pandas as pd
 import pytest
 from sqlmodel import Session, select
@@ -9,7 +10,7 @@ from starlette.testclient import TestClient
 from chap_core.api_types import DataElement, DataList
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo
-from chap_core.database.tables import Backtest, BacktestRead, Prediction
+from chap_core.database.tables import Backtest, BacktestForecast, BacktestRead, Prediction, PredictionSamplesEntry
 from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.routers.dependencies import get_session
 
@@ -137,6 +138,106 @@ def test_get_prediction_entries(override_session):
     params = {"predictionId": 1, "quantiles": [0.0, 0.5, 0.9]}
     prediction_entries = client.get_json("/v1/analytics/prediction-entry", params=params)
     assert len(prediction_entries) > 3
+
+
+QUANTILES = [0.1, 0.25, 0.5, 0.75, 0.9]
+
+
+@pytest.mark.parametrize(
+    "url, params",
+    [
+        ("/v1/analytics/prediction-entry", {"predictionId": 1}),
+        ("/v1/analytics/prediction-entry/1", {}),
+    ],
+)
+def test_prediction_entries_are_the_quantiles_of_each_forecast(override_session, seeded_session, url, params):
+    forecasts = sorted(seeded_session.get(Prediction, 1).forecasts, key=lambda forecast: forecast.id)
+    expected = [
+        {
+            "orgUnit": f.org_unit,
+            "period": f.period,
+            "quantile": q,
+            "value": pytest.approx(float(np.quantile(f.values, q))),
+        }
+        for f in forecasts
+        for q in QUANTILES
+    ]
+
+    response = client.get_json(url, params={**params, "quantiles": QUANTILES})
+
+    assert response == expected
+
+
+def test_prediction_entries_with_mixed_sample_counts(override_session, seeded_session):
+    prediction = seeded_session.get(Prediction, 1)
+    first = prediction.forecasts[0]
+    for n_samples in [3, 7, 3, 1, 7]:
+        prediction.forecasts.append(
+            PredictionSamplesEntry(
+                org_unit=first.org_unit, period=first.period, values=[float(v) for v in range(n_samples, 0, -1)]
+            )
+        )
+    seeded_session.commit()
+    forecasts = sorted(prediction.forecasts, key=lambda forecast: forecast.id)
+    assert len({len(f.values) for f in forecasts}) > 2
+    expected = [pytest.approx(float(np.quantile(f.values, q))) for f in forecasts for q in QUANTILES]
+
+    response = client.get_json("/v1/analytics/prediction-entry/1", params={"quantiles": QUANTILES})
+
+    assert [entry["value"] for entry in response] == expected
+
+
+def test_prediction_entries_of_an_unknown_prediction_is_not_found(override_session):
+    response = client.get("/v1/analytics/prediction-entry/999", params={"quantiles": QUANTILES})
+    assert response.status_code == 404, response.text
+
+
+def test_evaluation_entries_are_the_quantiles_of_each_forecast(override_session, seeded_session):
+    forecasts = seeded_session.exec(
+        select(BacktestForecast).where(BacktestForecast.backtest_id == 1).order_by(BacktestForecast.id)
+    ).all()
+    expected = [
+        {
+            "orgUnit": f.org_unit,
+            "period": f.period,
+            "quantile": q,
+            "value": pytest.approx(float(np.quantile(f.values, q))),
+            "splitPeriod": f.last_seen_period,
+        }
+        for f in forecasts
+        for q in QUANTILES
+    ]
+
+    response = client.get_json("/v1/analytics/evaluation-entry", params={"backtestId": 1, "quantiles": QUANTILES})
+
+    assert response == expected
+
+
+def test_evaluation_entries_for_adm0_are_the_quantiles_of_the_summed_samples(override_session, seeded_session):
+    forecasts = seeded_session.exec(
+        select(BacktestForecast).where(BacktestForecast.backtest_id == 1).order_by(BacktestForecast.id)
+    ).all()
+    summed: dict[tuple[str, str], np.ndarray] = {}
+    for f in forecasts:
+        key = (f.period, f.last_seen_period)
+        summed[key] = summed.get(key, np.zeros(len(f.values))) + np.array(f.values)
+    expected = [
+        {
+            "orgUnit": "adm0",
+            "period": period,
+            "quantile": q,
+            "value": pytest.approx(float(np.quantile(samples, q))),
+            "splitPeriod": split_period,
+        }
+        for (period, split_period), samples in summed.items()
+        for q in QUANTILES
+    ]
+
+    response = client.get_json(
+        "/v1/analytics/evaluation-entry", params={"backtestId": 1, "quantiles": QUANTILES, "orgUnits": ["adm0"]}
+    )
+
+    assert response == expected
 
 
 def test_get_backtest(override_session):
