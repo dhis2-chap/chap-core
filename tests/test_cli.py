@@ -363,7 +363,6 @@ def test_eval_cmd_track_logs_params_metrics_and_artifacts(tmp_path, monkeypatch)
 
     tracking_dir = tmp_path / "mlruns"
     monkeypatch.setenv("MLFLOW_TRACKING_URI", f"file://{tracking_dir}")
-    mlflow.set_tracking_uri(f"file://{tracking_dir}")
 
     output_file = tmp_path / "out.nc"
 
