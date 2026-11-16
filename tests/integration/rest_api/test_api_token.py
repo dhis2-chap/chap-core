@@ -86,14 +86,12 @@ class TestTokenDisabled:
 
 
 class TestTokenEnabled:
-    @pytest.mark.parametrize("language", ["en", "fr"])
-    def test_missing_header_returns_401(self, client, french_catalog, language):
-        response = client.get(GATED_PATH, headers={"Accept-Language": language})
+    def test_missing_header_returns_401(self, client):
+        response = client.get(GATED_PATH)
 
         assert response.status_code == 401
         assert response.headers["WWW-Authenticate"] == "Bearer"
-        message = "Missing or invalid API token"
-        assert response.json() == {"detail": french_catalog[message] if language == "fr" else message}
+        assert response.json() == {"detail": "Missing or invalid API token"}
 
     @pytest.mark.parametrize("scheme", ["Bearer", "ApiToken"])
     def test_wrong_token_returns_401(self, client, scheme):

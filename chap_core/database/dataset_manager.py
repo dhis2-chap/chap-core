@@ -23,7 +23,6 @@ from chap_core.assessment.target_mask import (
 from chap_core.database.base_tables import utc_now
 from chap_core.datatypes import FullData, create_tsdataclass
 from chap_core.geometry import Polygons
-from chap_core.i18n import gettext
 from chap_core.time_period import Month, TimePeriod, Week
 
 from ..spatio_temporal_data.converters import observations_to_dataset
@@ -307,8 +306,7 @@ class DataSetManager(DbManager[DataSet]):
         )
         if backtest_ids or prediction_ids:
             raise DataSetInUseError(
-                gettext(
-                    "Dataset {item_id} is still used by backtests {backtest_ids} and predictions {prediction_ids}; delete those first"
-                ).format(item_id=item_id, backtest_ids=backtest_ids, prediction_ids=prediction_ids)
+                f"Dataset {item_id} is still used by backtests {backtest_ids} "
+                f"and predictions {prediction_ids}; delete those first"
             )
         super().delete_by_id(item_id)

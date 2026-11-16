@@ -23,7 +23,6 @@ from sqlmodel import Field
 from chap_core.assessment.thresholds.params import ThresholdParams
 from chap_core.database.base_tables import DBModel, PeriodID, UtcDatetime
 from chap_core.database.dataset_tables import PydanticListType
-from chap_core.i18n import gettext
 
 
 class AlertLevel(DBModel):
@@ -56,9 +55,7 @@ class AlertLevel(DBModel):
     @classmethod
     def _single_line(cls, params: ThresholdParams) -> ThresholdParams:
         if len(params.lines) != 1:
-            raise ValueError(
-                gettext("An alert level is judged against one threshold line, got {lines}").format(lines=params.lines)
-            )
+            raise ValueError(f"An alert level is judged against one threshold line, got {params.lines}")
         return params
 
     @property

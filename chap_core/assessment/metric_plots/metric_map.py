@@ -25,7 +25,7 @@ class MetricMapV2(MetricPlotBase):
         agg_df.rename(columns={"location": "org_unit", "metric": "value"}, inplace=True)
 
         if self._geojson is None:
-            raise ValueError(gettext("geojson is required for MetricMapV2"))
+            raise ValueError("geojson is required for MetricMapV2")
 
         return cast(
             "alt.Chart",

@@ -29,7 +29,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from starlette.background import BackgroundTask
 
-from chap_core.i18n import gettext
 from chap_core.rest_api.services.orchestrator import Orchestrator, ServiceNotFoundError
 from chap_core.rest_api.v2.dependencies import get_http_client, get_orchestrator
 
@@ -137,17 +136,17 @@ async def proxy_to_service(
         # A malformed registered service URL (e.g. a bad port) is a misconfigured upstream.
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=gettext("Service {service_id} has an invalid URL: {e}").format(service_id=service_id, e=e),
+            detail=f"Service {service_id} has an invalid URL: {e}",
         ) from e
     except httpx.TimeoutException as e:
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail=gettext("Service {service_id} did not respond in time").format(service_id=service_id),
+            detail=f"Service {service_id} did not respond in time",
         ) from e
     except httpx.RequestError as e:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=gettext("Service {service_id} is unreachable: {e}").format(service_id=service_id, e=e),
+            detail=f"Service {service_id} is unreachable: {e}",
         ) from e
 
     response = StreamingResponse(

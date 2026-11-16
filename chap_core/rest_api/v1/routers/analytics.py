@@ -161,7 +161,7 @@ def _all_regions_rejected(rejections: list[ValidationError]) -> HTTPException:
     return HTTPException(
         status_code=400,
         detail={
-            "message": gettext("All regions rejected. No data was imported."),
+            "message": "All regions rejected. No data was imported.",
             "imported_count": 0,
             "rejected": [r.model_dump(by_alias=True) for r in rejections],
         },
@@ -188,9 +188,7 @@ def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataS
         return [], DataSet({}), [ValidationError.model_validate(r) for r in rejected]
     polygon_rejected = provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     rejections.extend(
-        ValidationError(
-            reason=gettext("Missing polygon in geojson"), orgUnit=location, feature_name="polygon", time_periods=[]
-        )
+        ValidationError(reason="Missing polygon in geojson", orgUnit=location, feature_name="polygon", time_periods=[])
         for location in polygon_rejected
     )
     if not dry_run and not provided_data.locations():
@@ -202,7 +200,7 @@ def _read_dataset(request):
     # Only make-dataset accepts columnar observations; create-backtest-with-data shares this reader.
     columns = getattr(request, "provided_data_columns", None)
     if not request.provided_data and (columns is None or not columns.org_unit):
-        raise HTTPException(status_code=400, detail=gettext("No observation data provided."))
+        raise HTTPException(status_code=400, detail="No observation data provided.")
     if columns is not None:
         feature_names = list(columns.values)
     else:
@@ -235,9 +233,8 @@ def _columns_to_dataset(dataclass, columns: ObservationColumns) -> DataSet:
         first = frame[duplicated].iloc[0]
         raise HTTPException(
             status_code=422,
-            detail=gettext(
-                "providedDataColumns has more than one row for org unit {location!r}, period {time_period!r}"
-            ).format(location=first.location, time_period=first.time_period),
+            detail=f"providedDataColumns has more than one row for org unit {first.location!r}, "
+            f"period {first.time_period!r}",
         )
     return DataSet.from_pandas(frame, dataclass, fill_missing=True)
 
@@ -271,7 +268,7 @@ def _find_locations_with_complete_covariates(
                 isnan_ = [data.time_period[i].id for i in np.flatnonzero(isnan)]
                 rejected_list.append(
                     ValidationError(
-                        reason=gettext("Missing value for some/all time periods"),
+                        reason="Missing value for some/all time periods",
                         orgUnit=location,
                         feature_name=feature_name,
                         time_periods=isnan_,
@@ -294,7 +291,7 @@ def validate_full_dataset(
         raise HTTPException(
             status_code=400,
             detail={
-                "message": gettext("All regions rejected due to missing values"),
+                "message": "All regions rejected due to missing values",
                 "imported_count": 0,
                 "rejected": [r.model_dump(by_alias=True) for r in rejected_list],
             },
@@ -326,7 +323,7 @@ def _find_locations_with_target_data(
         else:
             rejected.append(
                 ValidationError(
-                    reason=gettext("No disease data in the first training split"),
+                    reason="No disease data in the first training split",
                     orgUnit=location,
                     feature_name=target_name,
                     time_periods=[],
@@ -361,7 +358,7 @@ def get_compatible_backtests(
     logger.info(f"Checking compatible backtests for {backtest_id}")
     backtest = session.get(Backtest, backtest_id)
     if backtest is None:
-        raise HTTPException(status_code=404, detail=gettext("Backtest not found"))
+        raise HTTPException(status_code=404, detail="Backtest not found")
     org_units = set(backtest.org_units)
     split_periods = set(backtest.split_periods)
     res = session.exec(
@@ -405,13 +402,9 @@ def get_backtest_overlap(
     backtest1 = session.get(Backtest, backtest_id1)
     backtest2 = session.get(Backtest, backtest_id2)
     if backtest1 is None:
-        raise HTTPException(
-            status_code=404, detail=gettext("Backtest {backtest_id} not found").format(backtest_id=backtest_id1)
-        )
+        raise HTTPException(status_code=404, detail=f"Backtest {backtest_id1} not found")
     if backtest2 is None:
-        raise HTTPException(
-            status_code=404, detail=gettext("Backtest {backtest_id} not found").format(backtest_id=backtest_id2)
-        )
+        raise HTTPException(status_code=404, detail=f"Backtest {backtest_id2} not found")
     org_units1 = list(set(backtest1.org_units) & set(backtest2.org_units))
     split_periods1 = list(set(backtest1.split_periods) & set(backtest2.split_periods))
     return BacktestDomain(org_units=org_units1, split_periods=split_periods1)
@@ -436,7 +429,7 @@ def get_prediction_entry(
     """
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
-        raise HTTPException(status_code=404, detail=gettext("Prediction not found"))
+        raise HTTPException(status_code=404, detail="Prediction not found")
     return [
         PredictionEntry(
             period=forecast.period,
@@ -480,7 +473,7 @@ def get_evaluation_entries(
     if backtest_id is not None:
         backtest = session.get(Backtest, backtest_id)
     if backtest is None:
-        raise HTTPException(status_code=404, detail=gettext("Backtest not found"))
+        raise HTTPException(status_code=404, detail="Backtest not found")
     org_units_set: set[str] | None = None
     if org_units is not None:
         org_units_set = set(org_units)
@@ -552,9 +545,7 @@ def create_backtest(
     """
     stored_dataset = session.get(DataSetTable, request.dataset_id)
     if stored_dataset is None:
-        raise HTTPException(
-            status_code=404, detail=gettext("Dataset {dataset_id} not found").format(dataset_id=request.dataset_id)
-        )
+        raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
     target_column = require_dataset_target(stored_dataset, request.target_column)
     params = _resolve_backtest_params(settings_manager.get(), request, stored_dataset.period_type)
     if stored_dataset.masked_ranges:
@@ -614,9 +605,7 @@ def create_backtests(
     """
     stored_dataset = session.get(DataSetTable, request.dataset_id)
     if stored_dataset is None:
-        raise HTTPException(
-            status_code=404, detail=gettext("Dataset {dataset_id} not found").format(dataset_id=request.dataset_id)
-        )
+        raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
     wrapper = SessionWrapper(session=session)
     target_column = require_dataset_target(stored_dataset, request.target_column)
     params = _resolve_backtest_params(settings_manager.get(), request, stored_dataset.period_type)
@@ -699,7 +688,7 @@ def make_prediction(
     provided_data, _rejections = validate_full_dataset(feature_names, provided_data, request.target_column)
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     if request.data_to_be_fetched:
-        raise HTTPException(status_code=404, detail=gettext("Data to be fetched is no longer supported by chap-core"))
+        raise HTTPException(status_code=404, detail="Data to be fetched is no longer supported by chap-core")
     dump = request.model_dump()
     dataset_info = DataSetCreateInfo(**dump).model_dump()
     prediction_params = PredictionParams(**(dump | {"n_periods": n_periods}))
@@ -740,7 +729,7 @@ def get_prediction_entries(
     """
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
-        raise HTTPException(status_code=404, detail=gettext("Prediction not found"))
+        raise HTTPException(status_code=404, detail="Prediction not found")
     return [
         PredictionEntry(
             period=forecast.period, orgUnit=forecast.org_unit, quantile=q, value=float(np.quantile(forecast.values, q))
@@ -786,14 +775,14 @@ def get_actual_cases(
     if not is_dataset_id:
         backtest = session.get(Backtest, backtest_id)
         if backtest is None:
-            raise HTTPException(status_code=404, detail=gettext("Backtest not found"))
+            raise HTTPException(status_code=404, detail="Backtest not found")
         dataset_id = backtest.dataset_id
         target_column = backtest.specification.target_column
     else:
         dataset_id = backtest_id
         dataset = session.get(DataSetTable, dataset_id)
         if dataset is None:
-            raise HTTPException(status_code=404, detail=gettext("Dataset not found"))
+            raise HTTPException(status_code=404, detail="Dataset not found")
         target_column = dataset.target_column
     manager = DataSetManager(session)
     if org_units == ["adm0"]:
@@ -809,12 +798,7 @@ def get_actual_cases(
         ]
     logger.info("Actual cases for dataset %s: %d values", dataset_id, len(data))
     if not data:
-        raise HTTPException(
-            status_code=404,
-            detail=gettext("Dataset {dataset_id} has no {target_column} observations").format(
-                dataset_id=dataset_id, target_column=target_column
-            ),
-        )
+        raise HTTPException(status_code=404, detail=f"Dataset {dataset_id} has no {target_column} observations")
     # Plain dicts serialised in one call instead of a DataElement per row: building the
     # models took over a second for a facility-scale dataset (CLIM-1876). NaN and infinity
     # become null, since JSON has no literal for them.
@@ -1007,7 +991,7 @@ def create_backtest_with_data(
     )
     if request.data_to_be_fetched:
         raise HTTPException(
-            status_code=400, detail=gettext("data_to_be_fetched is not supported when providing data for backtest")
+            status_code=400, detail="data_to_be_fetched is not supported when providing data for backtest"
         )
 
     model = get_job_model(session, request.model_id)
@@ -1213,7 +1197,7 @@ def compute_thresholds(request: ThresholdRequest, session: Session = Depends(get
     """
     dataset = session.get(DataSetTable, request.dataset_id)
     if dataset is None:
-        raise HTTPException(status_code=404, detail=gettext("Dataset not found"))
+        raise HTTPException(status_code=404, detail="Dataset not found")
     try:
         result = threshold_service.compute_thresholds(
             session,
@@ -1347,15 +1331,12 @@ def get_outbreak_metrics(
 
     backtest = session.get(Backtest, backtest_id)
     if backtest is None:
-        raise HTTPException(status_code=404, detail=gettext("Backtest not found"))
+        raise HTTPException(status_code=404, detail="Backtest not found")
     policy = session.get(AlertPolicy, alert_policy_id)
     if policy is None:
-        raise HTTPException(status_code=404, detail=gettext("Alert policy not found"))
+        raise HTTPException(status_code=404, detail="Alert policy not found")
     if not policy.levels:
-        raise HTTPException(
-            status_code=400,
-            detail=gettext("Alert policy {alert_policy_id} has no levels").format(alert_policy_id=alert_policy_id),
-        )
+        raise HTTPException(status_code=400, detail=f"Alert policy {alert_policy_id} has no levels")
 
     flat = Evaluation.from_backtest(backtest).to_flat()
     try:
@@ -1365,7 +1346,7 @@ def get_outbreak_metrics(
     if labelled.empty:
         raise HTTPException(
             status_code=400,
-            detail=gettext("No cell to score: no forecast period has an observation and a threshold at every level"),
+            detail="No cell to score: no forecast period has an observation and a threshold at every level",
         )
 
     dimensions = [str(dim) for dim in dict.fromkeys(group_by or [])]

@@ -6,9 +6,6 @@ from gettext import GNUTranslations, NullTranslations
 from io import BytesIO
 from pathlib import Path
 
-from babel.messages.mofile import write_mo
-from babel.messages.pofile import read_po
-
 LOCALES_DIR = Path(__file__).parent / "locales"
 current_translations: ContextVar[NullTranslations | None] = ContextVar("translations", default=None)
 
@@ -16,7 +13,8 @@ current_translations: ContextVar[NullTranslations | None] = ContextVar("translat
 def gettext(message: str) -> str:
     """Translate in the current request; CLI commands and workers default to English."""
     translations = current_translations.get()
-    return translations.gettext(message) if translations is not None else message
+    # gettext("") returns the catalog header, so empty text must bypass the lookup.
+    return translations.gettext(message) if translations is not None and message else message
 
 
 def translate_model_name(name: str) -> str:
@@ -33,6 +31,10 @@ def N_(message: str) -> str:
 @cache
 def load_translations() -> dict[str, NullTranslations]:
     """Load shipped PO files once, compiling in memory so wheels and Docker work alike."""
+    # Imported here so CLI commands and workers do not pay babel's import cost.
+    from babel.messages.mofile import write_mo
+    from babel.messages.pofile import read_po
+
     translations: dict[str, NullTranslations] = {"en": NullTranslations()}
     for path in sorted(LOCALES_DIR.glob("*.po")):
         with path.open("rb") as source:

@@ -21,7 +21,6 @@ from sqlmodel import Session, select
 from chap_core.database.alert_tables import Alert, AlertLevel, AlertPolicy, AlertPolicyBase
 from chap_core.database.base_tables import utc_now
 from chap_core.database.tables import Prediction, PredictionSetup
-from chap_core.i18n import gettext
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -48,32 +47,24 @@ class AlertPolicyInUseError(AlertPolicyServiceError):
 def _validate_levels(levels: Sequence[AlertLevel]) -> None:
     """Check that a policy has tiers with distinct, non-empty names."""
     if not levels:
-        raise InvalidAlertPolicyError(gettext("An alert policy needs at least one level"))
+        raise InvalidAlertPolicyError("An alert policy needs at least one level")
     names = [level.name for level in levels]
     if not all(name.strip() for name in names):
-        raise InvalidAlertPolicyError(gettext("Every alert level needs a name"))
+        raise InvalidAlertPolicyError("Every alert level needs a name")
     padded = [name for name in names if name != name.strip()]
     if padded:
-        raise InvalidAlertPolicyError(
-            gettext("Alert level names cannot start or end with whitespace, got {padded}").format(padded=padded)
-        )
+        raise InvalidAlertPolicyError(f"Alert level names cannot start or end with whitespace, got {padded}")
     duplicates = sorted({name for name in names if names.count(name) > 1})
     if duplicates:
-        raise InvalidAlertPolicyError(
-            gettext("Alert level names must be unique within a policy, got duplicates: {duplicates}").format(
-                duplicates=duplicates
-            )
-        )
+        raise InvalidAlertPolicyError(f"Alert level names must be unique within a policy, got duplicates: {duplicates}")
 
 
 def _validate_output_codes(levels: Sequence[AlertLevel], no_alert_output_code: str) -> None:
     codes = [no_alert_output_code, *(level.output_code for level in levels)]
     if any(not code or code != code.strip() for code in codes):
-        raise InvalidAlertPolicyError(gettext("Output codes must be non-empty and cannot start or end with whitespace"))
+        raise InvalidAlertPolicyError("Output codes must be non-empty and cannot start or end with whitespace")
     if len(set(codes)) != len(codes):
-        raise InvalidAlertPolicyError(
-            gettext("Output codes must be unique within a policy, including the no-alert code")
-        )
+        raise InvalidAlertPolicyError("Output codes must be unique within a policy, including the no-alert code")
 
 
 def create_alert_policy(
@@ -88,14 +79,14 @@ def create_alert_policy(
         InvalidAlertPolicyError: name or levels fail validation.
     """
     if not name or not name.strip():
-        raise InvalidAlertPolicyError(gettext("name is required"))
+        raise InvalidAlertPolicyError("name is required")
 
     try:
         validated = AlertPolicyBase.model_validate(
             {"name": name, "levels": levels, "no_alert_output_code": no_alert_output_code}
         )
     except ValidationError as e:
-        raise InvalidAlertPolicyError(gettext("Invalid alert policy: {e}").format(e=e)) from e
+        raise InvalidAlertPolicyError(f"Invalid alert policy: {e}") from e
     _validate_levels(validated.levels)
     _validate_output_codes(validated.levels, validated.no_alert_output_code)
 
@@ -115,7 +106,7 @@ def get_alert_policy(session: Session, policy_id: int) -> AlertPolicy:
     """Fetch an AlertPolicy by id. Raises AlertPolicyNotFoundError if missing."""
     policy = session.get(AlertPolicy, policy_id)
     if policy is None:
-        raise AlertPolicyNotFoundError(gettext("AlertPolicy {policy_id} not found").format(policy_id=policy_id))
+        raise AlertPolicyNotFoundError(f"AlertPolicy {policy_id} not found")
     return policy
 
 
@@ -133,7 +124,7 @@ def update_alert_policy_codes(
     policy = get_alert_policy(session, policy_id)
     unknown = set(level_output_codes) - {level.name for level in policy.levels}
     if unknown:
-        raise InvalidAlertPolicyError(gettext("Unknown alert levels: {levels}").format(levels=sorted(unknown)))
+        raise InvalidAlertPolicyError(f"Unknown alert levels: {sorted(unknown)}")
     levels = [
         level.model_copy(update={"output_code": level_output_codes.get(level.name, level.output_code)})
         for level in policy.levels
@@ -161,33 +152,19 @@ def delete_alert_policy(session: Session, policy_id: int) -> None:
 
     setup_id = session.exec(select(PredictionSetup.id).where(PredictionSetup.alert_policy_id == policy_id)).first()
     if setup_id is not None:
-        raise AlertPolicyInUseError(
-            gettext("AlertPolicy {policy_id} is still used by prediction setup {setup_id}").format(
-                policy_id=policy_id, setup_id=setup_id
-            )
-        )
+        raise AlertPolicyInUseError(f"AlertPolicy {policy_id} is still used by prediction setup {setup_id}")
 
     prediction_id = session.exec(select(Prediction.id).where(Prediction.alert_policy_id == policy_id)).first()
     if prediction_id is not None:
-        raise AlertPolicyInUseError(
-            gettext("AlertPolicy {policy_id} is still used by prediction {prediction_id}").format(
-                policy_id=policy_id, prediction_id=prediction_id
-            )
-        )
+        raise AlertPolicyInUseError(f"AlertPolicy {policy_id} is still used by prediction {prediction_id}")
 
     alert_id = session.exec(select(Alert.id).where(Alert.alert_policy_id == policy_id)).first()
     if alert_id is not None:
-        raise AlertPolicyInUseError(
-            gettext("AlertPolicy {policy_id} still has alerts raised against it, e.g. {alert_id}").format(
-                policy_id=policy_id, alert_id=alert_id
-            )
-        )
+        raise AlertPolicyInUseError(f"AlertPolicy {policy_id} still has alerts raised against it, e.g. {alert_id}")
 
     session.delete(policy)
     try:
         session.commit()
     except IntegrityError as e:
         session.rollback()
-        raise AlertPolicyInUseError(
-            gettext("AlertPolicy {policy_id} is still in use").format(policy_id=policy_id)
-        ) from e
+        raise AlertPolicyInUseError(f"AlertPolicy {policy_id} is still in use") from e

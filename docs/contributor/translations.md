@@ -1,8 +1,8 @@
 # Translating API text
 
 Chap translates scoring and outbreak metric metadata, model display names and
-descriptions, plot metadata and explicit chart labels, and Chap-authored API error
-messages. Clients send the user's UI language in `Accept-Language`, for example
+descriptions, and plot metadata and chart labels. API error and status messages
+stay English. Clients send the user's UI language in `Accept-Language`, for example
 `fr` or `fr-CA`. Chap honors quality weights and falls back to a base language,
 then English. Missing and fuzzy translations also fall back to the English source
 string. Responses include `Content-Language` and `Vary: Accept-Language`.
@@ -11,8 +11,8 @@ Translation happens in the request context, including synchronous handlers.
 Model metadata is translated during response serialization; stored values, model
 versions, IDs, configuration names and scores stay unchanged. The catalog includes
 built-in model metadata. Text supplied by external models is translated only when
-the catalog contains its exact source string. User data, framework validation
-messages, external service errors and worker logs are not translated. CLI commands
+the catalog contains its exact source string. User data, error messages and
+worker logs are not translated. CLI commands
 and workers default to English. French translations and HISP WCA review are tracked
 in [CLIM-1895](https://dhis2.atlassian.net/browse/CLIM-1895).
 
@@ -21,12 +21,8 @@ in [CLIM-1895](https://dhis2.atlassian.net/browse/CLIM-1895).
 Use `N_("English text")` from `chap_core.i18n` for shared metadata, such as a
 metric specification or plot registration. It marks the text for Babel without
 translating it at import time. Use `gettext("English text")` when building a
-response, plot or error during a request.
-
-For parameterized text, translate a literal template before formatting, for example
-`gettext("Backtest {backtest_id} not found").format(backtest_id=backtest_id)`.
-Keep placeholder names unchanged in translations. Do not pass an f-string to
-`gettext`: Babel needs the literal source to extract it.
+response or plot during a request. Do not pass an f-string to `gettext`: Babel
+needs the literal source to extract it.
 
 `make lint` regenerates `chap_core/locales/en.pot`; commit it with the code change.
 `make check` rejects stale catalogs in CI. To extract without running other checks:

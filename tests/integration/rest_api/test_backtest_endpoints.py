@@ -81,7 +81,7 @@ def test_get_visualizations(clean_engine, dependency_overrides, french_catalog):
         ]
 
 
-def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_overrides, french_catalog):
+def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_overrides):
     """Visualization endpoints used to return 200 with `{"error": ...}` bodies for
     unknown backtest/dataset ids and unknown plot names. Each should now produce a
     proper 4xx response."""
@@ -105,14 +105,16 @@ def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_ove
         response = client.get(f"/v1/visualization/dataset-plots/{plot_id}/999999")
         assert response.status_code == 404, response.text
 
-    response = client.get(
-        "/v1/visualization/metric-plots/metric_by_horizon/999999/crps", headers={"Accept-Language": "fr"}
-    )
-    assert response.status_code == 404
-    assert response.json()["detail"] == french_catalog["Backtest not found"]
-    response = client.get("/v1/visualization/dataset-plots/no_such_plot/1", headers={"Accept-Language": "fr"})
-    assert response.status_code == 404
-    assert response.json()["detail"].startswith("Visualisation no_such_plot introuvable. Disponibles : ")
+
+def test_empty_text_is_not_translated_to_the_catalog_header(french_catalog):
+    from chap_core import i18n
+
+    token = i18n.current_translations.set(i18n.load_translations()["fr"])
+    try:
+        assert i18n.gettext("") == ""
+        assert i18n.gettext("Global median") == french_catalog["Global median"]
+    finally:
+        i18n.current_translations.reset(token)
 
 
 @pytest.mark.asyncio

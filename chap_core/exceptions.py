@@ -1,6 +1,3 @@
-from chap_core.i18n import gettext
-
-
 class ModelFailedException(Exception): ...
 
 
@@ -50,39 +47,25 @@ class ModelTemplateRevisionConflict(ValueError):
         self.version = version
         self.stored_digest = stored_digest
         self.reported_digest = reported_digest
+        write_once = "A version is write-once, so the new revision needs a new version label:"
         if reported_digest is None:
-            if stored_digest is None:
-                message = gettext(
-                    "Model template {name!r} version {version!r}: its source reports no git "
-                    "revision, so chap-core cannot check which source it runs. To fix it, {how_to_fix}"
-                )
-            else:
-                message = gettext(
-                    "Model template {name!r} version {version!r} is stored from revision {stored_digest!r}, but "
-                    "its source reports no git revision, so chap-core cannot check which source it runs. "
-                    "To fix it, {how_to_fix}"
-                )
+            stored = "" if stored_digest is None else f" is stored from revision {stored_digest!r}, but"
+            message = (
+                f"Model template {name!r} version {version!r}{stored or ':'} its source reports no git "
+                f"revision, so chap-core cannot check which source it runs. To fix it, {how_to_fix}"
+            )
         elif stored_digest is None:
-            message = gettext(
-                "Model template {name!r} version {version!r} was stored before chap-core recorded "
-                "source revisions, so the revision {reported_digest!r} its source reports now cannot "
-                "be matched to it. A version is write-once, so the new revision needs a new version label: {how_to_fix}"
+            message = (
+                f"Model template {name!r} version {version!r} was stored before chap-core recorded "
+                f"source revisions, so the revision {reported_digest!r} its source reports now cannot "
+                f"be matched to it. {write_once} {how_to_fix}"
             )
         else:
-            message = gettext(
-                "Model template {name!r} version {version!r} is stored from revision {stored_digest!r}, "
-                "but its source now reports revision {reported_digest!r}. "
-                "A version is write-once, so the new revision needs a new version label: {how_to_fix}"
+            message = (
+                f"Model template {name!r} version {version!r} is stored from revision {stored_digest!r}, "
+                f"but its source now reports revision {reported_digest!r}. {write_once} {how_to_fix}"
             )
-        super().__init__(
-            message.format(
-                name=name,
-                version=version,
-                stored_digest=stored_digest,
-                reported_digest=reported_digest,
-                how_to_fix=how_to_fix,
-            )
-        )
+        super().__init__(message)
 
 
 class BaselineTemplateConflict(ValueError):
@@ -94,10 +77,8 @@ class BaselineTemplateConflict(ValueError):
     def __init__(self, name: str):
         self.name = name
         super().__init__(
-            gettext(
-                "Model template {name!r} is a built-in baseline and cannot be stored from a service. "
-                "Register the service under another model id."
-            ).format(name=name)
+            f"Model template {name!r} is a built-in baseline and cannot be stored from a service. "
+            "Register the service under another model id."
         )
 
 

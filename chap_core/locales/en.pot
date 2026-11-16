@@ -17,111 +17,12 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: database/dataset_tables.py
-#, python-brace-format
-msgid "'{value}' is a {kind}; masked ranges take month or week periods only"
-msgstr ""
-
-#: database/dataset_tables.py
-#, python-brace-format
-msgid "'{value}' is not a month or week period id"
-msgstr ""
-
 #: assessment/outbreak_metrics/binary.py
 msgid "Accuracy"
 msgstr ""
 
 #: assessment/backtest_plots/predicted_vs_actual_plot.py
 msgid "Actual"
-msgstr ""
-
-#: services/alert_policy_service.py
-#, python-brace-format
-msgid "Alert level names cannot start or end with whitespace, got {padded}"
-msgstr ""
-
-#: services/alert_policy_service.py
-#, python-brace-format
-msgid ""
-"Alert level names must be unique within a policy, got duplicates: "
-"{duplicates}"
-msgstr ""
-
-#: rest_api/v1/routers/analytics.py
-msgid "Alert policy not found"
-msgstr ""
-
-#: rest_api/v1/routers/analytics.py
-#, python-brace-format
-msgid "Alert policy {alert_policy_id} has no levels"
-msgstr ""
-
-#: services/alert_service.py
-#, python-brace-format
-msgid "Alert {alert_id} is approved for dissemination and cannot be deleted"
-msgstr ""
-
-#: services/alert_service.py
-#, python-brace-format
-msgid "Alert {alert_id} not found"
-msgstr ""
-
-#: rest_api/v1/routers/crud.py
-msgid "AlertPolicy creation produced no id"
-msgstr ""
-
-#: services/alert_service.py
-#, python-brace-format
-msgid "AlertPolicy {alert_policy_id} has no level {level!r}; it defines {levels}"
-msgstr ""
-
-#: services/alert_service.py services/prediction_setup_service.py
-#, python-brace-format
-msgid "AlertPolicy {alert_policy_id} not found"
-msgstr ""
-
-#: services/alert_policy_service.py
-#, python-brace-format
-msgid "AlertPolicy {policy_id} is still in use"
-msgstr ""
-
-#: services/alert_policy_service.py
-#, python-brace-format
-msgid "AlertPolicy {policy_id} is still used by prediction setup {setup_id}"
-msgstr ""
-
-#: services/alert_policy_service.py
-#, python-brace-format
-msgid "AlertPolicy {policy_id} is still used by prediction {prediction_id}"
-msgstr ""
-
-#: services/alert_policy_service.py
-#, python-brace-format
-msgid "AlertPolicy {policy_id} not found"
-msgstr ""
-
-#: services/alert_policy_service.py
-#, python-brace-format
-msgid ""
-"AlertPolicy {policy_id} still has alerts raised against it, e.g. "
-"{alert_id}"
-msgstr ""
-
-#: rest_api/v1/routers/analytics.py
-msgid "All regions rejected due to missing values"
-msgstr ""
-
-#: rest_api/v1/routers/analytics.py
-msgid "All regions rejected. No data was imported."
-msgstr ""
-
-#: database/alert_tables.py
-#, python-brace-format
-msgid "An alert level is judged against one threshold line, got {lines}"
-msgstr ""
-
-#: services/alert_policy_service.py
-msgid "An alert policy needs at least one level"
 msgstr ""
 
 #: plotting/dataset_plot.py
@@ -134,26 +35,6 @@ msgstr ""
 
 #: assessment/backtest_plots/evaluation_plot.py
 msgid "Backtest Forecasts with Observations"
-msgstr ""
-
-#: rest_api/v1/routers/analytics.py rest_api/v1/routers/crud.py
-#: rest_api/v1/routers/visualization.py
-msgid "Backtest not found"
-msgstr ""
-
-#: rest_api/v1/routers/crud.py
-msgid "Backtest specification not found"
-msgstr ""
-
-#: services/prediction_setup_service.py
-#, python-brace-format
-msgid "Backtest {backtest_id} already has a PredictionSetup"
-msgstr ""
-
-#: rest_api/v1/jobs.py rest_api/v1/routers/analytics.py
-#: services/prediction_setup_service.py
-#, python-brace-format
-msgid "Backtest {backtest_id} not found"
 msgstr ""
 
 #: assessment/outbreak_metrics/binary.py
@@ -213,28 +94,6 @@ msgstr ""
 msgid "CRPS computed on log(1+x)-transformed forecasts and observations"
 msgstr ""
 
-#: rest_api/v1/jobs.py
-msgid "Cannot cancel a job that has already finished or been cancelled"
-msgstr ""
-
-#: rest_api/v1/jobs.py
-#, python-brace-format
-msgid "Cannot cancel job with status '{status}'"
-msgstr ""
-
-#: rest_api/v1/routers/crud.py
-msgid "Cannot delete PredictionSetup: job-metadata store unavailable, retry later"
-msgstr ""
-
-#: rest_api/v1/jobs.py
-msgid "Cannot delete a running job. Cancel it first."
-msgstr ""
-
-#: services/prediction_setup_service.py
-#, python-brace-format
-msgid "Cannot update immutable fields: {fields}"
-msgstr ""
-
 #: assessment/backtest_plots/horizon_location_grid.py
 msgid "Cases"
 msgstr ""
@@ -265,15 +124,6 @@ msgid ""
 "than a miss by two. 1 is perfect agreement, 0 is chance level."
 msgstr ""
 
-#: rest_api/v1/routers/crud.py rest_api/v1/routers/dependencies.py
-#, python-brace-format
-msgid "Configured model '{name}' is archived"
-msgstr ""
-
-#: rest_api/v1/routers/crud.py
-msgid "Configured model not found"
-msgstr ""
-
 #: assessment/metrics/crps.py
 msgid "Continuous Ranked Probability Score - measures calibration and sharpness"
 msgstr ""
@@ -293,11 +143,6 @@ msgid ""
 " bars indicate positive correlation."
 msgstr ""
 
-#: rest_api/v1/routers/crud.py
-#, python-brace-format
-msgid "Could not read the service at {url}: {error}"
-msgstr ""
-
 #: assessment/metric_plots/horizon_sum.py
 #: assessment/metric_plots/time_period_mean.py
 #: assessment/metric_plots/time_period_sum.py
@@ -312,76 +157,16 @@ msgstr ""
 msgid "Coverage 25-75"
 msgstr ""
 
-#: rest_api/v1/routers/analytics.py
-msgid "Data to be fetched is no longer supported by chap-core"
-msgstr ""
-
-#: rest_api/v1/routers/dependencies.py
-#, python-brace-format
-msgid "Dataset has no target column {target_column!r}"
-msgstr ""
-
-#: rest_api/v1/routers/analytics.py rest_api/v1/routers/crud.py
-#: rest_api/v1/routers/visualization.py
-msgid "Dataset not found"
-msgstr ""
-
-#: rest_api/v1/routers/dependencies.py
-#, python-brace-format
-msgid ""
-"Dataset target is {target_column!r}. To use another target, create a new "
-"dataset."
-msgstr ""
-
-#: rest_api/v1/routers/analytics.py
-#, python-brace-format
-msgid "Dataset {dataset_id} has no {target_column} observations"
-msgstr ""
-
-#: rest_api/v1/routers/analytics.py
-#, python-brace-format
-msgid "Dataset {dataset_id} not found"
-msgstr ""
-
-#: database/dataset_manager.py
-#, python-brace-format
-msgid ""
-"Dataset {item_id} is still used by backtests {backtest_ids} and "
-"predictions {prediction_ids}; delete those first"
-msgstr ""
-
 #: plotting/dataset_plot.py
 msgid "Date"
-msgstr ""
-
-#: rest_api/v1/routers/crud.py
-#, python-brace-format
-msgid "Deleted {deleted_count} backtests"
-msgstr ""
-
-#: rest_api/v1/jobs.py
-msgid "Diagnostics are only available for finished jobs"
 msgstr ""
 
 #: plotting/dataset_plot.py
 msgid "Disease Cases Map"
 msgstr ""
 
-#: services/prediction_setup_service.py
-msgid "Enabled schedules require a cron expression"
-msgstr ""
-
 #: assessment/backtest_plots/evaluation_plot.py
 msgid "Evaluation Plot"
-msgstr ""
-
-#: services/alert_policy_service.py
-msgid "Every alert level needs a name"
-msgstr ""
-
-#: rest_api/data_models.py
-#, python-brace-format
-msgid "Every column must have {n_rows} rows, like orgUnit; got {uneven}"
 msgstr ""
 
 #: assessment/outbreak_metrics/binary.py
@@ -466,59 +251,6 @@ msgstr ""
 msgid "Improvement over the reference in the metric's own units."
 msgstr ""
 
-#: rest_api/app.py
-msgid "Internal server error"
-msgstr ""
-
-#: rest_api/v1/routers/crud.py
-#, python-brace-format
-msgid "Invalid ID format: '{stripped_id_str}' is not a valid integer in '{ids}'."
-msgstr ""
-
-#: rest_api/v1/routers/crud.py
-#, python-brace-format
-msgid ""
-"Invalid ID format: found empty ID segment in '{ids}'. IDs must be non-"
-"empty, comma-separated integers."
-msgstr ""
-
-#: services/alert_policy_service.py
-#, python-brace-format
-msgid "Invalid alert policy: {e}"
-msgstr ""
-
-#: services/prediction_setup_service.py
-#, python-brace-format
-msgid "Invalid schedule expression: {e}"
-msgstr ""
-
-#: rest_api/v1/jobs.py
-#, python-brace-format
-msgid "Job '{job_id}' not found"
-msgstr ""
-
-#: rest_api/v1/jobs.py
-msgid "Job failed. Check the exception endpoint for more information"
-msgstr ""
-
-#: rest_api/v1/jobs.py
-msgid "Job is still running, try again later"
-msgstr ""
-
-#: rest_api/v1/jobs.py
-msgid "Job not found"
-msgstr ""
-
-#: rest_api/v1/jobs.py
-#, python-brace-format
-msgid "Job {job_id} deleted successfully"
-msgstr ""
-
-#: rest_api/v1/jobs.py
-#, python-brace-format
-msgid "Job {job_id} has been cancelled"
-msgstr ""
-
 #: assessment/backtest_plots/evaluation_plot.py
 #: assessment/backtest_plots/horizon_location_grid.py
 #: assessment/backtest_plots/predicted_vs_actual_plot.py
@@ -528,11 +260,6 @@ msgstr ""
 #: assessment/metric_plots/time_period_sum.py plotting/dataset_plot.py
 #: plotting/season_plot.py
 msgid "Location"
-msgstr ""
-
-#: rest_api/v1/jobs.py
-#, python-brace-format
-msgid "Log file not found for job ID '{job_id}'"
 msgstr ""
 
 #: plotting/season_plot.py
@@ -557,45 +284,6 @@ msgstr ""
 
 #: assessment/metric_plots/metric_map.py
 msgid "Map"
-msgstr ""
-
-#: assessment/target_mask.py
-#, python-brace-format
-msgid ""
-"Masked period {masked_period} falls in the evaluation window, which "
-"starts at {window_start}. Backtests cannot evaluate on masked data; use "
-"fewer periods or splits, or a dataset whose masked ranges end before the "
-"window."
-msgstr ""
-
-#: database/dataset_tables.py
-#, python-brace-format
-msgid ""
-"Masked range {start} to {end} is a {kind} range, but the dataset has "
-"{dataset_kind} periods"
-msgstr ""
-
-#: rest_api/v1/routers/dependencies.py
-#, python-brace-format
-msgid ""
-"Masked ranges mask {target_field!r}, but the data has no {target_field!r}"
-" column"
-msgstr ""
-
-#: assessment/target_mask.py
-#, python-brace-format
-msgid ""
-"Masked ranges mask {target_field!r}, but the dataset has no "
-"{target_field!r} column"
-msgstr ""
-
-#: database/dataset_tables.py
-msgid "Masked ranges must all use the same period type"
-msgstr ""
-
-#: database/dataset_tables.py
-#, python-brace-format
-msgid "Masked ranges overlap at {period}"
 msgstr ""
 
 #: assessment/outbreak_metrics/binary.py
@@ -653,16 +341,6 @@ msgstr ""
 msgid "Metric"
 msgstr ""
 
-#: services/prediction_monitoring_service.py
-#, python-brace-format
-msgid "Metric '{metric_id}' cannot be compared with a baseline"
-msgstr ""
-
-#: services/prediction_monitoring_service.py
-#, python-brace-format
-msgid "Metric '{metric_id}' cannot be computed for this setup's data"
-msgstr ""
-
 #: assessment/metric_plots/regional_distribution.py
 msgid "Metric Distribution by Location"
 msgstr ""
@@ -673,76 +351,6 @@ msgstr ""
 
 #: assessment/metric_plots/metric_map.py
 msgid "Metric Value"
-msgstr ""
-
-#: database/settings.py
-msgid "Metric ids must be unique."
-msgstr ""
-
-#: rest_api/v1/routers/visualization.py
-#, python-brace-format
-msgid "Metric {metric_id} not found"
-msgstr ""
-
-#: rest_api/auth.py
-msgid "Missing or invalid API token"
-msgstr ""
-
-#: rest_api/v2/dependencies.py
-msgid "Missing or invalid service key"
-msgstr ""
-
-#: rest_api/v1/routers/analytics.py
-msgid "Missing polygon in geojson"
-msgstr ""
-
-#: rest_api/v1/routers/analytics.py
-msgid "Missing value for some/all time periods"
-msgstr ""
-
-#: rest_api/v1/routers/crud.py
-msgid "Model template not found"
-msgstr ""
-
-#: exceptions.py
-#, python-brace-format
-msgid ""
-"Model template {name!r} is a built-in baseline and cannot be stored from "
-"a service. Register the service under another model id."
-msgstr ""
-
-#: exceptions.py
-#, python-brace-format
-msgid ""
-"Model template {name!r} version {version!r} is stored from revision "
-"{stored_digest!r}, but its source now reports revision "
-"{reported_digest!r}. A version is write-once, so the new revision needs a"
-" new version label: {how_to_fix}"
-msgstr ""
-
-#: exceptions.py
-#, python-brace-format
-msgid ""
-"Model template {name!r} version {version!r} is stored from revision "
-"{stored_digest!r}, but its source reports no git revision, so chap-core "
-"cannot check which source it runs. To fix it, {how_to_fix}"
-msgstr ""
-
-#: exceptions.py
-#, python-brace-format
-msgid ""
-"Model template {name!r} version {version!r} was stored before chap-core "
-"recorded source revisions, so the revision {reported_digest!r} its source"
-" reports now cannot be matched to it. A version is write-once, so the new"
-" revision needs a new version label: {how_to_fix}"
-msgstr ""
-
-#: exceptions.py
-#, python-brace-format
-msgid ""
-"Model template {name!r} version {version!r}: its source reports no git "
-"revision, so chap-core cannot check which source it runs. To fix it, "
-"{how_to_fix}"
 msgstr ""
 
 #: plotting/season_plot.py
@@ -763,37 +371,6 @@ msgid ""
 "TN / (TN + FN)."
 msgstr ""
 
-#: services/alert_service.py
-msgid "No alerts to review"
-msgstr ""
-
-#: rest_api/v1/routers/crud.py
-msgid "No backtest IDs provided."
-msgstr ""
-
-#: rest_api/v1/routers/analytics.py
-msgid ""
-"No cell to score: no forecast period has an observation and a threshold "
-"at every level"
-msgstr ""
-
-#: rest_api/v1/routers/analytics.py
-msgid "No disease data in the first training split"
-msgstr ""
-
-#: rest_api/v1/routers/analytics.py
-msgid "No observation data provided."
-msgstr ""
-
-#: rest_api/v1/routers/crud.py
-msgid "No valid IDs provided. Input consists of only commas or whitespace."
-msgstr ""
-
-#: services/threshold_service.py
-#, python-brace-format
-msgid "No {target_column} observations found for dataset {dataset_id}"
-msgstr ""
-
 #: assessment/metrics/crps_norm.py
 msgid ""
 "Normalized CRPS - CRPS divided by the range of the observed values that "
@@ -806,30 +383,12 @@ msgid ""
 "predicted."
 msgstr ""
 
-#: services/alert_policy_service.py
-msgid "Output codes must be non-empty and cannot start or end with whitespace"
-msgstr ""
-
-#: services/alert_policy_service.py
-msgid "Output codes must be unique within a policy, including the no-alert code"
-msgstr ""
-
 #: assessment/outbreak_metrics/binary.py
 msgid "PPV"
 msgstr ""
 
 #: models/builtin/persistence.py
 msgid "Persistence"
-msgstr ""
-
-#: rest_api/v1/routers/visualization.py
-#, python-brace-format
-msgid "Plot '{plot_id}' does not support faceting properties"
-msgstr ""
-
-#: rest_api/v1/routers/visualization.py
-#, python-brace-format
-msgid "Plot {plot_id} not found"
 msgstr ""
 
 #: assessment/outbreak_metrics/binary.py
@@ -858,52 +417,6 @@ msgstr ""
 msgid "Predicted vs Actual (log1p scale)"
 msgstr ""
 
-#: rest_api/v1/routers/analytics.py rest_api/v1/routers/crud.py
-msgid "Prediction not found"
-msgstr ""
-
-#: rest_api/v1/routers/crud.py
-#, python-brace-format
-msgid ""
-"Prediction setup {prediction_setup_id} was evaluated with the "
-"'{provider}' future-weather provider, which reads the forecast window's "
-"own observations and so cannot forecast ahead. Re-run the backtest with a"
-" forecasting provider before running predictions from it."
-msgstr ""
-
-#: services/alert_service.py
-#, python-brace-format
-msgid ""
-"Prediction {prediction_id} already has an alert for {org_unit} in "
-"{time_period}"
-msgstr ""
-
-#: rest_api/v1/routers/crud.py
-#, python-brace-format
-msgid ""
-"Prediction {prediction_id} has {count} alert(s) raised from it; delete "
-"those first"
-msgstr ""
-
-#: rest_api/v1/jobs.py services/alert_service.py
-#, python-brace-format
-msgid "Prediction {prediction_id} not found"
-msgstr ""
-
-#: rest_api/v1/routers/crud.py
-msgid "PredictionSetup creation produced no id"
-msgstr ""
-
-#: rest_api/v1/routers/crud.py
-msgid "PredictionSetup has no configured_model"
-msgstr ""
-
-#: services/prediction_monitoring_service.py
-#: services/prediction_setup_service.py
-#, python-brace-format
-msgid "PredictionSetup {setup_id} not found"
-msgstr ""
-
 #: assessment/metrics/above_truth.py
 msgid ""
 "Proportion of forecast samples exceeding the observed value (0.5 = "
@@ -924,16 +437,6 @@ msgstr ""
 
 #: assessment/metrics/rmse.py
 msgid "RMSE"
-msgstr ""
-
-#: database/dataset_tables.py
-#, python-brace-format
-msgid "Range {start} to {end} ends before it starts"
-msgstr ""
-
-#: database/dataset_tables.py
-#, python-brace-format
-msgid "Range {start} to {end} mixes a {start_kind} and a {end_kind}"
 msgstr ""
 
 #: assessment/metrics/above_truth.py
@@ -975,11 +478,6 @@ msgid ""
 " 50% worse."
 msgstr ""
 
-#: rest_api/v1/jobs.py
-#, python-brace-format
-msgid "Request for job '{job_id}' not found"
-msgstr ""
-
 #: assessment/metrics/rmse.py
 msgid "Root Mean Squared Error - measures average prediction error magnitude"
 msgstr ""
@@ -1015,10 +513,6 @@ msgstr ""
 msgid ""
 "Scatter plots of predicted (median) vs actual values on linear axes, "
 "faceted by horizon and colored by location."
-msgstr ""
-
-#: services/prediction_setup_service.py
-msgid "Schedule expression must be standard five-field cron"
 msgstr ""
 
 #: plotting/season_plot.py
@@ -1057,32 +551,8 @@ msgstr ""
 msgid "Select Features"
 msgstr ""
 
-#: rest_api/data_models.py
-msgid "Send observations as providedData or providedDataColumns, not both"
-msgstr ""
-
 #: assessment/outbreak_metrics/binary.py
 msgid "Sensitivity"
-msgstr ""
-
-#: rest_api/v2/routers/proxy.py
-#, python-brace-format
-msgid "Service {service_id} did not respond in time"
-msgstr ""
-
-#: rest_api/v2/routers/proxy.py
-#, python-brace-format
-msgid "Service {service_id} has an invalid URL: {e}"
-msgstr ""
-
-#: rest_api/v2/routers/proxy.py
-#, python-brace-format
-msgid "Service {service_id} is unreachable: {e}"
-msgstr ""
-
-#: rest_api/services/orchestrator.py
-#, python-brace-format
-msgid "Service {service_id} not found"
 msgstr ""
 
 #: assessment/outbreak_metrics/binary.py
@@ -1157,36 +627,6 @@ msgid ""
 "selection."
 msgstr ""
 
-#: assessment/target_mask.py
-#, python-brace-format
-msgid ""
-"Target column {target_column!r} cannot be used on a dataset with masked "
-"ranges; masked ranges apply to {target_field!r} only"
-msgstr ""
-
-#: rest_api/data_models.py
-#, python-brace-format
-msgid ""
-"The '{value}' future-weather provider reads the forecast window's own "
-"observations and so cannot forecast ahead. Use a forecasting provider "
-"such as 'climatology'."
-msgstr ""
-
-#: services/alert_service.py
-msgid ""
-"The alerts conflict with a change made at the same time; none were "
-"recorded"
-msgstr ""
-
-#: database/settings.py
-msgid "The default model must be a built-in baseline."
-msgstr ""
-
-#: services/threshold_service.py
-#, python-brace-format
-msgid "Threshold strategy {type} is in the request schema but not registered"
-msgstr ""
-
 #: assessment/metric_plots/time_period_mean.py
 #: assessment/metric_plots/time_period_sum.py
 msgid "Time Period"
@@ -1207,36 +647,6 @@ msgstr ""
 #: assessment/backtest_plots/sample_bias_plot.py
 #: assessment/metric_plots/time_period_location_mean.py
 msgid "Time period"
-msgstr ""
-
-#: services/alert_policy_service.py
-#, python-brace-format
-msgid "Unknown alert levels: {levels}"
-msgstr ""
-
-#: services/prediction_monitoring_service.py
-#, python-brace-format
-msgid "Unknown baseline model '{baseline_name}'. Available: {available}"
-msgstr ""
-
-#: services/prediction_monitoring_service.py
-#, python-brace-format
-msgid "Unknown metric '{metric_id}'"
-msgstr ""
-
-#: database/settings.py
-#, python-brace-format
-msgid "Unknown metrics: {metrics}"
-msgstr ""
-
-#: rest_api/v1/routers/visualization.py
-#, python-brace-format
-msgid "Visualization {visualization_name} not found"
-msgstr ""
-
-#: rest_api/v1/routers/visualization.py
-#, python-brace-format
-msgid "Visualization {visualization_name} not found. Available: {available}"
 msgstr ""
 
 #: plotting/season_plot.py
@@ -1279,100 +689,11 @@ msgstr ""
 msgid "Winkler score on log(1+x)-transformed values for 25-75 interval"
 msgstr ""
 
-#: services/alert_service.py
-msgid "approved_by is required"
-msgstr ""
-
-#: rest_api/v1/routers/crud.py
-msgid ""
-"build the image with the GIT_REVISION build arg and register it again. "
-"The version label is not stored yet, so it can be kept."
-msgstr ""
-
-#: database/model_templates_and_config_tables.py
-msgid ""
-"build the image with the GIT_REVISION build arg, set a new info.version "
-"and register it again."
-msgstr ""
-
-#: rest_api/v1/routers/analytics.py
-msgid "data_to_be_fetched is not supported when providing data for backtest"
-msgstr ""
-
-#: rest_api/v1/routers/crud.py
-msgid "deleted"
-msgstr ""
-
-#: assessment/metric_plots/metric_map.py
-msgid "geojson is required for MetricMapV2"
-msgstr ""
-
-#: rest_api/data_models.py
-msgid ""
-"maskedRanges can only be set when a dataset is created (make-dataset or "
-"POST /v1/crud/datasets); create the dataset with its ranges and run on it"
-" by id"
-msgstr ""
-
-#: api_types.py
-msgid "n_retrain cannot exceed n_splits."
-msgstr ""
-
-#: services/prediction_setup_service.py
-msgid "name cannot be null or empty"
-msgstr ""
-
-#: services/alert_policy_service.py services/prediction_setup_service.py
-msgid "name is required"
-msgstr ""
-
 #: assessment/metric_plots/metric_map.py
 msgid "org unit"
-msgstr ""
-
-#: rest_api/v1/routers/analytics.py
-#, python-brace-format
-msgid ""
-"providedDataColumns has more than one row for org unit {location!r}, "
-"period {time_period!r}"
-msgstr ""
-
-#: rest_api/v1/routers/crud.py
-msgid "provided_data cannot be empty"
-msgstr ""
-
-#: services/prediction_setup_service.py
-msgid "schedule_enabled cannot be null"
-msgstr ""
-
-#: database/model_templates_and_config_tables.py
-msgid ""
-"set a new info.version in the chapkit service (built with the "
-"GIT_REVISION build arg) and register it again."
-msgstr ""
-
-#: database/model_templates_and_config_tables.py
-msgid "set a new info.version in the chapkit service and register it again."
-msgstr ""
-
-#: rest_api/data_models.py
-#, python-brace-format
-msgid "values cannot have a feature named {names}"
-msgstr ""
-
-#: assessment/target_mask.py
-#, python-brace-format
-msgid ""
-"{indicator!r} is reserved: it is added by masking. Send maskedRanges "
-"instead."
 msgstr ""
 
 #: assessment/backtest_plots/horizon_location_grid.py
 #, python-brace-format
 msgid "{loc} | horizon {hz}"
-msgstr ""
-
-#: assessment/metric_plots/__init__.py
-#, python-brace-format
-msgid "{name} must inherit from MetricPlotBase"
 msgstr ""

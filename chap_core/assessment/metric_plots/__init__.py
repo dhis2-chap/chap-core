@@ -64,7 +64,7 @@ class MetricPlotBase(abc.ABC):
         self._metric_data = metric_data
 
     def plot(self, title: str = "") -> alt.Chart:
-        return self.plot_from_df(title=gettext(title))
+        return self.plot_from_df(title=title)
 
     @abc.abstractmethod
     def plot_from_df(self, title: str = "") -> alt.Chart:
@@ -117,7 +117,7 @@ def metric_plot(
 
     def decorator(cls: type[MetricPlotBase]) -> type[MetricPlotBase]:
         if not issubclass(cls, MetricPlotBase):
-            raise TypeError(gettext("{name} must inherit from MetricPlotBase").format(name=cls.__name__))
+            raise TypeError(f"{cls.__name__} must inherit from MetricPlotBase")
 
         cls.id = plot_id
         cls.name = name

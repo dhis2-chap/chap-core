@@ -38,7 +38,6 @@ from chap_core.database.tables import (
     SpecificationBaseline,
     SpecificationBaselineStatus,
 )
-from chap_core.i18n import gettext
 from chap_core.services.prediction_setup_service import PredictionSetupNotFoundError
 from chap_core.time_period import TimePeriod
 
@@ -201,31 +200,23 @@ def get_prediction_setup_monitoring(
     """
     setup = session.get(PredictionSetup, setup_id)
     if setup is None:
-        raise PredictionSetupNotFoundError(gettext("PredictionSetup {setup_id} not found").format(setup_id=setup_id))
+        raise PredictionSetupNotFoundError(f"PredictionSetup {setup_id} not found")
     metric_cls = get_metric(metric_id)
     if metric_cls is None:
-        raise InvalidMetricError(gettext("Unknown metric '{metric_id}'").format(metric_id=metric_id))
+        raise InvalidMetricError(f"Unknown metric '{metric_id}'")
     if metric_cls.spec.comparison_op is None:
-        raise InvalidMetricError(
-            gettext("Metric '{metric_id}' cannot be compared with a baseline").format(metric_id=metric_id)
-        )
+        raise InvalidMetricError(f"Metric '{metric_id}' cannot be compared with a baseline")
     metric = metric_cls()
     if baseline_name is None:
         baseline_name = SettingsManager(session).get().default_baseline_model
     baselines = {model.name: model for model in SessionWrapper(session=session).get_baseline_models()}
     if baseline_name not in baselines:
-        raise InvalidBaselineError(
-            gettext("Unknown baseline model '{baseline_name}'. Available: {available}").format(
-                baseline_name=baseline_name, available=sorted(baselines)
-            )
-        )
+        raise InvalidBaselineError(f"Unknown baseline model '{baseline_name}'. Available: {sorted(baselines)}")
     baseline = baselines[baseline_name]
 
     evaluation = Evaluation.from_backtest(setup.backtest).to_flat()
     if not evaluation.observations.empty and not metric.is_applicable(evaluation.observations):
-        raise InvalidMetricError(
-            gettext("Metric '{metric_id}' cannot be computed for this setup's data").format(metric_id=metric_id)
-        )
+        raise InvalidMetricError(f"Metric '{metric_id}' cannot be computed for this setup's data")
     baseline_backtest = _baseline_backtest(session, setup.backtest, baseline)
     evaluation_points: list[MonitoringPoint] = []
     evaluation_value = None

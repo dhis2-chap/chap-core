@@ -72,7 +72,6 @@ from chap_core.database.tables import (
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.exceptions import BaselineTemplateConflict, ModelTemplateRevisionConflict
 from chap_core.geometry import Polygons
-from chap_core.i18n import gettext
 from chap_core.rest_api.baseline_runs import request_baselines_after_response
 from chap_core.rest_api.celery_tasks import (
     JOB_METADATA_KW,
@@ -165,10 +164,8 @@ def _registered_chapkit_revision_conflict(
             info.version,
             None,
             None,
-            gettext(
-                "build the image with the GIT_REVISION build arg and register it again. The version "
-                "label is not stored yet, so it can be kept."
-            ),
+            "build the image with the GIT_REVISION build arg and register it again. The version "
+            "label is not stored yet, so it can be kept.",
         )
     return None
 
@@ -437,7 +434,7 @@ def get_backtest_specification(
         .options(selectinload(BacktestSpecification.dataset).defer(DataSet.geojson))  # type: ignore[arg-type]
     ).first()
     if specification is None:
-        raise HTTPException(status_code=404, detail=gettext("Backtest specification not found"))
+        raise HTTPException(status_code=404, detail="Backtest specification not found")
     background_tasks.add_task(request_baselines_after_response, session.get_bind(), specification_id)
     conditions = [Backtest.specification_id == specification_id, is_not_baseline_backtest()]
     if not include_archived_models:
@@ -563,7 +560,7 @@ def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], session:
     """
     backtest = session.get(Backtest, backtest_id)
     if backtest is None:
-        raise HTTPException(status_code=404, detail=gettext("Backtest not found"))
+        raise HTTPException(status_code=404, detail="Backtest not found")
     return backtest
 
 
@@ -598,7 +595,7 @@ def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], ses
         )
     ).first()
     if backtest is None:
-        raise HTTPException(status_code=404, detail=gettext("Backtest not found"))
+        raise HTTPException(status_code=404, detail="Backtest not found")
     return backtest
 
 
@@ -621,7 +618,7 @@ def get_metrics_csv(
     """
     backtest = session.get(Backtest, backtest_id)
     if backtest is None:
-        raise HTTPException(status_code=404, detail=gettext("Backtest not found"))
+        raise HTTPException(status_code=404, detail="Backtest not found")
 
     evaluation = Evaluation.from_backtest(backtest)
     df = compute_all_detailed_metrics(evaluation)
@@ -648,10 +645,10 @@ def delete_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], sessi
     """
     backtest = session.get(Backtest, backtest_id)
     if backtest is None:
-        raise HTTPException(status_code=404, detail=gettext("Backtest not found"))
+        raise HTTPException(status_code=404, detail="Backtest not found")
     session.delete(backtest)
     session.commit()
-    return {"message": gettext("deleted")}
+    return {"message": "deleted"}
 
 
 @router.patch(
@@ -673,7 +670,7 @@ def update_backtest(
     """
     db_backtest = session.get(Backtest, backtest_id)
     if not db_backtest:
-        raise HTTPException(status_code=404, detail=gettext("Backtest not found"))
+        raise HTTPException(status_code=404, detail="Backtest not found")
 
     update_data = backtest_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -712,11 +709,11 @@ def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session: Sess
     backtest_ids_list = []
 
     if not ids:
-        raise HTTPException(status_code=400, detail=gettext("No backtest IDs provided."))
+        raise HTTPException(status_code=400, detail="No backtest IDs provided.")
     raw_id_parts = ids.split(",")
     if not any(part.strip() for part in raw_id_parts):
         raise HTTPException(
-            status_code=400, detail=gettext("No valid IDs provided. Input consists of only commas or whitespace.")
+            status_code=400, detail="No valid IDs provided. Input consists of only commas or whitespace."
         )
     for id_str_part in raw_id_parts:
         stripped_id_str = id_str_part.strip()
@@ -724,18 +721,13 @@ def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session: Sess
             # Handle empty segments from inputs like "1,,2" or "1,"
             raise HTTPException(
                 status_code=400,
-                detail=gettext(
-                    "Invalid ID format: found empty ID segment in '{ids}'. IDs must be non-empty, comma-separated integers."
-                ).format(ids=ids),
+                detail=f"Invalid ID format: found empty ID segment in '{ids}'. IDs must be non-empty, comma-separated integers.",
             )
         try:
             backtest_ids_list.append(int(stripped_id_str))
         except ValueError:
             raise HTTPException(
-                status_code=400,
-                detail=gettext("Invalid ID format: '{stripped_id_str}' is not a valid integer in '{ids}'.").format(
-                    stripped_id_str=stripped_id_str, ids=ids
-                ),
+                status_code=400, detail=f"Invalid ID format: '{stripped_id_str}' is not a valid integer in '{ids}'."
             ) from None
 
     for backtest_id in backtest_ids_list:
@@ -744,7 +736,7 @@ def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session: Sess
             session.delete(backtest)
             deleted_count += 1
     session.commit()
-    return {"message": gettext("Deleted {deleted_count} backtests").format(deleted_count=deleted_count)}
+    return {"message": f"Deleted {deleted_count} backtests"}
 
 
 ###########
@@ -787,7 +779,7 @@ def get_prediction(prediction_id: Annotated[int, Path(alias="predictionId")], se
     """
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
-        raise HTTPException(status_code=404, detail=gettext("Prediction not found"))
+        raise HTTPException(status_code=404, detail="Prediction not found")
     return prediction
 
 
@@ -807,18 +799,16 @@ def delete_prediction(
     """
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
-        raise HTTPException(status_code=404, detail=gettext("Prediction not found"))
+        raise HTTPException(status_code=404, detail="Prediction not found")
     alerts = alert_service.list_alerts(session, prediction_id=prediction_id)
     if alerts:
         raise HTTPException(
             status_code=409,
-            detail=gettext("Prediction {prediction_id} has {count} alert(s) raised from it; delete those first").format(
-                prediction_id=prediction_id, count=len(alerts)
-            ),
+            detail=f"Prediction {prediction_id} has {len(alerts)} alert(s) raised from it; delete those first",
         )
     session.delete(prediction)
     session.commit()
-    return {"message": gettext("deleted")}
+    return {"message": "deleted"}
 
 
 ###########
@@ -853,7 +843,7 @@ def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Se
     # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
     dataset = session.get(DataSet, dataset_id)
     if dataset is None:
-        raise HTTPException(status_code=404, detail=gettext("Dataset not found"))
+        raise HTTPException(status_code=404, detail="Dataset not found")
     assert len(dataset.observations) > 0
     for obs in dataset.observations:
         obs.value = obs.value if obs.value is None or np.isfinite(obs.value) else None
@@ -954,7 +944,7 @@ def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], session:
     through as JSON ``null``. 404 if the dataset id is unknown.
     """
     if session.get(DataSet, dataset_id) is None:
-        raise HTTPException(status_code=404, detail=gettext("Dataset not found"))
+        raise HTTPException(status_code=404, detail="Dataset not found")
     in_memory_dataset = DataSetManager(session).to_dataset(dataset_id)
     df = in_memory_dataset.to_pandas()
     # Convert time_period column to strings for proper serialization
@@ -981,7 +971,7 @@ def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], session
     pandas, or any other offline tool. 404 if the dataset id is unknown.
     """
     if session.get(DataSet, dataset_id) is None:
-        raise HTTPException(status_code=404, detail=gettext("Dataset not found"))
+        raise HTTPException(status_code=404, detail="Dataset not found")
     in_memory_dataset = DataSetManager(session).to_dataset(dataset_id)
     df = in_memory_dataset.to_pandas()
     df["time_period"] = df["time_period"].astype(str)
@@ -1007,12 +997,12 @@ def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session:
     so the error names every backtest and prediction to delete first. 404 if the id is unknown.
     """
     if session.get(DataSet, dataset_id) is None:
-        raise HTTPException(status_code=404, detail=gettext("Dataset not found"))
+        raise HTTPException(status_code=404, detail="Dataset not found")
     try:
         DataSetManager(session).delete_by_id(dataset_id)
     except DataSetInUseError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
-    return {"message": gettext("deleted")}
+    return {"message": "deleted"}
 
 
 ###########
@@ -1079,10 +1069,7 @@ def add_model_template_from_service(
     except (ModelTemplateRevisionConflict, BaselineTemplateConflict) as conflict:
         raise HTTPException(status_code=409, detail=str(conflict)) from conflict
     except Exception as error:
-        raise HTTPException(
-            status_code=502,
-            detail=gettext("Could not read the service at {url}: {error}").format(url=service.url, error=error),
-        ) from error
+        raise HTTPException(status_code=502, detail=f"Could not read the service at {service.url}: {error}") from error
     template = SessionWrapper(session=session).get_model_template(template_id)
     template.role = request.role
     session.add(template)
@@ -1111,7 +1098,7 @@ def delete_model_template(
         SessionWrapper(session=session).archive_model_template(model_template_id, all_versions=all_versions)
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
-    return {"message": gettext("deleted")}
+    return {"message": "deleted"}
 
 
 ###########
@@ -1170,7 +1157,7 @@ def get_configured_model_info(
         .options(selectinload(ConfiguredModelDB.model_template))  # type: ignore[arg-type]
     ).first()
     if configured_model is None:
-        raise HTTPException(status_code=404, detail=gettext("Configured model not found"))
+        raise HTTPException(status_code=404, detail="Configured model not found")
     return configured_model
 
 
@@ -1197,7 +1184,7 @@ def add_configured_model(
     # Inherit uses_chapkit from parent template so the model loads correctly at runtime
     template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)).first()
     if template is None:
-        raise HTTPException(status_code=404, detail=gettext("Model template not found"))
+        raise HTTPException(status_code=404, detail="Model template not found")
     uses_chapkit = template.uses_chapkit
     db_id = session_wrapper.add_configured_model(
         model_template_id,
@@ -1227,11 +1214,11 @@ def delete_configured_model(
     """
     configured_model = session.get(ConfiguredModelDB, configured_model_id)
     if configured_model is None:
-        raise HTTPException(status_code=404, detail=gettext("Configured model not found"))
+        raise HTTPException(status_code=404, detail="Configured model not found")
     configured_model.archived = True
     session.add(configured_model)
     session.commit()
-    return {"message": gettext("deleted")}
+    return {"message": "deleted"}
 
 
 ###########
@@ -1333,7 +1320,7 @@ def delete_alert(
         raise HTTPException(status_code=404, detail=str(e)) from e
     except alert_service.AlertApprovedError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
-    return {"message": gettext("deleted")}
+    return {"message": "deleted"}
 
 
 @router.post(
@@ -1396,7 +1383,7 @@ def create_alert_policy(request: AlertPolicyCreate, session: Session = Depends(g
     except alert_policy_service.InvalidAlertPolicyError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     if policy.id is None:
-        raise HTTPException(status_code=500, detail=gettext("AlertPolicy creation produced no id"))
+        raise HTTPException(status_code=500, detail="AlertPolicy creation produced no id")
     return DataBaseResponse(id=policy.id)
 
 
@@ -1479,7 +1466,7 @@ def delete_alert_policy(
         raise HTTPException(status_code=404, detail=str(e)) from e
     except alert_policy_service.AlertPolicyInUseError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
-    return {"message": gettext("deleted")}
+    return {"message": "deleted"}
 
 
 # prediction setups
@@ -1518,7 +1505,7 @@ def create_prediction_setup(request: PredictionSetupCreate, session: Session = D
     except prediction_setup_service.InvalidSetupError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     if setup.id is None:
-        raise HTTPException(status_code=500, detail=gettext("PredictionSetup creation produced no id"))
+        raise HTTPException(status_code=500, detail="PredictionSetup creation produced no id")
     return DataBaseResponse(id=setup.id)
 
 
@@ -1642,7 +1629,7 @@ def _cancel_jobs_for_prediction_setup(prediction_setup_id: int) -> None:
         logger.warning("Failed to sweep job metadata for prediction setup %d", prediction_setup_id, exc_info=True)
         raise HTTPException(
             status_code=503,
-            detail=gettext("Cannot delete PredictionSetup: job-metadata store unavailable, retry later"),
+            detail="Cannot delete PredictionSetup: job-metadata store unavailable, retry later",
         ) from e
     for key in keys:
         meta: dict[str, str] = redis.hgetall(key)  # type: ignore[assignment]
@@ -1685,7 +1672,7 @@ def delete_prediction_setup(
         raise HTTPException(status_code=404, detail=str(e)) from e
     _cancel_jobs_for_prediction_setup(prediction_setup_id)
     prediction_setup_service.delete_prediction_setup(session, prediction_setup_id)
-    return {"message": gettext("deleted")}
+    return {"message": "deleted"}
 
 
 def _setup_horizon(setup: PredictionSetup) -> int:
@@ -1727,16 +1714,16 @@ def run_prediction_setup(
     if setup.configured_model is None:
         # Defensive: the schema makes configured_model NOT NULL via FK, so this should not happen
         # outside of a manually-corrupted DB. Translating to a 500 keeps the contract honest.
-        raise HTTPException(status_code=500, detail=gettext("PredictionSetup has no configured_model"))
+        raise HTTPException(status_code=500, detail="PredictionSetup has no configured_model")
     if setup.configured_model.archived:
         raise HTTPException(
             status_code=409,
-            detail=gettext("Configured model '{name}' is archived").format(name=setup.configured_model.name),
+            detail=f"Configured model '{setup.configured_model.name}' is archived",
         )
     model_id = setup.configured_model.name
 
     if not request.provided_data:
-        raise HTTPException(status_code=422, detail=gettext("provided_data cannot be empty"))
+        raise HTTPException(status_code=422, detail="provided_data cannot be empty")
 
     target_column = setup.backtest.specification.target_column
     feature_names = list({entry.feature_name for entry in request.provided_data})
@@ -1775,11 +1762,9 @@ def run_prediction_setup(
         raise HTTPException(
             status_code=400,
             detail=(
-                gettext(
-                    "Prediction setup {prediction_setup_id} was evaluated with the '{provider}' future-weather provider, "
-                    "which reads the forecast window's own observations and so cannot forecast ahead. Re-run the backtest"
-                    " with a forecasting provider before running predictions from it."
-                ).format(prediction_setup_id=prediction_setup_id, provider=provider)
+                f"Prediction setup {prediction_setup_id} was evaluated with the '{provider}' future-weather "
+                "provider, which reads the forecast window's own observations and so cannot forecast ahead. "
+                "Re-run the backtest with a forecasting provider before running predictions from it."
             ),
         )
     prediction_params = PredictionParams(

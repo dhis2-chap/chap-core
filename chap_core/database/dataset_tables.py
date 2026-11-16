@@ -12,7 +12,6 @@ from sqlalchemy import JSON, Column, Index, TypeDecorator, false
 from sqlmodel import Field, Relationship
 
 from chap_core.database.base_tables import DBModel, PeriodID, UtcDatetime
-from chap_core.i18n import gettext
 from chap_core.time_period.date_util_wrapper import Month, TimePeriod, Week
 
 
@@ -95,13 +94,9 @@ def parse_masked_period(value: str) -> TimePeriod:
     try:
         period = TimePeriod.parse(value)
     except Exception as e:  # TimePeriod.parse raises several unrelated error types for bad input
-        raise ValueError(gettext("'{value}' is not a month or week period id").format(value=value)) from e
+        raise ValueError(f"'{value}' is not a month or week period id") from e
     if not isinstance(period, Month | Week):
-        raise ValueError(
-            gettext("'{value}' is a {kind}; masked ranges take month or week periods only").format(
-                value=value, kind=period_kind(period)
-            )
-        )
+        raise ValueError(f"'{value}' is a {period_kind(period)}; masked ranges take month or week periods only")
     return period
 
 
@@ -126,15 +121,9 @@ class MaskedRange(DBModel):
     def _normalise_bounds(self) -> "MaskedRange":
         start, end = parse_masked_period(self.start), parse_masked_period(self.end)
         if period_kind(start) != period_kind(end):
-            raise ValueError(
-                gettext("Range {start} to {end} mixes a {start_kind} and a {end_kind}").format(
-                    start=self.start, end=self.end, start_kind=period_kind(start), end_kind=period_kind(end)
-                )
-            )
+            raise ValueError(f"Range {self.start} to {self.end} mixes a {period_kind(start)} and a {period_kind(end)}")
         if start > end:
-            raise ValueError(
-                gettext("Range {start} to {end} ends before it starts").format(start=self.start, end=self.end)
-            )
+            raise ValueError(f"Range {self.start} to {self.end} ends before it starts")
         self.start, self.end = start.id, end.id
         return self
 
@@ -148,10 +137,10 @@ def check_masked_ranges(masked_ranges: list[MaskedRange] | None) -> list[MaskedR
         key=lambda bounds: bounds[0].start_timestamp,
     )
     if len({period_kind(start) for start, _ in parsed}) > 1:
-        raise ValueError(gettext("Masked ranges must all use the same period type"))
+        raise ValueError("Masked ranges must all use the same period type")
     for (_, previous_end), (start, _) in itertools.pairwise(parsed):
         if start <= previous_end:
-            raise ValueError(gettext("Masked ranges overlap at {period}").format(period=start.id))
+            raise ValueError(f"Masked ranges overlap at {start.id}")
     return masked_ranges
 
 
@@ -161,11 +150,8 @@ def check_masked_ranges_match_dataset(masked_ranges: list[MaskedRange] | None, f
         kind = period_kind(parse_masked_period(masked_range.start))
         if kind != period_kind(first_period):
             raise ValueError(
-                gettext(
-                    "Masked range {start} to {end} is a {kind} range, but the dataset has {dataset_kind} periods"
-                ).format(
-                    start=masked_range.start, end=masked_range.end, kind=kind, dataset_kind=period_kind(first_period)
-                )
+                f"Masked range {masked_range.start} to {masked_range.end} is a {kind} range, "
+                f"but the dataset has {period_kind(first_period)} periods"
             )
 
 
