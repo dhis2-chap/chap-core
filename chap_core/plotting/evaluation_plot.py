@@ -14,12 +14,24 @@ class VisualizationInfo(DBModel):
     id: str = Field(description="Canonical plot identifier used in URLs.")
     display_name: str = Field(description="Human-friendly plot name shown in pickers.")
     description: str = Field(description="Short paragraph explaining what the plot shows.")
+    required_dimensions: list[str] = Field(
+        description=(
+            "Metric dimensions the plot needs ('location', 'time_period', 'horizon_distance'). "
+            "Only metrics whose ``dimensions`` include all of them can be shown in it."
+        )
+    )
+
+
+class MetricNotApplicableError(ValueError):
+    """The metric cannot be computed for this evaluation, e.g. an incidence metric without population data."""
 
 
 def make_plot_from_backtest_object(
     backtest: Backtest, plotting_class: type[MetricPlotBase], metric: Metric, geojson: dict | None = None
 ) -> dict:
     evaluation = Evaluation.from_backtest(backtest)
+    if not metric.is_applicable(evaluation.get_observations()):  # type: ignore[arg-type]
+        raise MetricNotApplicableError(f"Metric {metric.get_id()} cannot be computed for this backtest")
     metric_data = metric.get_detailed_metric_from_cells(evaluation.to_cells())
     # Served to the frontend, which embeds the spec in a flexible-width container;
     # fill it horizontally while keeping the plot's fixed height.

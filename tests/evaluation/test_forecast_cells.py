@@ -54,6 +54,9 @@ def test_metrics_from_cells_match_metrics_from_flat_tables(backtest, tmp_path):
     from_cells = calculate_metrics(evaluation, list(available_metrics))
 
     for metric_id, metric_cls in available_metrics.items():
+        if not metric_cls().is_applicable(flat.observations):
+            assert from_cells[metric_id] is None, metric_id
+            continue
         expected = float(metric_cls().get_global_metric(flat.observations, flat.forecasts)["metric"].iloc[0])
         assert from_cells[metric_id] == pytest.approx(expected, nan_ok=True), metric_id
 

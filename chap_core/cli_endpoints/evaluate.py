@@ -264,7 +264,7 @@ def _run_eval(
         check_model_configuration(
             configuration, template.model_template_config, model_configuration_yaml, strict=strict
         )
-        check_dataset_for_model(dataset, template.model_template_config, strict=strict)
+        check_dataset_for_model(dataset, template.model_template_config, strict=strict, configuration=configuration)
         estimator: ExternalModel | MetaLearner | ExtendedPredictor
         if estimator_options.mode == EstimatorMode.NORMAL:
             estimator = get_estimator(
