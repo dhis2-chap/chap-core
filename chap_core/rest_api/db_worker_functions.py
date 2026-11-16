@@ -316,8 +316,10 @@ def run_prediction(
     assert db_id is not None
     status_logger.info(f"Prediction completed successfully. Results saved with ID {db_id}")
     if prediction_setup_id is not None:
-        raise_alerts_for_prediction(session.session, db_id)
+        # Baselines first: they never raise, so a failing alert policy still fails the job
+        # but no longer leaves the prediction without the baseline forecasts monitoring compares it with.
         _predict_baselines(session, dataset, dataset_id, n_periods, name, db_id, future_weather_provider)
+        raise_alerts_for_prediction(session.session, db_id)
     return db_id
 
 
