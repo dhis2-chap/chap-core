@@ -269,7 +269,6 @@ def test_pydantic_arguments_survive_the_json_broker():
     received = over_the_broker(
         wf.harmonize_and_add_dataset,
         ["rainfall"],
-        [],
         {"data_dict": {}},
         "dataset",
         "evaluation",

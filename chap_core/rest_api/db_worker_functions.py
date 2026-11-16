@@ -24,7 +24,7 @@ from chap_core.database.tables import BacktestSpecification, PredictionSetup
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
 from chap_core.models.builtin import BaselineNotApplicable
-from chap_core.rest_api.data_models import BacktestCreate, FetchRequest, PredictionParams
+from chap_core.rest_api.data_models import BacktestCreate, PredictionParams
 from chap_core.rest_api.job_registry import job_function
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
 from chap_core.services.alert_service import raise_alerts_for_prediction
@@ -388,7 +388,6 @@ def harmonize_and_add_health_dataset(
 @job_function
 def harmonize_and_add_dataset(
     provided_field_names: list[str],
-    data_to_be_fetched: list[FetchRequest],
     health_dataset: dict,
     name: str,
     ds_type: str,
@@ -401,12 +400,6 @@ def harmonize_and_add_dataset(
     status_logger.info(f"Processing and adding dataset '{name}' of type '{ds_type}'")
     provided_dataclass = create_tsdataclass(provided_field_names)
     dataset_obj = InMemoryDataSet.from_dict(health_dataset, provided_dataclass)
-    if len(data_to_be_fetched):
-        full_dataset = harmonize_health_dataset(
-            dataset_obj, fetch_requests=data_to_be_fetched, usecwd_for_credentials=False, worker_config=worker_config
-        )
-    else:
-        full_dataset = dataset_obj
     info = DataSetCreateInfo(
         name=name,
         type=ds_type,
@@ -415,7 +408,7 @@ def harmonize_and_add_dataset(
         target_column=target_column,
     )
     db_id: int = DataSetManager(session.session).save_dataset(
-        info, full_dataset, polygons=dataset_obj.polygons.model_dump_json(), created_manually=True
+        info, dataset_obj, polygons=dataset_obj.polygons.model_dump_json(), created_manually=True
     )
     status_logger.info(f"Dataset '{name}' added successfully with ID {db_id}")
     return db_id

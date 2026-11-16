@@ -34,21 +34,11 @@ class PredictionResponse(PredictionBase):
     value: float = Field(description="Predicted value.")
 
 
-class FetchRequest(DBModel):
-    """Tell the server which feature to fetch from which data source when materialising a dataset."""
-
-    feature_name: str = Field(description="Canonical feature name (matching a `FeatureType.name`).")
-    data_source_name: str = Field(description="Canonical name of the source to pull from.")
-
-
 class ObservationPayload(DBModel):
     """Polygons and observations sent inline with a request."""
 
     geojson: FeatureCollectionModel = Field(description="GeoJSON polygon set for the dataset's org units.")
     provided_data: list[ObservationBase] = Field(description="Observations the caller is supplying directly.")
-    data_to_be_fetched: list[FetchRequest] = Field(
-        description="Features whose observations the server should fetch from a registered source."
-    )
 
 
 class ObservationColumns(DBModel):
@@ -78,7 +68,7 @@ class ObservationColumns(DBModel):
 
 
 class DatasetMakeRequest(DataSetCreateInfo, ObservationPayload):
-    """Request body for building a dataset: metadata + polygons + observations (provided or fetched).
+    """Request body for building a dataset: metadata + polygons + observations.
 
     Send the observations either as ``providedData`` (one object per observation) or as
     ``providedDataColumns`` (columnar), not both.

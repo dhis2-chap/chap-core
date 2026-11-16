@@ -135,7 +135,6 @@ def make_dataset(
     job = worker.queue_db(
         wf.harmonize_and_add_dataset,
         feature_names,
-        request.data_to_be_fetched,
         provided_data.model_dump(),
         request.name,
         request.type,
@@ -690,8 +689,7 @@ def make_prediction(
     monitored against observed cases.
 
     Forecasting happens in the background; the response carries a job id you poll via
-    ``/v1/jobs/{id}`` for the result. The legacy ``data_to_be_fetched`` field is
-    rejected — supply the observations directly. Without ``nPeriods``, the stored default
+    ``/v1/jobs/{id}`` for the result. Without ``nPeriods``, the stored default
     for the data's period type is used, kept within the range the model supports.
     """
     request.type = "prediction"
@@ -713,8 +711,6 @@ def make_prediction(
         n_periods = within_model_horizon(stored_default, model.model_template)
     provided_data, _rejections = validate_full_dataset(feature_names, provided_data, request.target_column)
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
-    if request.data_to_be_fetched:
-        raise HTTPException(status_code=404, detail="Data to be fetched is no longer supported by chap-core")
     dump = request.model_dump()
     dataset_info = DataSetCreateInfo(**dump).model_dump()
     prediction_params = PredictionParams(**(dump | {"n_periods": n_periods}))
@@ -1006,11 +1002,6 @@ def create_backtest_with_data(
     logger.info(
         f"Creating backtest with data: {request.name}, model_id: {request.model_id} on {len(list(provided_data_processed.locations()))} locations"
     )
-    if request.data_to_be_fetched:
-        raise HTTPException(
-            status_code=400, detail="data_to_be_fetched is not supported when providing data for backtest"
-        )
-
     model = get_job_model(session, request.model_id)
     bt_params = backtest_params.model_dump()
     dataset_create_info = DataSetCreateInfo(**request.model_dump()).model_dump()
