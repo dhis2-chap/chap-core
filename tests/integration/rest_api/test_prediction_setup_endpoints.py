@@ -829,7 +829,7 @@ def test_prediction_pipeline_stores_the_ranges_and_trains_masked(
         return forecast_ahead(estimator, dataset, *args, **kwargs)
 
     monkeypatch.setattr(db_worker_functions, "forecast_ahead", recording_forecast_ahead)
-    features = ["rainfall", "disease_cases", "population"]
+    features = ["rainfall", "mean_temperature", "disease_cases", "population"]
     request = create_make_data_request(example_polygons, [], features)
     provided = observations_to_dataset(create_tsdataclass(features), request.provided_data, fill_missing=True)
     provided.set_polygons(request.geojson)
@@ -870,10 +870,12 @@ def test_run_prediction_setup_forecasts_the_backtest_target(
     seeded_session.commit()
     setup_id = create_prediction_setup(backtest.id, "Target forecast").json()["id"]
 
-    request = create_make_data_request(example_polygons, [], ["rainfall", "hospitalisations", "disease_cases"])
+    request = create_make_data_request(
+        example_polygons, [], ["rainfall", "mean_temperature", "hospitalisations", "disease_cases"]
+    )
     for observation in request.provided_data:
         observation.value = 0.0 if observation.feature_name == "hospitalisations" else 1000.0
-        if observation.feature_name != "rainfall" and observation.period == "2020-01":
+        if observation.feature_name in ("hospitalisations", "disease_cases") and observation.period == "2020-01":
             observation.value = None  # Target gaps must not reject otherwise valid locations.
     payload = request.model_dump(
         mode="json",
