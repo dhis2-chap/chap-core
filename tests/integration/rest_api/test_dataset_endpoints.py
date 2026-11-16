@@ -65,7 +65,6 @@ def test_make_dataset_import_persists_data_sources(clean_engine, dataset_make_re
     with SessionWrapper(clean_engine) as session:
         dataset_id = harmonize_and_add_dataset(
             feature_names,
-            request.data_to_be_fetched,
             provided_data.model_dump(),
             request.name,
             request.type,
@@ -89,7 +88,6 @@ def test_make_dataset_import_persists_masked_ranges(clean_engine, dataset_make_r
     with SessionWrapper(clean_engine) as session:
         dataset_id = harmonize_and_add_dataset(
             feature_names,
-            request.data_to_be_fetched,
             provided_data.model_dump(),
             request.name,
             request.type,
@@ -300,7 +298,15 @@ def test_make_dataset_columns_import_the_same_as_observations(
     assert responses[0] == responses[1]
     assert responses[0]["rejected"]
     (_, from_columns, _), (_, from_observations, _) = baseline_worker.queued.pop(), baseline_worker.queued.pop()
-    assert from_columns[2] == from_observations[2]
+    assert from_columns[1] == from_observations[1]
+
+
+def test_make_dataset_columns_without_legacy_fields(dependency_overrides, dataset_make_request):
+    """A columnar request needs neither providedData nor the removed dataToBeFetched field."""
+    payload = _as_columns(dataset_make_request.model_dump(mode="json", by_alias=True))
+    assert "providedData" not in payload and "dataToBeFetched" not in payload
+    response = client.post("/v1/analytics/make-dataset?dryRun=true", json=payload)
+    assert response.status_code == 200, response.text
 
 
 def test_make_dataset_rejects_both_observation_formats(dependency_overrides, dataset_make_request):

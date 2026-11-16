@@ -15,7 +15,6 @@ from chap_core.api_types import (
     RequestV1,
 )
 from chap_core.datatypes import FullData, HealthData, HealthPopulationData, Samples, TimeSeriesArray, create_tsdataclass
-from chap_core.rest_api.data_models import FetchRequest
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period.date_util_wrapper import convert_time_period_string
 
@@ -115,19 +114,11 @@ def dataset_from_request_v1(
     return harmonize_health_dataset(dataset, usecwd_for_credentials, worker_config=worker_config)
 
 
-base_fetch_requests = (
-    FetchRequest(feature_name="rainfall", data_source_name="total_precipitation"),
-    FetchRequest(feature_name="mean_temperature", data_source_name="mean_2m_air_temperature"),
-)
-
-
 def harmonize_health_dataset(
     dataset: DataSet[FullData],
     usecwd_for_credentials: bool,
-    fetch_requests: list[FetchRequest] | None = None,
     worker_config: WorkerConfig = WorkerConfig(),
 ) -> DataSet[FullData]:
-    assert not fetch_requests, "Google earth engine no longer supported"
     return dataset
 
 
