@@ -10,7 +10,7 @@ from starlette.testclient import TestClient
 from chap_core.api_types import DataElement, DataList
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo
-from chap_core.database.tables import Backtest, BacktestForecast, BacktestRead, Prediction
+from chap_core.database.tables import Backtest, BacktestForecast, BacktestRead, Prediction, PredictionSamplesEntry
 from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.routers.dependencies import get_session
 
@@ -166,6 +166,25 @@ def test_prediction_entries_are_the_quantiles_of_each_forecast(override_session,
     response = client.get_json(url, params={**params, "quantiles": QUANTILES})
 
     assert response == expected
+
+
+def test_prediction_entries_with_mixed_sample_counts(override_session, seeded_session):
+    prediction = seeded_session.get(Prediction, 1)
+    first = prediction.forecasts[0]
+    for n_samples in [3, 7, 3, 1, 7]:
+        prediction.forecasts.append(
+            PredictionSamplesEntry(
+                org_unit=first.org_unit, period=first.period, values=[float(v) for v in range(n_samples, 0, -1)]
+            )
+        )
+    seeded_session.commit()
+    forecasts = sorted(prediction.forecasts, key=lambda forecast: forecast.id)
+    assert len({len(f.values) for f in forecasts}) > 2
+    expected = [pytest.approx(float(np.quantile(f.values, q))) for f in forecasts for q in QUANTILES]
+
+    response = client.get_json("/v1/analytics/prediction-entry/1", params={"quantiles": QUANTILES})
+
+    assert [entry["value"] for entry in response] == expected
 
 
 def test_prediction_entries_of_an_unknown_prediction_is_not_found(override_session):
