@@ -104,9 +104,8 @@ def validate_search_space(search_space: dict[str, Any]) -> dict[str, Any]:
                     raise ValueError(f"Float('{k}'): step must be None when log=True")
                 if low <= 0 or high <= 0:
                     raise ValueError(f"Float('{k}'): log=True requires low, high > 0")
-            elif spec.step is not None:
-                if not (isinstance(spec.step, (int, float)) and spec.step > 0):
-                    raise ValueError(f"Float('{k}'): step must be > 0")
+            elif spec.step is not None and not (isinstance(spec.step, (int, float)) and spec.step > 0):
+                raise ValueError(f"Float('{k}'): step must be > 0")
             normalized[k] = Float(low=low, high=high, step=spec.step, log=spec.log)
             continue
 
