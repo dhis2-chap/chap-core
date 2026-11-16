@@ -1,5 +1,5 @@
 # Use the official Python base image
-FROM ghcr.io/astral-sh/uv:0.13-python3.13-trixie-slim@sha256:6ff812e34a0e14b4b8bc9ddf25e77b3e16bac6e0c4d9b67641f40366fa382d4c
+FROM ghcr.io/astral-sh/uv:0.13-python3.13-trixie-slim@sha256:9a9f205ad2f9aaf63597afef4042c455392f9253937028264b98226e91c09518
 
 # Set the working directory in the container
 WORKDIR /app
