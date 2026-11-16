@@ -1,0 +1,158 @@
+{
+  "backtest": [
+    "aggregate_metrics",
+    "created",
+    "dataset_id",
+    "id",
+    "max_horizon_distance",
+    "model_db_id",
+    "model_id",
+    "model_template_version",
+    "name",
+    "org_units",
+    "split_periods"
+  ],
+  "backtestforecast": [
+    "backtest_id",
+    "id",
+    "last_seen_period",
+    "last_train_period",
+    "org_unit",
+    "period",
+    "values"
+  ],
+  "backtestmetric": [
+    "backtest_id",
+    "id",
+    "last_seen_period",
+    "last_train_period",
+    "metric_id",
+    "org_unit",
+    "period",
+    "value"
+  ],
+  "configuredmodeldb": [
+    "additional_continuous_covariates",
+    "archived",
+    "id",
+    "model_template_id",
+    "name",
+    "user_option_values",
+    "uses_chapkit"
+  ],
+  "dataset": [
+    "covariates",
+    "created",
+    "data_sources",
+    "first_period",
+    "geojson",
+    "id",
+    "last_period",
+    "name",
+    "org_units",
+    "period_type",
+    "type"
+  ],
+  "featuresource": [
+    "display_name",
+    "feature_type",
+    "name",
+    "provider",
+    "supported_period_types"
+  ],
+  "featuretype": [
+    "description",
+    "display_name",
+    "name"
+  ],
+  "modelfeaturelink": [
+    "feature_type",
+    "model_id"
+  ],
+  "modelspec": [
+    "author",
+    "author_assessed_status",
+    "author_note",
+    "citation_info",
+    "configuration",
+    "contact_email",
+    "description",
+    "display_name",
+    "documentation_url",
+    "id",
+    "name",
+    "organization",
+    "organization_logo_url",
+    "source_url",
+    "supported_period_type",
+    "target_name"
+  ],
+  "modeltemplatedb": [
+    "allow_free_additional_continuous_covariates",
+    "archived",
+    "author",
+    "author_assessed_status",
+    "author_note",
+    "citation_info",
+    "contact_email",
+    "description",
+    "display_name",
+    "documentation_url",
+    "hpo_search_space",
+    "id",
+    "max_prediction_length",
+    "min_prediction_length",
+    "name",
+    "organization",
+    "organization_logo_url",
+    "required_covariates",
+    "requires_geo",
+    "source_url",
+    "supported_period_type",
+    "target",
+    "user_options",
+    "uses_chapkit",
+    "version"
+  ],
+  "observation": [
+    "dataset_id",
+    "feature_name",
+    "id",
+    "org_unit",
+    "period",
+    "value"
+  ],
+  "prediction": [
+    "created",
+    "dataset_id",
+    "id",
+    "meta_data",
+    "model_db_id",
+    "model_id",
+    "n_periods",
+    "name",
+    "org_units",
+    "prediction_setup_id"
+  ],
+  "predictionsamplesentry": [
+    "id",
+    "org_unit",
+    "period",
+    "prediction_id",
+    "values"
+  ],
+  "predictionsetup": [
+    "backtest_id",
+    "configured_model_id",
+    "covariate_sources",
+    "created",
+    "id",
+    "name",
+    "org_units",
+    "period_type",
+    "quantile_targets",
+    "schedule_cron_expression",
+    "schedule_enabled",
+    "start_period"
+  ]
+}

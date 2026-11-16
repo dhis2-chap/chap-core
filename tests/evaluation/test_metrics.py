@@ -15,7 +15,7 @@ from chap_core.assessment.metrics import (
     WinklerScore25_75Log1pMetric,
     WinklerScore25_75Metric,
     DataDimension,
-    compute_all_aggregated_metrics_from_backtest,
+    compute_all_aggregated_metrics,
     compute_all_detailed_metrics,
 )
 from chap_core.assessment.evaluation import Evaluation
@@ -191,9 +191,9 @@ def test_mape_aggregate(flat_forecasts, flat_observations):
     np.testing.assert_almost_equal(result["metric"].iloc[0], expected_mape, decimal=5)
 
 
-def test_get_all_aggregated_metrics_from_backtest(backtest_weeks):
-    """Test compute_all_aggregated_metrics_from_backtest returns expected metrics."""
-    metrics = compute_all_aggregated_metrics_from_backtest(backtest_weeks)
+def test_compute_all_aggregated_metrics(backtest_weeks):
+    """Test compute_all_aggregated_metrics returns expected metrics."""
+    metrics = compute_all_aggregated_metrics(Evaluation.from_backtest(backtest_weeks))
     assert "crps" in metrics
     assert not {"sample_count", "example_metric"} & set(metrics)
 
@@ -506,3 +506,67 @@ def test_crps_matrix_rejects_shape_mismatch(crps_example_data):
         crps_matrix(observations[:-1], forecasts)
     with pytest.raises(ValueError, match="must be 2D"):
         crps_matrix(observations, forecasts[0])
+
+
+ROW_METRIC_FACTORIES = [
+    CRPSMetric,
+    CRPSLog1pMetric,
+    RatioAboveTruthMetric,
+    Coverage10_90Metric,
+    Coverage25_75Metric,
+    WinklerScore10_90Metric,
+    WinklerScore10_90Log1pMetric,
+    WinklerScore25_75Metric,
+    WinklerScore25_75Log1pMetric,
+]
+
+
+@pytest.mark.parametrize("metric_factory", ROW_METRIC_FACTORIES)
+def test_compute_sample_metric_rows_matches_compute_sample_metric(metric_factory):
+    rng = np.random.default_rng(0)
+    samples = rng.poisson(20, size=(50, 100)).astype(float)
+    observed = rng.poisson(20, size=50).astype(float)
+    observed[0] = np.nan
+    metric = metric_factory()
+    expected = [metric.compute_sample_metric(row, obs) for row, obs in zip(samples, observed)]
+    np.testing.assert_allclose(metric.compute_sample_metric_rows(samples, observed), expected, rtol=1e-12)
+
+
+@pytest.mark.parametrize("metric_factory", ROW_METRIC_FACTORIES)
+def test_compute_detailed_gives_the_metric_of_each_group(
+    metric_factory, flat_forecasts_multiple_samples, flat_observations
+):
+    metric = metric_factory()
+    detailed = metric.compute_detailed(flat_observations, flat_forecasts_multiple_samples)
+    merged = flat_forecasts_multiple_samples.merge(flat_observations, on=["location", "time_period"])
+    for row in detailed.itertuples():
+        group = merged[(merged.location == row.location) & (merged.time_period == row.time_period)]
+        assert row.metric == pytest.approx(
+            metric.compute_sample_metric(group.forecast.to_numpy(), group.disease_cases.iloc[0])
+        )
+    assert len(detailed) == len(merged.groupby(["location", "time_period", "horizon_distance"]))
+
+
+@pytest.mark.parametrize("metric_factory", ROW_METRIC_FACTORIES)
+def test_compute_detailed_is_empty_when_no_forecast_is_observed(metric_factory, flat_forecasts_multiple_samples):
+    observations = pd.DataFrame({"location": ["loc1"], "time_period": ["2022-W01"], "disease_cases": [1.0]})
+
+    detailed = metric_factory().compute_detailed(observations, flat_forecasts_multiple_samples)
+
+    assert detailed.empty
+    assert list(detailed.columns) == ["location", "time_period", "horizon_distance", "metric"]
+
+
+@pytest.mark.parametrize("metric_factory", ROW_METRIC_FACTORIES)
+def test_compute_detailed_leaves_out_forecasts_with_a_missing_key(
+    metric_factory, flat_forecasts_multiple_samples, flat_observations
+):
+    with_missing = pd.concat(
+        [flat_forecasts_multiple_samples, flat_forecasts_multiple_samples.head(3).assign(horizon_distance=np.nan)]
+    )
+    metric = metric_factory()
+
+    detailed = metric.compute_detailed(flat_observations, with_missing)
+
+    expected = metric.compute_detailed(flat_observations, flat_forecasts_multiple_samples)
+    pd.testing.assert_frame_equal(detailed, expected, check_dtype=False)

@@ -128,7 +128,7 @@ def update_all(
     """Update every installed marketplace model whose verified stable version has changed.
 
     Runs the same update as ``update`` for each installed model from the marketplace whose
-    stable version differs from the installed one. Custom models, models installed from
+    stable version or image pin differs from the installed one. Custom models, models installed from
     another registry and models without a verified stable version are left as they are.
     Fails at the end if any model could not be updated; the others stay updated.
     """
@@ -153,7 +153,9 @@ def update_all(
                 except ValueError as reason:
                     logger.info("Skipping %s: %s", entry.id, reason)
                     continue
-                if service.get("x-chap-version") == pin.version:
+                # A changed image at the same version, such as a tag-only pin from before digests,
+                # is redeployed so it runs by the verified digest.
+                if service.get("x-chap-version") == pin.version and service.get("image") == pin.image:
                     logger.info("Skipping %s: already on the stable version %s.", entry.id, pin.version)
                     continue
                 try:

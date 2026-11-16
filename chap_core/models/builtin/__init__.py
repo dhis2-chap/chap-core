@@ -1,4 +1,4 @@
-from chap_core.models.builtin import global_median, seasonal_median, seasonal_shift_persistence
+from chap_core.models.builtin import global_median, persistence, seasonal_median, seasonal_shift_persistence
 from chap_core.models.builtin.registry import (
     BUILTIN_SOURCE_PREFIX,
     BaselineNotApplicable,
@@ -22,6 +22,7 @@ __all__ = [
     "get_builtin_model",
     "get_builtin_models",
     "global_median",
+    "persistence",
     "seasonal_median",
     "seasonal_shift_persistence",
 ]

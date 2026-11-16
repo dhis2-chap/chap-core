@@ -10,7 +10,7 @@ The supported way to do this is to package the model as a **chapkit service** an
 ## Prerequisites
 
 - A working Chap installation, see [First-time Setup](fresh-installation.md)
-- Your model packaged as a chapkit service. See the [chapkit documentation](https://dhis2-chap.github.io/chapkit/) for how to wrap an existing model, and [Chapkit](../external_models/chapkit.md) for the data format Chap sends.
+- Your model packaged as a chapkit service Docker image. [Bring your existing model to Chap](../external_models/existing_model.md) and [Build a new model from a template](../external_models/mlproject_tutorial.md) show how, from train and predict scripts and an `MLproject` file. For writing the service yourself, see the [chapkit documentation](https://dhis2-chap.github.io/chapkit/), and [Chapkit](../external_models/chapkit.md) for the data format Chap sends.
 
 ## How model services attach to Chap
 

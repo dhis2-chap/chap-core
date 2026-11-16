@@ -138,6 +138,7 @@ def test_run_prediction_stores_every_baseline_forecast(alert_prediction):
     baselines = prediction.baseline_predictions
     assert {baseline.model_id for baseline in baselines} == {
         "global_median",
+        "persistence",
         "seasonal_shift_persistence",
         "seasonal_median",
     }

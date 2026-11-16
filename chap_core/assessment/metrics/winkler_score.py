@@ -50,6 +50,17 @@ class WinklerScoreMetric(ProbabilisticMetric):
         else:
             return float(interval_width)
 
+    def compute_sample_metric_rows(self, samples: np.ndarray, observed: np.ndarray) -> np.ndarray:
+        return _winkler_rows(samples, observed, self.low_percentile, self.high_percentile)
+
+
+def _winkler_rows(samples: np.ndarray, observed: np.ndarray, low_percentile: int, high_percentile: int) -> np.ndarray:
+    """The Winkler score of each row of ``samples`` against ``observed``, as ``compute_sample_metric`` computes it."""
+    low, high = np.percentile(samples, [low_percentile, high_percentile], axis=1)
+    alpha = 1.0 - (high_percentile - low_percentile) / 100.0
+    penalty = np.where(observed < low, low - observed, np.where(observed > high, observed - high, 0.0))
+    return np.asarray((high - low) + (2.0 / alpha) * penalty)
+
 
 @metric()
 class WinklerScore10_90Metric(WinklerScoreMetric):
@@ -110,6 +121,9 @@ class WinklerScoreLog1pMetric(ProbabilisticMetric):
             return float(interval_width + (2.0 / alpha) * (log_observed - high))
         else:
             return float(interval_width)
+
+    def compute_sample_metric_rows(self, samples: np.ndarray, observed: np.ndarray) -> np.ndarray:
+        return _winkler_rows(np.log1p(samples), np.log1p(observed), self.low_percentile, self.high_percentile)
 
 
 @metric()

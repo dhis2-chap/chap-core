@@ -59,10 +59,9 @@ def check_servable_as_chapkit(mlproject: dict) -> None:
     if unsupported:
         raise InvalidModelException(
             f"Running an MLproject with {unsupported[0]} as a chapkit service is not supported. "
-            "Use --run-config.ignore-environment to run its commands in the current environment, "
-            "or start a chapkit image yourself (for example "
-            "docker run -p 8000:8000 -v $(pwd):/work ghcr.io/dhis2-chap/chapkit-r-inla-cli) "
-            "and pass its URL as --model-name."
+            f"Replace {unsupported[0]} in the MLproject with renv_env (R) or uv_env (Python), "
+            "or add --run-config.ignore-environment to run the model with the R or Python "
+            "and packages already installed on this machine."
         )
 
 

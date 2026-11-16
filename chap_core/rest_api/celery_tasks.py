@@ -9,7 +9,8 @@ from typing import Any, TypeVar, cast
 from urllib.parse import urlsplit
 
 import celery
-from celery import Celery, Task, shared_task
+from celery import Celery, Task, shared_task, signals
+from celery.exceptions import WorkerLostError
 from celery.result import AsyncResult
 from celery.utils.log import get_task_logger
 from dotenv import find_dotenv, load_dotenv
@@ -277,6 +278,35 @@ class TrackedTask(Task):
                 "end_time": datetime.now(UTC).isoformat(),
             },
         )
+
+
+@signals.task_failure.connect
+def record_lost_worker(sender=None, task_id=None, exception=None, **_kwargs):
+    """Mark a job as failed when the worker process running it dies.
+
+    `TrackedTask.on_failure` runs inside the worker process, so it never runs when that process is
+    killed (out of memory, a signal). Celery's main worker process then reports `WorkerLostError`
+    through this signal. Without this the job stays STARTED forever.
+    """
+    if not isinstance(exception, WorkerLostError):
+        return
+    key = f"job_meta:{task_id}"
+    # Only a job chap tracks, and only one that has not already finished.
+    if r.hget(key, "status") not in ("PENDING", "STARTED"):
+        return
+    r.hset(
+        key,
+        mapping={
+            "status": "FAILURE",
+            "error": (
+                f"The worker process running this job was killed ({exception}). It may have run out of "
+                "memory: try with less data, or ask an administrator to check the worker's memory limit."
+            )[:JOB_ERROR_MAX_CHARS],
+            # The job's log ends where the process died; the logs endpoint appends this to say why.
+            "traceback": f"{type(exception).__name__}: {exception}",
+            "end_time": datetime.now(UTC).isoformat(),
+        },
+    )
 
 
 @shared_task(name="celery.ping")

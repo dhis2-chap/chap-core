@@ -3,10 +3,11 @@ from typing import Annotated, Any, Literal
 
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
 from fastapi.exceptions import RequestValidationError
 from pydantic import Field as PydanticField
 from pydantic import ValidationError as PydanticValidationError
+from pydantic_core import to_json
 from sqlalchemy.orm import selectinload
 from sqlmodel import Field, Session, select
 
@@ -14,7 +15,6 @@ import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import (
     BacktestParams,
     BacktestParamsBase,
-    DataElement,
     DataList,
     EvaluationEntry,
     FeatureCollectionModel,
@@ -46,10 +46,13 @@ from chap_core.database.tables import (
     is_not_baseline_backtest,
 )
 from chap_core.datatypes import create_tsdataclass
+from chap_core.exceptions import InvalidDateError
 from chap_core.services import threshold_service
 from chap_core.services.dataset_validation import RESERVED_FIELDS
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.time_period import TimePeriod
+from chap_core.time_period.date_util_wrapper import clean_timestring
 
 from ...celery_tasks import JOB_METADATA_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW, CeleryPool, JobType
 from ...data_models import (
@@ -66,6 +69,7 @@ from ...data_models import (
     MakeBacktestsResponse,
     MakeBacktestWithDataRequest,
     MakePredictionRequest,
+    ObservationColumns,
     PredictionParams,
     ValidationError,
 )
@@ -80,6 +84,7 @@ from .dependencies import (
     reject_mask_indicator_input,
     require_dataset_target,
     require_target_column,
+    within_model_horizon,
 )
 
 router = APIRouter(prefix="/analytics")
@@ -140,7 +145,9 @@ def make_dataset(
             JOB_TYPE_KW: JobType.DATASET,
             JOB_NAME_KW: request.name,
             JOB_METADATA_KW: {
-                "parameters": request.model_dump(mode="json", exclude={"name", "geojson", "provided_data"})
+                "parameters": request.model_dump(
+                    mode="json", exclude={"name", "geojson", "provided_data", "provided_data_columns"}
+                )
             },
         },
     )
@@ -189,16 +196,57 @@ def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataS
 
 
 def _read_dataset(request):
-    if not request.provided_data:
+    # Only make-dataset accepts columnar observations; create-backtest-with-data shares this reader.
+    columns = getattr(request, "provided_data_columns", None)
+    if not request.provided_data and (columns is None or not columns.org_unit):
         raise HTTPException(status_code=400, detail="No observation data provided.")
-    feature_names = list({entry.feature_name for entry in request.provided_data})
+    if columns is not None:
+        feature_names = list(columns.values)
+    else:
+        feature_names = list({entry.feature_name for entry in request.provided_data})
     reject_mask_indicator_input(feature_names)
     require_target_column(request.target_column, feature_names)
     dataclass = create_tsdataclass(feature_names)
-    provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
+    if columns is not None:
+        provided_data = _columns_to_dataset(dataclass, columns)
+    else:
+        provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
     return feature_names, provided_data
+
+
+def _columns_to_dataset(dataclass, columns: ObservationColumns) -> DataSet:
+    """Build the dataset straight from columnar observations, without one model per observation."""
+    frame = pd.DataFrame(
+        {
+            "location": columns.org_unit,
+            "time_period": columns.period,
+            **{name: np.array(values, dtype=float) for name, values in columns.values.items()},
+        }
+    )
+    # `2024W1`, `2024W01` and `2024-W01` are the same week, so compare periods in their parsed form.
+    frame["time_period"] = frame["time_period"].map({period: _period_id(period) for period in set(columns.period)})
+    duplicated = frame.duplicated(["location", "time_period"])
+    if duplicated.any():
+        first = frame[duplicated].iloc[0]
+        raise HTTPException(
+            status_code=422,
+            detail=f"providedDataColumns has more than one row for org unit {first.location!r}, "
+            f"period {first.time_period!r}",
+        )
+    return DataSet.from_pandas(frame, dataclass, fill_missing=True)
+
+
+def _period_id(period: str) -> str:
+    """The canonical id of a period string, or the string itself when it does not parse.
+
+    A period that does not parse is left for `DataSet.from_pandas` to reject, as before.
+    """
+    try:
+        return str(TimePeriod.parse(clean_timestring(period)).id)
+    except (ValueError, InvalidDateError):
+        return period
 
 
 def _find_locations_with_complete_covariates(
@@ -367,7 +415,7 @@ def get_backtest_overlap(
     tags=["Predictions"],
     summary="Read forecast quantiles for a prediction (query parameter id)",
 )
-async def get_prediction_entry(
+def get_prediction_entry(
     prediction_id: Annotated[int, Query(alias="predictionId")],
     quantiles: list[float] = Query(...),
     session: Session = Depends(get_session),
@@ -399,7 +447,7 @@ async def get_prediction_entry(
     tags=["Backtests"],
     summary="Read forecast quantiles from a backtest",
 )
-async def get_evaluation_entries(
+def get_evaluation_entries(
     backtest_id: Annotated[int, Query(alias="backtestId")],
     quantiles: list[float] = Query(...),
     split_period: str = Query(None, alias="splitPeriod"),
@@ -492,7 +540,7 @@ def create_backtest(
     Runs asynchronously; you get a job id and poll ``/v1/jobs/{id}`` (or
     ``/v1/jobs/{id}/evaluation_result`` once finished) to find the resulting backtest.
     Uses the dataset's saved target. A supplied targetColumn must match it, otherwise returns 422.
-    Returns 404 if the referenced dataset does not exist.
+    Returns 404 if the referenced dataset does not exist, and 409 if the configured model has been deleted.
     """
     stored_dataset = session.get(DataSetTable, request.dataset_id)
     if stored_dataset is None:
@@ -601,11 +649,12 @@ def create_backtests(
     deprecated=True,
     summary="Run a one-off forecast from inline data (deprecated, use prediction setups)",
 )
-async def make_prediction(
+def make_prediction(
     request: MakePredictionRequest,
     original_request: dict = Depends(get_job_request),
     worker_settings=Depends(get_settings),
     session: Session = Depends(get_session),
+    settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
     """Run a forecast against observations supplied directly in the request body — no stored dataset needed.
 
@@ -615,7 +664,8 @@ async def make_prediction(
 
     Forecasting happens in the background; the response carries a job id you poll via
     ``/v1/jobs/{id}`` for the result. The legacy ``data_to_be_fetched`` field is
-    rejected — supply the observations directly.
+    rejected — supply the observations directly. Without ``nPeriods``, the stored default
+    for the data's period type is used, kept within the range the model supports.
     """
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
@@ -625,14 +675,22 @@ async def make_prediction(
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
+    model = get_job_model(session, request.model_id)
+    n_periods = request.n_periods
+    if n_periods is None:
+        try:
+            period_type = period_type_of(provided_data.period_range[0])
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+        stored_default = settings_manager.get().backtest_params(period_type).n_periods
+        n_periods = within_model_horizon(stored_default, model.model_template)
     provided_data, _rejections = validate_full_dataset(feature_names, provided_data, request.target_column)
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     if request.data_to_be_fetched:
         raise HTTPException(status_code=404, detail="Data to be fetched is no longer supported by chap-core")
     dump = request.model_dump()
     dataset_info = DataSetCreateInfo(**dump).model_dump()
-    prediction_params = PredictionParams(**dump)
-    model = get_job_model(session, request.model_id)
+    prediction_params = PredictionParams(**(dump | {"n_periods": n_periods}))
     job = worker.queue_db(
         wf.predict_pipeline_from_composite_dataset,
         feature_names,
@@ -699,7 +757,7 @@ def get_prediction_entries(
         "matches the rest of the API's URL style."
     ),
 )
-async def get_actual_cases(
+def get_actual_cases(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     org_units: list[str] = Query(None, alias="orgUnits"),
     is_dataset_id: bool = Query(False, alias="isDatasetId"),
@@ -710,15 +768,11 @@ async def get_actual_cases(
     Filter to specific regions with ``orgUnits``, or pass ``orgUnits=["adm0"]`` to get
     one summed series across every region (useful for national-level views). Set
     ``isDatasetId=true`` to skip the backtest lookup and read directly from a dataset
-    id. 404 if the backtest, or with ``isDatasetId=true`` the dataset, is unknown.
+    id. 404 if the backtest, or with ``isDatasetId=true`` the dataset, is unknown, or if
+    the dataset has no observations of the target for the requested regions.
     """
-    return_summed = False
-    if org_units is not None and len(org_units) == 1 and org_units[0] == "adm0":
-        # returning sum of forecasts for all regions
-        return_summed = True
     if not is_dataset_id:
         backtest = session.get(Backtest, backtest_id)
-        logger.info(f"Backtest: {backtest}")
         if backtest is None:
             raise HTTPException(status_code=404, detail="Backtest not found")
         dataset_id = backtest.dataset_id
@@ -729,34 +783,26 @@ async def get_actual_cases(
         if dataset is None:
             raise HTTPException(status_code=404, detail="Dataset not found")
         target_column = dataset.target_column
-    observations = DataSetManager(session).observations(
-        dataset_id,
-        org_units=None if return_summed else org_units,
-        feature_names=[target_column],
-    )
-    logger.info(f"Observations: {observations}")
-    data_list = [
-        DataElement(
-            pe=observation.period,
-            ou=observation.org_unit,
-            value=float(observation.value)
-            if not (observation.value is None or np.isnan(observation.value) or observation.value is None)
-            else None,
-        )
-        for observation in observations
-    ]
-    if return_summed:
-        # sum over all regions
-        summed_values = {}
-        for element in data_list:
-            key = element.pe
-            if key not in summed_values:
-                summed_values[key] = 0.0
-            if element.value is not None:
-                summed_values[key] += element.value
-        data_list = [DataElement(pe=pe, ou="adm0", value=value) for pe, value in summed_values.items()]
-    logger.info(f"DataList: {len(data_list)}")
-    return DataList(featureId=target_column, dhis2Id=target_column, data=data_list)
+    manager = DataSetManager(session)
+    if org_units == ["adm0"]:
+        # One series summed over every region, computed in the database (CLIM-1790).
+        data = [
+            {"pe": period, "ou": "adm0", "value": total}
+            for period, total in manager.summed_feature_values(dataset_id, target_column)
+        ]
+    else:
+        data = [
+            {"pe": period, "ou": org_unit, "value": value}
+            for period, org_unit, value in manager.feature_values(dataset_id, target_column, org_units=org_units)
+        ]
+    logger.info("Actual cases for dataset %s: %d values", dataset_id, len(data))
+    if not data:
+        raise HTTPException(status_code=404, detail=f"Dataset {dataset_id} has no {target_column} observations")
+    # Plain dicts serialised in one call instead of a DataElement per row: building the
+    # models took over a second for a facility-scale dataset (CLIM-1876). NaN and infinity
+    # become null, since JSON has no literal for them.
+    body = {"featureId": target_column, "dhis2Id": target_column, "data": data}
+    return Response(content=to_json(body, inf_nan_mode="null"), media_type="application/json")
 
 
 data_sources = [
@@ -832,7 +878,7 @@ data_sources = [
     tags=["Datasets"],
     summary="Discover which external data sources can feed a dataset",
 )
-async def get_data_sources() -> list[ChapDataSource]:
+def get_data_sources() -> list[ChapDataSource]:
     """List the external covariate sources CHAP knows about (ERA5 temperature, precipitation, ...) and the dataset features each one maps to.
 
     Use this to power a data-source picker when authoring a dataset or a prediction
@@ -861,7 +907,7 @@ STRUCTURAL_FIELDS = RESERVED_FIELDS - {"disease_cases"}
     tags=["Datasets"],
     summary="Suggest covariate names for a model-independent dataset",
 )
-async def get_covariate_names(session: Session = Depends(get_session)) -> list[CovariateNameSuggestion]:
+def get_covariate_names(session: Session = Depends(get_session)) -> list[CovariateNameSuggestion]:
     """List covariate names to offer when naming the columns of a dataset that is not tied to a model.
 
     Models only run on a dataset whose covariate names match the names they ask for
@@ -900,7 +946,7 @@ async def get_covariate_names(session: Session = Depends(get_session)) -> list[C
     tags=["Backtests"],
     summary="Run a backtest from inline data",
 )
-async def create_backtest_with_data(
+def create_backtest_with_data(
     request: MakeBacktestWithDataRequest,
     original_request: dict = Depends(get_job_request),
     dry_run: bool = Query(

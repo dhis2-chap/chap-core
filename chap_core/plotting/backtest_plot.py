@@ -5,6 +5,7 @@ This module provides utility functions used by backtest visualizations.
 The actual plot implementations are in chap_core.assessment.backtest_plots.
 """
 
+import functools
 import textwrap
 
 import altair as alt
@@ -49,11 +50,15 @@ def text_chart(text, line_length=80, font_size=12, align="left", pad_bottom=50):
     return chart
 
 
+@functools.lru_cache(maxsize=4096)
 def clean_time(period):
     """Convert period to ISO date format for Altair temporal-encoding compatibility.
 
     Accepts all formats supported by TimePeriod.parse(), including compact
     formats like '202212' and '2022W13'.
+
+    Cached: plots apply this to every forecast row, one per sample, so the same few
+    periods would otherwise be parsed again for every location, period and sample.
     """
     from chap_core.time_period import TimePeriod
 

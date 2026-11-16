@@ -326,59 +326,49 @@ class TestEvaluationSerialization:
         assert original_forecast_count > 10000
 
 
-class TestXarrayHelperFunctions:
-    """Tests for _flat_data_to_xarray and _xarray_to_flat_data helper functions."""
+def _sorted_forecasts(evaluation):
+    return (
+        pd.DataFrame(evaluation.to_flat().forecasts)
+        .sort_values(["location", "time_period", "horizon_distance", "sample"])
+        .reset_index(drop=True)
+    )
 
-    def test_flat_data_to_xarray_creates_dataset(self, backtest):
-        """Test that _flat_data_to_xarray creates a valid xarray.Dataset."""
-        from chap_core.assessment.evaluation import _flat_data_to_xarray
 
+class TestFileLayout:
+    """The file stores forecasts by split (CLIM-1838) and still reads the older layout."""
+
+    def test_to_file_indexes_forecasts_by_split(self, backtest, tmp_path):
+        output_file = tmp_path / "evaluation.nc"
+        Evaluation.from_backtest(backtest).to_file(filepath=output_file)
+
+        with xr.open_dataset(output_file) as ds:
+            assert ds["forecast"].dims == ("location", "split", "horizon_distance", "sample")
+            assert ds["target_period"].dims == ("split", "horizon_distance")
+            assert ds.attrs["evaluation_format_version"] == 2
+
+    def test_from_file_reads_time_period_layout(self, backtest, tmp_path):
         evaluation = Evaluation.from_backtest(backtest)
-        flat_data = evaluation.to_flat()
+        flat = evaluation.to_flat()
+        # The layout chap wrote before the split dimension existed.
+        forecast = pd.DataFrame(flat.forecasts).set_index(["location", "time_period", "horizon_distance", "sample"])
+        observed = pd.DataFrame(flat.observations).set_index(["location", "time_period"])
+        old = xr.Dataset(
+            {"forecast": forecast["forecast"].to_xarray(), "observed": observed["disease_cases"].to_xarray()}
+        )
+        old.attrs = {"chap_version": "2.6.0", "future_weather_provider": evaluation.future_weather_provider}
+        output_file = tmp_path / "old_layout.nc"
+        old.to_netcdf(output_file)
 
-        model_metadata = {
-            "model_name": "TestModel",
-            "model_configuration": {},
-            "model_version": "1.0",
-            "split_periods": [],
-            "org_units": [],
-        }
+        loaded = Evaluation.from_file(output_file)
 
-        ds = _flat_data_to_xarray(flat_data, model_metadata)
+        pd.testing.assert_frame_equal(_sorted_forecasts(loaded), _sorted_forecasts(evaluation))
+        assert loaded.to_backtest().max_horizon_distance == 4
 
-        assert isinstance(ds, xr.Dataset)
-        assert "forecast" in ds.data_vars
-        assert "observed" in ds.data_vars
-        assert "horizon_distance" in ds.coords
-
-    def test_xarray_to_flat_data_creates_flat_data(self, backtest, tmp_path):
-        """Test that _xarray_to_flat_data creates valid FlatEvaluationData."""
-        from chap_core.assessment.evaluation import _flat_data_to_xarray, _xarray_to_flat_data
-
+    def test_reloaded_file_writes_the_same_forecasts(self, backtest, tmp_path):
         evaluation = Evaluation.from_backtest(backtest)
-        original_flat = evaluation.to_flat()
+        first = tmp_path / "first.nc"
+        evaluation.to_file(filepath=first)
+        second = tmp_path / "second.nc"
+        Evaluation.from_file(first).to_file(filepath=second)
 
-        model_metadata = {
-            "model_name": "TestModel",
-            "model_configuration": {},
-            "model_version": "1.0",
-            "split_periods": [],
-            "org_units": [],
-        }
-
-        ds = _flat_data_to_xarray(original_flat, model_metadata)
-        reconstructed_flat = _xarray_to_flat_data(ds)
-
-        assert isinstance(reconstructed_flat, FlatEvaluationData)
-        assert isinstance(reconstructed_flat.forecasts, pd.DataFrame)
-        assert isinstance(reconstructed_flat.observations, pd.DataFrame)
-
-        # Check that the DataFrames have the expected columns
-        assert set(reconstructed_flat.forecasts.columns) == {
-            "location",
-            "time_period",
-            "horizon_distance",
-            "sample",
-            "forecast",
-        }
-        assert set(reconstructed_flat.observations.columns) == {"location", "time_period", "disease_cases"}
+        pd.testing.assert_frame_equal(_sorted_forecasts(Evaluation.from_file(second)), _sorted_forecasts(evaluation))

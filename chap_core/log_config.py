@@ -11,6 +11,9 @@ CHAP_LOGS_DIR = Path(os.getenv("CHAP_LOGS_DIR", "logs/"))
 # Status logger name for user-facing logs (safe for API exposure)
 STATUS_LOGGER_NAME = "chap_status"
 
+# alembic logs each plugin it sets up at INFO when it is imported, which loading a chapkit model does (CLIM-1833).
+ALEMBIC_PLUGIN_LOGGER_NAME = "alembic.runtime.plugins"
+
 
 def is_debug_mode() -> bool:
     """Check if CHAP_DEBUG environment variable is set to enable debug mode.
@@ -38,6 +41,7 @@ def initialize_logging(debug: bool | None = None, log_file: str | None = None):
     else:
         logger.setLevel(level=logging.INFO)
         logger.info("Level set to INFO")
+    logging.getLogger(ALEMBIC_PLUGIN_LOGGER_NAME).setLevel(logging.NOTSET if debug else logging.WARNING)
 
     Path("/tmp/chap/logs").mkdir(parents=True, exist_ok=True)  # keep this in as it might be required for celery tasks  # noqa: S108 — shared log location for celery workers
 

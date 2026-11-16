@@ -29,7 +29,7 @@ SERVICE_KEY_HEADER = "X-Service-Key"
 # is brute-forceable by anyone who can reach the port.
 MIN_TOKEN_LENGTH = 32
 
-# /health is called without headers by the container HEALTHCHECK and the Helm probes, and
+# /health is called without headers by the container HEALTHCHECK and orchestrator probes, and
 # /system/info is how clients discover that a token is required.
 OPEN_PATHS = frozenset({"/health", "/health/ready", "/system/info"})
 

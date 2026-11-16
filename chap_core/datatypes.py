@@ -1,4 +1,5 @@
 import dataclasses
+import functools
 from warnings import deprecated
 
 import bionumpy as bnp
@@ -10,6 +11,17 @@ from .api_types import PeriodObservation
 from .time_period import PeriodRange
 from .time_period.date_util_wrapper import TimeStamp
 from .util import interpolate_nans
+
+
+@functools.lru_cache(maxsize=16)
+def _period_range_from_strings(period_strings: tuple[str, ...], fill_missing: bool):
+    """``PeriodRange.from_strings``, parsed once for each distinct list of period strings.
+
+    Every location of a dataset usually has the same periods, and parsing them dominated
+    ``DataSet.from_pandas`` for datasets with many locations. ``PeriodRange`` is immutable, so
+    locations can share one.
+    """
+    return PeriodRange.from_strings(period_strings, fill_missing=fill_missing)
 
 
 def tsdataclass(cls):
@@ -93,7 +105,7 @@ class TimeSeriesData:
             time_strings = data.time_period.astype(str)
             # check unique
             assert len(time_strings) == len(set(time_strings)), f"{time_strings} has duplicates"
-            time = PeriodRange.from_strings(time_strings, fill_missing=fill_missing)
+            time = _period_range_from_strings(tuple(time_strings), fill_missing)
         except Exception:
             raise
 
@@ -351,16 +363,26 @@ def add_field(data: BNPDataClass, new_class: type, **field_data):
     return new_class(**{field.name: getattr(data, field.name) for field in dataclasses.fields(data)} | field_data)
 
 
+@functools.cache
+def _class_without_field(cls: type, field_name: str) -> type:
+    """The time series class of ``cls`` without ``field_name``, created once for each class and field.
+
+    Creating a class is slow, and a dataset applies this to the data of every location.
+    """
+    new_class: type = tsdataclass(
+        dataclasses.make_dataclass(
+            cls.__name__,
+            [(field.name, field.type) for field in dataclasses.fields(cls) if field.name != field_name],
+            bases=(TimeSeriesData,),
+        )
+    )
+    return new_class
+
+
 def remove_field(data: BNPDataClass, field_name, new_class=None):
     is_type = isinstance(data, type)
     if new_class is None:
-        new_class = tsdataclass(
-            dataclasses.make_dataclass(
-                data.__class__.__name__,
-                [(field.name, field.type) for field in dataclasses.fields(data) if field.name != field_name],
-                bases=(TimeSeriesData,),
-            )
-        )
+        new_class = _class_without_field(data if is_type else data.__class__, field_name)
         if is_type:
             return new_class
     return new_class(

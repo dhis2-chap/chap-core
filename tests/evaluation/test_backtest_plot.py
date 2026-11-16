@@ -16,7 +16,10 @@ from chap_core.assessment.backtest_plots.evaluation_plot import EvaluationPlot, 
 from chap_core.assessment.backtest_plots.horizon_location_grid import HorizonLocationGridPlot
 from chap_core.plotting.backtest_plot import clean_time
 from chap_core.assessment.backtest_plots.predicted_vs_actual_linear_plot import PredictedVsActualLinearPlot
-from chap_core.assessment.backtest_plots.predicted_vs_actual_plot import PredictedVsActualPlot
+from chap_core.assessment.backtest_plots.predicted_vs_actual_plot import (
+    PredictedVsActualPlot,
+    median_forecasts_joined_with_observations,
+)
 from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasByHorizonPlot, SampleBiasByTimePeriodPlot
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.cli_endpoints.utils import plot_backtest
@@ -141,6 +144,19 @@ def test_clean_time_accepts_all_period_formats(period_str, expected):
     assert clean_time(period_str) == expected
 
 
+def test_predicted_vs_actual_joins_sample_medians_with_observations(flat_forecasts_multiple_samples, flat_observations):
+    merged = median_forecasts_joined_with_observations(flat_forecasts_multiple_samples, flat_observations)
+    rows = merged.sort_values(["location", "time_period"])[
+        ["location", "time_period", "horizon_distance", "median_forecast", "disease_cases"]
+    ].values.tolist()
+    assert rows == [
+        ["loc1", "2023-01-02", 1, 10.0, 11.0],
+        ["loc1", "2023-01-09", 2, 12.0, 13.0],
+        ["loc2", "2023-01-02", 1, 21.0, 19.0],
+        ["loc2", "2023-01-09", 2, 23.0, 21.0],
+    ]
+
+
 def test_evaluation_plot_monthly_data():
     """Test that evaluation plot works with monthly time periods."""
     forecasts = pd.DataFrame(
@@ -226,3 +242,13 @@ def test_generate_pdf_report(backtest: Backtest, tmp_path: Path):
 
     assert output_file.exists()
     assert output_file.stat().st_size > 0
+
+
+def test_pdf_report_rejects_forecasts_with_fewer_samples(backtest, tmp_path: Path):
+    from chap_core.assessment.forecast_cells import MissingSamplesError
+    from chap_core.assessment.prediction_evaluator import generate_pdf_from_evaluation
+
+    backtest.forecasts[0].values = backtest.forecasts[0].values[1:]
+
+    with pytest.raises(MissingSamplesError):
+        generate_pdf_from_evaluation(Evaluation.from_backtest(backtest), str(tmp_path / "report.pdf"))

@@ -39,7 +39,7 @@ A GitHub model is pinned to the commit its default branch points at when you run
 chap init study --model chapkit_ghr_model --dataset ./data.csv
 ```
 
-This writes `model_name: docker://ghcr.io/chap-models/chapkit_ghr_model:sha-<commit>` to `chap.yaml`. The image is run as described for `docker://` images below.
+This writes `model_name: docker://ghcr.io/chap-models/chapkit_ghr_model:sha-<commit>@sha256:<digest>` to `chap.yaml`. The digest is the one Chap Marketplace verified for that version, so the project keeps running the same image even if the tag is later moved. The image is run as described for `docker://` images below.
 
 ## Chapkit models
 

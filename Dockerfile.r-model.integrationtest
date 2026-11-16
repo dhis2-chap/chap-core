@@ -1,4 +1,4 @@
-FROM python:3.13-slim
+FROM python:3.13-slim@sha256:ae14d4ce8771606477a81446e7ef429edd6762305fc50c84507c1041fa8285d1
 
 COPY tests/docker_db_flow_r_model.py docker_db_flow_r_model.py
 COPY example_data example_data

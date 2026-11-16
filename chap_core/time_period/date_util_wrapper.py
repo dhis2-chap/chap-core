@@ -367,6 +367,8 @@ class Week(TimePeriod):
         return pd.Period(self._date, freq=("W"))
 
 
+# A dataset repeats the same few hundred period strings for every location.
+@functools.lru_cache(maxsize=4096)
 def clean_timestring(timestring: str):
     """Normalize time string format, ensuring 2-digit week numbers."""
     if isinstance(timestring, Number):
@@ -492,6 +494,17 @@ class TimeDelta(DateUtilWrapper):
         return (end_stamp - start_stamp) // self
 
 
+@functools.lru_cache(maxsize=1024)
+def _calendar_field(start: datetime, end: datetime, delta: relativedelta, name: str) -> NDArray[np.int_]:
+    """The month, year or ISO week of the start of each period of a range.
+
+    Datasets split by location and by backtest window hold many equal ranges, and
+    computing this period by period through ``relativedelta`` is slow.
+    """
+    period_range = PeriodRange(TimeStamp(start), TimeStamp(end), TimeDelta(delta))
+    return np.array([getattr(p.start_timestamp, name) for p in period_range])
+
+
 class PeriodRange(BNPDataClass):
     def __init__(
         self,
@@ -505,15 +518,21 @@ class PeriodRange(BNPDataClass):
 
     @property
     def month(self):
-        return np.array([p.start_timestamp.month for p in self])
+        return self._calendar_field("month")
 
     @property
     def year(self):
-        return np.array([p.start_timestamp.year for p in self])
+        return self._calendar_field("year")
 
     @property
     def week(self):
-        return np.array([p.start_timestamp.week for p in self])
+        return self._calendar_field("week")
+
+    def _calendar_field(self, name: str) -> NDArray[np.int_]:
+        """The ``name`` of each period's start, computed once for each distinct range."""
+        return _calendar_field(
+            self._start_timestamp._date, self._end_timestamp._date, self._time_delta._relative_delta, name
+        ).copy()
 
     @property
     def delta(self):
