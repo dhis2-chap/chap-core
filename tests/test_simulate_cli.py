@@ -39,6 +39,20 @@ def test_simulate_cli_adds_simulated_target(models_path, covariates_csv, tmp_pat
     assert (simulated.disease_cases >= 0).all()
 
 
+def test_simulate_cli_output_has_no_index_column(models_path, covariates_csv, tmp_path):
+    out_file = tmp_path / "simulated.csv"
+    simulate(
+        model_name=str(models_path / "climate_simulation_model"),
+        dataset_csv=covariates_csv,
+        out_file=out_file,
+        run_config=RunConfig(ignore_environment=True),
+    )
+
+    columns = pd.read_csv(out_file).columns
+    assert set(pd.read_csv(covariates_csv).columns) | {"disease_cases"} <= set(columns)
+    assert not [c for c in columns if c.startswith("Unnamed")]
+
+
 def test_simulate_cli_uses_model_configuration(models_path, covariates_csv, tmp_path):
     def run(seed):
         config_file = tmp_path / f"config_{seed}.yaml"
