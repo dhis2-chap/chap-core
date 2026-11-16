@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import cast
 
 import numpy as np
+import pandas as pd
 from sqlalchemy import func, insert
 from sqlmodel import col, select
 
@@ -25,7 +26,6 @@ from chap_core.datatypes import FullData, create_tsdataclass
 from chap_core.geometry import Polygons
 from chap_core.time_period import Month, TimePeriod, Week
 
-from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
 from .dataset_tables import DataSet, DataSetCreateInfo, DataSetInfo, Observation, check_masked_ranges_match_dataset
 from .manager import DbManager
@@ -271,10 +271,17 @@ class DataSetManager(DbManager[DataSet]):
             org_units=org_units,
             feature_names=feature_names,
         )
-        observations = list(self.session.exec(expr).all())
-        if not observations:
+        # Plain columns into a DataFrame: one ORM object per observation costs minutes and GBs at facility scale.
+        columns = (Observation.org_unit, Observation.period, Observation.feature_name, Observation.value)
+        # The session's connection: same transaction, without the ORM's per-row result processing.
+        rows = self.session.connection().execute(expr.with_only_columns(*columns)).all()  # type: ignore[arg-type]
+        if not rows:
             raise ValueError(f"No observations found for dataset {dataset_id} matching the given filters")
-        new_dataset = observations_to_dataset(dataclass, observations)
+        frame = pd.DataFrame.from_records(
+            cast("list[tuple]", rows), columns=["location", "time_period", "feature_name", "value"]
+        )
+        wide = frame.pivot(index=["location", "time_period"], columns="feature_name", values="value")
+        new_dataset = _DataSet.from_pandas(wide.astype(float).reset_index(), dataclass)
 
         if dataset.geojson:
             logger.info(f"Loading polygons from geojson for dataset id {dataset_id}")
