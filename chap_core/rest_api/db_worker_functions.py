@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from chap_core.api_types import BacktestParams
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.forecast import forecast_ahead
-from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
+from chap_core.assessment.metrics import compute_all_aggregated_metrics
 from chap_core.assessment.target_mask import (
     check_mask_outside_evaluation_window,
     check_target_column_allows_masking,
@@ -206,22 +206,18 @@ def run_backtest(
         info=info,
         specification=specification,
     )
-    backtest = evaluation.to_backtest()
+    backtest = evaluation.to_backtest(include_forecasts=False)
     backtest.model_db_id = configured_model.id
-    session.add_backtest(backtest)
     # Populate the global aggregate metric values on the backtest row so that
     # GET /v1/crud/backtests/{id}/full can return CRPS/MAPE/RMSE/etc without
     # the caller needing to round-trip through /v1/visualization/metric-plots.
-    # Per-forecast samples on BacktestForecast remain the source of truth for
-    # the visualization path; a failure here must not tank the whole backtest.
-    # This runs AFTER add_backtest because compute_all_aggregated_metrics_from_backtest
-    # reads `backtest.dataset.observations` via the Evaluation abstraction, and the
-    # `dataset` relationship only resolves once the row is attached + committed.
+    # They are computed from the evaluation in memory before it is stored; a failure
+    # here must not tank the whole backtest.
     try:
-        backtest.aggregate_metrics = compute_all_aggregated_metrics_from_backtest(backtest)
-        session.session.commit()
+        backtest.aggregate_metrics = compute_all_aggregated_metrics(evaluation)
     except Exception:
         logger.warning("Failed to compute aggregate metrics for backtest; leaving empty", exc_info=True)
+    session.add_backtest(backtest, forecast_rows=evaluation.forecast_rows())
     db_id = backtest.id
     assert db_id is not None
     status_logger.info(f"Backtest completed successfully. Results saved with ID {db_id}")

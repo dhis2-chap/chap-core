@@ -4,12 +4,7 @@ description: "Build a new Chap model from the R or Python MLproject template, ev
 
 # Build a new model from a template
 
-This tutorial takes you from a template to your own model running in Chap. You write a train and a predict script, in R or Python, and a short `MLproject` file that describes them. Chap runs the model as a [chapkit](chapkit.md) service, but you do not write any service code.
-
-!!! info "What you do not need"
-    - **No separate chapkit install.** Installing Chap also installs chapkit, and `chap eval` starts and stops the chapkit service for you. There is no `brew install chapkit`.
-    - **No Chap server.** You do not need to clone chap-core or run its `docker compose up`. That stack runs Chap for the Modeling App, and is not needed to develop or evaluate a model.
-    - **No `chapkit mlproject migrate`** and no `main.py`. They turn a model into a chapkit service project with its own service code, which most models do not need.
+This tutorial takes you from a template to your own model running in Chap. You write a train and a predict script, in R or Python, and a short `MLproject` file that describes them. You need Docker only for the last step, and you never need a running Chap server to develop or evaluate a model.
 
 If you already have a model, follow [Bring your existing model to Chap](existing_model.md) instead.
 
@@ -136,71 +131,12 @@ To make parts of the model configurable, for example the number of lags, declare
 
 ## 5. Package the model as a Docker image
 
-To run next to a Chap installation, the model is packaged as a Docker image. Your repository already has the files for this, so there is nothing to write: `Dockerfile` describes the image, `compose.yml` builds and starts it, and the workflows in `.github/workflows` build and publish it on GitHub. You need [Docker](setup.md#4-docker-only-to-deploy) for this step.
+To run next to a Chap installation, the model is packaged as a Docker image and published on GitHub. Your repository already has the files for this: `Dockerfile` describes the image, `compose.yml` builds and starts it, and the workflows in `.github/workflows` build and publish it on GitHub. Follow [Package and publish your model](package_and_publish.md), which also explains what the files do. You need [Docker](setup.md#4-docker-only-to-deploy) for this step.
 
-### Build and test the image on your machine
-
-From your repository folder, run:
-
-```console
-docker compose up --build
-```
-
-The first build takes a few minutes. The model is then at http://localhost:9090. In another terminal, check that Chap can use it:
-
-```console
-chap eval --model-name http://localhost:9090 --run-config.is-chapkit-model --dataset-csv input/trainData.csv --output-file output/eval.nc
-```
-
-Stop it with `Ctrl+C`, or `docker compose down`.
-
-??? info "What the Dockerfile does"
-    It starts from a chapkit base image that runs an `MLproject` as a chapkit service, installs your dependencies, and copies your scripts in unchanged. The Python one installs the dependencies from `pyproject.toml`:
-
-    ```dockerfile
-    FROM ghcr.io/dhis2-chap/chapkit-py-cli:latest
-    WORKDIR /work
-    COPY pyproject.toml ./
-    RUN uv pip install --python /app/.venv/bin/python -r pyproject.toml
-    COPY . .
-    ```
-
-    The R one restores the packages in `renv.lock`:
-
-    ```dockerfile
-    FROM ghcr.io/dhis2-chap/chapkit-r-cli:latest
-    WORKDIR /work
-    COPY .Rprofile renv.lock ./
-    COPY renv/ renv/
-    RUN Rscript -e "renv::restore(prompt = FALSE)"
-    COPY . .
-    ```
-
-    The dependencies are installed before the scripts are copied, so editing a script does not reinstall them. There are also base images with the tidyverse or INLA preinstalled, see [Running in a container](https://dhis2-chap.github.io/chapkit/guides/mlproject-runner/#running-in-a-container) in the chapkit docs.
-
-### Publish the image
-
-GitHub builds and publishes the image for you every time you push to the `main` branch. Commit your changes and push them:
-
-```console
-git add -A && git commit -m "Update the model" && git push
-```
-
-Then follow the build on GitHub:
-
-1. Open your repository on GitHub and click the **Actions** tab. Two workflows run for your push:
-    - **CI** builds the image, starts it and runs `chap eval` against it.
-    - **Publish Docker image** publishes the image.
-2. When both have a green check mark, the image is published as `ghcr.io/<your-user>/<your-repo>:latest`. It is listed under **Packages** on the right side of your repository's front page.
-3. The first time, open the package and check its visibility. If it is private, change it to public under **Package settings**, so that a Chap installation can pull it.
-
-To publish a fixed version as well, push a tag such as `v1.0.0`: `git tag v1.0.0 && git push --tags`. The image then also gets the tag `1.0.0`.
-
-If a workflow fails, click it to see which step failed and its output.
-
-To use the model from the Chap modeling app, run the image next to Chap. The service registers itself with Chap on startup. See [Running Your Own Model](../modeling-app/running-your-own-model.md).
+??? note "If you have been reading the chapkit documentation"
+    Chap runs your model through [chapkit](chapkit.md), which provides the REST API Chap talks to. You do not need to install chapkit separately: installing Chap installs it, and `chap eval` starts and stops the chapkit service for you. There is no `brew install chapkit`. You also do not need `chapkit mlproject migrate` or a `main.py`. They turn a model into a chapkit service project with its own service code, which most models do not need.
 
 ## Next steps
 
-- If you need service logic that an `MLproject` cannot express, `chapkit mlproject migrate` turns the repository into a full chapkit project with a generated `main.py`. See [MLproject Migrate](https://dhis2-chap.github.io/chapkit/guides/mlproject-migrate/) in the chapkit docs.
+- To make parts of the model configurable, declare `user_options` in the `MLproject`. See [Model Configuration Options](additional_configuration.md#model-configuration-options).
 - [Chapkit](chapkit.md) describes the data Chap sends to a chapkit service.

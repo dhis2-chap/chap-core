@@ -49,6 +49,21 @@ def test_save_dataset_stores_every_cell_across_insert_batches(engine, health_pop
     assert stored == expected
 
 
+@pytest.mark.slow
+@pytest.mark.parametrize("org_units", [None, ["FRmrFTE63D0"]])
+def test_feature_values_on_postgres_matches_stored_observations(postgres_engine, health_population_data, org_units):
+    with Session(postgres_engine) as session:
+        manager = DataSetManager(session)
+        dataset_id = manager.save_dataset(DataSetCreateInfo(name="pg"), health_population_data, None)
+        stored = sorted(
+            manager.observations(dataset_id, feature_names=["disease_cases"], org_units=org_units),
+            key=lambda obs: obs.id,
+        )
+        rows = manager.feature_values(dataset_id, "disease_cases", org_units=org_units)
+    assert rows
+    assert repr(rows) == repr([(obs.period, obs.org_unit, obs.value) for obs in stored])
+
+
 def _sorted_periods(observations):
     return sorted({obs.period for obs in observations})
 

@@ -30,10 +30,9 @@ def make_plot_from_backtest_object(
     backtest: Backtest, plotting_class: type[MetricPlotBase], metric: Metric, geojson: dict | None = None
 ) -> dict:
     evaluation = Evaluation.from_backtest(backtest)
-    flat_data = evaluation.to_flat()
-    if not metric.is_applicable(flat_data.observations):
+    if not metric.is_applicable(evaluation.get_observations()):  # type: ignore[arg-type]
         raise MetricNotApplicableError(f"Metric {metric.get_id()} cannot be computed for this backtest")
-    metric_data = metric.get_detailed_metric(flat_data.observations, flat_data.forecasts)
+    metric_data = metric.get_detailed_metric_from_cells(evaluation.to_cells())
     # Served to the frontend, which embeds the spec in a flexible-width container;
     # fill it horizontally while keeping the plot's fixed height.
     chart = plotting_class(metric_data, geojson).plot().properties(width="container")
@@ -43,6 +42,5 @@ def make_plot_from_backtest_object(
 def make_plot_from_evaluation_object(
     evaluation: Evaluation, plotting_class: type[MetricPlotBase], metric: Metric, geojson: dict | None = None
 ) -> alt.Chart:
-    flat_data = evaluation.to_flat()
-    metric_data = metric.get_detailed_metric(flat_data.observations, flat_data.forecasts)
+    metric_data = metric.get_detailed_metric_from_cells(evaluation.to_cells())
     return plotting_class(metric_data, geojson).plot()

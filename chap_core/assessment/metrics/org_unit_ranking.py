@@ -2,9 +2,11 @@
 Org unit ranking metric: how well the forecasts order org units by disease burden.
 """
 
+import numpy as np
 import pandas as pd
 
 from chap_core.assessment.flat_representations import DataDimension
+from chap_core.assessment.forecast_cells import ForecastCells
 from chap_core.assessment.metrics import metric
 from chap_core.assessment.metrics.base import (
     AggregationOp,
@@ -42,14 +44,15 @@ class OrgUnitRankingMetric(Metric):
         comparison_op="difference",
     )
 
-    def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
+    def compute_detailed_from_cells(self, cells: ForecastCells) -> pd.DataFrame:
         keys = ["time_period", "horizon_distance"]
-        median_forecasts = forecasts.groupby(["location", *keys], as_index=False)["forecast"].median()
-        merged = median_forecasts.merge(
-            observations[["location", "time_period", "disease_cases", "population"]],
-            on=["location", "time_period"],
-            how="inner",
-        )
+        scored = cells.observed_only()
+        if scored.population is None or not len(scored):
+            return pd.DataFrame(columns=[*keys, "metric"])
+        merged = scored.keys[keys].copy()
+        merged["forecast"] = np.median(scored.samples, axis=1)
+        merged["disease_cases"] = scored.observed
+        merged["population"] = scored.population
         merged = merged[merged["population"] > 0].copy()
         merged["forecast_incidence"] = merged["forecast"] / merged["population"]
         merged["observed_incidence"] = merged["disease_cases"] / merged["population"]
@@ -62,6 +65,10 @@ class OrgUnitRankingMetric(Metric):
             for (time_period, horizon), group in merged.groupby(keys)
         ]
         return pd.DataFrame(rows, columns=[*keys, "metric"])
+
+    def compute_cell_metrics(self, samples: np.ndarray, observed: np.ndarray) -> np.ndarray:
+        """A ranking compares org units, so there is no value per cell."""
+        raise NotImplementedError("OrgUnitRankingMetric is computed across org units, not per cell")
 
     def is_applicable(self, observations: pd.DataFrame) -> bool:
         """A ranking needs population and at least two org units that have it."""

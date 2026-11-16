@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import cast
 
 import numpy as np
-from sqlalchemy import insert
+from sqlalchemy import func, insert
 from sqlmodel import col, select
 
 from chap_core.assessment.target_mask import (
@@ -193,6 +193,50 @@ class DataSetManager(DbManager[DataSet]):
             feature_names=feature_names,
         )
         return list(self.session.exec(expr).all())
+
+    def feature_values(
+        self, dataset_id: int, feature_name: str, *, org_units: list[str] | None = None
+    ) -> list[tuple[str, str, float | None]]:
+        """Read ``(period, org_unit, value)`` rows of one feature as plain tuples, without building ORM objects."""
+        expr = (
+            select(Observation.period, Observation.org_unit, Observation.value)
+            .where(Observation.dataset_id == dataset_id)
+            .where(Observation.feature_name == feature_name)
+            .order_by(col(Observation.id))
+        )
+        if org_units is not None:
+            expr = expr.where(col(Observation.org_unit).in_(org_units))
+        connection = self.session.connection()
+        if connection.dialect.name == "postgresql":
+            # Facility-scale reads are hundreds of thousands of rows, and SQLAlchemy builds a Row
+            # object for each one. A plain DBAPI cursor returns tuples directly (CLIM-1876).
+            compiled = expr.compile(dialect=connection.dialect, compile_kwargs={"render_postcompile": True})
+            dbapi_connection = connection.connection.dbapi_connection
+            assert dbapi_connection is not None
+            cursor = dbapi_connection.cursor()
+            try:
+                cursor.execute(str(compiled), compiled.params)
+                return cast("list[tuple[str, str, float | None]]", cursor.fetchall())
+            finally:
+                cursor.close()
+        rows = connection.execute(expr)
+        return [(period, org_unit, value) for period, org_unit, value in rows]
+
+    def summed_feature_values(self, dataset_id: int, feature_name: str) -> list[tuple[str, float]]:
+        """Sum one feature over all org units per period in the database.
+
+        Missing and NaN values count as 0, so a period where every value is missing sums to 0.
+        Periods come in the order they were stored.
+        """
+        value = func.nullif(Observation.value, float("nan"))
+        expr = (
+            select(Observation.period, func.coalesce(func.sum(value), 0.0))
+            .where(Observation.dataset_id == dataset_id)
+            .where(Observation.feature_name == feature_name)
+            .group_by(Observation.period)
+            .order_by(func.min(Observation.id))
+        )
+        return [(period, float(total)) for period, total in self.session.exec(expr).all()]
 
     def to_dataset(
         self,
