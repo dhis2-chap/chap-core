@@ -373,6 +373,7 @@ def _samples_with_truth_to_xarray(evaluation_results: Iterable[_DataSet[SamplesW
             seen[loc_i, cols[new]] = True
 
     # A cell without samples is a forecast that was not made; one with only some is invalid.
+    # This rejects NaN samples on purpose, see check_sample_counts for why.
     missing = np.isnan(forecast.reshape(-1, n_samples)) if n_samples else np.zeros((0, 0), dtype=bool)
     check_sample_counts((~missing[~missing.all(axis=1)]).sum(axis=1))
 
@@ -396,6 +397,7 @@ def _cells_from_dataset(dataset: xr.Dataset) -> ForecastCells:
     matrix = values.reshape(n_cells, values.shape[3])
     missing = np.isnan(matrix)
     has_samples = ~missing.all(axis=1)
+    # Cells with only some samples are rejected on purpose, see check_sample_counts for why.
     check_sample_counts((~missing[has_samples]).sum(axis=1))
     present = np.flatnonzero(has_samples)
     loc_i, split_i, horizon_i = np.unravel_index(present, values.shape[:3])

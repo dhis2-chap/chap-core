@@ -33,6 +33,7 @@ from chap_core.exceptions import (
     ChapProjectError,
     DockerUnavailableError,
     InvalidModelException,
+    MissingSamplesError,
     ModelConfigurationException,
 )
 from chap_core.log_config import is_debug_mode
@@ -70,6 +71,7 @@ USER_FACING_ERRORS = (
     ChapProjectError,
     DockerUnavailableError,
     InvalidModelException,
+    MissingSamplesError,
     ModelConfigurationException,
 )
 

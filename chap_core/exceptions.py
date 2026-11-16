@@ -33,6 +33,14 @@ class DockerUnavailableError(Exception):
     """Raised when the Docker daemon cannot be reached."""
 
 
+class MissingSamplesError(ValueError):
+    """Raised when forecast cells do not all have the same number of samples.
+
+    This usually means the model returned NaN for some samples, so it is a model error
+    rather than a bug in Chap.
+    """
+
+
 class ModelTemplateRevisionConflict(ValueError):
     """A model template version label points at a different source revision than the one stored.
 
