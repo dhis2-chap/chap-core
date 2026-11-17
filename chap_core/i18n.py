@@ -18,7 +18,10 @@ def gettext(message: str) -> str:
 
 
 def translate_model_name(name: str) -> str:
-    """Translate the template part of a configured display name, preserving its user-chosen suffix."""
+    """Translate the template part of a configured display name, preserving its user-chosen suffix.
+
+    Mirrors the ``"<template> [<configuration>]"`` format built by ``ConfiguredModelDB.display_name``.
+    """
     template, separator, configuration = name.partition(" [")
     return gettext(template) + separator + configuration
 

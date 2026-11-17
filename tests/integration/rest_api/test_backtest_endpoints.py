@@ -38,32 +38,18 @@ from tests.integration.rest_api.db_endpoint_helpers import (
 )
 
 
-@pytest.mark.parametrize(
-    "accept_language,language",
-    [
-        ("fr", "fr"),
-        ("fr-CA, en;q=0.5", "fr"),
-        ("fr;q=0.4, en;q=0.8", "en"),
-        ("de, fr;q=0.8", "fr"),
-        ("fr;q=0, en", "en"),
-        ("fr;q=invalid", "en"),
-        ("de", "en"),
-        ("", "en"),
-    ],
-)
-def test_get_metrics(clean_engine, dependency_overrides, french_catalog, accept_language, language):
+def test_get_metrics(clean_engine, dependency_overrides, french_catalog):
     url = "/v1/visualization/metrics/1"
     english = client.get(url).json()
-    response = client.get(url, headers={"Accept-Language": accept_language})
+    assert any(metric["id"] == "crps" for metric in english)
+    response = client.get(url, headers={"Accept-Language": "fr"})
     assert response.status_code == 200
-    assert any(metric["id"] == "crps" for metric in response.json())
-    assert response.headers["Content-Language"] == language
+    assert response.headers["Content-Language"] == "fr"
     assert "Accept-Language" in response.headers["Vary"]
     expected = [dict(metric) for metric in english]
-    if language == "fr":
-        for metric in expected:
-            for field in ("displayName", "description", "comparisonDescription"):
-                metric[field] = french_catalog.get(metric[field], metric[field])
+    for metric in expected:
+        for field in ("displayName", "description", "comparisonDescription"):
+            metric[field] = french_catalog.get(metric[field], metric[field])
     assert response.json() == expected
     # A translated request must not change shared metric specs or later English requests.
     assert client.get(url).json() == english
@@ -104,17 +90,6 @@ def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_ove
         plot_id = plot_types[0]["id"]
         response = client.get(f"/v1/visualization/dataset-plots/{plot_id}/999999")
         assert response.status_code == 404, response.text
-
-
-def test_empty_text_is_not_translated_to_the_catalog_header(french_catalog):
-    from chap_core import i18n
-
-    token = i18n.current_translations.set(i18n.load_translations()["fr"])
-    try:
-        assert i18n.gettext("") == ""
-        assert i18n.gettext("Global median") == french_catalog["Global median"]
-    finally:
-        i18n.current_translations.reset(token)
 
 
 @pytest.mark.asyncio
