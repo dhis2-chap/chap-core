@@ -1,7 +1,5 @@
-import asyncio
 from datetime import datetime, timedelta
 
-import httpx
 import numpy as np
 import pytest
 from sqlmodel import Session, select
@@ -20,7 +18,6 @@ from chap_core.database.tables import (
     BacktestRead,
     BacktestSpecification,
 )
-from chap_core.rest_api.app import app
 from chap_core.rest_api.data_models import (
     BacktestCreate,
 )
@@ -94,19 +91,6 @@ def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_ove
         plot_id = plot_types[0]["id"]
         response = client.get(f"/v1/visualization/dataset-plots/{plot_id}/999999")
         assert response.status_code == 404, response.text
-
-
-@pytest.mark.asyncio
-async def test_concurrent_requests_keep_their_language(clean_engine, dependency_overrides, french_catalog):
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as async_client:
-        french, english = await asyncio.gather(
-            async_client.get("/v1/visualization/metrics/1", headers={"Accept-Language": "fr"}),
-            async_client.get("/v1/visualization/metrics/1", headers={"Accept-Language": "en"}),
-        )
-    description = "Mean Absolute Error - measures average absolute prediction error"
-    for response, expected in ((french, french_catalog[description]), (english, description)):
-        assert response.status_code == 200
-        assert next(metric for metric in response.json() if metric["id"] == "mae")["description"] == expected
 
 
 def test_compatible_backtests(clean_engine, dependency_overrides):

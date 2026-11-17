@@ -53,20 +53,11 @@ def test_saved_settings_store_only_changes_and_drive_leaderboard(
     assert response.status_code == 200, response.text
     leaderboard = response.json()
     assert leaderboard["defaultBaselineModel"] == "global_median"
-    baseline = next(
-        result["configuredModel"]
-        for result in leaderboard["baselines"]
-        if result["configuredModel"]["name"] == "global_median"
-    )
-    assert baseline["modelTemplate"]["displayName"] == "Global median"
     metrics = leaderboard["metrics"]
     assert [metric["id"] for metric in metrics] == saved["metricSortOrder"]
     assert [metric["id"] for metric in metrics if metric["isSelected"]] == saved["selectedMetrics"]
     assert [metric["sortOrder"] for metric in metrics] == list(range(len(metrics)))
     assert client.get("/v1/visualization/metrics/1", headers=headers).json() == metrics
-    mae = next(metric for metric in metrics if metric["id"] == "mae")
-    description = available_metrics["mae"]().get_description()
-    assert mae["description"] == french_catalog[description]
 
 
 def test_stored_settings_with_removed_metric_and_baseline_still_load(

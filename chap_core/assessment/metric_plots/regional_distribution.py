@@ -38,7 +38,7 @@ class RegionalMetricDistributionPlot(MetricPlotBase):
                     alt.Tooltip("metric:Q", format=".2f"),
                 ],
             )
-            .properties(width=700, height=280, title=gettext(title))
+            .properties(width=700, height=280, title=title)
         )
 
         mean_by_location = df.groupby("location", as_index=False).agg(mean_metric=("metric", "mean"))

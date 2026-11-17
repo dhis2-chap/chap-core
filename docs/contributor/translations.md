@@ -2,19 +2,21 @@
 
 Chap translates metric and model descriptions, plot metadata and chart labels.
 Metric and model names stay as written, so they match the literature and the
-model author's naming. API error and status messages stay English. Clients
-send the user's UI language in `Accept-Language`, for example `fr` or `fr-CA`. Chap honors quality weights and falls back to a base language,
-then English. Missing and fuzzy translations also fall back to the English source
-string. Responses include `Content-Language` and `Vary: Accept-Language`.
+model author's naming. API error and status messages stay English.
 
-Translation happens in the request context, including synchronous handlers.
-Model metadata is translated during response serialization; stored values, model
-versions, IDs, configuration names and scores stay unchanged. The catalog includes
-built-in model descriptions. Text supplied by external models is translated only when
-the catalog contains its exact source string. User data, error messages and
-worker logs are not translated. CLI commands
-and workers default to English. French translations and HISP WCA review are tracked
-in [CLIM-1895](https://dhis2.atlassian.net/browse/CLIM-1895).
+Clients send the user's UI language in `Accept-Language`, using the DHIS2 locale
+key, for example `fr`, `fr_CA` or `uz_UZ_Cyrl`. Chap honors quality weights and
+falls back to a base language, then English. Missing and fuzzy translations also
+fall back to the English source string. Responses include `Content-Language` and
+`Vary: Accept-Language`.
+
+Translation happens in the request context, including synchronous handlers. Model
+metadata is translated during response serialization; stored values, model
+versions, IDs, configuration names and scores stay unchanged. Text supplied by
+external models is translated only when the catalog contains its exact source
+string. User data, error messages and worker logs are not translated. CLI
+commands and workers default to English. French translations are tracked in
+[CLIM-1895](https://dhis2.atlassian.net/browse/CLIM-1895).
 
 ## Adding strings
 
@@ -39,7 +41,8 @@ separate compilation step. Restart Chap after updating catalogs.
 ## Transifex
 
 Chap-core is the `chap-core-en-pot` resource in the `hisp-uio/modeling-app`
-project, next to the chap-frontend resources, configured in `.tx/config`. For
+project, next to the chap-frontend resources, configured in `.tx/config` with the
+same `lang_map`, so PO files are named after DHIS2 locale keys. For
 chap-frontend, dhis2-bot opens PRs with translated PO files from Transifex; ask the
 DHIS2 apps team to set up the same sync for `dhis2-chap/chap-core`. Until then, a
 maintainer pushes the source with `tx push -s` and adds PO files by hand.

@@ -8,6 +8,12 @@ from babel.messages.catalog import Catalog
 from babel.messages.extract import extract_from_dir
 from babel.messages.pofile import read_po, write_po
 
+
+def messages(pot: bytes) -> bytes:
+    """Drop the header, whose year and Babel version change without any string changing."""
+    return pot.partition(b"\n\n")[2]
+
+
 root = Path(__file__).resolve().parents[1]
 destination = root / "chap_core/locales/en.pot"
 catalog = Catalog(project="chap-core", copyright_holder="Chap Team")
@@ -21,13 +27,6 @@ for filename, lineno, message, comments, context in extract_from_dir(root / "cha
 output = BytesIO()
 write_po(output, catalog, sort_output=True, include_lineno=False)
 content = output.getvalue().rstrip() + b"\n"
-
-
-
-def messages(pot: bytes) -> bytes:
-    """Drop the header, whose year and Babel version change without any string changing."""
-    return pot.partition(b"\n\n")[2]
-
 
 if "--check" in sys.argv:
     if not destination.exists() or messages(destination.read_bytes()) != messages(content):
