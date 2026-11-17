@@ -1,7 +1,0 @@
-git:
-  filters:
-    - filter_type: file
-      file_format: PO
-      source_language: en
-      source_file: chap_core/locales/en.pot
-      translation_files_expression: 'chap_core/locales/<lang>.po'

@@ -1,16 +1,16 @@
 # Translating API text
 
-Chap translates scoring and outbreak metric metadata, model display names and
-descriptions, and plot metadata and chart labels. API error and status messages
-stay English. Clients send the user's UI language in `Accept-Language`, for example
-`fr` or `fr-CA`. Chap honors quality weights and falls back to a base language,
+Chap translates metric and model descriptions, plot metadata and chart labels.
+Metric and model names stay as written, so they match the literature and the
+model author's naming. API error and status messages stay English. Clients
+send the user's UI language in `Accept-Language`, for example `fr` or `fr-CA`. Chap honors quality weights and falls back to a base language,
 then English. Missing and fuzzy translations also fall back to the English source
 string. Responses include `Content-Language` and `Vary: Accept-Language`.
 
 Translation happens in the request context, including synchronous handlers.
 Model metadata is translated during response serialization; stored values, model
 versions, IDs, configuration names and scores stay unchanged. The catalog includes
-built-in model metadata. Text supplied by external models is translated only when
+built-in model descriptions. Text supplied by external models is translated only when
 the catalog contains its exact source string. User data, error messages and
 worker logs are not translated. CLI commands
 and workers default to English. French translations and HISP WCA review are tracked
@@ -36,29 +36,13 @@ Translation files live at `chap_core/locales/<language>.po`. They ship inside th
 Python package and are compiled in memory once per process, so deployments need no
 separate compilation step. Restart Chap after updating catalogs.
 
-## Connecting Transifex (one-time setup)
+## Transifex
 
-The intended project is `hisp-uio/modeling-app`, shared with chap-frontend, with a
-separate resource for chap-core. The files alone do not enable remote syncing.
-The public project links to chap-frontend; its initial setup is in
-[chap-frontend PR #135](https://github.com/dhis2-chap/chap-frontend/pull/135).
-The chap-core connection and automatic translation PRs have not been verified;
-checking them requires a Transifex project maintainer and GitHub integration access.
-A maintainer must:
-
-1. Give the Transifex GitHub integration access to `dhis2-chap/chap-core`.
-2. In the project's GitHub integration, link this repository's `master` branch
-   using `transifex.yml`. Keep the existing frontend connection.
-3. Select automatic translation pull requests and the team's review threshold.
-4. Confirm the generated resource slug and update the resource section in
-   `.tx/config` if it differs from `chap-core-en-pot`. That file configures the
-   optional Transifex CLI; `transifex.yml` configures the GitHub integration.
-5. Verify a source update reaches Transifex and a translation update opens a PR.
-
-See the [Transifex GitHub setup guide](https://help.transifex.com/en/articles/6265125-github-installation-and-configuration).
-Once connected, committed source catalog updates sync automatically and translation
-PRs bring back PO files. Use the normal PR template and `Review needed:` line when
-reviewing those PRs.
+Chap-core is the `chap-core-en-pot` resource in the `hisp-uio/modeling-app`
+project, next to the chap-frontend resources, configured in `.tx/config`. For
+chap-frontend, dhis2-bot opens PRs with translated PO files from Transifex; ask the
+DHIS2 apps team to set up the same sync for `dhis2-chap/chap-core`. Until then, a
+maintainer pushes the source with `tx push -s` and adds PO files by hand.
 
 The Modeling App must explicitly send the DHIS2 user's UI language, and the DHIS2
 route must forward `Accept-Language`. Verify this through the deployed route as
