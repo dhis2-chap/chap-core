@@ -10,6 +10,7 @@ from chap_core.i18n import N_, gettext
     plot_id="metric_by_horizon_mean",
     name=N_("Horizon Plot"),
     description=N_("Shows the aggregated metric by forecast horizon"),
+    required_dimensions=["horizon_distance"],
 )
 class MetricByHorizonV2Mean(MetricPlotBase):
     def plot_from_df(self, title: str = N_("Mean metric by horizon")) -> alt.Chart:

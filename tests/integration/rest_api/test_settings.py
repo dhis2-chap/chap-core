@@ -58,7 +58,7 @@ def test_saved_settings_store_only_changes_and_drive_leaderboard(
         for result in leaderboard["baselines"]
         if result["configuredModel"]["name"] == "global_median"
     )
-    assert baseline["modelTemplate"]["displayName"] == french_catalog["Global median"]
+    assert baseline["modelTemplate"]["displayName"] == "Global median"
     metrics = leaderboard["metrics"]
     assert [metric["id"] for metric in metrics] == saved["metricSortOrder"]
     assert [metric["id"] for metric in metrics if metric["isSelected"]] == saved["selectedMetrics"]

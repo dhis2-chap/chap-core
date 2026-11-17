@@ -280,9 +280,8 @@ class ConfiguredModelRead(ModelConfiguration, DBModel):
         # ModelTemplateDB is a table model, so it cannot carry its own serializer without
         # translating stored dumps too. The key spelling depends on the caller's by_alias.
         data = handler(value)
-        for field in ("display_name", "displayName", "description"):
-            if field in data:
-                data[field] = gettext(data[field])
+        if "description" in data:
+            data["description"] = gettext(data["description"])
         return data
 
 

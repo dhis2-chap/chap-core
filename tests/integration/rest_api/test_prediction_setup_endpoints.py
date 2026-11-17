@@ -552,10 +552,9 @@ def test_backtest_list_exposes_prediction_setup_id(override_session, seeded_sess
 
 
 def test_run_prediction_setup_not_found_returns_404(clean_engine, dependency_overrides, example_polygons):
-    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    request = create_make_data_request(example_polygons, ["rainfall", "disease_cases", "population"])
     payload = request.model_dump(mode="json")
-    # /run body doesn't accept dataToBeFetched / dataSources / maskedRanges — strip them.
-    payload.pop("data_to_be_fetched", None)
+    # /run body doesn't accept dataSources / maskedRanges — strip them.
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
@@ -574,9 +573,10 @@ def test_run_prediction_setup_rejects_legacy_fields(override_session, seeded_ses
     assert created.status_code == 200, created.json()
     setup_id = created.json()["id"]
 
-    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    request = create_make_data_request(example_polygons, ["rainfall", "disease_cases", "population"])
     payload = request.model_dump(mode="json")
-    # Body still contains dataToBeFetched + dataSources from DatasetMakeRequest — exactly the legacy fields.
+    # Body still contains dataSources from DatasetMakeRequest; add dataToBeFetched as old clients send it.
+    payload["dataToBeFetched"] = []
     payload["nPeriods"] = 3
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
     assert response.status_code == 422
@@ -607,9 +607,8 @@ def test_run_prediction_setup_inherits_the_backtest_provider(
     _point_at_provider(seeded_session, backtest, "damped_persistence")
     setup_id = create_prediction_setup(backtest.id, "Inherit provider").json()["id"]
 
-    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    request = create_make_data_request(example_polygons, ["rainfall", "disease_cases", "population"])
     payload = request.model_dump(mode="json")
-    payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
@@ -637,10 +636,10 @@ def test_run_prediction_setup_inherits_the_backtest_provider(
 
 def _run_setup_capturing_the_job(setup_id, example_polygons, monkeypatch, n_periods=3):
     """Post a monthly 2020-01..2023-12 run to a prediction setup and return the response and the queued kwargs."""
-    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    request = create_make_data_request(example_polygons, ["rainfall", "disease_cases", "population"])
     payload = request.model_dump(
         mode="json",
-        exclude={"data_to_be_fetched", "data_sources", "masked_ranges", "target_column", "provided_data_columns"},
+        exclude={"data_sources", "masked_ranges", "target_column", "provided_data_columns"},
     )
     if n_periods is not None:
         payload["nPeriods"] = n_periods
@@ -726,7 +725,7 @@ def test_make_prediction_horizon(
     SettingsManager(seeded_session).update(
         defaults.model_copy(update={"monthly_backtest_params": BacktestParams(n_periods=5)})
     )
-    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"], periods)
+    request = create_make_data_request(example_polygons, ["rainfall", "disease_cases", "population"], periods)
     payload = request.model_dump(mode="json", exclude={"data_sources", "masked_ranges"})
     payload["modelId"] = "naive_model"
     if requested is not None:
@@ -774,12 +773,10 @@ def test_run_prediction_setup_rejects_input_carrying_the_mask_indicator(
     backtest = seeded_session.exec(select(Backtest)).first()
     assert backtest is not None
     setup_id = create_prediction_setup(backtest.id, "Indicator input").json()["id"]
-    request = create_make_data_request(
-        example_polygons, [], ["rainfall", "disease_cases", "population", "target_masked"]
-    )
+    request = create_make_data_request(example_polygons, ["rainfall", "disease_cases", "population", "target_masked"])
     payload = request.model_dump(
         mode="json",
-        exclude={"data_to_be_fetched", "data_sources", "masked_ranges", "target_column", "provided_data_columns"},
+        exclude={"data_sources", "masked_ranges", "target_column", "provided_data_columns"},
     )
     payload["nPeriods"] = 3
 
@@ -829,8 +826,8 @@ def test_prediction_pipeline_stores_the_ranges_and_trains_masked(
         return forecast_ahead(estimator, dataset, *args, **kwargs)
 
     monkeypatch.setattr(db_worker_functions, "forecast_ahead", recording_forecast_ahead)
-    features = ["rainfall", "disease_cases", "population"]
-    request = create_make_data_request(example_polygons, [], features)
+    features = ["rainfall", "mean_temperature", "disease_cases", "population"]
+    request = create_make_data_request(example_polygons, features)
     provided = observations_to_dataset(create_tsdataclass(features), request.provided_data, fill_missing=True)
     provided.set_polygons(request.geojson)
     ranges = [MaskedRange(start="2021-06", end="2021-08", name="covid")]
@@ -870,14 +867,16 @@ def test_run_prediction_setup_forecasts_the_backtest_target(
     seeded_session.commit()
     setup_id = create_prediction_setup(backtest.id, "Target forecast").json()["id"]
 
-    request = create_make_data_request(example_polygons, [], ["rainfall", "hospitalisations", "disease_cases"])
+    request = create_make_data_request(
+        example_polygons, ["rainfall", "mean_temperature", "hospitalisations", "disease_cases"]
+    )
     for observation in request.provided_data:
         observation.value = 0.0 if observation.feature_name == "hospitalisations" else 1000.0
-        if observation.feature_name != "rainfall" and observation.period == "2020-01":
+        if observation.feature_name in ("hospitalisations", "disease_cases") and observation.period == "2020-01":
             observation.value = None  # Target gaps must not reject otherwise valid locations.
     payload = request.model_dump(
         mode="json",
-        exclude={"data_to_be_fetched", "data_sources", "masked_ranges", "target_column", "provided_data_columns"},
+        exclude={"data_sources", "masked_ranges", "target_column", "provided_data_columns"},
     )
     payload["nPeriods"] = 3
 
@@ -903,10 +902,10 @@ def test_run_prediction_setup_forecasts_the_backtest_target(
 def test_run_prediction_setup_rejects_missing_target(override_session, seeded_session, example_polygons):
     backtest = seeded_session.exec(select(Backtest)).first()
     setup_id = create_prediction_setup(backtest.id, "Missing target").json()["id"]
-    request = create_make_data_request(example_polygons, [], ["rainfall"])
+    request = create_make_data_request(example_polygons, ["rainfall"])
     payload = request.model_dump(
         mode="json",
-        exclude={"data_to_be_fetched", "data_sources", "masked_ranges", "target_column", "provided_data_columns"},
+        exclude={"data_sources", "masked_ranges", "target_column", "provided_data_columns"},
     )
 
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
@@ -921,9 +920,8 @@ def test_run_prediction_setup_rejects_a_look_ahead_provider(override_session, se
     _point_at_provider(seeded_session, backtest, "observed")
     setup_id = create_prediction_setup(backtest.id, "Look-ahead setup").json()["id"]
 
-    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    request = create_make_data_request(example_polygons, ["rainfall", "disease_cases", "population"])
     payload = request.model_dump(mode="json")
-    payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
@@ -948,9 +946,8 @@ def test_run_prediction_setup_non_positive_n_periods_returns_422(
     assert created.status_code == 200, created.json()
     setup_id = created.json()["id"]
 
-    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    request = create_make_data_request(example_polygons, ["rainfall", "disease_cases", "population"])
     payload = request.model_dump(mode="json")
-    payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
@@ -993,9 +990,8 @@ def test_run_prediction_setup_archived_model_returns_409(override_session, seede
     seeded_session.add(configured_model)
     seeded_session.commit()
 
-    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    request = create_make_data_request(example_polygons, ["rainfall", "disease_cases", "population"])
     payload = request.model_dump(mode="json")
-    payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
@@ -1030,9 +1026,8 @@ def test_run_prediction_setup_queues_the_pinned_configured_model(
 
     monkeypatch.setattr(crud, "worker", _CapturingWorker())
 
-    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    request = create_make_data_request(example_polygons, ["rainfall", "disease_cases", "population"])
     payload = request.model_dump(mode="json")
-    payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
@@ -1074,9 +1069,8 @@ def test_run_prediction_setup_logs_rejection_count(
 
     monkeypatch.setattr(crud, "worker", _CapturingWorker())
 
-    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    request = create_make_data_request(example_polygons, ["rainfall", "disease_cases", "population"])
     payload = request.model_dump(mode="json")
-    payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
@@ -1147,9 +1141,8 @@ def test_run_prediction_setup_normalizes_dataset_type_to_prediction(
 
     monkeypatch.setattr(crud, "worker", _CapturingWorker())
 
-    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    request = create_make_data_request(example_polygons, ["rainfall", "disease_cases", "population"])
     payload = request.model_dump(mode="json")
-    payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
@@ -1200,9 +1193,8 @@ def test_run_prediction_setup_full_flow(
     assert created.status_code == 200, created.json()
     setup_id = created.json()["id"]
 
-    request = create_make_data_request(example_polygons, [], provided_features)
+    request = create_make_data_request(example_polygons, provided_features)
     payload = request.model_dump(mode="json")
-    payload.pop("data_to_be_fetched", None)
     payload.pop("data_sources", None)
     payload.pop("masked_ranges", None)
     payload.pop("target_column", None)
@@ -1229,12 +1221,8 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     models = [ModelSpecRead.model_validate(m) for m in model_list]
     model = next(m for m in models if m.name == "naive_model")
     features = [f.name for f in model.covariates]
-    fetched_feature, *provided_features = features
     provided_features = features + ["disease_cases"]
-    data_sources = client.get("/v1/analytics/data-sources").json()
-    data_source = next(ds for ds in data_sources if fetched_feature in ds["supportedFeatures"])
-    fetch_request = []  # [FetchRequest(feature_name=fetched_feature, data_source_name=data_source["name"])]
-    request = create_make_data_request(example_polygons, fetch_request, provided_features)
+    request = create_make_data_request(example_polygons, provided_features)
     request = MakePredictionRequest(model_id=model.name, **request.model_dump())
     data = request.model_dump(mode="json")
     response = client.post("/v1/analytics/make-prediction", json=data)

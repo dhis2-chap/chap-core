@@ -4,12 +4,10 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Optional, List
 from unittest.mock import patch
 
 # ignore showing plots in tests
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import pytest
 from sqlalchemy import create_engine
@@ -19,10 +17,10 @@ from chap_core import util
 from chap_core.api_types import RequestV1
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.dataset_tables import ObservationBase
-from chap_core.datatypes import FullData, HealthPopulationData, SimpleClimateData
+from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
 from chap_core.rest_api import celery_tasks
-from chap_core.rest_api.data_models import DatasetCreate, FetchRequest, MakePredictionRequest
+from chap_core.rest_api.data_models import DatasetCreate, MakePredictionRequest
 from chap_core.rest_api.worker_functions import WorkerConfig
 
 from .data_fixtures import *
@@ -344,20 +342,6 @@ def make_prediction_request(dataset_create):
 #     return app
 
 
-class GEEMock:
-    def __init__(self, *args, **kwargs): ...
-
-    def get_historical_era5(self, features, periodes, fetch_requests: Optional[List[FetchRequest]] = None):
-        locations = [f["id"] for f in features["features"]]
-        # SimpleClimateData is a tsdataclass with dynamic fields that pyright doesn't recognize
-        return DataSet(
-            {
-                location: SimpleClimateData(periodes, np.random.rand(len(periodes)), np.random.rand(len(periodes)))  # pyright: ignore[reportCallIssue]
-                for location in locations
-            }
-        )
-
-
 @pytest.fixture(scope="session")
 def database_url():
     # Use target directory for test database
@@ -472,6 +456,14 @@ def make_row_df():
         return pd.DataFrame(rows, columns=list(columns))
 
     return _make
+
+
+@pytest.fixture
+def level_response_actions():
+    return {
+        "monitor": "Review surveillance data.\nCheck reporting completeness.",
+        "action": "Notify the response team and investigate.",
+    }
 
 
 @pytest.fixture

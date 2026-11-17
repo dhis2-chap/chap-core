@@ -39,6 +39,11 @@ class AlertLevel(DBModel):
         description="Output code for this level. Must be non-empty and unique within the policy, including "
         "the no-alert code. For DHIS2 import, it must match the destination data element's value type or option set.",
     )
+    response_action: str | None = Field(
+        default=None,
+        description="Free-text action to take when an alert reaches this level. Existing alerts use the "
+        "policy's current text; `None` means no action is specified.",
+    )
     threshold_params: ThresholdParams = Field(
         description="Parameters for the epidemic channel this tier is judged against. Its `type` selects "
         "the threshold strategy, exactly as in `POST /v1/analytics/thresholds`. Must describe a single "

@@ -272,6 +272,7 @@ def test_evaluation_create_uses_hpo_best_configuration_and_attaches_runtime_meta
 
     monkeypatch.setattr(Evaluation, "calculate_periods_from_years", MagicMock(return_value=0))
     monkeypatch.setattr(Evaluation, "extract_historical_observations", MagicMock(return_value=[]))
+    monkeypatch.setattr(Evaluation, "extract_population_observations", MagicMock(return_value=[]))
     final_evaluation = object()
     from_samples_mock = MagicMock(return_value=final_evaluation)
     monkeypatch.setattr(Evaluation, "from_samples_with_truth", from_samples_mock)

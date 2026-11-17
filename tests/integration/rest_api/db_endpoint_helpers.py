@@ -41,7 +41,7 @@ def await_result_id(job_id, timeout=30):
     assert False, "Timed out"
 
 
-def create_make_data_request(example_polygons, fetch_request, proivided_features, periods=None):
+def create_make_data_request(example_polygons, proivided_features, periods=None):
     locations = [f.id for f in example_polygons.features]
     periods = periods or [f"{year}-{month:02d}" for year in range(2020, 2024) for month in range(1, 13)]
     combinations = itertools.product(proivided_features, periods, locations)
@@ -52,7 +52,6 @@ def create_make_data_request(example_polygons, fetch_request, proivided_features
         provided_data=[
             ObservationBase(feature_name=e, period=p, value=i, org_unit=l) for i, (e, p, l) in enumerate(combinations)
         ],
-        data_to_be_fetched=fetch_request,
     )
 
     return request

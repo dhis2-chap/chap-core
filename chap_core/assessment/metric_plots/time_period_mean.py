@@ -10,6 +10,7 @@ from chap_core.i18n import N_, gettext
     plot_id="metric_by_time_period_mean",
     name=N_("Time Period Plot"),
     description=N_("Shows the aggregated metric by time period"),
+    required_dimensions=["time_period"],
 )
 class MetricByTimePeriodV2Mean(MetricPlotBase):
     """Mean metric across locations and horizons per time period."""

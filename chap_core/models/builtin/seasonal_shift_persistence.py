@@ -7,7 +7,7 @@ import numpy as np
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.datatypes import Samples
 from chap_core.i18n import N_
-from chap_core.models.builtin.empirical import period_of_year, periods_per_year, quantile_samples
+from chap_core.models.builtin.empirical import even_samples, period_of_year, periods_per_year
 from chap_core.models.builtin.registry import BaselineNotApplicable, BuiltinModel, BuiltinModelSpec, builtin_model
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -70,8 +70,9 @@ class SeasonalShiftPersistence(BuiltinModel):
     For a target ``h`` periods after the last observed value ``y``, the samples are
     ``(y + 1) * r - 1`` for the ratios ``r = (y_t + 1) / (y_{t-h} + 1)`` in the training
     data of the same location, over every ``t`` with the target's period of year. The
-    ratios are quantile samples, so the median is ``y`` scaled by the median ratio, and
-    the spread widens with the horizon. Adding one keeps zero counts usable. Week 53 is
+    ratios are repeated about equally often around their exact median as the middle sample
+    (see ``even_samples``), so the median forecast is ``y`` scaled by the
+    median ratio, and the spread widens with the horizon. Adding one keeps zero counts usable. Week 53 is
     pooled with week 52.
 
     Training keeps the ratios for horizons up to one year. Missing ratios fall back to
@@ -85,12 +86,12 @@ class SeasonalShiftPersistence(BuiltinModel):
 
     spec = BuiltinModelSpec(
         name="seasonal_shift_persistence",
-        display_name=N_("Seasonal shift persistence"),
+        display_name="Seasonal shift persistence",
         description=N_(
             "Baseline that forecasts the last observed value for the same location, scaled by how cases "
             "changed over the same horizon and time of year in the training data."
         ),
-        version="1",
+        version="2",
         role=ModelTemplateRole.baseline,
     )
 
@@ -133,7 +134,7 @@ class SeasonalShiftPersistence(BuiltinModel):
             last_value = cases[observed[-1]]
             periods_since_last = len(cases) - observed[-1]
             rows = [
-                np.maximum((last_value + 1) * quantile_samples(self._ratios(location, season, horizon)) - 1, 0)
+                np.maximum((last_value + 1) * even_samples(self._ratios(location, season, horizon)) - 1, 0)
                 for horizon, season in enumerate(period_of_year(location_data.time_period), start=periods_since_last)
             ]
             forecasts[location] = Samples(location_data.time_period, np.array(rows))  # type: ignore[call-arg]

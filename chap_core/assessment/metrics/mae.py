@@ -29,7 +29,7 @@ class MAEMetric(DeterministicMetric):
 
     spec = MetricSpec(
         metric_id="mae",
-        metric_name=N_("MAE"),
+        metric_name="MAE",
         aggregation_op=AggregationOp.MEAN,
         description=N_("Mean Absolute Error - measures average absolute prediction error"),
         optimization_direction=OptimizationDirection.MINIMIZE,

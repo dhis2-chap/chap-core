@@ -11,11 +11,9 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from chap_core.exceptions import MissingSamplesError
+
 CELL_KEYS = ["location", "time_period", "horizon_distance"]
-
-
-class MissingSamplesError(ValueError):
-    """Raised when forecast cells do not all have the same number of samples."""
 
 
 @dataclass
@@ -28,11 +26,14 @@ class ForecastCells:
             sorted by those columns
         samples: The samples of each cell, shape (cells, samples)
         observed: The observed value of each cell, NaN where there is none
+        population: The population of each cell's location and period, NaN where there is
+            none, or None when the observations have no population at all
     """
 
     keys: pd.DataFrame
     samples: np.ndarray
     observed: np.ndarray
+    population: np.ndarray | None = None
 
     def __len__(self) -> int:
         return len(self.keys)
@@ -59,7 +60,13 @@ class ForecastCells:
             return cls(keys=keys, samples=samples.reshape(0, 0), observed=np.empty(0))
         order = keys.sort_values(CELL_KEYS, kind="stable").index.to_numpy()
         keys = keys.iloc[order].reset_index(drop=True)
-        return cls(keys=keys, samples=samples[order], observed=_observed_for(keys, observations))
+        population = _column_for(keys, observations, "population") if "population" in observations.columns else None
+        return cls(
+            keys=keys,
+            samples=samples[order],
+            observed=_column_for(keys, observations, "disease_cases"),
+            population=population,
+        )
 
     @classmethod
     def from_flat(cls, observations: pd.DataFrame, forecasts: pd.DataFrame) -> ForecastCells:
@@ -92,12 +99,23 @@ class ForecastCells:
         """The cells that have an observation, which are the ones a metric scores."""
         keep = ~np.isnan(self.observed)
         return ForecastCells(
-            keys=self.keys[keep].reset_index(drop=True), samples=self.samples[keep], observed=self.observed[keep]
+            keys=self.keys[keep].reset_index(drop=True),
+            samples=self.samples[keep],
+            observed=self.observed[keep],
+            population=self.population[keep] if self.population is not None else None,
         )
 
 
 def check_sample_counts(sizes: np.ndarray) -> None:
-    """Raise unless every forecast cell has the same number of samples."""
+    """Raise unless every forecast cell has the same number of samples.
+
+    A NaN sample means the model failed to draw it, so a cell with fewer samples than the
+    others is a broken forecast. It is rejected rather than dropped: metrics take one
+    (cells x samples) matrix, and scoring cells on different numbers of samples would make
+    them incomparable and hide the model error. A cell with no samples at all is a forecast
+    that was not made (for example a location missing from a split), not a broken one, so
+    callers leave those cells out before calling this.
+    """
     if len(sizes) and not (sizes == sizes[0]).all():
         counts = np.unique(sizes)
         raise MissingSamplesError(
@@ -107,13 +125,14 @@ def check_sample_counts(sizes: np.ndarray) -> None:
         )
 
 
-def _observed_for(keys: pd.DataFrame, observations: pd.DataFrame) -> np.ndarray:
+def _column_for(keys: pd.DataFrame, observations: pd.DataFrame, column: str) -> np.ndarray:
+    """The value of an observations column for each cell's location and period, NaN where there is none."""
     if keys.empty or observations.empty:
         return np.full(len(keys), np.nan)
-    observed = (
-        observations[["location", "time_period", "disease_cases"]]
+    values = (
+        observations[["location", "time_period", column]]
         .astype({"location": str, "time_period": str})
         .drop_duplicates(["location", "time_period"])
     )
-    merged = keys[["location", "time_period"]].merge(observed, on=["location", "time_period"], how="left")
-    return merged["disease_cases"].to_numpy(dtype=float)
+    merged = keys[["location", "time_period"]].merge(values, on=["location", "time_period"], how="left")
+    return merged[column].to_numpy(dtype=float)

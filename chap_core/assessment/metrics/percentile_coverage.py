@@ -46,7 +46,7 @@ class Coverage10_90Metric(PercentileCoverageMetric):
 
     spec = MetricSpec(
         metric_id="coverage_10_90",
-        metric_name=N_("Coverage 10-90"),
+        metric_name="Coverage 10-90",
         aggregation_op=AggregationOp.MEAN,
         description=N_(
             "Proportion of observations within 10th-90th percentile (higher is better, up to the 0.8 target)"
@@ -66,7 +66,7 @@ class Coverage25_75Metric(PercentileCoverageMetric):
 
     spec = MetricSpec(
         metric_id="coverage_25_75",
-        metric_name=N_("Coverage 25-75"),
+        metric_name="Coverage 25-75",
         aggregation_op=AggregationOp.MEAN,
         description=N_(
             "Proportion of observations within 25th-75th percentile (higher is better, up to the 0.5 target)"

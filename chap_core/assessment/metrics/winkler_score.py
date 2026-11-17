@@ -69,7 +69,7 @@ class WinklerScore10_90Metric(WinklerScoreMetric):
 
     spec = MetricSpec(
         metric_id="winkler_score_10_90",
-        metric_name=N_("Winkler Score 10-90"),
+        metric_name="Winkler Score 10-90",
         aggregation_op=AggregationOp.MEAN,
         description=N_("Winkler score for 10th-90th percentile prediction interval"),
         optimization_direction=OptimizationDirection.MINIMIZE,
@@ -86,7 +86,7 @@ class WinklerScore25_75Metric(WinklerScoreMetric):
 
     spec = MetricSpec(
         metric_id="winkler_score_25_75",
-        metric_name=N_("Winkler Score 25-75"),
+        metric_name="Winkler Score 25-75",
         aggregation_op=AggregationOp.MEAN,
         description=N_("Winkler score for 25th-75th percentile prediction interval"),
         optimization_direction=OptimizationDirection.MINIMIZE,
@@ -133,7 +133,7 @@ class WinklerScore10_90Log1pMetric(WinklerScoreLog1pMetric):
 
     spec = MetricSpec(
         metric_id="winkler_score_10_90_log1p",
-        metric_name=N_("Winkler 10-90 (log1p)"),
+        metric_name="Winkler 10-90 (log1p)",
         aggregation_op=AggregationOp.MEAN,
         description=N_("Winkler score on log(1+x)-transformed values for 10-90 interval"),
         optimization_direction=OptimizationDirection.MINIMIZE,
@@ -150,7 +150,7 @@ class WinklerScore25_75Log1pMetric(WinklerScoreLog1pMetric):
 
     spec = MetricSpec(
         metric_id="winkler_score_25_75_log1p",
-        metric_name=N_("Winkler 25-75 (log1p)"),
+        metric_name="Winkler 25-75 (log1p)",
         aggregation_op=AggregationOp.MEAN,
         description=N_("Winkler score on log(1+x)-transformed values for 25-75 interval"),
         optimization_direction=OptimizationDirection.MINIMIZE,

@@ -9,6 +9,7 @@ from chap_core.i18n import N_, gettext
     plot_id="regional_metric_distribution",
     name=N_("Regional Metric Distribution"),
     description=N_("Boxplots showing metric distributions by location with mean points"),
+    required_dimensions=["location", "time_period", "horizon_distance"],
 )
 class RegionalMetricDistributionPlot(MetricPlotBase):
     """Location-level metric distributions with mean markers."""

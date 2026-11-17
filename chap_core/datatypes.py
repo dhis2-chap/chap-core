@@ -13,17 +13,6 @@ from .time_period.date_util_wrapper import TimeStamp
 from .util import interpolate_nans
 
 
-@functools.lru_cache(maxsize=16)
-def _period_range_from_strings(period_strings: tuple[str, ...], fill_missing: bool):
-    """``PeriodRange.from_strings``, parsed once for each distinct list of period strings.
-
-    Every location of a dataset usually has the same periods, and parsing them dominated
-    ``DataSet.from_pandas`` for datasets with many locations. ``PeriodRange`` is immutable, so
-    locations can share one.
-    """
-    return PeriodRange.from_strings(period_strings, fill_missing=fill_missing)
-
-
 def tsdataclass(cls):
     tmp_cls = bnp.bnpdataclass.bnpdataclass(cls)
     tmp_cls.__annotations__["time_period"] = PeriodRange
@@ -105,7 +94,7 @@ class TimeSeriesData:
             time_strings = data.time_period.astype(str)
             # check unique
             assert len(time_strings) == len(set(time_strings)), f"{time_strings} has duplicates"
-            time = _period_range_from_strings(tuple(time_strings), fill_missing)
+            time = PeriodRange.from_strings(time_strings, fill_missing=fill_missing)
         except Exception:
             raise
 

@@ -48,11 +48,13 @@ def test_get_metrics(clean_engine, dependency_overrides, french_catalog):
     assert "Accept-Language" in response.headers["Vary"]
     expected = [dict(metric) for metric in english]
     for metric in expected:
-        for field in ("displayName", "description", "comparisonDescription"):
+        for field in ("description", "comparisonDescription"):
             metric[field] = french_catalog.get(metric[field], metric[field])
     assert response.json() == expected
     # A translated request must not change shared metric specs or later English requests.
     assert client.get(url).json() == english
+    ranking = next(metric for metric in english if metric["id"] == "org_unit_ranking")
+    assert ranking["dimensions"] == ["time_period", "horizon_distance"]
 
 
 def test_get_visualizations(clean_engine, dependency_overrides, french_catalog):
@@ -65,6 +67,8 @@ def test_get_visualizations(clean_engine, dependency_overrides, french_catalog):
         assert translated == [
             {**plot, "displayName": french_catalog.get(plot["displayName"], plot["displayName"])} for plot in english
         ]
+    plot_map = next(plot for plot in response.json() if plot["id"] == "metric_map")
+    assert plot_map["requiredDimensions"] == ["location"]
 
 
 def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_overrides):
@@ -99,9 +103,10 @@ async def test_concurrent_requests_keep_their_language(clean_engine, dependency_
             async_client.get("/v1/visualization/metrics/1", headers={"Accept-Language": "fr"}),
             async_client.get("/v1/visualization/metrics/1", headers={"Accept-Language": "en"}),
         )
-    for response, name in ((french, french_catalog["CRPS Normalized"]), (english, "CRPS Normalized")):
+    description = "Mean Absolute Error - measures average absolute prediction error"
+    for response, expected in ((french, french_catalog[description]), (english, description)):
         assert response.status_code == 200
-        assert next(metric for metric in response.json() if metric["id"] == "crps_norm")["displayName"] == name
+        assert next(metric for metric in response.json() if metric["id"] == "mae")["description"] == expected
 
 
 def test_compatible_backtests(clean_engine, dependency_overrides):
@@ -532,20 +537,22 @@ def test_target_column_is_scored_and_separates_specifications(override_session, 
 
     with SessionWrapper(p_seeded_engine) as session:
         dataset_id = session.session.exec(select(DataSet.id)).first()
-        for observation in session.session.exec(select(Observation).where(Observation.feature_name == "rainfall")):
+        for observation in session.session.exec(select(Observation).where(Observation.feature_name == "population")):
             observation.value = 7.0
         session.session.commit()
         params = {"n_periods": 3, "n_splits": 2}
         default = session.session.get(Backtest, _run(session, "default", dataset_id, **params))
-        rainfall = session.session.get(Backtest, _run(session, "rain", dataset_id, target_column="rainfall", **params))
+        target = session.session.get(
+            Backtest, _run(session, "population", dataset_id, target_column="population", **params)
+        )
 
-        assert default.specification_id != rainfall.specification_id
-        assert set(Evaluation.from_backtest(rainfall).to_flat().observations.disease_cases) == {7.0}
-    rows = client.get("/v1/crud/backtest-specifications", params={"targetColumn": "rainfall"}).json()
-    assert [row["id"] for row in rows] == [rainfall.specification_id]
-    actual_cases = DataList.model_validate(client.get(f"/v1/analytics/actual-cases/{rainfall.id}").json())
+        assert default.specification_id != target.specification_id
+        assert set(Evaluation.from_backtest(target).to_flat().observations.disease_cases) == {7.0}
+    rows = client.get("/v1/crud/backtest-specifications", params={"targetColumn": "population"}).json()
+    assert [row["id"] for row in rows] == [target.specification_id]
+    actual_cases = DataList.model_validate(client.get(f"/v1/analytics/actual-cases/{target.id}").json())
     assert {entry.value for entry in actual_cases.data} == {7.0}
-    assert actual_cases.featureId == actual_cases.dhis2Id == "rainfall"
+    assert actual_cases.featureId == actual_cases.dhis2Id == "population"
 
 
 @pytest.mark.parametrize("endpoint", ["create-backtest", "create-backtests"])
@@ -983,6 +990,10 @@ def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run
     for plot_name in ["metric_by_horizon_mean", "metric_map"]:
         response = client.get(f"/v1/visualization/metric-plots/{plot_name}/{db_id}/crps")
         assert response.status_code == 200, response.json()
+    response = client.get(f"/v1/visualization/metric-plots/metric_by_horizon_mean/{db_id}/org_unit_ranking")
+    assert response.status_code == 200, response.json()
+    response = client.get(f"/v1/visualization/metric-plots/metric_map/{db_id}/org_unit_ranking")
+    assert response.status_code == 400, response.json()
 
 
 def test_all_backtest_plots_via_api(override_session, seeded_session):

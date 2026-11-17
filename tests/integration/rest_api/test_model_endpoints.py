@@ -69,11 +69,9 @@ def test_list_model_templates(dependency_overrides, french_catalog, clean_engine
     headers = {"Accept-Language": "fr"}
     translated = client.get("/v1/crud/model-templates", headers=headers).json()
     french = next(m for m in translated if m["name"] == "global_median")
-    assert french == {
-        **english,
-        "displayName": french_catalog[english["displayName"]],
-        "description": french_catalog[english["description"]],
-    }
+    # Model names stay as their author wrote them, even when the catalog has an entry.
+    assert english["displayName"] in french_catalog
+    assert french == {**english, "description": french_catalog[english["description"]]}
     configured = client.get("/v1/crud/configured-models", headers=headers).json()
     model = next(m for m in configured if m["name"] == "global_median")
     assert model["displayName"] == french["displayName"]

@@ -1,5 +1,6 @@
 import os
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -55,7 +56,11 @@ def test_digest_pinned_image_runs_by_digest_under_a_short_name(fake_docker):
 
 
 def test_each_launch_gets_its_own_container_name(fake_docker):
-    port = find_available_port()
+    # An OS-assigned port, so a service another worker starts from 8001 upwards cannot take it
+    # between the two launches.
+    with socket.socket() as unused:
+        unused.bind(("127.0.0.1", 0))
+        port = unused.getsockname()[1]
     for _ in range(2):
         with DockerChapkitServiceManager(IMAGE, port=port, startup_timeout=15):
             pass

@@ -11,6 +11,7 @@ from chap_core.i18n import N_, gettext
     plot_id="metric_map",
     name=N_("Map"),
     description=N_("Shows a map of aggregated metrics per org unit"),
+    required_dimensions=["location"],
 )
 class MetricMapV2(MetricPlotBase):
     """Geospatial visualization of aggregated metric per location."""

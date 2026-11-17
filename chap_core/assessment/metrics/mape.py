@@ -31,7 +31,7 @@ class MAPEMetric(DeterministicMetric):
 
     spec = MetricSpec(
         metric_id="mape",
-        metric_name=N_("MAPE"),
+        metric_name="MAPE",
         aggregation_op=AggregationOp.MEAN,
         description=N_("Mean Absolute Percentage Error - average absolute error as percent of observed"),
         optimization_direction=OptimizationDirection.MINIMIZE,

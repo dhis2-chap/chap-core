@@ -359,7 +359,8 @@ class ExternalModel(ExternalModelBase):
 
         Rows that already have a value for the target are treated as observed history: the model must keep them and
         only fill in the missing rows. This lets a simulation be continued by passing its previous output with new
-        covariate rows appended.
+        covariate rows appended. The model may leave the target missing for some rows, e.g. to simulate unreported
+        periods.
         """
         if self._model_information is None or self._model_information.entry_points is None:
             raise InvalidModelException("Model has no entry points configured; cannot simulate")
@@ -396,8 +397,6 @@ class ExternalModel(ExternalModelBase):
         target = self._model_information.target
         if target not in df.columns:
             raise ModelFailedException(f"Simulation output is missing the target column '{target}'")
-        if df[target].isna().any():
-            raise ModelFailedException(f"Simulation output has missing values in '{target}'")
         self._check_observed_values_kept(covariates.to_pandas(), df, target)
         simulated: DataSet = DataSet.from_pandas(df)
         same_periods = [p.id for p in simulated.period_range] == [p.id for p in covariates.period_range]

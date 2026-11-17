@@ -17,10 +17,6 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: assessment/outbreak_metrics/binary.py
-msgid "Accuracy"
-msgstr ""
-
 #: assessment/backtest_plots/predicted_vs_actual_plot.py
 msgid "Actual"
 msgstr ""
@@ -35,10 +31,6 @@ msgstr ""
 
 #: assessment/backtest_plots/evaluation_plot.py
 msgid "Backtest Forecasts with Observations"
-msgstr ""
-
-#: assessment/outbreak_metrics/binary.py
-msgid "Balanced accuracy"
 msgstr ""
 
 #: plotting/season_plot.py
@@ -79,27 +71,11 @@ msgid "Boxplots showing metric distributions by location with mean points"
 msgstr ""
 
 #: assessment/metrics/crps.py
-msgid "CRPS"
-msgstr ""
-
-#: assessment/metrics/crps.py
-msgid "CRPS (log1p)"
-msgstr ""
-
-#: assessment/metrics/crps_norm.py
-msgid "CRPS Normalized"
-msgstr ""
-
-#: assessment/metrics/crps.py
 msgid "CRPS computed on log(1+x)-transformed forecasts and observations"
 msgstr ""
 
 #: assessment/backtest_plots/horizon_location_grid.py
 msgid "Cases"
-msgstr ""
-
-#: assessment/outbreak_metrics/categorical.py
-msgid "Categorical accuracy"
 msgstr ""
 
 #: plotting/dataset_plot.py
@@ -149,14 +125,6 @@ msgstr ""
 msgid "Count"
 msgstr ""
 
-#: assessment/metrics/percentile_coverage.py
-msgid "Coverage 10-90"
-msgstr ""
-
-#: assessment/metrics/percentile_coverage.py
-msgid "Coverage 25-75"
-msgstr ""
-
 #: plotting/dataset_plot.py
 msgid "Date"
 msgstr ""
@@ -167,10 +135,6 @@ msgstr ""
 
 #: assessment/backtest_plots/evaluation_plot.py
 msgid "Evaluation Plot"
-msgstr ""
-
-#: assessment/outbreak_metrics/binary.py
-msgid "F1"
 msgstr ""
 
 #: plotting/dataset_plot.py plotting/season_plot.py
@@ -191,10 +155,6 @@ msgstr ""
 
 #: plotting/season_plot.py
 msgid "Fraction of Annual Total"
-msgstr ""
-
-#: models/builtin/global_median.py
-msgid "Global median"
 msgstr ""
 
 #: assessment/backtest_plots/horizon_location_grid.py
@@ -264,22 +224,6 @@ msgstr ""
 
 #: plotting/season_plot.py
 msgid "Log1p Disease Cases"
-msgstr ""
-
-#: assessment/metrics/mae.py
-msgid "MAE"
-msgstr ""
-
-#: assessment/metrics/mape.py
-msgid "MAPE"
-msgstr ""
-
-#: assessment/outbreak_metrics/binary.py
-msgid "MCC"
-msgstr ""
-
-#: assessment/outbreak_metrics/categorical.py
-msgid "Macro F1"
 msgstr ""
 
 #: assessment/metric_plots/metric_map.py
@@ -362,10 +306,6 @@ msgid "Multiple Feature Selection (Click legend items to toggle)"
 msgstr ""
 
 #: assessment/outbreak_metrics/binary.py
-msgid "NPV"
-msgstr ""
-
-#: assessment/outbreak_metrics/binary.py
 msgid ""
 "Negative predictive value: share of non-alerts that were not outbreaks, "
 "TN / (TN + FN)."
@@ -381,14 +321,6 @@ msgstr ""
 msgid ""
 "One-vs-rest F1 averaged over the categories that are observed or "
 "predicted."
-msgstr ""
-
-#: assessment/outbreak_metrics/binary.py
-msgid "PPV"
-msgstr ""
-
-#: models/builtin/persistence.py
-msgid "Persistence"
 msgstr ""
 
 #: assessment/outbreak_metrics/binary.py
@@ -433,14 +365,6 @@ msgstr ""
 msgid ""
 "Proportion of observations within 25th-75th percentile (higher is better,"
 " up to the 0.5 target)"
-msgstr ""
-
-#: assessment/metrics/rmse.py
-msgid "RMSE"
-msgstr ""
-
-#: assessment/metrics/above_truth.py
-msgid "Ratio Above Truth"
 msgstr ""
 
 #: assessment/backtest_plots/sample_bias_plot.py
@@ -531,14 +455,6 @@ msgstr ""
 msgid "Seasonal Month"
 msgstr ""
 
-#: models/builtin/seasonal_median.py
-msgid "Seasonal median"
-msgstr ""
-
-#: models/builtin/seasonal_shift_persistence.py
-msgid "Seasonal shift persistence"
-msgstr ""
-
 #: plotting/season_plot.py
 msgid "Seasonality Comparison Across Regions"
 msgstr ""
@@ -549,10 +465,6 @@ msgstr ""
 
 #: plotting/dataset_plot.py
 msgid "Select Features"
-msgstr ""
-
-#: assessment/outbreak_metrics/binary.py
-msgid "Sensitivity"
 msgstr ""
 
 #: assessment/outbreak_metrics/binary.py
@@ -605,8 +517,12 @@ msgid ""
 "historical context."
 msgstr ""
 
-#: assessment/outbreak_metrics/binary.py
-msgid "Specificity"
+#: assessment/metrics/org_unit_ranking.py
+msgid ""
+"Spearman rank correlation between forecast and observed incidence (cases "
+"per population) across org units, averaged over time periods. 1 means org"
+" units are ranked perfectly, 0 means no better than random. Needs "
+"population data."
 msgstr ""
 
 #: assessment/backtest_plots/evaluation_plot.py
@@ -653,26 +569,6 @@ msgstr ""
 msgid "Week of Year"
 msgstr ""
 
-#: assessment/outbreak_metrics/categorical.py
-msgid "Weighted kappa"
-msgstr ""
-
-#: assessment/metrics/winkler_score.py
-msgid "Winkler 10-90 (log1p)"
-msgstr ""
-
-#: assessment/metrics/winkler_score.py
-msgid "Winkler 25-75 (log1p)"
-msgstr ""
-
-#: assessment/metrics/winkler_score.py
-msgid "Winkler Score 10-90"
-msgstr ""
-
-#: assessment/metrics/winkler_score.py
-msgid "Winkler Score 25-75"
-msgstr ""
-
 #: assessment/metrics/winkler_score.py
 msgid "Winkler score for 10th-90th percentile prediction interval"
 msgstr ""
@@ -687,6 +583,10 @@ msgstr ""
 
 #: assessment/metrics/winkler_score.py
 msgid "Winkler score on log(1+x)-transformed values for 25-75 interval"
+msgstr ""
+
+#: database/tables.py
+msgid "description"
 msgstr ""
 
 #: assessment/metric_plots/metric_map.py

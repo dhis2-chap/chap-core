@@ -8,10 +8,11 @@ isolation; the HTTP-layer wiring is verified by the FastAPI integration tests.
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import insert
 from sqlmodel import Session
 
 from chap_core.assessment.thresholds.params import PercentileParams, SeasonalParams
-from chap_core.database.alert_tables import AlertLevel
+from chap_core.database.alert_tables import AlertLevel, AlertPolicy
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 from chap_core.database.tables import Backtest, BacktestSpecification
@@ -91,6 +92,21 @@ def test_create_round_trips_the_levels(engine, monitor_level, action_level):
         params = stored.levels[1].threshold_params
         assert isinstance(params, PercentileParams)
         assert params.quantile == 0.9
+
+
+def test_existing_policy_without_response_actions_loads(engine, monitor_level, action_level):
+    with Session(engine) as session:
+        session.execute(
+            insert(AlertPolicy).values(
+                name="Existing policy",
+                levels=[level.model_dump(exclude={"response_action"}) for level in (monitor_level, action_level)],
+                no_alert_output_code="0",
+            )
+        )
+        session.commit()
+
+        (policy,) = list_alert_policies(session)
+        assert [level.response_action for level in policy.levels] == [None, None]
 
 
 def test_a_level_reports_the_strategy_from_its_params(monitor_level, action_level):

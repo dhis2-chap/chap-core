@@ -15,7 +15,7 @@ from chap_core.i18n import N_
 
 @categorical_outbreak_metric(
     "categorical_accuracy",
-    N_("Categorical accuracy"),
+    "Categorical accuracy",
     N_("Share of cells whose predicted category is the observed one."),
 )
 def accuracy(confusion: np.ndarray) -> float | None:
@@ -23,7 +23,7 @@ def accuracy(confusion: np.ndarray) -> float | None:
 
 
 @categorical_outbreak_metric(
-    "macro_f1", N_("Macro F1"), N_("One-vs-rest F1 averaged over the categories that are observed or predicted.")
+    "macro_f1", "Macro F1", N_("One-vs-rest F1 averaged over the categories that are observed or predicted.")
 )
 def macro_f1(confusion: np.ndarray) -> float | None:
     totals = confusion.sum(axis=0) + confusion.sum(axis=1)
@@ -35,7 +35,7 @@ def macro_f1(confusion: np.ndarray) -> float | None:
 
 @categorical_outbreak_metric(
     "weighted_kappa",
-    N_("Weighted kappa"),
+    "Weighted kappa",
     N_(
         "Cohen's kappa with quadratic weights, so a miss by one level costs less than a miss by two. "
         "1 is perfect agreement, 0 is chance level."

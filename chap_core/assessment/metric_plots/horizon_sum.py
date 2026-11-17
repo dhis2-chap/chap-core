@@ -10,6 +10,7 @@ from chap_core.i18n import N_, gettext
     plot_id="metric_by_horizon_sum",
     name=N_("Horizon Plot (Sum)"),
     description=N_("Shows the sum of the metric across locations for each forecast horizon"),
+    required_dimensions=["horizon_distance", "location"],
 )
 class MetricByHorizonV2Sum(MetricPlotBase):
     """Sum of metric across locations per forecast horizon."""

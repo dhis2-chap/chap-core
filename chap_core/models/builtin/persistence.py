@@ -7,7 +7,7 @@ import numpy as np
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.datatypes import Samples
 from chap_core.i18n import N_
-from chap_core.models.builtin.empirical import periods_per_year, quantile_samples
+from chap_core.models.builtin.empirical import N_SAMPLES, even_samples, periods_per_year
 from chap_core.models.builtin.registry import BaselineNotApplicable, BuiltinModel, BuiltinModelSpec, builtin_model
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -44,10 +44,12 @@ class Persistence(BuiltinModel):
     """Forecasts the last observed value, with a spread from how cases changed over the same horizon.
 
     For a target ``h`` periods after the last observed value ``y``, the samples are
-    ``(y + 1) * exp(d - median(d)) - 1`` for quantile samples of the differences
+    ``(y + 1) * exp(d - median(d)) - 1`` for the differences
     ``d = log(y_t + 1) - log(y_{t-h} + 1)`` over every ``t`` in the training data of the
-    same location. Centring the differences keeps the median at exactly ``y``, so a trend
-    in the training data does not move the forecast. The spread widens with the horizon.
+    same location, each repeated about equally often around their exact median as the middle
+    sample (see ``even_samples``). Centring the samples on that median
+    keeps a trend in the training data from moving the forecast, and makes the middle sample
+    exactly ``y``. The spread widens with the horizon.
 
     Training keeps the differences for horizons up to one year. Missing differences fall
     back to those of all locations. A horizon without differences, such as one longer than
@@ -60,13 +62,13 @@ class Persistence(BuiltinModel):
 
     spec = BuiltinModelSpec(
         name="persistence",
-        display_name=N_("Persistence"),
+        display_name="Persistence",
         description=N_(
             "Baseline that forecasts the last observed value for the same location, with a spread from "
             "how cases changed over the same horizon in the training data."
         ),
         # Version 1 of this name was the seasonal shift model, now seasonal_shift_persistence.
-        version="2",
+        version="3",
         role=ModelTemplateRole.baseline,
     )
 
@@ -79,10 +81,12 @@ class Persistence(BuiltinModel):
         self._pooled_differences = LogDifferences.pooled(self._differences.values())
 
     def _centred_differences(self, location: str, horizon: int) -> np.ndarray:
-        """The differences of the location, else of all locations, at the horizon or else the longest shorter one.
+        """Samples of the differences of the location, else of all locations, at the horizon.
 
-        They are centred on their median, so a single difference gives no spread and needs at
-        least two. Without any, 0.
+        Without differences at the horizon, the longest shorter horizon with them is used.
+
+        The samples are centred on their median, so a single difference gives no spread and
+        needs at least two. Without any, 0.
         """
         candidates = [
             differences
@@ -93,8 +97,9 @@ class Persistence(BuiltinModel):
             for differences in candidates:
                 values = differences.by_horizon.get(shorter_horizon)
                 if values is not None and len(values) > 1:
-                    return np.asarray(values - np.median(values))
-        return np.zeros(1)
+                    samples = even_samples(values)
+                    return np.asarray(samples - np.median(samples))
+        return np.zeros(N_SAMPLES)
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         forecasts = {}
@@ -106,9 +111,7 @@ class Persistence(BuiltinModel):
             last_value = cases[observed[-1]]
             periods_since_last = len(cases) - observed[-1]
             rows = [
-                np.maximum(
-                    (last_value + 1) * np.exp(quantile_samples(self._centred_differences(location, horizon))) - 1, 0
-                )
+                np.maximum((last_value + 1) * np.exp(self._centred_differences(location, horizon)) - 1, 0)
                 for horizon in range(periods_since_last, periods_since_last + len(location_data.time_period))
             ]
             forecasts[location] = Samples(location_data.time_period, np.array(rows))  # type: ignore[call-arg]

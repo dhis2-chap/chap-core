@@ -10,6 +10,7 @@ from chap_core.i18n import N_, gettext
     plot_id="metric_by_time_period_and_location_mean",
     name=N_("Time Period and Location Plot"),
     description=N_("Shows the aggregated metric by both time period and location"),
+    required_dimensions=["time_period", "location"],
 )
 class MetricByTimePeriodAndLocationV2Mean(MetricPlotBase):
     """Mean metric grouped by time period and location."""

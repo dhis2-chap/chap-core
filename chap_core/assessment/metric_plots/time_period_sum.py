@@ -10,6 +10,7 @@ from chap_core.i18n import N_, gettext
     plot_id="metric_by_time_period_sum",
     name=N_("Time Period Plot (Sum)"),
     description=N_("Shows the sum of the metric by time period"),
+    required_dimensions=["time_period", "location"],
 )
 class MetricByTimePeriodV2Sum(MetricPlotBase):
     """Sum of metric across locations per time period."""

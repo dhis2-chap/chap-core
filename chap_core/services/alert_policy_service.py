@@ -3,7 +3,7 @@
 Domain logic that doesn't depend on HTTP concerns. Raises typed exceptions that
 the router (or any other caller) maps to its own error format.
 
-Only output codes can be updated: a policy's levels cannot be edited in place.
+Only output codes and response actions can be updated: a policy's ladder cannot be edited in place.
 Renaming or dropping a tier would leave every existing alert naming a level the
 policy no longer defines, breaking the invariant that `Alert.level` is always
 one of its policy's level names. Changing the ladder requires a new policy.
@@ -118,15 +118,21 @@ def update_alert_policy_codes(
     session: Session,
     policy_id: int,
     level_output_codes: dict[str, str],
+    level_response_actions: dict[str, str | None],
     no_alert_output_code: str | None = None,
 ) -> AlertPolicy:
-    """Update codes by level name, validating the complete mapping before saving."""
+    """Update codes and actions by level name, validating the complete mapping before saving."""
     policy = get_alert_policy(session, policy_id)
-    unknown = set(level_output_codes) - {level.name for level in policy.levels}
+    unknown = (set(level_output_codes) | set(level_response_actions)) - {level.name for level in policy.levels}
     if unknown:
         raise InvalidAlertPolicyError(f"Unknown alert levels: {sorted(unknown)}")
     levels = [
-        level.model_copy(update={"output_code": level_output_codes.get(level.name, level.output_code)})
+        level.model_copy(
+            update={
+                "output_code": level_output_codes.get(level.name, level.output_code),
+                "response_action": level_response_actions.get(level.name, level.response_action),
+            }
+        )
         for level in policy.levels
     ]
     no_alert_code = policy.no_alert_output_code if no_alert_output_code is None else no_alert_output_code
