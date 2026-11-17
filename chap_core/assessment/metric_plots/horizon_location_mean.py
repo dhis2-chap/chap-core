@@ -15,7 +15,7 @@ from chap_core.i18n import N_, gettext
 class MetricByHorizonAndLocationMean(MetricPlotBase):
     """Mean metric grouped by both horizon distance and location."""
 
-    def plot_from_df(self, title: str = N_("Mean Metric by Horizon and Location")) -> alt.Chart:
+    def plot_from_df(self, title: str = "Mean Metric by Horizon and Location") -> alt.Chart:
         df = self._metric_data
         adf = df.groupby(["horizon_distance", "location"]).agg({"metric": "mean"}).reset_index()
         return cast(

@@ -21,8 +21,16 @@ for filename, lineno, message, comments, context in extract_from_dir(root / "cha
 output = BytesIO()
 write_po(output, catalog, sort_output=True, include_lineno=False)
 content = output.getvalue().rstrip() + b"\n"
+
+
+
+def messages(pot: bytes) -> bytes:
+    """Drop the header, whose year and Babel version change without any string changing."""
+    return pot.partition(b"\n\n")[2]
+
+
 if "--check" in sys.argv:
-    if not destination.exists() or destination.read_bytes() != content:
+    if not destination.exists() or messages(destination.read_bytes()) != messages(content):
         sys.exit("Translation source is stale. Run make extract-translations and commit en.pot.")
 else:
     destination.parent.mkdir(parents=True, exist_ok=True)

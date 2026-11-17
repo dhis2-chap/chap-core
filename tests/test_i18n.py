@@ -29,3 +29,13 @@ def test_empty_text_is_not_translated_to_the_catalog_header(french_catalog):
         assert i18n.gettext("RMSE") == "RMSE"
     finally:
         i18n.current_translations.reset(token)
+
+
+def test_broken_catalog_falls_back_to_english(tmp_path, monkeypatch):
+    (tmp_path / "fr.po").write_text('msgid "Map"\nmsgstr "Carte"\nnot po syntax\n')
+    monkeypatch.setattr(i18n, "LOCALES_DIR", tmp_path)
+    i18n.load_translations.cache_clear()
+    try:
+        assert set(i18n.load_translations()) == {"en"}
+    finally:
+        i18n.load_translations.cache_clear()

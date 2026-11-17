@@ -20,7 +20,7 @@ class MetricMapV2(MetricPlotBase):
         super().__init__(metric_data, geojson)
         self._geojson = geojson
 
-    def plot_from_df(self, title: str = N_("Metric Map by location")) -> alt.Chart:
+    def plot_from_df(self, title: str = "Metric Map by location") -> alt.Chart:
         df = self._metric_data
         agg_df = df.groupby("location").agg({"metric": "mean"}).reset_index()
         agg_df.rename(columns={"location": "org_unit", "metric": "value"}, inplace=True)

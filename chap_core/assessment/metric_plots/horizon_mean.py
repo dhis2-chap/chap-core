@@ -13,7 +13,7 @@ from chap_core.i18n import N_, gettext
     required_dimensions=["horizon_distance"],
 )
 class MetricByHorizonV2Mean(MetricPlotBase):
-    def plot_from_df(self, title: str = N_("Mean metric by horizon")) -> alt.Chart:
+    def plot_from_df(self, title: str = "Mean metric by horizon") -> alt.Chart:
         df = self._metric_data
         adf = df.groupby(["horizon_distance"]).agg({"metric": "mean"}).reset_index()
         return cast(

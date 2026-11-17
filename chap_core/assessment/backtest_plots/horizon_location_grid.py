@@ -262,6 +262,7 @@ class HorizonLocationGridPlot(FacetedBacktestPlot):
         locations = sorted(forecasts["location"].unique())
         horizons = sorted(forecasts["horizon_distance"].unique())
 
+        horizon_label = gettext("horizon")
         location_rows: list[ChartType] = []
         for loc in locations:
             # The grid layout is the only thing identifying a cell, so label each
@@ -269,7 +270,7 @@ class HorizonLocationGridPlot(FacetedBacktestPlot):
             # frontend's facet selection.
             horizon_cells = [
                 self._plot(df[(df["location"] == loc) & (df["horizon_distance"] == hz)]).properties(
-                    title=gettext("{loc} | horizon {hz}").format(loc=loc, hz=hz)
+                    title=f"{loc} | {horizon_label} {hz}"
                 )
                 for hz in horizons
             ]

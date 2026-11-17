@@ -15,7 +15,7 @@ from chap_core.i18n import N_, gettext
 class MetricByTimePeriodV2Mean(MetricPlotBase):
     """Mean metric across locations and horizons per time period."""
 
-    def plot_from_df(self, title: str = N_("Mean metric by time period")) -> alt.Chart:
+    def plot_from_df(self, title: str = "Mean metric by time period") -> alt.Chart:
         df = self._metric_data
         df = df.groupby(["time_period"]).agg({"metric": "mean"}).reset_index()
         return cast(

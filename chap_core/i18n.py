@@ -1,11 +1,13 @@
 """Gettext catalogs for API text. Source strings stay English until a response is built."""
 
+import logging
 from contextvars import ContextVar
 from functools import cache
 from gettext import GNUTranslations, NullTranslations
 from io import BytesIO
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
 LOCALES_DIR = Path(__file__).parent / "locales"
 current_translations: ContextVar[NullTranslations | None] = ContextVar("translations", default=None)
 
@@ -31,12 +33,16 @@ def load_translations() -> dict[str, NullTranslations]:
 
     translations: dict[str, NullTranslations] = {"en": NullTranslations()}
     for path in sorted(LOCALES_DIR.glob("*.po")):
-        with path.open("rb") as source:
-            catalog = read_po(source)
-        compiled = BytesIO()
-        write_mo(compiled, catalog)
-        compiled.seek(0)
-        translations[path.stem.replace("_", "-").lower()] = GNUTranslations(compiled)
+        # A broken catalog must not take down every endpoint; that language falls back to English.
+        try:
+            with path.open("rb") as source:
+                catalog = read_po(source, abort_invalid=True)
+            compiled = BytesIO()
+            write_mo(compiled, catalog)
+            compiled.seek(0)
+            translations[path.stem.replace("_", "-").lower()] = GNUTranslations(compiled)
+        except Exception:
+            logger.exception("Skipping unreadable translation catalog %s", path.name)
     return translations
 
 

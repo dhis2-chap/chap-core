@@ -15,7 +15,7 @@ from chap_core.i18n import N_, gettext
 class MetricByHorizonV2Sum(MetricPlotBase):
     """Sum of metric across locations per forecast horizon."""
 
-    def plot_from_df(self, title: str = N_("Samples above truth by horizon")) -> alt.Chart:
+    def plot_from_df(self, title: str = "Samples above truth by horizon") -> alt.Chart:
         df = self._metric_data
         adf = df.groupby(["horizon_distance"]).agg({"metric": "sum"}).reset_index()
         return cast(

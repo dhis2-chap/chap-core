@@ -15,7 +15,7 @@ from chap_core.i18n import N_, gettext
 class MetricByTimePeriodV2Sum(MetricPlotBase):
     """Sum of metric across locations per time period."""
 
-    def plot_from_df(self, title: str = N_("Samples above truth by time period")) -> alt.Chart:
+    def plot_from_df(self, title: str = "Samples above truth by time period") -> alt.Chart:
         df = self._metric_data
         adf = df.groupby(["time_period", "location"]).agg({"metric": "sum"}).reset_index()
         return cast(

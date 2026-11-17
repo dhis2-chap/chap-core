@@ -14,7 +14,7 @@ from chap_core.i18n import N_, gettext
 class RegionalMetricDistributionPlot(MetricPlotBase):
     """Location-level metric distributions with mean markers."""
 
-    def plot_from_df(self, title: str = N_("Metric Distribution by Location")) -> alt.Chart:
+    def plot_from_df(self, title: str = "Metric Distribution by Location") -> alt.Chart:
         df = self._metric_data
 
         if df.empty:

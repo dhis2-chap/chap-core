@@ -261,36 +261,12 @@ msgstr ""
 msgid "Mean Metric Value"
 msgstr ""
 
-#: assessment/metric_plots/horizon_location_mean.py
-msgid "Mean Metric by Horizon and Location"
-msgstr ""
-
-#: assessment/metric_plots/horizon_mean.py
-msgid "Mean metric by horizon"
-msgstr ""
-
-#: assessment/metric_plots/time_period_location_mean.py
-msgid "Mean metric by location and time period"
-msgstr ""
-
-#: assessment/metric_plots/time_period_mean.py
-msgid "Mean metric by time period"
-msgstr ""
-
 #: assessment/outbreak_metrics/binary.py
 msgid "Mean of sensitivity and specificity."
 msgstr ""
 
 #: assessment/metric_plots/regional_distribution.py
 msgid "Metric"
-msgstr ""
-
-#: assessment/metric_plots/regional_distribution.py
-msgid "Metric Distribution by Location"
-msgstr ""
-
-#: assessment/metric_plots/metric_map.py
-msgid "Metric Map by location"
 msgstr ""
 
 #: assessment/metric_plots/metric_map.py
@@ -417,14 +393,6 @@ msgstr ""
 #: assessment/metric_plots/horizon_sum.py
 #: assessment/metric_plots/time_period_sum.py
 msgid "Samples above truth (count)"
-msgstr ""
-
-#: assessment/metric_plots/horizon_sum.py
-msgid "Samples above truth by horizon"
-msgstr ""
-
-#: assessment/metric_plots/time_period_sum.py
-msgid "Samples above truth by time period"
 msgstr ""
 
 #: assessment/backtest_plots/predicted_vs_actual_plot.py
@@ -589,11 +557,10 @@ msgstr ""
 msgid "description"
 msgstr ""
 
-#: assessment/metric_plots/metric_map.py
-msgid "org unit"
+#: assessment/backtest_plots/horizon_location_grid.py
+msgid "horizon"
 msgstr ""
 
-#: assessment/backtest_plots/horizon_location_grid.py
-#, python-brace-format
-msgid "{loc} | horizon {hz}"
+#: assessment/metric_plots/metric_map.py
+msgid "org unit"
 msgstr ""
