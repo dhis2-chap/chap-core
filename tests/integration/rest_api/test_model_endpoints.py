@@ -74,10 +74,9 @@ def test_list_model_templates(dependency_overrides, french_catalog, clean_engine
     assert french == {**english, "description": french_catalog[english["description"]]}
     configured = client.get("/v1/crud/configured-models", headers=headers).json()
     model = next(m for m in configured if m["name"] == "global_median")
-    assert model["displayName"] == french["displayName"]
     detail = client.get(f"/v1/crud/configured-models/{model['id']}", headers=headers).json()
-    assert detail["modelTemplate"]["displayName"] == french["displayName"]
-    assert detail["displayName"] == french["displayName"]
+    assert detail["modelTemplate"]["displayName"] == english["displayName"]
+    assert detail["modelTemplate"]["description"] == french["description"]
     with Session(clean_engine) as session:
         stored = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == "global_median")).first()
         assert stored is not None

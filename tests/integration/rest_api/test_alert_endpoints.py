@@ -414,7 +414,7 @@ def test_outbreak_metrics_groups_by_the_requested_dimensions(override_session, s
     assert all(row["timePeriod"] is None for row in rows)
 
 
-def test_list_outbreak_metrics_has_unique_ids_of_both_kinds(french_catalog):
+def test_list_outbreak_metrics_has_unique_ids_and_translated_descriptions(french_catalog):
     listed = client.get("/v1/analytics/outbreak-metrics").json()
     metrics = {m["id"]: m["kind"] for m in listed}
     assert len(metrics) == len(listed)

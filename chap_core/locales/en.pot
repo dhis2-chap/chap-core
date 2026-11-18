@@ -557,10 +557,11 @@ msgstr ""
 msgid "description"
 msgstr ""
 
-#: assessment/backtest_plots/horizon_location_grid.py
-msgid "horizon"
-msgstr ""
-
 #: assessment/metric_plots/metric_map.py
 msgid "org unit"
+msgstr ""
+
+#: assessment/backtest_plots/horizon_location_grid.py
+#, python-brace-format
+msgid "{location} | horizon {horizon}"
 msgstr ""

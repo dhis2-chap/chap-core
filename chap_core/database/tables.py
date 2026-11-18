@@ -278,7 +278,7 @@ class ConfiguredModelRead(ModelConfiguration, DBModel):
     @field_serializer("model_template", mode="wrap", when_used="json")
     def translate_model_template(self, value, handler):
         # ModelTemplateDB is a table model, so it cannot carry its own serializer without
-        # translating stored dumps too. The key spelling depends on the caller's by_alias.
+        # translating stored dumps too.
         data = handler(value)
         if "description" in data:
             data["description"] = gettext(data["description"])
