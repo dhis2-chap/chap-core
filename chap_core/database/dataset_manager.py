@@ -58,6 +58,15 @@ def _filtered_observation_query(
     return expr
 
 
+def _within_periods(expr, start_period: str | None, end_period: str | None):
+    """Restrict an observation query to an inclusive range of stored period ids."""
+    if start_period is not None:
+        expr = expr.where(Observation.period >= start_period)
+    if end_period is not None:
+        expr = expr.where(Observation.period <= end_period)
+    return expr
+
+
 def period_type_of(period: TimePeriod) -> str:
     """Stored `DataSet.period_type` for a dataset whose periods are like ``period``."""
     if isinstance(period, Month):
@@ -195,9 +204,19 @@ class DataSetManager(DbManager[DataSet]):
         return list(self.session.exec(expr).all())
 
     def feature_values(
-        self, dataset_id: int, feature_name: str, *, org_units: list[str] | None = None
+        self,
+        dataset_id: int,
+        feature_name: str,
+        *,
+        org_units: list[str] | None = None,
+        start_period: str | None = None,
+        end_period: str | None = None,
     ) -> list[tuple[str, str, float | None]]:
-        """Read ``(period, org_unit, value)`` rows of one feature as plain tuples, without building ORM objects."""
+        """Read ``(period, org_unit, value)`` rows of one feature as plain tuples, without building ORM objects.
+
+        ``start_period`` and ``end_period`` are inclusive period ids in the stored form (``2023W01``,
+        ``202301``). Ids of one period type sort as strings, so the range is a string compare.
+        """
         expr = (
             select(Observation.period, Observation.org_unit, Observation.value)
             .where(Observation.dataset_id == dataset_id)
@@ -206,6 +225,7 @@ class DataSetManager(DbManager[DataSet]):
         )
         if org_units is not None:
             expr = expr.where(col(Observation.org_unit).in_(org_units))
+        expr = _within_periods(expr, start_period, end_period)
         connection = self.session.connection()
         if connection.dialect.name == "postgresql":
             # Facility-scale reads are hundreds of thousands of rows, and SQLAlchemy builds a Row
@@ -222,21 +242,34 @@ class DataSetManager(DbManager[DataSet]):
         rows = connection.execute(expr)
         return [(period, org_unit, value) for period, org_unit, value in rows]
 
-    def summed_feature_values(self, dataset_id: int, feature_name: str) -> list[tuple[str, float]]:
+    def summed_feature_values(
+        self,
+        dataset_id: int,
+        feature_name: str,
+        *,
+        start_period: str | None = None,
+        end_period: str | None = None,
+    ) -> list[tuple[str, float]]:
         """Sum one feature over all org units per period in the database.
 
         Missing and NaN values count as 0, so a period where every value is missing sums to 0.
-        Periods come in the order they were stored.
+        Periods come in the order they were stored. The optional inclusive period range is
+        applied before summing, as in :meth:`feature_values`.
         """
         value = func.nullif(Observation.value, float("nan"))
         expr = (
             select(Observation.period, func.coalesce(func.sum(value), 0.0))
             .where(Observation.dataset_id == dataset_id)
             .where(Observation.feature_name == feature_name)
-            .group_by(Observation.period)
-            .order_by(func.min(Observation.id))
         )
+        expr = _within_periods(expr, start_period, end_period)
+        expr = expr.group_by(Observation.period).order_by(func.min(Observation.id))
         return [(period, float(total)) for period, total in self.session.exec(expr).all()]
+
+    def any_period(self, dataset_id: int) -> str | None:
+        """One stored period id of the dataset, or None if it has no observations."""
+        expr = select(Observation.period).where(Observation.dataset_id == dataset_id).limit(1)
+        return self.session.exec(expr).first()
 
     def to_dataset(
         self,
