@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 
 from chap_core.api_types import BacktestParams
 from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.evaluation_metadata import EvaluatedModel
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.assessment.metrics import compute_all_aggregated_metrics
 from chap_core.assessment.target_mask import (
@@ -156,19 +157,6 @@ def run_backtest(
     dataset, target_column = load_masked_dataset(session.session, info.dataset_id, target_column)
 
     configured_model = session.get_configured_model_by_id_or_name(info.model_id)
-    # Normalise back to the name string so any downstream code that still
-    # reads `info.model_id` as a string (job metadata, logs, etc.) sees the
-    # canonical value rather than the raw integer primary key.
-    info.model_id = configured_model.name
-
-    # Carry the resolved values, not the requested ones, so everything downstream of
-    # here sees what actually ran. The persisted copy is the specification resolved
-    # below; these keep `info` consistent for job metadata and logging.
-    info.n_periods = n_periods
-    info.n_splits = n_splits
-    info.stride = stride
-    info.n_retrain = n_retrain
-    info.future_weather_provider = future_weather_provider
 
     status_logger.info(f"Validating dataset with {len(list(dataset.locations()))} locations")
     backtest_params = BacktestParams(
@@ -205,16 +193,12 @@ def run_backtest(
     # Invalid forecasts, such as NaN samples (MissingSamplesError), fail the job on purpose.
     # Only the metrics below are best-effort.
     evaluation = Evaluation.create(
-        configured_model=configured_model,
         estimator=estimator,
         dataset=dataset,
         backtest_params=backtest_params,
         historical_context_years=0,
-        info=info,
-        specification=specification,
-    )
-    backtest = evaluation.to_backtest(include_forecasts=False)
-    backtest.model_db_id = configured_model.id
+    ).with_model(EvaluatedModel.from_configured_model(configured_model))
+    backtest = evaluation.to_backtest(configured_model, specification, info.name, include_forecasts=False)
     # Populate the global aggregate metric values on the backtest row so that
     # GET /v1/crud/backtests/{id}/full can return CRPS/MAPE/RMSE/etc without
     # the caller needing to round-trip through /v1/visualization/metric-plots.
