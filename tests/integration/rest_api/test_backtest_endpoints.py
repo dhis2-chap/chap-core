@@ -12,7 +12,7 @@ from chap_core.database.dataset_tables import (
     DataSet,
     Observation,
 )
-from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateRole
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateRole, ModelTemplateDB
 from chap_core.database.tables import (
     Backtest,
     BacktestRead,
@@ -23,6 +23,7 @@ from chap_core.rest_api.data_models import (
 )
 from chap_core.rest_api.db_worker_functions import (
     run_backtest,
+    run_hpo_backtest,
 )
 from chap_core.time_period import TimePeriod
 from tests.integration.rest_api.db_endpoint_helpers import (
@@ -989,3 +990,162 @@ def test_all_backtest_plots_via_api(override_session, seeded_session):
         # Verify the response is valid Vega JSON
         vega_spec = response.json()
         assert "$schema" in vega_spec or "data" in vega_spec, f"Plot {plot_id} returned invalid Vega spec"
+
+
+def test_create_hpo_backtest_queues_job(
+    override_session, seeded_session, monkeypatch
+):
+    """HPO endpoint should queue the worker with the
+    existing backtest specification and requested HPO parameters.
+    """
+    from chap_core.rest_api.v1.routers import analytics
+
+    worker = _JobIdWorker()
+    monkeypatch.setattr(analytics, "worker", worker)
+    specification = seeded_session.exec(
+        select(BacktestSpecification)
+    ).first()
+    template = seeded_session.exec(
+        select(ModelTemplateDB).where(
+            ModelTemplateDB.archived == False
+        )
+    ).first()
+    assert specification is not None
+    assert template is not None
+    # Ensure this template supports HPO for the endpoint test.
+    # The worker is mocked, so no optimization is executed.
+    template.hpo_search_space = {
+        "test_parameter": {"values": [1, 2]}
+    }
+    seeded_session.add(template)
+    seeded_session.commit()
+    payload = {
+        "name": "HPO test",
+        "modelTemplateId": template.id,
+        "backtestSpecificationId": specification.id,
+        "additionalContinuousCovariates": [],
+        "nTrials": 2,
+    }
+    response = client.post(
+        "/v1/analytics/create-hpo-backtest",
+        json=payload,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json() == {"id": "job-1"}
+    # Exactly one job should be queued.
+    assert len(worker.queued) == 1
+    func, args, kwargs = worker.queued[0]
+    assert func is run_hpo_backtest
+    request = args
+    assert request.model_template_id == template.id
+    assert request.backtest_specification_id == specification.id
+    assert request.additional_continuous_covariates == []
+    assert request.n_trials == 2
+
+
+def test_run_hpo_backtest_persists_selected_configuration_under_existing_specification(
+    p_seeded_engine, monkeypatch
+):
+    """HPO must use the saved split settings and persist its selected model, not the temporary one."""
+    from types import SimpleNamespace
+
+    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+    from chap_core.rest_api import db_worker_functions as wf
+    from chap_core.rest_api.data_models import MakeHpoBacktestRequest
+
+    captured = {}
+    with SessionWrapper(p_seeded_engine) as session:
+        specification = session.session.exec(select(BacktestSpecification)).first()
+        template = session.session.exec(
+            select(ModelTemplateDB).where(ModelTemplateDB.archived == False)
+        ).first()
+        assert specification is not None
+        assert template is not None
+
+        template.hpo_search_space = {"test_parameter": {"values": [1, 2]}}
+        template.user_options = {"test_parameter": {"type": "integer", "enum": [1, 2]}}
+        template.required_covariates = []
+        template.allow_free_additional_continuous_covariates = True
+        template.uses_chapkit = False
+        session.session.add(template)
+        session.session.commit()
+
+        selected = ModelConfiguration(
+            user_option_values={"test_parameter": 2},
+            additional_continuous_covariates=["population"],
+        )
+        fake_template = object()
+        fake_optimizer = object()
+        monkeypatch.setattr(
+            SessionWrapper,
+            "get_model_template_with_code",
+            lambda self, model_template_id: fake_template,
+            raising=False,
+        )
+        def fake_get_hpo_estimator(**kwargs):
+            captured["optimizer"] = kwargs
+            return fake_optimizer
+        
+        class _FakeEvaluation:
+            def get_hpo(self):
+                return SimpleNamespace(model_configuration=selected)
+            def to_backtest(self, include_forecasts=False):
+                assert include_forecasts is False
+                return Backtest(
+                    name="HPO persisted",
+                    dataset_id=specification.dataset_id,
+                    specification_id=specification.id,
+                    model_id=f"{template.name}:hpo_pending",
+                    model_db_id=-1,  # persist_evaluation must overwrite the temporary reference
+                    org_units=specification.org_units,
+                    split_periods=[],
+                )
+            def forecast_rows(self):
+                return []
+            
+        def fake_evaluation_create(**kwargs):
+            captured["evaluation"] = kwargs
+            return _FakeEvaluation()
+        
+        monkeypatch.setattr(wf, "get_hpo_estimator", fake_get_hpo_estimator)
+        monkeypatch.setattr(wf.Evaluation, "create", staticmethod(fake_evaluation_create))
+        monkeypatch.setattr(wf, "compute_all_aggregated_metrics", lambda evaluation: {})
+        request = MakeHpoBacktestRequest(
+            name="HPO persisted",
+            model_template_id=template.id,
+            backtest_specification_id=specification.id,
+            additional_continuous_covariates=["population"],
+            n_trials=2,
+        )
+        original_model_ids = set(session.session.exec(select(ConfiguredModelDB.id)).all())
+        backtest_id = run_hpo_backtest(request, session=session)
+
+        optimizer_args = captured["optimizer"]
+        assert optimizer_args["template"] is fake_template
+        assert optimizer_args["configuration"].additional_continuous_covariates == ["population"]
+        assert optimizer_args["options"].mode == wf.EstimatorMode.HPO
+        assert optimizer_args["options"].max_trials == 2
+        for field in ("n_periods", "n_splits", "stride", "n_retrain", "future_weather_provider"):
+            assert getattr(optimizer_args["backtest_params"], field) == getattr(specification, field)
+        evaluation_args = captured["evaluation"]
+        assert evaluation_args["estimator"] is fake_optimizer
+        assert evaluation_args["specification"].id == specification.id
+        assert evaluation_args["configured_model"].id is None
+        assert evaluation_args["info"].name == request.name
+        backtest = session.session.get(Backtest, backtest_id)
+        assert backtest is not None
+        assert backtest.name == request.name
+        assert backtest.specification_id == specification.id
+        assert backtest.dataset_id == specification.dataset_id
+        configured_model = backtest.configured_model
+        assert configured_model.id not in original_model_ids
+        assert configured_model.model_template_id == template.id
+        assert configured_model.user_option_values == {"test_parameter": 2}
+        assert configured_model.additional_continuous_covariates == ["population"]
+        assert backtest.model_id == configured_model.name
+        assert backtest.model_template_version == template.version
+        assert session.session.exec(
+            select(ConfiguredModelDB).where(ConfiguredModelDB.name == f"{template.name}:hpo_pending")
+        ).all() == []
+        assert configured_model.name.startswith(f"{template.name}:")
+        assert "hpo_pending" not in configured_model.name
