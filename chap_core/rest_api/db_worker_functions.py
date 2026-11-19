@@ -203,109 +203,8 @@ def run_backtest(
         dataset=dataset,
         backtest_params=backtest_params,
         historical_context_years=0,
-    ).with_model(EvaluatedModel.from_configured_model(configured_model))
-    backtest = evaluation.to_backtest(configured_model, specification, info.name, include_forecasts=False)
-    # Populate the global aggregate metric values on the backtest row so that
-    # GET /v1/crud/backtests/{id}/full can return CRPS/MAPE/RMSE/etc without
-    # the caller needing to round-trip through /v1/visualization/metric-plots.
-    # They are computed from the evaluation in memory before it is stored; a failure
-    # here must not tank the whole backtest.
-    try:
-        backtest.aggregate_metrics = compute_all_aggregated_metrics(evaluation)
-    except Exception:
-        logger.warning("Failed to compute aggregate metrics for backtest; leaving empty", exc_info=True)
-    session.add_backtest(backtest, forecast_rows=evaluation.forecast_rows())
-    db_id = backtest.id
-    assert db_id is not None
-    status_logger.info(f"Backtest completed successfully. Results saved with ID {db_id}")
-    return db_id
-
-
-@job_function
-def run_backtest(
-    info: BacktestCreate,
-    n_periods: int,
-    n_splits: int = _DEFAULT_PARAMS.n_splits,
-    stride: int = _DEFAULT_PARAMS.stride,
-    n_retrain: int = _DEFAULT_PARAMS.n_retrain,
-    session: SessionWrapper | None = None,
-    future_weather_provider: str = DEFAULT_WEATHER_PROVIDER_ID,
-    target_column: str | None = None,
-    queue_baselines: bool = False,   
-):
-    """Run and store a backtest, and return its id.
-
-    With `queue_baselines`, the baselines missing on the backtest's specification
-    are queued as soon as it is resolved. The REST endpoints pass it. Baseline runs do
-    not, so they never trigger more baseline runs.
-    """
-    # NOTE: model_id arg from the user is actually the model's unique name identifier
-    assert session is not None, "session is required"
-    status_logger.info(f"Starting backtest for model '{info.model_id}' on dataset ID {info.dataset_id}")
-
-    dataset, target_column = load_masked_dataset(session.session, info.dataset_id, target_column)
-
-    configured_model = session.get_configured_model_by_id_or_name(info.model_id)
-    # Normalise back to the name string so any downstream code that still
-    # reads `info.model_id` as a string (job metadata, logs, etc.) sees the
-    # canonical value rather than the raw integer primary key.
-    info.model_id = configured_model.name
-
-    # Carry the resolved values, not the requested ones, so everything downstream of
-    # here sees what actually ran. The persisted copy is the specification resolved
-    # below; these keep `info` consistent for job metadata and logging.
-    info.n_periods = n_periods
-    info.n_splits = n_splits
-    info.stride = stride
-    info.n_retrain = n_retrain
-    info.future_weather_provider = future_weather_provider
-
-    status_logger.info(f"Validating dataset with {len(list(dataset.locations()))} locations")
-    backtest_params = BacktestParams(
-        n_periods=n_periods,
-        n_splits=n_splits,
-        stride=stride,
-        n_retrain=n_retrain,
-        future_weather_provider=future_weather_provider,
     )
-    dataset, specification = resolve_backtest_specification(
-        session, dataset, info.dataset_id, backtest_params, target_column=target_column
-    )
-    if queue_baselines:
-        # Imported here because baseline_runs imports this module for its jobs.
-        from chap_core.rest_api.baseline_runs import request_baselines
-
-        assert specification.id is not None
-        # The baselines must never cost the user their own backtest.
-        try:
-            request_baselines(session, specification.id)
-        except Exception:
-            logger.warning(f"Could not request baselines for specification {specification.id}", exc_info=True)
-            session.session.rollback()
-    dataset = _use_as_disease_cases(dataset, target_column)
-    # Checked after the target is moved to disease_cases, since the model never sees the target column.
-    require_model_covariates(
-        dataset, configured_model.model_template.required_covariates, configured_model.additional_continuous_covariates
-    )
-
-    status_logger.info(f"Running {n_splits} evaluation splits with prediction length {n_periods}")
-    assert configured_model.id is not None, "configured_model.id is required"
-    estimator = session.get_configured_model_with_code(configured_model.id, prediction_length=n_periods)
-    # Historical context is for CLI plots; persisted backtests reach it through their dataset.
-    # Invalid forecasts, such as NaN samples (MissingSamplesError), fail the job on purpose.
-    # Only the metrics below are best-effort.
-    evaluation = Evaluation.create(
-        configured_model=configured_model,
-        estimator=estimator,
-        dataset=dataset,
-        backtest_params=backtest_params,
-        historical_context_years=0,
-        info=info,
-        specification=specification,
-    )
-    db_id = persist_evaluation(session=session, evaluation=evaluation, configured_model=configured_model)
-    status_logger.info(f"Backtest completed successfully. Results saved with ID {db_id}")
-    return db_id
+    return persist_evaluation(session, evaluation, configured_model, specification, info.name)
 
 
 @job_function
@@ -367,21 +266,6 @@ def run_hpo_backtest(
     )
     # for HPO
     base_configuration = ModelConfiguration(additional_continuous_covariates=(request.additional_continuous_covariates))
-    # Evaluation.create() currently requires a ConfiguredModelDB even before HPO, this object must NOT be persisted. 
-    temp_model = ConfiguredModelDB(
-        name=f"{template_db.name}:hpo_pending",
-        model_template_id=template_db.id,
-        model_template=template_db,
-        uses_chapkit=template_db.uses_chapkit,
-        **base_configuration.model_dump(),
-    )
-    # temporary for Evaluation.create, corrects model reference in persist_evaluation
-    info = BacktestCreate(
-        name=request.name,
-        dataset_id=specification.dataset_id,
-        model_id=temp_model.name,
-        **backtest_params.model_dump(),
-    )
     template = session.get_model_template_with_code(request.model_template_id)
     try:
         optimizer = get_hpo_estimator(
@@ -393,14 +277,12 @@ def run_hpo_backtest(
                 max_trials=request.n_trials,
             ) 
         )
+        # The configured model is only known after HPO; it is recorded when persisting.
         evaluation = Evaluation.create(
-            configured_model=temp_model,
-            estimator = optimizer,
+            estimator=optimizer,
             dataset=dataset,
             backtest_params=backtest_params,
             historical_context_years=0,
-            info=info,
-            specification=specification,
         )
     finally:
         if template_db.uses_chapkit:
@@ -417,7 +299,9 @@ def run_hpo_backtest(
         uses_chapkit=template_db.uses_chapkit,
     )
     configured_model = session.get_configured_model_by_id_or_name(configured_model_id)
-    backtest_id = persist_evaluation(session, evaluation, configured_model, hpo_result=hpo_result)
+    backtest_id = persist_evaluation(
+        session, evaluation, configured_model, specification, request.name, hpo_result=hpo_result
+    )
     # hpo_run  = HpoRunDB(
     #     backtest_id=backtest_id,
     #     max_trials=request.max_trials,
@@ -434,21 +318,24 @@ def run_hpo_backtest(
 
 
 def persist_evaluation(
-        session: SessionWrapper,
-        evaluation: Evaluation,
-        configured_model: ConfiguredModelDB,
-        hpo_result: HyperparameterOptimization | None = None,
+    session: SessionWrapper,
+    evaluation: Evaluation,
+    configured_model: ConfiguredModelDB,
+    specification: BacktestSpecification,
+    name: str | None,
+    hpo_result: HyperparameterOptimization | None = None,
 ) -> int:
-    """Persist an evaluation and optional HPO metadata."""
+    """Persist an evaluation of a stored configured model under a stored specification, and optional HPO metadata."""
     if configured_model.id is None:
-        raise ValueError(
-            "Configured model must be persisted first"
-        )
-    backtest = evaluation.to_backtest(include_forecasts = False)
-    assert configured_model.id is not None
-    backtest.model_db_id = configured_model.id
-    backtest.model_id = configured_model.name
-    backtest.model_template_version = configured_model.model_template.version
+        raise ValueError("Configured model must be persisted first")
+    backtest = evaluation.with_model(EvaluatedModel.from_configured_model(configured_model)).to_backtest(
+        configured_model, specification, name, include_forecasts=False
+    )
+    # Populate the global aggregate metric values on the backtest row so that
+    # GET /v1/crud/backtests/{id}/full can return CRPS/MAPE/RMSE/etc without
+    # the caller needing to round-trip through /v1/visualization/metric-plots.
+    # They are computed from the evaluation in memory before it is stored; a failure
+    # here must not tank the whole backtest.
     try:
         backtest.aggregate_metrics = compute_all_aggregated_metrics(evaluation)
     except Exception:

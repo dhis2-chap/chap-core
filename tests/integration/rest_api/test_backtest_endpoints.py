@@ -1089,14 +1089,18 @@ def test_run_hpo_backtest_persists_selected_configuration_under_existing_specifi
         class _FakeEvaluation:
             def get_hpo(self):
                 return SimpleNamespace(model_configuration=selected)
-            def to_backtest(self, include_forecasts=False):
+            def with_model(self, model):
+                captured["model"] = model
+                return self
+            def to_backtest(self, configured_model, specification, name, include_forecasts=True):
                 assert include_forecasts is False
                 return Backtest(
-                    name="HPO persisted",
+                    name=name,
                     dataset_id=specification.dataset_id,
                     specification_id=specification.id,
-                    model_id=f"{template.name}:hpo_pending",
-                    model_db_id=-1,  # persist_evaluation must overwrite the temporary reference
+                    model_id=configured_model.name,
+                    model_db_id=configured_model.id,
+                    model_template_version=configured_model.model_template.version,
                     org_units=specification.org_units,
                     split_periods=[],
                 )
@@ -1129,9 +1133,8 @@ def test_run_hpo_backtest_persists_selected_configuration_under_existing_specifi
             assert getattr(optimizer_args["backtest_params"], field) == getattr(specification, field)
         evaluation_args = captured["evaluation"]
         assert evaluation_args["estimator"] is fake_optimizer
-        assert evaluation_args["specification"].id == specification.id
-        assert evaluation_args["configured_model"].id is None
-        assert evaluation_args["info"].name == request.name
+        # Running the evaluation needs no model or storage identity; both come after HPO.
+        assert not {"configured_model", "info", "specification"} & evaluation_args.keys()
         backtest = session.session.get(Backtest, backtest_id)
         assert backtest is not None
         assert backtest.name == request.name
@@ -1144,6 +1147,7 @@ def test_run_hpo_backtest_persists_selected_configuration_under_existing_specifi
         assert configured_model.additional_continuous_covariates == ["population"]
         assert backtest.model_id == configured_model.name
         assert backtest.model_template_version == template.version
+        assert captured["model"].name == configured_model.name
         assert session.session.exec(
             select(ConfiguredModelDB).where(ConfiguredModelDB.name == f"{template.name}:hpo_pending")
         ).all() == []
