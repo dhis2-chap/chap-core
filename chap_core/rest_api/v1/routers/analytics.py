@@ -68,6 +68,7 @@ from ...data_models import (
     ImportSummaryResponse,
     JobResponse,
     MakeBacktestRequest,
+    MakeHpoBacktestRequest,
     MakeBacktestsRequest,
     MakeBacktestsResponse,
     MakeBacktestWithDataRequest,
@@ -600,6 +601,76 @@ def create_backtest(
                 {**params.model_dump(mode="json"), "target_column": target_column},
                 request.dataset_id,
             ),
+        },
+    )
+
+    return JobResponse(id=job.id)
+
+
+@router.post(
+    "/create-hpo-backtest",
+    response_model=JobResponse,
+    tags=["Backtests"],
+    summary="Optimize a model and evaluate it against an existing backtest specification",
+)
+def create_hpo_backtest(
+    request: MakeHpoBacktestRequest,
+    original_request: dict = Depends(get_job_request),
+    session: Session = Depends(get_session),
+):
+    template = session.get(ModelTemplateDB, request.model_template_id)
+    if template is None:
+        raise HTTPException(status_code=404, detail=f"Model template {request.model_template_id} not found")
+    specification = session.get(BacktestSpecification, request.backtest_specification_id)
+    if specification is None:
+        raise HTTPException(status_code=404, detail=f"Backtest specification {request.backtest_specification_id} not found")
+    if template.archived:
+        raise HTTPException(status_code=409, detail=f"Model template {request.model_template_id} is archived")
+    if not template.hpo_search_space:
+        raise HTTPException(status_code=422, detail=f"Model template {request.model_template_id} has no HPO search space")
+    if request.additional_continuous_covariates and not template.allow_free_additional_continuous_covariates:
+        raise HTTPException(status_code=422, detail=f"Model template {request.model_template_id} does not allow additional continuous covariates")
+    # check for chapkit 
+    stored_dataset = session.get(DataSetTable, specification.dataset_id)
+    if stored_dataset is None:
+        raise HTTPException(status_code=404, detail=f"Dataset {specification.dataset_id} not found")
+    require_dataset_target(stored_dataset, specification.target_column)
+    # org_units check maybe 
+    if stored_dataset.masked_ranges:
+        try:
+            wf.check_backtest_on_masked_dataset(
+                session,
+                specification.dataset_id,
+                specification.n_periods,
+                specification.n_splits,
+                specification.stride,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+    job = worker.queue_db(
+        wf.run_hpo_backtest,
+        request,
+        # queue_baselines=True,
+        **{
+            JOB_REQUEST_KW: original_request,
+            JOB_TYPE_KW: JobType.EVALUATION_LEGACY, # maybe change 
+            JOB_NAME_KW: request.name,
+            JOB_METADATA_KW: {
+                "model_version": template.version,
+                "dataset_id": specification.dataset_id,
+                "parameters": {
+                    "model_template_id": template.id,
+                    "backtest_specification_id": specification.id,
+                    "target_column": specification.target_column,
+                    "n_periods": specification.n_periods,
+                    "n_splits": specification.n_splits,
+                    "stride": specification.stride,
+                    "n_retrain": specification.n_retrain,
+                    "future_weather_provider": specification.future_weather_provider,
+                    "n_trials": request.n_trials,
+                    "additional_continuous_covariates": request.additional_continuous_covariates,
+                },
+            },
         },
     )
 

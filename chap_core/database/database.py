@@ -607,6 +607,41 @@ class SessionWrapper:
         if model_template is None:
             raise ValueError(f"Model template with id {model_template_id} not found")
         return model_template
+    
+    def get_model_template_with_code(self, model_template_id: int) -> ModelTemplate:
+        logger.info(f"Getting model template with id {model_template_id}")
+        template_db = self.get_model_template(model_template_id)
+        if template_db.source_url is None:
+            raise ValueError(
+                f"Model template {model_template_id} has no source URL"
+            )
+        if template_db.uses_chapkit:
+            source_url = self._resolve_chapkit_live_source_url(
+                service_id=template_db.name,
+                stored_source_url=template_db.source_url,
+                template=template_db,
+            )
+            logger.info(f"Assuming chapkit model at {source_url}")
+            assert source_url is not None
+            template = ExternalChapkitModelTemplate(source_url)
+            conflict = chapkit_revision_conflict(template_db, template.get_reported_source_digest())
+            if conflict is not None:
+                template.close()
+                raise conflict
+        else:
+            ignore_env = (
+                template_name.startswith("chap_ewars") or template_name == "ewars_template"
+            )  # TODO: seems hacky, how to fix?
+        loaded_config = template.model_template_config
+        if loaded_config.version != template_db.version or loaded_config.name != template_db.name:
+            if template_db.uses_chapkit:
+                template.close()
+            raise ValueError(
+                "Executable model template does not match the stored template identity: "
+                f"expected {template_db.name}: {template_db.version}, got "
+                f"{template.name}: {template.version}"
+            )
+        return template        
 
     def add_backtest(self, backtest: Backtest, forecast_rows: list[dict] | None = None) -> None:
         """Store a backtest, with its forecasts inserted from plain rows if given.
