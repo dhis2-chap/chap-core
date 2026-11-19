@@ -114,8 +114,8 @@ def test_eval_cli_parses_hpo_options_and_passes_optimizer_to_evaluation(
     """The public `chap eval` option syntax constructs the requested HPO estimator before evaluation."""
     import chap_core.assessment.eval_tracking as tracking_module
     import chap_core.assessment.evaluation as evaluation_module
+    import chap_core.assessment.evaluation_metadata as evaluation_metadata_module
     import chap_core.cli_endpoints.evaluate as evaluate_module
-    import chap_core.database.model_templates_and_config_tables as db_module
     import chap_core.log_config as log_config_module
     import chap_core.models.model_template as model_template_module
     import chap_core.rest_api.db_worker_functions as db_worker_module
@@ -144,12 +144,12 @@ def test_eval_cli_parses_hpo_options_and_passes_optimizer_to_evaluation(
     monkeypatch.setattr(evaluate_module, "warn_unused_covariates", lambda *args, **kwargs: None)
     monkeypatch.setattr(log_config_module, "initialize_logging", lambda *args, **kwargs: None)
 
-    monkeypatch.setattr(db_module, "ModelTemplateDB", FakeDBRecord)
-    monkeypatch.setattr(db_module, "ConfiguredModelDB", FakeDBRecord)
-
     fake_evaluation = MagicMock(name="evaluation")
+    fake_evaluation.with_model.return_value = fake_evaluation
+    # The fake template's config is a namespace, not the pydantic model the metadata records.
+    monkeypatch.setattr(evaluation_metadata_module.EvaluatedModel, "from_template", MagicMock())
 
-    def write_fake_output(*, filepath: Path, **_: object) -> None:
+    def write_fake_output(filepath: Path) -> None:
         filepath.touch()
 
     fake_evaluation.to_file.side_effect = write_fake_output

@@ -2,6 +2,7 @@ import json
 
 from chap_core.cli_endpoints.generate_modelcard import _label_points_from_geojson_features, generate_modelcard
 from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.evaluation_metadata import EvaluatedModel
 from copy import deepcopy
 
 
@@ -24,12 +25,9 @@ class TestModelCardGenerator:
         evaluation = Evaluation.from_backtest(backtest)
         evaluation_path = tmp_path / "test_evaluation.nc"
 
-        evaluation.to_file(
-            filepath=evaluation_path,
-            model_name="TestModel",
-            model_configuration={"param1": "value1"},
-            model_version="1.0.0",
-        )
+        evaluation.with_model(
+            EvaluatedModel(name="TestModel", configuration={"param1": "value1"}, version="1.0.0")
+        ).to_file(evaluation_path)
 
         output_file = tmp_path / "modelcard.md"
         generate_modelcard(evaluation_path, output_file)
@@ -55,12 +53,9 @@ class TestModelCardGenerator:
 
         geojson_path.write_text(json.dumps(dummy_geojson), encoding="utf-8")
 
-        evaluation.to_file(
-            filepath=evaluation_path,
-            model_name="TestModel",
-            model_configuration={"param1": "value1"},
-            model_version="1.0.0",
-        )
+        evaluation.with_model(
+            EvaluatedModel(name="TestModel", configuration={"param1": "value1"}, version="1.0.0")
+        ).to_file(evaluation_path)
 
         output_file = tmp_path / "modelcard.md"
         generate_modelcard(evaluation_path, output_file, geojson_path)

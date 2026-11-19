@@ -10,6 +10,7 @@ import xarray as xr
 import chap_core.assessment.evaluation as evaluation_module
 from chap_core.api_types import BacktestParams
 from chap_core.assessment.evaluation import Evaluation, FlatEvaluationData
+from chap_core.assessment.evaluation_metadata import EvaluatedModel
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
@@ -79,6 +80,20 @@ def make_flat_evaluation(hpo: FlatHyperparameterOptimization) -> FlatEvaluationD
     )
 
 
+def mock_stored_backtest() -> MagicMock:
+    """A stand-in for a stored backtest, with the columns an evaluation reads its metadata from."""
+    backtest = MagicMock()
+    backtest.org_units = ["A"]
+    backtest.split_periods = ["2024-01"]
+    backtest.model_id = "stored-model"
+    backtest.model_template_version = None
+    backtest.chap_version = None
+    backtest.created = None
+    for name, value in BacktestParams().model_dump().items():
+        setattr(backtest, name, value)
+    return backtest
+
+
 def test_evaluation_to_flat_converts_runtime_hpo_to_flat_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -125,22 +140,16 @@ def test_hpo_metadata_is_written_to_evaluation_netcdf(
     """Flat HPO summary metadata is JSON-encoded into the NetCDF evaluation attribute."""
     hpo = make_flat_hpo()
     flat_data = make_flat_evaluation(hpo)
-    backtest = MagicMock()
-    backtest.org_units = ["A"]
-    backtest.split_periods = ["2024-01"]
-    backtest.future_weather_provider = DEFAULT_WEATHER_PROVIDER_ID
+    backtest = mock_stored_backtest()
     evaluation = Evaluation(backtest)
     monkeypatch.setattr(evaluation, "to_flat", lambda: flat_data)
 
     monkeypatch.setattr(evaluation_module, "CHAP_VERSION", "2.0.0")
     output = tmp_path / "evaluation-with-hpo.nc"
 
-    evaluation.to_file(
-        output,
-        model_name="demo-template",
-        model_configuration={"user_option_values": {"x": 1}},
-        model_version="1.0",
-    )
+    evaluation.with_model(
+        EvaluatedModel(name="demo-template", configuration={"user_option_values": {"x": 1}}, version="1.0")
+    ).to_file(output)
 
     with xr.open_dataset(output) as dataset:
         stored_hpo = json.loads(dataset.attrs["hpo"])
@@ -162,21 +171,14 @@ def test_evaluation_from_file_preserves_flat_hpo(
     hpo = make_flat_hpo()
     flat_data = make_flat_evaluation(hpo)
 
-    backtest = MagicMock()
-    backtest.org_units = ["A"]
-    backtest.split_periods = ["2024-01"]
-    backtest.future_weather_provider = DEFAULT_WEATHER_PROVIDER_ID
+    backtest = mock_stored_backtest()
 
     evaluation = Evaluation(backtest)
     monkeypatch.setattr(evaluation, "to_flat", lambda: flat_data)
     monkeypatch.setattr(evaluation_module, "CHAP_VERSION", "2.0.0")
 
     output = tmp_path / "evaluation-with-hpo.nc"
-    evaluation.to_file(
-        output,
-        model_name="demo-template",
-        model_version="1.0",
-    )
+    evaluation.with_model(EvaluatedModel(name="demo-template", version="1.0")).to_file(output)
 
     # Load the evaluation from NetCDF.
     loaded = Evaluation.from_file(output)
@@ -277,11 +279,9 @@ def test_evaluation_create_uses_hpo_best_configuration_and_attaches_runtime_meta
     from_samples_mock = MagicMock(return_value=final_evaluation)
     monkeypatch.setattr(Evaluation, "from_samples_with_truth", from_samples_mock)
 
-    configured_model = SimpleNamespace(id="configured-model")
     dataset = object()
 
     result = Evaluation.create(
-        configured_model=configured_model,  # type: ignore[arg-type]
         estimator=optimizer,
         dataset=dataset,  # type: ignore[arg-type]
         backtest_params=backtest_params,

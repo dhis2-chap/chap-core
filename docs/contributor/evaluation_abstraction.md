@@ -65,7 +65,7 @@ flowchart TB
         S["train_test_generator() &rarr; (train_set, test_generator)"]
         B["_backtest() &rarr; Iterable of DataSet(SamplesWithTruth)"]
         E["Evaluation.from_samples_with_truth() &rarr; Evaluation"]
-        P["evaluation.to_backtest() + session.add_backtest() &rarr; persist to Backtest table"]
+        P["evaluation.to_backtest(configured_model, specification, name) + session.add_backtest(forecast_rows) &rarr; persist to Backtest table"]
         R["return backtest.id"]
         L --> S --> B --> E --> P --> R
     end

@@ -9,7 +9,6 @@ from chap_core.assessment.forecast_cells import ForecastCells, MissingSamplesErr
 from chap_core.assessment.metrics import available_metrics, calculate_metrics
 from chap_core.assessment.metrics.crps_norm import CRPSNormMetric
 from chap_core.datatypes import SamplesWithTruth
-from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import PeriodRange
 
@@ -68,15 +67,12 @@ def _samples_with_truth(samples: np.ndarray) -> DataSet:
     )
 
 
-def test_from_samples_with_truth_rejects_forecasts_with_some_samples_missing(mocker):
+def test_from_samples_with_truth_rejects_forecasts_with_some_samples_missing():
     samples = np.ones((2, 3))
     samples[0, 1] = np.nan
-    configured_model = mocker.MagicMock(id=1)
 
     with pytest.raises(MissingSamplesError):
         Evaluation.from_samples_with_truth(
             [_samples_with_truth(samples)],
             last_train_period=PeriodRange.from_strings(["2023-12"])[0],
-            configured_model=configured_model,
-            info=BacktestCreate(name="test", dataset_id=0, model_id="model"),
         )
