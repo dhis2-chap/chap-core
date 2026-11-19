@@ -10,6 +10,8 @@ The workflow consists of three main steps:
 2. **plot-backtest**: Generate visualizations from evaluation results
 3. **export-metrics**: Compare metrics across multiple evaluations in CSV format
 
+To keep the model, dataset and settings in one directory and run `chap eval` without options, see [Chap Projects](projects.md).
+
 ## Prerequisites
 
 - Chap Core installed (see [Setup guide](chap-core-cli-setup.md))
@@ -144,10 +146,11 @@ Use `export-metrics` to compute metrics from multiple evaluations and export to 
 
 ```bash
 chap export-metrics \
-    --input-files example_data/example_evaluation.nc \
-    --input-files example_data/example_evaluation_2.nc \
+    --input-files example_data/example_evaluation.nc example_data/example_evaluation_2.nc \
     --output-file ./comparison_doctest.csv
 ```
+
+`--input-files` takes any number of files, so a shell pattern such as `--input-files output/*.nc` compares every evaluation in a directory.
 
 ```bash
 rm -f ./comparison_doctest.csv
@@ -179,8 +182,7 @@ To export only specific metrics:
 
 ```bash
 chap export-metrics \
-    --input-files example_data/example_evaluation.nc \
-    --input-files example_data/example_evaluation_2.nc \
+    --input-files example_data/example_evaluation.nc example_data/example_evaluation_2.nc \
     --output-file ./comparison_specific_doctest.csv \
     --metric-ids rmse \
     --metric-ids mae \

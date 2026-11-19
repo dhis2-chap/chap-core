@@ -206,6 +206,11 @@ def test_model_services_stay_on_default_network(compose_file):
 
 
 @pytest.mark.parametrize("compose_file", ["compose.yml", "compose.ghcr.yml"])
+def test_api_port_is_published_on_localhost_by_default(compose_file):
+    assert _services(compose_file)["chap"]["ports"] == ["${CHAP_BIND_ADDRESS:-127.0.0.1}:8000:8000"]
+
+
+@pytest.mark.parametrize("compose_file", ["compose.yml", "compose.ghcr.yml"])
 def test_valkey_keeps_job_data_across_restarts(compose_file):
     redis = _services(compose_file)["redis"]
     assert "valkey-data:/data" in redis["volumes"]

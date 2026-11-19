@@ -65,8 +65,8 @@ class JobDiagnostics(BaseModel):
 
 @router.get(
     "/{job_id}/diagnostics",
-    summary="Download diagnostics for a failed job",
-    responses={404: {"description": "Job not found"}, 409: {"description": "Job has not failed"}},
+    summary="Download diagnostics for a finished job",
+    responses={404: {"description": "Job not found"}, 409: {"description": "Job has not finished"}},
 )
 def get_job_diagnostics(job_id: str, session: Session = Depends(get_session)) -> JobDiagnostics:
     """Assemble job information, run parameters, the error and traceback, model provenance,
@@ -76,13 +76,13 @@ def get_job_diagnostics(job_id: str, session: Session = Depends(get_session)) ->
     Logs are bounded and may contain data values.
     Error messages and tracebacks can also contain model output and are not sanitized.
     Missing model/dataset references (including older jobs and jobs that create their
-    dataset in the worker) are returned as null. Only FAILURE jobs are supported.
+    dataset in the worker) are returned as null. SUCCESS, FAILURE and REVOKED jobs are supported.
     """
     meta = get_job_meta(job_id)
     if not meta:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
-    if meta["status"] != "FAILURE":
-        raise HTTPException(status_code=409, detail="Diagnostics are only available for failed jobs")
+    if meta["status"] not in {"SUCCESS", "FAILURE", "REVOKED"}:
+        raise HTTPException(status_code=409, detail="Diagnostics are only available for finished jobs")
 
     job = job_description(job_id, meta)
     model_info = None

@@ -33,6 +33,14 @@ class DockerUnavailableError(Exception):
     """Raised when the Docker daemon cannot be reached."""
 
 
+class MissingSamplesError(ValueError):
+    """Raised when forecast cells do not all have the same number of samples.
+
+    This usually means the model returned NaN for some samples, so it is a model error
+    rather than a bug in Chap.
+    """
+
+
 class ModelTemplateRevisionConflict(ValueError):
     """A model template version label points at a different source revision than the one stored.
 
@@ -80,3 +88,10 @@ class BaselineTemplateConflict(ValueError):
             f"Model template {name!r} is a built-in baseline and cannot be stored from a service. "
             "Register the service under another model id."
         )
+
+
+class ChapProjectError(ValueError):
+    """A mistake in a Chap project (``chap.yaml``) or in the input to ``chap init``, such as a misspelled key.
+
+    The CLI prints its message instead of a traceback.
+    """

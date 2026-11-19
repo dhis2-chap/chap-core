@@ -1,13 +1,16 @@
 import json
 
 import altair
+import numpy as np
 import pandas as pd
 import pytest
 from sqlmodel import Session, select
 from starlette.testclient import TestClient
 
-from chap_core.database.dataset_tables import DataSet
-from chap_core.database.tables import Backtest, BacktestRead, Prediction
+from chap_core.api_types import DataElement, DataList
+from chap_core.database.dataset_manager import DataSetManager
+from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo
+from chap_core.database.tables import Backtest, BacktestForecast, BacktestRead, Prediction, PredictionSamplesEntry
 from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.routers.dependencies import get_session
 
@@ -53,6 +56,79 @@ def test_actual_cases_dataset(override_session):
     assert len(actual_cases) >= 3
 
 
+def test_actual_cases_all_locations_sums_per_period(override_session, caplog):
+    per_location = client.get_json("/v1/analytics/actual-cases/1")
+    expected: dict[str, float] = {}
+    for entry in per_location["data"]:
+        expected[entry["pe"]] = expected.get(entry["pe"], 0.0) + (entry["value"] or 0.0)
+
+    with caplog.at_level("DEBUG"):
+        summed = client.get_json("/v1/analytics/actual-cases/1", params={"orgUnits": ["adm0"]})
+
+    assert {entry["ou"] for entry in summed["data"]} == {"adm0"}
+    assert [entry["pe"] for entry in summed["data"]] == list(expected)
+    assert {entry["pe"]: entry["value"] for entry in summed["data"]} == pytest.approx(expected)
+    assert "Observation(" not in caplog.text
+    assert "period=" not in caplog.text
+
+
+def test_actual_cases_filters_org_units(override_session):
+    all_rows = client.get_json("/v1/analytics/actual-cases/1")["data"]
+    org_unit = all_rows[0]["ou"]
+    filtered = client.get_json("/v1/analytics/actual-cases/1", params={"orgUnits": [org_unit]})["data"]
+    assert filtered == [row for row in all_rows if row["ou"] == org_unit]
+
+
+def test_actual_cases_body_matches_the_data_list_model(override_session, seeded_session):
+    dataset = seeded_session.exec(select(DataSet).where(DataSet.name == "dataset_with_nans")).one()
+    target_rows = sorted(
+        (obs for obs in dataset.observations if obs.feature_name == dataset.target_column), key=lambda obs: obs.id
+    )
+    expected = DataList(
+        featureId=dataset.target_column,
+        dhis2Id=dataset.target_column,
+        data=[
+            DataElement(pe=obs.period, ou=obs.org_unit, value=None if obs.value is None else float(obs.value))
+            for obs in target_rows
+        ],
+    )
+
+    response = client.get_json(f"/v1/analytics/actual-cases/{dataset.id}", params={"isDatasetId": True})
+
+    assert response == expected.model_dump()
+    assert any(entry["value"] is None for entry in response["data"])
+
+
+def test_actual_cases_without_observations_is_not_found(override_session):
+    response = client.get("/v1/analytics/actual-cases/1", params={"orgUnits": ["unknown-org-unit"]})
+    assert response.status_code == 404, response.text
+
+
+def test_actual_cases_returns_infinite_values_as_null(file_engine, health_population_data):
+    location, series = next(iter(health_population_data.items()))
+    series.disease_cases[0] = float("inf")
+    with Session(file_engine) as session:
+        dataset_id = DataSetManager(session).save_dataset(
+            DataSetCreateInfo(name="with_infinity"), health_population_data, None
+        )
+
+    def get_test_session():
+        with Session(file_engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = get_test_session
+    try:
+        response = client.get(
+            f"/v1/analytics/actual-cases/{dataset_id}", params={"orgUnits": [location], "isDatasetId": True}
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200, response.text
+    assert b"Infinity" not in response.content
+    assert response.json()["data"][0] == {"pe": series.time_period[0].id, "ou": location, "value": None}
+
+
 def test_actual_cases_alias(override_session):
     actual_cases = client.get_json("/v1/analytics/actual-cases/1")
     assert len(actual_cases) >= 3
@@ -62,6 +138,106 @@ def test_get_prediction_entries(override_session):
     params = {"predictionId": 1, "quantiles": [0.0, 0.5, 0.9]}
     prediction_entries = client.get_json("/v1/analytics/prediction-entry", params=params)
     assert len(prediction_entries) > 3
+
+
+QUANTILES = [0.1, 0.25, 0.5, 0.75, 0.9]
+
+
+@pytest.mark.parametrize(
+    "url, params",
+    [
+        ("/v1/analytics/prediction-entry", {"predictionId": 1}),
+        ("/v1/analytics/prediction-entry/1", {}),
+    ],
+)
+def test_prediction_entries_are_the_quantiles_of_each_forecast(override_session, seeded_session, url, params):
+    forecasts = sorted(seeded_session.get(Prediction, 1).forecasts, key=lambda forecast: forecast.id)
+    expected = [
+        {
+            "orgUnit": f.org_unit,
+            "period": f.period,
+            "quantile": q,
+            "value": pytest.approx(float(np.quantile(f.values, q))),
+        }
+        for f in forecasts
+        for q in QUANTILES
+    ]
+
+    response = client.get_json(url, params={**params, "quantiles": QUANTILES})
+
+    assert response == expected
+
+
+def test_prediction_entries_with_mixed_sample_counts(override_session, seeded_session):
+    prediction = seeded_session.get(Prediction, 1)
+    first = prediction.forecasts[0]
+    for n_samples in [3, 7, 3, 1, 7]:
+        prediction.forecasts.append(
+            PredictionSamplesEntry(
+                org_unit=first.org_unit, period=first.period, values=[float(v) for v in range(n_samples, 0, -1)]
+            )
+        )
+    seeded_session.commit()
+    forecasts = sorted(prediction.forecasts, key=lambda forecast: forecast.id)
+    assert len({len(f.values) for f in forecasts}) > 2
+    expected = [pytest.approx(float(np.quantile(f.values, q))) for f in forecasts for q in QUANTILES]
+
+    response = client.get_json("/v1/analytics/prediction-entry/1", params={"quantiles": QUANTILES})
+
+    assert [entry["value"] for entry in response] == expected
+
+
+def test_prediction_entries_of_an_unknown_prediction_is_not_found(override_session):
+    response = client.get("/v1/analytics/prediction-entry/999", params={"quantiles": QUANTILES})
+    assert response.status_code == 404, response.text
+
+
+def test_evaluation_entries_are_the_quantiles_of_each_forecast(override_session, seeded_session):
+    forecasts = seeded_session.exec(
+        select(BacktestForecast).where(BacktestForecast.backtest_id == 1).order_by(BacktestForecast.id)
+    ).all()
+    expected = [
+        {
+            "orgUnit": f.org_unit,
+            "period": f.period,
+            "quantile": q,
+            "value": pytest.approx(float(np.quantile(f.values, q))),
+            "splitPeriod": f.last_seen_period,
+        }
+        for f in forecasts
+        for q in QUANTILES
+    ]
+
+    response = client.get_json("/v1/analytics/evaluation-entry", params={"backtestId": 1, "quantiles": QUANTILES})
+
+    assert response == expected
+
+
+def test_evaluation_entries_for_adm0_are_the_quantiles_of_the_summed_samples(override_session, seeded_session):
+    forecasts = seeded_session.exec(
+        select(BacktestForecast).where(BacktestForecast.backtest_id == 1).order_by(BacktestForecast.id)
+    ).all()
+    summed: dict[tuple[str, str], np.ndarray] = {}
+    for f in forecasts:
+        key = (f.period, f.last_seen_period)
+        summed[key] = summed.get(key, np.zeros(len(f.values))) + np.array(f.values)
+    expected = [
+        {
+            "orgUnit": "adm0",
+            "period": period,
+            "quantile": q,
+            "value": pytest.approx(float(np.quantile(samples, q))),
+            "splitPeriod": split_period,
+        }
+        for (period, split_period), samples in summed.items()
+        for q in QUANTILES
+    ]
+
+    response = client.get_json(
+        "/v1/analytics/evaluation-entry", params={"backtestId": 1, "quantiles": QUANTILES, "orgUnits": ["adm0"]}
+    )
+
+    assert response == expected
 
 
 def test_get_backtest(override_session):

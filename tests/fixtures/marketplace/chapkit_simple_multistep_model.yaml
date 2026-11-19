@@ -56,6 +56,7 @@ versions:
   - version: 0.1.0
     commit: 57eeb78791083ee6939a7cc65455cce054ba6bf9
     image_tag: sha-57eeb78
+    image_digest: sha256:5555555555555555555555555555555555555555555555555555555555555555
     chapkit: ">=2.0.0,<3"
     status: verified
     # Verified by the merge gate. Part of the chapkit 2.0.0 seed import.

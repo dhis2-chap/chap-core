@@ -30,7 +30,7 @@ DEFAULT_METRIC_ORDER = [
     "winkler_score_10_90_log1p",
     "winkler_score_25_75",
 ]
-DEFAULT_BASELINE_MODEL = "persistence"
+DEFAULT_BASELINE_MODEL = "seasonal_shift_persistence"
 
 
 def is_builtin_baseline(name: str) -> bool:
@@ -46,7 +46,7 @@ class Settings(DBModel):
     )
     selected_metrics: list[str] = Field(description="Metric ids shown by default, ordered by metricSortOrder.")
     default_baseline_model: str = Field(
-        description="Built-in baseline name, independent of its version (for example 'persistence')."
+        description="Built-in baseline name, independent of its version (for example 'seasonal_shift_persistence')."
     )
     weekly_backtest_params: BacktestParams = Field(description="Defaults for backtests of weekly data.")
     monthly_backtest_params: BacktestParams = Field(description="Defaults for backtests of monthly data.")

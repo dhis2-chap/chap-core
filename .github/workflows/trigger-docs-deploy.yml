@@ -5,13 +5,16 @@ on:
     branches:
       - master
 
+permissions:
+  contents: read
+
 jobs:
   trigger-docs:
     if: github.repository == 'dhis2-chap/chap-core'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger chap-site deploy
-        uses: peter-evans/repository-dispatch@v4
+        uses: peter-evans/repository-dispatch@28959ce8df70de7be546dd1250a005dd32156697 # v4.0.1
         with:
           token: ${{ secrets.CHAP_SITE_DEPLOY_TOKEN }}
           repository: dhis2-chap/chap-site

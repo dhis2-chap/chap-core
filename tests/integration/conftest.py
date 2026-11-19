@@ -32,7 +32,6 @@ def dataset_make_request(feature_names, seen_periods, backtest_params, org_units
         type="evaluation",
         geojson=geojson,
         provided_data=observations,
-        data_to_be_fetched=[],
         data_sources=[
             DataSource(covariate=fn, data_element_id=f"de_{i}")
             for i, fn in enumerate(feature_names + ["disease_cases"])
@@ -51,7 +50,6 @@ def dataset_make_request_weekly(
         type="evaluation",
         geojson=geojson,
         provided_data=observations,
-        data_to_be_fetched=[],
         data_sources=[
             DataSource(covariate=fn, data_element_id=f"de_{i}")
             for i, fn in enumerate(feature_names + ["disease_cases"])

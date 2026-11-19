@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from chap_core.exceptions import InvalidModelException
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.builtin import BUILTIN_SOURCE_PREFIX, BuiltinModelTemplate
-from chap_core.models.chapkit_service_manager import is_url
+from chap_core.models.chapkit_service_manager import DOCKER_SOURCE_PREFIX, is_url
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.mlproject_chapkit import chapkit_service_launch, check_chapkit_version
 from chap_core.models.model_template import ModelTemplate
@@ -133,6 +133,20 @@ def get_model_template_from_mlproject_file(
     return model_template
 
 
+def check_run_options(model_template_path: str, is_chapkit_model: bool, as_chapkit: bool) -> None:
+    """Raise ValueError when ``as_chapkit`` is combined with a model that is already a chapkit service."""
+    if not as_chapkit:
+        return
+    if str(model_template_path).startswith(DOCKER_SOURCE_PREFIX):
+        raise ValueError("--run-config.as-chapkit serves an MLproject; a docker:// image is already a chapkit service.")
+    is_github_url = is_url(model_template_path) and model_template_path.startswith("https://github.com")
+    if is_chapkit_model or (is_url(model_template_path) and not is_github_url):
+        raise ValueError(
+            "--run-config.as-chapkit runs an MLproject from a local directory or GitHub URL as a chapkit service; "
+            "it cannot be combined with a chapkit service URL or --run-config.is-chapkit-model."
+        )
+
+
 def get_model_template_from_directory_or_github_url(
     model_template_path: str,
     base_working_dir: Path = CHAP_RUNS_DIR,
@@ -172,16 +186,14 @@ def get_model_template_from_directory_or_github_url(
     # GitHub URLs are git-clone targets, never live chapkit services, so skip the
     # chapkit probe for them to avoid a spurious 404 against github.com/.../api/v1/info.
     is_github_url = is_url(model_template_path) and model_template_path.startswith("https://github.com")
-    if as_chapkit and (is_chapkit_model or (is_url(model_template_path) and not is_github_url)):
-        raise ValueError(
-            "--run-config.as-chapkit runs an MLproject from a local directory or GitHub URL as a chapkit service; "
-            "it cannot be combined with a chapkit service URL or --run-config.is-chapkit-model."
-        )
+    check_run_options(model_template_path, is_chapkit_model=is_chapkit_model, as_chapkit=as_chapkit)
     if as_chapkit and dry_run:
         raise ValueError(
             "--dry-run is not supported with --run-config.as-chapkit: a chapkit service runs the model "
             "commands itself, so they cannot be printed instead of executed."
         )
+    if str(model_template_path).startswith(DOCKER_SOURCE_PREFIX):
+        return ExternalChapkitModelTemplate(str(model_template_path))
     if as_chapkit:
         check_chapkit_version()
     detected = (

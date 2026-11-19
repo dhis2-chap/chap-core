@@ -11,7 +11,12 @@ from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration, ModelTemplateRole
 from chap_core.database.tables import Backtest, Prediction, SpecificationBaseline, SpecificationBaselineStatus
-from chap_core.models.builtin import BaselineNotApplicable, builtin_template_config, get_builtin_model
+from chap_core.models.builtin import (
+    BaselineNotApplicable,
+    builtin_template_config,
+    get_builtin_model,
+    get_builtin_models,
+)
 from chap_core.rest_api.app import app
 from chap_core.rest_api.baseline_runs import STALE_CLAIM_AFTER, request_baselines, run_baseline
 from chap_core.rest_api.data_models import BacktestCreate
@@ -52,7 +57,7 @@ def test_each_baseline_is_queued_once_per_specification(p_seeded_engine, specifi
         first = request_baselines(session, specification_id)
         assert request_baselines(session, specification_id) == []
 
-    assert baselines == {"global_median", "seasonal_median", "persistence"}
+    assert baselines == {"global_median", "persistence", "seasonal_median", "seasonal_shift_persistence"}
     assert len(first) == len(baseline_worker.queued) == len(baselines)
     assert not any("database_url" in kwargs for _, _, kwargs in baseline_worker.queued)
     rows = _rows(p_seeded_engine, specification_id)
@@ -81,17 +86,17 @@ def test_a_failing_baseline_is_not_applicable_and_the_others_still_run(
     def fail(*args, **kwargs):
         raise BaselineNotApplicable("too little history")
 
-    monkeypatch.setattr(get_builtin_model("persistence"), "predict", fail)
+    monkeypatch.setattr(get_builtin_model("seasonal_shift_persistence"), "predict", fail)
     with SessionWrapper(p_seeded_engine) as session:
         request_baselines(session, specification_id)
     _run_queued(p_seeded_engine, baseline_worker)
 
     rows = _rows(p_seeded_engine, specification_id)
-    assert (rows["persistence"].status, rows["persistence"].backtest_id) == (
+    assert (rows["seasonal_shift_persistence"].status, rows["seasonal_shift_persistence"].backtest_id) == (
         SpecificationBaselineStatus.not_applicable,
         None,
     )
-    assert rows["persistence"].message == "too little history"
+    assert rows["seasonal_shift_persistence"].message == "too little history"
     assert rows["global_median"].status == SpecificationBaselineStatus.done
     # Not applicable is final, so reading the specification again does not retry it.
     with SessionWrapper(p_seeded_engine) as session:
@@ -105,13 +110,13 @@ def test_a_baseline_failing_for_another_reason_fails_its_job_and_is_retried_a_da
     def fail(*args, **kwargs):
         raise ValueError("bug in a shared path")
 
-    monkeypatch.setattr(get_builtin_model("persistence"), "predict", fail)
+    monkeypatch.setattr(get_builtin_model("seasonal_shift_persistence"), "predict", fail)
     with SessionWrapper(p_seeded_engine) as session:
         request_baselines(session, specification_id)
     with pytest.raises(ValueError, match="bug in a shared path"):
         _run_queued(p_seeded_engine, baseline_worker)
 
-    failed = _rows(p_seeded_engine, specification_id)["persistence"]
+    failed = _rows(p_seeded_engine, specification_id)["seasonal_shift_persistence"]
     assert (failed.status, failed.message) == (SpecificationBaselineStatus.failed, "bug in a shared path")
     with SessionWrapper(p_seeded_engine) as session:
         # A failure that repeats must not queue a job on every trigger.
@@ -140,7 +145,8 @@ def test_a_new_baseline_version_is_queued_on_an_existing_specification(
 ):
     with SessionWrapper(p_seeded_engine) as session:
         request_baselines(session, specification_id)
-        spec = dataclasses.replace(get_builtin_model("global_median").spec, version="2")
+        current = get_builtin_model("global_median").spec
+        spec = dataclasses.replace(current, version=str(int(current.version) + 1))
         template_id = session.add_model_template_from_yaml_config(builtin_template_config(spec))
         session.get_model_template(template_id).role = spec.role
         model_id = session.add_configured_model(
@@ -175,7 +181,7 @@ def test_a_backtest_from_the_api_queues_the_baselines_of_its_specification(p_see
         )
         specification_id = session.session.get(Backtest, backtest_id).specification_id
 
-    assert len(baseline_worker.queued) == len(_rows(p_seeded_engine, specification_id)) == 3
+    assert len(baseline_worker.queued) == len(_rows(p_seeded_engine, specification_id)) == len(get_builtin_models())
 
 
 def test_a_backtest_from_the_api_runs_even_when_requesting_baselines_fails(p_seeded_engine, monkeypatch):
@@ -218,7 +224,7 @@ def test_deleting_a_dataset_whose_only_backtests_are_baselines_is_refused_with_t
             session.session.delete(row)
         session.session.commit()
         baseline_ids = sorted(session.session.exec(select(Backtest.id).where(Backtest.dataset_id == dataset_id)).all())
-    assert len(baseline_ids) == 3
+    assert len(baseline_ids) == len(get_builtin_models())
     assert [b["id"] for b in client.get("/v1/crud/backtests").json()] == []
 
     response = client.delete(f"/v1/crud/datasets/{dataset_id}")
@@ -229,9 +235,9 @@ def test_deleting_a_dataset_whose_only_backtests_are_baselines_is_refused_with_t
 
 def test_reading_a_specification_queues_its_missing_baselines(override_session, specification_id, baseline_worker):
     assert client.get(f"/v1/crud/backtest-specifications/{specification_id}").status_code == 200
-    assert len(baseline_worker.queued) == 3
+    assert len(baseline_worker.queued) == len(get_builtin_models())
     assert client.get(f"/v1/crud/backtest-specifications/{specification_id}").status_code == 200
-    assert len(baseline_worker.queued) == 3
+    assert len(baseline_worker.queued) == len(get_builtin_models())
 
 
 def _leaderboard(specification_id, **params):
@@ -247,8 +253,9 @@ def test_the_leaderboard_lists_baselines_as_pending_until_they_have_run(
 
     assert {b["configuredModel"]["name"]: b["status"] for b in leaderboard["baselines"]} == {
         "global_median": "pending",
-        "seasonal_median": "pending",
         "persistence": "pending",
+        "seasonal_median": "pending",
+        "seasonal_shift_persistence": "pending",
     }
     assert leaderboard["comparisonModels"] is None
     assert all(backtest["comparisons"] == [] for backtest in leaderboard["backtests"])
@@ -265,7 +272,7 @@ def test_the_leaderboard_compares_each_backtest_with_the_baselines(
     def fail(*args, **kwargs):
         raise BaselineNotApplicable("too little history")
 
-    monkeypatch.setattr(get_builtin_model("persistence"), "predict", fail)
+    monkeypatch.setattr(get_builtin_model("seasonal_shift_persistence"), "predict", fail)
     with SessionWrapper(p_seeded_engine) as session:
         request_baselines(session, specification_id)
     _run_queued(p_seeded_engine, baseline_worker)
@@ -283,13 +290,13 @@ def test_the_leaderboard_compares_each_backtest_with_the_baselines(
 
     leaderboard = _leaderboard(specification_id)
     baselines = {b["configuredModel"]["name"]: b for b in leaderboard["baselines"]}
-    assert (baselines["persistence"]["status"], baselines["persistence"]["message"]) == (
+    assert (baselines["seasonal_shift_persistence"]["status"], baselines["seasonal_shift_persistence"]["message"]) == (
         "not_applicable",
         "too little history",
     )
-    assert baselines["persistence"]["aggregateMetrics"] == {}
+    assert baselines["seasonal_shift_persistence"]["aggregateMetrics"] == {}
     done_ids = {b["configuredModel"]["id"] for b in baselines.values() if b["status"] == "done"}
-    assert len(done_ids) == 2
+    assert len(done_ids) == len(get_builtin_models()) - 1
     backtest = next(b for b in leaderboard["backtests"] if b["id"] == model_backtest_id)
     assert {c["configuredModelId"]: c["values"] for c in backtest["comparisons"]} == {
         model_id: {"mae": pytest.approx(0.25)} for model_id in done_ids

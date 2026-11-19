@@ -1,7 +1,7 @@
 """Rename forecast alerts to signals and make the dissemination gate explicit.
 
 Revision ID: a1c3e5f70926
-Revises: b64628109792
+Revises: 00e90ba1184f
 """
 
 import sqlalchemy as sa
@@ -10,7 +10,7 @@ from alembic import op
 from chap_core.database.migration_helpers import foreign_key_name, has_column, has_table
 
 revision = "a1c3e5f70926"
-down_revision = "b64628109792"
+down_revision = "00e90ba1184f"
 branch_labels = None
 depends_on = None
 

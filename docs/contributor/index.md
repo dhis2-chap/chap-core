@@ -21,7 +21,6 @@ This section provides documentation for contributors to the Chap platform.
 - [Testing](testing.md) - How to write and run tests
 - [Database Migrations](database_migrations.md) - Managing database schema changes
 - [Documentation](writing_building_documentation.md) - Writing and building documentation
-- [Development Tools](development_tools.md) - Tools for development
 - [Pull Request Review](pr_review.md) - What reviewers check and how to fill in `Review needed:`
 
 ## Extending Chap

@@ -122,13 +122,14 @@ def test_run_prediction_keeps_the_policy_captured_at_start(signal_prediction):
     assert [a.level for a in list_signals(session, prediction_id=prediction_id)] == ["level_2"]
 
 
-def test_run_prediction_fails_but_keeps_prediction_when_signals_fail(signal_prediction):
+def test_run_prediction_fails_but_keeps_prediction_and_baselines_when_signals_fail(signal_prediction):
     session, original = signal_prediction
     with patch("chap_core.rest_api.db_worker_functions.raise_signals_for_prediction", side_effect=RuntimeError):
         with pytest.raises(RuntimeError):
             _run_prediction(session, original)
     stored = session.exec(select(Prediction).where(Prediction.name == "new")).one()
     assert stored.forecasts[0].values == [21.0, 21.0]
+    assert len(stored.baseline_predictions) == 4
 
 
 def test_run_prediction_stores_every_baseline_forecast(signal_prediction):
@@ -136,7 +137,12 @@ def test_run_prediction_stores_every_baseline_forecast(signal_prediction):
     prediction_id = _run_prediction(session, original)
     prediction = session.get(Prediction, prediction_id)
     baselines = prediction.baseline_predictions
-    assert {baseline.model_id for baseline in baselines} == {"global_median", "persistence", "seasonal_median"}
+    assert {baseline.model_id for baseline in baselines} == {
+        "global_median",
+        "persistence",
+        "seasonal_shift_persistence",
+        "seasonal_median",
+    }
     assert {baseline.prediction_setup_id for baseline in baselines} == {None}
     assert baselines[0].forecasts[0].values == [21.0, 21.0]
 

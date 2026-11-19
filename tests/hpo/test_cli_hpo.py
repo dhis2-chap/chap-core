@@ -24,6 +24,7 @@ def make_template(search_space: dict | None) -> MagicMock:
     template.model_template_config = SimpleNamespace(
         name="demo-template",
         version="1.0",
+        required_covariates=[],
         hpo_search_space=search_space,
         min_prediction_periods=None,
         max_prediction_periods=None,
@@ -131,6 +132,7 @@ def test_eval_cli_parses_hpo_options_and_passes_optimizer_to_evaluation(
     )
     monkeypatch.setattr(evaluate_module, "resolve_csv_path", lambda _: (Path("input.csv"), None))
     monkeypatch.setattr(evaluate_module, "discover_geojson", lambda _: None)
+    monkeypatch.setattr(evaluate_module, "check_dataset_for_model", lambda *args, **kwargs: None)
     dataset = MagicMock(name="dataset")
     monkeypatch.setattr(evaluate_module, "load_dataset_from_csv", lambda *args, **kwargs: dataset)
     monkeypatch.setattr(
