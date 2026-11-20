@@ -134,10 +134,42 @@ A permission is named `action:resource`, such as `read:predictions` or `run:back
   `POST` that only reads, such as a query with a body, needs a `read:` permission.
 - Routes declare it with FastAPI's `Security(authorize, scopes=["read:predictions"])`, so it
   shows in `/docs` and in the OpenAPI spec.
-- chap-core refuses to start unless every operation in the OpenAPI spec is public or
-  declares exactly one permission. Routes left out of the spec come from a short explicit
-  list: the chapkit proxy (`/v2/services/{service_id}/run/{path}`, `call:services`), the
-  docs pages and `/favicon.ico`.
+- chap-core refuses to start unless every route it serves is public or declares exactly one
+  permission. The check walks the routes themselves, so routes left out of the OpenAPI spec,
+  such as the chapkit proxy, are covered too.
+
+Every permission, what it allows, and which built-in tiers hold it:
+
+| Permission | Allows | `read` | `authenticated` | `operator` |
+| --- | --- | --- | --- | --- |
+| `read:datasets` | Listing, reading and exporting datasets, dataset plots, computing thresholds | yes | yes | yes |
+| `write:datasets` | Importing datasets | | yes | yes |
+| `delete:datasets` | Deleting datasets | | | yes |
+| `read:models` | Listing model templates and configured models | yes | yes | yes |
+| `write:models` | Adding model templates and configuring models | | | yes |
+| `delete:models` | Retiring model templates and configured models | | | yes |
+| `read:backtests` | Backtests, their forecasts, metrics and plots | yes | yes | yes |
+| `run:backtests` | Starting backtests | | yes | yes |
+| `write:backtests` | Renaming and editing backtests | | | yes |
+| `delete:backtests` | Deleting backtests | | | yes |
+| `read:predictions` | Predictions and their forecasts | yes | yes | yes |
+| `run:predictions` | Running predictions, and prediction setups | | yes | yes |
+| `delete:predictions` | Deleting predictions | | | yes |
+| `read:prediction-setups` | Prediction setups and their monitoring | yes | yes | yes |
+| `write:prediction-setups` | Creating and changing prediction setups | | yes | yes |
+| `delete:prediction-setups` | Retiring prediction setups | | | yes |
+| `read:alerts` | Alerts and alert policies | yes | yes | yes |
+| `write:alerts` | Recording alerts, creating and changing alert policies | | | yes |
+| `approve:alerts` | Clearing or declining alerts for release | | | yes |
+| `delete:alerts` | Deleting alerts and alert policies | | | yes |
+| `read:jobs` | Jobs, their logs, requests and results | | yes | yes |
+| `write:jobs` | Cancelling and forgetting jobs | | yes | yes |
+| `read:settings` | The installation's defaults, and the fixed lists clients choose from: plot types, weather providers, data sources, threshold strategies, outbreak metrics, terminology | yes | yes | yes |
+| `write:settings` | Changing the installation's defaults | | | yes |
+| `read:system` | The on-demand probe, `/health/probe` | | yes | yes |
+| `read:services` | Listing registered chapkit services | yes | yes | yes |
+| `call:services` | The read-only proxy to a registered chapkit service | | yes | yes |
+| `register:services` | Registering, pinging and deregistering a chapkit service | | | yes |
 
 ## Permission catalogue
 
@@ -244,8 +276,26 @@ the fixed lists clients choose from, such as plot types, weather providers and t
 | GET | `/v2/services` | `read:services` |
 | GET | `/v2/services/{service_id}` | `read:services` |
 | DELETE | `/v2/services/{service_id}` | `register:services` |
-| GET | `/v2/services/{service_id}/run/{path}` | `call:services` |
+| GET | `/v2/services/{service_id}/run/{path:path}` | `call:services` |
 | GET | `/favicon.ico` | public |
+
+## Fixed in code and configured per install
+
+Fixed in code, the same on every install, and changed only by a Chap release:
+
+- the permissions, and which permission each route needs,
+- the built-in tiers `public`, `read`, `authenticated` and `operator`, and what they grant,
+- the public routes,
+- the accepted headers and the error answers.
+
+Configured per install, in `chap-server.yaml`:
+
+- the named tokens, each with one tier,
+- custom tiers, built from the permissions and the built-in tiers.
+
+A tier is resolved against the running release. `operator` gains any permission a later
+release adds, and so does a custom tier that includes it. A custom tier that lists
+permissions one by one gains nothing, so check custom tiers after upgrading.
 
 ## Built-in tiers
 
@@ -305,6 +355,44 @@ chap-core refuses to start when the block has:
 - an unknown key.
 
 Tiers are resolved once at startup into a flat set of permissions per tier.
+
+Names never replace each other:
+
+- A custom tier cannot take a built-in name. A tier named `read` stops startup rather than
+  replacing the built-in one.
+- A tier name, a token id or any other key given twice in `chap-server.yaml` stops startup
+  and names the line. Plain YAML would keep the last one silently.
+- Tier names and token ids are separate, so a token and a tier may share a name, as `caps`
+  does in the example below.
+
+### Making a tier
+
+1. Start from the clients and what each must do, not from the permissions. Give every client
+   its own token, even when two need the same access.
+2. Use a built-in tier when one fits. Make a custom tier only for a client that needs less
+   than `authenticated` or `operator` gives, or something in between.
+3. Build it from `includes: [read]` and add the few permissions the client needs from
+   [Permissions](#permissions). Prefer listing permissions over including `authenticated` or
+   `operator`, so a later release does not widen it.
+4. Leave out `delete:` permissions unless the client must delete. They are operator-only by
+   default.
+5. Start Chap and call `GET /v1/auth/me` with the token. It lists exactly what the token may
+   do.
+
+For example, a forecasting client that imports data and runs predictions, but must not
+change models or delete anything:
+
+```yaml
+authentication:
+  tiers:
+    caps:
+      includes: [read]
+      permissions: [write:datasets, run:predictions, read:jobs]
+  tokens:
+    - id: caps
+      token_env: CHAP_CAPS_TOKEN
+      tier: caps
+```
 
 ## Existing installs
 

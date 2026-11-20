@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 from typing import Annotated, Any
 
+import yaml
 from dotenv import find_dotenv, load_dotenv
 from pydantic import BeforeValidator, Field, SecretStr, field_validator
 from pydantic_settings import (
@@ -133,12 +134,27 @@ class ChapSettings(BaseSettings):
         return init_settings, env_settings, ServerConfigFileSource(settings_cls, Path(config_path))
 
 
+class _RefuseDuplicateKeys(yaml.SafeLoader):
+    """YAML keeps the last of two equal keys, so a second ``analyst:`` tier would silently replace the first."""
+
+    def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict[Any, Any]:
+        seen = set()
+        for key_node, _ in node.value:
+            key = self.construct_object(key_node, deep=deep)  # type: ignore[no-untyped-call]
+            if key in seen:
+                raise ConfigFileError(f"{self.name}: the key {key} appears twice (line {key_node.start_mark.line + 1})")
+            seen.add(key)
+        return super().construct_mapping(node, deep=deep)
+
+
 class ServerConfigFileSource(YamlConfigSettingsSource):
-    """``chap-server.yaml``, failing with the file's path when it is missing or has an unknown key."""
+    """``chap-server.yaml``, failing with the file's path when it is missing, repeats a key or has an unknown one."""
 
     def __init__(self, settings_cls: type[BaseSettings], path: Path):
         if not path.is_file():
             raise ConfigFileError(f"{CONFIG_ENV_VAR} points to {path}, which is not a file")
+        with path.open() as stream:
+            yaml.load(stream, Loader=_RefuseDuplicateKeys)  # noqa: S506 — a SafeLoader subclass
         super().__init__(settings_cls, yaml_file=path)
         known = set(settings_cls.model_fields)
         unknown = sorted(set(self.yaml_data) - known)
