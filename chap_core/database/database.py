@@ -1,5 +1,6 @@
 import logging
 import math
+import threading
 import time
 from pathlib import Path
 from typing import Literal, cast
@@ -60,13 +61,21 @@ DB_MAX_OVERFLOW = 10
 DB_POOL_CONNECTIONS = DB_POOL_SIZE + DB_MAX_OVERFLOW
 
 engine: Engine | None = None
+# The first requests reach get_engine() from several threadpool threads at once. Without the
+# lock each could build an engine, and all but one pool would leak past DB_POOL_CONNECTIONS.
+_engine_lock = threading.Lock()
 
 
 def get_engine() -> Engine | None:
     """The process's database engine, created on first use. None when no database is configured."""
-    global engine
     if engine is not None:
         return engine
+    with _engine_lock:
+        return engine if engine is not None else _create_engine()
+
+
+def _create_engine() -> Engine | None:
+    global engine
     database_url = get_settings().database_url
     if database_url is None:
         # info, not warning: CLI commands import this module transitively but don't need a database
