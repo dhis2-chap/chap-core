@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.authentication import AuthenticationMiddleware
 
 from chap_core import __version__ as chap_core_version
+from chap_core.auth.context import PrincipalLogFilter
 from chap_core.auth.tokens import get_authentication
 from chap_core.database.database import DB_POOL_CONNECTIONS
 from chap_core.rest_api.auth import ChapTokenBackend, on_authentication_error, warn_on_weak_token
@@ -80,6 +81,8 @@ def get_cors_origins() -> list[str]:
     return get_settings().cors_origins
 
 
+# The access log names the principal of each request made with a token.
+logging.getLogger("uvicorn.access").addFilter(PrincipalLogFilter())
 
 # Must stay before CORSMiddleware: add_middleware inserts at the front, so this keeps CORS
 # outermost and 401 responses still carry CORS headers.
