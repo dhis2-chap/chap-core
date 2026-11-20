@@ -69,6 +69,9 @@ class ChapSettings(BaseSettings):
         # Catches a typo in chap-server.yaml. Unrelated environment variables are never read.
         extra="forbid",
         validate_by_name=True,
+        # A secret pasted into the wrong setting must not be echoed in the startup error. Nested
+        # models format their errors with this setting, not their own.
+        hide_input_in_errors=True,
     )
 
     database_url: str | None = None
