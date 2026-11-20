@@ -27,6 +27,7 @@ If you find any bugs or issues when using this code base, we appreciate it if yo
 
 ```shell
 cp .env.example .env
+echo "SERVICEKIT_REGISTRATION_KEY=$(openssl rand -hex 32)" >> .env
 docker compose up
 ```
 
