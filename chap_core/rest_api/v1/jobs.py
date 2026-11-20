@@ -9,10 +9,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, or_
 from sqlmodel import Session, col, select
 
+from chap_core.auth.permissions import Permission
 from chap_core.database.dataset_tables import DataSet, Observation
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import Backtest, BacktestRead, Prediction, PredictionInfo
 from chap_core.log_config import initialize_logging
+from chap_core.rest_api.authorization import require
 from chap_core.rest_api.celery_tasks import CeleryPool, JobDescription, get_job_meta, job_description
 from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.v1.routers.dependencies import get_session
@@ -65,6 +67,7 @@ class JobDiagnostics(BaseModel):
 
 @router.get(
     "/{job_id}/diagnostics",
+    dependencies=[require(Permission.READ_JOBS)],
     summary="Download diagnostics for a finished job",
     responses={404: {"description": "Job not found"}, 409: {"description": "Job has not finished"}},
 )
@@ -135,6 +138,7 @@ def get_job_diagnostics(job_id: str, session: Session = Depends(get_session)) ->
 
 @router.get(
     "",
+    dependencies=[require(Permission.READ_JOBS)],
     summary="Track background work",
 )
 def list_jobs(
@@ -193,6 +197,7 @@ def _get_successful_job(job_id):
 
 @router.get(
     "/{job_id}",
+    dependencies=[require(Permission.READ_JOBS)],
     summary="Get one job",
     responses={404: {"description": "Job not found"}},
 )
@@ -212,6 +217,7 @@ def get_job(job_id: str) -> JobDescription:
 
 @router.get(
     "/{job_id}/request",
+    dependencies=[require(Permission.READ_JOBS)],
     summary="Download the original submitted job request",
     responses={404: {"description": "Job or saved request not found"}},
 )
@@ -230,6 +236,7 @@ def get_job_request(job_id: str) -> dict[str, Any]:
 
 @router.delete(
     "/{job_id}",
+    dependencies=[require(Permission.WRITE_JOBS)],
     summary="Forget a finished job",
 )
 def delete_job(job_id: str) -> dict:
@@ -258,6 +265,7 @@ def delete_job(job_id: str) -> dict:
 
 @router.post(
     "/{job_id}/cancel",
+    dependencies=[require(Permission.WRITE_JOBS)],
     summary="Stop a running job",
 )
 def cancel_job(job_id: str) -> dict:
@@ -283,6 +291,7 @@ def cancel_job(job_id: str) -> dict:
 
 @router.get(
     "/{job_id}/logs",
+    dependencies=[require(Permission.READ_JOBS)],
     summary="Read a job's captured logs",
 )
 def get_logs(job_id: str) -> str:
@@ -303,6 +312,7 @@ def get_logs(job_id: str) -> str:
 
 @router.get(
     "/{job_id}/prediction_result",
+    dependencies=[require(Permission.READ_JOBS)],
     response_model=PredictionInfo,
     summary="Fetch the prediction a finished forecast job produced",
 )
@@ -324,6 +334,7 @@ def get_prediction_result(
 
 @router.get(
     "/{job_id}/evaluation_result",
+    dependencies=[require(Permission.READ_JOBS)],
     response_model=BacktestRead,
     summary="Fetch the backtest a finished evaluation job produced",
 )
@@ -351,6 +362,7 @@ class DataBaseResponse(BaseModel):
 
 @router.get(
     "/{job_id}/database_result",
+    dependencies=[require(Permission.READ_JOBS)],
     summary="Fetch the row id a generic finished job produced",
 )
 def get_database_result(job_id: str) -> DataBaseResponse:

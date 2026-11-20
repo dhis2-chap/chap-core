@@ -123,7 +123,7 @@ class TestTokenEnabled:
         schema = client.get("/openapi.json").json()
 
         assert schema["components"]["securitySchemes"]["HTTPBearer"]["scheme"] == "bearer"
-        assert schema["paths"]["/v2/services"]["get"]["security"] == [{"HTTPBearer": []}]
+        assert schema["paths"]["/v2/services"]["get"]["security"] == [{"HTTPBearer": ["read:services"]}]
 
     def test_request_body_is_not_read_without_the_token(self, client):
         response = client.post("/v1/crud/datasets", content=b"{not json", headers={"Content-Type": "application/json"})
