@@ -29,6 +29,7 @@
 2. `chap_core/__init__.py` exposes `data`, `fetch`, `ModelTemplateInterface` and `is_debug_mode` lazily via PEP 562 `__getattr__` to keep CLI startup fast. Register a new public re-export at the package root in the lazy table (`_LAZY_SUBMODULES` or `_LAZY_FROM`) rather than as an eager top-level import, and also import it under `if TYPE_CHECKING:` so static type checkers still see it.
 3. Built-in models under `chap_core/models/builtin/` are versioned through `BuiltinModelSpec.version`. Any change to a built-in model's output or spec needs a new version, because stored template versions are write-once and backtests reference them.
 4. User stories (who uses Chap and what they need to be able to do) live as YAML in [dhis2-chap/user-stories](https://github.com/dhis2-chap/user-stories), not in this repo. The `docs-review` plugin in [dhis2-chap/claude-plugins](https://github.com/dhis2-chap/claude-plugins) follows them through the docs. When a change moves or renames a doc page a story starts at, or changes a flow a story describes, update the story there in a separate PR.
+5. The team's terminology has one source: [`terminology.yaml`](https://github.com/dhis2-chap/user-stories/blob/main/terminology.yaml) in dhis2-chap/user-stories. `chap_core/terminology/terminology.yaml` is a synced copy that `/v1/terminology` serves. Never edit it by hand: the `sync-terminology` workflow updates it with `scripts/sync_terminology.py`. Change a term with a pull request to dhis2-chap/user-stories.
 
 ## Contributor docs
 
