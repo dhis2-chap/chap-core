@@ -1,7 +1,6 @@
 """Named tokens from the settings, and the principal a credential names."""
 
 import base64
-import binascii
 import hmac
 import logging
 import os
@@ -176,7 +175,8 @@ def _from_authorization(header: str, tokens: tuple[NamedToken, ...]) -> Principa
     elif scheme.lower() == "basic":
         try:
             token_id, _, secret = base64.b64decode(credential, validate=True).decode().partition(":")
-        except (binascii.Error, UnicodeDecodeError):
+        # binascii.Error, UnicodeDecodeError and a non-ASCII header are all ValueErrors.
+        except ValueError:
             return None
     else:
         return None

@@ -1,6 +1,7 @@
 import base64
 
 import pytest
+from pydantic import ValidationError
 
 from chap_core.auth.permissions import AUTHENTICATED, OPERATOR
 from chap_core.auth.principal import ANONYMOUS
@@ -107,10 +108,20 @@ def test_each_accepted_scheme_names_the_token(authentication, header):
 
 
 @pytest.mark.parametrize(
-    "header", [f"Bearer {OTHER_SECRET}", basic("someone-else", SECRET), "Basic not-base64!", f"Token {SECRET}"]
+    "header",
+    [f"Bearer {OTHER_SECRET}", basic("someone-else", SECRET), "Basic not-base64!", "Basic é", f"Token {SECRET}"],
 )
 def test_a_credential_that_matches_no_token_is_invalid(authentication, header):
     assert authenticate(header, None, "/v1/crud/datasets", authentication) is None
+
+
+def test_a_secret_in_the_wrong_setting_is_not_echoed_in_the_startup_error():
+    block = {"tokens": [{"id": "x", "token_env": "pasted/secret", "tier": "read"}]}
+
+    with pytest.raises(ValidationError) as error:
+        ChapSettings(authentication=block)
+
+    assert "pasted/secret" not in str(error.value)
 
 
 def test_no_credential_is_anonymous(authentication):
