@@ -132,10 +132,18 @@ behind a proxy that adds a stale header keeps working.
 A permission is named `action:resource`, such as `read:predictions` or `run:backtests`.
 
 - The set is fixed in code (CLIM-1959). A deployment cannot add one.
-- Actions are `read`, `write`, `delete`, `run`, `approve`, `call` and `register`. A new
-  action needs a change to this contract.
+- Actions are `read`, `export`, `write`, `delete`, `run`, `approve`, `call` and `register`.
+  A new action needs a change to this contract.
 - Each route needs exactly one permission, chosen per route rather than per HTTP method. A
   `POST` that only reads, such as a query with a body, needs a `read:` permission.
+- A route whose request can also do a second thing checks a second permission in the
+  handler, and answers 403 naming it:
+    - attaching or changing a prediction setup's alert policy also needs `write:alerts`;
+    - the deprecated `make-prediction` and `create-backtest-with-data`, which store the
+      posted observations as a dataset, also need `write:datasets` (not for a dry run).
+- Cancelling or forgetting a job (`write:jobs`) works only on the caller's own jobs, unless
+  the caller holds every permission. Another principal's job, or one started while
+  authentication was off, is answered 404, as if it did not exist.
 - Routes declare it with FastAPI's `Security(authorize, scopes=["read:predictions"])`, so it
   shows in `/docs` and in the OpenAPI spec.
 - chap-core refuses to start unless every route it serves is public or declares exactly one
@@ -146,7 +154,8 @@ Every permission, what it allows, and which built-in tiers hold it:
 
 | Permission | Allows | `read` | `authenticated` | `operator` |
 | --- | --- | --- | --- | --- |
-| `read:datasets` | Listing, reading and exporting datasets, dataset plots, computing thresholds | yes | yes | yes |
+| `read:datasets` | Listing datasets, dataset plots, computing thresholds | yes | yes | yes |
+| `export:datasets` | A dataset's observations: the dataset itself, and its `/df` and `/csv` downloads | | yes | yes |
 | `write:datasets` | Importing datasets | | yes | yes |
 | `delete:datasets` | Deleting datasets | | | yes |
 | `read:models` | Listing model templates and configured models | yes | yes | yes |
@@ -160,14 +169,14 @@ Every permission, what it allows, and which built-in tiers hold it:
 | `run:predictions` | Running predictions, and prediction setups | | yes | yes |
 | `delete:predictions` | Deleting predictions | | | yes |
 | `read:prediction-setups` | Prediction setups and their monitoring | yes | yes | yes |
-| `write:prediction-setups` | Creating and changing prediction setups | | yes | yes |
+| `write:prediction-setups` | Creating and changing prediction setups; their alert policy also needs `write:alerts` | | yes | yes |
 | `delete:prediction-setups` | Retiring prediction setups | | | yes |
 | `read:alerts` | Alerts and alert policies | yes | yes | yes |
 | `write:alerts` | Recording alerts, creating and changing alert policies | | | yes |
 | `approve:alerts` | Clearing or declining alerts for release | | | yes |
 | `delete:alerts` | Deleting alerts and alert policies | | | yes |
 | `read:jobs` | Jobs, their logs, requests and results | | yes | yes |
-| `write:jobs` | Cancelling and forgetting jobs | | yes | yes |
+| `write:jobs` | Cancelling and forgetting the caller's own jobs; any job with every permission | | yes | yes |
 | `read:settings` | The installation's defaults, and the fixed lists clients choose from: plot types, weather providers, data sources, threshold strategies, outbreak metrics, terminology | yes | yes | yes |
 | `write:settings` | Changing the installation's defaults | | | yes |
 | `read:system` | The on-demand probe, `/health/probe` | | yes | yes |
@@ -201,11 +210,11 @@ the fixed lists clients choose from, such as plot types, weather providers and t
 | DELETE | `/v1/crud/predictions/{predictionId}` | `delete:predictions` |
 | GET | `/v1/crud/datasets` | `read:datasets` |
 | POST | `/v1/crud/datasets` | `write:datasets` |
-| GET | `/v1/crud/datasets/{datasetId}` | `read:datasets` |
+| GET | `/v1/crud/datasets/{datasetId}` | `export:datasets` |
 | DELETE | `/v1/crud/datasets/{datasetId}` | `delete:datasets` |
 | POST | `/v1/crud/datasets/csvFile` | `write:datasets` |
-| GET | `/v1/crud/datasets/{datasetId}/df` | `read:datasets` |
-| GET | `/v1/crud/datasets/{datasetId}/csv` | `read:datasets` |
+| GET | `/v1/crud/datasets/{datasetId}/df` | `export:datasets` |
+| GET | `/v1/crud/datasets/{datasetId}/csv` | `export:datasets` |
 | GET | `/v1/crud/model-templates` | `read:models` |
 | POST | `/v1/crud/model-templates/from-service` | `write:models` |
 | DELETE | `/v1/crud/model-templates/{modelTemplateId}` | `delete:models` |
@@ -311,8 +320,8 @@ A tier is resolved against the running release, and the built-in tiers can widen
 | Tier | Permissions |
 | --- | --- |
 | `public` | Only the open routes. Given to `anonymous`; cannot be given to a token. |
-| `read` | Every `read:` permission except `read:jobs` and `read:system`. It reads all stored data, including dataset exports and backtest forecasts. Jobs are left out because their logs and stored requests show other clients' work and internal details such as file paths and errors. For dashboards and the read-only DHIS2 route. |
-| `authenticated` | `read`, plus `read:jobs`, `write:jobs`, `read:system`, `write:datasets`, `run:backtests`, `run:predictions`, `write:prediction-setups` and `call:services`. It deletes no stored record and changes no models, settings, backtests or alerts, but `write:jobs` cancels and forgets any client's job, and `write:prediction-setups` can change a setup's alert policy and schedule. |
+| `read` | Every `read:` permission except `read:jobs` and `read:system`. It reads stored results: backtests, their forecasts and the observed cases they were scored against, predictions, models, alerts and settings. It does not hold `export:datasets`, so it cannot download a dataset's observations. Jobs are left out because their logs and stored requests show other clients' work and internal details such as file paths and errors. For dashboards and the read-only DHIS2 route. |
+| `authenticated` | `read`, plus `export:datasets`, `read:jobs`, `write:jobs`, `read:system`, `write:datasets`, `run:backtests`, `run:predictions`, `write:prediction-setups` and `call:services`. It deletes no stored record and changes no models, settings, backtests, alerts or alert policies, and it cancels and forgets only its own jobs. |
 | `operator` | Every permission, including ones added in later versions. |
 
 The catalogue (CLIM-1959) lists each tier's permissions exactly. The names follow Open Geo

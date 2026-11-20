@@ -22,7 +22,7 @@ from typing import Annotated, Any, Final, Literal
 
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Path, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Path, Query, Request, UploadFile
 from pandas.api.types import is_numeric_dtype
 from redis.exceptions import RedisError
 from sqlalchemy import func
@@ -73,7 +73,7 @@ from chap_core.database.tables import (
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.exceptions import BaselineTemplateConflict, ModelTemplateRevisionConflict
 from chap_core.geometry import Polygons
-from chap_core.rest_api.authorization import require
+from chap_core.rest_api.authorization import ensure, require
 from chap_core.rest_api.baseline_runs import request_baselines_after_response
 from chap_core.rest_api.celery_tasks import (
     JOB_METADATA_KW,
@@ -845,7 +845,7 @@ def get_datasets(session: Session = Depends(get_session)):
 
 @router.get(
     "/datasets/{datasetId}",
-    dependencies=[require(Permission.READ_DATASETS)],
+    dependencies=[require(Permission.EXPORT_DATASETS)],
     response_model=DataSetWithObservations,
     tags=["Datasets"],
     summary="Inspect a dataset's observations",
@@ -952,7 +952,7 @@ def create_dataset_csv(
 
 @router.get(
     "/datasets/{datasetId}/df",
-    dependencies=[require(Permission.READ_DATASETS)],
+    dependencies=[require(Permission.EXPORT_DATASETS)],
     tags=["Datasets"],
     summary="Read a dataset as tabular JSON rows",
 )
@@ -981,7 +981,7 @@ def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], session:
 
 @router.get(
     "/datasets/{datasetId}/csv",
-    dependencies=[require(Permission.READ_DATASETS)],
+    dependencies=[require(Permission.EXPORT_DATASETS)],
     tags=["Datasets"],
     summary="Export a dataset as a CSV download",
 )
@@ -1529,7 +1529,9 @@ def delete_alert_policy(
     tags=["Prediction Setups"],
     summary="Promote a backtest into a reusable prediction config",
 )
-def create_prediction_setup(request: PredictionSetupCreate, session: Session = Depends(get_session)):
+def create_prediction_setup(
+    request: PredictionSetupCreate, http_request: Request, session: Session = Depends(get_session)
+):
     """Save a backtest as a prediction setup — a named configuration you can rerun on fresh data, either ad-hoc via ``/run`` or on a cron schedule.
 
     Use this after evaluating a model on historical data and deciding it's good enough
@@ -1537,6 +1539,8 @@ def create_prediction_setup(request: PredictionSetupCreate, session: Session = D
     backtest is missing, 409 if it already has a setup, 422 if the cron expression or
     quantile targets are malformed.
     """
+    if request.alert_policy_id is not None:
+        ensure(http_request, Permission.WRITE_ALERTS, "attaches an alert policy")
     try:
         setup = prediction_setup_service.create_prediction_setup(
             session,
@@ -1652,6 +1656,7 @@ def get_prediction_setup_monitoring(
 def update_prediction_setup(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     request: PredictionSetupUpdate,
+    http_request: Request,
     session: Session = Depends(get_session),
 ):
     """Adjust a setup without recreating it — pause or resume the schedule, change the cron expression, swap quantile targets, rename it.
@@ -1660,6 +1665,8 @@ def update_prediction_setup(
     the id is unknown, 422 if the new values are malformed.
     """
     update_data = request.model_dump(exclude_unset=True, by_alias=False)
+    if "alert_policy_id" in update_data:
+        ensure(http_request, Permission.WRITE_ALERTS, "changes the alert policy")
     try:
         return prediction_setup_service.update_prediction_setup(session, prediction_setup_id, update_data)
     except prediction_setup_service.PredictionSetupNotFoundError as e:

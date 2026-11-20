@@ -245,3 +245,67 @@ class TestRefusalsShareOneBody:
         response = named_client.get("/v1/auth/me", headers={"Authorization": "Bearer " + "x" * 32})
 
         assert response.json()["id"] == "anonymous"
+
+
+RUNNER_TOKEN = "u" * 32
+SETUPS_TOKEN = "p" * 32
+
+NARROW_TIERS = """
+authentication:
+  tiers:
+    runner:
+      permissions: [run:backtests, run:predictions]
+    setups:
+      permissions: [write:prediction-setups]
+  tokens:
+    - {id: runner, token_env: CHAP_TEST_RUNNER_TOKEN, tier: runner}
+    - {id: setups, token_env: CHAP_TEST_SETUPS_TOKEN, tier: setups}
+    - {id: dashboard, token_env: CHAP_TEST_READ_TOKEN, tier: read}
+"""
+
+
+@pytest.fixture
+def narrow_client(make_client, tmp_path):
+    config = tmp_path / "chap-server.yaml"
+    config.write_text(NARROW_TIERS)
+    return make_client(
+        CHAP_CONFIG=str(config),
+        CHAP_TEST_RUNNER_TOKEN=RUNNER_TOKEN,
+        CHAP_TEST_SETUPS_TOKEN=SETUPS_TOKEN,
+        CHAP_TEST_READ_TOKEN=READ_TOKEN,
+    )
+
+
+class TestSecondPermissions:
+    @pytest.mark.parametrize(
+        ("endpoint", "extra"),
+        [
+            ("create-backtest-with-data/", {"n_periods": 3, "n_splits": 2, "stride": 1}),
+            ("make-prediction", {"n_periods": 3}),
+        ],
+    )
+    def test_inline_data_routes_also_need_write_datasets(self, narrow_client, dataset_make_request, endpoint, extra):
+        payload = dataset_make_request.model_dump(mode="json") | {"model_id": "naive_model", **extra}
+
+        response = narrow_client.post(
+            f"/v1/analytics/{endpoint}", json=payload, headers={"Authorization": f"Bearer {RUNNER_TOKEN}"}
+        )
+
+        assert response.status_code == 403
+        assert "write:datasets" in response.json()["detail"]
+
+    def test_changing_a_setups_alert_policy_also_needs_write_alerts(self, narrow_client):
+        response = narrow_client.patch(
+            "/v1/crud/prediction-setups/1",
+            json={"alertPolicyId": 1},
+            headers={"Authorization": f"Bearer {SETUPS_TOKEN}"},
+        )
+
+        assert response.status_code == 403
+        assert "write:alerts" in response.json()["detail"]
+
+    def test_the_read_tier_cannot_download_a_datasets_observations(self, narrow_client):
+        response = narrow_client.get("/v1/crud/datasets/1/csv", headers={"Authorization": f"Bearer {READ_TOKEN}"})
+
+        assert response.status_code == 403
+        assert "export:datasets" in response.json()["detail"]

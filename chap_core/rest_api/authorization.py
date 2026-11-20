@@ -58,6 +58,24 @@ async def authorize(
     return principal
 
 
+def caller(request: Request) -> Principal:
+    """The principal the authentication middleware resolved for this request."""
+    principal = request.user
+    if not isinstance(principal, Principal):
+        raise RuntimeError("caller needs the authentication middleware")
+    return principal
+
+
+def ensure(request: Request, permission: Permission, why: str) -> None:
+    """Refuse with 403 unless the caller also holds ``permission``, for a route that does two things."""
+    principal = caller(request)
+    if permission not in principal.permissions:
+        raise PermissionDenied(
+            f"{request.method} {route_path(request)} {why}, which needs the {permission.value} permission, "
+            f"which {principal.id} does not have."
+        )
+
+
 def require(permission: Permission) -> Any:
     """The dependency a route adds to need ``permission``."""
     return Security(authorize, scopes=[permission.value])

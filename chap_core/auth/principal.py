@@ -27,6 +27,15 @@ class Principal(BaseUser):
     def identity(self) -> str:
         return self.id
 
+    def may_act_on(self, owner: str | None) -> bool:
+        """Whether this principal may change something ``owner`` created.
+
+        A principal holding every permission may change anything. Others may change only what
+        they created, so a record with no owner, made while authentication was off, is theirs
+        to change only with every permission.
+        """
+        return self.permissions >= OPERATOR or (owner is not None and owner == self.id)
+
 
 ANONYMOUS = Principal(id="anonymous", tier="public", permissions=PUBLIC)
 """A caller without a credential while authentication is on."""

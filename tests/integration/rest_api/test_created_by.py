@@ -103,3 +103,29 @@ def test_the_principal_does_not_break_uvicorns_access_formatter():
 )
 def test_every_owned_table_records_its_creator(table):
     assert "created_by" in table.__table__.columns
+
+
+def test_only_the_creator_may_cancel_or_forget_a_job(
+    client, celery_session_worker, clean_engine, dependency_overrides, monkeypatch, tmp_path, dataset_create
+):
+    config = tmp_path / "chap-server.yaml"
+    config.write_text(
+        "authentication:\n  tokens:\n"
+        "    - {id: one, token_env: CHAP_TEST_ONE, tier: authenticated}\n"
+        "    - {id: two, token_env: CHAP_TEST_TWO, tier: authenticated}\n"
+    )
+    monkeypatch.setenv("CHAP_CONFIG", str(config))
+    monkeypatch.setenv("CHAP_TEST_ONE", "1" * 32)
+    monkeypatch.setenv("CHAP_TEST_TWO", "2" * 32)
+    monkeypatch.delenv("CHAP_API_TOKEN", raising=False)
+    one, two = {"Authorization": "Bearer " + "1" * 32}, {"Authorization": "Bearer " + "2" * 32}
+
+    job_id = client.post("/v1/crud/datasets", json=dataset_create.model_dump(mode="json"), headers=one).json()["id"]
+    for _ in range(30):
+        if client.get(f"/v1/jobs/{job_id}", headers=one).json()["status"] in ("SUCCESS", "FAILURE"):
+            break
+        time.sleep(1)
+
+    assert client.post(f"/v1/jobs/{job_id}/cancel", headers=two).status_code == 404
+    assert client.delete(f"/v1/jobs/{job_id}", headers=two).status_code == 404
+    assert client.delete(f"/v1/jobs/{job_id}", headers=one).status_code == 200
