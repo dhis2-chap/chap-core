@@ -5,8 +5,10 @@ import binascii
 import hmac
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 
+from chap_core.auth.config import NAME_PATTERN, TierConfig
 from chap_core.auth.permissions import BUILTIN_TIERS, OPERATOR, Permission
 from chap_core.auth.principal import ANONYMOUS, Principal
 from chap_core.settings import ChapSettings, get_settings
@@ -57,7 +59,8 @@ class Authentication:
 
 
 def load_authentication(settings: ChapSettings) -> Authentication:
-    """Resolve the token secrets from the environment, refusing a configuration that cannot work."""
+    """Resolve the tiers and the token secrets, refusing a configuration that cannot work."""
+    tiers = resolve_tiers(settings.authentication.tiers)
     tokens: list[NamedToken] = []
     for index, item in enumerate(settings.authentication.tokens):
         where = f"authentication.tokens[{index}] ({item.id})"
@@ -70,9 +73,9 @@ def load_authentication(settings: ChapSettings) -> Authentication:
             )
         if item.id == LEGACY_TOKEN_ID:
             raise AuthenticationConfigError(f"{where}: the id {LEGACY_TOKEN_ID} is kept for CHAP_API_TOKEN")
-        if item.tier not in BUILTIN_TIERS or item.tier == "public":
+        if item.tier not in tiers or item.tier == "public":
             raise AuthenticationConfigError(f"{where}: unknown tier {item.tier}")
-        tokens.append(NamedToken(id=item.id, tier=item.tier, permissions=BUILTIN_TIERS[item.tier], secret=secret))
+        tokens.append(NamedToken(id=item.id, tier=item.tier, permissions=tiers[item.tier], secret=secret))
 
     if settings.api_token is not None:
         legacy = NamedToken(
@@ -83,6 +86,46 @@ def load_authentication(settings: ChapSettings) -> Authentication:
     _refuse_repeats(tokens)
     key = settings.service_registration_key
     return Authentication(tokens=tuple(tokens), registration_key=key.get_secret_value() if key else None)
+
+
+def resolve_tiers(custom: dict[str, TierConfig]) -> dict[str, frozenset[Permission]]:
+    """The built-in tiers and the custom ones, each as a flat set of permissions."""
+    known = {permission.value for permission in Permission}
+    for name, tier in custom.items():
+        where = f"authentication.tiers.{name}"
+        if name in BUILTIN_TIERS:
+            raise AuthenticationConfigError(f"{where}: {name} is a built-in tier and cannot be redefined")
+        if not re.match(NAME_PATTERN, name):
+            raise AuthenticationConfigError(f"{where}: a tier name takes letters, digits, - and _")
+        if not tier.includes and not tier.permissions:
+            raise AuthenticationConfigError(f"{where}: needs includes or permissions")
+        for permission in tier.permissions:
+            if "*" in permission:
+                raise AuthenticationConfigError(f"{where}: wildcards are not allowed ({permission})")
+            if permission not in known:
+                raise AuthenticationConfigError(f"{where}: unknown permission {permission}")
+        for included in tier.includes:
+            if included not in BUILTIN_TIERS and included not in custom:
+                raise AuthenticationConfigError(f"{where}: includes the unknown tier {included}")
+
+    resolved: dict[str, frozenset[Permission]] = dict(BUILTIN_TIERS)
+
+    def resolve(name: str, path: tuple[str, ...]) -> frozenset[Permission]:
+        if name in resolved:
+            return resolved[name]
+        if name in path:
+            cycle = " -> ".join((*path[path.index(name) :], name))
+            raise AuthenticationConfigError(f"authentication.tiers: includes form a cycle ({cycle})")
+        tier = custom[name]
+        permissions = frozenset(Permission(permission) for permission in tier.permissions)
+        for included in tier.includes:
+            permissions |= resolve(included, (*path, name))
+        resolved[name] = permissions
+        return permissions
+
+    for name in custom:
+        resolve(name, ())
+    return resolved
 
 
 def _refuse_repeats(tokens: list[NamedToken]) -> None:
