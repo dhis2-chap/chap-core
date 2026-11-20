@@ -24,12 +24,10 @@ def load_dotenv_file(dotenv_path: str | None = None) -> None:
     """Copy a ``.env`` file into the process environment, leaving variables already set alone.
 
     Without a path, the file is found by searching up from chap-core's own folder. Its values
-    land in ``os.environ``, so model subprocesses see them too.
+    land in ``os.environ``, so model subprocesses see them too. Only the API and the worker
+    call this, through ``celery_tasks``, so the CLI and library use never pick up a ``.env``.
     """
     load_dotenv(dotenv_path or find_dotenv())
-
-
-load_dotenv_file()
 
 
 def parse_flag(value: Any) -> Any:

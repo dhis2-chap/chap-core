@@ -18,7 +18,7 @@ from sqlalchemy.engine import Engine
 
 from ..database.database import SessionWrapper
 from ..log_config import CHAP_LOGS_DIR, get_status_logger
-from ..settings import get_settings
+from ..settings import get_settings, load_dotenv_file
 from ..util import load_redis
 from .job_registry import job_function, job_name_for, json_args, json_kwargs, resolve_job
 
@@ -83,6 +83,7 @@ class JobDescription(BaseModel):
 
 
 def read_environment_variables():
+    load_dotenv_file()
     return get_settings().celery_broker
 
 
