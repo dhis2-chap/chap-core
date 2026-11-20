@@ -607,6 +607,65 @@ class SessionWrapper:
         if model_template is None:
             raise ValueError(f"Model template with id {model_template_id} not found")
         return model_template
+    
+    def get_model_template_with_code(self, model_template_id: int) -> ModelTemplate | ExternalChapkitModelTemplate:
+        """Load the executable implementation of a stored model template.
+ 
+        The caller must close the Chapkit client when finished. Git-backed
+        template names and versions may be overridden by seeding, whereas
+        Chapkit and built-in template identities are authoritative.
+        """
+        logger.info(f"Getting model template with id {model_template_id}")
+        template_db = self.get_model_template(model_template_id)
+        
+        if template_db.uses_chapkit:
+            source_url = self._resolve_chapkit_live_source_url(
+                service_id=template_db.name,
+                stored_source_url=template_db.source_url,
+                template=template_db,
+            )
+            if not source_url:
+                raise ValueError(f"Model template {model_template_id} has no source URL")
+            logger.info("Loading Chapkit template at %s", source_url)
+            template = ExternalChapkitModelTemplate(source_url)
+            try:
+                loaded_config, reported_digest = (template.get_model_template_config_with_digest())
+                conflict = chapkit_revision_conflict(template_db, reported_digest)
+                if conflict is not None:
+                    raise conflict
+                if (loaded_config.name != template_db.name or loaded_config.version != template_db.version):
+                    raise ValueError(
+                        "Executable model template does not match the stored template identity: "
+                        f"expected {template_db.name}: {template_db.version}, got {loaded_config.name}: {loaded_config.version}"
+                    )
+            except Exception:
+                template.close()
+                raise
+            return template
+
+        source_url = template_db.source_url
+        if not source_url:
+            raise ValueError(f"Model template {model_template_id} has no source URL")
+        if template_db.name == "naive_model":
+            raise ValueError("The naive model has no executable template; use get_configured_model_with_code() instead")
+        ignore_env = (
+            template_db.name.startswith("chap_ewars")
+            or template_db.name == "ewars_template"
+        )
+        logger.info(f"Loading model template from {source_url}")
+        template = ModelTemplate.from_directory_or_github_url(source_url, ignore_env=ignore_env)
+
+        # Built-in models have fixed names and versions.
+        # Git models can override both, but use a pinned commit.
+        if source_url.startswith(BUILTIN_SOURCE_PREFIX):
+            loaded_config = template.model_template_config
+            if (loaded_config.name != template_db.name or loaded_config.version != template_db.version):
+                raise ValueError(
+                    "Executable model template does not match the stored template identity: "
+                    f"expected {template_db.name}: {template_db.version}, "
+                    f"got {loaded_config.name}: {loaded_config.version}"
+                )
+        return template     
 
     def add_backtest(self, backtest: Backtest, forecast_rows: list[dict] | None = None) -> None:
         """Store a backtest, with its forecasts inserted from plain rows if given.
