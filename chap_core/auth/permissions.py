@@ -9,6 +9,8 @@ from enum import StrEnum
 
 class Permission(StrEnum):
     READ_DATASETS = "read:datasets"
+    # A dataset's observations, the raw input data. Listing datasets is read:datasets.
+    EXPORT_DATASETS = "export:datasets"
     WRITE_DATASETS = "write:datasets"
     DELETE_DATASETS = "delete:datasets"
 
@@ -58,6 +60,7 @@ READ: frozenset[Permission] = frozenset(
 )
 
 AUTHENTICATED: frozenset[Permission] = READ | {
+    Permission.EXPORT_DATASETS,
     Permission.READ_JOBS,
     Permission.WRITE_JOBS,
     Permission.READ_SYSTEM,

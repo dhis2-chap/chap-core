@@ -4,7 +4,7 @@ import platform
 from importlib.metadata import version
 from typing import Any, cast
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_
 from sqlmodel import Session, col, select
@@ -14,7 +14,7 @@ from chap_core.database.dataset_tables import DataSet, Observation
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import Backtest, BacktestRead, Prediction, PredictionInfo
 from chap_core.log_config import initialize_logging
-from chap_core.rest_api.authorization import require
+from chap_core.rest_api.authorization import caller, require
 from chap_core.rest_api.celery_tasks import CeleryPool, JobDescription, get_job_meta, job_description
 from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.v1.routers.dependencies import get_session
@@ -234,12 +234,20 @@ def get_job_request(job_id: str) -> dict[str, Any]:
     return cast("dict[str, Any]", json.loads(cast("str", body)))
 
 
+def _may_act_on_job(request: Request, job_id: str) -> bool:
+    """Whether the caller may cancel or forget this job: its own, or any with every permission.
+
+    Another principal's job is answered 404, as if it did not exist.
+    """
+    return caller(request).may_act_on((get_job_meta(job_id) or {}).get("created_by"))
+
+
 @router.delete(
     "/{job_id}",
     dependencies=[require(Permission.WRITE_JOBS)],
     summary="Forget a finished job",
 )
-def delete_job(job_id: str) -> dict:
+def delete_job(job_id: str, request: Request) -> dict:
     """Drop a finished or cancelled job from the tracker once you no longer need to see it in the listing.
 
     Cancel a running job via ``POST /{job_id}/cancel`` first; this endpoint refuses to
@@ -247,7 +255,7 @@ def delete_job(job_id: str) -> dict:
     those cases.
     """
     job = worker.get_job(job_id)
-    if job is None:
+    if job is None or not _may_act_on_job(request, job_id):
         raise HTTPException(status_code=404, detail="Job not found")
 
     job_status = job.status.lower()
@@ -268,13 +276,15 @@ def delete_job(job_id: str) -> dict:
     dependencies=[require(Permission.WRITE_JOBS)],
     summary="Stop a running job",
 )
-def cancel_job(job_id: str) -> dict:
+def cancel_job(job_id: str, request: Request) -> dict:
     """Revoke a queued or in-flight job so the worker stops processing it — used when a user abandons a backtest creation flow or aborts a long-running prediction.
 
     Returns 400 if the job has already finished (``success`` / ``failure`` / ``revoked``)
     or is in an unexpected state; 404 if the id is unknown.
     """
     _ensure_job_exists(job_id)
+    if not _may_act_on_job(request, job_id):
+        raise HTTPException(status_code=404, detail="Job not found")
     job = worker.get_job(job_id)
     job_status = job.status.lower()
 

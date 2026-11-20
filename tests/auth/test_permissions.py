@@ -2,7 +2,7 @@ import re
 
 from chap_core.auth.permissions import AUTHENTICATED, BUILTIN_TIERS, OPERATOR, READ, Permission
 
-ACTIONS = ("read", "write", "delete", "run", "approve", "call", "register")
+ACTIONS = ("read", "export", "write", "delete", "run", "approve", "call", "register")
 
 
 def test_every_permission_is_an_action_on_a_resource():
@@ -24,3 +24,8 @@ def test_only_the_operator_tier_deletes():
     deleting = {permission for permission in Permission if permission.startswith("delete:")}
 
     assert {name for name, permissions in BUILTIN_TIERS.items() if permissions & deleting} == {"operator"}
+
+
+def test_the_read_tier_cannot_export_a_datasets_observations():
+    assert Permission.EXPORT_DATASETS not in READ
+    assert Permission.EXPORT_DATASETS in AUTHENTICATED

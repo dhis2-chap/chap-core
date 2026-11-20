@@ -4,7 +4,7 @@ from typing import Annotated, Any, Literal
 
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from pydantic import Field as PydanticField
 from pydantic import ValidationError as PydanticValidationError
@@ -51,7 +51,7 @@ from chap_core.database.tables import (
 )
 from chap_core.datatypes import create_tsdataclass
 from chap_core.exceptions import InvalidDateError
-from chap_core.rest_api.authorization import require
+from chap_core.rest_api.authorization import ensure, require
 from chap_core.services import threshold_service
 from chap_core.services.dataset_validation import RESERVED_FIELDS
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
@@ -687,6 +687,7 @@ def create_backtests(
 )
 def make_prediction(
     request: MakePredictionRequest,
+    http_request: Request,
     original_request: dict = Depends(get_job_request),
     worker_settings=Depends(get_settings),
     session: Session = Depends(get_session),
@@ -702,6 +703,7 @@ def make_prediction(
     ``/v1/jobs/{id}`` for the result. Without ``nPeriods``, the stored default
     for the data's period type is used, kept within the range the model supports.
     """
+    ensure(http_request, Permission.WRITE_DATASETS, "stores the observations as a dataset")
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
     reject_mask_indicator_input(feature_names)
@@ -1030,6 +1032,7 @@ def get_covariate_names(session: Session = Depends(get_session)) -> list[Covaria
 )
 def create_backtest_with_data(
     request: MakeBacktestWithDataRequest,
+    http_request: Request,
     original_request: dict = Depends(get_job_request),
     dry_run: bool = Query(
         False, description="If True, only run validation and do not create a backtest", alias="dryRun"
@@ -1051,6 +1054,8 @@ def create_backtest_with_data(
     This endpoint remains available for older clients and will be removed in a later release.
     Pass ``dryRun=true`` to validate only; a real run returns a job id to poll via ``/v1/jobs/{id}``.
     """
+    if not dry_run:
+        ensure(http_request, Permission.WRITE_DATASETS, "stores the observations as a dataset")
     feature_names, provided_data_processed, rejections = _read_and_validate_dataset(request, dry_run)
     if dry_run and not provided_data_processed.locations():
         return ImportSummaryResponse(id=None, imported_count=0, rejected=rejections)
