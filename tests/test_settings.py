@@ -1,9 +1,10 @@
 import os
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
-from chap_core.settings import DEFAULT_CORS_ORIGINS, ChapSettings, get_settings, load_dotenv_file
+from chap_core.settings import DEFAULT_CORS_ORIGINS, ChapSettings, ConfigFileError, get_settings, load_dotenv_file
 
 
 @pytest.fixture
@@ -92,3 +93,85 @@ def test_get_settings_is_reused_until_the_environment_changes(monkeypatch):
     monkeypatch.setenv("CHAP_ROOT_PATH", "/changed")
 
     assert get_settings().root_path == "/changed"
+
+
+@pytest.fixture
+def config_file(monkeypatch, tmp_path):
+    """Write a chap-server.yaml and point CHAP_CONFIG at it."""
+
+    def write(text: str):
+        path = tmp_path / "chap-server.yaml"
+        path.write_text(text)
+        monkeypatch.setenv("CHAP_CONFIG", str(path))
+        return path
+
+    return write
+
+
+def test_the_config_file_fills_settings(config_file):
+    config_file("cors_origins:\n  - https://dhis2.example.org/\nredis_port: 6380\nroot_path: /chap\n")
+
+    settings = ChapSettings()
+
+    assert settings.cors_origins == ["https://dhis2.example.org"]
+    assert settings.redis_port == 6380
+    assert settings.root_path == "/chap"
+
+
+def test_an_environment_variable_overrides_the_config_file(config_file, monkeypatch):
+    config_file("root_path: /from-file\nredis_port: 6380\n")
+    monkeypatch.setenv("CHAP_ROOT_PATH", "/from-env")
+    monkeypatch.setenv("REDIS_PORT", "6381")
+
+    settings = ChapSettings()
+
+    assert settings.root_path == "/from-env"
+    assert settings.redis_port == 6381
+
+
+def test_an_argument_overrides_the_environment_and_the_config_file(config_file, monkeypatch):
+    config_file("root_path: /from-file\n")
+    monkeypatch.setenv("CHAP_ROOT_PATH", "/from-env")
+
+    assert ChapSettings(root_path="/from-argument").root_path == "/from-argument"
+
+
+def test_the_config_file_overrides_the_defaults(config_file):
+    config_file("marketplace_url: https://models.example.org\n")
+
+    assert ChapSettings().marketplace_url == "https://models.example.org"
+
+
+def test_no_file_is_read_without_chap_config(monkeypatch, tmp_path):
+    monkeypatch.delenv("CHAP_CONFIG", raising=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "chap-server.yaml").write_text("root_path: /ignored\n")
+
+    assert ChapSettings().root_path == ""
+
+
+def test_an_unknown_key_names_the_file_and_the_key(config_file):
+    path = config_file("cors_orgins:\n  - https://dhis2.example.org\n")
+
+    with pytest.raises(ConfigFileError, match=f"{path}: unknown setting\\(s\\) cors_orgins"):
+        ChapSettings()
+
+
+def test_a_missing_config_file_stops_startup(monkeypatch, tmp_path):
+    monkeypatch.setenv("CHAP_CONFIG", str(tmp_path / "missing.yaml"))
+
+    with pytest.raises(ConfigFileError, match="missing.yaml, which is not a file"):
+        ChapSettings()
+
+
+def test_an_empty_config_file_changes_nothing(config_file):
+    config_file("")
+
+    assert ChapSettings().root_path == ""
+
+
+def test_the_example_config_file_is_valid(monkeypatch):
+    example = Path(__file__).parent.parent / "chap-server.example.yaml"
+    monkeypatch.setenv("CHAP_CONFIG", str(example))
+
+    assert ChapSettings().cors_origins == ["https://dhis2.example.org"]

@@ -1,8 +1,12 @@
-"""Chap's runtime settings, read from environment variables.
+"""Chap's runtime settings, read from environment variables and an optional ``chap-server.yaml``.
 
 This is the one place chap-core reads its configuration. The API, the Celery worker and the
 CLI all call ``get_settings()``. Variables are named ``CHAP_<FIELD>``, except a few that
 predate the prefix and keep their old names through an alias.
+
+``CHAP_CONFIG`` names a YAML file whose keys are the field names, such as ``cors_origins``.
+Environment variables override the file, so a container can change one value without editing
+it. Without ``CHAP_CONFIG`` no file is read.
 """
 
 import json
@@ -12,12 +16,23 @@ from typing import Annotated, Any
 
 from dotenv import find_dotenv, load_dotenv
 from pydantic import BeforeValidator, Field, SecretStr, field_validator
-from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    NoDecode,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+    YamlConfigSettingsSource,
+)
 
 # A local front-end dev server.
 DEFAULT_CORS_ORIGINS = ["http://localhost:3000"]
 DEFAULT_MARKETPLACE_URL = "https://raw.githubusercontent.com/dhis2-chap/chap-marketplace/main"
 DEFAULT_MLFLOW_EXPERIMENT_NAME = "chap-backtests"
+CONFIG_ENV_VAR = "CHAP_CONFIG"
+
+
+class ConfigFileError(ValueError):
+    """``chap-server.yaml`` is missing or holds a key Chap does not know."""
 
 
 def load_dotenv_file(dotenv_path: str | None = None) -> None:
@@ -49,8 +64,8 @@ def _alias(name: str, default: Any = None) -> Any:
 class ChapSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="CHAP_",
-        # The environment also holds variables for other tools (gunicorn, compose).
-        extra="ignore",
+        # Catches a typo in chap-server.yaml. Unrelated environment variables are never read.
+        extra="forbid",
         validate_by_name=True,
     )
 
@@ -93,6 +108,34 @@ class ChapSettings(BaseSettings):
             origins = [str(origin).strip().rstrip("/") for origin in value if str(origin).strip()]
             return origins or list(DEFAULT_CORS_ORIGINS)
         return value
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        # Highest first. .env is copied into the environment (load_dotenv_file), so it ranks with it.
+        config_path = os.environ.get(CONFIG_ENV_VAR)
+        if not config_path:
+            return init_settings, env_settings
+        return init_settings, env_settings, ServerConfigFileSource(settings_cls, Path(config_path))
+
+
+class ServerConfigFileSource(YamlConfigSettingsSource):
+    """``chap-server.yaml``, failing with the file's path when it is missing or has an unknown key."""
+
+    def __init__(self, settings_cls: type[BaseSettings], path: Path):
+        if not path.is_file():
+            raise ConfigFileError(f"{CONFIG_ENV_VAR} points to {path}, which is not a file")
+        super().__init__(settings_cls, yaml_file=path)
+        known = set(settings_cls.model_fields)
+        unknown = sorted(set(self.yaml_data) - known)
+        if unknown:
+            raise ConfigFileError(f"{path}: unknown setting(s) {', '.join(unknown)}")
 
 
 _cache: dict[frozenset[tuple[str, str]], ChapSettings] = {}
