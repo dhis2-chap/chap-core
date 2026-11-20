@@ -1,8 +1,8 @@
 # Auth contract
 
 This page is the contract chap-core's authentication and authorization are built and tested
-against (epic CLIM-1955). It is design: until the tasks that implement it ship, chap-core
-behaves as described in [API Authentication](../webapi/api-authentication.md).
+against (epic CLIM-1955). [API Authentication](../webapi/api-authentication.md) covers the
+single `CHAP_API_TOKEN` from an operator's point of view.
 
 chap-core takes Open Geo Service's contract
 ([`docs/authentication.md`](https://github.com/dhis2/open-geo-service/blob/main/docs/authentication.md),
@@ -23,7 +23,7 @@ permissions, and every principal has exactly one tier.
 | Anyone, with authentication off | none | `open` |
 | Machine client, the Modeling App's DHIS2 routes, scripts | a named token | `token:<id>` |
 | Existing installs | `CHAP_API_TOKEN` | `token:legacy` |
-| A chapkit service registering itself | `SERVICEKIT_REGISTRATION_KEY` | `service-registry` |
+| A chapkit service registering itself | `SERVICEKIT_REGISTRATION_KEY` in `X-Service-Key`, on `/v2/services` only | `service-registry`, with `register:services`, `read:services` and `call:services`, the registry routes it opened before named tokens |
 
 Usernames and email addresses are never principal ids. Records store the principal id
 (CLIM-1965).
@@ -75,10 +75,14 @@ chap-core refuses to start when:
 - a secret is shorter than 32 characters (`openssl rand -hex 32` makes a suitable one),
 - two tokens share an id or a secret, including the `CHAP_API_TOKEN` secret,
 - a token has the id `legacy`, which `CHAP_API_TOKEN` uses,
-- a token names an unknown tier.
+- a token names an unknown tier,
+- `SERVICEKIT_REGISTRATION_KEY` is also the secret of a token.
 
-The startup error names the token by position and id, as `authentication.tokens[1]
-(modeling-app)`, and never prints a secret.
+Each startup error names what is wrong: a token by position and id, as
+`authentication.tokens[1] (modeling-app)`, or two tokens by their ids when they repeat. It
+never prints a secret. A `token_env` that is not an upper-case variable name, or a tier name
+as long as a secret, is left out of the message, in case a secret was pasted there.
+Surrounding whitespace in a secret is ignored, so a secret of only whitespace counts as unset.
 
 Secrets are compared in constant time against every token, so the time taken does not show
 which one came close. Secrets are never logged. Rejected credentials are logged at most once
@@ -288,22 +292,27 @@ Fixed in code, the same on every install, and changed only by a Chap release:
 - the public routes,
 - the accepted headers and the error answers.
 
-Configured per install, in `chap-server.yaml`:
+Configured per install, in the `authentication` block of `chap-server.yaml` (or, like any
+setting, as JSON in the `CHAP_AUTHENTICATION` environment variable, which replaces the block):
 
 - the named tokens, each with one tier,
 - custom tiers, built from the permissions and the built-in tiers.
 
-A tier is resolved against the running release. `operator` gains any permission a later
-release adds, and so does a custom tier that includes it. A custom tier that lists
-permissions one by one gains nothing, so check custom tiers after upgrading.
+A tier is resolved against the running release, and the built-in tiers can widen:
+
+- `operator` gains every permission a later release adds.
+- `read` gains every new `read:` permission, except ones a release keeps out of it as it
+  keeps `read:jobs`; `authenticated` includes `read`.
+- A custom tier that includes a built-in tier widens with it. Only permissions listed one by
+  one stay exactly as written, so check custom tiers after upgrading.
 
 ## Built-in tiers
 
 | Tier | Permissions |
 | --- | --- |
 | `public` | Only the open routes. Given to `anonymous`; cannot be given to a token. |
-| `read` | Every `read:` permission except `read:jobs`, because job logs and requests can hold raw data, and `read:system`. For dashboards and the read-only DHIS2 route. |
-| `authenticated` | `read`, plus `read:jobs`, `write:jobs`, `read:system`, `write:datasets`, `run:backtests`, `run:predictions`, `write:prediction-setups` and `call:services`. Not deleting, and not changing models, settings, backtests or alerts. |
+| `read` | Every `read:` permission except `read:jobs` and `read:system`. It reads all stored data, including dataset exports and backtest forecasts. Jobs are left out because their logs and stored requests show other clients' work and internal details such as file paths and errors. For dashboards and the read-only DHIS2 route. |
+| `authenticated` | `read`, plus `read:jobs`, `write:jobs`, `read:system`, `write:datasets`, `run:backtests`, `run:predictions`, `write:prediction-setups` and `call:services`. It deletes no stored record and changes no models, settings, backtests or alerts, but `write:jobs` cancels and forgets any client's job, and `write:prediction-setups` can change a setup's alert policy and schedule. |
 | `operator` | Every permission, including ones added in later versions. |
 
 The catalogue (CLIM-1959) lists each tier's permissions exactly. The names follow Open Geo
@@ -360,8 +369,9 @@ Names never replace each other:
 
 - A custom tier cannot take a built-in name. A tier named `read` stops startup rather than
   replacing the built-in one.
-- A tier name, a token id or any other key given twice in `chap-server.yaml` stops startup
-  and names the line. Plain YAML would keep the last one silently.
+- A tier name, or any other key, given twice in `chap-server.yaml` stops startup and names
+  the line. Plain YAML would keep the last one silently.
+- A token id given twice stops startup and names the id.
 - Tier names and token ids are separate, so a token and a tier may share a name, as `caps`
   does in the example below.
 
@@ -372,12 +382,13 @@ Names never replace each other:
 2. Use a built-in tier when one fits. Make a custom tier only for a client that needs less
    than `authenticated` or `operator` gives, or something in between.
 3. Build it from `includes: [read]` and add the few permissions the client needs from
-   [Permissions](#permissions). Prefer listing permissions over including `authenticated` or
-   `operator`, so a later release does not widen it.
+   [Permissions](#permissions). `read` and every other built-in tier widen when a release adds
+   permissions, so for a client that must never gain access on upgrade, list every permission
+   it needs and include no tier.
 4. Leave out `delete:` permissions unless the client must delete. They are operator-only by
    default.
 5. Start Chap and call `GET /v1/auth/me` with the token. It lists exactly what the token may
-   do.
+   do. An answer of `anonymous` means the token did not match: `/v1/auth/me` never refuses.
 
 For example, a forecasting client that imports data and runs predictions, but must not
 change models or delete anything:
@@ -425,7 +436,9 @@ text changes. The status codes and the `WWW-Authenticate` header stay the same.
 - The registration key check stays a dependency on the three registration routes.
 - `GET /v1/auth/me` reports the caller's principal, tier and permissions, and needs no
   permission (CLIM-1964).
-- The conformance tests (CLIM-1960) check every row of this page against the running app.
+- The conformance tests (CLIM-1960) check the rules on this page against the running app,
+  every route refuses a token without its permission, and a test compares the permission and
+  route tables here with the code.
 
 ## Decided here
 

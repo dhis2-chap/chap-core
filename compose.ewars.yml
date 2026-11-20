@@ -12,7 +12,7 @@ services:
     platform: linux/amd64
     init: true
     ports:
-      - "5002:8000"
+      - "127.0.0.1:5002:8000"
     environment:
       SERVICEKIT_ORCHESTRATOR_URL: http://chap:8000/v2/services/$$register
       SERVICEKIT_REGISTRATION_KEY: ${SERVICEKIT_REGISTRATION_KEY:-}
