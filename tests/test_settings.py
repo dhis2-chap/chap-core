@@ -59,9 +59,12 @@ def test_cors_origins_take_a_comma_separated_string_or_a_json_list(settings_from
     assert settings_from(CHAP_CORS_ORIGINS=value).cors_origins == expected
 
 
-@pytest.mark.parametrize(("value", "expected"), [("YES", True), ("1", True), ("false", False), ("maybe", False)])
-def test_debug_is_on_only_for_true_1_or_yes(settings_from, value, expected):
-    assert settings_from(CHAP_DEBUG=value).debug is expected
+@pytest.mark.parametrize(("variable", "field"), [("CHAP_DEBUG", "debug"), ("IS_IN_DOCKER", "is_in_docker")])
+@pytest.mark.parametrize(
+    ("value", "expected"), [("YES", True), ("1", True), ("on", True), ("false", False), ("maybe", False)]
+)
+def test_flags_are_on_only_for_true_1_yes_or_on(settings_from, variable, field, value, expected):
+    assert getattr(settings_from(**{variable: value}), field) is expected
 
 
 def test_an_invalid_value_fails_validation(settings_from):

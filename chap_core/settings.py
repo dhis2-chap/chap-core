@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from dotenv import find_dotenv, load_dotenv
-from pydantic import Field, SecretStr, field_validator
+from pydantic import BeforeValidator, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 # A local front-end dev server.
@@ -32,6 +32,17 @@ def load_dotenv_file(dotenv_path: str | None = None) -> None:
 load_dotenv_file()
 
 
+def parse_flag(value: Any) -> Any:
+    """An on/off variable is on for ``true``, ``1``, ``yes`` or ``on`` (any case), and off for anything else."""
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "1", "yes", "on")
+    return value
+
+
+# A bool that never fails validation on an unexpected word, unlike pydantic's own parsing.
+Flag = Annotated[bool, BeforeValidator(parse_flag)]
+
+
 def _alias(name: str, default: Any = None) -> Any:
     """A field read from a variable without the CHAP_ prefix, under the name it has always had."""
     return Field(default, validation_alias=name)
@@ -46,7 +57,7 @@ class ChapSettings(BaseSettings):
     )
 
     database_url: str | None = None
-    debug: bool = False
+    debug: Flag = False
     logs_dir: Path = Path("logs/")
     runs_dir: Path = Path("runs/")
     root_path: str = ""
@@ -67,23 +78,7 @@ class ChapSettings(BaseSettings):
 
     # Set by the container build and image.
     git_revision: str = _alias("GIT_REVISION", "")
-    is_in_docker: bool = _alias("IS_IN_DOCKER", False)
-
-    @field_validator("debug", mode="before")
-    @classmethod
-    def _parse_debug(cls, value: Any) -> Any:
-        # Anything other than these words means off, rather than failing validation.
-        if isinstance(value, str):
-            return value.strip().lower() in ("true", "1", "yes")
-        return value
-
-    @field_validator("is_in_docker", mode="before")
-    @classmethod
-    def _parse_is_in_docker(cls, value: Any) -> Any:
-        # Any non-empty value means yes.
-        if isinstance(value, str):
-            return bool(value)
-        return value
+    is_in_docker: Flag = _alias("IS_IN_DOCKER", False)
 
     @field_validator("api_token", "service_registration_key", mode="before")
     @classmethod
