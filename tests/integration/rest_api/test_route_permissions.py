@@ -5,7 +5,13 @@ from fastapi.testclient import TestClient
 from chap_core.auth.permissions import Permission
 from chap_core.auth.tokens import AuthenticationConfigError
 from chap_core.rest_api.app import app
-from chap_core.rest_api.authorization import RoutePermissionError, check_route_permissions, require
+from chap_core.rest_api.authorization import (
+    RoutePermissionError,
+    check_route_permissions,
+    declared_permissions,
+    require,
+    served_routes,
+)
 
 
 def test_every_route_of_the_app_declares_one_permission():
@@ -67,3 +73,9 @@ def test_startup_refuses_a_token_whose_secret_is_unset(monkeypatch, tmp_path):
 
     with pytest.raises(AuthenticationConfigError, match="CHAP_TEST_UNSET is not set"), TestClient(app):
         pass
+
+
+def test_every_permission_is_needed_by_some_route():
+    used = {scope for _, _, dependant in served_routes(app) if dependant for scope in declared_permissions(dependant)}
+
+    assert {permission.value for permission in Permission} - used == set()

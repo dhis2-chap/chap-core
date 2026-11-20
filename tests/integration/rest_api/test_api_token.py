@@ -251,3 +251,10 @@ class TestServiceRegistrationWithBothSecretsSet:
 
         assert response.status_code == 200
         assert response.json()["status"] == "registered"
+
+
+def test_the_weak_token_warning_names_the_minimum_length():
+    from chap_core.rest_api.auth import SHORT_LEGACY_KEY_WARNING
+
+    assert API_TOKEN_ENV_VAR in SHORT_LEGACY_KEY_WARNING
+    assert f"shorter than {MIN_TOKEN_LENGTH} characters" in SHORT_LEGACY_KEY_WARNING
