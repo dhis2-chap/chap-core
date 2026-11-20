@@ -12,6 +12,8 @@ services:
       CHAP_RUNS_DIR: /data/runs
       CHAP_ROOT_PATH: ${CHAP_ROOT_PATH:-}
       CHAP_API_TOKEN: ${CHAP_API_TOKEN:-}
+      # Gates chapkit service registration. Unset leaves the service registry open.
+      SERVICEKIT_REGISTRATION_KEY: ${SERVICEKIT_REGISTRATION_KEY:-}
       CHAP_CORS_ORIGINS: ${CHAP_CORS_ORIGINS:-}
       WEB_CONCURRENCY: ${CHAP_API_WORKERS:-1}
     read_only: true
