@@ -47,3 +47,9 @@ class DBModel(SQLModel):
 
         NewModel = create_model(f"{cls.__name__}Create", **fields)  # type: ignore[call-overload]
         return NewModel
+
+
+CREATED_BY_DESCRIPTION = (
+    "The principal that created the record, such as `token:caps`. Empty for records created "
+    "while authentication was off, and for records from before principals were recorded."
+)

@@ -13,6 +13,7 @@ from starlette.authentication import AuthCredentials, AuthenticationBackend, Aut
 from starlette.requests import HTTPConnection
 from starlette.responses import JSONResponse, Response
 
+from chap_core.auth.context import set_principal_id
 from chap_core.auth.principal import ANONYMOUS, OPEN, Principal
 from chap_core.auth.tokens import MIN_SECRET_LENGTH, authenticate, get_authentication
 from chap_core.settings import get_settings
@@ -111,6 +112,8 @@ def route_path(conn: HTTPConnection) -> str:
 
 
 def credentials(principal: Principal) -> tuple[AuthCredentials, Principal]:
+    # Records created during the request name the principal. Open and anonymous callers own nothing.
+    set_principal_id(None if principal in (OPEN, ANONYMOUS) else principal.id)
     return AuthCredentials(sorted(principal.permissions)), principal
 
 
