@@ -238,6 +238,7 @@ the fixed lists clients choose from, such as plot types, weather providers and t
 | PUT | `/v1/settings` | `write:settings` |
 | GET | `/v1/terminology` | `read:settings` |
 | GET | `/v1/terminology/{name}` | `read:settings` |
+| GET | `/v1/auth/me` | public |
 | POST | `/v2/services/$register` | `register:services` |
 | PUT | `/v2/services/{service_id}/$ping` | `register:services` |
 | GET | `/v2/services` | `read:services` |
@@ -265,7 +266,8 @@ These routes are open with authentication on:
 - `/health` and `/health/ready`, which container health checks call without headers,
 - `/system/info`, which tells a client whether a token is required (`auth_required`),
 - `/docs`, `/docs/oauth2-redirect`, `/redoc` and `/openapi.json`, the API reference,
-- `/favicon.ico`.
+- `/favicon.ico`,
+- `/v1/auth/me`, which reports `anonymous` to a caller without a token.
 
 They are listed in one set in code (`PUBLIC_PATHS`), which the startup check reads, so a
 route is public only on purpose. `/health/probe` stays gated, as today: it round-trips the
