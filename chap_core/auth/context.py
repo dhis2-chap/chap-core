@@ -33,13 +33,18 @@ def principal_scope(principal_id: str | None) -> Iterator[None]:
 
 
 class PrincipalLogFilter(logging.Filter):
-    """Append the principal to a request log line, as ``... 200 token:caps``."""
+    """Append the principal to a request log line, as ``... 200 token:caps``.
+
+    The arguments are left alone, because uvicorn's own ``AccessFormatter`` unpacks exactly
+    five of them. The principal goes into the message text, which the gunicorn configuration
+    prints, and into ``record.principal`` for formatters that name it.
+    """
 
     def filter(self, record: logging.LogRecord) -> bool:
         principal_id = _current_principal_id.get()
-        if principal_id is not None and isinstance(record.args, tuple):
-            record.msg = f"{record.msg} %s"
-            record.args = (*record.args, principal_id)
+        record.principal = principal_id or "-"
+        if principal_id is not None and isinstance(record.msg, str):
+            record.msg = f"{record.msg} {principal_id.replace('%', '%%')}"
         return True
 
 
