@@ -1,6 +1,6 @@
-
 from types import SimpleNamespace
 from unittest.mock import Mock
+from typing import cast
 
 import pytest
 
@@ -18,14 +18,13 @@ from chap_core.models.builtin import BUILTIN_SOURCE_PREFIX
         ("builtin_model", f"{BUILTIN_SOURCE_PREFIX}builtin_model", "wrong_name", False, True),
     ],
 )
-def test_get_model_template_with_code_non_chapkit(
-    monkeypatch, name, source_url, loaded_name, ignore_env, should_fail
-):
+def test_get_model_template_with_code_non_chapkit(monkeypatch, name, source_url, loaded_name, ignore_env, should_fail):
     wrapper = db.SessionWrapper()
     stored = ModelTemplateDB(name=name, version="v1", source_url=source_url)
     monkeypatch.setattr(wrapper, "get_model_template", lambda _: stored)
-    executable = SimpleNamespace(
-        model_template_config=SimpleNamespace(name=loaded_name, version="v1")
+    executable = cast(
+        db.ModelTemplate,
+        SimpleNamespace(model_template_config=SimpleNamespace(name=loaded_name, version="v1")),
     )
     loader = Mock(return_value=executable)
     monkeypatch.setattr(db.ModelTemplate, "from_directory_or_github_url", loader)
