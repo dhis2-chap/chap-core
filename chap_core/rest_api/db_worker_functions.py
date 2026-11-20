@@ -304,7 +304,7 @@ def run_hpo_backtest(
     )
     # hpo_run  = HpoRunDB(
     #     backtest_id=backtest_id,
-    #     max_trials=request.max_trials,
+    #     max_trials=request.n_trials,
 
     # )
     # session.session.add(hpo_run)
@@ -323,7 +323,7 @@ def persist_evaluation(
     configured_model: ConfiguredModelDB,
     specification: BacktestSpecification,
     name: str | None,
-    hpo_result: HyperparameterOptimization | None = None,
+    # hpo_result: HyperparameterOptimization | None = None,
 ) -> int:
     """Persist an evaluation of a stored configured model under a stored specification, and optional HPO metadata."""
     if configured_model.id is None:
