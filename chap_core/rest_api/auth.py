@@ -13,11 +13,12 @@ either secret can register without needing to send an ``Authorization`` header.
 """
 
 import logging
-import os
 import secrets
 
 from fastapi.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
+
+from chap_core.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,8 @@ SERVICE_REGISTRY_PREFIX = "/v2/services"
 
 def get_api_token() -> str | None:
     """The configured API token, or None when authentication is disabled."""
-    return os.getenv(API_TOKEN_ENV_VAR) or None
+    token = get_settings().api_token
+    return token.get_secret_value() if token is not None else None
 
 
 def warn_on_weak_token() -> None:
@@ -64,7 +66,8 @@ def warn_on_weak_token() -> None:
 
 def get_service_key() -> str | None:
     """The configured service registration key, or None when it is disabled."""
-    return os.getenv(SERVICE_KEY_ENV_VAR) or None
+    key = get_settings().service_registration_key
+    return key.get_secret_value() if key is not None else None
 
 
 def secret_matches(presented: str | None, expected: str) -> bool:

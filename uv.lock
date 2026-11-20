@@ -3,9 +3,9 @@ revision = 5
 requires-python = ">=3.13, <3.15"
 resolution-markers = [
     "python_full_version >= '3.14' and platform_machine == 'ARM64' and sys_platform == 'win32'",
-    "(python_full_version >= '3.14' and platform_machine != 'ARM64') or (python_full_version >= '3.14' and sys_platform != 'win32')",
+    "python_full_version >= '3.14' and (platform_machine != 'ARM64' or sys_platform != 'win32')",
     "python_full_version < '3.14' and platform_machine == 'ARM64' and sys_platform == 'win32'",
-    "(python_full_version < '3.14' and platform_machine != 'ARM64') or (python_full_version < '3.14' and sys_platform != 'win32')",
+    "python_full_version < '3.14' and (platform_machine != 'ARM64' or sys_platform != 'win32')",
 ]
 
 [[package]]
@@ -379,6 +379,7 @@ dependencies = [
     { name = "psycopg2-binary" },
     { name = "pycountry" },
     { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "pyproj" },
     { name = "python-dateutil" },
     { name = "python-dotenv" },
@@ -470,6 +471,7 @@ requires-dist = [
     { name = "psycopg2-binary", specifier = ">=2.9.12" },
     { name = "pycountry", specifier = ">=24.6.1" },
     { name = "pydantic", specifier = ">=2.13.4" },
+    { name = "pydantic-settings", specifier = ">=2.14.2" },
     { name = "pyproj", specifier = ">=3.7.2" },
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },

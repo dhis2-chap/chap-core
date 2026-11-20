@@ -17,11 +17,12 @@ from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.mlproject_chapkit import chapkit_service_launch, check_chapkit_version
 from chap_core.models.model_template import ModelTemplate
 from chap_core.rest_api.services.schemas import MLServiceInfo
+from chap_core.settings import get_settings
 from chap_core.util import generate_run_name
 
 logger = logging.getLogger(__name__)
 
-CHAP_RUNS_DIR = Path(os.getenv("CHAP_RUNS_DIR", "runs/"))
+CHAP_RUNS_DIR = get_settings().runs_dir
 
 
 def _is_chapkit_url(url: str) -> bool:

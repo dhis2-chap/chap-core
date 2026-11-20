@@ -428,7 +428,8 @@ def _deploy(
     platform: str | None,
     updating: bool,
 ) -> None:
-    from chap_core.services.model_marketplace import DEFAULT_REGISTRY_URL, registry_url, resolve_model
+    from chap_core.services.model_marketplace import registry_url, resolve_model
+    from chap_core.settings import DEFAULT_MARKETPLACE_URL
 
     overlay, config, service_name = _prepare(model, compose_files)
     services = config["services"]
@@ -440,7 +441,7 @@ def _deploy(
 
     registry = (previous.get("x-chap-registry") if previous is not None else None) or registry_url()
     custom = image is not None or (previous is not None and previous.get("x-chap-custom", False))
-    if custom or registry != DEFAULT_REGISTRY_URL:
+    if custom or registry != DEFAULT_MARKETPLACE_URL:
         source = "Custom models" if custom else f"Models from '{registry}'"
         warning = (
             f"{source} are not reviewed by the CHAP marketplace. You accept responsibility "

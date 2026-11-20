@@ -1,4 +1,3 @@
-import os
 import subprocess
 import uuid
 from datetime import datetime
@@ -95,14 +94,15 @@ def redis_available():
 def load_redis(db=0, decode_responses=False):
     import redis
 
-    host = os.getenv("REDIS_HOST", "localhost")  # default to localhost for backward compatibility
-    port = os.getenv("REDIS_PORT", "6379")
-    password = os.getenv("REDIS_PASSWORD", None)
+    from chap_core.settings import get_settings
+
+    settings = get_settings()
+    password = settings.redis_password
     r = redis.Redis(
-        host=host,
-        port=int(port),
+        host=settings.redis_host,
+        port=settings.redis_port,
         db=db,
-        password=password,
+        password=password.get_secret_value() if password is not None else None,
         decode_responses=decode_responses,
         # A host that drops packets rather than refusing them blocks the
         # connect forever without this, so callers that treat redis as
