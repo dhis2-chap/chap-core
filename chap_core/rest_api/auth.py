@@ -33,7 +33,8 @@ OPEN_PATHS = frozenset({"/health", "/health/ready", "/system/info"})
 # public; the spec declares the bearer scheme, which gives /docs its Authorize button.
 API_REFERENCE_PATHS = frozenset({"/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"})
 
-PUBLIC_PATHS = OPEN_PATHS | API_REFERENCE_PATHS | {"/favicon.ico"}
+# /v1/auth/me answers any caller, so a client can learn what its token may do.
+PUBLIC_PATHS = OPEN_PATHS | API_REFERENCE_PATHS | {"/favicon.ico", "/v1/auth/me"}
 
 
 def get_api_token() -> str | None:

@@ -68,7 +68,8 @@ def test_every_operation_but_the_open_ones_requires_the_token(client, monkeypatc
             reached[f"{method.upper()} {path}"] = client.request(method, url).status_code
 
     public = {operation for operation, code in reached.items() if code != 401}
-    assert public == {f"GET {path}" for path in OPEN_PATHS}
+    # /v1/auth/me answers any caller, and reports anonymous without a token.
+    assert public == {f"GET {path}" for path in OPEN_PATHS | {"/v1/auth/me"}}
 
 
 class TestTokenDisabled:

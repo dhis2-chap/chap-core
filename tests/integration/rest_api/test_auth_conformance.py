@@ -7,6 +7,7 @@ The first classes record what chap-core did before named tokens, so the auth rew
 import pytest
 from fastapi.testclient import TestClient
 
+from chap_core.auth.permissions import READ, Permission
 from chap_core.rest_api.app import app
 from chap_core.rest_api.auth import API_TOKEN_ENV_VAR, SERVICE_KEY_ENV_VAR
 from chap_core.rest_api.v1.routers.dependencies import get_settings
@@ -200,3 +201,30 @@ class TestPermissions:
         response = named_client.put("/v1/settings", json={}, headers={"Authorization": f"Bearer {OPERATOR_TOKEN}"})
 
         assert response.status_code != 403
+
+
+class TestMe:
+    def test_with_authentication_off_the_caller_is_open_with_every_permission(self, make_client):
+        me = make_client().get("/v1/auth/me").json()
+
+        assert (me["id"], me["tier"]) == ("open", "operator")
+        assert set(me["permissions"]) == {permission.value for permission in Permission}
+
+    def test_a_named_token_reports_its_id_tier_and_permissions(self, named_client):
+        me = named_client.get("/v1/auth/me", headers={"Authorization": f"Bearer {READ_TOKEN}"}).json()
+
+        assert (me["id"], me["tier"]) == ("token:dashboard", "read")
+        assert me["permissions"] == sorted(permission.value for permission in READ)
+
+    def test_without_a_token_the_caller_is_anonymous(self, named_client):
+        response = named_client.get("/v1/auth/me")
+
+        assert response.status_code == 200
+        assert response.json() == {"id": "anonymous", "tier": "public", "permissions": []}
+
+    def test_the_api_token_is_the_legacy_operator(self, make_client):
+        client = make_client(**{API_TOKEN_ENV_VAR: API_TOKEN})
+
+        me = client.get("/v1/auth/me", headers={"Authorization": f"Bearer {API_TOKEN}"}).json()
+
+        assert (me["id"], me["tier"]) == ("token:legacy", "operator")
