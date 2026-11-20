@@ -15,7 +15,18 @@ class TokenConfig(BaseModel):
     tier: str
 
 
+class TierConfig(BaseModel):
+    """A custom tier: the permissions of the tiers it includes, plus its own."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    includes: tuple[str, ...] = ()
+    permissions: tuple[str, ...] = ()
+
+
 class AuthenticationConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
 
+    # Chap's addition to Open Geo Service's format.
+    tiers: dict[str, TierConfig] = Field(default_factory=dict)
     tokens: tuple[TokenConfig, ...] = ()
