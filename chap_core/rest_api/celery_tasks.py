@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
+from ..auth.context import current_principal_id, principal_scope
 from ..database.database import SessionWrapper
 from ..log_config import CHAP_LOGS_DIR, get_status_logger
 from ..settings import get_settings, load_dotenv_file
@@ -72,6 +73,9 @@ class JobDescription(BaseModel):
     )
     prediction_setup_id: int | None = Field(
         default=None, description="`PredictionSetup.id` this job belongs to, when applicable."
+    )
+    created_by: str | None = Field(
+        default=None, description="The principal that started the job; empty while authentication is off."
     )
 
     model_id: int | None = Field(default=None, description="Configured model primary key captured at enqueue time.")
@@ -182,7 +186,9 @@ class TrackedTask(Task):
                 },
             )
             # Execute the actual task
-            return super().__call__(*args, **kwargs)
+            # The job runs as the principal that queued it, so what it creates names that principal.
+            with principal_scope(self.request.get(CREATED_BY_HEADER)):
+                return super().__call__(*args, **kwargs)
 
         finally:
             # Close the file handlers and restore old handlers after the task is done.
@@ -201,6 +207,11 @@ class TrackedTask(Task):
         prediction_setup_id = kwargs.get(PREDICTION_SETUP_ID_JOB_META_KEY)
         original_request = kwargs.pop(JOB_REQUEST_KW, None)
         metadata = kwargs.pop(JOB_METADATA_KW, {})
+        created_by = current_principal_id()
+        if created_by is not None:
+            # A header rather than a kwarg, so a worker still on older code ignores it instead of
+            # passing it to the job function.
+            options["headers"] = {**(options.get("headers") or {}), CREATED_BY_HEADER: created_by}
         result = super().apply_async(args=args, kwargs=kwargs, **options)
 
         job_meta: dict[str, str] = {
@@ -211,6 +222,8 @@ class TrackedTask(Task):
         }
         if prediction_setup_id is not None:
             job_meta[PREDICTION_SETUP_ID_JOB_META_KEY] = str(prediction_setup_id)
+        if created_by is not None:
+            job_meta["created_by"] = created_by
 
         for key, value in metadata.items():
             if value is not None:
@@ -378,6 +391,7 @@ JOB_TYPE_KW = "__job_type__"
 JOB_NAME_KW = "__job_name__"
 JOB_METADATA_KW = "__job_metadata__"
 JOB_REQUEST_KW = "__job_request__"
+CREATED_BY_HEADER = "chap_created_by"
 # Request bodies can be several MB of inline data, so they expire instead of living as long as job_meta.
 JOB_REQUEST_TTL_SECONDS = 7 * 24 * 60 * 60
 PREDICTION_SETUP_ID_JOB_META_KEY = "prediction_setup_id"
@@ -403,6 +417,7 @@ def job_description(task_id: str, meta: dict[str, str]) -> JobDescription:
         dataset_id=int(meta["dataset_id"]) if "dataset_id" in meta else None,
         parameters=json.loads(meta.get("parameters", "{}")),
         prediction_setup_id=_parse_prediction_setup_id(meta.get(PREDICTION_SETUP_ID_JOB_META_KEY)),
+        created_by=meta.get("created_by"),
     )
 
 

@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
+from chap_core.auth.permissions import Permission
+from chap_core.rest_api.authorization import require
 from chap_core.terminology import SOURCE_PATH, SOURCE_REPOSITORY, load_terminology, lookup_term
 
 router = APIRouter(prefix="/terminology", tags=["System"])
@@ -55,7 +57,12 @@ class TermLookup(TerminologyModel):
     )
 
 
-@router.get("", response_model=Terminology, summary="List the Chap team's terms and where they come from")
+@router.get(
+    "",
+    dependencies=[require(Permission.READ_SETTINGS)],
+    response_model=Terminology,
+    summary="List the Chap team's terms and where they come from",
+)
 def list_terminology():
     terminology = load_terminology()
     source = TerminologySource(
@@ -64,7 +71,12 @@ def list_terminology():
     return Terminology(source=source, terms=[Term(**term) for term in terminology.terms])
 
 
-@router.get("/{name}", response_model=TermLookup, summary="Look up the term for a name")
+@router.get(
+    "/{name}",
+    dependencies=[require(Permission.READ_SETTINGS)],
+    response_model=TermLookup,
+    summary="Look up the term for a name",
+)
 def read_term(name: str):
     """Find a term by its id, name, alias or a name the team avoids, ignoring case and a plural "s"."""
     match = lookup_term(name)
