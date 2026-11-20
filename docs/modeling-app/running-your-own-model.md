@@ -43,8 +43,7 @@ services:
       - "5003:8000"
     environment:
       SERVICEKIT_ORCHESTRATOR_URL: http://chap:8000/v2/services/$$register
-      # Uncomment if chap has SERVICEKIT_REGISTRATION_KEY set:
-      # SERVICEKIT_REGISTRATION_KEY: ${SERVICEKIT_REGISTRATION_KEY:-}
+      SERVICEKIT_REGISTRATION_KEY: ${SERVICEKIT_REGISTRATION_KEY:-}
     depends_on:
       chap:
         condition: service_healthy
@@ -56,7 +55,7 @@ The important parts:
 - No `networks` key is needed. Model services land on the default Compose network, which reaches `chap` and `worker` but not the Celery broker or the database, so a model container cannot enqueue tasks or read data on its own.
 - **`depends_on: chap: condition: service_healthy`** makes your model wait until Chap answers its health check, so the first registration attempt succeeds.
 - **`ports`** is optional and only needed if you want to reach the model directly from the host for debugging. Chap itself reaches it over the internal network. Pick a host port that is not already taken — the bundled stack uses 8000 for `chap` and 5002 for `ewars`, and the sample services in `compose.override.yml.example` add 5001 (`chtorch`) and 3288 (`ewars_plus`).
-- If your Chap deployment sets `SERVICEKIT_REGISTRATION_KEY` in `.env`, uncomment that line, or registration will be rejected.
+- **`SERVICEKIT_REGISTRATION_KEY`** passes the registration key from `.env`. Chap refuses to register a service without it once the key is set, and the value is empty, and ignored, when it is not.
 
 `compose.ewars.yml` in the repository root is a working example of exactly this shape.
 
@@ -117,6 +116,7 @@ services:
     restart: unless-stopped
     environment:
       SERVICEKIT_ORCHESTRATOR_URL: http://chap:8000/v2/services/$$register
+      SERVICEKIT_REGISTRATION_KEY: ${SERVICEKIT_REGISTRATION_KEY:-}
     depends_on:
       chap:
         condition: service_healthy
