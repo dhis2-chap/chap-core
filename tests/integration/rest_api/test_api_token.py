@@ -91,7 +91,8 @@ class TestTokenEnabled:
 
         assert response.status_code == 401
         assert response.headers["WWW-Authenticate"] == "Bearer"
-        assert response.json() == {"detail": "Missing or invalid API token"}
+        assert response.json()["code"] == "AuthenticationRequired"
+        assert response.json()["detail"] == "GET /v2/services needs a token."
 
     @pytest.mark.parametrize("scheme", ["Bearer", "ApiToken"])
     def test_wrong_token_returns_401(self, client, scheme):

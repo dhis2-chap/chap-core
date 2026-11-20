@@ -12,10 +12,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer
+from starlette.middleware.authentication import AuthenticationMiddleware
 
 from chap_core import __version__ as chap_core_version
+from chap_core.auth.tokens import get_authentication
 from chap_core.database.database import DB_POOL_CONNECTIONS
-from chap_core.rest_api.auth import ApiTokenMiddleware, warn_on_weak_token
+from chap_core.rest_api.auth import ChapTokenBackend, on_authentication_error, warn_on_weak_token
 from chap_core.rest_api.common_routes import router as common_router
 from chap_core.rest_api.v1.rest_api import router as v1_router
 from chap_core.rest_api.v2.rest_api import router as v2_router
@@ -62,7 +64,7 @@ app = FastAPI(
     version=chap_core_version,
     openapi_tags=openapi_tags,
     root_path=get_settings().root_path,
-    # Documents the bearer scheme in the OpenAPI spec; ApiTokenMiddleware does the enforcing.
+    # Documents the bearer scheme in the OpenAPI spec; AuthenticationMiddleware does the enforcing.
     dependencies=[Depends(HTTPBearer(auto_error=False))],
 )
 
@@ -75,10 +77,12 @@ def get_cors_origins() -> list[str]:
 
 
 warn_on_weak_token()
+# Refuse to start on a token configuration that cannot work: an unset secret, a short one, a repeat.
+get_authentication()
 
 # Must stay before CORSMiddleware: add_middleware inserts at the front, so this keeps CORS
 # outermost and 401 responses still carry CORS headers.
-app.add_middleware(ApiTokenMiddleware)
+app.add_middleware(AuthenticationMiddleware, backend=ChapTokenBackend(), on_error=on_authentication_error)
 
 app.add_middleware(
     CORSMiddleware,

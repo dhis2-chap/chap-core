@@ -1,23 +1,20 @@
-"""Opt-in shared-secret authentication.
+"""Authentication for the REST API: who is calling, decided before the request body is read.
 
-Two independent secrets, each configured by environment variable and each disabled when
-unset. ``CHAP_API_TOKEN`` gates the whole API, and ``SERVICEKIT_REGISTRATION_KEY`` gates
-chapkit service registration. When both are configured, the registration endpoints
-require both.
-
-The API token is presented as ``Authorization: Bearer <token>`` or
-``Authorization: ApiToken <token>`` (DHIS2 route authentication). It is also accepted in
-``X-Service-Key`` because servicekit can only send that header. On the service
-registry paths the registration key is accepted there as well, so a chapkit service holding
-either secret can register without needing to send an ``Authorization`` header.
+The contract is docs/contributor/auth_contract.md. Authentication is on when ``CHAP_API_TOKEN``
+is set or ``chap-server.yaml`` lists named tokens; ``CHAP_API_TOKEN`` is then an operator token
+with the id ``legacy``. ``SERVICEKIT_REGISTRATION_KEY`` gates the service registration routes
+on its own, through ``verify_service_key``.
 """
 
 import logging
-import secrets
+import time
 
-from fastapi.responses import JSONResponse
-from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.authentication import AuthCredentials, AuthenticationBackend, AuthenticationError
+from starlette.requests import HTTPConnection
+from starlette.responses import JSONResponse, Response
 
+from chap_core.auth.principal import ANONYMOUS, OPEN, Principal
+from chap_core.auth.tokens import MIN_SECRET_LENGTH, authenticate, get_authentication
 from chap_core.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -26,33 +23,30 @@ API_TOKEN_ENV_VAR = "CHAP_API_TOKEN"  # noqa: S105 — name of the env var, not 
 SERVICE_KEY_ENV_VAR = "SERVICEKIT_REGISTRATION_KEY"
 SERVICE_KEY_HEADER = "X-Service-Key"
 
-# Length of a `openssl rand -hex 32` token. The API has no rate limiting, so a short token
-# is brute-forceable by anyone who can reach the port.
-MIN_TOKEN_LENGTH = 32
+MIN_TOKEN_LENGTH = MIN_SECRET_LENGTH
 
 # /health is called without headers by the container HEALTHCHECK and orchestrator probes, and
 # /system/info is how clients discover that a token is required.
 OPEN_PATHS = frozenset({"/health", "/health/ready", "/system/info"})
 
 # FastAPI's own API reference, at its default URLs. It describes an open-source API, so it is
-# public; the spec declares the bearer scheme (see app.py), which gives /docs its Authorize
-# button for calling the gated endpoints.
+# public; the spec declares the bearer scheme, which gives /docs its Authorize button.
 API_REFERENCE_PATHS = frozenset({"/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"})
 
-# servicekit can only send X-Service-Key, never Authorization, so self-registering chapkit
-# services present their secret there instead. Confined to the service registry so a
-# registration key cannot be used as a general-purpose API credential.
-SERVICE_REGISTRY_PREFIX = "/v2/services"
+PUBLIC_PATHS = OPEN_PATHS | API_REFERENCE_PATHS | {"/favicon.ico"}
 
 
 def get_api_token() -> str | None:
-    """The configured API token, or None when authentication is disabled."""
+    """The configured API token, or None when it is not set."""
     token = get_settings().api_token
     return token.get_secret_value() if token is not None else None
 
 
 def warn_on_weak_token() -> None:
-    """Log a warning at startup if the configured API token is too short to be safe."""
+    """Log a warning at startup if ``CHAP_API_TOKEN`` is too short to be safe.
+
+    Named tokens refuse a short secret; the legacy token keeps warning, so no install breaks.
+    """
     token = get_api_token()
     if token is not None and len(token) < MIN_TOKEN_LENGTH:
         logger.warning(
@@ -70,81 +64,79 @@ def get_service_key() -> str | None:
     return key.get_secret_value() if key is not None else None
 
 
-def secret_matches(presented: str | None, expected: str) -> bool:
-    """Timing-safe comparison of a presented secret against the configured one."""
-    if not presented:
-        return False
-    # compare_digest on str raises TypeError for non-ascii, so compare encoded bytes.
-    return secrets.compare_digest(presented.encode(), expected.encode())
+class AuthenticationRefused(AuthenticationError):
+    """A request refused with 401, with the openEO error code Open Geo Service also answers."""
+
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
+        self.message = message
 
 
-def _authorization_matches(header: str | None, expected: str) -> bool:
-    if not header:
-        return False
-    scheme, _, token = header.partition(" ")
-    if scheme.lower() not in {"bearer", "apitoken"}:
-        return False
-    return secret_matches(token, expected)
+def refusal(status_code: int, code: str, message: str) -> JSONResponse:
+    """The body every auth refusal has: FastAPI's ``detail`` plus the openEO error fields."""
+    headers = {"WWW-Authenticate": "Bearer"} if status_code == 401 else None
+    content = {"id": "authentication", "code": code, "message": message, "detail": message}
+    return JSONResponse(status_code=status_code, content=content, headers=headers)
 
 
-class ApiTokenMiddleware:
-    """Reject requests without a valid API token when ``CHAP_API_TOKEN`` is set.
+def on_authentication_error(_conn: HTTPConnection, exc: AuthenticationError) -> Response:
+    if isinstance(exc, AuthenticationRefused):
+        return refusal(401, exc.code, exc.message)
+    return refusal(401, "TokenInvalid", str(exc))
 
-    Raw ASGI rather than ``BaseHTTPMiddleware`` so the streaming proxy in
-    ``v2/routers/proxy.py`` passes through untouched. A middleware rather than a route
-    dependency so a request is rejected before its body is read, and so a route added later
-    is gated without anyone having to remember to.
+
+_FAILURE_LOG_INTERVAL = 60.0
+_failures_since_log = 0
+_last_failure_log = float("-inf")
+
+
+def _log_failure() -> None:
+    """Log rejected credentials at most once a minute, so a client retrying a bad token cannot flood the log."""
+    global _failures_since_log, _last_failure_log
+    _failures_since_log += 1
+    now = time.monotonic()
+    if now - _last_failure_log >= _FAILURE_LOG_INTERVAL:
+        logger.warning("Rejected %d request(s) with an invalid credential", _failures_since_log)
+        _failures_since_log = 0
+        _last_failure_log = now
+
+
+def route_path(conn: HTTPConnection) -> str:
+    """The path as the routes see it, so a deployment prefix cannot hide a gated route."""
+    path: str = conn.scope.get("path", "")
+    root_path: str = conn.scope.get("root_path", "")
+    if root_path and path.startswith(root_path):
+        return path[len(root_path) :] or "/"
+    return path
+
+
+def credentials(principal: Principal) -> tuple[AuthCredentials, Principal]:
+    return AuthCredentials(sorted(principal.permissions)), principal
+
+
+class ChapTokenBackend(AuthenticationBackend):
+    """Resolve the caller from ``Authorization`` or ``X-Service-Key``.
+
+    Answers 401 for an invalid credential, and for a missing one on any route but the public
+    ones. Whether the caller has the route's permission is decided by the route (``authorize``).
     """
 
-    def __init__(self, app: ASGIApp):
-        self.app = app
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
-            return await self.app(scope, receive, send)
-
-        expected = get_api_token()
-        path = self._path(scope)
-        if expected is None or path in OPEN_PATHS or path in API_REFERENCE_PATHS:
-            return await self.app(scope, receive, send)
-
-        if not self._is_authorized(scope, path, expected):
-            response = JSONResponse(
-                status_code=401,
-                content={"detail": "Missing or invalid API token"},
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-            return await response(scope, receive, send)
-
-        return await self.app(scope, receive, send)
-
-    @classmethod
-    def _is_authorized(cls, scope: Scope, path: str, api_token: str) -> bool:
-        if _authorization_matches(cls._header(scope, b"authorization"), api_token):
-            return True
-
-        service_key = cls._header(scope, b"x-service-key")
-        if not service_key:
-            return False
-        if secret_matches(service_key, api_token):
-            return True
-
-        registration_key = get_service_key()
-        if registration_key is not None and path.startswith(SERVICE_REGISTRY_PREFIX):
-            return secret_matches(service_key, registration_key)
-        return False
-
-    @staticmethod
-    def _path(scope: Scope) -> str:
-        path: str = scope.get("path", "")
-        root_path: str = scope.get("root_path", "")
-        if root_path and path.startswith(root_path):
-            return path[len(root_path) :] or "/"
-        return path
-
-    @staticmethod
-    def _header(scope: Scope, name: bytes) -> str | None:
-        for key, value in scope.get("headers", []):
-            if key == name:
-                return str(value.decode("latin-1"))
-        return None
+    async def authenticate(self, conn: HTTPConnection) -> tuple[AuthCredentials, Principal]:
+        authentication = get_authentication()
+        if not authentication.enabled:
+            return credentials(OPEN)
+        path = route_path(conn)
+        principal = authenticate(
+            conn.headers.get("authorization"), conn.headers.get(SERVICE_KEY_HEADER), path, authentication
+        )
+        if path in PUBLIC_PATHS:
+            # Never refused, so a health check behind a proxy that adds a stale header still works.
+            return credentials(principal or ANONYMOUS)
+        if principal is None:
+            _log_failure()
+            raise AuthenticationRefused("TokenInvalid", "The credential is not valid for this Chap.")
+        if principal is ANONYMOUS and conn.scope.get("method") != "OPTIONS":
+            method = conn.scope.get("method", "")
+            raise AuthenticationRefused("AuthenticationRequired", f"{method} {path} needs a token.")
+        return credentials(principal)

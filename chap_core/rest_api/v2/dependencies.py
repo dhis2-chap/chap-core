@@ -3,7 +3,8 @@ from functools import lru_cache
 import httpx
 from fastapi import Header, HTTPException, status
 
-from chap_core.rest_api.auth import SERVICE_KEY_HEADER, get_service_key, secret_matches
+from chap_core.auth.tokens import secret_matches
+from chap_core.rest_api.auth import SERVICE_KEY_HEADER, get_service_key
 from chap_core.rest_api.services.orchestrator import Orchestrator
 from chap_core.util import load_redis
 

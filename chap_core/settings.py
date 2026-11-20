@@ -24,6 +24,8 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
+from chap_core.auth.config import AuthenticationConfig
+
 # A local front-end dev server.
 DEFAULT_CORS_ORIGINS = ["http://localhost:3000"]
 DEFAULT_MARKETPLACE_URL = "https://raw.githubusercontent.com/dhis2-chap/chap-marketplace/main"
@@ -92,6 +94,9 @@ class ChapSettings(BaseSettings):
     # Set by the container build and image.
     git_revision: str = _alias("GIT_REVISION", "")
     is_in_docker: Flag = _alias("IS_IN_DOCKER", False)
+
+    # Named tokens; see docs/contributor/auth_contract.md. Usually set in chap-server.yaml.
+    authentication: AuthenticationConfig = Field(default_factory=AuthenticationConfig)
 
     @field_validator("api_token", "service_registration_key", mode="before")
     @classmethod

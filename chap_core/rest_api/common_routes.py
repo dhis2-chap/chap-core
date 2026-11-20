@@ -16,8 +16,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.pool import NullPool
 
+from chap_core.auth.tokens import get_authentication
 from chap_core.database.database import get_engine
-from chap_core.rest_api.auth import get_api_token
 from chap_core.rest_api.celery_tasks import app as celery_app
 from chap_core.rest_api.v1.routers.dependencies import get_settings
 from chap_core.settings import get_settings as get_chap_settings
@@ -251,7 +251,7 @@ async def system_info() -> SystemInfoResponse:
         server_date=server_date,
         server_time_zone_id="Etc/UTC",
         revision=revision,
-        auth_required=get_api_token() is not None,
+        auth_required=get_authentication().enabled,
     )
 
 
