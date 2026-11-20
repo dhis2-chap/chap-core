@@ -114,3 +114,61 @@ class TestApiToken:
 
         assert client.get("/v2/services", headers={"X-Service-Key": REGISTRATION_KEY}).status_code == 200
         assert client.get("/v1/terminology", headers={"X-Service-Key": REGISTRATION_KEY}).status_code == 401
+
+
+READ_TOKEN = "d" * 32
+OPERATOR_TOKEN = "o" * 32
+
+# An Open Geo Service block, plus a Chap-only tier.
+SERVER_CONFIG = """
+authentication:
+  tokens:
+    - id: dashboard
+      token_env: CHAP_TEST_READ_TOKEN
+      tier: read
+    - id: caps
+      token_env: CHAP_TEST_OPERATOR_TOKEN
+      tier: operator
+"""
+
+
+@pytest.fixture
+def named_client(make_client, tmp_path):
+    config = tmp_path / "chap-server.yaml"
+    config.write_text(SERVER_CONFIG)
+    return make_client(
+        CHAP_CONFIG=str(config), CHAP_TEST_READ_TOKEN=READ_TOKEN, CHAP_TEST_OPERATOR_TOKEN=OPERATOR_TOKEN
+    )
+
+
+class TestNamedTokens:
+    def test_no_token_gets_401_with_the_bearer_challenge(self, named_client):
+        response = named_client.get("/v1/terminology")
+
+        assert response.status_code == 401
+        assert response.headers["WWW-Authenticate"] == "Bearer"
+        assert response.json()["code"] == "AuthenticationRequired"
+
+    def test_a_wrong_token_gets_401(self, named_client):
+        response = named_client.get("/v1/terminology", headers={"Authorization": "Bearer " + "x" * 32})
+
+        assert response.status_code == 401
+        assert response.json()["code"] == "TokenInvalid"
+
+    @pytest.mark.parametrize("scheme", ["Bearer", "ApiToken"])
+    def test_a_named_token_is_accepted(self, named_client, scheme):
+        response = named_client.get("/v1/terminology", headers={"Authorization": f"{scheme} {OPERATOR_TOKEN}"})
+
+        assert response.status_code == 200
+
+    def test_a_wrong_token_is_ignored_on_a_public_route(self, named_client):
+        assert named_client.get("/health", headers={"Authorization": "Bearer wrong"}).status_code == 200
+
+    def test_the_body_is_not_read_without_a_valid_token(self, named_client):
+        """Malformed JSON gets 422 once the body is parsed, so 401 shows it never was."""
+        headers = {"Authorization": "Bearer wrong", "Content-Type": "application/json"}
+
+        assert named_client.post("/v1/crud/datasets", content=b"{not json", headers=headers).status_code == 401
+
+    def test_system_info_reports_that_a_token_is_required(self, named_client):
+        assert named_client.get("/system/info").json()["auth_required"] is True

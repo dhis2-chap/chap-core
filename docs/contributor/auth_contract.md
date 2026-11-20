@@ -94,8 +94,8 @@ a minute, with a count.
 | `Authorization: ApiToken <secret>` | every token | Chap today (DHIS2 route `api-token` auth) |
 | `X-Service-Key: <secret>` | every token, and the registration key on `/v2/services` | Chap today (servicekit cannot send `Authorization`) |
 
-Scheme names are case-insensitive. When both headers are sent, `Authorization` decides the
-principal.
+Scheme names are case-insensitive. When both headers are sent, a valid `Authorization`
+decides the principal; otherwise a valid `X-Service-Key` does, as in Chap today.
 
 ## Answers
 
