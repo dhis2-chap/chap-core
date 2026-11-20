@@ -172,3 +172,31 @@ class TestNamedTokens:
 
     def test_system_info_reports_that_a_token_is_required(self, named_client):
         assert named_client.get("/system/info").json()["auth_required"] is True
+
+
+class TestPermissions:
+    def read_headers(self):
+        return {"Authorization": f"Bearer {READ_TOKEN}"}
+
+    def test_a_read_token_reads(self, named_client):
+        assert named_client.get("/v1/terminology", headers=self.read_headers()).status_code == 200
+
+    def test_a_token_without_the_permission_gets_403_naming_it_and_the_token(self, named_client):
+        response = named_client.put("/v1/settings", json={}, headers=self.read_headers())
+
+        assert response.status_code == 403
+        assert response.json()["code"] == "PermissionsInsufficient"
+        assert response.json()["detail"] == (
+            "PUT /v1/settings needs the write:settings permission, which token:dashboard does not have."
+        )
+
+    def test_the_read_tier_cannot_read_jobs(self, named_client):
+        assert named_client.get("/v1/jobs", headers=self.read_headers()).status_code == 403
+
+    def test_the_hidden_proxy_route_needs_call_services(self, named_client):
+        assert named_client.get("/v2/services/any/run/info", headers=self.read_headers()).status_code == 403
+
+    def test_the_operator_tier_passes_the_permission_check(self, named_client):
+        response = named_client.put("/v1/settings", json={}, headers={"Authorization": f"Bearer {OPERATOR_TOKEN}"})
+
+        assert response.status_code != 403

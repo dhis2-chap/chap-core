@@ -16,8 +16,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.pool import NullPool
 
+from chap_core.auth.permissions import Permission
 from chap_core.auth.tokens import get_authentication
 from chap_core.database.database import get_engine
+from chap_core.rest_api.authorization import require
 from chap_core.rest_api.celery_tasks import app as celery_app
 from chap_core.rest_api.v1.routers.dependencies import get_settings
 from chap_core.settings import get_settings as get_chap_settings
@@ -199,6 +201,7 @@ async def readiness() -> Response:
 
 @router.get(
     "/health/probe",
+    dependencies=[require(Permission.READ_SYSTEM)],
     summary="End-to-end celery + DB round-trip probe",
     description=(
         "Synchronously dispatches a task to a celery worker, requires the worker to run "

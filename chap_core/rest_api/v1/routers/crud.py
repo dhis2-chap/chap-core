@@ -35,6 +35,7 @@ from chap_core.api_types import BacktestParams, FeatureCollectionModel
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import compare_aggregated_metrics, compute_all_detailed_metrics
 from chap_core.assessment.weather_providers import resolve_weather_provider
+from chap_core.auth.permissions import Permission
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.alert_tables import Alert, AlertApproval, AlertPolicyRead, AlertRead
 from chap_core.database.database import SessionWrapper
@@ -72,6 +73,7 @@ from chap_core.database.tables import (
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.exceptions import BaselineTemplateConflict, ModelTemplateRevisionConflict
 from chap_core.geometry import Polygons
+from chap_core.rest_api.authorization import require
 from chap_core.rest_api.baseline_runs import request_baselines_after_response
 from chap_core.rest_api.celery_tasks import (
     JOB_METADATA_KW,
@@ -317,6 +319,7 @@ worker: CeleryPool[Any] = CeleryPool()
 
 @router.get(
     "/backtests",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=list[BacktestRead],
     tags=["Backtests"],
     summary="Browse stored evaluation runs",
@@ -355,6 +358,7 @@ def _backtest_read_loads():
 
 @router.get(
     "/backtest-specifications",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=list[BacktestSpecificationSummary],
     tags=["Backtests"],
     summary="List the evaluation setups backtests have run under",
@@ -400,6 +404,7 @@ def get_backtest_specifications(
 
 @router.get(
     "/backtest-specifications/{specificationId}",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=BacktestSpecificationRead,
     tags=["Backtests"],
     summary="Fetch a specification with every backtest under it",
@@ -547,6 +552,7 @@ def _specification_params(specification: BacktestSpecification) -> dict[str, Any
 
 @router.get(
     "/backtests/{backtestId}/full",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=Backtest,
     tags=["Backtests"],
     summary="Fetch a backtest with every forecast inline",
@@ -566,12 +572,14 @@ def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], session:
 
 @router.get(
     "/backtests/{backtestId}/info",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=BacktestRead,
     tags=["Backtests"],
     summary="View one backtest's metadata",
 )
 @router.get(
     "/backtests/{backtestId}",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=BacktestRead,
     tags=["Backtests"],
     summary="View one backtest's metadata (alias of /info)",
@@ -601,6 +609,7 @@ def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], ses
 
 @router.get(
     "/metric/csv",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     tags=["Metrics"],
     summary="Export backtest metrics for offline analysis",
 )
@@ -634,6 +643,7 @@ def get_metrics_csv(
 
 @router.delete(
     "/backtests/{backtestId}",
+    dependencies=[require(Permission.DELETE_BACKTESTS)],
     tags=["Backtests"],
     summary="Remove an evaluation run",
 )
@@ -653,6 +663,7 @@ def delete_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], sessi
 
 @router.patch(
     "/backtests/{backtestId}",
+    dependencies=[require(Permission.WRITE_BACKTESTS)],
     response_model=BacktestRead,
     tags=["Backtests"],
     summary="Edit a backtest's editable fields",
@@ -695,6 +706,7 @@ def update_backtest(
 
 @router.delete(
     "/backtests",
+    dependencies=[require(Permission.DELETE_BACKTESTS)],
     tags=["Backtests"],
     summary="Bulk-remove several evaluation runs",
 )
@@ -745,6 +757,7 @@ def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session: Sess
 
 @router.get(
     "/predictions",
+    dependencies=[require(Permission.READ_PREDICTIONS)],
     response_model=list[PredictionInfo],
     tags=["Predictions"],
     summary="Browse stored forecasts",
@@ -767,6 +780,7 @@ def get_predictions(session: Session = Depends(get_session)):
 
 @router.get(
     "/predictions/{predictionId}",
+    dependencies=[require(Permission.READ_PREDICTIONS)],
     response_model=PredictionInfo,
     tags=["Predictions"],
     summary="View one forecast's metadata",
@@ -785,6 +799,7 @@ def get_prediction(prediction_id: Annotated[int, Path(alias="predictionId")], se
 
 @router.delete(
     "/predictions/{predictionId}",
+    dependencies=[require(Permission.DELETE_PREDICTIONS)],
     tags=["Predictions"],
     summary="Remove a forecast",
 )
@@ -817,6 +832,7 @@ def delete_prediction(
 
 @router.get(
     "/datasets",
+    dependencies=[require(Permission.READ_DATASETS)],
     response_model=list[DataSetInfo],
     tags=["Datasets"],
     summary="Browse imported datasets",
@@ -829,6 +845,7 @@ def get_datasets(session: Session = Depends(get_session)):
 
 @router.get(
     "/datasets/{datasetId}",
+    dependencies=[require(Permission.READ_DATASETS)],
     response_model=DataSetWithObservations,
     tags=["Datasets"],
     summary="Inspect a dataset's observations",
@@ -852,6 +869,7 @@ def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Se
 
 @router.post(
     "/datasets",
+    dependencies=[require(Permission.WRITE_DATASETS)],
     tags=["Datasets"],
     summary="Import a health-only dataset",
 )
@@ -895,6 +913,7 @@ def create_dataset(
 
 @router.post(
     "/datasets/csvFile",
+    dependencies=[require(Permission.WRITE_DATASETS)],
     tags=["Datasets"],
     summary="Import a dataset from a CSV + geojson upload",
 )
@@ -933,6 +952,7 @@ def create_dataset_csv(
 
 @router.get(
     "/datasets/{datasetId}/df",
+    dependencies=[require(Permission.READ_DATASETS)],
     tags=["Datasets"],
     summary="Read a dataset as tabular JSON rows",
 )
@@ -961,6 +981,7 @@ def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], session:
 
 @router.get(
     "/datasets/{datasetId}/csv",
+    dependencies=[require(Permission.READ_DATASETS)],
     tags=["Datasets"],
     summary="Export a dataset as a CSV download",
 )
@@ -986,6 +1007,7 @@ def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], session
 
 @router.delete(
     "/datasets/{datasetId}",
+    dependencies=[require(Permission.DELETE_DATASETS)],
     tags=["Datasets"],
     summary="Remove an imported dataset",
 )
@@ -1011,6 +1033,7 @@ def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session:
 
 @router.get(
     "/model-templates",
+    dependencies=[require(Permission.READ_MODELS)],
     response_model=list[ModelTemplateRead],
     tags=["Models"],
     summary="Browse available model templates",
@@ -1040,6 +1063,7 @@ def list_model_templates(session: Session = Depends(get_session)):
 
 @router.post(
     "/model-templates/from-service",
+    dependencies=[require(Permission.WRITE_MODELS)],
     response_model=ModelTemplateRead,
     tags=["Models"],
     summary="Store a model template from a registered CHAPKit service",
@@ -1079,6 +1103,7 @@ def add_model_template_from_service(
 
 @router.delete(
     "/model-templates/{modelTemplateId}",
+    dependencies=[require(Permission.DELETE_MODELS)],
     tags=["Models"],
     summary="Retire a model template",
 )
@@ -1107,6 +1132,7 @@ def delete_model_template(
 
 @router.get(
     "/configured-models",
+    dependencies=[require(Permission.READ_MODELS)],
     response_model=list[ModelSpecRead],
     tags=["Models"],
     summary="Browse configured (ready-to-run) models",
@@ -1138,6 +1164,7 @@ def list_configured_models(
 
 @router.get(
     "/configured-models/{configuredModelId}",
+    dependencies=[require(Permission.READ_MODELS)],
     response_model=ConfiguredModelInfoRead,
     tags=["Models"],
     summary="View one configured model with its template",
@@ -1163,6 +1190,7 @@ def get_configured_model_info(
 
 @router.post(
     "/configured-models",
+    dependencies=[require(Permission.WRITE_MODELS)],
     response_model=ConfiguredModelDB,
     tags=["Models"],
     summary="Configure a template into a runnable model",
@@ -1200,6 +1228,7 @@ def add_configured_model(
 
 @router.delete(
     "/configured-models/{configuredModelId}",
+    dependencies=[require(Permission.DELETE_MODELS)],
     tags=["Models"],
     summary="Retire a configured model",
 )
@@ -1227,6 +1256,7 @@ def delete_configured_model(
 
 @router.post(
     "/alerts",
+    dependencies=[require(Permission.WRITE_ALERTS)],
     response_model=AlertIdsResponse,
     tags=["Alerts"],
     summary="Record alerts raised against a policy",
@@ -1255,6 +1285,7 @@ def create_alerts(request: AlertsCreate, session: Session = Depends(get_session)
 
 @router.get(
     "/alerts",
+    dependencies=[require(Permission.READ_ALERTS)],
     response_model=list[AlertRead],
     tags=["Alerts"],
     summary="Browse alerts, or pull the review queue",
@@ -1283,6 +1314,7 @@ def list_alerts(
 
 @router.get(
     "/alerts/{alertId}",
+    dependencies=[require(Permission.READ_ALERTS)],
     response_model=AlertRead,
     tags=["Alerts"],
     summary="View one alert",
@@ -1301,6 +1333,7 @@ def get_alert(
 
 @router.delete(
     "/alerts/{alertId}",
+    dependencies=[require(Permission.DELETE_ALERTS)],
     tags=["Alerts"],
     summary="Remove an alert",
 )
@@ -1325,6 +1358,7 @@ def delete_alert(
 
 @router.post(
     "/alerts/$approve",
+    dependencies=[require(Permission.APPROVE_ALERTS)],
     response_model=list[AlertRead],
     tags=["Alerts"],
     summary="Clear a set of alerts for release, or decline them",
@@ -1359,6 +1393,7 @@ def approve_alerts(request: AlertApprovalRequest, session: Session = Depends(get
 
 @router.post(
     "/alert-policies",
+    dependencies=[require(Permission.WRITE_ALERTS)],
     response_model=DataBaseResponse,
     tags=["Alert Policies"],
     summary="Define the tiers at which forecasts raise alerts",
@@ -1390,6 +1425,7 @@ def create_alert_policy(request: AlertPolicyCreate, session: Session = Depends(g
 
 @router.get(
     "/alert-policies",
+    dependencies=[require(Permission.READ_ALERTS)],
     response_model=list[AlertPolicyRead],
     tags=["Alert Policies"],
     summary="Browse saved alert policies",
@@ -1402,6 +1438,7 @@ def list_alert_policies(session: Session = Depends(get_session)):
 
 @router.get(
     "/alert-policies/{alertPolicyId}",
+    dependencies=[require(Permission.READ_ALERTS)],
     response_model=AlertPolicyRead,
     tags=["Alert Policies"],
     summary="View one alert policy and its levels",
@@ -1424,6 +1461,7 @@ def get_alert_policy(
 
 @router.patch(
     "/alert-policies/{alertPolicyId}",
+    dependencies=[require(Permission.WRITE_ALERTS)],
     response_model=AlertPolicyRead,
     tags=["Alert Policies"],
     summary="Update a policy's output codes and response actions",
@@ -1458,6 +1496,7 @@ def update_alert_policy_codes(
 
 @router.delete(
     "/alert-policies/{alertPolicyId}",
+    dependencies=[require(Permission.DELETE_ALERTS)],
     tags=["Alert Policies"],
     summary="Remove an alert policy",
 )
@@ -1485,6 +1524,7 @@ def delete_alert_policy(
 
 @router.post(
     "/prediction-setups",
+    dependencies=[require(Permission.WRITE_PREDICTION_SETUPS)],
     response_model=DataBaseResponse,
     tags=["Prediction Setups"],
     summary="Promote a backtest into a reusable prediction config",
@@ -1522,6 +1562,7 @@ def create_prediction_setup(request: PredictionSetupCreate, session: Session = D
 
 @router.get(
     "/prediction-setups",
+    dependencies=[require(Permission.READ_PREDICTION_SETUPS)],
     response_model=list[PredictionSetupRead],
     tags=["Prediction Setups"],
     summary="Browse saved prediction setups",
@@ -1538,6 +1579,7 @@ def list_prediction_setups(session: Session = Depends(get_session)):
 
 @router.get(
     "/prediction-setups/{predictionSetupId}",
+    dependencies=[require(Permission.READ_PREDICTION_SETUPS)],
     response_model=PredictionSetupReadWithPredictions,
     tags=["Prediction Setups"],
     summary="View a prediction setup with its forecast history",
@@ -1558,6 +1600,7 @@ def get_prediction_setup(
 
 @router.get(
     "/prediction-setups/{predictionSetupId}/monitoring",
+    dependencies=[require(Permission.READ_PREDICTION_SETUPS)],
     response_model=PredictionSetupMonitoring,
     tags=["Prediction Setups"],
     summary="Compare a prediction setup's live and backtest performance with a baseline model",
@@ -1601,6 +1644,7 @@ def get_prediction_setup_monitoring(
 
 @router.patch(
     "/prediction-setups/{predictionSetupId}",
+    dependencies=[require(Permission.WRITE_PREDICTION_SETUPS)],
     response_model=PredictionSetupRead,
     tags=["Prediction Setups"],
     summary="Tweak a prediction setup's schedule or targets",
@@ -1659,6 +1703,7 @@ def _cancel_jobs_for_prediction_setup(prediction_setup_id: int) -> None:
 
 @router.delete(
     "/prediction-setups/{predictionSetupId}",
+    dependencies=[require(Permission.DELETE_PREDICTION_SETUPS)],
     tags=["Prediction Setups"],
     summary="Retire a prediction setup",
 )
@@ -1693,6 +1738,7 @@ def _setup_horizon(setup: PredictionSetup) -> int:
 
 @router.post(
     "/prediction-setups/{predictionSetupId}/run",
+    dependencies=[require(Permission.RUN_PREDICTIONS)],
     response_model=JobResponse,
     tags=["Prediction Setups"],
     summary="Run a prediction setup against fresh observations",

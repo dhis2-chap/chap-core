@@ -139,13 +139,120 @@ A permission is named `action:resource`, such as `read:predictions` or `run:back
   list: the chapkit proxy (`/v2/services/{service_id}/run/{path}`, `call:services`), the
   docs pages and `/favicon.ico`.
 
+## Permission catalogue
+
+Every route and the permission it needs, generated from the app. `read:settings` also covers
+the fixed lists clients choose from, such as plot types, weather providers and terminology.
+
+| Method | Path | Permission |
+| --- | --- | --- |
+| GET | `/health` | public |
+| GET | `/health/ready` | public |
+| GET | `/health/probe` | `read:system` |
+| GET | `/system/info` | public |
+| GET | `/v1/crud/backtests` | `read:backtests` |
+| DELETE | `/v1/crud/backtests` | `delete:backtests` |
+| GET | `/v1/crud/backtest-specifications` | `read:backtests` |
+| GET | `/v1/crud/backtest-specifications/{specificationId}` | `read:backtests` |
+| GET | `/v1/crud/backtests/{backtestId}/full` | `read:backtests` |
+| GET | `/v1/crud/backtests/{backtestId}` | `read:backtests` |
+| DELETE | `/v1/crud/backtests/{backtestId}` | `delete:backtests` |
+| PATCH | `/v1/crud/backtests/{backtestId}` | `write:backtests` |
+| GET | `/v1/crud/backtests/{backtestId}/info` | `read:backtests` |
+| GET | `/v1/crud/metric/csv` | `read:backtests` |
+| GET | `/v1/crud/predictions` | `read:predictions` |
+| GET | `/v1/crud/predictions/{predictionId}` | `read:predictions` |
+| DELETE | `/v1/crud/predictions/{predictionId}` | `delete:predictions` |
+| GET | `/v1/crud/datasets` | `read:datasets` |
+| POST | `/v1/crud/datasets` | `write:datasets` |
+| GET | `/v1/crud/datasets/{datasetId}` | `read:datasets` |
+| DELETE | `/v1/crud/datasets/{datasetId}` | `delete:datasets` |
+| POST | `/v1/crud/datasets/csvFile` | `write:datasets` |
+| GET | `/v1/crud/datasets/{datasetId}/df` | `read:datasets` |
+| GET | `/v1/crud/datasets/{datasetId}/csv` | `read:datasets` |
+| GET | `/v1/crud/model-templates` | `read:models` |
+| POST | `/v1/crud/model-templates/from-service` | `write:models` |
+| DELETE | `/v1/crud/model-templates/{modelTemplateId}` | `delete:models` |
+| GET | `/v1/crud/configured-models` | `read:models` |
+| POST | `/v1/crud/configured-models` | `write:models` |
+| GET | `/v1/crud/configured-models/{configuredModelId}` | `read:models` |
+| DELETE | `/v1/crud/configured-models/{configuredModelId}` | `delete:models` |
+| POST | `/v1/crud/alerts` | `write:alerts` |
+| GET | `/v1/crud/alerts` | `read:alerts` |
+| GET | `/v1/crud/alerts/{alertId}` | `read:alerts` |
+| DELETE | `/v1/crud/alerts/{alertId}` | `delete:alerts` |
+| POST | `/v1/crud/alerts/$approve` | `approve:alerts` |
+| GET | `/v1/crud/alert-policies` | `read:alerts` |
+| POST | `/v1/crud/alert-policies` | `write:alerts` |
+| GET | `/v1/crud/alert-policies/{alertPolicyId}` | `read:alerts` |
+| PATCH | `/v1/crud/alert-policies/{alertPolicyId}` | `write:alerts` |
+| DELETE | `/v1/crud/alert-policies/{alertPolicyId}` | `delete:alerts` |
+| GET | `/v1/crud/prediction-setups` | `read:prediction-setups` |
+| POST | `/v1/crud/prediction-setups` | `write:prediction-setups` |
+| GET | `/v1/crud/prediction-setups/{predictionSetupId}` | `read:prediction-setups` |
+| PATCH | `/v1/crud/prediction-setups/{predictionSetupId}` | `write:prediction-setups` |
+| DELETE | `/v1/crud/prediction-setups/{predictionSetupId}` | `delete:prediction-setups` |
+| GET | `/v1/crud/prediction-setups/{predictionSetupId}/monitoring` | `read:prediction-setups` |
+| POST | `/v1/crud/prediction-setups/{predictionSetupId}/run` | `run:predictions` |
+| POST | `/v1/analytics/make-dataset` | `write:datasets` |
+| GET | `/v1/analytics/compatible-backtests/{backtestId}` | `read:backtests` |
+| GET | `/v1/analytics/backtest-overlap/{backtestId1}/{backtestId2}` | `read:backtests` |
+| GET | `/v1/analytics/prediction-entry` | `read:predictions` |
+| GET | `/v1/analytics/evaluation-entry` | `read:backtests` |
+| POST | `/v1/analytics/create-backtest` | `run:backtests` |
+| POST | `/v1/analytics/create-backtests` | `run:backtests` |
+| POST | `/v1/analytics/make-prediction` | `run:predictions` |
+| GET | `/v1/analytics/prediction-entry/{predictionId}` | `read:predictions` |
+| GET | `/v1/analytics/actualCases/{backtestId}` | `read:backtests` |
+| GET | `/v1/analytics/actual-cases/{backtestId}` | `read:backtests` |
+| GET | `/v1/analytics/data-sources` | `read:settings` |
+| GET | `/v1/analytics/covariate-names` | `read:settings` |
+| POST | `/v1/analytics/create-backtest-with-data/` | `run:backtests` |
+| GET | `/v1/analytics/backtest-parameters` | `read:settings` |
+| GET | `/v1/analytics/weather-providers` | `read:settings` |
+| GET | `/v1/analytics/thresholds/strategies` | `read:settings` |
+| POST | `/v1/analytics/thresholds` | `read:datasets` |
+| GET | `/v1/analytics/outbreak-metrics` | `read:settings` |
+| GET | `/v1/analytics/backtests/{backtestId}/outbreak-metrics` | `read:backtests` |
+| GET | `/v1/jobs/{job_id}/diagnostics` | `read:jobs` |
+| GET | `/v1/jobs` | `read:jobs` |
+| GET | `/v1/jobs/{job_id}` | `read:jobs` |
+| DELETE | `/v1/jobs/{job_id}` | `write:jobs` |
+| GET | `/v1/jobs/{job_id}/request` | `read:jobs` |
+| POST | `/v1/jobs/{job_id}/cancel` | `write:jobs` |
+| GET | `/v1/jobs/{job_id}/logs` | `read:jobs` |
+| GET | `/v1/jobs/{job_id}/prediction_result` | `read:jobs` |
+| GET | `/v1/jobs/{job_id}/evaluation_result` | `read:jobs` |
+| GET | `/v1/jobs/{job_id}/database_result` | `read:jobs` |
+| GET | `/v1/visualization/metric-plots/{backtest_id}` | `read:backtests` |
+| GET | `/v1/visualization/metrics/{backtest_id}` | `read:backtests` |
+| GET | `/v1/visualization/metric-plots/{visualization_name}/{backtest_id}/{metric_id}` | `read:backtests` |
+| GET | `/v1/visualization/dataset-plots/` | `read:settings` |
+| GET | `/v1/visualization/dataset-plots/{visualization_name}/{dataset_id}` | `read:datasets` |
+| GET | `/v1/visualization/backtest-plots/` | `read:settings` |
+| GET | `/v1/visualization/backtest-plots/{visualization_name}/{backtest_id}` | `read:backtests` |
+| GET | `/v1/visualization/backtest-plots/{visualization_name}/{backtest_id}/facet-coords` | `read:backtests` |
+| POST | `/v1/visualization/backtest-plots/{visualization_name}/{backtest_id}/subplot` | `read:backtests` |
+| GET | `/v1/visualization/backtest-plots/{visualization_name}/{backtest_id}/subplots` | `read:backtests` |
+| GET | `/v1/settings` | `read:settings` |
+| PUT | `/v1/settings` | `write:settings` |
+| GET | `/v1/terminology` | `read:settings` |
+| GET | `/v1/terminology/{name}` | `read:settings` |
+| POST | `/v2/services/$register` | `register:services` |
+| PUT | `/v2/services/{service_id}/$ping` | `register:services` |
+| GET | `/v2/services` | `read:services` |
+| GET | `/v2/services/{service_id}` | `read:services` |
+| DELETE | `/v2/services/{service_id}` | `register:services` |
+| GET | `/v2/services/{service_id}/run/{path}` | `call:services` |
+| GET | `/favicon.ico` | public |
+
 ## Built-in tiers
 
 | Tier | Permissions |
 | --- | --- |
 | `public` | Only the open routes. Given to `anonymous`; cannot be given to a token. |
-| `read` | Every `read:` permission except `read:jobs`, because job logs and requests can hold raw data. For dashboards and the read-only DHIS2 route. |
-| `authenticated` | `read` and `read:jobs`, plus writing datasets and running backtests and predictions. Not deleting, and not changing models or settings. |
+| `read` | Every `read:` permission except `read:jobs`, because job logs and requests can hold raw data, and `read:system`. For dashboards and the read-only DHIS2 route. |
+| `authenticated` | `read`, plus `read:jobs`, `write:jobs`, `read:system`, `write:datasets`, `run:backtests`, `run:predictions`, `write:prediction-setups` and `call:services`. Not deleting, and not changing models, settings, backtests or alerts. |
 | `operator` | Every permission, including ones added in later versions. |
 
 The catalogue (CLIM-1959) lists each tier's permissions exactly. The names follow Open Geo
@@ -156,12 +263,13 @@ Service where the idea is the same, but what a tier grants is Chap's own.
 These routes are open with authentication on:
 
 - `/health` and `/health/ready`, which container health checks call without headers,
-- `/health/probe`, which today needs `CHAP_API_TOKEN`,
 - `/system/info`, which tells a client whether a token is required (`auth_required`),
 - `/docs`, `/docs/oauth2-redirect`, `/redoc` and `/openapi.json`, the API reference,
 - `/favicon.ico`.
 
-They declare the `public` tier explicitly, so the startup check still sees a declaration.
+They are listed in one set in code (`PUBLIC_PATHS`), which the startup check reads, so a
+route is public only on purpose. `/health/probe` stays gated, as today: it round-trips the
+broker and the database, so it needs `read:system`.
 
 ## Custom tiers
 

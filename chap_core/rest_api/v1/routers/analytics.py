@@ -32,6 +32,7 @@ from chap_core.assessment.outbreak_metrics import (
 from chap_core.assessment.thresholds import list_threshold_strategies
 from chap_core.assessment.thresholds.params import ThresholdParams
 from chap_core.assessment.weather_providers import list_weather_providers
+from chap_core.auth.permissions import Permission
 from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager, period_type_of
@@ -50,6 +51,7 @@ from chap_core.database.tables import (
 )
 from chap_core.datatypes import create_tsdataclass
 from chap_core.exceptions import InvalidDateError
+from chap_core.rest_api.authorization import require
 from chap_core.services import threshold_service
 from chap_core.services.dataset_validation import RESERVED_FIELDS
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
@@ -98,6 +100,7 @@ worker: CeleryPool[Any] = CeleryPool()
 
 @router.post(
     "/make-dataset",
+    dependencies=[require(Permission.WRITE_DATASETS)],
     response_model=ImportSummaryResponse,
     tags=["Datasets"],
     summary="Import observations as a reusable dataset",
@@ -344,6 +347,7 @@ def _filter_dataset_by_locations(
 
 @router.get(
     "/compatible-backtests/{backtestId}",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=list[BacktestRead],
     tags=["Backtests"],
     summary="Find backtests that can be compared with this one",
@@ -386,6 +390,7 @@ def get_compatible_backtests(
 
 @router.get(
     "/backtest-overlap/{backtestId1}/{backtestId2}",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=BacktestDomain,
     tags=["Backtests"],
     summary="Inspect the shared regions and periods of two backtests",
@@ -413,6 +418,7 @@ def get_backtest_overlap(
 
 @router.get(
     "/prediction-entry",
+    dependencies=[require(Permission.READ_PREDICTIONS)],
     response_model=list[PredictionEntry],
     tags=["Predictions"],
     summary="Read forecast quantiles for a prediction (query parameter id)",
@@ -477,6 +483,7 @@ def _prediction_entries_response(session: Session, prediction_id: int, quantiles
 
 @router.get(
     "/evaluation-entry",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=list[EvaluationEntry],
     tags=["Backtests"],
     summary="Read forecast quantiles from a backtest",
@@ -551,6 +558,7 @@ def get_evaluation_entries(
 
 @router.post(
     "/create-backtest",
+    dependencies=[require(Permission.RUN_BACKTESTS)],
     response_model=JobResponse,
     tags=["Backtests"],
     summary="Run a backtest against a stored dataset",
@@ -608,6 +616,7 @@ def create_backtest(
 
 @router.post(
     "/create-backtests",
+    dependencies=[require(Permission.RUN_BACKTESTS)],
     response_model=MakeBacktestsResponse,
     tags=["Backtests"],
     summary="Run several configured models under one evaluation specification",
@@ -670,6 +679,7 @@ def create_backtests(
 
 @router.post(
     "/make-prediction",
+    dependencies=[require(Permission.RUN_PREDICTIONS)],
     response_model=JobResponse,
     tags=["Predictions"],
     deprecated=True,
@@ -735,6 +745,7 @@ def make_prediction(
 
 @router.get(
     "/prediction-entry/{predictionId}",
+    dependencies=[require(Permission.READ_PREDICTIONS)],
     response_model=list[PredictionEntry],
     tags=["Predictions"],
     summary="Read forecast quantiles for a prediction (path parameter id)",
@@ -754,6 +765,7 @@ def get_prediction_entries(
 
 @router.get(
     "/actual-cases/{backtestId}",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=DataList,
     tags=["Backtests"],
     name="get_actual_cases_alias",
@@ -761,6 +773,7 @@ def get_prediction_entries(
 )
 @router.get(
     "/actualCases/{backtestId}",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=DataList,
     tags=["Backtests"],
     deprecated=True,
@@ -939,6 +952,7 @@ data_sources = [
 
 @router.get(
     "/data-sources",
+    dependencies=[require(Permission.READ_SETTINGS)],
     response_model=list[ChapDataSource],
     tags=["Datasets"],
     summary="Discover which external data sources can feed a dataset",
@@ -968,6 +982,7 @@ STRUCTURAL_FIELDS = RESERVED_FIELDS - {"disease_cases"}
 
 @router.get(
     "/covariate-names",
+    dependencies=[require(Permission.READ_SETTINGS)],
     response_model=list[CovariateNameSuggestion],
     tags=["Datasets"],
     summary="Suggest covariate names for a model-independent dataset",
@@ -1007,6 +1022,7 @@ def get_covariate_names(session: Session = Depends(get_session)) -> list[Covaria
 
 @router.post(
     "/create-backtest-with-data/",
+    dependencies=[require(Permission.RUN_BACKTESTS)],
     response_model=ImportSummaryResponse,
     tags=["Backtests"],
     deprecated=True,
@@ -1161,6 +1177,7 @@ class BacktestParameterInfo(DBModel):
 
 @router.get(
     "/backtest-parameters",
+    dependencies=[require(Permission.READ_SETTINGS)],
     response_model=list[BacktestParameterInfo],
     response_model_exclude_none=True,
     tags=["Backtests"],
@@ -1204,6 +1221,7 @@ class WeatherProviderInfo(DBModel):
 
 @router.get(
     "/weather-providers",
+    dependencies=[require(Permission.READ_SETTINGS)],
     response_model=list[WeatherProviderInfo],
     tags=["Backtests"],
     summary="Discover which future-weather providers are available",
@@ -1227,6 +1245,7 @@ def list_future_weather_providers():
 
 @router.get(
     "/thresholds/strategies",
+    dependencies=[require(Permission.READ_SETTINGS)],
     response_model=list[ThresholdStrategyInfo],
     tags=["Datasets"],
     summary="Discover which threshold strategies are available",
@@ -1245,6 +1264,7 @@ def list_threshold_strategy_types():
 
 @router.post(
     "/thresholds",
+    dependencies=[require(Permission.READ_DATASETS)],
     response_model=ThresholdResponse,
     tags=["Datasets"],
     summary="Compute thresholds (endemic channel) for a dataset",
@@ -1343,6 +1363,7 @@ class OutbreakMetricsResponse(DBModel):
 
 @router.get(
     "/outbreak-metrics",
+    dependencies=[require(Permission.READ_SETTINGS)],
     response_model=list[OutbreakMetricInfo],
     tags=["Metrics"],
     summary="Discover which outbreak metrics are available",
@@ -1362,6 +1383,7 @@ def list_outbreak_metrics():
 
 @router.get(
     "/backtests/{backtestId}/outbreak-metrics",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=OutbreakMetricsResponse,
     tags=["Metrics"],
     summary="Score a backtest's outbreak alerts against an alert policy",

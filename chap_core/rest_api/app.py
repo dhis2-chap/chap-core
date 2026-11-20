@@ -7,17 +7,17 @@ from contextlib import asynccontextmanager
 # the main thread every later fork() child segfaults on macOS. Import it here instead.
 import pyproj  # noqa: F401
 from anyio import to_thread
-from fastapi import Depends, FastAPI, Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPBearer
 from starlette.middleware.authentication import AuthenticationMiddleware
 
 from chap_core import __version__ as chap_core_version
 from chap_core.auth.tokens import get_authentication
 from chap_core.database.database import DB_POOL_CONNECTIONS
 from chap_core.rest_api.auth import ChapTokenBackend, on_authentication_error, warn_on_weak_token
+from chap_core.rest_api.authorization import PermissionDenied, check_route_permissions, permission_denied_handler
 from chap_core.rest_api.common_routes import router as common_router
 from chap_core.rest_api.v1.rest_api import router as v1_router
 from chap_core.rest_api.v2.rest_api import router as v2_router
@@ -64,8 +64,6 @@ app = FastAPI(
     version=chap_core_version,
     openapi_tags=openapi_tags,
     root_path=get_settings().root_path,
-    # Documents the bearer scheme in the OpenAPI spec; AuthenticationMiddleware does the enforcing.
-    dependencies=[Depends(HTTPBearer(auto_error=False))],
 )
 
 CORS_ORIGINS_ENV_VAR = "CHAP_CORS_ORIGINS"
@@ -112,6 +110,10 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(common_router)
 app.include_router(v1_router, prefix="/v1")
 app.include_router(v2_router, prefix="/v2")
+
+app.add_exception_handler(PermissionDenied, permission_denied_handler)
+# Refuse to start if a route was added without a permission.
+check_route_permissions(app)
 
 
 def get_openapi_schema():
