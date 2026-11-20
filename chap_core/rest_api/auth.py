@@ -44,6 +44,12 @@ def get_api_token() -> str | None:
     return token.get_secret_value() if token is not None else None
 
 
+# A log message, not a secret.
+SHORT_LEGACY_KEY_WARNING = (
+    "CHAP_API_TOKEN is shorter than 32 characters and is easily guessed. Use `openssl rand -hex 32`."
+)
+
+
 def warn_on_weak_token() -> None:
     """Log a warning at startup if ``CHAP_API_TOKEN`` is too short to be safe.
 
@@ -51,11 +57,8 @@ def warn_on_weak_token() -> None:
     """
     token = get_api_token()
     if token is not None and len(token) < MIN_TOKEN_LENGTH:
-        logger.warning(
-            "%s is shorter than %d characters and is easily guessed. Use `openssl rand -hex 32`.",
-            API_TOKEN_ENV_VAR,
-            MIN_TOKEN_LENGTH,
-        )
+        # Plain text: CodeQL treats any value named like a token or a secret as one, even a length.
+        logger.warning(SHORT_LEGACY_KEY_WARNING)
 
 
 def get_service_key() -> str | None:
