@@ -137,3 +137,38 @@ def test_a_valid_service_key_is_used_when_authorization_is_invalid(authenticatio
     principal = authenticate("Bearer wrong", SECRET, "/v1/crud/datasets", authentication)
 
     assert principal is not None and principal.id == "token:notebook"
+
+
+def test_a_secret_pasted_into_token_env_is_not_echoed(secrets):
+    pasted = "deadbeef" * 5
+
+    with pytest.raises(AuthenticationConfigError) as error:
+        load_authentication(settings_with(token(env=pasted)))
+
+    assert pasted not in str(error.value)
+
+
+def test_a_secret_pasted_into_tier_is_not_echoed(secrets):
+    pasted = "deadbeef" * 5
+
+    with pytest.raises(AuthenticationConfigError) as error:
+        load_authentication(settings_with(token(tier=pasted)))
+
+    assert pasted not in str(error.value)
+
+
+def test_a_secret_of_only_whitespace_is_unset(secrets, monkeypatch):
+    monkeypatch.setenv("NOTEBOOK_TOKEN", "   ")
+
+    with pytest.raises(AuthenticationConfigError, match="NOTEBOOK_TOKEN is not set"):
+        load_authentication(settings_with(token()))
+
+
+def test_the_registration_key_may_not_be_a_token_secret(secrets):
+    with pytest.raises(AuthenticationConfigError, match="also the secret of a token"):
+        load_authentication(settings_with(token(), service_registration_key=SECRET))
+
+
+def test_an_unknown_key_in_the_authentication_block_stops_startup():
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        ChapSettings(authentication={"tokens": [], "roles": []})

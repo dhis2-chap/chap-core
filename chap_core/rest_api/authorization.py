@@ -20,10 +20,19 @@ from chap_core.rest_api.auth import PUBLIC_PATHS, refusal, route_path
 bearer = HTTPBearer(auto_error=False)
 
 
-class PermissionDenied(Exception):
-    def __init__(self, message: str):
+class Refusal(Exception):
+    """A request refused after authentication, answered with the contract's refusal body."""
+
+    def __init__(self, status_code: int, code: str, message: str):
         super().__init__(message)
+        self.status_code = status_code
+        self.code = code
         self.message = message
+
+
+class PermissionDenied(Refusal):
+    def __init__(self, message: str):
+        super().__init__(403, "PermissionsInsufficient", message)
 
 
 async def authorize(
@@ -54,9 +63,9 @@ def require(permission: Permission) -> Any:
     return Security(authorize, scopes=[permission.value])
 
 
-async def permission_denied_handler(_request: Request, exc: Exception):
-    assert isinstance(exc, PermissionDenied)
-    return refusal(403, "PermissionsInsufficient", exc.message)
+async def refusal_handler(_request: Request, exc: Exception):
+    assert isinstance(exc, Refusal)
+    return refusal(exc.status_code, exc.code, exc.message)
 
 
 class RoutePermissionError(RuntimeError):

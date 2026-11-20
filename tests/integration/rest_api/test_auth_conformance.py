@@ -228,3 +228,20 @@ class TestMe:
         me = client.get("/v1/auth/me", headers={"Authorization": f"Bearer {API_TOKEN}"}).json()
 
         assert (me["id"], me["tier"]) == ("token:legacy", "operator")
+
+
+class TestRefusalsShareOneBody:
+    def test_the_registration_key_refusal_has_the_contract_body(self, make_client, sample_registration):
+        client = make_client(**{API_TOKEN_ENV_VAR: API_TOKEN, SERVICE_KEY_ENV_VAR: REGISTRATION_KEY})
+
+        response = register(client, sample_registration, {"Authorization": f"Bearer {API_TOKEN}"})
+
+        assert response.status_code == 401
+        assert response.headers["WWW-Authenticate"] == "Bearer"
+        assert response.json()["code"] == "TokenInvalid"
+        assert response.json()["detail"] == "Missing or invalid service key"
+
+    def test_me_answers_anonymous_to_an_invalid_token(self, named_client):
+        response = named_client.get("/v1/auth/me", headers={"Authorization": "Bearer " + "x" * 32})
+
+        assert response.json()["id"] == "anonymous"
