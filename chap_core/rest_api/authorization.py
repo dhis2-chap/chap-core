@@ -4,9 +4,11 @@
 and puts the permission in the OpenAPI spec, where ``check_route_permissions`` reads it back.
 """
 
+from collections.abc import Iterator
 from typing import Any
 
 from fastapi import Depends, FastAPI, Request, Security
+from fastapi.dependencies.models import Dependant
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, SecurityScopes
 
 from chap_core.auth.permissions import Permission
@@ -16,11 +18,6 @@ from chap_core.rest_api.auth import PUBLIC_PATHS, refusal, route_path
 # Documents the bearer scheme in the spec and gives /docs its Authorize button. The
 # authentication middleware does the checking, so a missing header is not an error here.
 bearer = HTTPBearer(auto_error=False)
-
-# Routes left out of the OpenAPI spec, where the startup check cannot see a declaration.
-HIDDEN_ROUTE_PERMISSIONS: dict[str, Permission] = {
-    "/v2/services/{service_id}/run/{path}": Permission.CALL_SERVICES,
-}
 
 
 class PermissionDenied(Exception):
@@ -62,24 +59,36 @@ class RoutePermissionError(RuntimeError):
     """A route declares no permission, or more than one."""
 
 
+def declared_permissions(dependant: Dependant) -> set[str]:
+    """The permissions a route's dependencies declare through ``require``."""
+    scopes = set(dependant.own_oauth_scopes or []) if dependant.call is authorize else set()
+    for sub_dependant in dependant.dependencies:
+        scopes |= declared_permissions(sub_dependant)
+    return scopes
+
+
+def served_routes(app: FastAPI) -> Iterator[tuple[str, set[str], Dependant | None]]:
+    """Every path the app serves, with its methods and dependencies, including routes hidden from the spec."""
+    for route in app.routes:
+        # Included routers are resolved lazily; each context is one route with its full path.
+        contexts = route.effective_route_contexts() if hasattr(route, "effective_route_contexts") else [route]
+        for context in contexts:
+            path = getattr(context, "path", "")
+            yield path, set(getattr(context, "methods", None) or []), getattr(context, "dependant", None)
+
+
 def check_route_permissions(app: FastAPI) -> None:
-    """Refuse to start unless every operation is public or declares exactly one known permission."""
+    """Refuse to start unless every route is public or declares exactly one known permission."""
     problems = []
-    for path, operations in app.openapi()["paths"].items():
-        for method, operation in operations.items():
-            scopes = {
-                scope
-                for requirement in operation.get("security", [])
-                for scopes_of_scheme in requirement.values()
-                for scope in scopes_of_scheme
-            }
-            name = f"{method.upper()} {path}"
-            if path in PUBLIC_PATHS:
-                if scopes:
-                    problems.append(f"{name} is public but declares {', '.join(sorted(scopes))}")
-            elif len(scopes) != 1:
-                problems.append(f"{name} declares {len(scopes)} permissions, not one")
-            elif not scopes <= set(Permission):
-                problems.append(f"{name} declares the unknown permission {scopes.pop()}")
+    for path, methods, dependant in served_routes(app):
+        name = f"{','.join(sorted(methods))} {path}"
+        scopes = declared_permissions(dependant) if dependant is not None else set()
+        if path in PUBLIC_PATHS:
+            if scopes:
+                problems.append(f"{name} is public but declares {', '.join(sorted(scopes))}")
+        elif len(scopes) != 1:
+            problems.append(f"{name} declares {len(scopes)} permissions, not one")
+        elif not scopes <= set(Permission):
+            problems.append(f"{name} declares the unknown permission {scopes.pop()}")
     if problems:
         raise RoutePermissionError("Routes without exactly one permission:\n" + "\n".join(problems))

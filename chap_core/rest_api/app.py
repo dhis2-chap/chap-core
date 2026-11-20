@@ -50,7 +50,13 @@ api_description = (
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
+async def lifespan(app: FastAPI):
+    # Refuse to start on a token configuration that cannot work (an unset secret, a short one, a
+    # repeat), or with a route that declares no permission. Here rather than at import, so
+    # exporting the OpenAPI schema does not need the token secrets.
+    warn_on_weak_token()
+    get_authentication()
+    check_route_permissions(app)
     # Sync handlers run in this threadpool. One thread per pooled database connection, so
     # extra requests wait for a thread instead of failing on a QueuePool timeout.
     to_thread.current_default_thread_limiter().total_tokens = DB_POOL_CONNECTIONS
@@ -74,9 +80,6 @@ def get_cors_origins() -> list[str]:
     return get_settings().cors_origins
 
 
-warn_on_weak_token()
-# Refuse to start on a token configuration that cannot work: an unset secret, a short one, a repeat.
-get_authentication()
 
 # Must stay before CORSMiddleware: add_middleware inserts at the front, so this keeps CORS
 # outermost and 401 responses still carry CORS headers.
@@ -112,8 +115,6 @@ app.include_router(v1_router, prefix="/v1")
 app.include_router(v2_router, prefix="/v2")
 
 app.add_exception_handler(PermissionDenied, permission_denied_handler)
-# Refuse to start if a route was added without a permission.
-check_route_permissions(app)
 
 
 def get_openapi_schema():

@@ -51,10 +51,8 @@ def warn_on_weak_token() -> None:
     token = get_api_token()
     if token is not None and len(token) < MIN_TOKEN_LENGTH:
         logger.warning(
-            "%s is only %d characters and is easily guessed. Use at least %d characters, "
-            "e.g. `openssl rand -hex 32` or `uuidgen`.",
+            "%s is shorter than %d characters and is easily guessed. Use `openssl rand -hex 32`.",
             API_TOKEN_ENV_VAR,
-            len(token),
             MIN_TOKEN_LENGTH,
         )
 
