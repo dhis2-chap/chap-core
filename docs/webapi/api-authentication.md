@@ -159,7 +159,10 @@ configured registration key is accepted there too:
 |----------------------|------------------------------|
 | Only `CHAP_API_TOKEN` | `SERVICEKIT_REGISTRATION_KEY` set to the API token |
 | Only `SERVICEKIT_REGISTRATION_KEY` | `SERVICEKIT_REGISTRATION_KEY` set to the registration key |
-| Both | `SERVICEKIT_REGISTRATION_KEY` set to either one |
+| Both | `SERVICEKIT_REGISTRATION_KEY` set to the registration key |
+
+With both set, registering, pinging and deregistering need the registration key; the API
+token alone is refused there.
 
 A registration key is only accepted on `/v2/services` paths. It cannot be used as a
 general-purpose credential against `/v1/**`, so a model service cannot read or delete
