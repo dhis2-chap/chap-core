@@ -86,6 +86,18 @@ def test_the_request_log_names_the_principal():
     assert record.getMessage() == 'ip - "GET /" 200 token:caps'
 
 
+def test_the_principal_does_not_break_uvicorns_access_formatter():
+    from uvicorn.logging import AccessFormatter
+
+    args = ("127.0.0.1:5000", "GET", "/v1/jobs", "1.1", 200)
+    record = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "%s %s HTTP/%s" %d', args, None)
+
+    with principal_scope("token:caps"):
+        PrincipalLogFilter().filter(record)
+
+    assert "GET /v1/jobs" in AccessFormatter().format(record)
+
+
 @pytest.mark.parametrize(
     "table", [Prediction, Backtest, DataSet, ConfiguredModelDB, PredictionSetup, Alert, AlertPolicy]
 )
