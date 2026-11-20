@@ -1009,7 +1009,8 @@ def get_covariate_names(session: Session = Depends(get_session)) -> list[Covaria
     "/create-backtest-with-data/",
     response_model=ImportSummaryResponse,
     tags=["Backtests"],
-    summary="Run a backtest from inline data",
+    deprecated=True,
+    summary="Run a backtest from inline data (deprecated, use make-dataset then create-backtests)",
 )
 def create_backtest_with_data(
     request: MakeBacktestWithDataRequest,
@@ -1023,11 +1024,16 @@ def create_backtest_with_data(
 ):
     """Train and evaluate a model on observations supplied directly in the request body, without first creating a reusable dataset.
 
-    Convenient for quick experiments where the data is not worth persisting. Pass
-    ``dryRun=true`` to run validation only (cheap, synchronous) and inspect which
-    regions would be rejected — useful as a preflight before committing to an import. A
-    real run returns a job id; poll ``/v1/jobs/{id}`` for status. The response also
-    surfaces any per-location rejections that came out of validation.
+    Deprecated: import observations with ``POST /v1/analytics/make-dataset`` instead.
+    For a real import, poll ``GET /v1/jobs/{id}`` until it succeeds, read the dataset id
+    from ``GET /v1/jobs/{id}/database_result``, then pass it as ``datasetId`` to
+    ``POST /v1/analytics/create-backtests``. Its ``dryRun=true`` option validates the
+    observations only; it does not report regions the backtest would drop for having no
+    target data in the training windows. Those regions are missing from ``orgUnits`` in
+    ``GET /v1/crud/backtest-specifications/{id}``.
+
+    This endpoint remains available for older clients and will be removed in a later release.
+    Pass ``dryRun=true`` to validate only; a real run returns a job id to poll via ``/v1/jobs/{id}``.
     """
     feature_names, provided_data_processed, rejections = _read_and_validate_dataset(request, dry_run)
     if dry_run and not provided_data_processed.locations():
