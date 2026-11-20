@@ -88,12 +88,21 @@ When `CHAP_API_TOKEN` is configured:
 | Missing `Authorization` header | 401 Unauthorized |
 | Wrong token, or a scheme other than `Bearer` or `ApiToken` | 401 Unauthorized |
 
-Both cases return the same body and a `WWW-Authenticate: Bearer` header, so a client can
-tell "this server wants a token" apart from a network failure:
+Both cases return a `WWW-Authenticate: Bearer` header, so a client can tell "this server
+wants a token" apart from a network failure. The body names the reason in `code` and
+repeats the message in `detail`:
 
 ```json
-{"detail": "Missing or invalid API token"}
+{
+  "id": "authentication",
+  "code": "AuthenticationRequired",
+  "message": "GET /v1/crud/datasets needs a token.",
+  "detail": "GET /v1/crud/datasets needs a token."
+}
 ```
+
+A wrong token gets `"code": "TokenInvalid"`. For named tokens with tiers and permissions, see
+the [auth contract](../contributor/auth_contract.md).
 
 ## Detecting whether a server requires a token
 
