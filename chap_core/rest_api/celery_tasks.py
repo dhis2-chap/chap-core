@@ -187,7 +187,7 @@ class TrackedTask(Task):
             )
             # Execute the actual task
             # The job runs as the principal that queued it, so what it creates names that principal.
-            with principal_scope(kwargs.pop(CREATED_BY_KW, None)):
+            with principal_scope(self.request.get(CREATED_BY_HEADER)):
                 return super().__call__(*args, **kwargs)
 
         finally:
@@ -209,7 +209,9 @@ class TrackedTask(Task):
         metadata = kwargs.pop(JOB_METADATA_KW, {})
         created_by = current_principal_id()
         if created_by is not None:
-            kwargs[CREATED_BY_KW] = created_by
+            # A header rather than a kwarg, so a worker still on older code ignores it instead of
+            # passing it to the job function.
+            options["headers"] = {**(options.get("headers") or {}), CREATED_BY_HEADER: created_by}
         result = super().apply_async(args=args, kwargs=kwargs, **options)
 
         job_meta: dict[str, str] = {
@@ -389,7 +391,7 @@ JOB_TYPE_KW = "__job_type__"
 JOB_NAME_KW = "__job_name__"
 JOB_METADATA_KW = "__job_metadata__"
 JOB_REQUEST_KW = "__job_request__"
-CREATED_BY_KW = "__created_by__"
+CREATED_BY_HEADER = "chap_created_by"
 # Request bodies can be several MB of inline data, so they expire instead of living as long as job_meta.
 JOB_REQUEST_TTL_SECONDS = 7 * 24 * 60 * 60
 PREDICTION_SETUP_ID_JOB_META_KEY = "prediction_setup_id"

@@ -26,12 +26,16 @@ class PermissionDenied(Exception):
         self.message = message
 
 
-def authorize(
+async def authorize(
     security_scopes: SecurityScopes,
     request: Request,
     _credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
 ) -> Principal:
-    """The caller, if it holds every permission the route declares; 403 otherwise."""
+    """The caller, if it holds every permission the route declares; 403 otherwise.
+
+    Async because it does no blocking work: a sync dependency would take a thread from the pool
+    that ``app.py`` caps at the number of database connections, even on async routes.
+    """
     principal = request.user
     if not isinstance(principal, Principal):
         raise RuntimeError("authorize needs the authentication middleware")
