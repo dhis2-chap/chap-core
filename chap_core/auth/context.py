@@ -1,9 +1,10 @@
 """The principal the current request or job runs as, for recording who created what."""
 
 import logging
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
+from functools import wraps
 
 from sqlalchemy import event
 from sqlalchemy.orm import Session
@@ -30,6 +31,17 @@ def principal_scope(principal_id: str | None) -> Iterator[None]:
         yield
     finally:
         _current_principal_id.reset(token)
+
+
+def without_principal[**P, R](function: Callable[P, R]) -> Callable[P, R]:
+    """Run ``function`` as no principal, for shared work no client owns, such as baseline runs."""
+
+    @wraps(function)
+    def run(*args: P.args, **kwargs: P.kwargs) -> R:
+        with principal_scope(None):
+            return function(*args, **kwargs)
+
+    return run
 
 
 class PrincipalLogFilter(logging.Filter):

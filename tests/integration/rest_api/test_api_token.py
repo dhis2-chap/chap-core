@@ -102,7 +102,7 @@ class TestTokenEnabled:
         assert response.status_code == 401
 
     def test_wrong_scheme_returns_401(self, client):
-        response = client.get(GATED_PATH, headers={"Authorization": f"Basic {TEST_TOKEN}"})
+        response = client.get(GATED_PATH, headers={"Authorization": f"Token {TEST_TOKEN}"})
 
         assert response.status_code == 401
 

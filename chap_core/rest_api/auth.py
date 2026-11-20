@@ -128,6 +128,9 @@ class ChapTokenBackend(AuthenticationBackend):
     """
 
     async def authenticate(self, conn: HTTPConnection) -> tuple[AuthCredentials, Principal]:
+        # Requests pipelined on one connection share a context, so a refused request must not
+        # inherit the principal of the request before it.
+        set_principal_id(None)
         authentication = get_authentication()
         if not authentication.enabled:
             return credentials(OPEN)

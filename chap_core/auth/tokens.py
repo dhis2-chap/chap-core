@@ -57,6 +57,16 @@ class Authentication:
         return bool(self.tokens)
 
 
+def _variable(name: str) -> str:
+    """A token_env for an error message, unless it may be a secret pasted there by mistake."""
+    return name if re.fullmatch(r"[A-Z_][A-Z0-9_]*", name) else "the variable token_env names"
+
+
+def _tier(name: str) -> str:
+    """A tier name for an error message, unless it is as long as a secret and may be one."""
+    return name if len(name) < MIN_SECRET_LENGTH else "(a name as long as a secret, not shown)"
+
+
 def load_authentication(settings: ChapSettings) -> Authentication:
     """Resolve the tiers and the token secrets, refusing a configuration that cannot work."""
     tiers = resolve_tiers(settings.authentication.tiers)
@@ -65,15 +75,15 @@ def load_authentication(settings: ChapSettings) -> Authentication:
         where = f"authentication.tokens[{index}] ({item.id})"
         secret = os.environ.get(item.token_env, "").strip()
         if not secret:
-            raise AuthenticationConfigError(f"{where}: environment variable {item.token_env} is not set")
+            raise AuthenticationConfigError(f"{where}: environment variable {_variable(item.token_env)} is not set")
         if len(secret) < MIN_SECRET_LENGTH:
             raise AuthenticationConfigError(
-                f"{where}: the secret in {item.token_env} is shorter than {MIN_SECRET_LENGTH} characters"
+                f"{where}: the secret in {_variable(item.token_env)} is shorter than {MIN_SECRET_LENGTH} characters"
             )
         if item.id == LEGACY_TOKEN_ID:
             raise AuthenticationConfigError(f"{where}: the id {LEGACY_TOKEN_ID} is kept for CHAP_API_TOKEN")
         if item.tier not in tiers or item.tier == "public":
-            raise AuthenticationConfigError(f"{where}: unknown tier {item.tier}")
+            raise AuthenticationConfigError(f"{where}: unknown tier {_tier(item.tier)}")
         tokens.append(NamedToken(id=item.id, tier=item.tier, permissions=tiers[item.tier], secret=secret))
 
     if settings.api_token is not None:
@@ -83,8 +93,13 @@ def load_authentication(settings: ChapSettings) -> Authentication:
         tokens.append(legacy)
 
     _refuse_repeats(tokens)
-    key = settings.service_registration_key
-    return Authentication(tokens=tuple(tokens), registration_key=key.get_secret_value() if key else None)
+    key = settings.service_registration_key.get_secret_value() if settings.service_registration_key else None
+    if key is not None and any(secret_matches(key, token.secret) for token in tokens):
+        # X-Service-Key would name the token, not the registry, so one secret must not be both.
+        raise AuthenticationConfigError(
+            "SERVICEKIT_REGISTRATION_KEY is also the secret of a token; use separate secrets"
+        )
+    return Authentication(tokens=tuple(tokens), registration_key=key)
 
 
 def resolve_tiers(custom: dict[str, TierConfig]) -> dict[str, frozenset[Permission]]:

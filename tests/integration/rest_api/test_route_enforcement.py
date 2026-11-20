@@ -12,7 +12,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from chap_core.auth.permissions import Permission
-from chap_core.rest_api import common_routes
 from chap_core.rest_api.app import app
 from chap_core.rest_api.auth import PUBLIC_PATHS
 from chap_core.rest_api.authorization import declared_permissions, served_routes
@@ -56,8 +55,6 @@ def client(test_orchestrator, monkeypatch, tmp_path):
     monkeypatch.delenv("CHAP_API_TOKEN", raising=False)
     for permission in Permission:
         monkeypatch.setenv(f"CHAP_TEST_{tier_name(permission).upper().replace('-', '_')}", secret(permission))
-    # The probe would wait for a broker; the permission check is what is under test.
-    monkeypatch.setattr(common_routes, "_check_celery_db_roundtrip", lambda: "ok")
     app.dependency_overrides[get_orchestrator] = lambda: test_orchestrator
     app.dependency_overrides[get_settings] = lambda: WorkerConfig()
     yield TestClient(app, raise_server_exceptions=False)
