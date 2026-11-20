@@ -1,7 +1,9 @@
 import pytest
 from fastapi import APIRouter, FastAPI
+from fastapi.testclient import TestClient
 
 from chap_core.auth.permissions import Permission
+from chap_core.auth.tokens import AuthenticationConfigError
 from chap_core.rest_api.app import app
 from chap_core.rest_api.authorization import RoutePermissionError, check_route_permissions, require
 
@@ -44,3 +46,24 @@ def test_a_public_route_may_not_declare_a_permission():
 
     with pytest.raises(RoutePermissionError, match="GET /health is public"):
         check_route_permissions(bare)
+
+
+def test_a_route_hidden_from_the_spec_is_checked_too():
+    bare = FastAPI()
+
+    @bare.get("/v1/hidden", include_in_schema=False)
+    def hidden():
+        return {}
+
+    with pytest.raises(RoutePermissionError, match="GET /v1/hidden declares 0 permissions"):
+        check_route_permissions(bare)
+
+
+def test_startup_refuses_a_token_whose_secret_is_unset(monkeypatch, tmp_path):
+    config = tmp_path / "chap-server.yaml"
+    config.write_text("authentication:\n  tokens:\n    - {id: caps, token_env: CHAP_TEST_UNSET, tier: operator}\n")
+    monkeypatch.setenv("CHAP_CONFIG", str(config))
+    monkeypatch.delenv("CHAP_TEST_UNSET", raising=False)
+
+    with pytest.raises(AuthenticationConfigError, match="CHAP_TEST_UNSET is not set"), TestClient(app):
+        pass
