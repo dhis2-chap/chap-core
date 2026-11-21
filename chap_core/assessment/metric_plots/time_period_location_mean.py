@@ -3,12 +3,13 @@ from typing import cast
 import altair as alt
 
 from chap_core.assessment.metric_plots import MetricPlotBase, metric_plot
+from chap_core.i18n import N_, gettext
 
 
 @metric_plot(
     plot_id="metric_by_time_period_and_location_mean",
-    name="Time Period and Location Plot",
-    description="Shows the aggregated metric by both time period and location",
+    name=N_("Time Period and Location Plot"),
+    description=N_("Shows the aggregated metric by both time period and location"),
     required_dimensions=["time_period", "location"],
 )
 class MetricByTimePeriodAndLocationV2Mean(MetricPlotBase):
@@ -22,9 +23,9 @@ class MetricByTimePeriodAndLocationV2Mean(MetricPlotBase):
             alt.Chart(adf)
             .mark_line(point=True)
             .encode(
-                x=alt.X("time_period:O", title="Time period"),
-                y=alt.Y("metric:Q", title="Mean Metric Value"),
-                color=alt.Color("location:N", title="Location"),
+                x=alt.X("time_period:O", title=gettext("Time period")),
+                y=alt.Y("metric:Q", title=gettext("Mean Metric Value")),
+                color=alt.Color("location:N", title=gettext("Location")),
                 tooltip=["time_period", "location", "metric"],
             )
             .properties(width=300, height=230, title=title),

@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import Any, Optional
 
 import numpy as np
-from pydantic import computed_field
+from pydantic import computed_field, field_serializer
 from sqlalchemy import JSON, CheckConstraint, Column, Index, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, Relationship, col, or_, select
@@ -21,6 +21,7 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateDB,
     ModelTemplateRole,
 )
+from chap_core.i18n import gettext
 
 
 class BackendSettings(DBModel, table=True):
@@ -273,6 +274,15 @@ class ConfiguredModelRead(ModelConfiguration, DBModel):
         "the same configuration."
     )
     model_template: ModelTemplateDB = Field(description="Parent template the configuration extends.")
+
+    @field_serializer("model_template", mode="wrap", when_used="json")
+    def translate_model_template(self, value, handler):
+        # ModelTemplateDB is a table model, so it cannot carry its own serializer without
+        # translating stored dumps too.
+        data = handler(value)
+        if "description" in data:
+            data["description"] = gettext(data["description"])
+        return data
 
 
 class QuantileTarget(DBModel):

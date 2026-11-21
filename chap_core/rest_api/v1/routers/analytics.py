@@ -50,6 +50,7 @@ from chap_core.database.tables import (
 )
 from chap_core.datatypes import create_tsdataclass
 from chap_core.exceptions import InvalidDateError
+from chap_core.i18n import gettext
 from chap_core.services import threshold_service
 from chap_core.services.dataset_validation import RESERVED_FIELDS
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
@@ -1355,7 +1356,7 @@ def list_outbreak_metrics():
     """
     specs = [*get_binary_outbreak_metrics().values(), *get_categorical_outbreak_metrics().values()]
     return [
-        OutbreakMetricInfo(id=spec.id, display_name=spec.name, description=spec.description, kind=spec.kind)
+        OutbreakMetricInfo(id=spec.id, display_name=spec.name, description=gettext(spec.description), kind=spec.kind)
         for spec in specs
     ]
 

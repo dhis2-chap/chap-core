@@ -14,6 +14,7 @@ from chap_core.assessment.metrics.base import (
     MetricSpec,
     OptimizationDirection,
 )
+from chap_core.i18n import N_
 
 
 @metric()
@@ -35,7 +36,7 @@ class OrgUnitRankingMetric(Metric):
         metric_name="Org Unit Ranking",
         output_dimensions=(DataDimension.time_period, DataDimension.horizon_distance),
         aggregation_op=AggregationOp.MEAN,
-        description=(
+        description=N_(
             "Spearman rank correlation between forecast and observed incidence (cases per population) "
             "across org units, averaged over time periods. 1 means org units are ranked perfectly, "
             "0 means no better than random. Needs population data."

@@ -4,12 +4,13 @@ import altair as alt
 import pandas as pd
 
 from chap_core.assessment.metric_plots import MetricPlotBase, metric_plot
+from chap_core.i18n import N_, gettext
 
 
 @metric_plot(
     plot_id="metric_map",
-    name="Map",
-    description="Shows a map of aggregated metrics per org unit",
+    name=N_("Map"),
+    description=N_("Shows a map of aggregated metrics per org unit"),
     required_dimensions=["location"],
 )
 class MetricMapV2(MetricPlotBase):
@@ -32,8 +33,8 @@ class MetricMapV2(MetricPlotBase):
             alt.Chart(alt.Data(values=self._geojson["features"]))
             .mark_geoshape(stroke="black", strokeWidth=0.5)
             .encode(
-                color=alt.Color("value:Q", scale=alt.Scale(scheme="reds"), title="Metric Value"),
-                tooltip=[alt.Tooltip("properties.name:N", title="org unit"), "value:Q"],
+                color=alt.Color("value:Q", scale=alt.Scale(scheme="reds"), title=gettext("Metric Value")),
+                tooltip=[alt.Tooltip("properties.name:N", title=gettext("org unit")), "value:Q"],
             )
             .transform_lookup(
                 lookup="id",

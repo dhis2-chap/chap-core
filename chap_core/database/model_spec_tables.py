@@ -1,11 +1,13 @@
 from typing import Literal
 
+from pydantic import field_serializer
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, Relationship
 
 from chap_core.database.base_tables import DBModel
 from chap_core.database.feature_tables import FeatureType, ModelFeatureLink
 from chap_core.database.model_templates_and_config_tables import ModelTemplateMetaData
+from chap_core.i18n import gettext
 from chap_core.model_spec import PeriodType
 
 # TODO: legacy, most here will be outdated, and should be moved elsewhere
@@ -63,6 +65,10 @@ class ModelSpecRead(ModelSpecBase):
         default=[],
         description="Extra continuous covariates passed beyond `covariates`.",
     )
+
+    @field_serializer("description", when_used="json")
+    def translate_description(self, value: str) -> str:
+        return gettext(value)
 
 
 class ModelSpec(ModelSpecBase, table=True):

@@ -12,6 +12,7 @@ from chap_core.assessment.metrics.base import (
     ProbabilisticMetric,
 )
 from chap_core.assessment.metrics.crps import crps_rows
+from chap_core.i18n import N_
 
 
 @metric()
@@ -34,7 +35,7 @@ class CRPSNormMetric(ProbabilisticMetric):
         metric_id="crps_norm",
         metric_name="CRPS Normalized",
         aggregation_op=AggregationOp.MEAN,
-        description="Normalized CRPS - CRPS divided by the range of the observed values that have a forecast",
+        description=N_("Normalized CRPS - CRPS divided by the range of the observed values that have a forecast"),
         optimization_direction=OptimizationDirection.MINIMIZE,
         proper_scoring_rule=True,
         comparison_op="skill_ratio",

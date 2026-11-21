@@ -33,6 +33,8 @@ from __future__ import annotations
 import abc
 from typing import TYPE_CHECKING
 
+from chap_core.i18n import gettext
+
 if TYPE_CHECKING:
     import altair as alt
     import pandas as pd
@@ -160,8 +162,8 @@ def list_metric_plots() -> list[dict]:
     return [
         {
             "id": cls.id,
-            "name": cls.name,
-            "description": cls.description,
+            "name": gettext(cls.name),
+            "description": gettext(cls.description),
             "required_dimensions": cls.required_dimensions,
         }
         for cls in _metric_plots_registry.values()

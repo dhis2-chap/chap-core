@@ -27,7 +27,7 @@ clean: ## remove all build, test, coverage and Python artifacts
 	@rm -rf site/
 	@rm -rf .cache
 
-lint: ## check and fix code style with ruff, run type checking
+lint: extract-translations ## check and fix code style with ruff, run type checking
 	@echo "Linting code..."
 	uv run ruff check --fix
 	@echo "Formatting code..."
@@ -37,7 +37,7 @@ lint: ## check and fix code style with ruff, run type checking
 	@echo "Type checking (pyright)..."
 	uv run pyright
 
-check: check-alembic-heads ## non-mutating lint + type checks (used in CI)
+check: check-alembic-heads check-translations ## non-mutating lint + type checks (used in CI)
 	@echo "Ruff check..."
 	uv run ruff check
 	@echo "Ruff format check..."
@@ -50,6 +50,13 @@ check: check-alembic-heads ## non-mutating lint + type checks (used in CI)
 check-alembic-heads: ## fail if the alembic migration chain has more than one head
 	@echo "Alembic head count..."
 	@uv run python -c "from alembic.config import Config; from alembic.script import ScriptDirectory; heads = ScriptDirectory.from_config(Config('alembic.ini')).get_heads(); assert len(heads) == 1, f'Expected 1 alembic head, found {len(heads)}: {heads}'; print(f'OK: single head {heads[0]}')"
+
+.PHONY: extract-translations check-translations
+extract-translations: ## extract marked strings for Transifex
+	uv run python scripts/extract_translations.py
+
+check-translations: ## fail if the committed translation source is stale
+	uv run python scripts/extract_translations.py --check
 
 PYTEST_WORKERS ?= 4
 

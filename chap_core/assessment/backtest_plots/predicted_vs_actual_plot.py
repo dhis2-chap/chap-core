@@ -11,6 +11,7 @@ import pandas as pd
 
 from chap_core.assessment.backtest_plots import ChartType, FacetDimension, FacetedBacktestPlot, backtest_plot
 from chap_core.assessment.backtest_plots.db_dimensions import HorizonDistanceDimension
+from chap_core.i18n import N_, gettext
 from chap_core.plotting.backtest_plot import clean_time
 
 
@@ -53,8 +54,8 @@ def build_predicted_vs_actual_chart(
     merged["_identity_min"] = min(merged[x_field].min(), merged[y_field].min())
     merged["_identity_max"] = max(merged[x_field].max(), merged[y_field].max())
 
-    x_kwargs: dict = {"title": "Predicted"}
-    y_kwargs: dict = {"title": "Actual"}
+    x_kwargs: dict = {"title": gettext("Predicted")}
+    y_kwargs: dict = {"title": gettext("Actual")}
     if axis is not None:
         x_kwargs["axis"] = axis
         y_kwargs["axis"] = axis
@@ -65,12 +66,12 @@ def build_predicted_vs_actual_chart(
         .encode(
             x=alt.X(f"{x_field}:Q", **x_kwargs),
             y=alt.Y(f"{y_field}:Q", **y_kwargs),
-            color=alt.Color("location:N", title="Location"),
+            color=alt.Color("location:N", title=gettext("Location")),
             tooltip=[
                 alt.Tooltip("location:N"),
                 alt.Tooltip("time_period:N"),
-                alt.Tooltip("median_forecast:Q", format=".1f", title="Predicted"),
-                alt.Tooltip("disease_cases:Q", format=".1f", title="Actual"),
+                alt.Tooltip("median_forecast:Q", format=".1f", title=gettext("Predicted")),
+                alt.Tooltip("disease_cases:Q", format=".1f", title=gettext("Actual")),
             ],
         )
     )
@@ -89,12 +90,14 @@ def build_predicted_vs_actual_chart(
 
 @backtest_plot(
     plot_id="predicted_vs_actual",
-    name="Predicted vs Actual",
-    description="Scatter plots of predicted (median) vs actual values in log1p space, faceted by horizon and colored by location.",
+    name=N_("Predicted vs Actual"),
+    description=N_(
+        "Scatter plots of predicted (median) vs actual values in log1p space, faceted by horizon and colored by location."
+    ),
 )
 class PredictedVsActualPlot(FacetedBacktestPlot):
     facet_dimensions: list[FacetDimension] = [
-        HorizonDistanceDimension(field_name="horizon_distance:O", display_name="Horizon Distance"),
+        HorizonDistanceDimension(field_name="horizon_distance:O", display_name=N_("Horizon Distance")),
     ]
 
     resolve_scale_x = "shared"
@@ -120,6 +123,6 @@ class PredictedVsActualPlot(FacetedBacktestPlot):
             data,
             x_field="log1p_predicted",
             y_field="log1p_actual",
-            title="Predicted vs Actual (log1p scale)",
+            title=gettext("Predicted vs Actual (log1p scale)"),
             axis=log_axis,
         )

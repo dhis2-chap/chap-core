@@ -1,6 +1,15 @@
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, create_model, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    create_model,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 from pydantic.alias_generators import to_camel
 
 from chap_core.api_types import BacktestParams, BacktestParamsBase, FeatureCollectionModel
@@ -18,6 +27,7 @@ from chap_core.database.tables import (
     DataSetMeta,
     QuantileTarget,
 )
+from chap_core.i18n import gettext
 
 
 class PredictionBase(BaseModel):
@@ -370,6 +380,10 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
             "null for ordinary models."
         ),
     )
+
+    @field_serializer("description", when_used="json")
+    def translate_description(self, value: str) -> str:
+        return gettext(value)
 
     # The horizon fields were renamed to match chapkit. Both spellings are served so a
     # client can move to `*PredictionPeriods` on its own schedule; drop these once none read them.
