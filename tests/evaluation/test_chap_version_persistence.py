@@ -4,12 +4,13 @@ import xarray as xr
 
 import chap_core
 from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.evaluation_metadata import EvaluatedModel
 
 
 def _write_with_version(backtest, tmp_path, chap_version):
     """Write the backtest to a file whose chap_version attr is rewritten; None removes it."""
     filepath = tmp_path / "eval.nc"
-    Evaluation.from_backtest(backtest).to_file(filepath=filepath, model_name="TestModel", model_version="1.0.0")
+    Evaluation.from_backtest(backtest).with_model(EvaluatedModel(name="TestModel", version="1.0.0")).to_file(filepath)
     ds = xr.open_dataset(filepath).load()
     if chap_version is None:
         del ds.attrs["chap_version"]
@@ -28,7 +29,7 @@ def test_from_file_records_the_version_of_the_writer(backtest, tmp_path):
 
 def test_from_file_round_trips_this_checkouts_version(backtest, tmp_path):
     filepath = tmp_path / "eval.nc"
-    Evaluation.from_backtest(backtest).to_file(filepath=filepath, model_name="TestModel", model_version="1.0.0")
+    Evaluation.from_backtest(backtest).with_model(EvaluatedModel(name="TestModel", version="1.0.0")).to_file(filepath)
 
     expected = None if chap_core.__version__ == "unknown" else chap_core.__version__
     assert Evaluation.from_file(filepath).to_backtest().chap_version == expected

@@ -78,8 +78,6 @@ Implementation details:
 `BasicEstimator` should follow the same two-phase pattern as `NaiveEstimator`:
 - `train(data: DataSet) -> BasicPredictor` -- fits a model using extracted features
 - `BasicPredictor.predict(historic_data, future_data) -> DataSet[Samples]`
-- Class attributes `model_template_db` and `configured_model_db` for evaluation
-  integration
 - `save()`/`load()` for serialization
 
 ### Existing Material
@@ -100,7 +98,6 @@ Create `chap_core/predictor/basic_estimator.py` with:
 - `BasicEstimator(extract_features: Callable)` -- constructor takes feature fn
 - Fits a linear regression (or similar simple model) on extracted features
 - Returns `BasicPredictor` that generates `Samples` via prediction + noise model
-- Includes `model_template_db` and `configured_model_db` class attributes
 - Add tests following existing `test_naive_estimator.py` pattern
 
 #### 2. Doctested walkthrough: regression with progressive effects (CLIM-477)

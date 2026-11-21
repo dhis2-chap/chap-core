@@ -7,6 +7,7 @@ evaluation results, enabling better code reuse between REST API and CLI workflow
 
 from __future__ import annotations
 
+import copy
 import datetime
 import json
 import logging
@@ -23,6 +24,7 @@ from sqlalchemy.orm import object_session
 from sqlmodel import col
 
 from chap_core.api_types import BacktestParams
+from chap_core.assessment.evaluation_metadata import EvaluatedModel, EvaluationMetadata
 from chap_core.assessment.flat_representations import (
     FlatForecasts,
     FlatObserved,
@@ -32,7 +34,6 @@ from chap_core.assessment.flat_representations import (
 )
 from chap_core.assessment.forecast_cells import ForecastCells, check_sample_counts
 from chap_core.assessment.weather_providers import (
-    DEFAULT_WEATHER_PROVIDER_ID,
     LEGACY_WEATHER_PROVIDER_ID,
 )
 from chap_core.database.base_tables import utc_now
@@ -40,7 +41,6 @@ from chap_core.database.dataset_tables import DataSet, Observation, ObservationB
 from chap_core.database.tables import Backtest, BacktestForecast, BacktestSpecification
 from chap_core.external.ExtendedPredictor import ExtendedPredictor
 from chap_core.hpo.types import FlatHyperparameterOptimization, HyperparameterOptimization
-from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.time_period import Month, TimePeriod
 
 if TYPE_CHECKING:
@@ -52,7 +52,6 @@ if TYPE_CHECKING:
     from chap_core.data import DataSet as _DataSet
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
     from chap_core.datatypes import SamplesWithTruth
-    from chap_core.external.model_configuration import ModelTemplateConfigV2
     from chap_core.hpo.meta_learner import MetaLearner
 
 logger = logging.getLogger(__name__)
@@ -183,25 +182,77 @@ def _flat_data_to_xarray(flat_data: FlatEvaluationData) -> xr.Dataset:
     return xr.Dataset(data_vars)
 
 
-def _file_attrs(model_metadata: dict, hpo: FlatHyperparameterOptimization | None) -> dict:
+def _file_attrs(
+    metadata: EvaluationMetadata,
+    split_periods: list[str],
+    org_units: list[str],
+    hpo: FlatHyperparameterOptimization | None,
+) -> dict:
+    model = metadata.model
     attrs = {
         "title": "CHAP Model Evaluation Results",
         "evaluation_format_version": EVALUATION_FORMAT_VERSION,
-        "model_name": model_metadata.get("model_name", ""),
-        "model_configuration": json.dumps(model_metadata.get("model_configuration", {})),
-        "model_version": model_metadata.get("model_version", ""),
-        "created_date": datetime.datetime.now().isoformat(),
-        "split_periods": json.dumps(model_metadata.get("split_periods", [])),
-        "org_units": json.dumps(model_metadata.get("org_units", [])),
-        "historical_context_periods": model_metadata.get("historical_context_periods", 0),
-        "future_weather_provider": model_metadata.get("future_weather_provider", DEFAULT_WEATHER_PROVIDER_ID),
+        "model_name": model.name if model is not None else "",
+        "model_configuration": json.dumps(model.configuration if model is not None else {}),
+        "model_version": (model.version or "") if model is not None else "",
+        "created_date": (metadata.created or datetime.datetime.now()).isoformat(),
+        "split_periods": json.dumps(split_periods),
+        "org_units": json.dumps(org_units),
+        "historical_context_periods": metadata.historical_context_periods,
+        "future_weather_provider": metadata.params.future_weather_provider,
+        "backtest_params": metadata.params.model_dump_json(),
         "chap_version": CHAP_VERSION,
     }
-    if "model_info" in model_metadata:
-        attrs["model_info"] = model_metadata["model_info"]
+    if model is not None and model.info is not None:
+        attrs["model_info"] = json.dumps(model.info)
+    if metadata.last_train_period is not None:
+        attrs["last_train_period"] = metadata.last_train_period
     if hpo is not None:
         attrs["hpo"] = json.dumps(asdict(hpo))
     return attrs
+
+
+def _json_dict_attr(value: object) -> dict | None:
+    """A JSON object stored in a NetCDF attribute, or None if it is missing or not one."""
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def _metadata_from_attrs(attrs: dict) -> EvaluationMetadata:
+    if "backtest_params" in attrs:
+        params = BacktestParams.model_validate_json(attrs["backtest_params"])
+    else:
+        # Older files record only the provider; the other parameters are unknown.
+        params = BacktestParams.model_construct(future_weather_provider=str(attrs["future_weather_provider"]))
+    model = None
+    if attrs.get("model_name"):
+        model = EvaluatedModel(
+            name=str(attrs["model_name"]),
+            version=str(attrs["model_version"]) if attrs.get("model_version") else None,
+            configuration=_json_dict_attr(attrs.get("model_configuration")) or {},
+            info=_json_dict_attr(attrs.get("model_info")),
+        )
+    created = None
+    if isinstance(attrs.get("created_date"), str):
+        try:
+            created = datetime.datetime.fromisoformat(attrs["created_date"])
+        except ValueError:
+            created = None
+    last_train_period = attrs.get("last_train_period")
+    return EvaluationMetadata(
+        params=params,
+        model=model,
+        last_train_period=str(last_train_period) if last_train_period is not None else None,
+        historical_context_periods=int(attrs.get("historical_context_periods", 0)),
+        # The version of the writer, not of the process importing the file.
+        chap_version=_recorded_version(attrs.get("chap_version")),
+        created=created,
+    )
 
 
 def _flat_forecasts_from_split_layout(forecast: xr.DataArray) -> pd.DataFrame:
@@ -450,71 +501,93 @@ class FlatEvaluationData:
 
 class Evaluation:
     """
-    Evaluation results: forecasts, observations and the backtest's metadata.
+    Evaluation results: forecasts, observations and the metadata describing them.
 
-    The CLI paths (``create``, ``from_samples_with_truth`` and ``from_file``) keep the
-    forecasts and observations in an ``xr.Dataset`` and only build ORM objects when
-    ``to_backtest()`` asks for them. ``from_backtest`` reads a stored backtest's forecasts
-    and observations with column queries when ``to_flat()`` is first called. The REST API
-    persists a new backtest by inserting ``forecast_rows()``.
+    An evaluation holds either an ``xr.Dataset`` (``create``, ``from_samples_with_truth``
+    and ``from_file``) or a stored ``Backtest`` (``from_backtest``), whose forecasts and
+    observations are read with column queries when ``to_flat()`` is first called.
+
+    Running an evaluation needs only the backtest parameters. The model that ran is
+    recorded with ``with_model``, and storage identity (database ids, backtest name) is
+    given to ``to_backtest`` when the result is persisted.
     """
 
     def __init__(
         self,
-        backtest: Backtest,
+        backtest: Backtest | None = None,
         historical_observations: list[Observation] | None = None,
         historical_context_periods: int = 0,
         hpo: HyperparameterOptimization | None = None,
+        *,
+        dataset: xr.Dataset | None = None,
+        metadata: EvaluationMetadata | None = None,
+        in_memory_dataset_name: str = "cli_evaluation_dataset",
     ):
         """
-        Initialize Evaluation with a Backtest object.
+        Initialize Evaluation from a stored Backtest, or from arrays and their metadata.
 
         Args:
             backtest: Database Backtest object (with relationships loaded)
             historical_observations: Optional list of Observation objects for historical
                 context (periods before split points, for plotting)
             historical_context_periods: Number of periods of historical context stored
+            hpo: Hyperparameter optimization result, if the model was tuned
+            dataset: Forecasts and observations as arrays, instead of a backtest
+            metadata: Metadata of the arrays. A backtest's metadata is read from the row.
+            in_memory_dataset_name: Name of the dataset ``to_backtest`` builds from the arrays
         """
+        if (backtest is None) == (dataset is None):
+            raise ValueError("Evaluation needs either a backtest or a dataset")
         self._backtest = backtest
+        self._dataset = dataset
+        self._metadata = metadata
+        if dataset is not None and metadata is None:
+            self._metadata = EvaluationMetadata(historical_context_periods=historical_context_periods)
         self._historical_observations = historical_observations or []
         self._historical_context_periods = historical_context_periods
         self._hpo = hpo
         self._flat_data_cache: FlatEvaluationData | None = None
         self._cells_cache: ForecastCells | None = None
         self._stored_rows: tuple[Sequence, pd.DataFrame] | None = None
-        # Set when the results are held as arrays. The backtest is then a header without
-        # forecasts, filled in from the arrays the first time to_backtest() is called.
-        self._dataset: xr.Dataset | None = None
+        # Set while the backtest built from the arrays has no forecasts yet. They are filled
+        # in the first time to_backtest() is called with include_forecasts.
         self._backtest_pending = False
-        self._last_train_period: str | None = None
-        self._in_memory_dataset_name = "cli_evaluation_dataset"
+        self._in_memory_dataset_name = in_memory_dataset_name
 
-    @classmethod
-    def _from_dataset(
-        cls,
-        backtest: Backtest,
-        dataset: xr.Dataset,
-        historical_context_periods: int,
-        hpo: HyperparameterOptimization | None = None,
-        last_train_period: str | None = None,
-        in_memory_dataset_name: str = "cli_evaluation_dataset",
-    ) -> Evaluation:
-        evaluation = cls(backtest, historical_context_periods=historical_context_periods, hpo=hpo)
-        evaluation._dataset = dataset
-        evaluation._backtest_pending = True
-        evaluation._last_train_period = last_train_period
-        evaluation._in_memory_dataset_name = in_memory_dataset_name
-        backtest.max_horizon_distance = _max_horizon_distance(dataset["forecast"])
+    @property
+    def metadata(self) -> EvaluationMetadata:
+        """How the evaluation was run, by which model, and when."""
+        if self._metadata is None:
+            backtest = self._backtest
+            assert backtest is not None
+            # Read from columns only, so this triggers no lazy load beyond the specification.
+            self._metadata = EvaluationMetadata(
+                params=BacktestParams.model_construct(
+                    **{name: getattr(backtest, name) for name in BacktestParams.model_fields}
+                ),
+                model=EvaluatedModel(name=backtest.model_id, version=backtest.model_template_version)
+                if backtest.model_id
+                else None,
+                historical_context_periods=self._historical_context_periods,
+                chap_version=backtest.chap_version,
+                created=backtest.created,
+            )
+        return self._metadata
+
+    def with_model(self, model: EvaluatedModel) -> Evaluation:
+        """A copy of this evaluation recording ``model`` as the model that ran."""
+        evaluation = copy.copy(self)
+        evaluation._metadata = self.metadata.model_copy(update={"model": model})
+        if self._dataset is not None:
+            # A backtest built from the arrays carries the old model; build it again.
+            evaluation._backtest = None
+            evaluation._backtest_pending = False
         return evaluation
 
     @property
     def future_weather_provider(self) -> str:
-        """Id of the future-weather provider these results were produced with.
-
-        The backtest's specification is the single source of truth, so database
-        persistence and NetCDF exports cannot disagree.
-        """
-        return self._backtest.future_weather_provider
+        """Id of the future-weather provider these results were produced with."""
+        return self.metadata.params.future_weather_provider
 
     @classmethod
     def from_backtest(cls, backtest: Backtest) -> Evaluation:
@@ -534,32 +607,12 @@ class Evaluation:
         cls,
         evaluation_results: Iterable[_DataSet[SamplesWithTruth]],
         last_train_period: TimePeriod,
-        configured_model: ConfiguredModelDB,
-        info: BacktestCreate,
+        backtest_params: BacktestParams | None = None,
         historical_observations: list[Observation] | pd.DataFrame | None = None,
         historical_context_periods: int = 0,
-        specification: BacktestSpecification | None = None,
         hpo: HyperparameterOptimization | None = None,
         population_observations: list[Observation] | None = None,
     ) -> Evaluation:
-        info.created = utc_now()
-        # The parameters live on the specification now and are computed fields on
-        # Backtest, reading through the link. Excluding them here keeps that explicit;
-        # passing them would be silently ignored rather than rejected.
-        backtest = Backtest(
-            **info.model_dump(exclude=set(BacktestParams.model_fields))
-            | {
-                "model_db_id": configured_model.id,
-                "model_template_version": configured_model.model_template.version,
-                "chap_version": RECORDED_CHAP_VERSION,
-            }
-        )
-        # Callers persisting the backtest pass the deduplicated row resolved against the
-        # database. The CLI paths build an in-memory evaluation only, so a detached
-        # specification carrying the same parameters is enough for them.
-        backtest.specification = specification or BacktestSpecification(
-            dataset_id=info.dataset_id, **info.model_dump(include=set(BacktestParams.model_fields))
-        )
         dataset = _samples_with_truth_to_xarray(evaluation_results)
         historical_df = _observations_frame(historical_observations)
         if historical_df is not None and not historical_df.empty:
@@ -576,51 +629,39 @@ class Evaluation:
             if population.notnull().any():
                 dataset["population"] = population
 
-        backtest.org_units = [str(location) for location in dataset["forecast"]["location"].values]
-        backtest.split_periods = [str(split) for split in dataset["forecast"]["split"].values]
-        return cls._from_dataset(
-            backtest,
-            dataset,
-            historical_context_periods=historical_context_periods,
-            hpo=hpo,
+        metadata = EvaluationMetadata(
+            params=backtest_params or BacktestParams(),
             last_train_period=last_train_period.id,
+            historical_context_periods=historical_context_periods,
+            chap_version=RECORDED_CHAP_VERSION,
+            created=utc_now(),
         )
+        return cls(dataset=dataset, metadata=metadata, hpo=hpo)
 
     @classmethod
     def create(
         cls,
-        configured_model: ConfiguredModelDB,
         estimator: Estimator | MetaLearner,
         dataset: _DataSet,
         backtest_params: BacktestParams,
-        backtest_name: str = "evaluation",
         historical_context_years: int = 6,
-        info: BacktestCreate | None = None,
-        specification: BacktestSpecification | None = None,
     ) -> Evaluation:
         """
         Uses ``train_test_generator`` to create an expanding window split of the
         data. Create an Evaluation by running a backtest.
 
-        Factory method that handles the complete backtest workflow:
-        1. Run backtest with provided estimator
-        2. Create Evaluation from results
+        The result records no model; add it with ``with_model``.
 
         Args:
-            configured_model: Configured model database object with metadata
             estimator: Model estimator instance ready for training/prediction. It is run
                 as given: wrap a model whose max_prediction_periods is below
                 ``backtest_params.n_periods`` with ``ExtendedPredictor.extend_to_horizon``
                 first. Only the model tuned from a HyperparameterOptimizer is wrapped here.
             dataset: Dataset to evaluate on
             backtest_params: Backtest execution parameters (n_periods, n_splits, stride)
-            backtest_name: Name for the backtest (default: "evaluation")
             historical_context_years: Years of historical data to include for plotting
                 context (default: 6). Number of periods is calculated based on dataset
                 period type (e.g., 6 years = 312 weeks or 72 months).
-            info: Backtest metadata to record. Defaults to an in-memory backtest named
-                ``backtest_name`` (``dataset_id=0``), as used by the CLI.
-            specification: Specification row to attach, for callers that persist the backtest.
 
         Returns:
             Evaluation instance with backtest results
@@ -652,7 +693,6 @@ class Evaluation:
         else:
             tuned_estimator = estimator
 
-        # Run backtest
         evaluation_results = backtest(
             estimator=tuned_estimator,
             train_set=train_set,
@@ -661,19 +701,7 @@ class Evaluation:
             n_retrain=backtest_params.n_retrain,
         )
 
-        # Prepare metadata
         last_train_period = train_set.period_range[-1]
-
-        backtest_info = info or BacktestCreate(
-            name=backtest_name,
-            dataset_id=0,
-            model_id=configured_model.id,
-            n_periods=backtest_params.n_periods,
-            n_splits=backtest_params.n_splits,
-            stride=backtest_params.stride,
-            n_retrain=backtest_params.n_retrain,
-            future_weather_provider=backtest_params.future_weather_provider,
-        )
 
         # Calculate number of periods based on dataset period type
         historical_context_periods = cls.calculate_periods_from_years(
@@ -688,15 +716,12 @@ class Evaluation:
             n_periods=historical_context_periods,
         )
 
-        # Create Evaluation
         return cls.from_samples_with_truth(
             evaluation_results=evaluation_results,
             last_train_period=last_train_period,
-            configured_model=configured_model,
-            info=backtest_info,
+            backtest_params=backtest_params,
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
-            specification=specification,
             hpo=hpo_data,
             population_observations=cls.extract_population_observations(dataset),
         )
@@ -774,24 +799,71 @@ class Evaluation:
         """
         return _historical_observations_frame(dataset, up_to_period, n_periods)
 
-    def to_backtest(self, include_forecasts: bool = True) -> Backtest:
+    def to_backtest(
+        self,
+        configured_model: ConfiguredModelDB | None = None,
+        specification: BacktestSpecification | None = None,
+        name: str | None = None,
+        include_forecasts: bool = True,
+    ) -> Backtest:
         """
         Get the database Backtest object.
 
-        For results held as arrays, this builds the backtest's forecasts (and, outside the
-        database, an in-memory dataset with the observations) on the first call.
+        For results held as arrays, the backtest is built on the first call. Pass the
+        configured model and the resolved specification to persist it. Without them it is
+        a detached backtest with an in-memory dataset holding the observations.
 
         Args:
+            configured_model: The stored configured model that ran
+            specification: The stored specification the backtest ran under
+            name: Name of the backtest
             include_forecasts: False returns the backtest without building its forecasts,
                 for callers that insert them from ``forecast_rows()`` instead.
 
         Returns:
             Backtest database model
         """
+        if self._backtest is None:
+            self._backtest = self._build_backtest(configured_model, specification, name)
+            self._backtest_pending = True
+        elif configured_model is not None or specification is not None or name is not None:
+            raise ValueError("The backtest of this evaluation is already built; its identity cannot change")
         if self._backtest_pending and include_forecasts:
-            self._fill_backtest_from_dataset()
+            self._fill_backtest_from_dataset(embed_observations=specification is None)
             self._backtest_pending = False
         return self._backtest
+
+    def _build_backtest(
+        self,
+        configured_model: ConfiguredModelDB | None,
+        specification: BacktestSpecification | None,
+        name: str | None,
+    ) -> Backtest:
+        assert self._dataset is not None
+        metadata = self.metadata
+        org_units = self.get_org_units()
+        if specification is None:
+            # A detached specification carrying the parameters keeps them readable.
+            specification = BacktestSpecification(dataset_id=0, org_units=org_units, **metadata.params.model_dump())
+        model = metadata.model
+        return Backtest(
+            name=name,
+            dataset_id=specification.dataset_id,
+            model_id=configured_model.name if configured_model is not None else (model.name if model else None),
+            model_db_id=configured_model.id if configured_model is not None else None,
+            model_template_version=(
+                configured_model.model_template.version
+                if configured_model is not None
+                else (model.version if model else None)
+            ),
+            chap_version=metadata.chap_version,
+            created=metadata.created,
+            org_units=org_units,
+            split_periods=self.get_split_periods(),
+            max_horizon_distance=_max_horizon_distance(self._dataset["forecast"]),
+            forecasts=[],
+            specification=specification,
+        )
 
     def forecast_rows(self) -> list[dict]:
         """
@@ -801,6 +873,7 @@ class Evaluation:
         and ``values``. A forecast's NaN samples are left out, and so are forecasts with none left.
         """
         if self._dataset is None:
+            assert self._backtest is not None
             return [
                 {
                     "org_unit": f.org_unit,
@@ -828,20 +901,20 @@ class Evaluation:
                         {
                             "org_unit": location,
                             "period": str(target[split_i, horizon_i]),
-                            "last_train_period": self._last_train_period or split,
+                            "last_train_period": self.metadata.last_train_period or split,
                             "last_seen_period": split,
                             "values": cell.tolist(),
                         }
                     )
         return rows
 
-    def _fill_backtest_from_dataset(self) -> None:
-        assert self._dataset is not None
+    def _fill_backtest_from_dataset(self, embed_observations: bool) -> None:
+        assert self._dataset is not None and self._backtest is not None
         for row in self.forecast_rows():
             self._backtest.forecasts.append(BacktestForecast(**row))
 
-        # Backtests persisted to the database reach their observations through dataset_id.
-        if self._backtest.dataset_id != 0:
+        # Backtests persisted to the database reach their observations through their dataset.
+        if not embed_observations:
             return
         observed = _flat_observations(self._dataset)
         observations = [
@@ -896,9 +969,11 @@ class Evaluation:
         """The backtest's forecast rows and its target observations as flat rows, read once."""
         if self._stored_rows is not None:
             return self._stored_rows
-        target_column = self._backtest.specification.target_column
-        session = object_session(self._backtest)
-        if session is not None and self._backtest.id is not None:
+        backtest = self._backtest
+        assert backtest is not None
+        target_column = backtest.specification.target_column
+        session = object_session(backtest)
+        if session is not None and backtest.id is not None:
             # Read the columns the flat tables need instead of loading the forecasts and every
             # observation of the dataset as ORM objects through the relationships (CLIM-1837).
             forecasts: Sequence = session.execute(
@@ -908,7 +983,7 @@ class Evaluation:
                     col(BacktestForecast.last_seen_period),
                     col(BacktestForecast.values),
                 )
-                .where(col(BacktestForecast.backtest_id) == self._backtest.id)
+                .where(col(BacktestForecast.backtest_id) == backtest.id)
                 .order_by(col(BacktestForecast.id))
             ).all()
             observations: Sequence = session.execute(
@@ -919,7 +994,7 @@ class Evaluation:
                     col(Observation.feature_name),
                 )
                 .where(
-                    col(Observation.dataset_id) == self._backtest.dataset_id,
+                    col(Observation.dataset_id) == backtest.dataset_id,
                     # Population is read too, for incidence-based metrics
                     col(Observation.feature_name).in_([target_column, "population"]),
                 )
@@ -927,8 +1002,8 @@ class Evaluation:
             ).all()
         else:
             # A backtest built in memory, not read from the database.
-            forecasts = self._backtest.forecasts
-            observations = self._backtest.dataset.observations
+            forecasts = backtest.forecasts
+            observations = backtest.dataset.observations
         observations_df = convert_backtest_observations_to_flat_observations(
             cast("list[ObservationBase]", observations), target_column=target_column
         )
@@ -1004,53 +1079,35 @@ class Evaluation:
 
     def get_org_units(self) -> list[str]:
         """
-        Get locations from Backtest metadata.
+        Get the evaluated locations.
 
         Returns:
             List of location identifiers
         """
+        if self._dataset is not None:
+            return [str(location) for location in self._dataset["forecast"]["location"].values]
+        assert self._backtest is not None
         return self._backtest.org_units
 
     def get_split_periods(self) -> list[str]:
         """
-        Get split periods from Backtest metadata.
+        Get the split periods.
 
         Returns:
             List of period identifiers
         """
+        if self._dataset is not None:
+            return [str(split) for split in self._dataset["forecast"]["split"].values]
+        assert self._backtest is not None
         return self._backtest.split_periods
 
-    def to_file(
-        self,
-        filepath: str | Path,
-        model_name: str | None = None,
-        model_configuration: dict | None = None,
-        model_version: str | None = None,
-        model_info: ModelTemplateConfigV2 | None = None,
-    ) -> None:
+    def to_file(self, filepath: str | Path) -> None:
         """
-        Export evaluation to NetCDF file using xarray.
+        Export evaluation to NetCDF file using xarray, with the metadata as attributes.
 
         Args:
             filepath: Path to output NetCDF file
-            model_name: Name of the model (optional)
-            model_configuration: Model configuration dictionary (optional)
-            model_version: Model version string (optional)
-            model_info: ModelTemplateConfigV2 object containing model metadata (optional)
         """
-        model_metadata = {
-            "model_name": model_name or "",
-            "model_configuration": model_configuration or {},
-            "model_version": model_version or "",
-            "split_periods": self.get_split_periods(),
-            "org_units": self.get_org_units(),
-            "historical_context_periods": self._historical_context_periods,
-            "future_weather_provider": self.future_weather_provider,
-        }
-
-        if model_info is not None:
-            model_metadata["model_info"] = model_info.model_dump_json(exclude_none=True)
-
         if self._dataset is not None:
             ds = self._dataset.copy()
             hpo = self._hpo.to_flat() if self._hpo is not None else None
@@ -1058,11 +1115,9 @@ class Evaluation:
             flat_data = self.to_flat()
             ds = _flat_data_to_xarray(flat_data)
             hpo = flat_data.hpo
-        ds.attrs = _file_attrs(model_metadata, hpo)
+        ds.attrs = _file_attrs(self.metadata, self.get_split_periods(), self.get_org_units(), hpo)
         if hpo is None and "hpo" in self._dataset_attrs():
             ds.attrs["hpo"] = self._dataset_attrs()["hpo"]
-        if self._last_train_period is not None:
-            ds.attrs["last_train_period"] = self._last_train_period
         ds.to_netcdf(filepath)
 
     def _dataset_attrs(self) -> dict:
@@ -1093,32 +1148,9 @@ class Evaluation:
                 ds = converted
             ds = ds.load()
 
-        split_periods = json.loads(ds.attrs.get("split_periods", "[]"))
-        org_units = json.loads(ds.attrs.get("org_units", "[]"))
-        historical_context_periods = int(ds.attrs.get("historical_context_periods", 0))
-
-        backtest = Backtest(
-            name=f"Loaded from {Path(filepath).name}",
-            org_units=org_units,
-            split_periods=split_periods,
-            forecasts=[],
-            dataset_id=0,
-            # The version of the writer, not of the process importing the file.
-            chap_version=_recorded_version(ds.attrs.get("chap_version")),
-            # The stored file carries no parameters beyond the provider, so this is a
-            # detached placeholder that keeps the parameter properties readable.
-            specification=BacktestSpecification(
-                dataset_id=0,
-                org_units=org_units,
-                future_weather_provider=str(ds.attrs["future_weather_provider"]),
-            ),
-        )
-        last_train_period = ds.attrs.get("last_train_period")
-        evaluation = cls._from_dataset(
-            backtest,
-            ds,
-            historical_context_periods=historical_context_periods,
-            last_train_period=str(last_train_period) if last_train_period is not None else None,
+        evaluation = cls(
+            dataset=ds,
+            metadata=_metadata_from_attrs(ds.attrs),
             in_memory_dataset_name=f"dataset_from_{Path(filepath).name}",
         )
         evaluation._flat_data_cache = flat_data
