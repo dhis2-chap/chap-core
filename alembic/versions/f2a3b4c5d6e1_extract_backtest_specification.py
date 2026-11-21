@@ -88,15 +88,21 @@ def _backfill_specifications() -> None:
         key = (row.dataset_id, *(getattr(row, column) for column in PARAM_COLUMNS))
         org_units_by_key.setdefault(key, set()).update(_org_units(row.org_units))
 
+    # When startup's create_all made the table, it has the model's current columns, and
+    # e7f8a3b4c5d6 later made target_column NOT NULL without a server default. Every
+    # backtest before it scored disease_cases, which is also what that revision backfills.
+    later_columns = {"target_column": "disease_cases"} if has_column("backtestspecification", "target_column") else {}
+    insert_columns = ("dataset_id", *PARAM_COLUMNS, *later_columns, "org_units")
+
     logger.info(f"Extracting {len(org_units_by_key)} backtest specifications from {len(rows)} backtests")
     for key, org_units in org_units_by_key.items():
         params = dict(zip(PARAM_COLUMNS, key[1:], strict=True))
         specification_id = connection.execute(
             sa.text(
-                f"INSERT INTO backtestspecification (dataset_id, {columns}, org_units) "
-                f"VALUES (:dataset_id, :{', :'.join(PARAM_COLUMNS)}, :org_units) RETURNING id"
+                f"INSERT INTO backtestspecification ({', '.join(insert_columns)}) "
+                f"VALUES (:{', :'.join(insert_columns)}) RETURNING id"
             ),
-            {"dataset_id": key[0], **params, "org_units": json.dumps(sorted(org_units))},
+            {"dataset_id": key[0], **params, **later_columns, "org_units": json.dumps(sorted(org_units))},
         ).scalar_one()
         connection.execute(
             sa.text(
