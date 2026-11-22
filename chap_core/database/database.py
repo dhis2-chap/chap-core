@@ -645,10 +645,10 @@ class SessionWrapper:
             return chapkit_template
 
         source_url = template_db.source_url
-        if not source_url:
-            raise ValueError(f"Model template {model_template_id} has no source URL")
         if template_db.name == "naive_model":
             raise ValueError("The naive model has no executable template; use get_configured_model_with_code() instead")
+        if not source_url:
+            raise ValueError(f"Model template {model_template_id} has no source URL")
         ignore_env = template_db.name.startswith("chap_ewars") or template_db.name == "ewars_template"
         logger.info(f"Loading model template from {source_url}")
         template = ModelTemplate.from_directory_or_github_url(source_url, ignore_env=ignore_env)
