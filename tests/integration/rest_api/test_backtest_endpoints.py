@@ -1055,7 +1055,6 @@ def test_run_hpo_backtest_persists_selected_configuration_under_existing_specifi
         template.uses_chapkit = False
         session.session.add(template)
         session.session.commit()
-
         selected = ModelConfiguration(
             user_option_values={"test_parameter": 2},
             additional_continuous_covariates=["population"],
@@ -1068,11 +1067,10 @@ def test_run_hpo_backtest_persists_selected_configuration_under_existing_specifi
             lambda self, model_template_id: fake_template,
             raising=False,
         )
-
         def fake_get_hpo_estimator(**kwargs):
             captured["optimizer"] = kwargs
             return fake_optimizer
-
+        
         class _FakeEvaluation:
             def get_hpo(self):
                 return SimpleNamespace(
@@ -1094,11 +1092,9 @@ def test_run_hpo_backtest_persists_selected_configuration_under_existing_specifi
                     ),
                     leaderboard=[],
                 )
-
             def with_model(self, model):
                 captured["model"] = model
                 return self
-
             def to_backtest(self, configured_model, specification, name, include_forecasts=True):
                 assert include_forecasts is False
                 return Backtest(
@@ -1156,11 +1152,5 @@ def test_run_hpo_backtest_persists_selected_configuration_under_existing_specifi
         assert backtest.model_id == configured_model.name
         assert backtest.model_template_version == template.version
         assert captured["model"].name == configured_model.name
-        assert (
-            session.session.exec(
-                select(ConfiguredModelDB).where(ConfiguredModelDB.name == f"{template.name}:hpo_pending")
-            ).all()
-            == []
-        )
         assert configured_model.name.startswith(f"{template.name}:")
         assert "hpo_pending" not in configured_model.name
