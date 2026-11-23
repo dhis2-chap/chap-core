@@ -1,4 +1,4 @@
-"""The ``authentication`` block of ``chap-server.yaml``, in Open Geo Service's format."""
+"""The ``authentication`` block of ``chap-server.yml``, in Open Geo Service's format."""
 
 from pydantic import BaseModel, ConfigDict, Field
 

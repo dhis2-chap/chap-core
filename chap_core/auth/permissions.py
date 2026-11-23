@@ -1,7 +1,7 @@
 """The permissions routes need, and the built-in tiers that grant them.
 
 A permission is ``action:resource``. The set is fixed here; a deployment combines permissions
-into custom tiers in ``chap-server.yaml`` but cannot add one.
+into custom tiers in ``chap-server.yml`` but cannot add one.
 """
 
 from enum import StrEnum

@@ -13,7 +13,7 @@ always be combined with HTTPS.
 !!! warning "A token is not a substitute for network isolation"
     `CHAP_API_TOKEN` is a single shared secret with no rotation, no expiry and no per-client
     identity. Named tokens, one per client with its own tier, are configured in
-    `chap-server.yaml`; see the [auth contract](../contributor/auth_contract.md). Either way,
+    `chap-server.yml`; see the [auth contract](../contributor/auth_contract.md). Either way,
     keeping Chap Core off the public internet is still the recommended setup. See
     [Recommendation for server deployment](../modeling-app/running-chap-on-server.md).
 

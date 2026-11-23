@@ -8,7 +8,7 @@ chap-core takes Open Geo Service's contract
 ([`docs/authentication.md`](https://github.com/dhis2/open-geo-service/blob/main/docs/authentication.md),
 CLIM-1292) and adds permissions. The two share the format of the `authentication` block, the
 headers and the error answers. Each service has its own tiers: Open Geo Service decides by
-route tier, Chap by permission. An Open Geo Service block is valid in `chap-server.yaml`,
+route tier, Chap by permission. An Open Geo Service block is valid in `chap-server.yml`,
 because the tiers it can give a token, `authenticated` and `operator`, exist in Chap too.
 
 ## Principals, tiers and permissions
@@ -44,7 +44,7 @@ registry routes only, as today (see [Existing installs](#existing-installs)).
 ## Named tokens
 
 Taken unchanged from Open Geo Service. Each client gets its own token, listed in
-`chap-server.yaml` with its secret in the environment:
+`chap-server.yml` with its secret in the environment:
 
 ```yaml
 authentication:
@@ -304,7 +304,7 @@ Fixed in code, the same on every install, and changed only by a Chap release:
 - the public routes,
 - the accepted headers and the error answers.
 
-Configured per install, in the `authentication` block of `chap-server.yaml` (or, like any
+Configured per install, in the `authentication` block of `chap-server.yml` (or, like any
 setting, as JSON in the `CHAP_AUTHENTICATION` environment variable, which replaces the block):
 
 - the named tokens, each with one tier,
@@ -381,7 +381,7 @@ Names never replace each other:
 
 - A custom tier cannot take a built-in name. A tier named `read` stops startup rather than
   replacing the built-in one.
-- A tier name, or any other key, given twice in `chap-server.yaml` stops startup and names
+- A tier name, or any other key, given twice in `chap-server.yml` stops startup and names
   the line. Plain YAML would keep the last one silently.
 - A token id given twice stops startup and names the id.
 - Tier names and token ids are separate, so a token and a tier may share a name, as `caps`

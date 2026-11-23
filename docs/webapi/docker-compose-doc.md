@@ -100,7 +100,7 @@ chap-core can also read its settings from a YAML file, named by `CHAP_CONFIG` in
 the environment of the `chap` and `worker` services. Without `CHAP_CONFIG` no
 file is read. Keys are the setting names without the `CHAP_` prefix, in lower
 case. An environment variable overrides the same key in the file, and an unknown
-key stops chap-core at startup. [`chap-server.example.yaml`](https://github.com/dhis2-chap/chap-core/blob/master/chap-server.example.yaml)
+key stops chap-core at startup. [`chap-server.example.yml`](https://github.com/dhis2-chap/chap-core/blob/master/chap-server.example.yml)
 shows the format:
 
 ```yaml
@@ -118,10 +118,10 @@ named tokens in a `compose.override.yml` beside the compose file. List that file
 services:
   chap:
     environment:
-      CHAP_CONFIG: /config/chap-server.yaml
+      CHAP_CONFIG: /config/chap-server.yml
       CHAP_TOKEN_MODELING_APP: ${CHAP_TOKEN_MODELING_APP}
     volumes:
-      - ./chap-server.yaml:/config/chap-server.yaml:ro
+      - ./chap-server.yml:/config/chap-server.yml:ro
 ```
 
 Put each secret in `.env`, made with `openssl rand -hex 32`, and keep `.env` and any file

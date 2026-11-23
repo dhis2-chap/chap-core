@@ -49,7 +49,7 @@ def client(test_orchestrator, monkeypatch, tmp_path):
         f"    - {{id: {tier_name(p)}, token_env: CHAP_TEST_{tier_name(p).upper().replace('-', '_')}, tier: {tier_name(p)}}}"
         for p in Permission
     )
-    config = tmp_path / "chap-server.yaml"
+    config = tmp_path / "chap-server.yml"
     config.write_text(f"authentication:\n  tiers:\n{tiers}\n  tokens:\n{tokens}\n")
     monkeypatch.setenv("CHAP_CONFIG", str(config))
     monkeypatch.delenv("CHAP_API_TOKEN", raising=False)

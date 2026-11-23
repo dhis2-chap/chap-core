@@ -25,7 +25,7 @@ POLICY = {
 
 @pytest.fixture
 def caps_token(monkeypatch, tmp_path):
-    config = tmp_path / "chap-server.yaml"
+    config = tmp_path / "chap-server.yml"
     config.write_text("authentication:\n  tokens:\n    - {id: caps, token_env: CHAP_TEST_CAPS, tier: operator}\n")
     monkeypatch.setenv("CHAP_CONFIG", str(config))
     monkeypatch.setenv("CHAP_TEST_CAPS", TOKEN)
@@ -108,7 +108,7 @@ def test_every_owned_table_records_its_creator(table):
 def test_only_the_creator_may_cancel_or_forget_a_job(
     client, celery_session_worker, clean_engine, dependency_overrides, monkeypatch, tmp_path, dataset_create
 ):
-    config = tmp_path / "chap-server.yaml"
+    config = tmp_path / "chap-server.yml"
     config.write_text(
         "authentication:\n  tokens:\n"
         "    - {id: one, token_env: CHAP_TEST_ONE, tier: authenticated}\n"

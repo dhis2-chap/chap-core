@@ -1,4 +1,4 @@
-"""Chap's runtime settings, read from environment variables and an optional ``chap-server.yaml``.
+"""Chap's runtime settings, read from environment variables and an optional ``chap-server.yml``.
 
 This is the one place chap-core reads its configuration. The API, the Celery worker and the
 CLI all call ``get_settings()``. Variables are named ``CHAP_<FIELD>``, except a few that
@@ -35,7 +35,7 @@ CONFIG_ENV_VAR = "CHAP_CONFIG"
 
 
 class ConfigFileError(ValueError):
-    """``chap-server.yaml`` is missing or holds a key Chap does not know."""
+    """``chap-server.yml`` is missing or holds a key Chap does not know."""
 
 
 def load_dotenv_file(dotenv_path: str | None = None) -> None:
@@ -67,7 +67,7 @@ def _alias(name: str, default: Any = None) -> Any:
 class ChapSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="CHAP_",
-        # Catches a typo in chap-server.yaml. Unrelated environment variables are never read.
+        # Catches a typo in chap-server.yml. Unrelated environment variables are never read.
         extra="forbid",
         validate_by_name=True,
         # A secret pasted into the wrong setting must not be echoed in the startup error. Nested
@@ -99,7 +99,7 @@ class ChapSettings(BaseSettings):
     git_revision: str = _alias("GIT_REVISION", "")
     is_in_docker: Flag = _alias("IS_IN_DOCKER", False)
 
-    # Named tokens; see docs/contributor/auth_contract.md. Usually set in chap-server.yaml.
+    # Named tokens; see docs/contributor/auth_contract.md. Usually set in chap-server.yml.
     authentication: AuthenticationConfig = Field(default_factory=AuthenticationConfig)
 
     @field_validator("api_token", "service_registration_key", mode="before")
@@ -152,7 +152,7 @@ class _RefuseDuplicateKeys(yaml.SafeLoader):
 
 
 class ServerConfigFileSource(YamlConfigSettingsSource):
-    """``chap-server.yaml``, failing with the file's path when it is missing, repeats a key or has an unknown one."""
+    """``chap-server.yml``, failing with the file's path when it is missing, repeats a key or has an unknown one."""
 
     def __init__(self, settings_cls: type[BaseSettings], path: Path):
         if not path.is_file():

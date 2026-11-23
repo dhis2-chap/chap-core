@@ -1,4 +1,4 @@
-# Example chap-server.yaml. chap-core reads it when CHAP_CONFIG holds its path.
+# Example chap-server.yml. chap-core reads it when CHAP_CONFIG holds its path.
 #
 # Keys are the setting names without the CHAP_ prefix, in lower case. An environment
 # variable overrides the same setting here (CHAP_CORS_ORIGINS overrides cors_origins).

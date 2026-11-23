@@ -136,7 +136,7 @@ authentication:
 
 @pytest.fixture
 def named_client(make_client, tmp_path):
-    config = tmp_path / "chap-server.yaml"
+    config = tmp_path / "chap-server.yml"
     config.write_text(SERVER_CONFIG)
     return make_client(
         CHAP_CONFIG=str(config), CHAP_TEST_READ_TOKEN=READ_TOKEN, CHAP_TEST_OPERATOR_TOKEN=OPERATOR_TOKEN
@@ -267,7 +267,7 @@ authentication:
 
 @pytest.fixture
 def narrow_client(make_client, tmp_path):
-    config = tmp_path / "chap-server.yaml"
+    config = tmp_path / "chap-server.yml"
     config.write_text(NARROW_TIERS)
     return make_client(
         CHAP_CONFIG=str(config),
