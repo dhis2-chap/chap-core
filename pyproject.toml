@@ -65,6 +65,7 @@ dependencies = [
     "stumpy>=1.14.1",
     "pyts>=0.13.0",
     "fastdtw>=0.3.4",
+    "pydantic-settings>=2.14.2",
 ]
 
 [dependency-groups]

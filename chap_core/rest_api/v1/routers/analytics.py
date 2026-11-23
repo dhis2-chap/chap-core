@@ -36,7 +36,7 @@ from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager, period_type_of
 from chap_core.database.dataset_tables import DataSet as DataSetTable
-from chap_core.database.dataset_tables import DataSetCreateInfo
+from chap_core.database.dataset_tables import DataSetCreateInfo, period_kind
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 from chap_core.database.settings import Settings, SettingsManager
 from chap_core.database.tables import (
@@ -776,6 +776,16 @@ def get_actual_cases(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     org_units: list[str] = Query(None, alias="orgUnits"),
     is_dataset_id: bool = Query(False, alias="isDatasetId"),
+    start_period: str | None = Query(
+        None,
+        alias="startPeriod",
+        description="First period to return, inclusive, such as `2023W01` or `202301`. Omit for no lower bound.",
+    ),
+    end_period: str | None = Query(
+        None,
+        alias="endPeriod",
+        description="Last period to return, inclusive, of the same period type as the dataset. Omit for no upper bound.",
+    ),
     session: Session = Depends(get_session),
 ):
     """Pull the actual target series from the dataset that backs a backtest, so a plot can show forecast vs. reality on the same axes.
@@ -783,41 +793,82 @@ def get_actual_cases(
     Filter to specific regions with ``orgUnits``, or pass ``orgUnits=["adm0"]`` to get
     one summed series across every region (useful for national-level views). Set
     ``isDatasetId=true`` to skip the backtest lookup and read directly from a dataset
-    id. 404 if the backtest, or with ``isDatasetId=true`` the dataset, is unknown, or if
-    the dataset has no observations of the target for the requested regions.
+    id. Limit the periods with ``startPeriod`` and ``endPeriod``, both inclusive and in
+    the dataset's period type; a range with no observations returns an empty list.
+    404 if the backtest, or with ``isDatasetId=true`` the dataset, is unknown, or if no
+    range is given and the dataset has no observations of the target for the requested
+    regions. 422 if a period cannot be parsed, is of another period type than the
+    dataset's, or ``startPeriod`` is after ``endPeriod``.
     """
     if not is_dataset_id:
         backtest = session.get(Backtest, backtest_id)
         if backtest is None:
             raise HTTPException(status_code=404, detail="Backtest not found")
-        dataset_id = backtest.dataset_id
+        dataset = backtest.dataset
         target_column = backtest.specification.target_column
     else:
-        dataset_id = backtest_id
-        dataset = session.get(DataSetTable, dataset_id)
-        if dataset is None:
+        found = session.get(DataSetTable, backtest_id)
+        if found is None:
             raise HTTPException(status_code=404, detail="Dataset not found")
+        dataset = found
         target_column = dataset.target_column
+    dataset_id = dataset.id
+    assert dataset_id is not None
     manager = DataSetManager(session)
+    has_range = start_period is not None or end_period is not None
+    if has_range:
+        start_period, end_period = _period_range_ids(manager, dataset, start_period, end_period)
     if org_units == ["adm0"]:
         # One series summed over every region, computed in the database (CLIM-1790).
-        data = [
-            {"pe": period, "ou": "adm0", "value": total}
-            for period, total in manager.summed_feature_values(dataset_id, target_column)
-        ]
+        summed = manager.summed_feature_values(
+            dataset_id, target_column, start_period=start_period, end_period=end_period
+        )
+        data = [{"pe": period, "ou": "adm0", "value": total} for period, total in summed]
     else:
-        data = [
-            {"pe": period, "ou": org_unit, "value": value}
-            for period, org_unit, value in manager.feature_values(dataset_id, target_column, org_units=org_units)
-        ]
+        rows = manager.feature_values(
+            dataset_id, target_column, org_units=org_units, start_period=start_period, end_period=end_period
+        )
+        data = [{"pe": period, "ou": org_unit, "value": value} for period, org_unit, value in rows]
     logger.info("Actual cases for dataset %s: %d values", dataset_id, len(data))
-    if not data:
+    if not data and not has_range:
         raise HTTPException(status_code=404, detail=f"Dataset {dataset_id} has no {target_column} observations")
     # Plain dicts serialised in one call instead of a DataElement per row: building the
     # models took over a second for a facility-scale dataset (CLIM-1876). NaN and infinity
     # become null, since JSON has no literal for them.
     body = {"featureId": target_column, "dhis2Id": target_column, "data": data}
     return Response(content=to_json(body, inf_nan_mode="null"), media_type="application/json")
+
+
+def _period_range_ids(
+    manager: DataSetManager, dataset: DataSetTable, start: str | None, end: str | None
+) -> tuple[str | None, str | None]:
+    """Turn requested range bounds into stored period ids, checked against the dataset's period type.
+
+    The type comes from the dataset's ``first_period``, which tells Monday and Sunday weeks apart.
+    Datasets saved before Chap v1.1.0 have none, so one stored observation is read instead (CLIM-1949).
+    """
+    assert dataset.id is not None
+    stored = dataset.first_period or manager.any_period(dataset.id)
+    dataset_kind = period_kind(TimePeriod.parse(stored)) if stored is not None else None
+    parsed: list[TimePeriod | None] = []
+    for name, value in (("startPeriod", start), ("endPeriod", end)):
+        if value is None:
+            parsed.append(None)
+            continue
+        try:
+            period = TimePeriod.parse(value)
+        except Exception as e:  # TimePeriod.parse raises several unrelated error types for bad input
+            raise HTTPException(status_code=422, detail=f"{name} '{value}' is not a period id") from e
+        if dataset_kind is not None and period_kind(period) != dataset_kind:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{name} '{value}' is a {period_kind(period)}, but the dataset has {dataset_kind} periods",
+            )
+        parsed.append(period)
+    first, last = parsed
+    if first is not None and last is not None and first > last:
+        raise HTTPException(status_code=422, detail=f"startPeriod '{start}' is after endPeriod '{end}'")
+    return (first.id if first else None, last.id if last else None)
 
 
 data_sources = [
@@ -959,7 +1010,8 @@ def get_covariate_names(session: Session = Depends(get_session)) -> list[Covaria
     "/create-backtest-with-data/",
     response_model=ImportSummaryResponse,
     tags=["Backtests"],
-    summary="Run a backtest from inline data",
+    deprecated=True,
+    summary="Run a backtest from inline data (deprecated, use make-dataset then create-backtests)",
 )
 def create_backtest_with_data(
     request: MakeBacktestWithDataRequest,
@@ -973,11 +1025,16 @@ def create_backtest_with_data(
 ):
     """Train and evaluate a model on observations supplied directly in the request body, without first creating a reusable dataset.
 
-    Convenient for quick experiments where the data is not worth persisting. Pass
-    ``dryRun=true`` to run validation only (cheap, synchronous) and inspect which
-    regions would be rejected — useful as a preflight before committing to an import. A
-    real run returns a job id; poll ``/v1/jobs/{id}`` for status. The response also
-    surfaces any per-location rejections that came out of validation.
+    Deprecated: import observations with ``POST /v1/analytics/make-dataset`` instead.
+    For a real import, poll ``GET /v1/jobs/{id}`` until it succeeds, read the dataset id
+    from ``GET /v1/jobs/{id}/database_result``, then pass it as ``datasetId`` to
+    ``POST /v1/analytics/create-backtests``. Its ``dryRun=true`` option validates the
+    observations only; it does not report regions the backtest would drop for having no
+    target data in the training windows. Those regions are missing from ``orgUnits`` in
+    ``GET /v1/crud/backtest-specifications/{id}``.
+
+    This endpoint remains available for older clients and will be removed in a later release.
+    Pass ``dryRun=true`` to validate only; a real run returns a job id to poll via ``/v1/jobs/{id}``.
     """
     feature_names, provided_data_processed, rejections = _read_and_validate_dataset(request, dry_run)
     if dry_run and not provided_data_processed.locations():

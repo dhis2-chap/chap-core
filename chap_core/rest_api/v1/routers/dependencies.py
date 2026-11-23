@@ -11,7 +11,7 @@ from chap_core.assessment.target_mask import (
     check_no_mask_indicator_input,
     check_target_column_allows_masking,
 )
-from chap_core.database.database import SessionWrapper, engine
+from chap_core.database.database import SessionWrapper, get_engine
 from chap_core.database.dataset_tables import DataSetInfo, MaskedRange, check_masked_ranges_match_dataset
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 from chap_core.database.settings import SettingsManager
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 # TODO: make dependency injection in celery worker
 def get_session():
-    with Session(engine) as session:
+    with Session(get_engine()) as session:
         yield session
 
 
