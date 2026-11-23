@@ -11,12 +11,7 @@ import pandas as pd
 from chap_core.assessment.backtest_plots import ChartType, FacetDimension, FacetedBacktestPlot, backtest_plot
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 from chap_core.assessment.metrics import RatioAboveTruthMetric
-
-_BIAS_DESCRIPTION = (
-    "Shows biases in the samples returned by the model, specifically whether the samples "
-    "generally are over or under the true observation. This can be used to assess model "
-    "calibration and tendency to over- or under-predict."
-)
+from chap_core.i18n import N_, gettext
 
 
 class SampleBiasPlotBase(FacetedBacktestPlot):
@@ -46,8 +41,13 @@ class SampleBiasPlotBase(FacetedBacktestPlot):
 
 @backtest_plot(
     plot_id="sample_bias_by_horizon",
-    name="Sample Bias by Horizon",
-    description=f"Ratio of forecast samples above truth per forecast horizon. {_BIAS_DESCRIPTION}",
+    name=N_("Sample Bias by Horizon"),
+    description=N_(
+        "Ratio of forecast samples above truth per forecast horizon. "
+        "Shows biases in the samples returned by the model, specifically whether the samples "
+        "generally are over or under the true observation. This can be used to assess model "
+        "calibration and tendency to over- or under-predict."
+    ),
 )
 class SampleBiasByHorizonPlot(SampleBiasPlotBase):
     """Bar chart of the mean ratio of samples above truth per forecast horizon."""
@@ -58,8 +58,8 @@ class SampleBiasByHorizonPlot(SampleBiasPlotBase):
             alt.Chart(horizon_df)
             .mark_bar()
             .encode(
-                x=alt.X("horizon_distance:O", title="Horizon (periods ahead)"),
-                y=alt.Y("metric:Q", title="Ratio of samples above truth"),
+                x=alt.X("horizon_distance:O", title=gettext("Horizon (periods ahead)")),
+                y=alt.Y("metric:Q", title=gettext("Ratio of samples above truth")),
                 tooltip=["horizon_distance", "metric"],
             )
             .properties(height=300)
@@ -68,9 +68,12 @@ class SampleBiasByHorizonPlot(SampleBiasPlotBase):
 
 @backtest_plot(
     plot_id="sample_bias_by_time_period",
-    name="Sample Bias by Time Period",
-    description=(
-        f"Ratio of forecast samples above truth over time periods, one line per location. {_BIAS_DESCRIPTION}"
+    name=N_("Sample Bias by Time Period"),
+    description=N_(
+        "Ratio of forecast samples above truth over time periods, one line per location. "
+        "Shows biases in the samples returned by the model, specifically whether the samples "
+        "generally are over or under the true observation. This can be used to assess model "
+        "calibration and tendency to over- or under-predict."
     ),
 )
 class SampleBiasByTimePeriodPlot(SampleBiasPlotBase):
@@ -82,9 +85,9 @@ class SampleBiasByTimePeriodPlot(SampleBiasPlotBase):
             alt.Chart(time_df)
             .mark_line(point=True)
             .encode(
-                x=alt.X("time_period:O", title="Time period"),
-                y=alt.Y("metric:Q", title="Ratio of samples above truth"),
-                color=alt.Color("location:N", title="Location"),
+                x=alt.X("time_period:O", title=gettext("Time period")),
+                y=alt.Y("metric:Q", title=gettext("Ratio of samples above truth")),
+                color=alt.Color("location:N", title=gettext("Location")),
                 tooltip=["time_period", "location", "metric"],
             )
             .properties(height=300)

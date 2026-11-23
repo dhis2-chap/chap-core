@@ -35,18 +35,35 @@ from tests.integration.rest_api.db_endpoint_helpers import (
 )
 
 
-def test_get_metrics(celery_session_worker, clean_engine, dependency_overrides):
-    response = client.get("/v1/visualization/metrics/1")
+def test_get_metrics(clean_engine, dependency_overrides, french_catalog):
+    url = "/v1/visualization/metrics/1"
+    english = client.get(url).json()
+    assert any(metric["id"] == "crps" for metric in english)
+    response = client.get(url, headers={"Accept-Language": "fr"})
     assert response.status_code == 200
-    assert any(metric["id"] == "crps" for metric in response.json())
-    ranking = next(metric for metric in response.json() if metric["id"] == "org_unit_ranking")
+    assert response.headers["Content-Language"] == "fr"
+    assert "Accept-Language" in response.headers["Vary"]
+    expected = [dict(metric) for metric in english]
+    for metric in expected:
+        for field in ("description", "comparisonDescription"):
+            metric[field] = french_catalog.get(metric[field], metric[field])
+    assert response.json() == expected
+    # A translated request must not change shared metric specs or later English requests.
+    assert client.get(url).json() == english
+    ranking = next(metric for metric in english if metric["id"] == "org_unit_ranking")
     assert ranking["dimensions"] == ["time_period", "horizon_distance"]
 
 
-def test_get_visualizations(celery_session_worker, clean_engine, dependency_overrides):
+def test_get_visualizations(clean_engine, dependency_overrides, french_catalog):
     response = client.get("/v1/visualization/metric-plots/1")
     assert response.status_code == 200
     assert any(plot["id"] == "metric_by_horizon_mean" for plot in response.json())
+    for url in ("/v1/visualization/metric-plots/1", "/v1/visualization/dataset-plots/"):
+        english = client.get(url).json()
+        translated = client.get(url, headers={"Accept-Language": "fr"}).json()
+        assert translated == [
+            {**plot, "displayName": french_catalog.get(plot["displayName"], plot["displayName"])} for plot in english
+        ]
     plot_map = next(plot for plot in response.json() if plot["id"] == "metric_map")
     assert plot_map["requiredDimensions"] == ["location"]
 

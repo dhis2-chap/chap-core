@@ -21,6 +21,7 @@ from chap_core.assessment.metrics.base import (
     OptimizationDirection,
     ProbabilisticMetric,
 )
+from chap_core.i18n import N_
 
 
 class WinklerScoreMetric(ProbabilisticMetric):
@@ -70,7 +71,7 @@ class WinklerScore10_90Metric(WinklerScoreMetric):
         metric_id="winkler_score_10_90",
         metric_name="Winkler Score 10-90",
         aggregation_op=AggregationOp.MEAN,
-        description="Winkler score for 10th-90th percentile prediction interval",
+        description=N_("Winkler score for 10th-90th percentile prediction interval"),
         optimization_direction=OptimizationDirection.MINIMIZE,
         proper_scoring_rule=True,
         comparison_op="skill_ratio",
@@ -87,7 +88,7 @@ class WinklerScore25_75Metric(WinklerScoreMetric):
         metric_id="winkler_score_25_75",
         metric_name="Winkler Score 25-75",
         aggregation_op=AggregationOp.MEAN,
-        description="Winkler score for 25th-75th percentile prediction interval",
+        description=N_("Winkler score for 25th-75th percentile prediction interval"),
         optimization_direction=OptimizationDirection.MINIMIZE,
         proper_scoring_rule=True,
         comparison_op="skill_ratio",
@@ -134,7 +135,7 @@ class WinklerScore10_90Log1pMetric(WinklerScoreLog1pMetric):
         metric_id="winkler_score_10_90_log1p",
         metric_name="Winkler 10-90 (log1p)",
         aggregation_op=AggregationOp.MEAN,
-        description="Winkler score on log(1+x)-transformed values for 10-90 interval",
+        description=N_("Winkler score on log(1+x)-transformed values for 10-90 interval"),
         optimization_direction=OptimizationDirection.MINIMIZE,
         proper_scoring_rule=True,
         comparison_op="skill_ratio",
@@ -151,7 +152,7 @@ class WinklerScore25_75Log1pMetric(WinklerScoreLog1pMetric):
         metric_id="winkler_score_25_75_log1p",
         metric_name="Winkler 25-75 (log1p)",
         aggregation_op=AggregationOp.MEAN,
-        description="Winkler score on log(1+x)-transformed values for 25-75 interval",
+        description=N_("Winkler score on log(1+x)-transformed values for 25-75 interval"),
         optimization_direction=OptimizationDirection.MINIMIZE,
         proper_scoring_rule=True,
         comparison_op="skill_ratio",

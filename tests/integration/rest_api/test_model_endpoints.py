@@ -1,3 +1,6 @@
+from sqlmodel import Session, select
+
+from chap_core.database.model_templates_and_config_tables import ModelTemplateDB
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.rest_api.data_models import (
     ConfiguredModelInfoRead,
@@ -46,7 +49,7 @@ def test_list_configured_models(celery_session_worker, dependency_overrides):
     assert isinstance(ewars_model.additional_continuous_covariates, list)
 
 
-def test_list_model_templates(celery_session_worker, dependency_overrides):
+def test_list_model_templates(dependency_overrides, french_catalog, clean_engine):
     response = client.get("/v1/crud/model-templates")
     assert response.status_code == 200, response.json()
     assert isinstance(response.json(), list)
@@ -61,6 +64,24 @@ def test_list_model_templates(celery_session_worker, dependency_overrides):
     assert "chap_ewars_monthly" in (m.name for m in models)
     ewars_model = next(m for m in models if m.name == "chap_ewars_monthly")
     assert "population" in [f for f in ewars_model.required_covariates], ewars_model.required_covariates
+
+    english = next(m for m in response.json() if m["name"] == "global_median")
+    headers = {"Accept-Language": "fr"}
+    translated = client.get("/v1/crud/model-templates", headers=headers).json()
+    french = next(m for m in translated if m["name"] == "global_median")
+    # Model names stay as their author wrote them, even when the catalog has an entry.
+    assert english["displayName"] in french_catalog
+    assert french == {**english, "description": french_catalog[english["description"]]}
+    configured = client.get("/v1/crud/configured-models", headers=headers).json()
+    model = next(m for m in configured if m["name"] == "global_median")
+    detail = client.get(f"/v1/crud/configured-models/{model['id']}", headers=headers).json()
+    assert detail["modelTemplate"]["displayName"] == english["displayName"]
+    assert detail["modelTemplate"]["description"] == french["description"]
+    with Session(clean_engine) as session:
+        stored = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == "global_median")).first()
+        assert stored is not None
+        assert stored.display_name == english["displayName"]
+        assert stored.description == english["description"]
 
 
 def test_add_configured_model_flow(celery_session_worker, dependency_overrides):

@@ -1,0 +1,567 @@
+# Translations template for chap-core.
+# Copyright (C) 2026 Chap Team
+# This file is distributed under the same license as the chap-core project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: chap-core VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-15 16:51+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: assessment/backtest_plots/predicted_vs_actual_plot.py
+msgid "Actual"
+msgstr ""
+
+#: plotting/dataset_plot.py
+msgid "Annual Incidence Rate per 1000"
+msgstr ""
+
+#: plotting/dataset_plot.py
+msgid "Annual Incidence per 1000"
+msgstr ""
+
+#: assessment/backtest_plots/evaluation_plot.py
+msgid "Backtest Forecasts with Observations"
+msgstr ""
+
+#: plotting/season_plot.py
+msgid ""
+"Bar plot showing correlation between seasonal disease outcomes and "
+"climate features."
+msgstr ""
+
+#: models/builtin/seasonal_shift_persistence.py
+msgid ""
+"Baseline that forecasts the last observed value for the same location, "
+"scaled by how cases changed over the same horizon and time of year in the"
+" training data."
+msgstr ""
+
+#: models/builtin/persistence.py
+msgid ""
+"Baseline that forecasts the last observed value for the same location, "
+"with a spread from how cases changed over the same horizon in the "
+"training data."
+msgstr ""
+
+#: models/builtin/seasonal_median.py
+msgid ""
+"Baseline that uses all observed values for the same location and month or"
+" week of the year as forecast samples, without smoothing or model "
+"fitting."
+msgstr ""
+
+#: models/builtin/global_median.py
+msgid ""
+"Baseline that uses all observed values for the same location as forecast "
+"samples for every period, without smoothing or model fitting."
+msgstr ""
+
+#: assessment/metric_plots/regional_distribution.py
+msgid "Boxplots showing metric distributions by location with mean points"
+msgstr ""
+
+#: assessment/metrics/crps.py
+msgid "CRPS computed on log(1+x)-transformed forecasts and observations"
+msgstr ""
+
+#: assessment/backtest_plots/horizon_location_grid.py
+msgid "Cases"
+msgstr ""
+
+#: plotting/dataset_plot.py
+msgid "Choropleth map showing annual incidence rate per 1000 by location."
+msgstr ""
+
+#: plotting/dataset_plot.py
+msgid "Click to select/deselect"
+msgstr ""
+
+#: plotting/season_plot.py
+msgid "Cluster"
+msgstr ""
+
+#: plotting/season_plot.py
+msgid "Cluster Map"
+msgstr ""
+
+#: assessment/outbreak_metrics/categorical.py
+msgid ""
+"Cohen's kappa with quadratic weights, so a miss by one level costs less "
+"than a miss by two. 1 is perfect agreement, 0 is chance level."
+msgstr ""
+
+#: assessment/metrics/crps.py
+msgid "Continuous Ranked Probability Score - measures calibration and sharpness"
+msgstr ""
+
+#: plotting/season_plot.py
+msgid "Correlation"
+msgstr ""
+
+#: plotting/season_plot.py
+msgid "Correlation (Season Max vs Temperature)"
+msgstr ""
+
+#: plotting/season_plot.py
+msgid ""
+"Correlation between season maximum disease cases and mean temperature by "
+"seasonal month and location. Red bars indicate negative correlation, blue"
+" bars indicate positive correlation."
+msgstr ""
+
+#: assessment/metric_plots/horizon_sum.py
+#: assessment/metric_plots/time_period_mean.py
+#: assessment/metric_plots/time_period_sum.py
+msgid "Count"
+msgstr ""
+
+#: plotting/dataset_plot.py
+msgid "Date"
+msgstr ""
+
+#: plotting/dataset_plot.py
+msgid "Disease Cases Map"
+msgstr ""
+
+#: assessment/backtest_plots/evaluation_plot.py
+msgid "Evaluation Plot"
+msgstr ""
+
+#: plotting/dataset_plot.py plotting/season_plot.py
+msgid "Feature"
+msgstr ""
+
+#: assessment/backtest_plots/horizon_location_grid.py
+msgid "Forecast Grid (Locations x Horizons)"
+msgstr ""
+
+#: assessment/backtest_plots/horizon_location_grid.py
+msgid "Forecast Grid: Locations x Horizons"
+msgstr ""
+
+#: plotting/season_plot.py
+msgid "Fraction"
+msgstr ""
+
+#: plotting/season_plot.py
+msgid "Fraction of Annual Total"
+msgstr ""
+
+#: assessment/backtest_plots/horizon_location_grid.py
+msgid ""
+"Grid of forecast intervals and metrics across locations and forecast "
+"horizons."
+msgstr ""
+
+#: assessment/outbreak_metrics/binary.py
+msgid "Harmonic mean of sensitivity and PPV: 2TP / (2TP + FP + FN)."
+msgstr ""
+
+#: plotting/season_plot.py
+msgid ""
+"Heatmap and line overlay showing how disease seasonality compares across "
+"regions."
+msgstr ""
+
+#: assessment/metric_plots/horizon_sum.py
+msgid "Horizon"
+msgstr ""
+
+#: assessment/backtest_plots/sample_bias_plot.py
+#: assessment/metric_plots/horizon_location_mean.py
+#: assessment/metric_plots/horizon_mean.py
+#: assessment/metric_plots/horizon_sum.py
+msgid "Horizon (periods ahead)"
+msgstr ""
+
+#: assessment/backtest_plots/horizon_location_grid.py
+#: assessment/backtest_plots/predicted_vs_actual_plot.py
+msgid "Horizon Distance"
+msgstr ""
+
+#: assessment/metric_plots/horizon_mean.py
+msgid "Horizon Plot"
+msgstr ""
+
+#: assessment/metric_plots/horizon_sum.py
+msgid "Horizon Plot (Sum)"
+msgstr ""
+
+#: assessment/metric_plots/horizon_location_mean.py
+msgid "Horizon and Location Plot"
+msgstr ""
+
+#: assessment/metrics/comparison.py
+msgid ""
+"How much closer to the metric's target the score is than the reference's,"
+" in the metric's units."
+msgstr ""
+
+#: assessment/metrics/comparison.py
+msgid "Improvement over the reference in the metric's own units."
+msgstr ""
+
+#: assessment/backtest_plots/evaluation_plot.py
+#: assessment/backtest_plots/horizon_location_grid.py
+#: assessment/backtest_plots/predicted_vs_actual_plot.py
+#: assessment/backtest_plots/sample_bias_plot.py
+#: assessment/metric_plots/regional_distribution.py
+#: assessment/metric_plots/time_period_location_mean.py
+#: assessment/metric_plots/time_period_sum.py plotting/dataset_plot.py
+#: plotting/season_plot.py
+msgid "Location"
+msgstr ""
+
+#: plotting/season_plot.py
+msgid "Log1p Disease Cases"
+msgstr ""
+
+#: assessment/metric_plots/metric_map.py
+msgid "Map"
+msgstr ""
+
+#: assessment/outbreak_metrics/binary.py
+msgid ""
+"Matthews correlation coefficient between alert and outbreak, in [-1, 1]; "
+"0 is chance level."
+msgstr ""
+
+#: assessment/metrics/mae.py
+msgid "Mean Absolute Error - measures average absolute prediction error"
+msgstr ""
+
+#: assessment/metrics/mape.py
+msgid ""
+"Mean Absolute Percentage Error - average absolute error as percent of "
+"observed"
+msgstr ""
+
+#: plotting/dataset_plot.py
+msgid "Mean Disease Cases"
+msgstr ""
+
+#: assessment/metric_plots/regional_distribution.py
+msgid "Mean Metric"
+msgstr ""
+
+#: assessment/metric_plots/horizon_location_mean.py
+#: assessment/metric_plots/horizon_mean.py
+#: assessment/metric_plots/time_period_location_mean.py
+#: assessment/metric_plots/time_period_mean.py
+msgid "Mean Metric Value"
+msgstr ""
+
+#: assessment/outbreak_metrics/binary.py
+msgid "Mean of sensitivity and specificity."
+msgstr ""
+
+#: assessment/metric_plots/regional_distribution.py
+msgid "Metric"
+msgstr ""
+
+#: assessment/metric_plots/metric_map.py
+msgid "Metric Value"
+msgstr ""
+
+#: plotting/season_plot.py
+msgid "Month"
+msgstr ""
+
+#: plotting/dataset_plot.py
+msgid "Multiple Feature Selection (Click legend items to toggle)"
+msgstr ""
+
+#: assessment/outbreak_metrics/binary.py
+msgid ""
+"Negative predictive value: share of non-alerts that were not outbreaks, "
+"TN / (TN + FN)."
+msgstr ""
+
+#: assessment/metrics/crps_norm.py
+msgid ""
+"Normalized CRPS - CRPS divided by the range of the observed values that "
+"have a forecast"
+msgstr ""
+
+#: assessment/outbreak_metrics/categorical.py
+msgid ""
+"One-vs-rest F1 averaged over the categories that are observed or "
+"predicted."
+msgstr ""
+
+#: assessment/outbreak_metrics/binary.py
+msgid ""
+"Positive predictive value: share of alerts that were outbreaks, TP / (TP "
+"+ FP)."
+msgstr ""
+
+#: assessment/backtest_plots/predicted_vs_actual_plot.py
+msgid "Predicted"
+msgstr ""
+
+#: assessment/backtest_plots/predicted_vs_actual_plot.py
+msgid "Predicted vs Actual"
+msgstr ""
+
+#: assessment/backtest_plots/predicted_vs_actual_linear_plot.py
+msgid "Predicted vs Actual (linear scale)"
+msgstr ""
+
+#: assessment/backtest_plots/predicted_vs_actual_linear_plot.py
+msgid "Predicted vs Actual (linear)"
+msgstr ""
+
+#: assessment/backtest_plots/predicted_vs_actual_plot.py
+msgid "Predicted vs Actual (log1p scale)"
+msgstr ""
+
+#: assessment/metrics/above_truth.py
+msgid ""
+"Proportion of forecast samples exceeding the observed value (0.5 = "
+"unbiased)"
+msgstr ""
+
+#: assessment/metrics/percentile_coverage.py
+msgid ""
+"Proportion of observations within 10th-90th percentile (higher is better,"
+" up to the 0.8 target)"
+msgstr ""
+
+#: assessment/metrics/percentile_coverage.py
+msgid ""
+"Proportion of observations within 25th-75th percentile (higher is better,"
+" up to the 0.5 target)"
+msgstr ""
+
+#: assessment/backtest_plots/sample_bias_plot.py
+msgid ""
+"Ratio of forecast samples above truth over time periods, one line per "
+"location. Shows biases in the samples returned by the model, specifically"
+" whether the samples generally are over or under the true observation. "
+"This can be used to assess model calibration and tendency to over- or "
+"under-predict."
+msgstr ""
+
+#: assessment/backtest_plots/sample_bias_plot.py
+msgid ""
+"Ratio of forecast samples above truth per forecast horizon. Shows biases "
+"in the samples returned by the model, specifically whether the samples "
+"generally are over or under the true observation. This can be used to "
+"assess model calibration and tendency to over- or under-predict."
+msgstr ""
+
+#: assessment/backtest_plots/sample_bias_plot.py
+msgid "Ratio of samples above truth"
+msgstr ""
+
+#: plotting/season_plot.py
+msgid "Region"
+msgstr ""
+
+#: assessment/metric_plots/regional_distribution.py
+msgid "Regional Metric Distribution"
+msgstr ""
+
+#: assessment/metrics/comparison.py
+msgid ""
+"Relative improvement over the reference: 0.2 means 20% better, -0.5 means"
+" 50% worse."
+msgstr ""
+
+#: assessment/metrics/rmse.py
+msgid "Root Mean Squared Error - measures average prediction error magnitude"
+msgstr ""
+
+#: assessment/backtest_plots/sample_bias_plot.py
+msgid "Sample Bias by Horizon"
+msgstr ""
+
+#: assessment/backtest_plots/sample_bias_plot.py
+msgid "Sample Bias by Time Period"
+msgstr ""
+
+#: assessment/metric_plots/horizon_sum.py
+#: assessment/metric_plots/time_period_sum.py
+msgid "Samples above truth (count)"
+msgstr ""
+
+#: assessment/backtest_plots/predicted_vs_actual_plot.py
+msgid ""
+"Scatter plots of predicted (median) vs actual values in log1p space, "
+"faceted by horizon and colored by location."
+msgstr ""
+
+#: assessment/backtest_plots/predicted_vs_actual_linear_plot.py
+msgid ""
+"Scatter plots of predicted (median) vs actual values on linear axes, "
+"faceted by horizon and colored by location."
+msgstr ""
+
+#: plotting/season_plot.py
+msgid "Season Year"
+msgstr ""
+
+#: plotting/season_plot.py
+msgid "Seasonal Correlation Analysis"
+msgstr ""
+
+#: plotting/season_plot.py
+msgid "Seasonal Correlation Bar Plot"
+msgstr ""
+
+#: plotting/season_plot.py
+msgid "Seasonal Month"
+msgstr ""
+
+#: plotting/season_plot.py
+msgid "Seasonality Comparison Across Regions"
+msgstr ""
+
+#: plotting/season_plot.py
+msgid "Seasonality Comparison Plot"
+msgstr ""
+
+#: plotting/dataset_plot.py
+msgid "Select Features"
+msgstr ""
+
+#: assessment/outbreak_metrics/binary.py
+msgid "Share of cells where alert and outbreak agree."
+msgstr ""
+
+#: assessment/outbreak_metrics/categorical.py
+msgid "Share of cells whose predicted category is the observed one."
+msgstr ""
+
+#: assessment/outbreak_metrics/binary.py
+msgid "Share of non-outbreaks that were not alerted: TN / (TN + FP)."
+msgstr ""
+
+#: assessment/outbreak_metrics/binary.py
+msgid "Share of outbreaks that were alerted: TP / (TP + FN)."
+msgstr ""
+
+#: assessment/metric_plots/metric_map.py
+msgid "Shows a map of aggregated metrics per org unit"
+msgstr ""
+
+#: assessment/metric_plots/horizon_location_mean.py
+msgid "Shows the aggregated metric by both forecast horizon and location"
+msgstr ""
+
+#: assessment/metric_plots/time_period_location_mean.py
+msgid "Shows the aggregated metric by both time period and location"
+msgstr ""
+
+#: assessment/metric_plots/horizon_mean.py
+msgid "Shows the aggregated metric by forecast horizon"
+msgstr ""
+
+#: assessment/metric_plots/time_period_mean.py
+msgid "Shows the aggregated metric by time period"
+msgstr ""
+
+#: assessment/metric_plots/horizon_sum.py
+msgid "Shows the sum of the metric across locations for each forecast horizon"
+msgstr ""
+
+#: assessment/metric_plots/time_period_sum.py
+msgid "Shows the sum of the metric by time period"
+msgstr ""
+
+#: assessment/backtest_plots/evaluation_plot.py
+msgid ""
+"Shows truth vs predictions over time with uncertainty bands and "
+"historical context."
+msgstr ""
+
+#: assessment/metrics/org_unit_ranking.py
+msgid ""
+"Spearman rank correlation between forecast and observed incidence (cases "
+"per population) across org units, averaged over time periods. 1 means org"
+" units are ranked perfectly, 0 means no better than random. Needs "
+"population data."
+msgstr ""
+
+#: assessment/backtest_plots/evaluation_plot.py
+msgid "Split Period"
+msgstr ""
+
+#: plotting/dataset_plot.py
+msgid "Standardized Feature Plot"
+msgstr ""
+
+#: plotting/dataset_plot.py
+msgid "Standardized Value"
+msgstr ""
+
+#: plotting/dataset_plot.py
+msgid ""
+"Standardized features over time for different locations with interactive "
+"selection."
+msgstr ""
+
+#: assessment/metric_plots/time_period_mean.py
+#: assessment/metric_plots/time_period_sum.py
+msgid "Time Period"
+msgstr ""
+
+#: assessment/metric_plots/time_period_mean.py
+msgid "Time Period Plot"
+msgstr ""
+
+#: assessment/metric_plots/time_period_sum.py
+msgid "Time Period Plot (Sum)"
+msgstr ""
+
+#: assessment/metric_plots/time_period_location_mean.py
+msgid "Time Period and Location Plot"
+msgstr ""
+
+#: assessment/backtest_plots/sample_bias_plot.py
+#: assessment/metric_plots/time_period_location_mean.py
+msgid "Time period"
+msgstr ""
+
+#: plotting/season_plot.py
+msgid "Week of Year"
+msgstr ""
+
+#: assessment/metrics/winkler_score.py
+msgid "Winkler score for 10th-90th percentile prediction interval"
+msgstr ""
+
+#: assessment/metrics/winkler_score.py
+msgid "Winkler score for 25th-75th percentile prediction interval"
+msgstr ""
+
+#: assessment/metrics/winkler_score.py
+msgid "Winkler score on log(1+x)-transformed values for 10-90 interval"
+msgstr ""
+
+#: assessment/metrics/winkler_score.py
+msgid "Winkler score on log(1+x)-transformed values for 25-75 interval"
+msgstr ""
+
+#: database/tables.py
+msgid "description"
+msgstr ""
+
+#: assessment/metric_plots/metric_map.py
+msgid "org unit"
+msgstr ""
+
+#: assessment/backtest_plots/horizon_location_grid.py
+#, python-brace-format
+msgid "{location} | horizon {horizon}"
+msgstr ""

@@ -17,6 +17,7 @@ from chap_core import __version__ as chap_core_version
 from chap_core.database.database import DB_POOL_CONNECTIONS
 from chap_core.rest_api.auth import ApiTokenMiddleware, warn_on_weak_token
 from chap_core.rest_api.common_routes import router as common_router
+from chap_core.rest_api.i18n import TranslationMiddleware
 from chap_core.rest_api.v1.rest_api import router as v1_router
 from chap_core.rest_api.v2.rest_api import router as v2_router
 from chap_core.settings import get_settings
@@ -79,6 +80,7 @@ warn_on_weak_token()
 # Must stay before CORSMiddleware: add_middleware inserts at the front, so this keeps CORS
 # outermost and 401 responses still carry CORS headers.
 app.add_middleware(ApiTokenMiddleware)
+app.add_middleware(TranslationMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

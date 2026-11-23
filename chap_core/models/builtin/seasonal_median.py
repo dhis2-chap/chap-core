@@ -4,6 +4,7 @@ import numpy as np
 
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.datatypes import Samples
+from chap_core.i18n import N_
 from chap_core.models.builtin.empirical import even_samples, period_of_year
 from chap_core.models.builtin.global_median import GlobalObservations
 from chap_core.models.builtin.registry import BuiltinModel, BuiltinModelSpec, builtin_model
@@ -57,7 +58,7 @@ class SeasonalMedian(BuiltinModel):
     spec = BuiltinModelSpec(
         name="seasonal_median",
         display_name="Seasonal median",
-        description=(
+        description=N_(
             "Baseline that uses all observed values for the same location and month or week of the year "
             "as forecast samples, without smoothing or model fitting."
         ),

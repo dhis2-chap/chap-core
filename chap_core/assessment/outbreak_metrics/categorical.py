@@ -10,17 +10,20 @@ import numpy as np
 
 from chap_core.assessment.outbreak_metrics import categorical_outbreak_metric
 from chap_core.assessment.outbreak_metrics.binary import ratio
+from chap_core.i18n import N_
 
 
 @categorical_outbreak_metric(
-    "categorical_accuracy", "Categorical accuracy", "Share of cells whose predicted category is the observed one."
+    "categorical_accuracy",
+    "Categorical accuracy",
+    N_("Share of cells whose predicted category is the observed one."),
 )
 def accuracy(confusion: np.ndarray) -> float | None:
     return ratio(float(np.trace(confusion)), float(confusion.sum()))
 
 
 @categorical_outbreak_metric(
-    "macro_f1", "Macro F1", "One-vs-rest F1 averaged over the categories that are observed or predicted."
+    "macro_f1", "Macro F1", N_("One-vs-rest F1 averaged over the categories that are observed or predicted.")
 )
 def macro_f1(confusion: np.ndarray) -> float | None:
     totals = confusion.sum(axis=0) + confusion.sum(axis=1)
@@ -33,8 +36,10 @@ def macro_f1(confusion: np.ndarray) -> float | None:
 @categorical_outbreak_metric(
     "weighted_kappa",
     "Weighted kappa",
-    "Cohen's kappa with quadratic weights, so a miss by one level costs less than a miss by two. "
-    "1 is perfect agreement, 0 is chance level.",
+    N_(
+        "Cohen's kappa with quadratic weights, so a miss by one level costs less than a miss by two. "
+        "1 is perfect agreement, 0 is chance level."
+    ),
 )
 def weighted_kappa(confusion: np.ndarray) -> float | None:
     n_categories = confusion.shape[0]

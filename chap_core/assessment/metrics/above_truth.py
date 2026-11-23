@@ -10,6 +10,7 @@ from chap_core.assessment.metrics.base import (
     MetricSpec,
     ProbabilisticMetric,
 )
+from chap_core.i18n import N_
 
 
 @metric()
@@ -32,7 +33,7 @@ class RatioAboveTruthMetric(ProbabilisticMetric):
         metric_id="ratio_above_truth",
         metric_name="Ratio Above Truth",
         aggregation_op=AggregationOp.MEAN,
-        description="Proportion of forecast samples exceeding the observed value (0.5 = unbiased)",
+        description=N_("Proportion of forecast samples exceeding the observed value (0.5 = unbiased)"),
         optimization_direction=None,
         target=0.5,
         comparison_op="target_distance",

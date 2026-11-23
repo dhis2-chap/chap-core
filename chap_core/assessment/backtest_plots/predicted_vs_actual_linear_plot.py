@@ -13,12 +13,15 @@ from chap_core.assessment.backtest_plots.predicted_vs_actual_plot import (
     PredictedVsActualPlot,
     build_predicted_vs_actual_chart,
 )
+from chap_core.i18n import N_, gettext
 
 
 @backtest_plot(
     plot_id="predicted_vs_actual_linear",
-    name="Predicted vs Actual (linear)",
-    description="Scatter plots of predicted (median) vs actual values on linear axes, faceted by horizon and colored by location.",
+    name=N_("Predicted vs Actual (linear)"),
+    description=N_(
+        "Scatter plots of predicted (median) vs actual values on linear axes, faceted by horizon and colored by location."
+    ),
 )
 class PredictedVsActualLinearPlot(PredictedVsActualPlot):
     """Linear-axes variant of :class:`PredictedVsActualPlot`.
@@ -32,5 +35,5 @@ class PredictedVsActualLinearPlot(PredictedVsActualPlot):
             data,
             x_field="median_forecast",
             y_field="disease_cases",
-            title="Predicted vs Actual (linear scale)",
+            title=gettext("Predicted vs Actual (linear scale)"),
         )

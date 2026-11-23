@@ -15,6 +15,7 @@ from chap_core.assessment.backtest_plots.evaluation_plot import _compute_quantil
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 from chap_core.assessment.metrics.crps import CRPSLog1pMetric, CRPSMetric
 from chap_core.assessment.metrics.winkler_score import WinklerScore10_90Log1pMetric, WinklerScore10_90Metric
+from chap_core.i18n import N_, gettext
 from chap_core.plotting.backtest_plot import clean_time
 
 CELL_WIDTH = 250
@@ -54,12 +55,12 @@ def _build_forecast_cell(
 
     error_10_90 = base_forecast.mark_area(opacity=0.3, color="steelblue").encode(
         x=alt.X("time_period:T", title=None),
-        y=alt.Y("q_10:Q", scale=alt.Scale(zero=False), title="Cases"),
+        y=alt.Y("q_10:Q", scale=alt.Scale(zero=False), title=gettext("Cases")),
         y2="q_90:Q",
     )
     error_25_75 = base_forecast.mark_area(opacity=0.5, color="steelblue").encode(
         x=alt.X("time_period:T", title=None),
-        y=alt.Y("q_25:Q", scale=alt.Scale(zero=False), title="Cases"),
+        y=alt.Y("q_25:Q", scale=alt.Scale(zero=False), title=gettext("Cases")),
         y2="q_75:Q",
     )
     median_line = base_forecast.mark_line(color="steelblue").encode(
@@ -168,8 +169,8 @@ def _metric_dfs_from_preprocessed(df: pd.DataFrame) -> list[tuple[str, pd.DataFr
 
 @backtest_plot(
     plot_id="horizon_location_grid",
-    name="Forecast Grid (Locations x Horizons)",
-    description="Grid of forecast intervals and metrics across locations and forecast horizons.",
+    name=N_("Forecast Grid (Locations x Horizons)"),
+    description=N_("Grid of forecast intervals and metrics across locations and forecast horizons."),
     needs_historical=True,
 )
 class HorizonLocationGridPlot(FacetedBacktestPlot):
@@ -182,8 +183,8 @@ class HorizonLocationGridPlot(FacetedBacktestPlot):
     """
 
     facet_dimensions: list[FacetDimension] = [
-        HorizonDistanceDimension(field_name="horizon_distance:O", display_name="Horizon Distance"),
-        LocationDimension(field_name="location:N", display_name="Location"),
+        HorizonDistanceDimension(field_name="horizon_distance:O", display_name=N_("Horizon Distance")),
+        LocationDimension(field_name="location:N", display_name=N_("Location")),
     ]
 
     def _preprocess(
@@ -261,6 +262,7 @@ class HorizonLocationGridPlot(FacetedBacktestPlot):
         locations = sorted(forecasts["location"].unique())
         horizons = sorted(forecasts["horizon_distance"].unique())
 
+        cell_title = gettext("{location} | horizon {horizon}")
         location_rows: list[ChartType] = []
         for loc in locations:
             # The grid layout is the only thing identifying a cell, so label each
@@ -268,7 +270,7 @@ class HorizonLocationGridPlot(FacetedBacktestPlot):
             # frontend's facet selection.
             horizon_cells = [
                 self._plot(df[(df["location"] == loc) & (df["horizon_distance"] == hz)]).properties(
-                    title=f"{loc} | horizon {hz}"
+                    title=cell_title.format(location=loc, horizon=hz)
                 )
                 for hz in horizons
             ]
@@ -280,5 +282,5 @@ class HorizonLocationGridPlot(FacetedBacktestPlot):
 
         return alt.vconcat(*location_rows).properties(  # type: ignore[no-any-return]
             spacing=15,
-            title="Forecast Grid: Locations x Horizons",
+            title=gettext("Forecast Grid: Locations x Horizons"),
         )

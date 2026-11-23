@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
 
+from chap_core.i18n import N_, gettext
+
 from .dataset_plot import DatasetPlot, _get_periods_per_year, dataset_plot
 
 alt.renderers.enable("browser")
@@ -31,18 +33,18 @@ class SeasonPlot(DatasetPlot):
             alt.Chart(df)
             .mark_line(point=False, strokeWidth=2)
             .encode(
-                x=alt.X("seasonal_month:O", title="Month"),
-                y=alt.Y("log1p:Q", title="Log1p Disease Cases"),
-                color=alt.Color("season_idx:N", title="Season Year"),
+                x=alt.X("seasonal_month:O", title=gettext("Month")),
+                y=alt.Y("log1p:Q", title=gettext("Log1p Disease Cases")),
+                color=alt.Color("season_idx:N", title=gettext("Season Year")),
             )
-            .facet(facet=alt.Facet("location:N", title="Location"), columns=3)
+            .facet(facet=alt.Facet("location:N", title=gettext("Location")), columns=3)
         )
 
 
 @dataset_plot(
     plot_id="seasonal-correlation-plot",
-    name="Seasonal Correlation Bar Plot",
-    description="Bar plot showing correlation between seasonal disease outcomes and climate features.",
+    name=N_("Seasonal Correlation Bar Plot"),
+    description=N_("Bar plot showing correlation between seasonal disease outcomes and climate features."),
 )
 class SeasonCorrelationBarPlot(DatasetPlot):
     feature_name = "mean_temperature"
@@ -85,21 +87,24 @@ class SeasonCorrelationBarPlot(DatasetPlot):
             alt.Chart(df)
             .mark_bar()
             .encode(
-                x=alt.X("seasonal_month:O", title="Seasonal Month"),
-                y=alt.Y("correlation:Q", title="Correlation (Season Max vs Temperature)"),
+                x=alt.X("seasonal_month:O", title=gettext("Seasonal Month")),
+                y=alt.Y("correlation:Q", title=gettext("Correlation (Season Max vs Temperature)")),
                 color=alt.Color(
-                    "correlation:Q", scale=alt.Scale(scheme="redblue", domain=[-1, 1]), title="Correlation"
+                    "correlation:Q", scale=alt.Scale(scheme="redblue", domain=[-1, 1]), title=gettext("Correlation")
                 ),
                 tooltip=["location:N", "seasonal_month:O", "correlation:Q"],
             )
             .facet(
-                column=alt.Column("location:N", title="Location"),
-                row=alt.Row("feature:N", title="Feature"),
+                column=alt.Column("location:N", title=gettext("Location")),
+                row=alt.Row("feature:N", title=gettext("Feature")),
             )
             .properties(
                 title={
-                    "text": "Seasonal Correlation Analysis",
-                    "subtitle": "Correlation between season maximum disease cases and mean temperature by seasonal month and location. Red bars indicate negative correlation, blue bars indicate positive correlation.",
+                    "text": gettext("Seasonal Correlation Analysis"),
+                    "subtitle": gettext(
+                        "Correlation between season maximum disease cases and mean temperature by seasonal month "
+                        "and location. Red bars indicate negative correlation, blue bars indicate positive correlation."
+                    ),
                 }
             )
         )
@@ -107,8 +112,8 @@ class SeasonCorrelationBarPlot(DatasetPlot):
 
 @dataset_plot(
     plot_id="seasonality-comparison",
-    name="Seasonality Comparison Plot",
-    description="Heatmap and line overlay showing how disease seasonality compares across regions.",
+    name=N_("Seasonality Comparison Plot"),
+    description=N_("Heatmap and line overlay showing how disease seasonality compares across regions."),
 )
 class SeasonalityComparisonPlot(DatasetPlot):
     def data(self) -> pd.DataFrame:
@@ -141,27 +146,27 @@ class SeasonalityComparisonPlot(DatasetPlot):
     def plot(self) -> alt.VConcatChart:  # type: ignore[override]
         data = self.data()
         periods_per_year = _get_periods_per_year(self._df["time_period"])
-        x_title = "Week of Year" if periods_per_year == 52 else "Month"
+        x_title = gettext("Week of Year") if periods_per_year == 52 else gettext("Month")
 
-        cluster_color = alt.Color("cluster:N", scale=alt.Scale(scheme="category10"), title="Cluster")
+        cluster_color = alt.Color("cluster:N", scale=alt.Scale(scheme="category10"), title=gettext("Cluster"))
 
         line_chart = (
             alt.Chart(data)
             .mark_line(point=True, strokeWidth=2)
             .encode(
                 x=alt.X("period_of_year:O", title=x_title),
-                y=alt.Y("normalized_cases:Q", title="Fraction of Annual Total"),
+                y=alt.Y("normalized_cases:Q", title=gettext("Fraction of Annual Total")),
                 color=cluster_color,
                 detail=alt.Detail("location:N"),
                 tooltip=[
-                    alt.Tooltip("location:N", title="Region"),
+                    alt.Tooltip("location:N", title=gettext("Region")),
                     alt.Tooltip("period_of_year:O", title=x_title),
-                    alt.Tooltip("normalized_cases:Q", title="Fraction", format=".3f"),
-                    alt.Tooltip("cluster:N", title="Cluster"),
+                    alt.Tooltip("normalized_cases:Q", title=gettext("Fraction"), format=".3f"),
+                    alt.Tooltip("cluster:N", title=gettext("Cluster")),
                 ],
             )
             .properties(width=300, height=200)
-            .facet(column=alt.Column("cluster:N", title="Cluster"))
+            .facet(column=alt.Column("cluster:N", title=gettext("Cluster")))
         )
 
         cluster_data = data[["location", "cluster"]].drop_duplicates()
@@ -175,17 +180,17 @@ class SeasonalityComparisonPlot(DatasetPlot):
                 .encode(
                     color=cluster_color,
                     tooltip=[
-                        alt.Tooltip("id:N", title="Region"),
-                        alt.Tooltip("cluster:N", title="Cluster"),
+                        alt.Tooltip("id:N", title=gettext("Region")),
+                        alt.Tooltip("cluster:N", title=gettext("Cluster")),
                     ],
                 )
                 .project(type="equirectangular")
-                .properties(width=400, height=300, title="Cluster Map")
+                .properties(width=400, height=300, title=gettext("Cluster Map"))
             )
             return alt.vconcat(cluster_map, line_chart).properties(  # type: ignore[return-value]
-                title="Seasonality Comparison Across Regions"
+                title=gettext("Seasonality Comparison Across Regions")
             )
 
         return alt.vconcat(line_chart).properties(  # type: ignore[return-value]
-            title="Seasonality Comparison Across Regions"
+            title=gettext("Seasonality Comparison Across Regions")
         )
