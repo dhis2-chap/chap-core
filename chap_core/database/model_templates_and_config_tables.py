@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 from enum import Enum, StrEnum
+from typing import TYPE_CHECKING, Optional
 
 import jsonschema
 from pydantic import AliasChoices, ConfigDict
@@ -12,6 +13,9 @@ from sqlmodel import Field, Relationship, SQLModel
 from chap_core.database.base_tables import DBModel
 from chap_core.exceptions import ModelTemplateRevisionConflict
 from chap_core.model_spec import PeriodType
+
+if TYPE_CHECKING:
+    from chap_core.database.tables import HpoRunDB
 
 logger = logging.getLogger(__name__)
 
@@ -278,6 +282,13 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
     uses_chapkit: bool = Field(
         default=False, description="Inherited from the template; True for chapkit-hosted models."
     )
+    hpo_run_id: int | None = Field(
+        default=None,
+        foreign_key="hporundb.id",
+        ondelete="SET NULL",
+        description="HPO run that produced this configuration, if any.",
+    )
+    hpo_run: Optional["HpoRunDB"] = Relationship()
 
     @property
     def display_name(self) -> str:

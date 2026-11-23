@@ -68,10 +68,10 @@ from ...data_models import (
     ImportSummaryResponse,
     JobResponse,
     MakeBacktestRequest,
-    MakeHpoBacktestRequest,
     MakeBacktestsRequest,
     MakeBacktestsResponse,
     MakeBacktestWithDataRequest,
+    MakeHpoBacktestRequest,
     MakePredictionRequest,
     ObservationColumns,
     PredictionParams,
@@ -623,19 +623,26 @@ def create_hpo_backtest(
         raise HTTPException(status_code=404, detail=f"Model template {request.model_template_id} not found")
     specification = session.get(BacktestSpecification, request.backtest_specification_id)
     if specification is None:
-        raise HTTPException(status_code=404, detail=f"Backtest specification {request.backtest_specification_id} not found")
+        raise HTTPException(
+            status_code=404, detail=f"Backtest specification {request.backtest_specification_id} not found"
+        )
     if template.archived:
         raise HTTPException(status_code=409, detail=f"Model template {request.model_template_id} is archived")
     if not template.hpo_search_space:
-        raise HTTPException(status_code=422, detail=f"Model template {request.model_template_id} has no HPO search space")
+        raise HTTPException(
+            status_code=422, detail=f"Model template {request.model_template_id} has no HPO search space"
+        )
     if request.additional_continuous_covariates and not template.allow_free_additional_continuous_covariates:
-        raise HTTPException(status_code=422, detail=f"Model template {request.model_template_id} does not allow additional continuous covariates")
-    # check for chapkit 
+        raise HTTPException(
+            status_code=422,
+            detail=f"Model template {request.model_template_id} does not allow additional continuous covariates",
+        )
+    # check for chapkit
     stored_dataset = session.get(DataSetTable, specification.dataset_id)
     if stored_dataset is None:
         raise HTTPException(status_code=404, detail=f"Dataset {specification.dataset_id} not found")
     require_dataset_target(stored_dataset, specification.target_column)
-    # org_units check maybe 
+    # org_units check maybe
     if stored_dataset.masked_ranges:
         try:
             wf.check_backtest_on_masked_dataset(
@@ -653,7 +660,7 @@ def create_hpo_backtest(
         # queue_baselines=True,
         **{
             JOB_REQUEST_KW: original_request,
-            JOB_TYPE_KW: JobType.EVALUATION_LEGACY, # maybe change 
+            JOB_TYPE_KW: JobType.EVALUATION_LEGACY,  # maybe change
             JOB_NAME_KW: request.name,
             JOB_METADATA_KW: {
                 "model_version": template.version,

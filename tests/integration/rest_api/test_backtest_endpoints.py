@@ -992,9 +992,7 @@ def test_all_backtest_plots_via_api(override_session, seeded_session):
         assert "$schema" in vega_spec or "data" in vega_spec, f"Plot {plot_id} returned invalid Vega spec"
 
 
-def test_create_hpo_backtest_queues_job(
-    override_session, seeded_session, monkeypatch
-):
+def test_create_hpo_backtest_queues_job(override_session, seeded_session, monkeypatch):
     """HPO endpoint should queue the worker with the
     existing backtest specification and requested HPO parameters.
     """
@@ -1002,21 +1000,13 @@ def test_create_hpo_backtest_queues_job(
 
     worker = _JobIdWorker()
     monkeypatch.setattr(analytics, "worker", worker)
-    specification = seeded_session.exec(
-        select(BacktestSpecification)
-    ).first()
-    template = seeded_session.exec(
-        select(ModelTemplateDB).where(
-            ModelTemplateDB.archived == False
-        )
-    ).first()
+    specification = seeded_session.exec(select(BacktestSpecification)).first()
+    template = seeded_session.exec(select(ModelTemplateDB).where(ModelTemplateDB.archived == False)).first()
     assert specification is not None
     assert template is not None
     # Ensure this template supports HPO for the endpoint test.
     # The worker is mocked, so no optimization is executed.
-    template.hpo_search_space = {
-        "test_parameter": {"values": [1, 2]}
-    }
+    template.hpo_search_space = {"test_parameter": {"values": [1, 2]}}
     seeded_session.add(template)
     seeded_session.commit()
     payload = {
@@ -1043,9 +1033,7 @@ def test_create_hpo_backtest_queues_job(
     assert request.n_trials == 2
 
 
-def test_run_hpo_backtest_persists_selected_configuration_under_existing_specification(
-    p_seeded_engine, monkeypatch
-):
+def test_run_hpo_backtest_persists_selected_configuration_under_existing_specification(p_seeded_engine, monkeypatch):
     """HPO must use the saved split settings and persist its selected model, not the temporary one."""
     from types import SimpleNamespace
 
@@ -1056,9 +1044,7 @@ def test_run_hpo_backtest_persists_selected_configuration_under_existing_specifi
     captured = {}
     with SessionWrapper(p_seeded_engine) as session:
         specification = session.session.exec(select(BacktestSpecification)).first()
-        template = session.session.exec(
-            select(ModelTemplateDB).where(ModelTemplateDB.archived == False)
-        ).first()
+        template = session.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.archived == False)).first()
         assert specification is not None
         assert template is not None
 
@@ -1082,16 +1068,37 @@ def test_run_hpo_backtest_persists_selected_configuration_under_existing_specifi
             lambda self, model_template_id: fake_template,
             raising=False,
         )
+
         def fake_get_hpo_estimator(**kwargs):
             captured["optimizer"] = kwargs
             return fake_optimizer
-        
+
         class _FakeEvaluation:
             def get_hpo(self):
-                return SimpleNamespace(model_configuration=selected)
+                return SimpleNamespace(
+                    model_configuration=selected,
+                    to_flat=lambda: SimpleNamespace(
+                        searcher="random",
+                        metric="crps",
+                        direction="minimize",
+                        search_space={"test_parameter": {"values": [1, 2]}},
+                        max_trials=2,
+                        seed=42,
+                        best_params={"test_parameter": 2},
+                        best_score=0.25,
+                        n_trials=2,
+                        n_successful_trials=2,
+                        n_failed_trials=0,
+                        seconds=1.5,
+                        stop_reason="max_trials",
+                    ),
+                    leaderboard=[],
+                )
+
             def with_model(self, model):
                 captured["model"] = model
                 return self
+
             def to_backtest(self, configured_model, specification, name, include_forecasts=True):
                 assert include_forecasts is False
                 return Backtest(
@@ -1104,13 +1111,14 @@ def test_run_hpo_backtest_persists_selected_configuration_under_existing_specifi
                     org_units=specification.org_units,
                     split_periods=[],
                 )
+
             def forecast_rows(self):
                 return []
-            
+
         def fake_evaluation_create(**kwargs):
             captured["evaluation"] = kwargs
             return _FakeEvaluation()
-        
+
         monkeypatch.setattr(wf, "get_hpo_estimator", fake_get_hpo_estimator)
         monkeypatch.setattr(wf.Evaluation, "create", staticmethod(fake_evaluation_create))
         monkeypatch.setattr(wf, "compute_all_aggregated_metrics", lambda evaluation: {})
@@ -1148,8 +1156,11 @@ def test_run_hpo_backtest_persists_selected_configuration_under_existing_specifi
         assert backtest.model_id == configured_model.name
         assert backtest.model_template_version == template.version
         assert captured["model"].name == configured_model.name
-        assert session.session.exec(
-            select(ConfiguredModelDB).where(ConfiguredModelDB.name == f"{template.name}:hpo_pending")
-        ).all() == []
+        assert (
+            session.session.exec(
+                select(ConfiguredModelDB).where(ConfiguredModelDB.name == f"{template.name}:hpo_pending")
+            ).all()
+            == []
+        )
         assert configured_model.name.startswith(f"{template.name}:")
         assert "hpo_pending" not in configured_model.name
