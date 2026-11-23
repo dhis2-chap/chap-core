@@ -1067,10 +1067,11 @@ def test_run_hpo_backtest_persists_selected_configuration_under_existing_specifi
             lambda self, model_template_id: fake_template,
             raising=False,
         )
+
         def fake_get_hpo_estimator(**kwargs):
             captured["optimizer"] = kwargs
             return fake_optimizer
-        
+
         class _FakeEvaluation:
             def get_hpo(self):
                 return SimpleNamespace(
@@ -1092,9 +1093,11 @@ def test_run_hpo_backtest_persists_selected_configuration_under_existing_specifi
                     ),
                     leaderboard=[],
                 )
+
             def with_model(self, model):
                 captured["model"] = model
                 return self
+
             def to_backtest(self, configured_model, specification, name, include_forecasts=True):
                 assert include_forecasts is False
                 return Backtest(
