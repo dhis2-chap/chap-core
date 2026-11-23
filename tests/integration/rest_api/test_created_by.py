@@ -166,7 +166,9 @@ def test_an_alert_names_the_token(client, clean_engine, dependency_overrides, ca
 
 def test_a_configured_model_names_the_token(client, clean_engine, dependency_overrides, caps_token):
     with Session(clean_engine) as session:
-        template_id = session.exec(select(ConfiguredModelDB)).first().model_template_id
+        seeded = session.exec(select(ConfiguredModelDB)).first()
+        assert seeded is not None
+        template_id = seeded.model_template_id
 
     response = client.post(
         "/v1/crud/configured-models", json={"name": "owned", "modelTemplateId": template_id}, headers=caps_token
