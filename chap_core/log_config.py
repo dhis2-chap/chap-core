@@ -1,12 +1,13 @@
 import logging
-import os
 from pathlib import Path
+
+from chap_core.settings import get_settings
 
 # get root logger
 logger = logging.getLogger()
 
 # Centralized logs directory path (configurable via CHAP_LOGS_DIR env var)
-CHAP_LOGS_DIR = Path(os.getenv("CHAP_LOGS_DIR", "logs/"))
+CHAP_LOGS_DIR = get_settings().logs_dir
 
 # Status logger name for user-facing logs (safe for API exposure)
 STATUS_LOGGER_NAME = "chap_status"
@@ -21,7 +22,7 @@ def is_debug_mode() -> bool:
     Returns:
         bool: True if CHAP_DEBUG is set to "true", "1", or "yes" (case-insensitive).
     """
-    return os.getenv("CHAP_DEBUG", "false").lower() in ("true", "1", "yes")
+    return get_settings().debug
 
 
 def initialize_logging(debug: bool | None = None, log_file: str | None = None):

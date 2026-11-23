@@ -1,15 +1,13 @@
 import logging
 import math
-
-# CHeck if CHAP_DATABASE_URL is set in the environment
-import os
+import threading
 import time
 from pathlib import Path
 from typing import Literal, cast
 
 import psycopg2
 import sqlalchemy
-from sqlalchemy import insert
+from sqlalchemy import Engine, insert
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, SQLModel, col, create_engine, select
 from sqlmodel.sql.expression import SelectOfScalar
@@ -19,6 +17,7 @@ from chap_core.database.base_tables import utc_now
 from chap_core.log_config import is_debug_mode
 from chap_core.models.builtin import BUILTIN_SOURCE_PREFIX
 from chap_core.predictor.naive_estimator import NaiveEstimator
+from chap_core.settings import get_settings
 
 from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
@@ -45,9 +44,6 @@ from .tables import (
 )
 
 logger = logging.getLogger(__name__)
-engine = None
-database_url = os.getenv("CHAP_DATABASE_URL", default=None)
-
 # The generic migration plus create_all() already provide the schema through
 # this revision for databases that predate Alembic. The following revision must
 # still run because it contains data backfills and constraint replacements.
@@ -65,13 +61,30 @@ DB_POOL_SIZE = 5
 DB_MAX_OVERFLOW = 10
 DB_POOL_CONNECTIONS = DB_POOL_SIZE + DB_MAX_OVERFLOW
 
-# Log database URL with credentials masked for security
-if database_url:
+engine: Engine | None = None
+# The first requests reach get_engine() from several threadpool threads at once. Without the
+# lock each could build an engine, and all but one pool would leak past DB_POOL_CONNECTIONS.
+_engine_lock = threading.Lock()
+
+
+def get_engine() -> Engine | None:
+    """The process's database engine, created on first use. None when no database is configured."""
+    if engine is not None:
+        return engine
+    with _engine_lock:
+        return engine if engine is not None else _create_engine()
+
+
+def _create_engine() -> Engine | None:
+    global engine
+    database_url = get_settings().database_url
+    if database_url is None:
+        # info, not warning: CLI commands import this module transitively but don't need a database
+        logger.info("Database url not set. Database operations will not work")
+        return None
+    # Log database URL with credentials masked for security
     masked_url = database_url.split("@")[-1] if "@" in database_url else database_url
     logger.info(f"Database host: {masked_url}")
-else:
-    logger.info("Database URL not set")
-if database_url is not None:
     n = 0
     while n < 30:
         try:
@@ -89,9 +102,7 @@ if database_url is not None:
             time.sleep(1)
     else:
         raise ValueError("Failed to connect to database")
-else:
-    # info, not warning: CLI commands import this module transitively but don't need a database
-    logger.info("Database url not set. Database operations will not work")
+    return engine
 
 
 class SessionWrapper:
@@ -875,6 +886,7 @@ def dispose_engine_after_fork() -> None:
 
 def create_db_and_tables():
     # TODO: Read config for options on how to create the database migrate/update/seed/seed_and_update
+    engine = get_engine()
     if engine is not None:
         logger.info("Engine set. Creating tables")
         n = 0
