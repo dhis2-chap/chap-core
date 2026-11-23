@@ -1942,14 +1942,14 @@ wheels = [
 
 [[package]]
 name = "mkdocs-panzoom-plugin"
-version = "0.5.2"
+version = "0.5.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "mkdocs" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/51/03/0b75bf29b609daa544e852c3efee93181702ca68e46394895f61bd86f572/mkdocs_panzoom_plugin-0.5.2.tar.gz", hash = "sha256:f546356f5241fe5d499600be02a28cfe7d039c6f731d43f50eb6370065be2d3c", size = 22841, upload-time = "2025-12-22T15:46:58.929Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e0/5c/91200496bfe6e408c6523e2934dbc7895d7348b029839d09bbfce9dbf3b7/mkdocs_panzoom_plugin-0.5.3.tar.gz", hash = "sha256:b87b020cf2b88ae67d790f82ce00f52b399e8e1d3e0bbe11334d2b6268e99a77", size = 22924, upload-time = "2026-10-24T16:46:21.936Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3d/58/370541865a451fc9e06f74d407f6d99581224455b5ffe5f55504a43ba6e4/mkdocs_panzoom_plugin-0.5.2-py3-none-any.whl", hash = "sha256:58746d7f7b8aef8787543a75b7a5ddcd04b67cfd6af964f25bbd9bc822ced68a", size = 22952, upload-time = "2025-12-22T15:46:57.123Z" },
+    { url = "https://files.pythonhosted.org/packages/b8/93/0342343d9c146ace06a1c9f4639dcffdd30d90b7e001c7907fd8230a7444/mkdocs_panzoom_plugin-0.5.3-py3-none-any.whl", hash = "sha256:bf81912a99d1405064ab274f5a648168eba6abc8e3d00d97c3622642ee32dcc7", size = 22957, upload-time = "2026-10-24T16:46:20.79Z" },
 ]
 
 [[package]]
