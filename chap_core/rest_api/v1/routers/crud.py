@@ -1753,6 +1753,7 @@ def _setup_horizon(setup: PredictionSetup) -> int:
 def run_prediction_setup(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     request: RunPredictionSetupRequest,
+    http_request: Request,
     original_request: dict = Depends(get_job_request),
     session: Session = Depends(get_session),
     worker_settings=Depends(get_settings),
@@ -1770,6 +1771,7 @@ def run_prediction_setup(
     Without ``nPeriods``, they also use the backtest's horizon, kept within the range the
     model supports.
     """
+    ensure(http_request, Permission.WRITE_DATASETS, "stores the observations as a dataset")
     try:
         setup = prediction_setup_service.get_prediction_setup(session, prediction_setup_id)
     except prediction_setup_service.PredictionSetupNotFoundError as e:

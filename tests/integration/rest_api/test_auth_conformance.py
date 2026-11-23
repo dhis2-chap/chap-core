@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from chap_core.auth.permissions import READ, Permission
 from chap_core.rest_api.app import app
+from tests.integration.rest_api.db_endpoint_helpers import create_make_data_request
 from chap_core.rest_api.auth import API_TOKEN_ENV_VAR, SERVICE_KEY_ENV_VAR
 from chap_core.rest_api.v1.routers.dependencies import get_settings
 from chap_core.rest_api.v2.dependencies import get_orchestrator
@@ -309,3 +310,16 @@ class TestSecondPermissions:
 
         assert response.status_code == 403
         assert "export:datasets" in response.json()["detail"]
+
+
+def test_running_a_prediction_setup_also_needs_write_datasets(narrow_client, example_polygons):
+    request = create_make_data_request(example_polygons, ["rainfall", "disease_cases", "population"])
+    payload = request.model_dump(mode="json", exclude={"data_sources", "masked_ranges", "target_column"})
+    payload.pop("provided_data_columns", None)
+
+    response = narrow_client.post(
+        "/v1/crud/prediction-setups/1/run", json=payload, headers={"Authorization": f"Bearer {RUNNER_TOKEN}"}
+    )
+
+    assert response.status_code == 403, response.text
+    assert "write:datasets" in response.json()["detail"]

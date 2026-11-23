@@ -139,8 +139,9 @@ A permission is named `action:resource`, such as `read:predictions` or `run:back
 - A route whose request can also do a second thing checks a second permission in the
   handler, and answers 403 naming it:
     - attaching or changing a prediction setup's alert policy also needs `write:alerts`;
-    - the deprecated `make-prediction` and `create-backtest-with-data`, which store the
-      posted observations as a dataset, also need `write:datasets` (not for a dry run).
+    - running a prediction setup (`POST /v1/crud/prediction-setups/{id}/run`) and the
+      deprecated `make-prediction` and `create-backtest-with-data` store the posted
+      observations as a dataset, so they also need `write:datasets` (not for a dry run).
 - Cancelling or forgetting a job (`write:jobs`) works only on the caller's own jobs, unless
   the caller holds every permission. Another principal's job, or one started while
   authentication was off, is answered 404, as if it did not exist.
