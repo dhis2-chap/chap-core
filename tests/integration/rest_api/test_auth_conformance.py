@@ -250,6 +250,7 @@ class TestRefusalsShareOneBody:
 
 RUNNER_TOKEN = "u" * 32
 SETUPS_TOKEN = "p" * 32
+JOBS_TOKEN = "j" * 32
 
 NARROW_TIERS = """
 authentication:
@@ -258,9 +259,12 @@ authentication:
       permissions: [run:backtests, run:predictions]
     setups:
       permissions: [write:prediction-setups]
+    jobs:
+      permissions: [read:jobs]
   tokens:
     - {id: runner, token_env: CHAP_TEST_RUNNER_TOKEN, tier: runner}
     - {id: setups, token_env: CHAP_TEST_SETUPS_TOKEN, tier: setups}
+    - {id: jobs, token_env: CHAP_TEST_JOBS_TOKEN, tier: jobs}
     - {id: dashboard, token_env: CHAP_TEST_READ_TOKEN, tier: read}
 """
 
@@ -273,6 +277,7 @@ def narrow_client(make_client, tmp_path):
         CHAP_CONFIG=str(config),
         CHAP_TEST_RUNNER_TOKEN=RUNNER_TOKEN,
         CHAP_TEST_SETUPS_TOKEN=SETUPS_TOKEN,
+        CHAP_TEST_JOBS_TOKEN=JOBS_TOKEN,
         CHAP_TEST_READ_TOKEN=READ_TOKEN,
     )
 
@@ -307,6 +312,13 @@ class TestSecondPermissions:
 
     def test_the_read_tier_cannot_download_a_datasets_observations(self, narrow_client):
         response = narrow_client.get("/v1/crud/datasets/1/csv", headers={"Authorization": f"Bearer {READ_TOKEN}"})
+
+        assert response.status_code == 403
+        assert "export:datasets" in response.json()["detail"]
+
+    def test_a_jobs_stored_request_also_needs_export_datasets(self, narrow_client):
+        """The stored request can hold the observations a job posted."""
+        response = narrow_client.get("/v1/jobs/job-1/request", headers={"Authorization": f"Bearer {JOBS_TOKEN}"})
 
         assert response.status_code == 403
         assert "export:datasets" in response.json()["detail"]

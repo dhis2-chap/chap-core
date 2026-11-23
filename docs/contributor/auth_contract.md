@@ -143,10 +143,13 @@ A permission is named `action:resource`, such as `read:predictions` or `run:back
     - running a prediction setup (`POST /v1/crud/prediction-setups/{id}/run`) and the
       deprecated `make-prediction` and `create-backtest-with-data` store the posted
       observations as a dataset, so they also need `write:datasets` (not for a dry run).
+    - downloading a job's stored request (`GET /v1/jobs/{job_id}/request`) returns the
+      observations it posted, so it also needs `export:datasets`.
 - Cancelling or forgetting a job (`write:jobs`) works only on the caller's own jobs, unless
   the caller holds every permission. For another principal's job, or one started while
   authentication was off, cancel and forget answer 404. Reading jobs, their logs and stored
-  requests (`read:jobs`) is not limited to the caller's own yet; that is open in CLIM-1973.
+  requests (`read:jobs`, plus `export:datasets` for a stored request) is not limited to the
+  caller's own yet; that is open in CLIM-1973.
 - Routes declare it with FastAPI's `Security(authorize, scopes=["read:predictions"])`, so it
   shows in `/docs` and in the OpenAPI spec.
 - chap-core refuses to start unless every route it serves is public or declares exactly one

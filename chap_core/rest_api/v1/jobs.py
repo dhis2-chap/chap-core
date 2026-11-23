@@ -14,7 +14,7 @@ from chap_core.database.dataset_tables import DataSet, Observation
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import Backtest, BacktestRead, Prediction, PredictionInfo
 from chap_core.log_config import initialize_logging
-from chap_core.rest_api.authorization import caller, require
+from chap_core.rest_api.authorization import caller, ensure, require
 from chap_core.rest_api.celery_tasks import CeleryPool, JobDescription, get_job_meta, job_description
 from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.v1.routers.dependencies import get_session
@@ -221,13 +221,15 @@ def get_job(job_id: str) -> JobDescription:
     summary="Download the original submitted job request",
     responses={404: {"description": "Job or saved request not found"}},
 )
-def get_job_request(job_id: str) -> dict[str, Any]:
+def get_job_request(job_id: str, request: Request) -> dict[str, Any]:
     """Return the submitted JSON body, including after failure.
 
     Requests are kept for 7 days. Expired requests, older jobs without a
     captured request, and jobs removed from the tracker return 404. Jobs
     created by a multi-model request return the whole request as submitted.
+    The body can hold the posted observations, so this also needs ``export:datasets``.
     """
+    ensure(request, Permission.EXPORT_DATASETS, "returns the posted observations")
     body = redis.get(f"job_request:{job_id}")
     if body is None:
         raise HTTPException(status_code=404, detail=f"Request for job '{job_id}' not found")

@@ -3,7 +3,7 @@
 Each permission gets a token whose tier holds that permission alone. Every route the app serves,
 including those hidden from the OpenAPI spec, is called with a token lacking its permission,
 which must get 403, and with the token holding only that permission, which must get past the
-check.
+check. A route with a second permission may then refuse that token, naming the second one.
 """
 
 import re
@@ -84,4 +84,7 @@ def test_a_token_without_the_permission_is_refused(client, method, path, permiss
 def test_a_token_with_only_the_permission_gets_past_the_check(client, method, path, permission):
     response = call(client, method, path, Permission(permission))
 
-    assert response.status_code not in (401, 403), response.text
+    # A route that does a second thing may still refuse, but only for its second permission.
+    assert response.status_code != 401, response.text
+    if response.status_code == 403:
+        assert permission not in response.json()["detail"], response.text
