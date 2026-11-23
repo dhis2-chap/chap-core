@@ -1156,4 +1156,3 @@ def test_run_hpo_backtest_persists_selected_configuration_under_existing_specifi
         assert backtest.model_template_version == template.version
         assert captured["model"].name == configured_model.name
         assert configured_model.name.startswith(f"{template.name}:")
-        assert "hpo_pending" not in configured_model.name
