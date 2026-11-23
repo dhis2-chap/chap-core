@@ -164,9 +164,15 @@ def test_a_secret_of_only_whitespace_is_unset(secrets, monkeypatch):
         load_authentication(settings_with(token()))
 
 
-def test_the_registration_key_may_not_be_a_token_secret(secrets):
-    with pytest.raises(AuthenticationConfigError, match="also the secret of a token"):
+def test_the_registration_key_may_not_be_a_named_token_secret(secrets):
+    with pytest.raises(AuthenticationConfigError, match="also the secret of a named token"):
         load_authentication(settings_with(token(), service_registration_key=SECRET))
+
+
+def test_the_registration_key_may_equal_the_api_token_as_existing_installs_set_it(secrets):
+    authentication = load_authentication(settings_with(api_token=SECRET, service_registration_key=SECRET))
+
+    assert authentication.registration_key == SECRET
 
 
 def test_an_unknown_key_in_the_authentication_block_stops_startup():

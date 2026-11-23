@@ -76,7 +76,8 @@ chap-core refuses to start when:
 - two tokens share an id or a secret, including the `CHAP_API_TOKEN` secret,
 - a token has the id `legacy`, which `CHAP_API_TOKEN` uses,
 - a token names an unknown tier,
-- `SERVICEKIT_REGISTRATION_KEY` is also the secret of a token.
+- `SERVICEKIT_REGISTRATION_KEY` is also the secret of a named token. It may equal
+  `CHAP_API_TOKEN`, as existing installs set it.
 
 Each startup error names what is wrong: a token by position and id, as
 `authentication.tokens[1] (modeling-app)`, or two tokens by their ids when they repeat. It
@@ -143,8 +144,9 @@ A permission is named `action:resource`, such as `read:predictions` or `run:back
       deprecated `make-prediction` and `create-backtest-with-data` store the posted
       observations as a dataset, so they also need `write:datasets` (not for a dry run).
 - Cancelling or forgetting a job (`write:jobs`) works only on the caller's own jobs, unless
-  the caller holds every permission. Another principal's job, or one started while
-  authentication was off, is answered 404, as if it did not exist.
+  the caller holds every permission. For another principal's job, or one started while
+  authentication was off, cancel and forget answer 404. Reading jobs, their logs and stored
+  requests (`read:jobs`) is not limited to the caller's own yet; that is open in CLIM-1973.
 - Routes declare it with FastAPI's `Security(authorize, scopes=["read:predictions"])`, so it
   shows in `/docs` and in the OpenAPI spec.
 - chap-core refuses to start unless every route it serves is public or declares exactly one

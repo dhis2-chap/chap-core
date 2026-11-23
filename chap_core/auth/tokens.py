@@ -94,10 +94,13 @@ def load_authentication(settings: ChapSettings) -> Authentication:
 
     _refuse_repeats(tokens)
     key = settings.service_registration_key.get_secret_value() if settings.service_registration_key else None
-    if key is not None and any(secret_matches(key, token.secret) for token in tokens):
+    named = [token for token in tokens if token.id != LEGACY_TOKEN_ID]
+    if key is not None and any(secret_matches(key, token.secret) for token in named):
         # X-Service-Key would name the token, not the registry, so one secret must not be both.
+        # CHAP_API_TOKEN is exempt: installs set both to one secret, as the docs once said for
+        # chapkit, and that secret names token:legacy, which holds every registry permission.
         raise AuthenticationConfigError(
-            "SERVICEKIT_REGISTRATION_KEY is also the secret of a token; use separate secrets"
+            "SERVICEKIT_REGISTRATION_KEY is also the secret of a named token; use separate secrets"
         )
     return Authentication(tokens=tuple(tokens), registration_key=key)
 

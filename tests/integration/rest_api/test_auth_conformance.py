@@ -323,3 +323,11 @@ def test_running_a_prediction_setup_also_needs_write_datasets(narrow_client, exa
 
     assert response.status_code == 403, response.text
     assert "write:datasets" in response.json()["detail"]
+
+
+def test_one_secret_for_both_keys_still_registers_a_service(make_client, sample_registration):
+    """Older docs told chapkit installs to set SERVICEKIT_REGISTRATION_KEY to CHAP_API_TOKEN."""
+    client = make_client(**{API_TOKEN_ENV_VAR: API_TOKEN, SERVICE_KEY_ENV_VAR: API_TOKEN})
+
+    assert register(client, sample_registration, {"X-Service-Key": API_TOKEN}).status_code == 200
+    assert client.get("/v1/terminology", headers={"Authorization": f"Bearer {API_TOKEN}"}).status_code == 200
