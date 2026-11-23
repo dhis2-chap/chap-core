@@ -25,7 +25,7 @@ The output NetCDF file can be used with `plot-backtest` for visualization and `e
 
 | Parameter | Description |
 |-----------|-------------|
-| `--model-name` | Model identifier. Can be a local directory path, GitHub URL, or chapkit service URL |
+| `--model-name` | Model identifier. Can be a local directory path, GitHub URL, chapkit service URL, chapkit container image (`docker://<image>`, run as a container for the duration of the command) or built-in model (`builtin:<name>`) |
 | `--dataset-csv` | Path to CSV file containing disease data |
 | `--output-file` | Path for output NetCDF file (use `.nc` extension) |
 
@@ -66,6 +66,7 @@ Control model execution environment:
 | `--run-config.debug` | Enable verbose debug logging | false |
 | `--run-config.log-file` | Path to write log output | None |
 | `--run-config.run-directory-type` | Directory handling: `latest`, `timestamp`, or `use_existing` | timestamp |
+| `--run-config.runs-dir` | Directory for the per-run model working copies | `CHAP_RUNS_DIR`, or `runs/` |
 
 ### Run Directory Types
 
@@ -82,6 +83,7 @@ Control model execution environment:
 | `--data-source-mapping` | Path to JSON file for column name mapping | None |
 | `--data-configuration` | Path to JSON or YAML file with data settings, such as masked ranges | None |
 | `--dry-run` | Write data files and print commands without executing the model | false |
+| `--strict` | Stop before running when the dataset does not meet the model's requirements, as `chap validate` reports them, or the model configuration sets options the model does not have. Without it, these are warnings | false |
 
 ## Dry Run
 
@@ -185,7 +187,7 @@ The same option is available on `chap evaluate-ensemble` (with `--dataset-csv`) 
 
 - A range must use the same period type as the dataset: week ranges on monthly data are rejected.
 - Ranges may not overlap, and `start` may not be after `end`.
-- A masked period may not fall in the evaluation window, the last `n_periods + (n_splits - 1) * stride` periods. The backtest is rejected before any model runs.
+- A masked period may not fall in the evaluation window, the last `n_periods + (n_splits - 1) * stride` periods. The backtest is rejected before any model runs. `chap validate --data-configuration --backtest-params ...` reports this too, as an error; without `--backtest-params` it warns for the window of the default backtest.
 - The CSV may not contain a `target_masked` column of its own; that name is reserved.
 - Future data passed to the model has no `disease_cases`. It does have `target_masked`, always 0, because a forecast period is never masked.
 
@@ -230,6 +232,16 @@ chap eval \
     --output-file ./eval.nc \
     --run-config.is-chapkit-model
 ```
+
+**From a container image (runs the image for the duration of the command):**
+```console
+chap eval \
+    --model-name docker://ghcr.io/chap-models/chapkit_ghr_model:sha-84fbe77 \
+    --dataset-csv ./data/vietnam.csv \
+    --output-file ./eval.nc
+```
+
+A `docker://` image is always a chapkit model, so it needs no `--run-config.is-chapkit-model`. Chap pulls the image if it is missing, runs it on a free local port and removes the container when the command ends, also when it is interrupted. This needs Docker.
 
 When providing a directory path with `--run-config.is-chapkit-model`, Chap automatically:
 1. Starts a FastAPI dev server using `uv run fastapi dev`

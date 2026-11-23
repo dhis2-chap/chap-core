@@ -9,17 +9,24 @@ from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo
 from chap_core.database.model_template_seed import seed_builtin_models
-from chap_core.database.model_templates_and_config_tables import ModelTemplateDB, ModelTemplateRole
+from chap_core.database.model_templates_and_config_tables import (
+    ModelConfiguration,
+    ModelTemplateDB,
+    ModelTemplateRole,
+)
 from chap_core.database.tables import Backtest
 from chap_core.datatypes import FullData
 from chap_core.external.ExtendedPredictor import ExtendedPredictor
 from chap_core.file_io.example_data_set import datasets
 from chap_core.models.builtin import (
+    BaselineNotApplicable,
     BuiltinModelTemplate,
     builtin_model,
     get_builtin_model,
     get_builtin_models,
 )
+from chap_core.models.builtin.empirical import N_SAMPLES, even_samples, period_of_year
+from chap_core.models.builtin.seasonal_shift_persistence import SeasonalShifts
 from chap_core.models.model_template import ModelTemplate
 from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.rest_api.db_worker_functions import run_backtest, run_prediction
@@ -52,9 +59,13 @@ def test_unknown_builtin_url_fails():
 
 
 def test_builtin_url_resolves_the_registered_version_only():
-    assert ModelTemplate.from_directory_or_github_url("builtin:global_median@1").name == "global_median"
+    version = get_builtin_model("global_median").spec.version
+    assert ModelTemplate.from_directory_or_github_url(f"builtin:global_median@{version}").name == "global_median"
     with pytest.raises(ValueError, match="version '0' cannot be run"):
         ModelTemplate.from_directory_or_github_url("builtin:global_median@0")
+
+
+MIDDLE = N_SAMPLES // 2
 
 
 def test_global_median_samples_span_observations_of_the_same_location(health_population_data):
@@ -67,10 +78,11 @@ def test_global_median_samples_span_observations_of_the_same_location(health_pop
     assert set(forecasts.keys()) == set(future.keys())
     for location, samples in forecasts.items():
         assert np.array_equal(samples.samples, repeated[location].samples)
-        assert samples.samples.shape == (3, 100)
+        assert samples.samples.shape == (3, N_SAMPLES)
         observed = train[location].disease_cases
-        assert np.nanmin(observed) <= samples.samples.min() <= samples.samples.max() <= np.nanmax(observed)
-        assert np.all(samples.samples[:, 49] == np.nanmedian(observed))
+        observed = observed[np.isfinite(observed)]
+        assert np.all(samples.samples[:, MIDDLE] == np.median(observed))
+        assert np.all(np.isin(np.delete(samples.samples, MIDDLE, axis=1), observed))
 
 
 @pytest.mark.parametrize("name", BUILTIN_NAMES)
@@ -97,7 +109,7 @@ def test_unregistered_builtin_template_is_archived(engine):
 def test_builtin_model_passes_sanity_check(name):
     with ModelTemplate.from_directory_or_github_url(f"builtin:{name}") as template:
         assert isinstance(template, BuiltinModelTemplate)
-        sanity_check_estimator(template.get_model())
+        sanity_check_estimator(template.get_model(), N_SAMPLES)
 
 
 @pytest.mark.parametrize("name", BUILTIN_NAMES)
@@ -152,6 +164,27 @@ def test_builtin_model_runs_backtest_and_prediction(name, engine_with_dataset):
         assert prediction_id is not None
 
 
+def test_backtest_and_prediction_fail_on_a_configured_covariate_missing_from_the_dataset(engine_with_dataset):
+    with SessionWrapper(engine_with_dataset) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        template_id = session.session.exec(
+            select(ModelTemplateDB.id).where(ModelTemplateDB.name == "global_median")
+        ).one()
+        session.add_configured_model(
+            template_id, ModelConfiguration(additional_continuous_covariates=["RH"]), "with_rh"
+        )
+        with pytest.raises(ValueError, match="RH"):
+            run_backtest(
+                BacktestCreate(name="missing", dataset_id=dataset_id, model_id="global_median:with_rh"),
+                n_periods=3,
+                n_splits=2,
+                stride=1,
+                session=session,
+            )
+        with pytest.raises(ValueError, match="RH"):
+            run_prediction("global_median:with_rh", dataset_id, 3, name="missing", session=session)
+
+
 def test_chap_report_rejects_builtin_models(tmp_path):
     from chap_core.cli_endpoints.report import report
 
@@ -182,68 +215,275 @@ def _forecast(name, train, historic, future):
 @pytest.mark.parametrize(
     ("name", "expected"),
     [
-        ("global_median", [[0.0, 18.0, 18.0, 196.303]] * 4),
-        (
-            "seasonal_median",
-            [
-                [2.2576, 25.5, 25.5, 150.7424],
-                [2.4293, 27.0, 27.0, 161.798],
-                [2.6869, 42.5, 42.5, 150.9141],
-                [2.1717, 34.0, 34.0, 176.9949],
-            ],
-        ),
+        ("global_median", [[0.0, 18.0, 200.0]] * 4),
         (
             "persistence",
             [
-                [56.0746, 109.9117, 109.9117, 217.5599],
-                [50.8149, 99.0098, 99.0098, 246.4415],
-                [38.1871, 115.699, 115.699, 784.4159],
-                [16.2527, 126.6284, 126.6284, 1628.1958],
+                [7.4167, 100.0, 1345.6667],
+                [7.08, 100.0, 1110.0],
+                [6.9737, 100.0, 1783.3333],
+                [5.3125, 100.0, 1918.0],
+            ],
+        ),
+        (
+            "seasonal_median",
+            [
+                [2.0, 25.5, 151.0],
+                [2.0, 27.0, 163.0],
+                [2.0, 42.5, 151.0],
+                [2.0, 34.0, 180.0],
+            ],
+        ),
+        (
+            "seasonal_shift_persistence",
+            [
+                [55.1111, 109.9117, 217.8333],
+                [50.6222, 99.0098, 251.5],
+                [34.9111, 115.699, 792.5714],
+                [14.7111, 126.6284, 1687.1429],
             ],
         ),
     ],
 )
 def test_baseline_fixed_output(name, expected, weekly_split):
     samples = _forecast(name, *weekly_split)["boaco"].samples
-    assert samples.shape == (4, 100)
-    # Lowest, the two middle and highest sample of each future week.
-    np.testing.assert_allclose(samples[:, [0, 49, 50, 99]], expected, atol=1e-4)
+    assert samples.shape == (4, N_SAMPLES)
+    # Lowest, middle (the median) and highest sample of each future week.
+    np.testing.assert_allclose(samples[:, [0, MIDDLE, -1]], expected, atol=1e-4)
 
 
-def test_seasonal_median_is_the_median_of_the_same_week(weekly_split):
+def _observations(data, locations):
+    cases = np.concatenate([data[location].disease_cases for location in locations])
+    return cases[np.isfinite(cases)]
+
+
+def test_global_median_uses_other_locations_for_an_unseen_location(weekly_split):
+    train, historic, future = weekly_split
+    others = [location for location in train.keys() if location != "boaco"]
+
+    samples = _forecast("global_median", train.filter_locations(others), historic, future)["boaco"].samples
+
+    assert np.all(np.isin(samples, _observations(train, others)))
+    assert np.all(np.diff(samples, axis=1) >= 0)
+
+
+def test_global_median_uses_other_locations_for_a_location_without_observations(weekly_split):
+    train, historic, future = weekly_split
+    df = train.to_pandas()
+    df.loc[df.location == "boaco", "disease_cases"] = np.nan
+    unobserved = SpatioTemporalDataSet.from_pandas(df, FullData)
+    others = [location for location in train.keys() if location != "boaco"]
+
+    samples = _forecast("global_median", unobserved, historic, future)["boaco"].samples
+
+    assert np.all(np.isin(samples, _observations(train, others)))
+
+
+def test_global_median_is_not_applicable_without_any_observations(weekly_split):
+    train, historic, future = weekly_split
+    df = train.to_pandas()
+    df["disease_cases"] = np.nan
+    with pytest.raises(BaselineNotApplicable, match="any location"):
+        _forecast("global_median", SpatioTemporalDataSet.from_pandas(df, FullData), historic, future)
+
+
+def test_seasonal_median_uses_all_observations_of_the_same_week(weekly_split):
     train, historic, future = weekly_split
     forecasts = _forecast("seasonal_median", train, historic, future)
     for location, samples in forecasts.items():
         cases = train[location].disease_cases
-        for week, median in zip(future[location].time_period.week, samples.samples[:, 49], strict=True):
-            same_week = cases[train[location].time_period.week == week]
-            assert median == np.nanmedian(same_week)
+        for week, row in zip(future[location].time_period.week, samples.samples, strict=True):
+            same_week = cases[(train[location].time_period.week == week) & np.isfinite(cases)]
+            assert row[MIDDLE] == np.median(same_week)
+            np.testing.assert_array_equal(np.unique(np.delete(row, MIDDLE)), np.unique(same_week))
 
 
-def test_seasonal_median_fails_for_an_unobserved_period_of_year(weekly_full_data):
+def test_seasonal_median_uses_the_global_median_for_an_unobserved_period_of_year(weekly_full_data):
     periods = weekly_full_data.period_range
     short_train = weekly_full_data.restrict_time_period(slice(periods[0], periods[9]))
     future = weekly_full_data.restrict_time_period(slice(periods[20], periods[22]))
-    with pytest.raises(ValueError, match="needs every forecast period of the year observed"):
-        _forecast("seasonal_median", short_train, short_train, future)
+
+    seasonal = _forecast("seasonal_median", short_train, short_train, future)
+
+    for location, samples in seasonal.items():
+        expected = even_samples(_observations(short_train, [location]))
+        np.testing.assert_array_equal(samples.samples, np.tile(expected, (len(samples.samples), 1)))
 
 
-def test_persistence_scales_the_last_historic_value(weekly_split):
+def test_seasonal_median_uses_other_locations_for_an_unseen_location(weekly_split):
+    train, historic, future = weekly_split
+    others = [location for location in train.keys() if location != "boaco"]
+
+    samples = _forecast("seasonal_median", train.filter_locations(others), historic, future)["boaco"].samples
+
+    for row, week in zip(samples, period_of_year(future["boaco"].time_period)):
+        same_week = np.concatenate(
+            [train[other].disease_cases[period_of_year(train[other].time_period) == week] for other in others]
+        )
+        same_week = same_week[np.isfinite(same_week)]
+        assert row[MIDDLE] == np.median(same_week)
+        assert np.all(np.isin(np.delete(row, MIDDLE), same_week))
+
+
+def test_persistence_median_is_the_last_historic_value(weekly_split):
+    train, historic, future = weekly_split
+    forecasts = _forecast("persistence", train, historic, future)
+
+    for location, samples in forecasts.items():
+        assert np.all(np.median(samples.samples, axis=1) == historic[location].disease_cases[-1])
+        assert np.all(np.ptp(samples.samples, axis=1) > 0)
+
+
+def test_persistence_uses_the_differences_of_all_locations_for_an_unseen_location(weekly_split):
+    train, historic, future = weekly_split
+    others = train.filter_locations([location for location in train.keys() if location != "boaco"])
+
+    samples = _forecast("persistence", others, historic, future)["boaco"].samples
+
+    assert np.all(np.median(samples, axis=1) == historic["boaco"].disease_cases[-1])
+    assert np.all(np.ptp(samples, axis=1) > 0)
+
+
+def test_persistence_forecasts_the_last_value_without_differences(weekly_full_data):
+    periods = weekly_full_data.period_range
+    single_period = weekly_full_data.restrict_time_period(slice(periods[0], periods[0]))
+    future = weekly_full_data.restrict_time_period(slice(periods[1], periods[2]))
+
+    forecasts = _forecast("persistence", single_period, single_period, future)
+
+    for location, samples in forecasts.items():
+        assert np.all(samples.samples == single_period[location].disease_cases[-1])
+
+
+def test_persistence_is_not_applicable_without_a_historic_value(weekly_split):
+    train, historic, future = weekly_split
+    df = historic.to_pandas()
+    df.loc[df.location == "boaco", "disease_cases"] = np.nan
+    with pytest.raises(BaselineNotApplicable, match="boaco"):
+        _forecast("persistence", train, SpatioTemporalDataSet.from_pandas(df, FullData), future)
+
+
+def test_seasonal_shift_persistence_scales_the_last_historic_value(weekly_split):
     train, historic, future = weekly_split
     last_value = historic["boaco"].disease_cases[-1]
     df = historic.to_pandas()
     df.loc[(df.location == "boaco") & (df.time_period == df.time_period.max()), "disease_cases"] = 2 * last_value
     doubled = SpatioTemporalDataSet.from_pandas(df, FullData)
 
-    median = _forecast("persistence", train, historic, future)["boaco"].samples[:, 49]
-    doubled_median = _forecast("persistence", train, doubled, future)["boaco"].samples[:, 49]
+    median = np.median(_forecast("seasonal_shift_persistence", train, historic, future)["boaco"].samples, axis=1)
+    doubled_median = np.median(_forecast("seasonal_shift_persistence", train, doubled, future)["boaco"].samples, axis=1)
 
     np.testing.assert_allclose(doubled_median + 1, (median + 1) * (2 * last_value + 1) / (last_value + 1))
 
 
-def test_persistence_fails_without_earlier_changes_to_learn_from(weekly_full_data):
+def test_seasonal_shift_persistence_forecasts_beyond_a_short_history(weekly_full_data):
     periods = weekly_full_data.period_range
     short_train = weekly_full_data.restrict_time_period(slice(periods[0], periods[9]))
-    future = weekly_full_data.restrict_time_period(slice(periods[10], periods[11]))
-    with pytest.raises(ValueError, match="Persistence needs one to estimate the spread"):
-        _forecast("persistence", short_train, short_train, future)
+    future = weekly_full_data.restrict_time_period(slice(periods[10], periods[21]))
+
+    forecasts = _forecast("seasonal_shift_persistence", short_train, short_train, future)
+
+    assert set(forecasts.keys()) == set(future.keys())
+    for samples in forecasts.values():
+        assert np.all(np.isfinite(samples.samples))
+        # Ten periods have one pair nine periods apart, so horizon 9 and later need all locations' ratios.
+        assert np.all(np.ptp(samples.samples[8:], axis=1) > 0)
+
+
+def test_seasonal_shift_persistence_forecasts_with_spread_more_than_a_year_after_the_last_value(weekly_split):
+    train, historic, future = weekly_split
+    df = historic.to_pandas()
+    gap = df.time_period.isin(df.time_period.unique()[-60:])
+    df.loc[(df.location == "boaco") & gap, "disease_cases"] = np.nan
+
+    samples = _forecast("seasonal_shift_persistence", train, SpatioTemporalDataSet.from_pandas(df, FullData), future)[
+        "boaco"
+    ].samples
+
+    assert np.all(np.ptp(samples, axis=1) > 0)
+
+
+def test_seasonal_shift_persistence_uses_the_ratios_of_all_locations_for_an_unseen_location(weekly_split):
+    train, historic, future = weekly_split
+    others = train.filter_locations([location for location in train.keys() if location != "boaco"])
+    pooled = SeasonalShifts.pooled(
+        SeasonalShifts.from_cases(np.asarray(data.disease_cases, dtype=float), period_of_year(data.time_period), 52)
+        for data in others.values()
+    )
+
+    samples = _forecast("seasonal_shift_persistence", others, historic, future)["boaco"].samples
+
+    last_value = historic["boaco"].disease_cases[-1]
+    first_week = period_of_year(future["boaco"].time_period)[0]
+    expected = np.maximum((last_value + 1) * even_samples(pooled.ratios(first_week, 1)) - 1, 0)
+    np.testing.assert_allclose(samples[0], expected)
+
+
+def test_seasonal_shift_persistence_forecasts_the_last_value_without_any_ratios(weekly_full_data):
+    periods = weekly_full_data.period_range
+    single_period = weekly_full_data.restrict_time_period(slice(periods[0], periods[0]))
+    future = weekly_full_data.restrict_time_period(slice(periods[1], periods[2]))
+
+    forecasts = _forecast("seasonal_shift_persistence", single_period, single_period, future)
+
+    for location, samples in forecasts.items():
+        assert np.all(samples.samples == single_period[location].disease_cases[-1])
+
+
+def test_seasonal_shift_persistence_is_not_applicable_without_a_historic_value(weekly_split):
+    train, historic, future = weekly_split
+    df = historic.to_pandas()
+    df.loc[df.location == "boaco", "disease_cases"] = np.nan
+    with pytest.raises(BaselineNotApplicable, match="boaco"):
+        _forecast("seasonal_shift_persistence", train, SpatioTemporalDataSet.from_pandas(df, FullData), future)
+
+
+SHIFTS = SeasonalShifts({1: {2: np.array([1.0, 3.0]), 3: np.array([2.0]), 5: np.array([4.0]), 8: np.array([6.0])}})
+
+
+@pytest.mark.parametrize(
+    ("season", "expected"),
+    [
+        (3, [2.0]),
+        (4, [2.0, 4.0]),
+        (6, [4.0, 6.0]),
+        (1, [1.0, 3.0, 2.0, 4.0, 6.0]),
+        (9, [1.0, 3.0, 2.0, 4.0, 6.0]),
+    ],
+    ids=["observed", "one-missing", "several-missing", "nothing-earlier", "nothing-later"],
+)
+def test_seasonal_shifts_fall_back_to_the_nearest_periods_of_year(season, expected):
+    np.testing.assert_array_equal(SHIFTS.ratios(season, horizon=1), expected)
+
+
+def test_seasonal_shifts_have_no_ratios_for_an_unseen_horizon():
+    assert SHIFTS.ratios(3, horizon=2) is None
+
+
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        ([7.0], [7.0] * 101),
+        ([96.0, 26.0], [26.0] * 50 + [61.0] + [96.0] * 50),
+        ([9.0, 2.0, 5.0], [2.0] * 33 + [5.0] * 35 + [9.0] * 33),
+    ],
+    ids=["single", "even", "odd"],
+)
+def test_even_samples_repeat_the_sorted_values_around_the_median(values, expected):
+    np.testing.assert_array_equal(even_samples(np.array(values)), expected)
+
+
+def test_even_samples_use_each_value_equally_often():
+    samples = even_samples(np.array([5.0, 1.0, 4.0, 2.0, 3.0]))
+    assert samples[MIDDLE] == 3.0
+    np.testing.assert_array_equal(np.unique(np.delete(samples, MIDDLE), return_counts=True)[1], [20] * 5)
+
+
+@pytest.mark.parametrize("n_values", [1, 2, 3, 4, 5, 99, 100, 101, 102, 365])
+def test_even_samples_have_the_median_in_the_middle(n_values):
+    values = np.arange(n_values, dtype=float) ** 2
+    samples = even_samples(values)
+    assert samples.shape == (N_SAMPLES,)
+    assert samples[MIDDLE] == np.median(values) == np.median(samples)
+    assert np.all(np.diff(samples) >= 0)
+    assert np.all(np.isin(np.delete(samples, MIDDLE), values))

@@ -57,6 +57,12 @@ class MetricInfo(DBModel):
         default=None,
         description="One-line description of what the metric's comparison value means. Null without a comparison.",
     )
+    dimensions: list[str] = Field(
+        description=(
+            "Dimensions the metric can be broken down by ('location', 'time_period', 'horizon_distance'). "
+            "A metric plot can show the metric only if these include all of the plot's ``required_dimensions``."
+        ),
+    )
 
 
 def list_metric_info(settings: Settings) -> list[MetricInfo]:
@@ -79,6 +85,7 @@ def list_metric_info(settings: Settings) -> list[MetricInfo]:
                 comparison_description=get_comparison_description(metric_cls.spec.comparison_op)
                 if metric_cls.spec.comparison_op
                 else None,
+                dimensions=[d.value for d in metric_cls.spec.output_dimensions],
             )
         )
     return metrics

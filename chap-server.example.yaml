@@ -1,0 +1,18 @@
+# Example chap-server.yaml. chap-core reads it when CHAP_CONFIG holds its path.
+#
+# Keys are the setting names without the CHAP_ prefix, in lower case. An environment
+# variable overrides the same setting here (CHAP_CORS_ORIGINS overrides cors_origins).
+# An unknown key stops chap-core at startup, so a typo is caught at once.
+#
+# Keep secrets such as CHAP_API_TOKEN in the environment, not in this file.
+
+# Browser origins allowed by CORS. Not needed when the Modeling App connects through
+# the DHIS2 Route API.
+cors_origins:
+  - https://dhis2.example.org
+
+# Path prefix when serving behind a reverse proxy.
+# root_path: /chap
+
+# Turn on debug logging.
+# debug: false

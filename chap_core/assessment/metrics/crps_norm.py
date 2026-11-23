@@ -3,7 +3,6 @@ Normalized Continuous Ranked Probability Score (CRPS) metric.
 """
 
 import numpy as np
-import pandas as pd
 
 from chap_core.assessment.metrics import metric
 from chap_core.assessment.metrics.base import (
@@ -12,7 +11,7 @@ from chap_core.assessment.metrics.base import (
     OptimizationDirection,
     ProbabilisticMetric,
 )
-from chap_core.assessment.metrics.crps import CRPSMetric
+from chap_core.assessment.metrics.crps import crps_rows
 
 
 @metric()
@@ -20,8 +19,9 @@ class CRPSNormMetric(ProbabilisticMetric):
     """
     Normalized Continuous Ranked Probability Score (CRPS) metric.
 
-    CRPS is normalized by the range of observed values to make it comparable
-    across different scales.
+    CRPS is normalized by the range of the observed values of the forecast cells
+    (observations without a forecast are not used), to make it comparable across
+    different scales.
 
     Usage:
         crps_norm = CRPSNormMetric()
@@ -34,29 +34,22 @@ class CRPSNormMetric(ProbabilisticMetric):
         metric_id="crps_norm",
         metric_name="CRPS Normalized",
         aggregation_op=AggregationOp.MEAN,
-        description="Normalized CRPS - CRPS divided by the range of observed values",
+        description="Normalized CRPS - CRPS divided by the range of the observed values that have a forecast",
         optimization_direction=OptimizationDirection.MINIMIZE,
         proper_scoring_rule=True,
         comparison_op="skill_ratio",
     )
 
-    def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
-        """Compute normalized CRPS using all samples."""
-        # First compute regular CRPS
-        crps_metric = CRPSMetric()
-        detailed_crps = crps_metric.compute_detailed(observations, forecasts)
+    def compute_cell_metrics(self, samples: np.ndarray, observed: np.ndarray) -> np.ndarray:
+        """CRPS of each cell divided by the range of the observations of the scored cells.
 
-        # Calculate normalization factor based on range of all observed values
-        obs_values = observations["disease_cases"].values
-        obs_min, obs_max = obs_values.min(), obs_values.max()  # type: ignore[union-attr]
-        obs_range = obs_max - obs_min  # type: ignore[operator]
-
-        # Normalize CRPS by the range (avoid division by zero)
-        if obs_range > 0:  # type: ignore[operator]
-            detailed_crps["metric"] = detailed_crps["metric"] / obs_range  # type: ignore[operator]
-
-        return detailed_crps
+        Only observations that have a forecast count, so the score does not depend on how
+        much of the dataset outside the evaluated periods is passed in.
+        """
+        crps = crps_rows(observed, samples)
+        obs_range = observed.max() - observed.min()
+        return crps / obs_range if obs_range > 0 else crps
 
     def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:
         """Not used directly - compute_detailed is overridden."""
-        raise NotImplementedError("CRPSNormMetric overrides compute_detailed")
+        raise NotImplementedError("CRPSNormMetric overrides compute_cell_metrics")

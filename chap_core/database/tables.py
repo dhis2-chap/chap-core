@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 import numpy as np
 from pydantic import computed_field
-from sqlalchemy import JSON, CheckConstraint, Column, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, Column, Index, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, Relationship, col, or_, select
 
@@ -574,6 +574,8 @@ class PredictionSetupReadWithPredictions(PredictionSetupRead):
 class PredictionSamplesEntry(ForecastBase, table=True):
     """Persisted forecast row that belongs to a `Prediction` (not a backtest)."""
 
+    __table_args__ = (Index("ix_predictionsamplesentry_prediction", "prediction_id"),)
+
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
     prediction_id: int = Field(foreign_key="prediction.id", description="Foreign key to the owning `Prediction`.")
     prediction: "Prediction" = Relationship(back_populates="forecasts")
@@ -581,6 +583,9 @@ class PredictionSamplesEntry(ForecastBase, table=True):
 
 class BacktestForecast(ForecastBase, table=True):
     """Persisted forecast row that belongs to a `Backtest` — adds train/seen-period context."""
+
+    # Evaluation entries and plots read one backtest's forecasts, often for some org units (CLIM-1791).
+    __table_args__ = (Index("ix_backtestforecast_backtest_org_unit", "backtest_id", "org_unit"),)
 
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
     backtest_id: int = Field(foreign_key="backtest.id", description="Foreign key to the owning `Backtest`.")

@@ -1,20 +1,22 @@
 import logging
+from collections import defaultdict
 from typing import Annotated, Any, Literal
 
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
 from fastapi.exceptions import RequestValidationError
 from pydantic import Field as PydanticField
 from pydantic import ValidationError as PydanticValidationError
+from pydantic_core import from_json, to_json
+from sqlalchemy import String, cast
 from sqlalchemy.orm import selectinload
-from sqlmodel import Field, Session, select
+from sqlmodel import Field, Session, col, select
 
 import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import (
     BacktestParams,
     BacktestParamsBase,
-    DataElement,
     DataList,
     EvaluationEntry,
     FeatureCollectionModel,
@@ -34,7 +36,7 @@ from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager, period_type_of
 from chap_core.database.dataset_tables import DataSet as DataSetTable
-from chap_core.database.dataset_tables import DataSetCreateInfo
+from chap_core.database.dataset_tables import DataSetCreateInfo, period_kind
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 from chap_core.database.settings import Settings, SettingsManager
 from chap_core.database.tables import (
@@ -43,13 +45,17 @@ from chap_core.database.tables import (
     BacktestRead,
     BacktestSpecification,
     Prediction,
+    PredictionSamplesEntry,
     is_not_baseline_backtest,
 )
 from chap_core.datatypes import create_tsdataclass
+from chap_core.exceptions import InvalidDateError
 from chap_core.services import threshold_service
 from chap_core.services.dataset_validation import RESERVED_FIELDS
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.time_period import TimePeriod
+from chap_core.time_period.date_util_wrapper import clean_timestring
 
 from ...celery_tasks import JOB_METADATA_KW, JOB_NAME_KW, JOB_REQUEST_KW, JOB_TYPE_KW, CeleryPool, JobType
 from ...data_models import (
@@ -66,6 +72,7 @@ from ...data_models import (
     MakeBacktestsResponse,
     MakeBacktestWithDataRequest,
     MakePredictionRequest,
+    ObservationColumns,
     PredictionParams,
     ValidationError,
 )
@@ -80,6 +87,7 @@ from .dependencies import (
     reject_mask_indicator_input,
     require_dataset_target,
     require_target_column,
+    within_model_horizon,
 )
 
 router = APIRouter(prefix="/analytics")
@@ -127,7 +135,6 @@ def make_dataset(
     job = worker.queue_db(
         wf.harmonize_and_add_dataset,
         feature_names,
-        request.data_to_be_fetched,
         provided_data.model_dump(),
         request.name,
         request.type,
@@ -140,7 +147,9 @@ def make_dataset(
             JOB_TYPE_KW: JobType.DATASET,
             JOB_NAME_KW: request.name,
             JOB_METADATA_KW: {
-                "parameters": request.model_dump(mode="json", exclude={"name", "geojson", "provided_data"})
+                "parameters": request.model_dump(
+                    mode="json", exclude={"name", "geojson", "provided_data", "provided_data_columns"}
+                )
             },
         },
     )
@@ -189,16 +198,57 @@ def _read_and_validate_dataset(request, dry_run: bool) -> tuple[list[str], DataS
 
 
 def _read_dataset(request):
-    if not request.provided_data:
+    # Only make-dataset accepts columnar observations; create-backtest-with-data shares this reader.
+    columns = getattr(request, "provided_data_columns", None)
+    if not request.provided_data and (columns is None or not columns.org_unit):
         raise HTTPException(status_code=400, detail="No observation data provided.")
-    feature_names = list({entry.feature_name for entry in request.provided_data})
+    if columns is not None:
+        feature_names = list(columns.values)
+    else:
+        feature_names = list({entry.feature_name for entry in request.provided_data})
     reject_mask_indicator_input(feature_names)
     require_target_column(request.target_column, feature_names)
     dataclass = create_tsdataclass(feature_names)
-    provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
+    if columns is not None:
+        provided_data = _columns_to_dataset(dataclass, columns)
+    else:
+        provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
     return feature_names, provided_data
+
+
+def _columns_to_dataset(dataclass, columns: ObservationColumns) -> DataSet:
+    """Build the dataset straight from columnar observations, without one model per observation."""
+    frame = pd.DataFrame(
+        {
+            "location": columns.org_unit,
+            "time_period": columns.period,
+            **{name: np.array(values, dtype=float) for name, values in columns.values.items()},
+        }
+    )
+    # `2024W1`, `2024W01` and `2024-W01` are the same week, so compare periods in their parsed form.
+    frame["time_period"] = frame["time_period"].map({period: _period_id(period) for period in set(columns.period)})
+    duplicated = frame.duplicated(["location", "time_period"])
+    if duplicated.any():
+        first = frame[duplicated].iloc[0]
+        raise HTTPException(
+            status_code=422,
+            detail=f"providedDataColumns has more than one row for org unit {first.location!r}, "
+            f"period {first.time_period!r}",
+        )
+    return DataSet.from_pandas(frame, dataclass, fill_missing=True)
+
+
+def _period_id(period: str) -> str:
+    """The canonical id of a period string, or the string itself when it does not parse.
+
+    A period that does not parse is left for `DataSet.from_pandas` to reject, as before.
+    """
+    try:
+        return str(TimePeriod.parse(clean_timestring(period)).id)
+    except (ValueError, InvalidDateError):
+        return period
 
 
 def _find_locations_with_complete_covariates(
@@ -367,7 +417,7 @@ def get_backtest_overlap(
     tags=["Predictions"],
     summary="Read forecast quantiles for a prediction (query parameter id)",
 )
-async def get_prediction_entry(
+def get_prediction_entry(
     prediction_id: Annotated[int, Query(alias="predictionId")],
     quantiles: list[float] = Query(...),
     session: Session = Depends(get_session),
@@ -378,19 +428,51 @@ async def get_prediction_entry(
     ``GET /v1/analytics/prediction-entry/{predictionId}`` — only the parameter style
     differs; that variant takes the id in the path. 404 if the prediction id is unknown.
     """
-    prediction = session.get(Prediction, prediction_id)
-    if prediction is None:
+    return _prediction_entries_response(session, prediction_id, quantiles)
+
+
+def _forecast_quantiles(samples: list[list[float]], quantiles: list[float]) -> list[list[float]]:
+    """Quantiles of each forecast's samples, one row per forecast.
+
+    One ``np.quantile`` call per sample count instead of one per forecast and quantile:
+    at facility scale that is 90,000 calls, which took several seconds.
+    """
+    result = np.empty((len(samples), len(quantiles)))
+    rows_by_length: dict[int, list[int]] = defaultdict(list)
+    for row, values in enumerate(samples):
+        rows_by_length[len(values)].append(row)
+    for rows in rows_by_length.values():
+        stacked = np.array([samples[row] for row in rows], dtype=float)
+        result[rows] = np.quantile(stacked, quantiles, axis=1).T
+    return result.tolist()
+
+
+def _decode_samples(texts: list[str]) -> list[list[float]]:
+    """Parse the stored JSON sample lists in one call: per-row ``json.loads`` took 2.3 s for 126,000 forecasts, this 0.6 s."""
+    return from_json("[" + ",".join(texts) + "]") if texts else []
+
+
+def _prediction_entries_response(session: Session, prediction_id: int, quantiles: list[float]) -> Response:
+    """The prediction-entry body, serialised in one step instead of one ``PredictionEntry`` per row."""
+    if session.get(Prediction, prediction_id) is None:
         raise HTTPException(status_code=404, detail="Prediction not found")
-    return [
-        PredictionEntry(
-            period=forecast.period,
-            orgUnit=forecast.org_unit,
-            quantile=q,
-            value=float(np.quantile(forecast.values, q)),
+    expr = (
+        select(
+            PredictionSamplesEntry.period,
+            PredictionSamplesEntry.org_unit,
+            cast(PredictionSamplesEntry.values, String),
         )
-        for forecast in prediction.forecasts
-        for q in quantiles
+        .where(PredictionSamplesEntry.prediction_id == prediction_id)
+        .order_by(col(PredictionSamplesEntry.id))
+    )
+    rows = session.connection().execute(expr).all()
+    values = _forecast_quantiles(_decode_samples([samples for _, _, samples in rows]), quantiles)
+    body = [
+        {"orgUnit": org_unit, "period": period, "quantile": q, "value": value}
+        for (period, org_unit, _), row_values in zip(rows, values, strict=True)
+        for q, value in zip(quantiles, row_values, strict=True)
     ]
+    return Response(content=to_json(body, inf_nan_mode="null"), media_type="application/json")
 
 
 @router.get(
@@ -399,7 +481,7 @@ async def get_prediction_entry(
     tags=["Backtests"],
     summary="Read forecast quantiles from a backtest",
 )
-async def get_evaluation_entries(
+def get_evaluation_entries(
     backtest_id: Annotated[int, Query(alias="backtestId")],
     quantiles: list[float] = Query(...),
     split_period: str = Query(None, alias="splitPeriod"),
@@ -431,48 +513,40 @@ async def get_evaluation_entries(
         logger.info("Filtering evaluation entries to org_units: %s", org_units_set)
 
     cls = BacktestForecast
-    expr = select(cls).where(cls.backtest_id == backtest_id)
+    expr = select(cls.period, cls.org_unit, cls.last_seen_period, cast(cls.values, String)).where(
+        cls.backtest_id == backtest_id
+    )
     if split_period:
         expr = expr.where(cls.last_seen_period == split_period)
     if org_units_set and not return_summed:
-        expr = expr.where(cls.org_unit.in_(org_units_set))  # type: ignore[attr-defined]
-    forecasts_result = session.exec(expr)
+        expr = expr.where(col(cls.org_unit).in_(org_units_set))
+    # Plain rows, not ORM objects: at facility scale the ORM load costs seconds.
+    fetched = session.connection().execute(expr.order_by(col(cls.id))).all()
+    decoded = _decode_samples([text for *_, text in fetched])
+    rows: list[tuple[str, str, str, list[float]]] = [
+        (period, org_unit, last_seen_period, samples)
+        for (period, org_unit, last_seen_period, _), samples in zip(fetched, decoded, strict=True)
+    ]
 
-    logger.info(forecasts_result)
-
-    forecasts_list: list[BacktestForecast]
     if return_summed:
         # sum forecasts over all regions
         summed_forecasts: dict[tuple[str, str], Any] = {}
-        for forecast in forecasts_result:
-            key = (forecast.period, forecast.last_seen_period)
+        for period, _, last_seen_period, values in rows:
+            key = (period, last_seen_period)
             if key not in summed_forecasts:
-                summed_forecasts[key] = np.array([0.0] * len(forecast.values))
-            summed_forecasts[key] += np.array(forecast.values)
-
-        forecasts_list = [
-            BacktestForecast(
-                period=key[0],
-                org_unit="adm0",
-                last_seen_period=key[1],
-                values=values.tolist(),
-            )
-            for key, values in summed_forecasts.items()
+                summed_forecasts[key] = np.zeros(len(values))
+            summed_forecasts[key] += np.array(values)
+        rows = [
+            (period, "adm0", last_seen, summed.tolist()) for (period, last_seen), summed in summed_forecasts.items()
         ]
-    else:
-        forecasts_list = list(forecasts_result)
 
-    return [
-        EvaluationEntry(
-            period=forecast.period,
-            orgUnit=forecast.org_unit,
-            quantile=q,
-            splitPeriod=forecast.last_seen_period,
-            value=float(np.quantile(forecast.values, q)),
-        )
-        for forecast in forecasts_list
-        for q in quantiles
+    quantile_values = _forecast_quantiles([samples for *_, samples in rows], quantiles)
+    body = [
+        {"orgUnit": org_unit, "period": period, "quantile": q, "value": value, "splitPeriod": last_seen_period}
+        for (period, org_unit, last_seen_period, _), row_values in zip(rows, quantile_values, strict=True)
+        for q, value in zip(quantiles, row_values, strict=True)
     ]
+    return Response(content=to_json(body, inf_nan_mode="null"), media_type="application/json")
 
 
 @router.post(
@@ -492,7 +566,7 @@ def create_backtest(
     Runs asynchronously; you get a job id and poll ``/v1/jobs/{id}`` (or
     ``/v1/jobs/{id}/evaluation_result`` once finished) to find the resulting backtest.
     Uses the dataset's saved target. A supplied targetColumn must match it, otherwise returns 422.
-    Returns 404 if the referenced dataset does not exist.
+    Returns 404 if the referenced dataset does not exist, and 409 if the configured model has been deleted.
     """
     stored_dataset = session.get(DataSetTable, request.dataset_id)
     if stored_dataset is None:
@@ -601,11 +675,12 @@ def create_backtests(
     deprecated=True,
     summary="Run a one-off forecast from inline data (deprecated, use prediction setups)",
 )
-async def make_prediction(
+def make_prediction(
     request: MakePredictionRequest,
     original_request: dict = Depends(get_job_request),
     worker_settings=Depends(get_settings),
     session: Session = Depends(get_session),
+    settings_manager: SettingsManager = Depends(get_settings_manager),
 ):
     """Run a forecast against observations supplied directly in the request body — no stored dataset needed.
 
@@ -614,8 +689,8 @@ async def make_prediction(
     monitored against observed cases.
 
     Forecasting happens in the background; the response carries a job id you poll via
-    ``/v1/jobs/{id}`` for the result. The legacy ``data_to_be_fetched`` field is
-    rejected — supply the observations directly.
+    ``/v1/jobs/{id}`` for the result. Without ``nPeriods``, the stored default
+    for the data's period type is used, kept within the range the model supports.
     """
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
@@ -625,14 +700,20 @@ async def make_prediction(
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
+    model = get_job_model(session, request.model_id)
+    n_periods = request.n_periods
+    if n_periods is None:
+        try:
+            period_type = period_type_of(provided_data.period_range[0])
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+        stored_default = settings_manager.get().backtest_params(period_type).n_periods
+        n_periods = within_model_horizon(stored_default, model.model_template)
     provided_data, _rejections = validate_full_dataset(feature_names, provided_data, request.target_column)
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
-    if request.data_to_be_fetched:
-        raise HTTPException(status_code=404, detail="Data to be fetched is no longer supported by chap-core")
     dump = request.model_dump()
     dataset_info = DataSetCreateInfo(**dump).model_dump()
-    prediction_params = PredictionParams(**dump)
-    model = get_job_model(session, request.model_id)
+    prediction_params = PredictionParams(**(dump | {"n_periods": n_periods}))
     job = worker.queue_db(
         wf.predict_pipeline_from_composite_dataset,
         feature_names,
@@ -668,16 +749,7 @@ def get_prediction_entries(
     Same forecast-quantile response — pick whichever URL shape your client tooling
     handles more naturally. 404 if the prediction id is unknown.
     """
-    prediction = session.get(Prediction, prediction_id)
-    if prediction is None:
-        raise HTTPException(status_code=404, detail="Prediction not found")
-    return [
-        PredictionEntry(
-            period=forecast.period, orgUnit=forecast.org_unit, quantile=q, value=float(np.quantile(forecast.values, q))
-        )
-        for forecast in prediction.forecasts
-        for q in quantiles
-    ]
+    return _prediction_entries_response(session, prediction_id, quantiles)
 
 
 @router.get(
@@ -699,10 +771,20 @@ def get_prediction_entries(
         "matches the rest of the API's URL style."
     ),
 )
-async def get_actual_cases(
+def get_actual_cases(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     org_units: list[str] = Query(None, alias="orgUnits"),
     is_dataset_id: bool = Query(False, alias="isDatasetId"),
+    start_period: str | None = Query(
+        None,
+        alias="startPeriod",
+        description="First period to return, inclusive, such as `2023W01` or `202301`. Omit for no lower bound.",
+    ),
+    end_period: str | None = Query(
+        None,
+        alias="endPeriod",
+        description="Last period to return, inclusive, of the same period type as the dataset. Omit for no upper bound.",
+    ),
     session: Session = Depends(get_session),
 ):
     """Pull the actual target series from the dataset that backs a backtest, so a plot can show forecast vs. reality on the same axes.
@@ -710,53 +792,82 @@ async def get_actual_cases(
     Filter to specific regions with ``orgUnits``, or pass ``orgUnits=["adm0"]`` to get
     one summed series across every region (useful for national-level views). Set
     ``isDatasetId=true`` to skip the backtest lookup and read directly from a dataset
-    id. 404 if the backtest, or with ``isDatasetId=true`` the dataset, is unknown.
+    id. Limit the periods with ``startPeriod`` and ``endPeriod``, both inclusive and in
+    the dataset's period type; a range with no observations returns an empty list.
+    404 if the backtest, or with ``isDatasetId=true`` the dataset, is unknown, or if no
+    range is given and the dataset has no observations of the target for the requested
+    regions. 422 if a period cannot be parsed, is of another period type than the
+    dataset's, or ``startPeriod`` is after ``endPeriod``.
     """
-    return_summed = False
-    if org_units is not None and len(org_units) == 1 and org_units[0] == "adm0":
-        # returning sum of forecasts for all regions
-        return_summed = True
     if not is_dataset_id:
         backtest = session.get(Backtest, backtest_id)
-        logger.info(f"Backtest: {backtest}")
         if backtest is None:
             raise HTTPException(status_code=404, detail="Backtest not found")
-        dataset_id = backtest.dataset_id
+        dataset = backtest.dataset
         target_column = backtest.specification.target_column
     else:
-        dataset_id = backtest_id
-        dataset = session.get(DataSetTable, dataset_id)
-        if dataset is None:
+        found = session.get(DataSetTable, backtest_id)
+        if found is None:
             raise HTTPException(status_code=404, detail="Dataset not found")
+        dataset = found
         target_column = dataset.target_column
-    observations = DataSetManager(session).observations(
-        dataset_id,
-        org_units=None if return_summed else org_units,
-        feature_names=[target_column],
-    )
-    logger.info(f"Observations: {observations}")
-    data_list = [
-        DataElement(
-            pe=observation.period,
-            ou=observation.org_unit,
-            value=float(observation.value)
-            if not (observation.value is None or np.isnan(observation.value) or observation.value is None)
-            else None,
+    dataset_id = dataset.id
+    assert dataset_id is not None
+    manager = DataSetManager(session)
+    has_range = start_period is not None or end_period is not None
+    if has_range:
+        start_period, end_period = _period_range_ids(manager, dataset, start_period, end_period)
+    if org_units == ["adm0"]:
+        # One series summed over every region, computed in the database (CLIM-1790).
+        summed = manager.summed_feature_values(
+            dataset_id, target_column, start_period=start_period, end_period=end_period
         )
-        for observation in observations
-    ]
-    if return_summed:
-        # sum over all regions
-        summed_values = {}
-        for element in data_list:
-            key = element.pe
-            if key not in summed_values:
-                summed_values[key] = 0.0
-            if element.value is not None:
-                summed_values[key] += element.value
-        data_list = [DataElement(pe=pe, ou="adm0", value=value) for pe, value in summed_values.items()]
-    logger.info(f"DataList: {len(data_list)}")
-    return DataList(featureId=target_column, dhis2Id=target_column, data=data_list)
+        data = [{"pe": period, "ou": "adm0", "value": total} for period, total in summed]
+    else:
+        rows = manager.feature_values(
+            dataset_id, target_column, org_units=org_units, start_period=start_period, end_period=end_period
+        )
+        data = [{"pe": period, "ou": org_unit, "value": value} for period, org_unit, value in rows]
+    logger.info("Actual cases for dataset %s: %d values", dataset_id, len(data))
+    if not data and not has_range:
+        raise HTTPException(status_code=404, detail=f"Dataset {dataset_id} has no {target_column} observations")
+    # Plain dicts serialised in one call instead of a DataElement per row: building the
+    # models took over a second for a facility-scale dataset (CLIM-1876). NaN and infinity
+    # become null, since JSON has no literal for them.
+    body = {"featureId": target_column, "dhis2Id": target_column, "data": data}
+    return Response(content=to_json(body, inf_nan_mode="null"), media_type="application/json")
+
+
+def _period_range_ids(
+    manager: DataSetManager, dataset: DataSetTable, start: str | None, end: str | None
+) -> tuple[str | None, str | None]:
+    """Turn requested range bounds into stored period ids, checked against the dataset's period type.
+
+    The type comes from the dataset's ``first_period``, which tells Monday and Sunday weeks apart.
+    Datasets saved before Chap v1.1.0 have none, so one stored observation is read instead (CLIM-1949).
+    """
+    assert dataset.id is not None
+    stored = dataset.first_period or manager.any_period(dataset.id)
+    dataset_kind = period_kind(TimePeriod.parse(stored)) if stored is not None else None
+    parsed: list[TimePeriod | None] = []
+    for name, value in (("startPeriod", start), ("endPeriod", end)):
+        if value is None:
+            parsed.append(None)
+            continue
+        try:
+            period = TimePeriod.parse(value)
+        except Exception as e:  # TimePeriod.parse raises several unrelated error types for bad input
+            raise HTTPException(status_code=422, detail=f"{name} '{value}' is not a period id") from e
+        if dataset_kind is not None and period_kind(period) != dataset_kind:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{name} '{value}' is a {period_kind(period)}, but the dataset has {dataset_kind} periods",
+            )
+        parsed.append(period)
+    first, last = parsed
+    if first is not None and last is not None and first > last:
+        raise HTTPException(status_code=422, detail=f"startPeriod '{start}' is after endPeriod '{end}'")
+    return (first.id if first else None, last.id if last else None)
 
 
 data_sources = [
@@ -832,7 +943,7 @@ data_sources = [
     tags=["Datasets"],
     summary="Discover which external data sources can feed a dataset",
 )
-async def get_data_sources() -> list[ChapDataSource]:
+def get_data_sources() -> list[ChapDataSource]:
     """List the external covariate sources CHAP knows about (ERA5 temperature, precipitation, ...) and the dataset features each one maps to.
 
     Use this to power a data-source picker when authoring a dataset or a prediction
@@ -861,7 +972,7 @@ STRUCTURAL_FIELDS = RESERVED_FIELDS - {"disease_cases"}
     tags=["Datasets"],
     summary="Suggest covariate names for a model-independent dataset",
 )
-async def get_covariate_names(session: Session = Depends(get_session)) -> list[CovariateNameSuggestion]:
+def get_covariate_names(session: Session = Depends(get_session)) -> list[CovariateNameSuggestion]:
     """List covariate names to offer when naming the columns of a dataset that is not tied to a model.
 
     Models only run on a dataset whose covariate names match the names they ask for
@@ -898,9 +1009,10 @@ async def get_covariate_names(session: Session = Depends(get_session)) -> list[C
     "/create-backtest-with-data/",
     response_model=ImportSummaryResponse,
     tags=["Backtests"],
-    summary="Run a backtest from inline data",
+    deprecated=True,
+    summary="Run a backtest from inline data (deprecated, use make-dataset then create-backtests)",
 )
-async def create_backtest_with_data(
+def create_backtest_with_data(
     request: MakeBacktestWithDataRequest,
     original_request: dict = Depends(get_job_request),
     dry_run: bool = Query(
@@ -912,11 +1024,16 @@ async def create_backtest_with_data(
 ):
     """Train and evaluate a model on observations supplied directly in the request body, without first creating a reusable dataset.
 
-    Convenient for quick experiments where the data is not worth persisting. Pass
-    ``dryRun=true`` to run validation only (cheap, synchronous) and inspect which
-    regions would be rejected — useful as a preflight before committing to an import. A
-    real run returns a job id; poll ``/v1/jobs/{id}`` for status. The response also
-    surfaces any per-location rejections that came out of validation.
+    Deprecated: import observations with ``POST /v1/analytics/make-dataset`` instead.
+    For a real import, poll ``GET /v1/jobs/{id}`` until it succeeds, read the dataset id
+    from ``GET /v1/jobs/{id}/database_result``, then pass it as ``datasetId`` to
+    ``POST /v1/analytics/create-backtests``. Its ``dryRun=true`` option validates the
+    observations only; it does not report regions the backtest would drop for having no
+    target data in the training windows. Those regions are missing from ``orgUnits`` in
+    ``GET /v1/crud/backtest-specifications/{id}``.
+
+    This endpoint remains available for older clients and will be removed in a later release.
+    Pass ``dryRun=true`` to validate only; a real run returns a job id to poll via ``/v1/jobs/{id}``.
     """
     feature_names, provided_data_processed, rejections = _read_and_validate_dataset(request, dry_run)
     if dry_run and not provided_data_processed.locations():
@@ -942,11 +1059,6 @@ async def create_backtest_with_data(
     logger.info(
         f"Creating backtest with data: {request.name}, model_id: {request.model_id} on {len(list(provided_data_processed.locations()))} locations"
     )
-    if request.data_to_be_fetched:
-        raise HTTPException(
-            status_code=400, detail="data_to_be_fetched is not supported when providing data for backtest"
-        )
-
     model = get_job_model(session, request.model_id)
     bt_params = backtest_params.model_dump()
     dataset_create_info = DataSetCreateInfo(**request.model_dump()).model_dump()

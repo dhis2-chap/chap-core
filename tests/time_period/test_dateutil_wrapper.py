@@ -371,3 +371,17 @@ def test_period_range_getitem_with_numpy_integer():
     idx_np_neg = np.int64(-1)
     result_np_neg = pr[idx_np_neg]
     assert result_np_neg == Month(2020, 12)
+
+
+def test_from_strings_gives_a_fresh_range_when_the_same_periods_repeat():
+    periods = ["2020W01", "2020W02", "2020W04"]
+    first, first_missing = PeriodRange.from_strings(periods, fill_missing=True)
+    second, second_missing = PeriodRange.from_strings(periods, fill_missing=True)
+    first_missing[0] = 99
+
+    assert isinstance(first, PeriodRange) and isinstance(second, PeriodRange)
+    assert second is not first
+    assert len(second) == len(first) == 4
+    assert second[0] == first[0] and second[-1] == first[-1]
+    assert list(second_missing) == [2]
+    assert len(PeriodRange.from_strings(periods[:2])) == 2

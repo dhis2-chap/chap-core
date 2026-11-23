@@ -1,11 +1,12 @@
 import logging
-import os
 import uuid
+from contextlib import asynccontextmanager
 
 # pandera imports geopandas, and with it pyproj, the first time a schema is built. In a
 # sync route that happens on a threadpool thread, and once pyproj has been imported off
 # the main thread every later fork() child segfaults on macOS. Import it here instead.
 import pyproj  # noqa: F401
+from anyio import to_thread
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -13,10 +14,12 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer
 
 from chap_core import __version__ as chap_core_version
+from chap_core.database.database import DB_POOL_CONNECTIONS
 from chap_core.rest_api.auth import ApiTokenMiddleware, warn_on_weak_token
 from chap_core.rest_api.common_routes import router as common_router
 from chap_core.rest_api.v1.rest_api import router as v1_router
 from chap_core.rest_api.v2.rest_api import router as v2_router
+from chap_core.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -44,25 +47,31 @@ api_description = (
 )
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Sync handlers run in this threadpool. One thread per pooled database connection, so
+    # extra requests wait for a thread instead of failing on a QueuePool timeout.
+    to_thread.current_default_thread_limiter().total_tokens = DB_POOL_CONNECTIONS
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="CHAP Core API",
     description=api_description,
     version=chap_core_version,
     openapi_tags=openapi_tags,
-    root_path=os.environ.get("CHAP_ROOT_PATH", ""),
+    root_path=get_settings().root_path,
     # Documents the bearer scheme in the OpenAPI spec; ApiTokenMiddleware does the enforcing.
     dependencies=[Depends(HTTPBearer(auto_error=False))],
 )
 
 CORS_ORIGINS_ENV_VAR = "CHAP_CORS_ORIGINS"
-# A local front-end dev server.
-DEFAULT_CORS_ORIGINS = "http://localhost:3000"
 
 
 def get_cors_origins() -> list[str]:
-    """Origins allowed to call the API from a browser, from comma-separated ``CHAP_CORS_ORIGINS``."""
-    value = os.getenv(CORS_ORIGINS_ENV_VAR) or DEFAULT_CORS_ORIGINS
-    return [origin.strip().rstrip("/") for origin in value.split(",") if origin.strip()]
+    """Origins allowed to call the API from a browser, from ``CHAP_CORS_ORIGINS``."""
+    return get_settings().cors_origins
 
 
 warn_on_weak_token()
@@ -80,7 +89,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+# Starlette defaults to level 9, which took 2.3 s on a 33 MB facility-scale response.
+# Level 4 took 0.3 s for an 8% larger body (CLIM-1876).
+app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=4)
 
 
 @app.exception_handler(Exception)

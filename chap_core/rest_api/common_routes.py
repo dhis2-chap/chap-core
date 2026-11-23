@@ -5,19 +5,22 @@ version-independent functionality such as health checks and system information.
 """
 
 import logging
-import os
 from datetime import UTC, datetime
+from functools import cache
 from pathlib import Path
 
+from anyio import CapacityLimiter, to_thread
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import text
+from sqlalchemy import Engine, create_engine, text
+from sqlalchemy.pool import NullPool
 
-from chap_core.database.database import engine
+from chap_core.database.database import get_engine
 from chap_core.rest_api.auth import get_api_token
 from chap_core.rest_api.celery_tasks import app as celery_app
 from chap_core.rest_api.v1.routers.dependencies import get_settings
+from chap_core.settings import get_settings as get_chap_settings
 from chap_core.util import load_redis
 
 logger = logging.getLogger(__name__)
@@ -88,11 +91,20 @@ async def health(worker_config=Depends(get_settings)) -> HealthResponse:
     return HealthResponse(status="success", message="healthy")
 
 
+# The readiness check opens a connection of its own: from the shared pool it would wait up
+# to 30 s whenever busy requests hold every connection, and report a busy worker as not ready.
+@cache
+def _health_check_engine() -> Engine | None:
+    engine = get_engine()
+    return create_engine(engine.url, poolclass=NullPool) if engine is not None else None
+
+
 def _check_db() -> str:
-    if engine is None:
+    health_check_engine = _health_check_engine()
+    if health_check_engine is None:
         return "error: database not configured"
     try:
-        with engine.connect() as conn:
+        with health_check_engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         return "ok"
     except Exception as exc:
@@ -143,6 +155,19 @@ def _check_celery_db_roundtrip() -> str:
         result.forget()
 
 
+# The health checks block, but get threads of their own: on the shared threadpool they would
+# queue behind slow requests and report a busy worker as not ready.
+HEALTH_CHECK_LIMITER = CapacityLimiter(2)
+
+
+def _readiness_checks() -> dict[str, str]:
+    return {
+        "db": _check_db(),
+        "redis": _check_redis(),
+        "celery": _check_celery(),
+    }
+
+
 @router.get(
     "/health/ready",
     summary="Readiness probe with dependency checks",
@@ -165,11 +190,7 @@ def _check_celery_db_roundtrip() -> str:
     },
 )
 async def readiness() -> Response:
-    checks = {
-        "db": _check_db(),
-        "redis": _check_redis(),
-        "celery": _check_celery(),
-    }
+    checks = await to_thread.run_sync(_readiness_checks, limiter=HEALTH_CHECK_LIMITER)
     healthy = all(v == "ok" for v in checks.values())
     body = ReadinessResponse(status="success" if healthy else "unhealthy", checks=checks)
     status_code = 200 if healthy else 503
@@ -202,7 +223,7 @@ async def readiness() -> Response:
     },
 )
 async def deep_probe() -> Response:
-    roundtrip = _check_celery_db_roundtrip()
+    roundtrip = await to_thread.run_sync(_check_celery_db_roundtrip, limiter=HEALTH_CHECK_LIMITER)
     healthy = roundtrip == "ok"
     body = ReadinessResponse(
         status="success" if healthy else "unhealthy",
@@ -222,7 +243,7 @@ async def system_info() -> SystemInfoResponse:
     from chap_core import __version__ as chap_core_version
 
     server_date = datetime.now(UTC).isoformat()
-    revision = os.environ.get("GIT_REVISION", "")
+    revision = get_chap_settings().git_revision
 
     return SystemInfoResponse(
         chap_core_version=chap_core_version,

@@ -7,7 +7,12 @@ from chap_core.exceptions import ModelFailedException
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.model_spec import PeriodType
 from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper, RunInfo
-from chap_core.models.chapkit_service_manager import ChapkitServiceManager, is_url
+from chap_core.models.chapkit_service_manager import (
+    DOCKER_SOURCE_PREFIX,
+    ChapkitServiceManager,
+    DockerChapkitServiceManager,
+    is_url,
+)
 from chap_core.models.external_model import ExternalModelBase
 from chap_core.services.model_marketplace import RESERVED_CONFIG_KEYS
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -153,10 +158,12 @@ class ExternalChapkitModelTemplate:
 
     This class is meant to be backwards compatible with ExternalModelTemplate.
 
-    Supports two modes:
+    Supports three modes:
     1. URL mode (backwards compatible): Pass a URL to a running service
     2. Directory mode (new): Pass a path to a model directory, service
        will be auto-started when used as context manager
+    3. Image mode: Pass ``docker://<image>``; the image is run as a container
+       when used as context manager, and removed afterwards
 
     Example usage (directory mode):
         with ExternalChapkitModelTemplate("/path/to/model") as template:
@@ -206,6 +213,12 @@ class ExternalChapkitModelTemplate:
             self.rest_api_url: str | None = path_or_url
             self.client: CHAPKitRestAPIWrapper | None = CHAPKitRestAPIWrapper(path_or_url)
             self._service_manager: ChapkitServiceManager | None = None
+        elif path_or_url.startswith(DOCKER_SOURCE_PREFIX):
+            self.rest_api_url = None
+            self.client = None
+            self._service_manager = DockerChapkitServiceManager(
+                image=path_or_url.removeprefix(DOCKER_SOURCE_PREFIX), port=port, host=host
+            )
         else:
             self.rest_api_url = None
             self.client = None

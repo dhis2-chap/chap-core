@@ -82,7 +82,7 @@ Higher-level endpoints used by the Modeling App:
 - `POST /make-dataset` -- validate, harmonize and import a dataset. Supports a `dryRun` query param for validation only.
 - `POST /create-backtest` -- create a backtest from an existing dataset.
 - `POST /create-backtests` -- run several configured models on an existing dataset under one specification; returns the specification id and one job id per model.
-- `POST /create-backtest-with-data/` -- validate data, create dataset, then run backtest. This is the main endpoint used by the Modeling App. Supports a `dryRun` query param for validation only.
+- `POST /create-backtest-with-data/` -- deprecated. Validate data, create dataset, then run backtest; kept for older clients. Use `make-dataset` then `create-backtests` instead. Supports a `dryRun` query param for validation only.
 - `POST /make-prediction` -- validate data and run a prediction.
 - `GET /evaluation-entry` -- return quantile-based forecast data for a backtest.
 - `GET /prediction-entry/{id}` -- return quantile-based forecast data for a prediction.
@@ -120,7 +120,7 @@ through `SettingsManager` (`database/settings.py`):
 - `metricSortOrder`: metric ids in display and ranking order. Metrics omitted from
   this list are appended in their default order.
 - `selectedMetrics`: the subset shown by default, returned in `metricSortOrder` order.
-- `defaultBaselineModel`: the built-in baseline's name, initially `persistence`.
+- `defaultBaselineModel`: the built-in baseline's name, initially `seasonal_shift_persistence`.
   A name follows new model versions without changing the settings.
 - `weeklyBacktestParams` and `monthlyBacktestParams`: the `BacktestParams` fields.
   Initially both use 7 splits, one training run and `climatology` for future weather.
@@ -129,7 +129,7 @@ through `SettingsManager` (`database/settings.py`):
 `DEFAULT_METRIC_ORDER` in `database/settings.py` sets the default order. The first six,
 selected by default, are CRPS (log1p), Winkler 25–75 (log1p), MAE, RMSE, MAPE and
 Coverage 10–90. Reads drop metric ids that no longer exist and fall back to
-`persistence` for a missing baseline, so renaming either never breaks the API. A record
+`seasonal_shift_persistence` for a missing baseline, so renaming either never breaks the API. A record
 that is invalid for any other reason is logged and replaced by the defaults. The
 leaderboard and metric catalogue return every metric in the saved order with `sortOrder` and
 `isSelected`. The leaderboard also returns `defaultBaselineModel` so clients can

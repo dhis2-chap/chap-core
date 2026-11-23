@@ -367,6 +367,8 @@ class Week(TimePeriod):
         return pd.Period(self._date, freq=("W"))
 
 
+# A dataset repeats the same few hundred period strings for every location.
+@functools.lru_cache(maxsize=4096)
 def clean_timestring(timestring: str):
     """Normalize time string format, ensuring 2-digit week numbers."""
     if isinstance(timestring, Number):
@@ -492,6 +494,17 @@ class TimeDelta(DateUtilWrapper):
         return (end_stamp - start_stamp) // self
 
 
+@functools.lru_cache(maxsize=1024)
+def _calendar_field(start: datetime, end: datetime, delta: relativedelta, name: str) -> NDArray[np.int_]:
+    """The month, year or ISO week of the start of each period of a range.
+
+    Datasets split by location and by backtest window hold many equal ranges, and
+    computing this period by period through ``relativedelta`` is slow.
+    """
+    period_range = PeriodRange(TimeStamp(start), TimeStamp(end), TimeDelta(delta))
+    return np.array([getattr(p.start_timestamp, name) for p in period_range])
+
+
 class PeriodRange(BNPDataClass):
     def __init__(
         self,
@@ -505,15 +518,21 @@ class PeriodRange(BNPDataClass):
 
     @property
     def month(self):
-        return np.array([p.start_timestamp.month for p in self])
+        return self._calendar_field("month")
 
     @property
     def year(self):
-        return np.array([p.start_timestamp.year for p in self])
+        return self._calendar_field("year")
 
     @property
     def week(self):
-        return np.array([p.start_timestamp.week for p in self])
+        return self._calendar_field("week")
+
+    def _calendar_field(self, name: str) -> NDArray[np.int_]:
+        """The ``name`` of each period's start, computed once for each distinct range."""
+        return _calendar_field(
+            self._start_timestamp._date, self._end_timestamp._date, self._time_delta._relative_delta, name
+        ).copy()
 
     @property
     def delta(self):
@@ -668,15 +687,13 @@ class PeriodRange(BNPDataClass):
 
     @classmethod
     def from_strings(cls, period_strings: Iterable[str], fill_missing=False):
-        periods = []
-        for period_string in period_strings:
-            try:
-                p = TimePeriod.parse(period_string)
-            except InvalidDateError:
-                logger.error(f"Invalid date {period_string}")
-                raise
-            periods.append(p)
-        return cls.from_period_list(fill_missing, periods)
+        # Every location of a dataset usually has the same periods, so the parsing and the
+        # consecutiveness check are cached per distinct sequence of period strings.
+        first, last, missing = _parse_period_strings(tuple(str(s) for s in period_strings), fill_missing)
+        ret = cls.from_time_periods(first, last)
+        if fill_missing:
+            return ret, np.array(missing, dtype=int)
+        return ret
 
     @classmethod
     def from_ids(cls, ids: Iterable[str], fill_missing=False):
@@ -766,6 +783,26 @@ delta_month = TimeDelta(relativedelta(months=1))
 delta_year = TimeDelta(relativedelta(years=1))
 delta_day = TimeDelta(relativedelta(days=1))
 delta_week = TimeDelta(relativedelta(weeks=1))
+
+
+@functools.lru_cache(maxsize=64)
+def _parse_period_strings(
+    period_strings: tuple[str, ...], fill_missing: bool
+) -> tuple[TimePeriod, TimePeriod, tuple[int, ...]]:
+    """Parse and check a sequence of period strings once: its first and last period and the missing positions.
+
+    Returns periods, never a `PeriodRange`, so callers do not share a mutable object.
+    """
+    periods = []
+    for period_string in period_strings:
+        try:
+            periods.append(TimePeriod.parse(period_string))
+        except InvalidDateError:
+            logger.error(f"Invalid date {period_string}")
+            raise
+    delta = PeriodRange._get_delta(periods)
+    missing = PeriodRange._check_consequtive(delta, periods, fill_missing)
+    return periods[0], periods[-1], tuple(int(i) for i in missing)
 
 
 def convert_time_period_string(row):

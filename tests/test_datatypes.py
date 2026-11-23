@@ -11,7 +11,8 @@ from chap_core.datatypes import (
 )
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.testing.testing import assert_tsdataclass_equal
-from chap_core.time_period import PeriodRange
+from chap_core.time_period import PeriodRange, TimePeriod
+from chap_core.time_period.date_util_wrapper import clean_timestring
 
 
 def test_climate_health_time_series_from_csv(tmp_path):
@@ -64,6 +65,19 @@ def test_dataset_with_missing(dataset_with_missing):
     for location, data in health_data.items():
         # assert data.start_timestamp == start
         assert data.end_timestamp == end
+
+
+def test_dataset_locations_with_different_periods_keep_their_own(dataset_with_missing):
+    # The locations in this file cover different weeks, so each has its own list of periods.
+    stored = DataSet.from_pandas(dataset_with_missing, dataclass=HealthData, fill_missing=True).to_pandas()
+    stored = stored.dropna(subset=["disease_cases"])
+    expected = {
+        (row.location, TimePeriod.parse(clean_timestring(row.time_period)).topandas()): float(row.disease_cases)
+        for row in dataset_with_missing.itertuples()
+    }
+    assert (
+        dict(zip(zip(stored.location, stored.time_period, strict=True), stored.disease_cases, strict=True)) == expected
+    )
 
 
 @pytest.fixture()

@@ -11,9 +11,9 @@ from chap_core.assessment.target_mask import (
     check_no_mask_indicator_input,
     check_target_column_allows_masking,
 )
-from chap_core.database.database import SessionWrapper, engine
+from chap_core.database.database import SessionWrapper, get_engine
 from chap_core.database.dataset_tables import DataSetInfo, MaskedRange, check_masked_ranges_match_dataset
-from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 from chap_core.database.settings import SettingsManager
 from chap_core.rest_api.worker_functions import WorkerConfig
 
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 # TODO: make dependency injection in celery worker
 def get_session():
-    with Session(engine) as session:
+    with Session(get_engine()) as session:
         yield session
 
 
@@ -49,11 +49,26 @@ async def get_job_request(request: Request) -> dict[str, Any]:
 
 
 def get_job_model(session: Session, model_id: int | str) -> ConfiguredModelDB:
-    """Resolve the configured model before queuing, so its version can be recorded."""
+    """Resolve the configured model before queuing, so its version can be recorded.
+
+    A deleted (archived) configured model cannot start new runs and is rejected with 409.
+    """
     try:
-        return SessionWrapper(session=session).get_configured_model_by_id_or_name(model_id)
+        model = SessionWrapper(session=session).get_configured_model_by_id_or_name(model_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if model.archived:
+        raise HTTPException(status_code=409, detail=f"Configured model '{model.name}' is archived")
+    return model
+
+
+def within_model_horizon(n_periods: int, template: ModelTemplateDB) -> int:
+    """``n_periods`` kept within the prediction range the model template supports."""
+    if template.min_prediction_periods is not None:
+        n_periods = max(n_periods, template.min_prediction_periods)
+    if template.max_prediction_periods is not None:
+        n_periods = min(n_periods, template.max_prediction_periods)
+    return n_periods
 
 
 def model_job_metadata(model: ConfiguredModelDB, parameters: dict, dataset_id: int | None = None) -> dict[str, Any]:

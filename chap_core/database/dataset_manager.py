@@ -11,6 +11,9 @@ import logging
 from pathlib import Path
 from typing import cast
 
+import numpy as np
+import pandas as pd
+from sqlalchemy import func, insert
 from sqlmodel import col, select
 
 from chap_core.assessment.target_mask import (
@@ -23,13 +26,14 @@ from chap_core.datatypes import FullData, create_tsdataclass
 from chap_core.geometry import Polygons
 from chap_core.time_period import Month, TimePeriod, Week
 
-from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
 from .dataset_tables import DataSet, DataSetCreateInfo, DataSetInfo, Observation, check_masked_ranges_match_dataset
 from .manager import DbManager
 from .tables import Backtest, Prediction
 
 logger = logging.getLogger(__name__)
+
+OBSERVATION_INSERT_BATCH_SIZE = 10_000
 
 
 def _filtered_observation_query(
@@ -51,6 +55,15 @@ def _filtered_observation_query(
         expr = expr.where(Observation.org_unit.in_(org_units))  # type: ignore[attr-defined]
     if feature_names is not None:
         expr = expr.where(Observation.feature_name.in_(feature_names))  # type: ignore[union-attr]
+    return expr
+
+
+def _within_periods(expr, start_period: str | None, end_period: str | None):
+    """Restrict an observation query to an inclusive range of stored period ids."""
+    if start_period is not None:
+        expr = expr.where(Observation.period >= start_period)
+    if end_period is not None:
+        expr = expr.where(Observation.period <= end_period)
     return expr
 
 
@@ -124,24 +137,46 @@ class DataSetManager(DbManager[DataSet]):
             **dataset_info.model_dump(),
         )
         dataset = DataSet(geojson=polygons, **full_info.model_dump())
+        self.session.add(dataset)
+        self.session.flush()
+        assert dataset.id is not None
+        self._bulk_insert_observations(dataset.id, orig_dataset)
+        self.session.commit()
+        assert (
+            self.session.exec(select(Observation).where(Observation.dataset_id == dataset.id).limit(1)).first()
+            is not None
+        )
+        return dataset.id
 
+    def _bulk_insert_observations(self, dataset_id: int, orig_dataset: _DataSet) -> None:
+        """Insert one row per (location, period, field) cell with batched bulk inserts.
+
+        Building an ORM ``Observation`` per cell costs gigabytes and minutes for facility-level
+        datasets, so rows go in as plain dicts, ``OBSERVATION_INSERT_BATCH_SIZE`` at a time.
+        """
+        batch: list[dict] = []
         for location, data in orig_dataset.items():
             field_names = [
                 field.name for field in dataclasses.fields(data) if field.name not in ["time_period", "location"]
             ]
-            for row in data:
-                for field in field_names:
-                    observation = Observation(
-                        period=row.time_period.id,
-                        org_unit=location,
-                        value=float(getattr(row, field)),
-                        feature_name=field,
+            periods = [period.id for period in data.time_period]
+            for field in field_names:
+                values = np.asarray(getattr(data, field), dtype=float).tolist()
+                for period, value in zip(periods, values, strict=True):
+                    batch.append(
+                        {
+                            "dataset_id": dataset_id,
+                            "period": period,
+                            "org_unit": location,
+                            "value": value,
+                            "feature_name": field,
+                        }
                     )
-                    dataset.observations.append(observation)
-
-        self.save(dataset)
-        assert self.session.exec(select(Observation).where(Observation.dataset_id == dataset.id)).first() is not None
-        return dataset.id
+                    if len(batch) >= OBSERVATION_INSERT_BATCH_SIZE:
+                        self.session.execute(insert(Observation), batch)
+                        batch = []
+        if batch:
+            self.session.execute(insert(Observation), batch)
 
     def observations(
         self,
@@ -167,6 +202,74 @@ class DataSetManager(DbManager[DataSet]):
             feature_names=feature_names,
         )
         return list(self.session.exec(expr).all())
+
+    def feature_values(
+        self,
+        dataset_id: int,
+        feature_name: str,
+        *,
+        org_units: list[str] | None = None,
+        start_period: str | None = None,
+        end_period: str | None = None,
+    ) -> list[tuple[str, str, float | None]]:
+        """Read ``(period, org_unit, value)`` rows of one feature as plain tuples, without building ORM objects.
+
+        ``start_period`` and ``end_period`` are inclusive period ids in the stored form (``2023W01``,
+        ``202301``). Ids of one period type sort as strings, so the range is a string compare.
+        """
+        expr = (
+            select(Observation.period, Observation.org_unit, Observation.value)
+            .where(Observation.dataset_id == dataset_id)
+            .where(Observation.feature_name == feature_name)
+            .order_by(col(Observation.id))
+        )
+        if org_units is not None:
+            expr = expr.where(col(Observation.org_unit).in_(org_units))
+        expr = _within_periods(expr, start_period, end_period)
+        connection = self.session.connection()
+        if connection.dialect.name == "postgresql":
+            # Facility-scale reads are hundreds of thousands of rows, and SQLAlchemy builds a Row
+            # object for each one. A plain DBAPI cursor returns tuples directly (CLIM-1876).
+            compiled = expr.compile(dialect=connection.dialect, compile_kwargs={"render_postcompile": True})
+            dbapi_connection = connection.connection.dbapi_connection
+            assert dbapi_connection is not None
+            cursor = dbapi_connection.cursor()
+            try:
+                cursor.execute(str(compiled), compiled.params)
+                return cast("list[tuple[str, str, float | None]]", cursor.fetchall())
+            finally:
+                cursor.close()
+        rows = connection.execute(expr)
+        return [(period, org_unit, value) for period, org_unit, value in rows]
+
+    def summed_feature_values(
+        self,
+        dataset_id: int,
+        feature_name: str,
+        *,
+        start_period: str | None = None,
+        end_period: str | None = None,
+    ) -> list[tuple[str, float]]:
+        """Sum one feature over all org units per period in the database.
+
+        Missing and NaN values count as 0, so a period where every value is missing sums to 0.
+        Periods come in the order they were stored. The optional inclusive period range is
+        applied before summing, as in :meth:`feature_values`.
+        """
+        value = func.nullif(Observation.value, float("nan"))
+        expr = (
+            select(Observation.period, func.coalesce(func.sum(value), 0.0))
+            .where(Observation.dataset_id == dataset_id)
+            .where(Observation.feature_name == feature_name)
+        )
+        expr = _within_periods(expr, start_period, end_period)
+        expr = expr.group_by(Observation.period).order_by(func.min(Observation.id))
+        return [(period, float(total)) for period, total in self.session.exec(expr).all()]
+
+    def any_period(self, dataset_id: int) -> str | None:
+        """One stored period id of the dataset, or None if it has no observations."""
+        expr = select(Observation.period).where(Observation.dataset_id == dataset_id).limit(1)
+        return self.session.exec(expr).first()
 
     def to_dataset(
         self,
@@ -201,10 +304,17 @@ class DataSetManager(DbManager[DataSet]):
             org_units=org_units,
             feature_names=feature_names,
         )
-        observations = list(self.session.exec(expr).all())
-        if not observations:
+        # Plain columns into a DataFrame: one ORM object per observation costs minutes and GBs at facility scale.
+        columns = (Observation.org_unit, Observation.period, Observation.feature_name, Observation.value)
+        # The session's connection: same transaction, without the ORM's per-row result processing.
+        rows = self.session.connection().execute(expr.with_only_columns(*columns)).all()  # type: ignore[arg-type]
+        if not rows:
             raise ValueError(f"No observations found for dataset {dataset_id} matching the given filters")
-        new_dataset = observations_to_dataset(dataclass, observations)
+        frame = pd.DataFrame.from_records(
+            cast("list[tuple]", rows), columns=["location", "time_period", "feature_name", "value"]
+        )
+        wide = frame.pivot(index=["location", "time_period"], columns="feature_name", values="value")
+        new_dataset = _DataSet.from_pandas(wide.astype(float).reset_index(), dataclass)
 
         if dataset.geojson:
             logger.info(f"Loading polygons from geojson for dataset id {dataset_id}")

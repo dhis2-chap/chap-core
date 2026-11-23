@@ -205,6 +205,15 @@ class TestOpenAPIOperationIds:
 
         assert schema["paths"]["/v1/analytics/make-prediction"]["post"]["deprecated"] is True
 
+    def test_inline_backtest_is_deprecated_in_favour_of_dataset_import(self, client):
+        schema = client.get("/openapi.json").json()
+        operation = schema["paths"]["/v1/analytics/create-backtest-with-data/"]["post"]
+
+        assert operation["deprecated"] is True
+        for path in ("/v1/analytics/make-dataset", "/v1/analytics/create-backtests"):
+            assert path in operation["description"]
+            assert not schema["paths"][path]["post"].get("deprecated", False)
+
 
 class TestDocs:
     def test_docs_accessible(self, client):

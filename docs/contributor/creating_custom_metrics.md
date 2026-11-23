@@ -120,6 +120,8 @@ from chap_core.assessment.metrics.base import ProbabilisticMetric
 # def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float
 ```
 
+Metrics are computed on forecast cells, one per (location, time_period, horizon_distance), whose samples form a (cells x samples) matrix (`ForecastCells`, from `Evaluation.to_cells()`). Every forecast must have the same number of samples, and a forecast with fewer raises `MissingSamplesError`. For speed, also override the row versions, which receive all cells at once: `compute_point_metric_rows(forecast, observed)` on `DeterministicMetric` and `compute_sample_metric_rows(samples, observed)` on `ProbabilisticMetric`. A metric that needs more than one cell at a time, like `crps_norm`, which divides by the range of the observations, overrides `compute_cell_metrics(samples, observed)` instead.
+
 ## MetricSpec Configuration
 
 ```python

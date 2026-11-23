@@ -1,6 +1,12 @@
-# Build a model from an MLproject file
+---
+description: "Build a new Chap model from the R or Python MLproject template, evaluate it with chap eval, and publish it as a chapkit Docker image with GitHub Actions."
+---
 
-This tutorial takes you from a train and a predict script on your own machine to a model that runs in Chap. You write the scripts and a short `MLproject` file that describes them. The model runs as a [chapkit](chapkit.md) service, but you do not write any service code: no `main.py`, Makefile or compose file.
+# Build a new model from a template
+
+This tutorial takes you from a template to your own model running in Chap. You write a train and a predict script, in R or Python, and a short `MLproject` file that describes them. You need Docker only for the last step, and you never need a running Chap server to develop or evaluate a model.
+
+If you already have a model, follow [Bring your existing model to Chap](existing_model.md) instead.
 
 The tutorial starts from one of two template repositories:
 
@@ -9,42 +15,30 @@ The tutorial starts from one of two template repositories:
 
 Both contain the same model: a linear regression from rainfall and temperature to disease cases in the same month. The model is not meant to be good. It only shows the steps.
 
-## How this differs from other ways to make a model
+The tutorial has three stages:
 
-There are three ways to make a model that Chap can run. This tutorial covers the second.
-
-| | MLproject, built-in Chap runner | MLproject served by chapkit (this tutorial) | chapkit service |
-|---|---|---|---|
-| **You write** | Train and predict scripts, and an `MLproject` file | The same files | Train and predict code, a `main.py` that defines the service, and a Dockerfile |
-| **How Chap runs it** | Chap reads the `MLproject` and runs the train and predict commands itself | chapkit reads the `MLproject` and serves the model as a REST service. Chap sends it data over HTTP | Your service runs on its own. Chap sends it data over HTTP |
-| **Evaluate with** | `chap eval --model-name <directory or GitHub URL>` | `chap eval --model-name <directory or GitHub URL> --run-config.as-chapkit` | `chap eval --model-name <service URL> --run-config.is-chapkit-model` |
-| **Add to a Chap installation** | Chap fetches the model from GitHub, see [Getting new models into the modeling app](../modeling-app/managing-model-templates.md) | Run a Docker image built from a chapkit base image. It registers itself with Chap | Run the service's Docker image. It registers itself with Chap |
-| **Where to start** | [Connect your model to the Chap standard](describe_model.md) | This page | The [chapkit documentation](https://dhis2-chap.github.io/chapkit/) |
-
-The first two use the same `MLproject` format, so a model written for one usually runs with the other. The exception is the environment: chapkit sets up `uv_env` and `renv_env`, but not `docker_env`, `conda_env` or `python_env`. What differs is who runs the model: Chap itself, or chapkit as a separate service. The second and third run the same way in Chap. The difference is whether chapkit builds the service from your `MLproject`, or you write the service code. A model can move from the second to the third with `chapkit mlproject migrate`, see [Next steps](#next-steps).
+1. **Run the model outside Chap** on example data, while you develop it (steps 1 to 3).
+2. **Evaluate it with Chap** (step 4).
+3. **Package it as a Docker image** and publish it, so that it can run next to a Chap installation (step 5).
 
 ## Requirements
 
-- **Python template:** [uv](https://docs.astral.sh/uv/)
-- **R template:** R, with `Rscript` on your PATH. renv installs itself the first time you start R in the template directory.
-- **Chap Core 2.5.0 or newer**, see [Install Chap Core](../chap-cli/chap-core-cli-setup.md). Until 2.5.0 is released, install it from GitHub:
-
-    ```console
-    uv tool install git+https://github.com/dhis2-chap/chap-core --python 3.13
-    ```
-
-- **Docker**, for the deployment step
+Follow [Set up your machine](setup.md). You need `chap` and, for the R template, R. Docker is only needed for the last step, deploying the model.
 
 ## 1. Create your repository from the template
 
-On the template's GitHub page, click **Use this template** to make your own copy, then clone it. To try the template without making a copy, clone it directly:
+Make your own copy of the template on GitHub, so that you can change it and push your changes:
 
-```console
-git clone https://github.com/chap-models/mlproject_template_python
-cd mlproject_template_python
-```
+1. Open the [Python template](https://github.com/chap-models/mlproject_template_python) or the [R template](https://github.com/chap-models/mlproject_template_r) on GitHub.
+2. Click **Use this template**, then **Create a new repository**. Give it a name, for example `my_model`. GitHub creates `https://github.com/<your-user>/my_model`.
+3. Clone your copy, with your GitHub user name and the name you chose:
 
-For R, use `mlproject_template_r`.
+    ```console
+    git clone https://github.com/<your-user>/my_model
+    cd my_model
+    ```
+
+Your copy has everything the tutorial needs, including the files that build and publish the Docker image in step 5. You do not need to write those yourself. If git and GitHub are new to you, see [Git and GitHub](../kigali-workshop/kigali-webinar-series/session-2/git-github.md).
 
 ## 2. The files
 
@@ -56,6 +50,8 @@ For R, use `mlproject_template_r`.
 | `pyproject.toml` / `renv.lock` | The model's dependencies |
 | `isolated_run.py` / `isolated_run.r` | Runs train and predict on the example data, without Chap |
 | `Dockerfile` | Packages the model as a chapkit service |
+| `compose.yml` | Builds and starts the Docker image with one command |
+| `.github/workflows/` | Test the Docker image and publish it when you push to GitHub |
 | `input/` | A small example dataset |
 
 The Python `MLproject` looks like this:
@@ -96,14 +92,26 @@ The data format is described in [Chap data format](prepare_data/index.md). The p
 
 ## 3. Run the model without Chap
 
-Develop and debug the model on the example data first:
+Develop and debug the model on the example data first.
+
+**Python:**
 
 ```console
-uv run python isolated_run.py   # Python
-Rscript isolated_run.r          # R
+uv run python isolated_run.py
 ```
 
-This trains the model on `input/trainData.csv`, saves it in `output/` and writes forecasts for `input/futureClimateData.csv` to `output/predictions.csv`.
+uv installs the packages listed in `pyproject.toml` the first time.
+
+**R:**
+
+```console
+Rscript -e "renv::restore()"
+Rscript isolated_run.r
+```
+
+The first command installs the packages listed in `renv.lock`.
+
+Both scripts train the model on `input/trainData.csv`, saves it in `output/` and writes forecasts for `input/futureClimateData.csv` to `output/predictions.csv`.
 
 Edit the scripts and rerun until the model does what you want. To add a dependency, add it to `pyproject.toml` (Python), or install it with `renv::install("pkg")` and record it with `renv::snapshot()` (R). If the model reads new dataset columns, add them to `required_covariates`.
 
@@ -121,47 +129,14 @@ The example dataset is small and synthetic. For a more realistic run, use a data
 
 To make parts of the model configurable, for example the number of lags, declare `user_options` in the `MLproject`. See [Model Configuration Options](additional_configuration.md#model-configuration-options). Other fields you can set, such as author and contact details, are listed in [Model Metadata](model_metadata.md).
 
-## 5. Deploy the model
+## 5. Package the model as a Docker image
 
-To run the model next to a Chap installation, package it as a Docker image. The template's `Dockerfile` starts from a chapkit base image that runs an `MLproject` as a chapkit service. Your train and predict scripts are copied in unchanged. The Python one installs the dependencies from `pyproject.toml`:
+To run next to a Chap installation, the model is packaged as a Docker image and published on GitHub. Your repository already has the files for this: `Dockerfile` describes the image, `compose.yml` builds and starts it, and the workflows in `.github/workflows` build and publish it on GitHub. Follow [Package and publish your model](package_and_publish.md), which also explains what the files do. You need [Docker](setup.md#4-docker-only-to-deploy) for this step.
 
-```dockerfile
-FROM ghcr.io/dhis2-chap/chapkit-py-cli:latest
-WORKDIR /work
-COPY pyproject.toml ./
-RUN uv pip install --python /app/.venv/bin/python -r pyproject.toml
-COPY . .
-```
-
-The R one restores the packages in `renv.lock`:
-
-```dockerfile
-FROM ghcr.io/dhis2-chap/chapkit-r-cli:latest
-WORKDIR /work
-COPY .Rprofile renv.lock ./
-COPY renv/activate.R renv/settings.json renv/
-RUN Rscript -e "renv::restore(prompt = FALSE)"
-COPY . .
-```
-
-The dependencies are installed before the scripts are copied, so editing a script does not reinstall them. There are also base images with the tidyverse or INLA preinstalled, see [Running in a container](https://dhis2-chap.github.io/chapkit/guides/mlproject-runner/#running-in-a-container) in the chapkit docs.
-
-Build the image and start it:
-
-```console
-docker build -t my-model .
-docker run --rm -p 9090:8000 my-model
-```
-
-Check that the running service works with Chap by evaluating it by URL:
-
-```console
-chap eval --model-name http://localhost:9090 --run-config.is-chapkit-model --dataset-csv input/trainData.csv --output-file output/eval.nc
-```
-
-To use the model from the Chap modeling app, publish the image to a registry and add it as a service next to Chap. The service registers itself with Chap on startup. See [Running Your Own Model](../modeling-app/running-your-own-model.md).
+??? note "If you have been reading the chapkit documentation"
+    Chap runs your model through [chapkit](chapkit.md), which provides the REST API Chap talks to. You do not need to install chapkit separately: installing Chap installs it, and `chap eval` starts and stops the chapkit service for you. There is no `brew install chapkit`. You also do not need `chapkit mlproject migrate` or a `main.py`. They turn a model into a chapkit service project with its own service code, which most models do not need.
 
 ## Next steps
 
-- If you need service logic that an `MLproject` cannot express, `chapkit mlproject migrate` turns the repository into a full chapkit project with a generated `main.py`. See [MLproject Migrate](https://dhis2-chap.github.io/chapkit/guides/mlproject-migrate/) in the chapkit docs.
+- To make parts of the model configurable, declare `user_options` in the `MLproject`. See [Model Configuration Options](additional_configuration.md#model-configuration-options).
 - [Chapkit](chapkit.md) describes the data Chap sends to a chapkit service.

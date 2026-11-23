@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 from collections.abc import Callable
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -9,16 +8,17 @@ from typing import Any, TypeVar, cast
 from urllib.parse import urlsplit
 
 import celery
-from celery import Celery, Task, shared_task
+from celery import Celery, Task, shared_task, signals
+from celery.exceptions import WorkerLostError
 from celery.result import AsyncResult
 from celery.utils.log import get_task_logger
-from dotenv import find_dotenv, load_dotenv
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 from ..database.database import SessionWrapper
 from ..log_config import CHAP_LOGS_DIR, get_status_logger
+from ..settings import get_settings, load_dotenv_file
 from ..util import load_redis
 from .job_registry import job_function, job_name_for, json_args, json_kwargs, resolve_job
 
@@ -83,9 +83,8 @@ class JobDescription(BaseModel):
 
 
 def read_environment_variables():
-    load_dotenv(find_dotenv())
-    host = os.getenv("CELERY_BROKER", "redis://localhost:6379")
-    return host
+    load_dotenv_file()
+    return get_settings().celery_broker
 
 
 def broker_host(url: str) -> str:
@@ -279,6 +278,35 @@ class TrackedTask(Task):
         )
 
 
+@signals.task_failure.connect
+def record_lost_worker(sender=None, task_id=None, exception=None, **_kwargs):
+    """Mark a job as failed when the worker process running it dies.
+
+    `TrackedTask.on_failure` runs inside the worker process, so it never runs when that process is
+    killed (out of memory, a signal). Celery's main worker process then reports `WorkerLostError`
+    through this signal. Without this the job stays STARTED forever.
+    """
+    if not isinstance(exception, WorkerLostError):
+        return
+    key = f"job_meta:{task_id}"
+    # Only a job chap tracks, and only one that has not already finished.
+    if r.hget(key, "status") not in ("PENDING", "STARTED"):
+        return
+    r.hset(
+        key,
+        mapping={
+            "status": "FAILURE",
+            "error": (
+                f"The worker process running this job was killed ({exception}). It may have run out of "
+                "memory: try with less data, or ask an administrator to check the worker's memory limit."
+            )[:JOB_ERROR_MAX_CHARS],
+            # The job's log ends where the process died; the logs endpoint appends this to say why.
+            "traceback": f"{type(exception).__name__}: {exception}",
+            "end_time": datetime.now(UTC).isoformat(),
+        },
+    )
+
+
 @shared_task(name="celery.ping")
 def ping():
     return "pong"
@@ -294,7 +322,9 @@ def db_roundtrip() -> str:
     """
     from sqlalchemy import text
 
-    from chap_core.database.database import engine
+    from chap_core.database.database import get_engine
+
+    engine = get_engine()
 
     if engine is None:
         raise RuntimeError("Worker database engine not configured")
@@ -321,7 +351,7 @@ ENGINES_CACHE: dict[str, Engine] = {}
 
 def worker_database_url() -> str:
     """The database the worker runs jobs against, from its own environment."""
-    database_url = os.getenv("CHAP_DATABASE_URL")
+    database_url = get_settings().database_url
     if not database_url:
         raise RuntimeError("CHAP_DATABASE_URL is not set on the worker")
     return database_url

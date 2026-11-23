@@ -1,18 +1,46 @@
+from dataclasses import dataclass
+
 import numpy as np
 
 from chap_core.database.model_templates_and_config_tables import ModelTemplateRole
 from chap_core.datatypes import Samples
-from chap_core.models.builtin.empirical import quantile_samples
+from chap_core.models.builtin.empirical import even_samples
 from chap_core.models.builtin.registry import BaselineNotApplicable, BuiltinModel, BuiltinModelSpec, builtin_model
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+
+
+@dataclass(frozen=True)
+class GlobalObservations:
+    """All observed disease_cases of each location in the training data."""
+
+    by_location: dict[str, np.ndarray]
+
+    @classmethod
+    def from_data(cls, data: DataSet) -> "GlobalObservations":
+        by_location = {}
+        for location, location_data in data.items():
+            cases = np.asarray(location_data.disease_cases, dtype=float)
+            observed = cases[np.isfinite(cases)]
+            if len(observed) > 0:
+                by_location[location] = observed
+        return cls(by_location)
+
+    def for_location(self, location: str) -> np.ndarray:
+        """The observations of the location, or those of all locations when it has none."""
+        if location in self.by_location:
+            return self.by_location[location]
+        if not self.by_location:
+            raise BaselineNotApplicable("No observed disease_cases for any location in the training data")
+        return np.concatenate(list(self.by_location.values()))
 
 
 @builtin_model()
 class GlobalMedian(BuiltinModel):
     """Forecasts every period with all observations of the same location in the training data.
 
-    The samples are quantiles of those observations, so their median is the median of
-    the observations.
+    The samples are the observations, each repeated about equally often, with their exact
+    median as the middle sample (see ``even_samples``). A location
+    without observations gets the observations of all other locations.
     """
 
     spec = BuiltinModelSpec(
@@ -22,25 +50,18 @@ class GlobalMedian(BuiltinModel):
             "Baseline that uses all observed values for the same location as forecast samples for every "
             "period, without smoothing or model fitting."
         ),
-        version="1",
+        version="3",
         role=ModelTemplateRole.baseline,
     )
 
-    def __init__(self):
-        self._samples: dict[str, np.ndarray] = {}
-
     def train(self, data: DataSet) -> None:
-        for location, location_data in data.items():
-            cases = np.asarray(location_data.disease_cases, dtype=float)
-            observed = cases[np.isfinite(cases)]
-            if len(observed) > 0:
-                self._samples[location] = quantile_samples(observed)
+        self._observations = GlobalObservations.from_data(data)
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         forecasts = {}
         for location, location_data in future_data.items():
-            if location not in self._samples:
-                raise BaselineNotApplicable(f"No observed disease_cases for location {location!r} in the training data")
-            samples = np.tile(self._samples[location], (len(location_data.time_period), 1))
+            samples = np.tile(
+                even_samples(self._observations.for_location(location)), (len(location_data.time_period), 1)
+            )
             forecasts[location] = Samples(location_data.time_period, samples)  # type: ignore[call-arg]
         return DataSet(forecasts)

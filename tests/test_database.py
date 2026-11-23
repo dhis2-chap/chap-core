@@ -163,6 +163,30 @@ def test_losing_a_concurrent_template_insert_returns_the_winners_row(model_templ
         assert len(session.session.exec(select(ModelTemplateDB)).all()) == 1
 
 
+def test_losing_a_concurrent_configured_model_insert_returns_the_winners_row(model_template_yaml_config, tmp_path):
+    # A file database, so the competing request writes through its own connection.
+    engine = create_engine(f"sqlite:///{tmp_path / 'chap.db'}")
+    SQLModel.metadata.create_all(engine)
+    configuration = ModelConfiguration(user_option_values={}, additional_continuous_covariates=["rainfall"])
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+    winner_ids = []
+
+    def insert_competing_configured_model(session, flush_context, instances):
+        with SessionWrapper(engine) as competitor:
+            winner_ids.append(competitor.add_configured_model(template_id, configuration))
+
+    with SessionWrapper(engine) as session:
+        # The competitor commits after this session found no row but before it flushes its insert.
+        event.listen(session.session, "before_flush", insert_competing_configured_model, once=True)
+        configured_model_id = session.add_configured_model(template_id, configuration)
+
+    assert configured_model_id == winner_ids[0]
+    with SessionWrapper(engine) as session:
+        assert len(session.session.exec(select(ConfiguredModelDB)).all()) == 1
+        assert [model.id for model in session.get_configured_models()] == [configured_model_id]
+
+
 def test_add_configured_model_chapkit_skips_required_validation(engine):
     # Mimics what chapkit's /api/v1/configs/$schema returns for a field declared
     # with Field(default_factory=lambda: [3]): the property has no literal
@@ -913,3 +937,36 @@ def test_model_configuration_accepts_nested_format():
     )
     assert config.user_option_values == {"n_lag_periods": 5}
     assert config.additional_continuous_covariates == ["rainfall"]
+
+
+def test_concurrent_first_uses_share_one_engine(monkeypatch):
+    import threading
+    import time
+
+    import chap_core.database.database as database
+
+    created = []
+
+    def slow_create_engine(*args, **kwargs):
+        time.sleep(0.05)
+        created.append(object())
+        return created[-1]
+
+    monkeypatch.setenv("CHAP_DATABASE_URL", "sqlite://")
+    monkeypatch.setattr(database, "engine", None)
+    monkeypatch.setattr(database, "create_engine", slow_create_engine)
+    barrier = threading.Barrier(8)
+    engines = []
+
+    def first_use():
+        barrier.wait()
+        engines.append(database.get_engine())
+
+    threads = [threading.Thread(target=first_use) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert len(created) == 1
+    assert engines == created * 8

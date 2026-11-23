@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from chap_core.api_types import BacktestParams
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.forecast import forecast_ahead
-from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
+from chap_core.assessment.metrics import compute_all_aggregated_metrics
 from chap_core.assessment.target_mask import (
     check_mask_outside_evaluation_window,
     check_target_column_allows_masking,
@@ -24,9 +24,10 @@ from chap_core.database.tables import BacktestSpecification, PredictionSetup
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
 from chap_core.models.builtin import BaselineNotApplicable
-from chap_core.rest_api.data_models import BacktestCreate, FetchRequest, PredictionParams
+from chap_core.rest_api.data_models import BacktestCreate, PredictionParams
 from chap_core.rest_api.job_registry import job_function
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
+from chap_core.services.dataset_validation import require_model_covariates
 from chap_core.services.signal_service import raise_signals_for_prediction
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -192,11 +193,17 @@ def run_backtest(
             logger.warning(f"Could not request baselines for specification {specification.id}", exc_info=True)
             session.session.rollback()
     dataset = _use_as_disease_cases(dataset, target_column)
+    # Checked after the target is moved to disease_cases, since the model never sees the target column.
+    require_model_covariates(
+        dataset, configured_model.model_template.required_covariates, configured_model.additional_continuous_covariates
+    )
 
     status_logger.info(f"Running {n_splits} evaluation splits with prediction length {n_periods}")
     assert configured_model.id is not None, "configured_model.id is required"
     estimator = session.get_configured_model_with_code(configured_model.id, prediction_length=n_periods)
     # Historical context is for CLI plots; persisted backtests reach it through their dataset.
+    # Invalid forecasts, such as NaN samples (MissingSamplesError), fail the job on purpose.
+    # Only the metrics below are best-effort.
     evaluation = Evaluation.create(
         configured_model=configured_model,
         estimator=estimator,
@@ -206,22 +213,18 @@ def run_backtest(
         info=info,
         specification=specification,
     )
-    backtest = evaluation.to_backtest()
+    backtest = evaluation.to_backtest(include_forecasts=False)
     backtest.model_db_id = configured_model.id
-    session.add_backtest(backtest)
     # Populate the global aggregate metric values on the backtest row so that
     # GET /v1/crud/backtests/{id}/full can return CRPS/MAPE/RMSE/etc without
     # the caller needing to round-trip through /v1/visualization/metric-plots.
-    # Per-forecast samples on BacktestForecast remain the source of truth for
-    # the visualization path; a failure here must not tank the whole backtest.
-    # This runs AFTER add_backtest because compute_all_aggregated_metrics_from_backtest
-    # reads `backtest.dataset.observations` via the Evaluation abstraction, and the
-    # `dataset` relationship only resolves once the row is attached + committed.
+    # They are computed from the evaluation in memory before it is stored; a failure
+    # here must not tank the whole backtest.
     try:
-        backtest.aggregate_metrics = compute_all_aggregated_metrics_from_backtest(backtest)
-        session.session.commit()
+        backtest.aggregate_metrics = compute_all_aggregated_metrics(evaluation)
     except Exception:
         logger.warning("Failed to compute aggregate metrics for backtest; leaving empty", exc_info=True)
+    session.add_backtest(backtest, forecast_rows=evaluation.forecast_rows())
     db_id = backtest.id
     assert db_id is not None
     status_logger.info(f"Backtest completed successfully. Results saved with ID {db_id}")
@@ -295,6 +298,9 @@ def run_prediction(
     configured_model = session.get_configured_model_by_id_or_name(
         model_id if configured_model_id is None else configured_model_id
     )
+    require_model_covariates(
+        dataset, configured_model.model_template.required_covariates, configured_model.additional_continuous_covariates
+    )
     assert configured_model.id is not None, "configured_model.id is required"
     estimator = session.get_configured_model_with_code(configured_model.id, prediction_length=n_periods)
     predictions = forecast_ahead(estimator, dataset, n_periods, weather_provider=future_weather_provider)
@@ -310,8 +316,10 @@ def run_prediction(
     assert db_id is not None
     status_logger.info(f"Prediction completed successfully. Results saved with ID {db_id}")
     if prediction_setup_id is not None:
-        raise_signals_for_prediction(session.session, db_id)
+        # Baselines first: they never raise, so a failing threshold policy still fails the job
+        # but no longer leaves the prediction without the baseline forecasts monitoring compares it with.
         _predict_baselines(session, dataset, dataset_id, n_periods, name, db_id, future_weather_provider)
+        raise_signals_for_prediction(session.session, db_id)
     return db_id
 
 
@@ -380,7 +388,6 @@ def harmonize_and_add_health_dataset(
 @job_function
 def harmonize_and_add_dataset(
     provided_field_names: list[str],
-    data_to_be_fetched: list[FetchRequest],
     health_dataset: dict,
     name: str,
     ds_type: str,
@@ -393,12 +400,6 @@ def harmonize_and_add_dataset(
     status_logger.info(f"Processing and adding dataset '{name}' of type '{ds_type}'")
     provided_dataclass = create_tsdataclass(provided_field_names)
     dataset_obj = InMemoryDataSet.from_dict(health_dataset, provided_dataclass)
-    if len(data_to_be_fetched):
-        full_dataset = harmonize_health_dataset(
-            dataset_obj, fetch_requests=data_to_be_fetched, usecwd_for_credentials=False, worker_config=worker_config
-        )
-    else:
-        full_dataset = dataset_obj
     info = DataSetCreateInfo(
         name=name,
         type=ds_type,
@@ -407,7 +408,7 @@ def harmonize_and_add_dataset(
         target_column=target_column,
     )
     db_id: int = DataSetManager(session.session).save_dataset(
-        info, full_dataset, polygons=dataset_obj.polygons.model_dump_json(), created_manually=True
+        info, dataset_obj, polygons=dataset_obj.polygons.model_dump_json(), created_manually=True
     )
     status_logger.info(f"Dataset '{name}' added successfully with ID {db_id}")
     return db_id

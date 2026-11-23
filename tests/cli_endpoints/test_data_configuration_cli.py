@@ -14,12 +14,6 @@ from chap_core.database.dataset_tables import MaskedRange
 
 
 @pytest.fixture
-def laos_csv(data_path):
-    """Monthly data for three provinces, 2010-01 to 2012-12."""
-    return data_path / "laos_subset.csv"
-
-
-@pytest.fixture
 def mask_file(tmp_path):
     def _write(start: str, end: str, suffix: str = ".json"):
         path = tmp_path / f"data{suffix}"

@@ -1,6 +1,11 @@
 import logging
 
-from chap_core.log_config import STATUS_LOGGER_NAME, get_status_logger, initialize_logging
+from chap_core.log_config import (
+    ALEMBIC_PLUGIN_LOGGER_NAME,
+    STATUS_LOGGER_NAME,
+    get_status_logger,
+    initialize_logging,
+)
 
 
 def test_initialize_logging_defaults_to_info_when_env_unset(monkeypatch):
@@ -25,3 +30,19 @@ def test_get_status_logger_reenables_a_logger_disabled_by_logging_config():
     logging.getLogger(STATUS_LOGGER_NAME).disabled = True
 
     assert get_status_logger().disabled is False
+
+
+def test_initialize_logging_hides_alembic_plugin_setup(monkeypatch):
+    monkeypatch.delenv("CHAP_DEBUG", raising=False)
+
+    initialize_logging()
+
+    assert logging.getLogger(ALEMBIC_PLUGIN_LOGGER_NAME).level == logging.WARNING
+
+
+def test_initialize_logging_shows_alembic_plugin_setup_in_debug_mode(monkeypatch):
+    monkeypatch.setenv("CHAP_DEBUG", "true")
+
+    initialize_logging()
+
+    assert logging.getLogger(ALEMBIC_PLUGIN_LOGGER_NAME).level == logging.NOTSET
