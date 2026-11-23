@@ -140,6 +140,10 @@ class _RefuseDuplicateKeys(yaml.SafeLoader):
     def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict[Any, Any]:
         seen = set()
         for key_node, _ in node.value:
+            # A merge key (<<) is flattened by SafeLoader below; a key written next to it may
+            # override a merged one, as YAML intends. Only keys written twice are refused.
+            if key_node.tag == "tag:yaml.org,2002:merge":
+                continue
             key = self.construct_object(key_node, deep=deep)  # type: ignore[no-untyped-call]
             if key in seen:
                 raise ConfigFileError(f"{self.name}: the key {key} appears twice (line {key_node.start_mark.line + 1})")

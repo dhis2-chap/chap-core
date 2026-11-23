@@ -185,3 +185,12 @@ def test_a_key_given_twice_stops_startup_instead_of_replacing_the_first(config_f
 
     with pytest.raises(ConfigFileError, match=f"{path}: the key analyst appears twice \\(line 5\\)"):
         ChapSettings()
+
+
+def test_yaml_merge_keys_still_work(config_file):
+    config_file("<<: {debug: true, root_path: /merged}\nroot_path: /chap\n")
+
+    settings = ChapSettings()
+
+    assert settings.debug is True
+    assert settings.root_path == "/chap"
