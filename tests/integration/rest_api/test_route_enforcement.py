@@ -3,10 +3,12 @@
 Each permission gets a token whose tier holds that permission alone. Every route the app serves,
 including those hidden from the OpenAPI spec, is called with a token lacking its permission,
 which must get 403, and with the token holding only that permission, which must get past the
-check. A route with a second permission may then refuse that token, naming the second one.
+check. Only the routes in SECOND_PERMISSIONS may then refuse that token, naming their second
+permission.
 """
 
 import re
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -40,6 +42,14 @@ def gated_operations() -> list[tuple[str, str, str]]:
 
 
 OPERATIONS = gated_operations()
+
+# Routes that check a second permission before reading a body, so a token holding only the
+# declared one is refused here. Each must be listed in the contract's second-permission rules.
+SECOND_PERMISSIONS = {
+    ("GET", "/v1/jobs/{job_id}/request"): Permission.EXPORT_DATASETS,
+}
+
+CONTRACT = Path(__file__).parents[3] / "docs" / "contributor" / "auth_contract.md"
 
 
 @pytest.fixture
@@ -84,7 +94,15 @@ def test_a_token_without_the_permission_is_refused(client, method, path, permiss
 def test_a_token_with_only_the_permission_gets_past_the_check(client, method, path, permission):
     response = call(client, method, path, Permission(permission))
 
-    # A route that does a second thing may still refuse, but only for its second permission.
     assert response.status_code != 401, response.text
     if response.status_code == 403:
-        assert permission not in response.json()["detail"], response.text
+        second = SECOND_PERMISSIONS.get((method, path))
+        assert second is not None, f"{method} {path} refused a token holding {permission}: {response.text}"
+        assert second.value in response.json()["detail"], response.text
+
+
+def test_the_contract_lists_every_second_permission_the_sweep_allows():
+    contract = CONTRACT.read_text()
+    for (method, path), permission in SECOND_PERMISSIONS.items():
+        assert f"`{method} {path}`" in contract, f"{method} {path} is missing from the contract"
+        assert f"`{permission.value}`" in contract
