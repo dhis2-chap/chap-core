@@ -182,15 +182,15 @@ Run the evaluation:
 ```python exec="on" session="eval-walkthrough" source="above"
 from chap_core.api_types import BacktestParams
 from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.evaluation_metadata import EvaluatedModel
 from chap_core.external.ExtendedPredictor import ExtendedPredictor
 
 backtest_params = BacktestParams(n_periods=3, n_splits=4, stride=1, n_retrain=1)
 evaluation = Evaluation.create(
-    estimator.configured_model_db,
     ExtendedPredictor.extend_to_horizon(estimator, backtest_params.n_periods),
     dataset,
     backtest_params,
-)
+).with_model(EvaluatedModel(name="naive_model", version="1.0"))
 ```
 
 Export to flat DataFrames for inspection:
