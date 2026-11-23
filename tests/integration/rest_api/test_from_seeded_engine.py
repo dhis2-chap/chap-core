@@ -167,8 +167,7 @@ def test_threshold_params_schema_is_discriminated_union():
         for ref in mapping.values():
             member = schema["components"]["schemas"][ref.rsplit("/", 1)[-1]]
             assert "type" in member.get("required", []), member
-    lines_schema = schema["components"]["schemas"]["ThresholdResponse"]["properties"]["lines"]
-    assert lines_schema["type"] == "array"
+    assert schema["components"]["schemas"]["ThresholdResponse"]["properties"]["lines"]["type"] == "array"
 
 
 def test_weather_provider_discovery(override_session):
