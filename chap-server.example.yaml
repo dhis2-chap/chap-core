@@ -17,6 +17,13 @@ cors_origins:
 # Turn on debug logging.
 # debug: false
 
+# The single API token (the older way). Set it in the environment, not here:
+#   CHAP_API_TOKEN=$(openssl rand -hex 32)
+# It acts as an operator token with the id legacy, sent as `Authorization: Bearer <token>`,
+# `Authorization: ApiToken <token>` (DHIS2 routes) or `X-Service-Key: <token>`. It works
+# alone or beside the named tokens below, so clients can move to their own token one at a
+# time. A named token may not use the id legacy or the same secret.
+
 # Named tokens, one per client. Each secret lives in the environment variable token_env
 # names, never in this file: make one with `openssl rand -hex 32`. Tiers are read,
 # authenticated and operator, or one defined under tiers. With no tokens and no
