@@ -34,6 +34,7 @@ from .model_templates_and_config_tables import (
     chapkit_revision_conflict,
     compute_configuration_digest,
     drifted_template_content_fields,
+    user_option_errors,
 )
 from .tables import (
     Backtest,
@@ -306,6 +307,10 @@ class SessionWrapper:
                     "chap-core sets the prediction length per run, and additional covariates go in "
                     "additional_continuous_covariates"
                 )
+            # The service accepts unknown keys and checks types only once a run starts, so check them here.
+            errors = user_option_errors(model_template.user_options, configuration.user_option_values)
+            if errors:
+                raise ValueError("Invalid user options: " + "; ".join(errors))
 
         # check if this exact configuration already exists
         digest = compute_configuration_digest(configuration)

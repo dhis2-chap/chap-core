@@ -6,7 +6,7 @@ from pydantic import BaseModel, TypeAdapter
 
 import chap_core.rest_api.app  # noqa: F401  imports every API model
 from chap_core.database.base_tables import DBModel, UtcDatetime
-from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation
+from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation, user_option_errors
 from chap_core.rest_api.data_models import ModelTemplateRead
 
 
@@ -87,3 +87,40 @@ def test_model_template_read_serves_both_horizon_spellings():
     assert payload["maxPredictionPeriods"] == 6
     assert payload["minPredictionLength"] == 2
     assert payload["maxPredictionLength"] == 6
+
+
+CHAPKIT_STYLE_OPTIONS = {
+    "family": {"type": "string", "enum": ["poisson", "negative_binomial"], "default": "poisson"},
+    "n_lags": {"type": "array", "items": {"type": "integer"}},
+    "n_samples": {"type": "integer", "exclusiveMinimum": 0, "default": 100},
+    "re_spatial": {"$ref": "#/$defs/SpatialEffect"},
+    "rate": {"type": "float"},
+}
+
+
+@pytest.mark.parametrize(
+    ("values", "errors"),
+    [
+        ({"family": "gamma"}, ["family: 'gamma' is not one of ['poisson', 'negative_binomial']"]),
+        ({"n_lags": 3}, ["n_lags: 3 is not of type 'array'"]),
+        ({"n_samples": 0}, ["n_samples: 0 is less than or equal to the minimum of 0"]),
+        (
+            {"not_an_option": 1, "family": "gamma"},
+            [
+                "not_an_option: not an option of this model",
+                "family: 'gamma' is not one of ['poisson', 'negative_binomial']",
+            ],
+        ),
+    ],
+)
+def test_user_option_errors_names_each_invalid_option(values, errors):
+    assert user_option_errors(CHAPKIT_STYLE_OPTIONS, values) == errors
+
+
+def test_user_option_errors_accepts_valid_and_omitted_options():
+    assert user_option_errors(CHAPKIT_STYLE_OPTIONS, {"n_lags": [1, 3]}) == []
+
+
+def test_user_option_errors_skips_options_it_cannot_check():
+    """A $ref points to definitions that are not stored, and `type: float` is not a JSON Schema type."""
+    assert user_option_errors(CHAPKIT_STYLE_OPTIONS, {"re_spatial": "anything", "rate": "fast"}) == []
