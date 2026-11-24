@@ -19,35 +19,50 @@ def _scores(model_errors):
 
 
 def test_a_model_that_is_always_best_by_the_same_margin_has_no_selection_bias():
-    estimate = estimate_selection_bias(MAEMetric(), _scores([[0.5, 0.8]] * 6), future_splits=12)
+    estimate = estimate_selection_bias(MAEMetric(), _scores([[0.5, 0.8]] * 6))
 
     assert estimate.final_index == 0
     np.testing.assert_allclose(estimate.final_values, [0.5, 0.2])
-    np.testing.assert_allclose([estimate.estimated_bias, estimate.mean_optimism], [0, 0], atol=1e-12)
+    np.testing.assert_allclose([estimate.estimated_bias, estimate.mean_gap], [0, 0], atol=1e-12)
     # 6 splits: windows [a, b) with b < 6, each scored on the splits from b on.
     assert estimate.n_pairs == sum((6 - b) * b for b in range(1, 6))
+    assert (estimate.n_windows, estimate.n_windows_other_pick) == (15, 0)
     assert [p.x for p in estimate.window_size_points] == [1, 2, 3, 4, 5]
     assert [p.x for p in estimate.distance_points] == [0, 1, 2, 3, 4]
     assert sum(p.n_pairs for p in estimate.window_size_points) == estimate.n_pairs
 
 
-def test_models_taking_turns_flatter_short_windows_most():
-    # The two models are equally good overall but alternate: a short window picks
-    # whichever was lucky in it, and that luck does not carry over to later splits.
-    estimate = estimate_selection_bias(MAEMetric(), _scores([[0.2, 0.8], [0.8, 0.2]] * 6), future_splits=12)
+def test_a_model_that_wins_every_window_has_no_selection_bias_even_when_its_score_drifts():
+    # Both models get worse over time, and the margin varies, but the first wins every window.
+    errors = [[0.1 + 0.1 * t, 0.3 + 0.12 * t + 0.05 * (t % 2)] for t in range(8)]
+    estimate = estimate_selection_bias(MAEMetric(), _scores(errors))
 
+    assert estimate.final_index == 0
+    assert estimate.n_windows_other_pick == 0
+    assert estimate.estimated_bias == 0
+    assert all(point.value == 0 for point in estimate.window_size_points + estimate.distance_points)
+
+
+def test_a_lucky_rival_in_short_windows_gives_a_positive_bias():
+    # The first model always errs by 0.3; the second by 0.1 and 0.6 in turn, 0.35 on average. One-split windows
+    # that land on a 0.1 pick the second model, which is worse than the final pick on the later splits.
+    errors = [[0.3, 0.1 if t % 2 == 0 else 0.6] for t in range(12)]
+    estimate = estimate_selection_bias(MAEMetric(), _scores(errors))
+
+    assert estimate.final_index == 0
+    assert estimate.n_windows_other_pick > 0
     window_size = {p.x: p.value for p in estimate.window_size_points}
-    assert window_size[1] > window_size[2] > 0
-    assert estimate.coefficients[1] > 0
-    assert estimate.mean_optimism > estimate.estimated_bias
+    assert window_size[1] > 0
+    assert window_size[2] == 0  # two splits always average 0.35, so they pick the first model
+    assert estimate.inverse_sqrt_k > 0
+    assert estimate.mean_gap > estimate.estimated_bias > 0
     for point in estimate.window_size_points:
-        a0, a1, _ = estimate.coefficients
-        assert point.fitted == pytest.approx(a0 + a1 / np.sqrt(point.x))
+        assert point.fitted == pytest.approx(estimate.inverse_sqrt_k / np.sqrt(point.x))
 
 
 def test_too_few_split_points_are_rejected():
     with pytest.raises(SelectionBiasError):
-        estimate_selection_bias(MAEMetric(), _scores([[0.5, 0.8]] * 2), future_splits=12)
+        estimate_selection_bias(MAEMetric(), _scores([[0.5, 0.8]] * 2))
 
 
 def test_split_scores_sum_each_split_on_the_forecasts_every_model_made():

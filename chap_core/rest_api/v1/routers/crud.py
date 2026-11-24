@@ -498,21 +498,18 @@ def get_backtest_specification_selection_bias(
     horizon_distance: Annotated[
         int, Query(alias="horizonDistance", ge=1, description="Horizon distance whose forecasts are scored.")
     ] = 1,
-    future_splits: Annotated[
-        int,
-        Query(alias="futureSplits", ge=1, description="Number of future splits the estimated bias is averaged over."),
-    ] = 12,
     session: Session = Depends(get_session),
 ):
     """Estimate the selection bias of the model with the best comparison with the baseline over all split points.
 
     Runs a nested scheme on the specification's own split points: every window of consecutive
-    splits picks its best model, and the pick is scored on every later split. The pick's
-    optimism (validation value minus test value) is fitted as
-    ``intercept + inverseSqrtK / sqrt(k) + distance * d``, with ``k`` the window size and ``d``
-    the splits between the window and the test split. The estimated bias is the fit at the
-    full window size, averaged over the next ``futureSplits`` splits. ``windowSizePoints`` and
-    ``distancePoints`` hold the data for the two scatter plots with their fitted lines.
+    splits picks its best model, and on every later split that pick is compared with the final
+    model, the one picked on all splits. The gap (final model's value minus the pick's value on
+    that split) is zero when the window picks the final model. It is fitted as
+    ``inverseSqrtK / sqrt(k)``, with ``k`` the window size, and the estimated bias is the fit at
+    the full window size. A model that wins every window has no selection bias.
+    ``windowSizePoints`` and ``distancePoints`` hold the data for the two scatter plots; the gap
+    against the distance ``d`` to the test split is a check and should be flat.
 
     Candidates are the newest backtest of each model on the leaderboard, scored on the
     forecasts all of them and the baseline made. 404 if the specification is unknown, 422 if
@@ -520,9 +517,7 @@ def get_backtest_specification_selection_bias(
     fewer than two models or three split points.
     """
     try:
-        return selection_bias_service.get_selection_bias(
-            session, specification_id, metric, baseline, horizon_distance, future_splits
-        )
+        return selection_bias_service.get_selection_bias(session, specification_id, metric, baseline, horizon_distance)
     except selection_bias_service.SpecificationNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except selection_bias_service.SelectionBiasError as e:

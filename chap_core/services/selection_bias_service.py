@@ -2,20 +2,26 @@
 
 Picking the model with the best score over the splits flatters that model: part of its lead
 is luck, and it is gone on new data. The bias is estimated with a nested scheme inside the
-splits. Every window of consecutive splits [a, b) plays validation data: the model with the
-best comparison with the baseline over it is picked, and the pick is scored on every later
-split t >= b. The pick's optimism is its validation value minus its value on split t, so a
-positive optimism means the validation flattered it. The optimism is modelled as
+splits. Every window of consecutive splits [a, b) plays validation data and picks the model
+with the best comparison with the baseline over it. The pick is then compared, on every later
+split t >= b, with the final model f (the one picked on all n splits):
 
-    optimism = intercept + inverse_sqrt_k / sqrt(k) + distance * d
+    gap = value of f on split t - value of the window's pick on split t
 
-with k = b - a the window size (selection noise shrinks like the noise of a k-split mean)
-and d = t - b the number of splits between the window and the test split (drift), fitted by
-least squares weighted by the number of forecasts scored in the test split.
+The gap is zero whenever the window picks f, so a model that wins every window has no
+selection bias, however its score moves over time. Both values are on the same split, so a
+change that hits every model alike (drift) cancels out. The final model was picked with split
+t included, so a window that picks another model shows how much of f's lead on t was luck.
 
-The final model is the one picked on all n splits. Its estimated bias is the fitted optimism
-at k = n, averaged over the next `future_splits` splits (d = 0 .. future_splits - 1), and its
-estimated value on new data is its validation value minus that bias.
+The gap shrinks like the noise of a k-split mean, with k = b - a the window size, and goes to
+zero for long windows. It is fitted by least squares through the origin,
+
+    gap = inverse_sqrt_k / sqrt(k),
+
+weighted by the number of forecasts scored in the test split. The estimated bias of the final
+model is the fit at k = n, and its estimated value on new data is its validation value minus
+that bias. d = t - b, the number of splits between the window and the test split, is kept for
+a check: with drift cancelled, the gap should not change with d.
 
 Scores pool org units at one horizon distance. Only forecasts every candidate and the
 baseline made are scored, so all models are compared on the same forecasts.
@@ -67,23 +73,21 @@ class SelectionBiasError(Exception):
 
 
 class SelectionBiasPoint(DBModel):
-    """One point of a scatter plot of the pick's optimism against the window size or the distance."""
+    """One point of a scatter plot of the gap against the window size or the distance."""
 
     x: int = Field(description="Window size k (splits) or distance d (splits after the window).")
     value: float = Field(
-        description="Mean optimism of the pairs at this x, weighted by forecasts scored. On the window-size plot it "
-        "is adjusted to distance 0, and on the distance plot to the full window size, using the fitted coefficients."
+        description="Mean gap of the pairs at this x, weighted by forecasts scored. On the distance plot it is "
+        "adjusted to the full window size, using the fitted coefficient."
     )
     fitted: float = Field(description="The fitted line at this x.")
     n_pairs: int = Field(description="Number of (validation window, test split) pairs at this x.")
 
 
 class SelectionBiasCoefficients(DBModel):
-    """Coefficients of optimism = intercept + inverse_sqrt_k / sqrt(k) + distance * d."""
+    """Coefficient of gap = inverse_sqrt_k / sqrt(k)."""
 
-    intercept: float = Field(description="Optimism of an infinitely long window at distance 0.")
     inverse_sqrt_k: float = Field(description="Selection effect: coefficient of 1 / sqrt(window size).")
-    distance: float = Field(description="Drift: change in optimism per split between the window and the test split.")
 
 
 class SelectionBiasCandidate(DBModel):
@@ -102,7 +106,6 @@ class SelectionBias(DBModel):
     baseline_model: str = Field(description="Name of the baseline model the values are compared with.")
     comparison_description: str = Field(description="One-line description of what the comparison values mean.")
     horizon_distance: int = Field(description="Horizon distance whose forecasts were scored.")
-    future_splits: int = Field(description="Number of future splits the bias is averaged over.")
     split_periods: list[str] = Field(description="Split points used, in order: the periods each split predicted from.")
     candidates: list[SelectionBiasCandidate] = Field(description="Every candidate model, best first.")
     selected_backtest_id: int = Field(description="Backtest of the model picked on all split points.")
@@ -110,18 +113,23 @@ class SelectionBias(DBModel):
         description="The picked model's comparison with the baseline over all split points."
     )
     estimated_bias: float = Field(
-        description="Fitted optimism of the picked model, averaged over the next `futureSplits` splits."
+        description="Fitted gap at the full window size: how much of the picked model's lead is expected to be luck. "
+        "Zero when every validation window picks the same model."
     )
     estimated_value: float = Field(description="Estimated comparison on new data: validationValue - estimatedBias.")
-    mean_optimism: float = Field(
-        description="Mean optimism over all pairs, weighted by forecasts scored. Less noisy than the fit, but biased "
-        "upwards because most pairs have short windows."
+    mean_gap: float = Field(
+        description="Mean gap over all pairs, weighted by forecasts scored. Higher than the estimated bias, because "
+        "most pairs have short windows."
     )
     n_pairs: int = Field(description="Number of (validation window, test split) pairs.")
+    n_windows: int = Field(description="Number of validation windows.")
+    n_windows_other_pick: int = Field(
+        description="Number of validation windows that pick another model than the final one."
+    )
     coefficients: SelectionBiasCoefficients
-    window_size_points: list[SelectionBiasPoint] = Field(description="Optimism against window size k, at distance 0.")
+    window_size_points: list[SelectionBiasPoint] = Field(description="Gap against window size k.")
     distance_points: list[SelectionBiasPoint] = Field(
-        description="Optimism against distance d, at the full window size."
+        description="Gap against distance d, at the full window size. A check: it should be flat."
     )
 
 
@@ -138,8 +146,20 @@ def _comparisons(metric: Metric, model_sums: np.ndarray, baseline_sum: float, co
     return np.array([metric.compare(s / count, baseline_sum / count) for s in model_sums], dtype=float)
 
 
-def nested_pairs(metric: Metric, scores: SplitScores) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Window size k, distance d, optimism and weight of every (validation window, later test split) pair."""
+@dataclass
+class NestedPairs:
+    """Every (validation window, later test split) pair: window size, distance, gap and weight."""
+
+    k: np.ndarray
+    d: np.ndarray
+    gap: np.ndarray
+    weights: np.ndarray
+    n_windows: int
+    n_windows_other_pick: int
+
+
+def nested_pairs(metric: Metric, scores: SplitScores, final_index: int) -> NestedPairs:
+    """The gap between the final model and each window's pick, on every split after the window."""
     n = len(scores.counts)
     cum_models = np.vstack([np.zeros(scores.model_sums.shape[1]), np.cumsum(scores.model_sums, 0)])
     cum_baseline = np.concatenate([[0.0], np.cumsum(scores.baseline_sums)])
@@ -147,28 +167,29 @@ def nested_pairs(metric: Metric, scores: SplitScores) -> tuple[np.ndarray, np.nd
     per_split = np.array(
         [_comparisons(metric, scores.model_sums[t], scores.baseline_sums[t], scores.counts[t]) for t in range(n)]
     )
-    ks, ds, optimism, weights = [], [], [], []
+    ks, ds, gaps, weights = [], [], [], []
+    n_windows = other = 0
     for a in range(n - 1):
         for b in range(a + 1, n):
             validation = _comparisons(
                 metric, cum_models[b] - cum_models[a], cum_baseline[b] - cum_baseline[a], cum_counts[b] - cum_counts[a]
             )
             pick = int(np.nanargmax(validation))
+            n_windows += 1
+            other += pick != final_index
             ks.append(np.full(n - b, b - a))
             ds.append(np.arange(n - b))
-            optimism.append(validation[pick] - per_split[b:, pick])
+            gaps.append(per_split[b:, final_index] - per_split[b:, pick])
             weights.append(scores.counts[b:])
-    k, d, o, w = (np.concatenate(x) for x in (ks, ds, optimism, weights))
-    keep = ~np.isnan(o)
-    return k[keep], d[keep], o[keep], w[keep].astype(float)
+    k, d, g, w = (np.concatenate(x) for x in (ks, ds, gaps, weights))
+    keep = ~np.isnan(g)
+    return NestedPairs(k[keep], d[keep], g[keep], w[keep].astype(float), n_windows, int(other))
 
 
-def fit_optimism(k: np.ndarray, d: np.ndarray, optimism: np.ndarray, weights: np.ndarray) -> np.ndarray:
-    """Weighted least squares of optimism on [1, 1/sqrt(k), d]."""
-    design = np.column_stack([np.ones_like(optimism), 1 / np.sqrt(k), d])
-    root_w = np.sqrt(weights / weights.mean())
-    coef, *_ = np.linalg.lstsq(design * root_w[:, None], optimism * root_w, rcond=None)
-    return np.asarray(coef)
+def fit_gap(k: np.ndarray, gap: np.ndarray, weights: np.ndarray) -> float:
+    """Weighted least squares of the gap on 1/sqrt(k), through the origin."""
+    x = 1 / np.sqrt(k)
+    return float(np.sum(weights * x * gap) / np.sum(weights * x * x))
 
 
 def _points(x: np.ndarray, value: np.ndarray, weights: np.ndarray, line) -> list[SelectionBiasPoint]:
@@ -188,31 +209,36 @@ class SelectionBiasEstimate:
     final_index: int
     final_values: np.ndarray
     estimated_bias: float
-    mean_optimism: float
+    mean_gap: float
     n_pairs: int
-    coefficients: np.ndarray
+    n_windows: int
+    n_windows_other_pick: int
+    inverse_sqrt_k: float
     window_size_points: list[SelectionBiasPoint]
     distance_points: list[SelectionBiasPoint]
 
 
-def estimate_selection_bias(metric: Metric, scores: SplitScores, future_splits: int) -> SelectionBiasEstimate:
-    """Run the nested scheme on per-split scores and estimate the final pick's bias over the next splits."""
+def estimate_selection_bias(metric: Metric, scores: SplitScores) -> SelectionBiasEstimate:
+    """Run the nested scheme on per-split scores and estimate the final pick's bias at the full window size."""
     n = len(scores.counts)
     if n < 3:
         raise SelectionBiasError(f"Need at least 3 split points with scores for every model, got {n}")
-    k, d, optimism, weights = nested_pairs(metric, scores)
-    a0, a1, a2 = coef = fit_optimism(k, d, optimism, weights)
     final_values = _comparisons(metric, scores.model_sums.sum(0), scores.baseline_sums.sum(), scores.counts.sum())
+    final_index = int(np.nanargmax(final_values))
+    pairs = nested_pairs(metric, scores, final_index)
+    c = fit_gap(pairs.k, pairs.gap, pairs.weights)
     return SelectionBiasEstimate(
-        final_index=int(np.nanargmax(final_values)),
+        final_index=final_index,
         final_values=final_values,
-        estimated_bias=float(np.mean(a0 + a1 / np.sqrt(n) + a2 * np.arange(future_splits))),
-        mean_optimism=float(np.average(optimism, weights=weights)),
-        n_pairs=len(optimism),
-        coefficients=coef,
-        window_size_points=_points(k, optimism - a2 * d, weights, lambda kk: a0 + a1 / np.sqrt(kk)),
+        estimated_bias=c / np.sqrt(n),
+        mean_gap=float(np.average(pairs.gap, weights=pairs.weights)),
+        n_pairs=len(pairs.gap),
+        n_windows=pairs.n_windows,
+        n_windows_other_pick=pairs.n_windows_other_pick,
+        inverse_sqrt_k=c,
+        window_size_points=_points(pairs.k, pairs.gap, pairs.weights, lambda kk: c / np.sqrt(kk)),
         distance_points=_points(
-            d, optimism - a1 / np.sqrt(k) + a1 / np.sqrt(n), weights, lambda dd: a0 + a1 / np.sqrt(n) + a2 * dd
+            pairs.d, pairs.gap - c / np.sqrt(pairs.k) + c / np.sqrt(n), pairs.weights, lambda _: c / np.sqrt(n)
         ),
     )
 
@@ -266,7 +292,6 @@ def get_selection_bias(
     metric_id: str,
     baseline_name: str | None = None,
     horizon_distance: int = 1,
-    future_splits: int = 12,
 ) -> SelectionBias:
     """Estimate the selection bias of the best model on a specification from all its split points.
 
@@ -305,7 +330,7 @@ def get_selection_bias(
 
     flats = [Evaluation.from_backtest(backtest).to_flat() for backtest in [*candidates, baseline_backtest]]
     periods, scores = split_scores(metric, flats[0].observations, [flat.forecasts for flat in flats], horizon_distance)
-    estimate = estimate_selection_bias(metric, scores, future_splits)
+    estimate = estimate_selection_bias(metric, scores)
     final = candidates[estimate.final_index]
     validation_value = float(estimate.final_values[estimate.final_index])
     ranked = sorted(
@@ -316,7 +341,6 @@ def get_selection_bias(
         baseline_model=baseline_name,
         comparison_description=get_comparison_description(metric_cls.spec.comparison_op),
         horizon_distance=horizon_distance,
-        future_splits=future_splits,
         split_periods=periods,
         candidates=[
             SelectionBiasCandidate(
@@ -331,13 +355,11 @@ def get_selection_bias(
         validation_value=validation_value,
         estimated_bias=estimate.estimated_bias,
         estimated_value=validation_value - estimate.estimated_bias,
-        mean_optimism=estimate.mean_optimism,
+        mean_gap=estimate.mean_gap,
         n_pairs=estimate.n_pairs,
-        coefficients=SelectionBiasCoefficients(
-            intercept=estimate.coefficients[0],
-            inverse_sqrt_k=estimate.coefficients[1],
-            distance=estimate.coefficients[2],
-        ),
+        n_windows=estimate.n_windows,
+        n_windows_other_pick=estimate.n_windows_other_pick,
+        coefficients=SelectionBiasCoefficients(inverse_sqrt_k=estimate.inverse_sqrt_k),
         window_size_points=estimate.window_size_points,
         distance_points=estimate.distance_points,
     )
