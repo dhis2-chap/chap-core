@@ -366,18 +366,34 @@ def check_model_configuration(
     source: object,
     strict: bool = True,
 ) -> None:
-    """Report options in the model configuration from ``source`` that the model does not have.
+    """Report options in the model configuration from ``source`` that the model does not have,
+    and values that do not match the option's declared schema.
 
     A misspelled option is otherwise ignored and the model runs with its default. With ``strict``,
     raises ValueError; otherwise logs a warning.
     """
     if configuration is None:
         return
-    known = set(template_config.user_options or {})
-    unknown = sorted(set(configuration.user_option_values or {}) - known)
+    import jsonschema
+
+    user_options = template_config.user_options or {}
+    values = configuration.user_option_values or {}
+    unknown = sorted(set(values) - set(user_options))
     if unknown:
-        options = ", ".join(sorted(known)) or "none"
+        options = ", ".join(sorted(user_options)) or "none"
         _report(f"{source} sets options the model does not have: {', '.join(unknown)}. Its options: {options}", strict)
+    errors = []
+    for name in sorted(set(values) & set(user_options)):
+        schema = user_options[name]
+        # A $ref points into $defs we do not have (chapkit schemas); the service validates those itself.
+        if "$ref" in str(schema):
+            continue
+        try:
+            jsonschema.validate(instance=values[name], schema=schema)
+        except jsonschema.ValidationError as e:
+            errors.append(f"{name}: {e.message}")
+    if errors:
+        _report(f"{source} sets invalid option values:\n  - " + "\n  - ".join(errors), strict)
 
 
 def check_dataset_for_model(
