@@ -25,12 +25,12 @@ from chap_core.cli_endpoints._common import (
     discover_geojson,
     get_configuration,
     get_estimator,
-    get_hpo_estimator,
     load_data_configuration,
     load_dataset_from_csv,
     resolve_csv_path,
     warn_unused_covariates,
 )
+from chap_core.hpo.factory import create_hpo_estimator
 from chap_core.hpo.meta_learner import MetaLearner
 
 if TYPE_CHECKING:
@@ -273,7 +273,7 @@ def _run_eval(
                 prediction_length=backtest_params.n_periods,
             )
         elif estimator_options.mode == EstimatorMode.HPO:
-            estimator = get_hpo_estimator(
+            estimator = create_hpo_estimator(
                 template=template,
                 configuration=configuration,
                 backtest_params=backtest_params,

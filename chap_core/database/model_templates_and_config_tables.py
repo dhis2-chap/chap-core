@@ -2,7 +2,6 @@ import hashlib
 import json
 import logging
 from enum import Enum, StrEnum
-from typing import TYPE_CHECKING, Optional
 
 import jsonschema
 from pydantic import AliasChoices, ConfigDict
@@ -11,11 +10,9 @@ from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, Relationship, SQLModel
 
 from chap_core.database.base_tables import DBModel
+from chap_core.database.hpo_tables import HpoRunDB
 from chap_core.exceptions import ModelTemplateRevisionConflict
 from chap_core.model_spec import PeriodType
-
-if TYPE_CHECKING:
-    from chap_core.database.tables import HpoRunDB
 
 logger = logging.getLogger(__name__)
 
@@ -288,7 +285,7 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
         ondelete="SET NULL",
         description="HPO run that produced this configuration, if any.",
     )
-    hpo_run: Optional["HpoRunDB"] = Relationship()
+    hpo_run: HpoRunDB | None = Relationship()
 
     @property
     def display_name(self) -> str:

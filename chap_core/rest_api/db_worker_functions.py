@@ -19,14 +19,15 @@ from chap_core.assessment.target_mask import (
     check_target_column_allows_masking,
 )
 from chap_core.assessment.weather_providers import DEFAULT_WEATHER_PROVIDER_ID
-from chap_core.cli_endpoints._common import get_hpo_estimator  # should be moved to hpo package
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSetCreateInfo, DataSource, MaskedRange
+from chap_core.database.hpo_tables import HpoRunDB
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration
-from chap_core.database.tables import BacktestSpecification, HpoRunDB, PredictionSetup
+from chap_core.database.tables import BacktestSpecification, PredictionSetup
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
+from chap_core.hpo.factory import create_hpo_estimator  # should be moved to hpo package
 from chap_core.log_config import get_status_logger
 from chap_core.models.builtin import BaselineNotApplicable
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
@@ -235,7 +236,6 @@ def run_hpo_backtest(
     )
     dataset, target_column = load_masked_dataset(session.session, specification.dataset_id, specification.target_column)
     # checks copied from resolve_backtest_specification used in create_backtest
-    # check_target_column(dataset, target_column)
     check_mask_outside_evaluation_window(
         dataset, backtest_params.n_periods, backtest_params.n_splits, backtest_params.stride
     )
@@ -255,7 +255,7 @@ def run_hpo_backtest(
     try:
         if isinstance(template, ExternalChapkitModelTemplate):
             logger.warning("Running HPO with an external Chapkit model template; compatibility has not been verified")
-        optimizer = get_hpo_estimator(
+        optimizer = create_hpo_estimator(
             template=cast("ModelTemplate", template),
             configuration=base_configuration,
             backtest_params=backtest_params,
@@ -280,18 +280,9 @@ def run_hpo_backtest(
     best_configuration = hpo_result.model_configuration
     # give HPO run a unique configuration name
     configuration_name = f"hpo_{uuid4().hex[:12]}"
-    configured_model_id = session.add_configured_model(
-        model_template_id=request.model_template_id,
-        configuration=best_configuration,
-        configuration_name=configuration_name,
-        uses_chapkit=template_db.uses_chapkit,
-    )
-    configured_model = session.get_configured_model_by_id_or_name(configured_model_id)
-    backtest_id = persist_evaluation(session, evaluation, configured_model, specification, request.name)
     # persist HPO metadata
     flat_hpo = hpo_result.to_flat()
     hpo_run = HpoRunDB(
-        # backtest_id=backtest_id,
         searcher=flat_hpo.searcher,
         metric=flat_hpo.metric,
         direction=flat_hpo.direction,
@@ -310,9 +301,22 @@ def run_hpo_backtest(
     try:
         session.session.add(hpo_run)
         session.session.flush()
-        assert hpo_run.id is not None
+        hpo_run_id = hpo_run.id
+        assert hpo_run_id is not None
+        configured_model_id = session.add_configured_model(
+            model_template_id=request.model_template_id,
+            configuration=best_configuration,
+            configuration_name=configuration_name,
+            uses_chapkit=template_db.uses_chapkit,
+            commit=False,
+            promote_template=False,
+        )
+        configured_model = session.get_configured_model_by_id_or_name(configured_model_id)
         configured_model.hpo_run_id = hpo_run.id
-        # session.session.add(configured_model)
+        backtest_id = persist_evaluation(
+            session, evaluation, configured_model, specification, request.name, commit=False
+        )
+        # Persist the HPO run, configured model, and backtest atomically.
         session.session.commit()
     except Exception:
         session.session.rollback()
@@ -332,8 +336,10 @@ def persist_evaluation(
     configured_model: ConfiguredModelDB,
     specification: BacktestSpecification,
     name: str | None,
+    *,
+    commit: bool = True,
 ) -> int:
-    """Persist an evaluation of a stored configured model under a stored specification, and optional HPO metadata."""
+    """Persist an evaluation of a stored configured model under a stored specification."""
     if configured_model.id is None:
         raise ValueError("Configured model must be persisted first")
     backtest = evaluation.with_model(EvaluatedModel.from_configured_model(configured_model)).to_backtest(
@@ -348,10 +354,11 @@ def persist_evaluation(
         backtest.aggregate_metrics = compute_all_aggregated_metrics(evaluation)
     except Exception:
         logger.warning("Failed to compute aggregate metrics for backtest; leaving empty", exc_info=True)
-    session.add_backtest(backtest, forecast_rows=evaluation.forecast_rows())
+    session.add_backtest(backtest, forecast_rows=evaluation.forecast_rows(), commit=commit)
     db_id = backtest.id
     assert db_id is not None
-    status_logger.info(f"Backtest completed successfully. Results saved with ID {db_id}")
+    if commit:
+        status_logger.info(f"Backtest completed successfully. Results saved with ID {db_id}")
     return db_id
 
 

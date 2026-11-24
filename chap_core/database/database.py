@@ -170,7 +170,7 @@ class SessionWrapper:
         # return id
         return cast("int", model_template.id)
 
-    def _make_live_template_version(self, model_name: str, model_template_id: int) -> None:
+    def _make_live_template_version(self, model_name: str, model_template_id: int, *, commit: bool = True) -> None:
         # Only one version is live. The other versions keep their rows and their ids.
         # Stay on the previous live version until this one has a configured model,
         # except when no version is live yet — then this one is live immediately
@@ -183,7 +183,10 @@ class SessionWrapper:
             return
         for template in templates:
             template.is_live = template.id == model_template_id
-        self.session.commit()
+        if commit:
+            self.session.commit()
+        else:
+            self.session.flush()
 
     def add_or_update_model_template(self, model_template: ModelTemplateDB) -> int:
         model_name = model_template.name
@@ -267,6 +270,9 @@ class SessionWrapper:
         configuration: ModelConfiguration,
         configuration_name="default",
         uses_chapkit=False,
+        *,
+        commit: bool = True,
+        promote_template: bool = True,
     ) -> int:
         # get model template name
         model_template = self.session.exec(
@@ -288,7 +294,9 @@ class SessionWrapper:
         digest = compute_configuration_digest(configuration)
         identical_configured_model = self._identical_configured_model(model_template_id, name, digest)
         if identical_configured_model:
-            return self._reuse_configured_model(identical_configured_model, template_name)
+            return self._reuse_configured_model(
+                identical_configured_model, template_name, commit=commit, promote_template=promote_template
+            )
 
         # create and add db entry
         configured_model = ConfiguredModelDB(
@@ -308,20 +316,26 @@ class SessionWrapper:
         # configured_model.validate_user_options(model_template)
         logger.info(f"Adding configured model: {configured_model}")
         self.session.add(configured_model)
-        try:
-            self.session.commit()
-        except sqlalchemy.exc.IntegrityError:
-            # A concurrent request can insert the same configuration between the existence
-            # check and this commit. Losing that race re-reads the winner's row.
-            self.session.rollback()
-            identical_configured_model = self._identical_configured_model(model_template_id, name, digest)
-            if identical_configured_model is None:
-                raise
-            return self._reuse_configured_model(identical_configured_model, template_name)
+        if commit:
+            try:
+                self.session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                # A concurrent request can insert the same configuration between the existence
+                # check and this commit. Losing that race re-reads the winner's row.
+                self.session.rollback()
+                identical_configured_model = self._identical_configured_model(model_template_id, name, digest)
+                if identical_configured_model is None:
+                    raise
+                return self._reuse_configured_model(
+                    identical_configured_model, template_name, commit=commit, promote_template=promote_template
+                )
+        else:
+            self.session.flush()
         configured_model_id = cast("int", configured_model.id)
 
-        self._make_live_configured_model(model_template_id, name, configured_model_id)
-        self._make_live_template_version(template_name, model_template_id)
+        self._make_live_configured_model(model_template_id, name, configured_model_id, commit=commit)
+        if promote_template:
+            self._make_live_template_version(template_name, model_template_id, commit=commit)
         return configured_model_id
 
     def _identical_configured_model(self, model_template_id: int, name: str, digest: str) -> ConfiguredModelDB | None:
@@ -333,7 +347,14 @@ class SessionWrapper:
             )
         ).first()
 
-    def _reuse_configured_model(self, configured_model: ConfiguredModelDB, template_name: str) -> int:
+    def _reuse_configured_model(
+        self,
+        configured_model: ConfiguredModelDB,
+        template_name: str,
+        *,
+        commit: bool = True,
+        promote_template: bool = True,
+    ) -> int:
         logger.info(
             f"Configured model {configured_model.name} with an identical configuration already exists. "
             "Returning existing id"
@@ -342,11 +363,16 @@ class SessionWrapper:
         # Re-adding an archived configuration shows it again.
         configured_model.archived = False
         # Still flip is_live so that re-adding a previous configuration makes it live again.
-        self._make_live_configured_model(configured_model.model_template_id, configured_model.name, configured_model_id)
-        self._make_live_template_version(template_name, configured_model.model_template_id)
+        self._make_live_configured_model(
+            configured_model.model_template_id, configured_model.name, configured_model_id, commit=commit
+        )
+        if promote_template:
+            self._make_live_template_version(template_name, configured_model.model_template_id, commit=commit)
         return configured_model_id
 
-    def _make_live_configured_model(self, model_template_id: int, name: str, configured_model_id: int) -> None:
+    def _make_live_configured_model(
+        self, model_template_id: int, name: str, configured_model_id: int, *, commit: bool = True
+    ) -> None:
         # Only one configuration per name is live. The others keep their rows and their ids.
         configured_models = self.session.exec(
             select(ConfiguredModelDB).where(
@@ -355,7 +381,10 @@ class SessionWrapper:
         ).all()
         for configured_model in configured_models:
             configured_model.is_live = configured_model.id == configured_model_id
-        self.session.commit()
+        if commit:
+            self.session.commit()
+        else:
+            self.session.flush()
 
     def _select_live_configured_models(self) -> SelectOfScalar[ConfiguredModelDB]:
         # Names are not unique, so a name can only find the live rows.
@@ -665,7 +694,7 @@ class SessionWrapper:
                 )
         return template
 
-    def add_backtest(self, backtest: Backtest, forecast_rows: list[dict] | None = None) -> None:
+    def add_backtest(self, backtest: Backtest, forecast_rows: list[dict] | None = None, *, commit: bool = True) -> None:
         """Store a backtest, with its forecasts inserted from plain rows if given.
 
         The rows are inserted in batches in the same transaction as the backtest, instead of
@@ -678,7 +707,10 @@ class SessionWrapper:
             for start in range(0, len(forecast_rows), FORECAST_INSERT_BATCH_SIZE):
                 batch = forecast_rows[start : start + FORECAST_INSERT_BATCH_SIZE]
                 self.session.execute(insert(BacktestForecast), [row | {"backtest_id": backtest.id} for row in batch])
-        self.session.commit()
+        if commit:
+            self.session.commit()
+        else:
+            self.session.flush()
 
     def get_or_create_backtest_specification(
         self, dataset_id: int, params: BacktestParams, org_units: list[str], target_column: str = "disease_cases"

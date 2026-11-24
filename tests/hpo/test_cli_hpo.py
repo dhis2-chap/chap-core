@@ -7,7 +7,7 @@ import pytest
 from cyclopts import App
 
 from chap_core.api_types import BacktestParams, EstimatorMode, EstimatorOptions, SearcherType
-from chap_core.cli_endpoints._common import get_hpo_estimator
+from chap_core.hpo.factory import create_hpo_estimator
 from chap_core.cli_endpoints.evaluate import register_commands
 from chap_core.hpo.hyperparameter_optimizer import HyperparameterOptimizer
 from chap_core.hpo.search_space import DEFAULT_HPO_TRIALS, Int, Float
@@ -38,7 +38,7 @@ def test_get_hpo_estimator_defaults_to_tpe_and_default_budget() -> None:
     """Factory defaults match the user-facing HPO defaults when only a template search space is supplied."""
     template = make_template({"x": {"low": 1, "high": 3, "type": "int"}})
 
-    optimizer = get_hpo_estimator(
+    optimizer = create_hpo_estimator(
         template=template,
         configuration=None,
         backtest_params=BacktestParams(n_periods=1, n_splits=1, stride=1),
@@ -55,7 +55,7 @@ def test_get_hpo_estimator_grid_is_exhaustive_by_default() -> None:
     """Selecting grid search leaves max_trials unset so the whole finite grid can be evaluated."""
     template = make_template({"x": {"values": [1, 2, 3]}})
 
-    optimizer = get_hpo_estimator(
+    optimizer = create_hpo_estimator(
         template=template,
         configuration=None,
         backtest_params=BacktestParams(n_periods=1, n_splits=1, stride=1),
@@ -75,7 +75,7 @@ def test_get_hpo_estimator_explicit_yaml_overrides_template_space(tmp_path: Path
         encoding="utf-8",
     )
 
-    optimizer = get_hpo_estimator(
+    optimizer = create_hpo_estimator(
         template=template,
         configuration=None,
         backtest_params=BacktestParams(n_periods=1, n_splits=1, stride=1),
@@ -99,7 +99,7 @@ def test_get_hpo_estimator_rejects_missing_search_space() -> None:
     template = make_template(None)
 
     with pytest.raises(ValueError, match="HPO search space YAML must define a non-empty mapping"):
-        get_hpo_estimator(
+        create_hpo_estimator(
             template=template,
             configuration=None,
             backtest_params=BacktestParams(n_periods=1, n_splits=1, stride=1),
@@ -228,7 +228,7 @@ def test_get_hpo_estimator_uses_template_hpo_search_space_when_no_yaml_is_given(
         }
     )
 
-    optimizer = get_hpo_estimator(
+    optimizer = create_hpo_estimator(
         template=template,
         configuration=None,
         backtest_params=BacktestParams(

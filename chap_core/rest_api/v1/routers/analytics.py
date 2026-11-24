@@ -637,12 +637,10 @@ def create_hpo_backtest(
             status_code=422,
             detail=f"Model template {request.model_template_id} does not allow additional continuous covariates",
         )
-    # check for chapkit
     stored_dataset = session.get(DataSetTable, specification.dataset_id)
     if stored_dataset is None:
         raise HTTPException(status_code=404, detail=f"Dataset {specification.dataset_id} not found")
     require_dataset_target(stored_dataset, specification.target_column)
-    # org_units check maybe
     if stored_dataset.masked_ranges:
         try:
             wf.check_backtest_on_masked_dataset(
@@ -657,7 +655,6 @@ def create_hpo_backtest(
     job = worker.queue_db(
         wf.run_hpo_backtest,
         request,
-        # queue_baselines=True,
         **{
             JOB_REQUEST_KW: original_request,
             JOB_TYPE_KW: JobType.EVALUATION_LEGACY,  # maybe change
