@@ -1368,8 +1368,8 @@ def approve_alerts(request: AlertApprovalRequest, session: Session = Depends(get
     """Move a set of alerts through the release gate in one go.
 
     Reviewers work through a queue and decide on several alerts at a time, so the whole
-    set is applied atomically — if any id is unknown, nothing is written and you get a
-    404. `approved` clears them for dissemination; `declined` records a deliberate
+    set is applied atomically — if any id is unknown, nothing is written and you get
+    a 404. `approved` clears them for dissemination; `declined` records a deliberate
     decision not to release, so they do not come back around for re-triage.
 
     This gate is about dissemination, not epidemiology: it says a human cleared the

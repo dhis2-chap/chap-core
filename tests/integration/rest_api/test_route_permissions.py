@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from fastapi import APIRouter, FastAPI
 from fastapi.testclient import TestClient
@@ -98,3 +100,11 @@ def test_a_public_operation_gets_no_permission_line():
 def test_the_permission_line_comes_before_the_existing_description():
     description = app.openapi()["paths"]["/v1/jobs"]["get"]["description"]
     assert description.startswith("**Needs `read:jobs`.**\n\nSee every backtest")
+
+
+def test_no_description_line_starts_with_a_status_code_and_a_dot():
+    """Markdown reads a line such as ``404.`` as a numbered list item, which /docs shows as a stray number."""
+    for path, operations in app.openapi()["paths"].items():
+        for method, operation in operations.items():
+            for line in operation.get("description", "").splitlines():
+                assert not re.match(r"\s*\d{3}\.", line), f"{method} {path}: {line}"
