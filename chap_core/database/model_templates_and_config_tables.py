@@ -9,8 +9,8 @@ from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, Relationship, SQLModel
 
-from chap_core.database.hpo_tables import HpoRunDB
 from chap_core.database.base_tables import CREATED_BY_DESCRIPTION, DBModel
+from chap_core.database.hpo_tables import HpoRunDB
 from chap_core.exceptions import ModelTemplateRevisionConflict
 from chap_core.model_spec import PeriodType
 

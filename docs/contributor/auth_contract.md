@@ -251,6 +251,7 @@ the fixed lists clients choose from, such as plot types, weather providers and t
 | GET | `/v1/analytics/prediction-entry` | `read:predictions` |
 | GET | `/v1/analytics/evaluation-entry` | `read:backtests` |
 | POST | `/v1/analytics/create-backtest` | `run:backtests` |
+| POST | `/v1/analytics/create-hpo-backtest` | `run:backtests` |
 | POST | `/v1/analytics/create-backtests` | `run:backtests` |
 | POST | `/v1/analytics/make-prediction` | `run:predictions` |
 | GET | `/v1/analytics/prediction-entry/{predictionId}` | `read:predictions` |

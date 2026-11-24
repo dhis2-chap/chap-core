@@ -617,6 +617,7 @@ def create_backtest(
 
 @router.post(
     "/create-hpo-backtest",
+    dependencies=[require(Permission.RUN_BACKTESTS)],
     response_model=JobResponse,
     tags=["Backtests"],
     summary="Optimize a model and evaluate it against an existing backtest specification",

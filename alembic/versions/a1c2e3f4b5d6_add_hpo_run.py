@@ -5,7 +5,7 @@ hpo_run_id column is added here only, since startup adds no columns past the
 generic schema revision.
 
 Revision ID: a1c2e3f4b5d6
-Revises: 00e90ba1184f
+Revises: bfb92b05d718
 """
 
 import sqlalchemy as sa
@@ -14,7 +14,7 @@ from alembic import op
 from chap_core.database.migration_helpers import foreign_key_name, has_column, has_table
 
 revision = "a1c2e3f4b5d6"
-down_revision = "00e90ba1184f"
+down_revision = "bfb92b05d718"
 branch_labels = None
 depends_on = None
 
