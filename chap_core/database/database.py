@@ -296,6 +296,17 @@ class SessionWrapper:
             # combine model template with configuration name to make the name unique
             name = f"{template_name}:{configuration_name}"
 
+        # chap-core sets these per run, so a value stored here would be ignored without a word.
+        # Checked before the reuse below, so a configuration stored with one before is refused too.
+        if uses_chapkit:
+            reserved = [key for key in RESERVED_CONFIG_KEYS if key in (configuration.user_option_values or {})]
+            if reserved:
+                raise ValueError(
+                    f"Invalid user options: {', '.join(reserved)} cannot be set as a user option; "
+                    "chap-core sets the prediction length per run, and additional covariates go in "
+                    "additional_continuous_covariates"
+                )
+
         # check if this exact configuration already exists
         digest = compute_configuration_digest(configuration)
         identical_configured_model = self._identical_configured_model(model_template_id, name, digest)
@@ -317,15 +328,6 @@ class SessionWrapper:
         # field as required (no literal "default" key in the schema), so skip it.
         if not uses_chapkit:
             configured_model.validate_user_options(configured_model)
-        else:
-            # chap-core sets these per run, so a value stored here would be ignored without a word.
-            reserved = [key for key in RESERVED_CONFIG_KEYS if key in (configuration.user_option_values or {})]
-            if reserved:
-                raise ValueError(
-                    f"Invalid user options: {', '.join(reserved)} cannot be set as a user option; "
-                    "chap-core sets the prediction length per run, and additional covariates go in "
-                    "additional_continuous_covariates"
-                )
         # configured_model.validate_user_options(model_template)
         logger.info(f"Adding configured model: {configured_model}")
         self.session.add(configured_model)
