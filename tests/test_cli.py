@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from chap_core.cli_endpoints.evaluate import eval_cmd
+from chap_core.exceptions import InvalidModelException, MissingSamplesError
 from chap_core.external.ExtendedPredictor import ExtendedPredictor
 from chap_core.cli_endpoints.utils import test as run_chap_test
 
@@ -362,7 +363,6 @@ def test_eval_cmd_track_logs_params_metrics_and_artifacts(tmp_path, monkeypatch)
 
     tracking_dir = tmp_path / "mlruns"
     monkeypatch.setenv("MLFLOW_TRACKING_URI", f"file://{tracking_dir}")
-    mlflow.set_tracking_uri(f"file://{tracking_dir}")
 
     output_file = tmp_path / "out.nc"
 
@@ -529,19 +529,19 @@ def test_sanity_check_default_dataset_ships_in_the_package():
     assert filepath.exists()
 
 
-def test_main_prints_user_facing_error_without_traceback(monkeypatch, capsys):
+@pytest.mark.parametrize("error_type", [InvalidModelException, MissingSamplesError])
+def test_main_prints_user_facing_error_without_traceback(monkeypatch, capsys, error_type):
     from chap_core import cli
-    from chap_core.exceptions import InvalidModelException
 
     monkeypatch.delenv("CHAP_DEBUG", raising=False)
-    monkeypatch.setattr(cli, "app", MagicMock(side_effect=InvalidModelException("Replace docker_env in the MLproject")))
+    monkeypatch.setattr(cli, "app", MagicMock(side_effect=error_type("Fix the model")))
 
     with pytest.raises(SystemExit) as excinfo:
         cli.main()
 
     assert excinfo.value.code == 1
     err = capsys.readouterr().err
-    assert err.startswith("Error: Replace docker_env in the MLproject")
+    assert err.startswith("Error: Fix the model")
     assert "Traceback" not in err
 
 

@@ -18,15 +18,18 @@ from chap_core.assessment.backtest_plots.db_dimensions import DBFacetDimension, 
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metric_plots import get_metric_plots_registry, list_metric_plots
 from chap_core.assessment.metrics import available_metrics
+from chap_core.auth.permissions import Permission
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.settings import SettingsManager
 from chap_core.database.tables import Backtest
 from chap_core.plotting.dataset_plot import create_plot_from_dataset, get_dataset_plots_registry, list_dataset_plots
 from chap_core.plotting.evaluation_plot import (
+    MetricNotApplicableError,
     VisualizationInfo,
     make_plot_from_backtest_object,
 )
+from chap_core.rest_api.authorization import require
 from chap_core.rest_api.leaderboard_models import MetricInfo, list_metric_info
 from chap_core.rest_api.v1.routers.dependencies import get_session, get_settings_manager
 
@@ -37,6 +40,7 @@ router = APIRouter(prefix="/visualization", tags=["Visualizations"])
 
 @router.get(
     "/metric-plots/{backtest_id}",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=list[VisualizationInfo],
     summary="Discover which metric plots are available",
 )
@@ -48,7 +52,13 @@ def get_avilable_metric_plots(backtest_id: int):
     ``backtest_id`` — the path takes it for symmetry with the render endpoint.
     """
     return [
-        VisualizationInfo(id=p["id"], display_name=p["name"], description=p["description"]) for p in list_metric_plots()
+        VisualizationInfo(
+            id=p["id"],
+            display_name=p["name"],
+            description=p["description"],
+            required_dimensions=p["required_dimensions"],
+        )
+        for p in list_metric_plots()
     ]
 
 
@@ -60,6 +70,7 @@ class VisualizationParams(DBModel):
 
 @router.get(
     "/metrics/{backtest_id}",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=list[MetricInfo],
     summary="Discover which scoring metrics are available",
 )
@@ -77,6 +88,7 @@ def get_available_metrics(backtest_id: int, settings_manager: SettingsManager = 
 
 @router.get(
     "/metric-plots/{visualization_name}/{backtest_id}/{metric_id}",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     summary="Render a metric plot for a backtest",
 )
 def generate_visualization(
@@ -86,7 +98,8 @@ def generate_visualization(
 
     The response is a Vega/Vega-Lite spec you can hand straight to a frontend renderer.
     404 if the backtest or plot style is unknown; 400 if the metric id is not one of the
-    registered metrics.
+    registered metrics, if the plot style needs a dimension the metric does not have, or if the
+    metric cannot be computed for this backtest (e.g. org unit ranking without population data).
     """
     backtest = session.get(Backtest, backtest_id)
     if not backtest:
@@ -99,11 +112,24 @@ def generate_visualization(
     if visualization_name not in registry:
         raise HTTPException(status_code=404, detail=f"Visualization {visualization_name} not found")
 
-    geojson_str = backtest.dataset.geojson
-    geojson = json.loads(geojson_str) if geojson_str else None
     plot_class = registry[visualization_name]
     metric = available_metrics[metric_id]()
-    plot_spec = make_plot_from_backtest_object(backtest, plot_class, metric, geojson)
+    missing = [d for d in plot_class.required_dimensions if d not in metric.spec.output_dimensions]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Metric {metric_id} has no {missing} dimensions and cannot be shown in {visualization_name}",
+        )
+
+    geojson_str = backtest.dataset.geojson
+    geojson = json.loads(geojson_str) if geojson_str else None
+    try:
+        plot_spec = make_plot_from_backtest_object(backtest, plot_class, metric, geojson)
+    except MetricNotApplicableError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{e}, for example because it needs population data the dataset does not have",
+        ) from e
     return JSONResponse(plot_spec)
 
 
@@ -117,6 +143,7 @@ class DatasetPlotType(DBModel):
 
 @router.get(
     "/dataset-plots/",
+    dependencies=[require(Permission.READ_SETTINGS)],
     response_model=list[DatasetPlotType],
     summary="Discover which dataset plots are available",
 )
@@ -134,6 +161,7 @@ def list_dataset_plot_types():
 
 @router.get(
     "/dataset-plots/{visualization_name}/{dataset_id}",
+    dependencies=[require(Permission.READ_DATASETS)],
     summary="Render a plot of a dataset",
 )
 def generate_data_plots(visualization_name: str, dataset_id: int, session: Session = Depends(get_session)):
@@ -167,6 +195,7 @@ class BacktestPlotType(DBModel):
 
 @router.get(
     "/backtest-plots/",
+    dependencies=[require(Permission.READ_SETTINGS)],
     response_model=list[BacktestPlotType],
     summary="Discover which backtest plots are available",
 )
@@ -184,6 +213,7 @@ def list_backtest_plot_types():
 
 @router.get(
     "/backtest-plots/{visualization_name}/{backtest_id}",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     summary="Render a forecast plot for a backtest",
 )
 def generate_backtest_plots(visualization_name: str, backtest_id: int, session: Session = Depends(get_session)):
@@ -267,7 +297,9 @@ def _get_plotter_and_flat_data(plot_id: str, backtest_id: int, session: Session)
     return plotter, flat_data.observations, flat_data.forecasts, flat_data.historical_observations
 
 
-@router.get("/backtest-plots/{visualization_name}/{backtest_id}/facet-coords")
+@router.get(
+    "/backtest-plots/{visualization_name}/{backtest_id}/facet-coords", dependencies=[require(Permission.READ_BACKTESTS)]
+)
 def get_facet_coordinates(
     visualization_name: str, backtest_id: int, session: Session = Depends(get_session)
 ) -> dict[str, Any]:
@@ -293,7 +325,9 @@ def get_facet_coordinates(
     )
 
 
-@router.post("/backtest-plots/{visualization_name}/{backtest_id}/subplot")
+@router.post(
+    "/backtest-plots/{visualization_name}/{backtest_id}/subplot", dependencies=[require(Permission.READ_BACKTESTS)]
+)
 def generate_isolated_plots(
     visualization_name: str, backtest_id: int, facet_coords: dict[str, Any], session: Session = Depends(get_session)
 ) -> JSONResponse:
@@ -316,7 +350,9 @@ def generate_isolated_plots(
     return JSONResponse(_fill_container_width(chart))
 
 
-@router.get("/backtest-plots/{visualization_name}/{backtest_id}/subplots")
+@router.get(
+    "/backtest-plots/{visualization_name}/{backtest_id}/subplots", dependencies=[require(Permission.READ_BACKTESTS)]
+)
 def generate_all_subplots(
     visualization_name: str, backtest_id: int, session: Session = Depends(get_session)
 ) -> list[dict[str, Any]]:

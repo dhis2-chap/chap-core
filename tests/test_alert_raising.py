@@ -122,13 +122,14 @@ def test_run_prediction_keeps_the_policy_captured_at_start(alert_prediction):
     assert [a.level for a in list_alerts(session, prediction_id=prediction_id)] == ["action"]
 
 
-def test_run_prediction_fails_but_keeps_prediction_when_alerts_fail(alert_prediction):
+def test_run_prediction_fails_but_keeps_prediction_and_baselines_when_alerts_fail(alert_prediction):
     session, original = alert_prediction
     with patch("chap_core.rest_api.db_worker_functions.raise_alerts_for_prediction", side_effect=RuntimeError):
         with pytest.raises(RuntimeError):
             _run_prediction(session, original)
     stored = session.exec(select(Prediction).where(Prediction.name == "new")).one()
     assert stored.forecasts[0].values == [21.0, 21.0]
+    assert len(stored.baseline_predictions) == 4
 
 
 def test_run_prediction_stores_every_baseline_forecast(alert_prediction):
@@ -138,6 +139,7 @@ def test_run_prediction_stores_every_baseline_forecast(alert_prediction):
     baselines = prediction.baseline_predictions
     assert {baseline.model_id for baseline in baselines} == {
         "global_median",
+        "persistence",
         "seasonal_shift_persistence",
         "seasonal_median",
     }

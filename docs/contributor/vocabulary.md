@@ -1,5 +1,8 @@
 # Vocabulary (domain specific terms used in the code)
 
+!!! note
+    The Chap team's terminology lives in [`terminology.yaml`](https://github.com/dhis2-chap/user-stories/blob/main/terminology.yaml) in dhis2-chap/user-stories. chap-core serves a synced copy of it at `/v1/terminology`, and `/v1/terminology/{name}` looks up one term. Where this page and that file differ, that file is right. This page still says "model template" for what the terminology calls a modeling package, which is correct for names in the code.
+
 
 ### Model template
 

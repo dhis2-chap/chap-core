@@ -471,6 +471,22 @@ def test_eval_without_strict_warns_about_a_missing_covariate_and_continues(
     assert "use --strict to stop" in caplog.text
 
 
+def test_eval_with_strict_refuses_a_dataset_without_a_configured_covariate(tmp_path, models_path, laos_csv):
+    from chap_core.cli_endpoints.evaluate import eval_cmd
+
+    configuration = tmp_path / "configuration.yaml"
+    configuration.write_text("additional_continuous_covariates:\n  - mean_relative_humidity\n")
+    with pytest.raises(ValueError, match="Configured covariate 'mean_relative_humidity' not found"):
+        eval_cmd(
+            model_name=str(models_path / "naive_python_model_with_mlproject_file"),
+            dataset_csv=str(laos_csv),
+            output_file=tmp_path / "eval.nc",
+            run_config=RunConfig(runs_dir=tmp_path / "runs", ignore_environment=True),
+            model_configuration_yaml=configuration,
+            strict=True,
+        )
+
+
 def test_validate_reports_a_masked_range_in_the_projects_evaluation_window(chap_project, monkeypatch, capsys):
     (chap_project / "input" / "data_settings.yaml").write_text(
         'maskedRanges:\n  - start: "2012-11"\n    end: "2012-11"\n'
@@ -627,3 +643,29 @@ def test_chap_prints_a_cancelled_init_without_a_traceback(tmp_path, monkeypatch,
     assert excinfo.value.code == 1
     assert capsys.readouterr().err.startswith("Error: Cancelled; nothing was written.")
     assert not (tmp_path / "chap.yaml").exists()
+
+
+def test_init_prints_no_alembic_plugin_setup(tmp_path, laos_csv):
+    """Loading the model imports alembic in a fresh process; its plugin setup is not CLI output (CLIM-1833)."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "chap_core.cli",
+            "init",
+            str(tmp_path / "laos"),
+            "--model",
+            "builtin:seasonal_median",
+            "--dataset",
+            str(laos_csv),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, "CHAP_DEBUG": "false"},
+    )
+    assert "Created Chap project" in result.stdout
+    assert "setup plugin" not in result.stdout + result.stderr

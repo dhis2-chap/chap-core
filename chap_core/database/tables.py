@@ -7,13 +7,13 @@ from typing import Any, Optional
 
 import numpy as np
 from pydantic import computed_field
-from sqlalchemy import JSON, CheckConstraint, Column, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, Column, Index, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, Relationship, col, or_, select
 
 from chap_core.api_types import BacktestParams
 from chap_core.database.alert_tables import AlertPolicy, AlertPolicyRead
-from chap_core.database.base_tables import DBModel, PeriodID, UtcDatetime, utc_now
+from chap_core.database.base_tables import CREATED_BY_DESCRIPTION, DBModel, PeriodID, UtcDatetime, utc_now
 from chap_core.database.dataset_tables import DataSet, DataSetInfo, DataSource, PydanticListType
 from chap_core.database.model_templates_and_config_tables import (
     ConfiguredModelDB,
@@ -128,6 +128,7 @@ class Backtest(_BacktestRead, table=True):
     """Persisted backtest row. Owns its forecasts, metrics, and (optionally) a `PredictionSetup`."""
 
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")  # type: ignore[assignment]
+    created_by: str | None = Field(default=None, description=CREATED_BY_DESCRIPTION)
     specification_id: int = Field(
         foreign_key="backtestspecification.id",
         description="Foreign key to the `BacktestSpecification` this backtest ran under.",
@@ -293,6 +294,7 @@ class PredictionSetup(DBModel, table=True):
     """Persisted prediction-setup row: a recurring forecast schedule attached to a backtest."""
 
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
+    created_by: str | None = Field(default=None, description=CREATED_BY_DESCRIPTION)
     name: str = Field(description="Human-friendly name for the setup.")
     created: UtcDatetime | None = Field(default=None, description="Server-side timestamp when the setup was created.")
     backtest_id: int = Field(
@@ -528,6 +530,7 @@ class Prediction(PredictionBase, table=True):
     """Persisted prediction row. Owns its per-period forecasts and optionally belongs to a `PredictionSetup`."""
 
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
+    created_by: str | None = Field(default=None, description=CREATED_BY_DESCRIPTION)
     forecasts: list["PredictionSamplesEntry"] = Relationship(back_populates="prediction", cascade_delete=True)
     dataset: DataSet = Relationship()
     model_db_id: int = Field(
@@ -574,6 +577,8 @@ class PredictionSetupReadWithPredictions(PredictionSetupRead):
 class PredictionSamplesEntry(ForecastBase, table=True):
     """Persisted forecast row that belongs to a `Prediction` (not a backtest)."""
 
+    __table_args__ = (Index("ix_predictionsamplesentry_prediction", "prediction_id"),)
+
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
     prediction_id: int = Field(foreign_key="prediction.id", description="Foreign key to the owning `Prediction`.")
     prediction: "Prediction" = Relationship(back_populates="forecasts")
@@ -581,6 +586,9 @@ class PredictionSamplesEntry(ForecastBase, table=True):
 
 class BacktestForecast(ForecastBase, table=True):
     """Persisted forecast row that belongs to a `Backtest` — adds train/seen-period context."""
+
+    # Evaluation entries and plots read one backtest's forecasts, often for some org units (CLIM-1791).
+    __table_args__ = (Index("ix_backtestforecast_backtest_org_unit", "backtest_id", "org_unit"),)
 
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
     backtest_id: int = Field(foreign_key="backtest.id", description="Foreign key to the owning `Backtest`.")

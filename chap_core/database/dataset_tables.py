@@ -8,10 +8,10 @@ from geojson_pydantic import (
 )
 from pydantic import ConfigDict, field_validator, model_validator
 from pydantic.alias_generators import to_camel
-from sqlalchemy import JSON, Column, TypeDecorator, false
+from sqlalchemy import JSON, Column, Index, TypeDecorator, false
 from sqlmodel import Field, Relationship
 
-from chap_core.database.base_tables import DBModel, PeriodID, UtcDatetime
+from chap_core.database.base_tables import CREATED_BY_DESCRIPTION, DBModel, PeriodID, UtcDatetime
 from chap_core.time_period.date_util_wrapper import Month, TimePeriod, Week
 
 
@@ -61,6 +61,9 @@ class ObservationBase(DBModel):
 
 class Observation(ObservationBase, table=True):
     """Persisted observation row, owned by a parent `DataSet`."""
+
+    # Every read of a dataset filters by dataset, and most by feature and org unit too (CLIM-1791).
+    __table_args__ = (Index("ix_observation_dataset_feature_org_unit", "dataset_id", "feature_name", "org_unit"),)
 
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
     dataset_id: int = Field(foreign_key="dataset.id", description="Foreign key to the parent `DataSet`.")
@@ -247,6 +250,7 @@ class DataSetBase(DataSetInfo):
 class DataSet(DataSetBase, table=True):
     """Persisted dataset row with its child observations."""
 
+    created_by: str | None = Field(default=None, description=CREATED_BY_DESCRIPTION)
     observations: list[Observation] = Relationship(back_populates="dataset", cascade_delete=True)
 
 

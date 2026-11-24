@@ -100,6 +100,7 @@ nav:
           - Set Up Your Machine: external_models/setup.md
           - Bring Your Existing Model: external_models/existing_model.md
           - Build a New Model from a Template: external_models/mlproject_tutorial.md
+          - Package and Publish Your Model: external_models/package_and_publish.md
           - Development Tools: external_models/development_tools.md
           - Learning Modelling: external_models/learn_modelling.md
 
@@ -157,6 +158,7 @@ nav:
           - Modeling Internals: contributor/modeling_internals.md
           - CLI vs REST API: contributor/cli_vs_rest_api.md
           - REST API and Database: contributor/rest_api_and_database.md
+          - Auth Contract: contributor/auth_contract.md
           - MLproject Configuration: contributor/mlproject_configuration.md
           - Vocabulary: contributor/vocabulary.md
           - Testing: contributor/testing.md

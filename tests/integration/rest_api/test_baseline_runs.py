@@ -11,7 +11,12 @@ from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration, ModelTemplateRole
 from chap_core.database.tables import Backtest, Prediction, SpecificationBaseline, SpecificationBaselineStatus
-from chap_core.models.builtin import BaselineNotApplicable, builtin_template_config, get_builtin_model
+from chap_core.models.builtin import (
+    BaselineNotApplicable,
+    builtin_template_config,
+    get_builtin_model,
+    get_builtin_models,
+)
 from chap_core.rest_api.app import app
 from chap_core.rest_api.baseline_runs import STALE_CLAIM_AFTER, request_baselines, run_baseline
 from chap_core.rest_api.data_models import BacktestCreate
@@ -52,7 +57,7 @@ def test_each_baseline_is_queued_once_per_specification(p_seeded_engine, specifi
         first = request_baselines(session, specification_id)
         assert request_baselines(session, specification_id) == []
 
-    assert baselines == {"global_median", "seasonal_median", "seasonal_shift_persistence"}
+    assert baselines == {"global_median", "persistence", "seasonal_median", "seasonal_shift_persistence"}
     assert len(first) == len(baseline_worker.queued) == len(baselines)
     assert not any("database_url" in kwargs for _, _, kwargs in baseline_worker.queued)
     rows = _rows(p_seeded_engine, specification_id)
@@ -176,7 +181,7 @@ def test_a_backtest_from_the_api_queues_the_baselines_of_its_specification(p_see
         )
         specification_id = session.session.get(Backtest, backtest_id).specification_id
 
-    assert len(baseline_worker.queued) == len(_rows(p_seeded_engine, specification_id)) == 3
+    assert len(baseline_worker.queued) == len(_rows(p_seeded_engine, specification_id)) == len(get_builtin_models())
 
 
 def test_a_backtest_from_the_api_runs_even_when_requesting_baselines_fails(p_seeded_engine, monkeypatch):
@@ -219,7 +224,7 @@ def test_deleting_a_dataset_whose_only_backtests_are_baselines_is_refused_with_t
             session.session.delete(row)
         session.session.commit()
         baseline_ids = sorted(session.session.exec(select(Backtest.id).where(Backtest.dataset_id == dataset_id)).all())
-    assert len(baseline_ids) == 3
+    assert len(baseline_ids) == len(get_builtin_models())
     assert [b["id"] for b in client.get("/v1/crud/backtests").json()] == []
 
     response = client.delete(f"/v1/crud/datasets/{dataset_id}")
@@ -230,9 +235,9 @@ def test_deleting_a_dataset_whose_only_backtests_are_baselines_is_refused_with_t
 
 def test_reading_a_specification_queues_its_missing_baselines(override_session, specification_id, baseline_worker):
     assert client.get(f"/v1/crud/backtest-specifications/{specification_id}").status_code == 200
-    assert len(baseline_worker.queued) == 3
+    assert len(baseline_worker.queued) == len(get_builtin_models())
     assert client.get(f"/v1/crud/backtest-specifications/{specification_id}").status_code == 200
-    assert len(baseline_worker.queued) == 3
+    assert len(baseline_worker.queued) == len(get_builtin_models())
 
 
 def _leaderboard(specification_id, **params):
@@ -248,6 +253,7 @@ def test_the_leaderboard_lists_baselines_as_pending_until_they_have_run(
 
     assert {b["configuredModel"]["name"]: b["status"] for b in leaderboard["baselines"]} == {
         "global_median": "pending",
+        "persistence": "pending",
         "seasonal_median": "pending",
         "seasonal_shift_persistence": "pending",
     }
@@ -290,7 +296,7 @@ def test_the_leaderboard_compares_each_backtest_with_the_baselines(
     )
     assert baselines["seasonal_shift_persistence"]["aggregateMetrics"] == {}
     done_ids = {b["configuredModel"]["id"] for b in baselines.values() if b["status"] == "done"}
-    assert len(done_ids) == 2
+    assert len(done_ids) == len(get_builtin_models()) - 1
     backtest = next(b for b in leaderboard["backtests"] if b["id"] == model_backtest_id)
     assert {c["configuredModelId"]: c["values"] for c in backtest["comparisons"]} == {
         model_id: {"mae": pytest.approx(0.25)} for model_id in done_ids

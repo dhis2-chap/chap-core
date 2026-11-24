@@ -4,15 +4,17 @@ import platform
 from importlib.metadata import version
 from typing import Any, cast
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_
 from sqlmodel import Session, col, select
 
+from chap_core.auth.permissions import Permission
 from chap_core.database.dataset_tables import DataSet, Observation
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import Backtest, BacktestRead, Prediction, PredictionInfo
 from chap_core.log_config import initialize_logging
+from chap_core.rest_api.authorization import caller, ensure, require
 from chap_core.rest_api.celery_tasks import CeleryPool, JobDescription, get_job_meta, job_description
 from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.v1.routers.dependencies import get_session
@@ -65,8 +67,9 @@ class JobDiagnostics(BaseModel):
 
 @router.get(
     "/{job_id}/diagnostics",
-    summary="Download diagnostics for a failed job",
-    responses={404: {"description": "Job not found"}, 409: {"description": "Job has not failed"}},
+    dependencies=[require(Permission.READ_JOBS)],
+    summary="Download diagnostics for a finished job",
+    responses={404: {"description": "Job not found"}, 409: {"description": "Job has not finished"}},
 )
 def get_job_diagnostics(job_id: str, session: Session = Depends(get_session)) -> JobDiagnostics:
     """Assemble job information, run parameters, the error and traceback, model provenance,
@@ -76,13 +79,13 @@ def get_job_diagnostics(job_id: str, session: Session = Depends(get_session)) ->
     Logs are bounded and may contain data values.
     Error messages and tracebacks can also contain model output and are not sanitized.
     Missing model/dataset references (including older jobs and jobs that create their
-    dataset in the worker) are returned as null. Only FAILURE jobs are supported.
+    dataset in the worker) are returned as null. SUCCESS, FAILURE and REVOKED jobs are supported.
     """
     meta = get_job_meta(job_id)
     if not meta:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
-    if meta["status"] != "FAILURE":
-        raise HTTPException(status_code=409, detail="Diagnostics are only available for failed jobs")
+    if meta["status"] not in {"SUCCESS", "FAILURE", "REVOKED"}:
+        raise HTTPException(status_code=409, detail="Diagnostics are only available for finished jobs")
 
     job = job_description(job_id, meta)
     model_info = None
@@ -135,6 +138,7 @@ def get_job_diagnostics(job_id: str, session: Session = Depends(get_session)) ->
 
 @router.get(
     "",
+    dependencies=[require(Permission.READ_JOBS)],
     summary="Track background work",
 )
 def list_jobs(
@@ -193,6 +197,7 @@ def _get_successful_job(job_id):
 
 @router.get(
     "/{job_id}",
+    dependencies=[require(Permission.READ_JOBS)],
     summary="Get one job",
     responses={404: {"description": "Job not found"}},
 )
@@ -212,27 +217,39 @@ def get_job(job_id: str) -> JobDescription:
 
 @router.get(
     "/{job_id}/request",
+    dependencies=[require(Permission.READ_JOBS)],
     summary="Download the original submitted job request",
     responses={404: {"description": "Job or saved request not found"}},
 )
-def get_job_request(job_id: str) -> dict[str, Any]:
+def get_job_request(job_id: str, request: Request) -> dict[str, Any]:
     """Return the submitted JSON body, including after failure.
 
     Requests are kept for 7 days. Expired requests, older jobs without a
     captured request, and jobs removed from the tracker return 404. Jobs
     created by a multi-model request return the whole request as submitted.
+    The body can hold the posted observations, so this also needs ``export:datasets``.
     """
+    ensure(request, Permission.EXPORT_DATASETS, "returns the posted observations")
     body = redis.get(f"job_request:{job_id}")
     if body is None:
         raise HTTPException(status_code=404, detail=f"Request for job '{job_id}' not found")
     return cast("dict[str, Any]", json.loads(cast("str", body)))
 
 
+def _may_act_on_job(request: Request, job_id: str) -> bool:
+    """Whether the caller may cancel or forget this job: its own, or any with every permission.
+
+    Another principal's job is answered 404, as if it did not exist.
+    """
+    return caller(request).may_act_on((get_job_meta(job_id) or {}).get("created_by"))
+
+
 @router.delete(
     "/{job_id}",
+    dependencies=[require(Permission.WRITE_JOBS)],
     summary="Forget a finished job",
 )
-def delete_job(job_id: str) -> dict:
+def delete_job(job_id: str, request: Request) -> dict:
     """Drop a finished or cancelled job from the tracker once you no longer need to see it in the listing.
 
     Cancel a running job via ``POST /{job_id}/cancel`` first; this endpoint refuses to
@@ -240,7 +257,7 @@ def delete_job(job_id: str) -> dict:
     those cases.
     """
     job = worker.get_job(job_id)
-    if job is None:
+    if job is None or not _may_act_on_job(request, job_id):
         raise HTTPException(status_code=404, detail="Job not found")
 
     job_status = job.status.lower()
@@ -258,15 +275,18 @@ def delete_job(job_id: str) -> dict:
 
 @router.post(
     "/{job_id}/cancel",
+    dependencies=[require(Permission.WRITE_JOBS)],
     summary="Stop a running job",
 )
-def cancel_job(job_id: str) -> dict:
+def cancel_job(job_id: str, request: Request) -> dict:
     """Revoke a queued or in-flight job so the worker stops processing it — used when a user abandons a backtest creation flow or aborts a long-running prediction.
 
     Returns 400 if the job has already finished (``success`` / ``failure`` / ``revoked``)
     or is in an unexpected state; 404 if the id is unknown.
     """
     _ensure_job_exists(job_id)
+    if not _may_act_on_job(request, job_id):
+        raise HTTPException(status_code=404, detail="Job not found")
     job = worker.get_job(job_id)
     job_status = job.status.lower()
 
@@ -283,6 +303,7 @@ def cancel_job(job_id: str) -> dict:
 
 @router.get(
     "/{job_id}/logs",
+    dependencies=[require(Permission.READ_JOBS)],
     summary="Read a job's captured logs",
 )
 def get_logs(job_id: str) -> str:
@@ -303,6 +324,7 @@ def get_logs(job_id: str) -> str:
 
 @router.get(
     "/{job_id}/prediction_result",
+    dependencies=[require(Permission.READ_JOBS)],
     response_model=PredictionInfo,
     summary="Fetch the prediction a finished forecast job produced",
 )
@@ -324,6 +346,7 @@ def get_prediction_result(
 
 @router.get(
     "/{job_id}/evaluation_result",
+    dependencies=[require(Permission.READ_JOBS)],
     response_model=BacktestRead,
     summary="Fetch the backtest a finished evaluation job produced",
 )
@@ -351,6 +374,7 @@ class DataBaseResponse(BaseModel):
 
 @router.get(
     "/{job_id}/database_result",
+    dependencies=[require(Permission.READ_JOBS)],
     summary="Fetch the row id a generic finished job produced",
 )
 def get_database_result(job_id: str) -> DataBaseResponse:

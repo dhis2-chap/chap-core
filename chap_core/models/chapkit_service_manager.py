@@ -337,16 +337,24 @@ def ensure_docker_image(image: str) -> str:
     if shutil.which("docker") is None:
         raise ChapkitServiceStartupError(f"Running {image} needs Docker, but the docker command was not found.")
 
-    def platform() -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            ["docker", "image", "inspect", "--format", "{{.Os}}/{{.Architecture}}", image],
+    def inspect(*platform: str) -> str | None:
+        inspected = subprocess.run(
+            ["docker", "image", "inspect", *platform, "--format", "{{.Os}}/{{.Architecture}}", image],
             capture_output=True,
             text=True,
             check=False,
         )
+        os_name, _, architecture = inspected.stdout.strip().partition("/")
+        return f"{os_name}/{architecture}" if inspected.returncode == 0 and os_name and architecture else None
 
-    inspected = platform()
-    if inspected.returncode != 0:
+    def present_platform() -> str | None:
+        # For a multi-platform image with only its amd64 build present, such as one pulled with
+        # --platform linux/amd64 on Apple Silicon, Docker's containerd store inspects the missing
+        # build for this machine and prints "/".
+        return inspect() or inspect("--platform", "linux/amd64")
+
+    platform = present_platform()
+    if platform is None:
         logger.info(f"Pulling {image}")
         pulled = subprocess.run(["docker", "pull", "-q", image], capture_output=True, text=True, check=False)
         if pulled.returncode != 0 and "no matching manifest" in pulled.stderr.lower():
@@ -359,8 +367,8 @@ def ensure_docker_image(image: str) -> str:
             )
         if pulled.returncode != 0:
             raise ChapkitServiceStartupError(f"Could not pull {image}: {pulled.stderr.strip()}")
-        inspected = platform()
-    return inspected.stdout.strip()
+        platform = present_platform()
+    return platform or ""
 
 
 class DockerChapkitServiceManager(ChapkitServiceManager):

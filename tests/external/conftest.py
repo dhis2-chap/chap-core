@@ -164,6 +164,10 @@ args = sys.argv[1:]
 with open(state / "calls.log", "a") as log:
     log.write(" ".join(args) + "\\n")
 if args[:2] == ["image", "inspect"]:
+    if os.environ.get("FAKE_DOCKER_INDEX_WITH_AMD64_ONLY"):
+        # A multi-platform image with only its amd64 build present, as the containerd store inspects it.
+        print("linux/amd64" if "--platform" in args else "/")
+        sys.exit(0)
     if (state / "pulled").exists():
         print("linux/amd64")
         sys.exit(0)

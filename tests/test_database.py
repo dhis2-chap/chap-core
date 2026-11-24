@@ -937,3 +937,36 @@ def test_model_configuration_accepts_nested_format():
     )
     assert config.user_option_values == {"n_lag_periods": 5}
     assert config.additional_continuous_covariates == ["rainfall"]
+
+
+def test_concurrent_first_uses_share_one_engine(monkeypatch):
+    import threading
+    import time
+
+    import chap_core.database.database as database
+
+    created = []
+
+    def slow_create_engine(*args, **kwargs):
+        time.sleep(0.05)
+        created.append(object())
+        return created[-1]
+
+    monkeypatch.setenv("CHAP_DATABASE_URL", "sqlite://")
+    monkeypatch.setattr(database, "engine", None)
+    monkeypatch.setattr(database, "create_engine", slow_create_engine)
+    barrier = threading.Barrier(8)
+    engines = []
+
+    def first_use():
+        barrier.wait()
+        engines.append(database.get_engine())
+
+    threads = [threading.Thread(target=first_use) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert len(created) == 1
+    assert engines == created * 8

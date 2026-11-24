@@ -144,7 +144,7 @@ entry_points:
 
 ### Continuing a simulation
 
-The covariate CSV may already contain the target for some rows, for example the output of last week's simulation with new covariate rows appended. Those rows are observed history: the model must leave them unchanged and simulate only the rows where the target is missing. Chap rejects output that changes an observed value or leaves a value missing.
+The covariate CSV may already contain the target for some rows, for example the output of last week's simulation with new covariate rows appended. Those rows are observed history: the model must leave them unchanged and simulate only the rows where the target is missing. Chap rejects output that changes an observed value. The model may leave the target missing for some rows, for example to simulate unreported periods; when the output is continued, those rows are missing in the input again and are passed back to the model to simulate.
 
 `model_config` is optional and is forwarded the same way as for `train`/`predict`, so simulation parameters can be declared as `user_options`. `{polygons}` is passed if the dataset has a GeoJSON file.
 

@@ -34,21 +34,11 @@ class PredictionResponse(PredictionBase):
     value: float = Field(description="Predicted value.")
 
 
-class FetchRequest(DBModel):
-    """Tell the server which feature to fetch from which data source when materialising a dataset."""
-
-    feature_name: str = Field(description="Canonical feature name (matching a `FeatureType.name`).")
-    data_source_name: str = Field(description="Canonical name of the source to pull from.")
-
-
 class ObservationPayload(DBModel):
     """Polygons and observations sent inline with a request."""
 
     geojson: FeatureCollectionModel = Field(description="GeoJSON polygon set for the dataset's org units.")
     provided_data: list[ObservationBase] = Field(description="Observations the caller is supplying directly.")
-    data_to_be_fetched: list[FetchRequest] = Field(
-        description="Features whose observations the server should fetch from a registered source."
-    )
 
 
 class ObservationColumns(DBModel):
@@ -78,7 +68,7 @@ class ObservationColumns(DBModel):
 
 
 class DatasetMakeRequest(DataSetCreateInfo, ObservationPayload):
-    """Request body for building a dataset: metadata + polygons + observations (provided or fetched).
+    """Request body for building a dataset: metadata + polygons + observations.
 
     Send the observations either as ``providedData`` (one object per observation) or as
     ``providedDataColumns`` (columnar), not both.
@@ -481,13 +471,18 @@ class AlertPolicyCreate(AlertPolicyBase):
 
 
 class AlertPolicyCodesUpdate(DBModel):
-    """Change output codes without changing the policy's ladder."""
+    """Change output codes and response actions without changing the policy's ladder."""
 
     model_config = ConfigDict(extra="forbid")  # type: ignore[assignment]
 
     level_output_codes: dict[str, str] = Field(
         default_factory=dict,
         description="New output codes keyed by existing level name. Omitted levels keep their codes.",
+    )
+    level_response_actions: dict[str, str | None] = Field(
+        default_factory=dict,
+        description="Response actions keyed by existing level name. Omitted levels keep their actions; "
+        "null clears an action. Existing alerts use the updated text.",
     )
     no_alert_output_code: str | None = Field(
         default=None,

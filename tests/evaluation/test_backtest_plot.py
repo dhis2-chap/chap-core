@@ -242,3 +242,13 @@ def test_generate_pdf_report(backtest: Backtest, tmp_path: Path):
 
     assert output_file.exists()
     assert output_file.stat().st_size > 0
+
+
+def test_pdf_report_rejects_forecasts_with_fewer_samples(backtest, tmp_path: Path):
+    from chap_core.assessment.forecast_cells import MissingSamplesError
+    from chap_core.assessment.prediction_evaluator import generate_pdf_from_evaluation
+
+    backtest.forecasts[0].values = backtest.forecasts[0].values[1:]
+
+    with pytest.raises(MissingSamplesError):
+        generate_pdf_from_evaluation(Evaluation.from_backtest(backtest), str(tmp_path / "report.pdf"))

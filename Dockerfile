@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.13-python3.13-trixie-slim@sha256:6ff812e34a0e14b4b8bc9ddf25e77b3e16bac6e0c4d9b67641f40366fa382d4c
+FROM ghcr.io/astral-sh/uv:0.13-python3.13-trixie-slim@sha256:803d2b80b6913e562837d69f037f39bfea80f51ef3f0dd0d8fdffbd95688fd6d
 
 # Compile Python bytecode for faster startup (.venv only)
 ENV UV_COMPILE_BYTECODE=1
@@ -36,8 +36,8 @@ HEALTHCHECK CMD curl --fail http://localhost:${PORT}/health || exit 1
 
 USER chap
 
+# gunicorn binds to 0.0.0.0:$PORT and starts $WEB_CONCURRENCY workers (1 when unset) by
+# default. Flags here would override those settings, so the deployment sets them instead.
 CMD [ \
-    "gunicorn", "-c", "gunicorn.conf.py", "-k", "uvicorn.workers.UvicornWorker", "chap_core.rest_api.app:app", \
-      "--bind 0.0.0.0:${PORT}", \
-      "--workers 1" \
+    "gunicorn", "-c", "gunicorn.conf.py", "-k", "uvicorn.workers.UvicornWorker", "chap_core.rest_api.app:app" \
   ]

@@ -52,11 +52,13 @@ class MetricPlotBase(abc.ABC):
         id: Unique identifier (set by decorator)
         name: Display name (set by decorator)
         description: Description of what the plot shows (set by decorator)
+        required_dimensions: Metric dimensions the plot needs as columns (set by decorator)
     """
 
     id: str = ""
     name: str = ""
     description: str = ""
+    required_dimensions: list[str] = []
 
     def __init__(self, metric_data: pd.DataFrame, geojson: dict | None = None):
         self._metric_data = metric_data
@@ -88,6 +90,8 @@ def metric_plot(
     plot_id: str,
     name: str,
     description: str = "",
+    *,
+    required_dimensions: list[str],
 ):
     """
     Decorator to register a metric plot class.
@@ -100,6 +104,11 @@ def metric_plot(
         Human-readable display name.
     description : str, optional
         Description of what the plot shows.
+    required_dimensions : list[str]
+        Metric dimensions (``location``, ``time_period``, ``horizon_distance``) the
+        plot needs as columns. A metric without one of them, such as org unit
+        ranking without ``location``, cannot be shown in the plot. Required, so
+        that a new plot cannot silently accept metrics it would fail on.
 
     Example
     -------
@@ -120,6 +129,13 @@ def metric_plot(
         cls.id = plot_id
         cls.name = name
         cls.description = description
+        from chap_core.assessment.flat_representations import DataDimension
+
+        dimensions = list(required_dimensions)
+        unknown = set(dimensions) - {d.value for d in DataDimension}
+        if unknown:
+            raise ValueError(f"{cls.__name__} has unknown required dimensions {sorted(unknown)}")
+        cls.required_dimensions = dimensions
 
         _metric_plots_registry[plot_id] = cls
         return cls
@@ -141,7 +157,15 @@ def list_metric_plots() -> list[dict]:
     list[dict]
         List of dicts with id, name, description for each plot.
     """
-    return [{"id": cls.id, "name": cls.name, "description": cls.description} for cls in _metric_plots_registry.values()]
+    return [
+        {
+            "id": cls.id,
+            "name": cls.name,
+            "description": cls.description,
+            "required_dimensions": cls.required_dimensions,
+        }
+        for cls in _metric_plots_registry.values()
+    ]
 
 
 def _discover_plots() -> None:

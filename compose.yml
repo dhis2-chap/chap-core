@@ -12,7 +12,10 @@ services:
       CHAP_RUNS_DIR: /data/runs
       CHAP_ROOT_PATH: ${CHAP_ROOT_PATH:-}
       CHAP_API_TOKEN: ${CHAP_API_TOKEN:-}
+      # Gates chapkit service registration. Unset leaves the service registry open.
+      SERVICEKIT_REGISTRATION_KEY: ${SERVICEKIT_REGISTRATION_KEY:-}
       CHAP_CORS_ORIGINS: ${CHAP_CORS_ORIGINS:-}
+      WEB_CONCURRENCY: ${CHAP_API_WORKERS:-1}
     read_only: true
     security_opt:
       - no-new-privileges:true
@@ -106,7 +109,7 @@ services:
         target: /data/pytensor
   redis:
     restart: unless-stopped
-    image: valkey/valkey:8@sha256:8f836008e0986c36adf50da714c7060cf689dbb335f61fe077939d90fa650809
+    image: valkey/valkey:8@sha256:5032c4dd7abe08d6fd9382054608183e2bf1f7e3895ef619b8784698454325f7
     # Job status and logs live here; append-only on a volume keeps them across restarts.
     command: ["valkey-server", "--appendonly", "yes"]
     volumes:

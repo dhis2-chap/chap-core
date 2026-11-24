@@ -380,14 +380,27 @@ def check_model_configuration(
         _report(f"{source} sets options the model does not have: {', '.join(unknown)}. Its options: {options}", strict)
 
 
-def check_dataset_for_model(dataset: DataSet, template_config: ModelTemplateConfigV2, strict: bool = True) -> None:
+def check_dataset_for_model(
+    dataset: DataSet,
+    template_config: ModelTemplateConfigV2,
+    strict: bool = True,
+    configuration: ModelConfiguration | None = None,
+) -> None:
     """Report where the dataset does not meet the model's requirements, as ``chap validate`` does.
 
+    Covariates the ``configuration`` adds must be in the dataset too.
     With ``strict``, raises ValueError; otherwise logs a warning.
     """
+    from chap_core.feature_generators import GEN_PREFIX
     from chap_core.services.dataset_validation import check_model_requirements
 
     errors = [issue.message for issue in check_model_requirements(dataset, template_config) if issue.level == "error"]
+    dataset_fields = set(dataset.field_names())
+    errors.extend(
+        f"Configured covariate '{covariate}' not found in dataset. Available fields: {sorted(dataset_fields)}"
+        for covariate in (configuration.additional_continuous_covariates if configuration is not None else [])
+        if not covariate.startswith(GEN_PREFIX) and covariate not in dataset_fields
+    )
     if errors:
         _report(
             "The dataset does not meet the model's requirements:\n  - "

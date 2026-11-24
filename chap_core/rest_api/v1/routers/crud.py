@@ -22,7 +22,7 @@ from typing import Annotated, Any, Final, Literal
 
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Path, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Path, Query, Request, UploadFile
 from pandas.api.types import is_numeric_dtype
 from redis.exceptions import RedisError
 from sqlalchemy import func
@@ -35,6 +35,7 @@ from chap_core.api_types import BacktestParams, FeatureCollectionModel
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import compare_aggregated_metrics, compute_all_detailed_metrics
 from chap_core.assessment.weather_providers import resolve_weather_provider
+from chap_core.auth.permissions import Permission
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.alert_tables import Alert, AlertApproval, AlertPolicyRead, AlertRead
 from chap_core.database.database import SessionWrapper
@@ -72,6 +73,7 @@ from chap_core.database.tables import (
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.exceptions import BaselineTemplateConflict, ModelTemplateRevisionConflict
 from chap_core.geometry import Polygons
+from chap_core.rest_api.authorization import ensure, require
 from chap_core.rest_api.baseline_runs import request_baselines_after_response
 from chap_core.rest_api.celery_tasks import (
     JOB_METADATA_KW,
@@ -317,11 +319,12 @@ worker: CeleryPool[Any] = CeleryPool()
 
 @router.get(
     "/backtests",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=list[BacktestRead],
     tags=["Backtests"],
     summary="Browse stored evaluation runs",
 )  # This should be called list
-async def get_backtests(
+def get_backtests(
     specification_id: Annotated[int | None, Query(alias="specificationId")] = None,
     dataset_id: Annotated[int | None, Query(alias="datasetId")] = None,
     session: Session = Depends(get_session),
@@ -355,6 +358,7 @@ def _backtest_read_loads():
 
 @router.get(
     "/backtest-specifications",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=list[BacktestSpecificationSummary],
     tags=["Backtests"],
     summary="List the evaluation setups backtests have run under",
@@ -400,6 +404,7 @@ def get_backtest_specifications(
 
 @router.get(
     "/backtest-specifications/{specificationId}",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=BacktestSpecificationRead,
     tags=["Backtests"],
     summary="Fetch a specification with every backtest under it",
@@ -547,11 +552,12 @@ def _specification_params(specification: BacktestSpecification) -> dict[str, Any
 
 @router.get(
     "/backtests/{backtestId}/full",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=Backtest,
     tags=["Backtests"],
     summary="Fetch a backtest with every forecast inline",
 )
-async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
+def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
     """Load the complete backtest payload — every forecast row and the dataset's GeoJSON — in a single response.
 
     Use this when a client genuinely needs the whole evaluation (e.g. exporting it,
@@ -566,12 +572,14 @@ async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], se
 
 @router.get(
     "/backtests/{backtestId}/info",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=BacktestRead,
     tags=["Backtests"],
     summary="View one backtest's metadata",
 )
 @router.get(
     "/backtests/{backtestId}",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=BacktestRead,
     tags=["Backtests"],
     summary="View one backtest's metadata (alias of /info)",
@@ -601,10 +609,11 @@ def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], ses
 
 @router.get(
     "/metric/csv",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     tags=["Metrics"],
     summary="Export backtest metrics for offline analysis",
 )
-async def get_metrics_csv(
+def get_metrics_csv(
     backtest_id: Annotated[int, Query(alias="backtestId")],
     session: Session = Depends(get_session),
 ):
@@ -634,12 +643,11 @@ async def get_metrics_csv(
 
 @router.delete(
     "/backtests/{backtestId}",
+    dependencies=[require(Permission.DELETE_BACKTESTS)],
     tags=["Backtests"],
     summary="Remove an evaluation run",
 )
-async def delete_backtest(
-    backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
-):
+def delete_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
     """Permanently delete a backtest and every forecast attached to it.
 
     Use this to clean up failed runs or evaluations that should no longer appear in the
@@ -655,11 +663,12 @@ async def delete_backtest(
 
 @router.patch(
     "/backtests/{backtestId}",
+    dependencies=[require(Permission.WRITE_BACKTESTS)],
     response_model=BacktestRead,
     tags=["Backtests"],
     summary="Edit a backtest's editable fields",
 )
-async def update_backtest(
+def update_backtest(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     backtest_update: BacktestUpdate,
     session: Session = Depends(get_session),
@@ -697,10 +706,11 @@ async def update_backtest(
 
 @router.delete(
     "/backtests",
+    dependencies=[require(Permission.DELETE_BACKTESTS)],
     tags=["Backtests"],
     summary="Bulk-remove several evaluation runs",
 )
-async def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session: Session = Depends(get_session)):
+def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session: Session = Depends(get_session)):
     """Permanently delete several backtests in one round-trip — pass their ids as a comma-separated ``ids`` query string.
 
     Useful for bulk cleanup from a UI's multi-select. Unknown ids are silently skipped;
@@ -747,11 +757,12 @@ async def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session
 
 @router.get(
     "/predictions",
+    dependencies=[require(Permission.READ_PREDICTIONS)],
     response_model=list[PredictionInfo],
     tags=["Predictions"],
     summary="Browse stored forecasts",
 )
-async def get_predictions(session: Session = Depends(get_session)):
+def get_predictions(session: Session = Depends(get_session)):
     """List every prediction whose configured model row still exists in the database, so you can pick a forecast to inspect, plot, push back into DHIS2, or delete.
 
     Predictions whose configured model has been deleted outright are filtered out;
@@ -769,13 +780,12 @@ async def get_predictions(session: Session = Depends(get_session)):
 
 @router.get(
     "/predictions/{predictionId}",
+    dependencies=[require(Permission.READ_PREDICTIONS)],
     response_model=PredictionInfo,
     tags=["Predictions"],
     summary="View one forecast's metadata",
 )
-async def get_prediction(
-    prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
-):
+def get_prediction(prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)):
     """Read the identifying information for a single prediction — the model and dataset behind it, when it ran, what periods it covers — without pulling the forecast values themselves.
 
     Use ``GET /v1/analytics/prediction-entry/{id}`` once you actually need quantiles to
@@ -789,10 +799,11 @@ async def get_prediction(
 
 @router.delete(
     "/predictions/{predictionId}",
+    dependencies=[require(Permission.DELETE_PREDICTIONS)],
     tags=["Predictions"],
     summary="Remove a forecast",
 )
-async def delete_prediction(
+def delete_prediction(
     prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
 ):
     """Permanently delete a prediction and every forecast row it contains. Use this to clean up obsolete or test forecasts from the listing.
@@ -821,11 +832,12 @@ async def delete_prediction(
 
 @router.get(
     "/datasets",
+    dependencies=[require(Permission.READ_DATASETS)],
     response_model=list[DataSetInfo],
     tags=["Datasets"],
     summary="Browse imported datasets",
 )
-async def get_datasets(session: Session = Depends(get_session)):
+def get_datasets(session: Session = Depends(get_session)):
     """List every imported dataset so you can pick one to back a backtest, run a prediction, or inspect its contents — metadata only, no observations inline."""
     datasets = session.exec(select(DataSet)).all()
     return datasets
@@ -833,11 +845,12 @@ async def get_datasets(session: Session = Depends(get_session)):
 
 @router.get(
     "/datasets/{datasetId}",
+    dependencies=[require(Permission.EXPORT_DATASETS)],
     response_model=DataSetWithObservations,
     tags=["Datasets"],
     summary="Inspect a dataset's observations",
 )
-async def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
     """Load a dataset together with every observation it contains, so you can audit what was imported or re-export it.
 
     NaN/inf values are coerced to JSON ``null`` so the response is always parseable.
@@ -856,10 +869,11 @@ async def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], sessi
 
 @router.post(
     "/datasets",
+    dependencies=[require(Permission.WRITE_DATASETS)],
     tags=["Datasets"],
     summary="Import a health-only dataset",
 )
-async def create_dataset(
+def create_dataset(
     data: DatasetCreate,
     original_request: dict = Depends(get_job_request),
     worker_settings=Depends(get_settings),
@@ -899,10 +913,11 @@ async def create_dataset(
 
 @router.post(
     "/datasets/csvFile",
+    dependencies=[require(Permission.WRITE_DATASETS)],
     tags=["Datasets"],
     summary="Import a dataset from a CSV + geojson upload",
 )
-async def create_dataset_csv(
+def create_dataset_csv(
     csv_file: UploadFile = File(...),
     geojson_file: UploadFile = File(...),
     target_column: str = Form("disease_cases", alias="targetColumn"),
@@ -918,17 +933,14 @@ async def create_dataset_csv(
     The optional ``targetColumn`` form field selects the target (default ``disease_cases``)
     and must name a stored column.
     """
-    import io
-
-    frame = pd.read_csv(io.BytesIO(await csv_file.read()))
+    frame = pd.read_csv(csv_file.file)
     reject_mask_indicator_input(frame.columns.tolist())
     text_columns = [
         name for name in frame.columns if name not in ("time_period", "location") and not is_numeric_dtype(frame[name])
     ]
     dataset: InMemoryDataSet = InMemoryDataSet.from_pandas(frame.drop(columns=text_columns))
     require_target_column(target_column, dataset.field_names())
-    geo_json_content = await geojson_file.read()
-    features = Polygons.from_geojson(json.loads(geo_json_content), id_property="NAME_1").feature_collection()
+    features = Polygons.from_geojson(json.load(geojson_file.file), id_property="NAME_1").feature_collection()
     dataset_id = DataSetManager(session).save_dataset(
         DataSetCreateInfo(name="csv_file", target_column=target_column),
         dataset,
@@ -940,10 +952,11 @@ async def create_dataset_csv(
 
 @router.get(
     "/datasets/{datasetId}/df",
+    dependencies=[require(Permission.EXPORT_DATASETS)],
     tags=["Datasets"],
     summary="Read a dataset as tabular JSON rows",
 )
-async def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
     """Get a dataset shaped as a list of JSON rows (one row per region and time period), in the form pandas, Observable, or any tabular tool can consume directly.
 
     Use this when a UI needs to render the dataset as a table, or when a notebook
@@ -968,10 +981,11 @@ async def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], se
 
 @router.get(
     "/datasets/{datasetId}/csv",
+    dependencies=[require(Permission.EXPORT_DATASETS)],
     tags=["Datasets"],
     summary="Export a dataset as a CSV download",
 )
-async def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
     """Download a dataset as a CSV file — one row per region and time period.
 
     Use this when a user wants to pull the imported data out for use in Excel, R,
@@ -993,10 +1007,11 @@ async def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], s
 
 @router.delete(
     "/datasets/{datasetId}",
+    dependencies=[require(Permission.DELETE_DATASETS)],
     tags=["Datasets"],
     summary="Remove an imported dataset",
 )
-async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
     """Permanently delete a dataset and every observation in it. Use this to clean up obsolete imports.
 
     Refused with 409 while a backtest or a prediction still uses the dataset. The baseline
@@ -1018,6 +1033,7 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], se
 
 @router.get(
     "/model-templates",
+    dependencies=[require(Permission.READ_MODELS)],
     response_model=list[ModelTemplateRead],
     tags=["Models"],
     summary="Browse available model templates",
@@ -1047,6 +1063,7 @@ def list_model_templates(session: Session = Depends(get_session)):
 
 @router.post(
     "/model-templates/from-service",
+    dependencies=[require(Permission.WRITE_MODELS)],
     response_model=ModelTemplateRead,
     tags=["Models"],
     summary="Store a model template from a registered CHAPKit service",
@@ -1086,6 +1103,7 @@ def add_model_template_from_service(
 
 @router.delete(
     "/model-templates/{modelTemplateId}",
+    dependencies=[require(Permission.DELETE_MODELS)],
     tags=["Models"],
     summary="Retire a model template",
 )
@@ -1114,6 +1132,7 @@ def delete_model_template(
 
 @router.get(
     "/configured-models",
+    dependencies=[require(Permission.READ_MODELS)],
     response_model=list[ModelSpecRead],
     tags=["Models"],
     summary="Browse configured (ready-to-run) models",
@@ -1145,6 +1164,7 @@ def list_configured_models(
 
 @router.get(
     "/configured-models/{configuredModelId}",
+    dependencies=[require(Permission.READ_MODELS)],
     response_model=ConfiguredModelInfoRead,
     tags=["Models"],
     summary="View one configured model with its template",
@@ -1170,6 +1190,7 @@ def get_configured_model_info(
 
 @router.post(
     "/configured-models",
+    dependencies=[require(Permission.WRITE_MODELS)],
     response_model=ConfiguredModelDB,
     tags=["Models"],
     summary="Configure a template into a runnable model",
@@ -1207,10 +1228,11 @@ def add_configured_model(
 
 @router.delete(
     "/configured-models/{configuredModelId}",
+    dependencies=[require(Permission.DELETE_MODELS)],
     tags=["Models"],
     summary="Retire a configured model",
 )
-async def delete_configured_model(
+def delete_configured_model(
     configured_model_id: Annotated[int, Path(alias="configuredModelId")], session: Session = Depends(get_session)
 ):
     """Soft-delete a configured model so pickers can hide it, while keeping the underlying row intact so historical backtests / predictions that reference it still resolve.
@@ -1234,12 +1256,13 @@ async def delete_configured_model(
 
 @router.post(
     "/alerts",
+    dependencies=[require(Permission.WRITE_ALERTS)],
     response_model=AlertIdsResponse,
     tags=["Alerts"],
     summary="Record alerts raised against a policy",
 )
 @api_experimental
-async def create_alerts(request: AlertsCreate, session: Session = Depends(get_session)):
+def create_alerts(request: AlertsCreate, session: Session = Depends(get_session)):
     """Record a batch of alerts — one run raises many at once, so they are written together.
 
     Every alert names a level its policy actually defines; a level name only means
@@ -1262,12 +1285,13 @@ async def create_alerts(request: AlertsCreate, session: Session = Depends(get_se
 
 @router.get(
     "/alerts",
+    dependencies=[require(Permission.READ_ALERTS)],
     response_model=list[AlertRead],
     tags=["Alerts"],
     summary="Browse alerts, or pull the review queue",
 )
 @api_experimental
-async def list_alerts(
+def list_alerts(
     alert_policy_id: Annotated[int | None, Query(alias="alertPolicyId")] = None,
     prediction_id: Annotated[int | None, Query(alias="predictionId")] = None,
     org_unit: Annotated[str | None, Query(alias="orgUnit")] = None,
@@ -1290,12 +1314,13 @@ async def list_alerts(
 
 @router.get(
     "/alerts/{alertId}",
+    dependencies=[require(Permission.READ_ALERTS)],
     response_model=AlertRead,
     tags=["Alerts"],
     summary="View one alert",
 )
 @api_experimental
-async def get_alert(
+def get_alert(
     alert_id: Annotated[int, Path(alias="alertId")],
     session: Session = Depends(get_session),
 ):
@@ -1308,11 +1333,12 @@ async def get_alert(
 
 @router.delete(
     "/alerts/{alertId}",
+    dependencies=[require(Permission.DELETE_ALERTS)],
     tags=["Alerts"],
     summary="Remove an alert",
 )
 @api_experimental
-async def delete_alert(
+def delete_alert(
     alert_id: Annotated[int, Path(alias="alertId")],
     session: Session = Depends(get_session),
 ):
@@ -1332,12 +1358,13 @@ async def delete_alert(
 
 @router.post(
     "/alerts/$approve",
+    dependencies=[require(Permission.APPROVE_ALERTS)],
     response_model=list[AlertRead],
     tags=["Alerts"],
     summary="Clear a set of alerts for release, or decline them",
 )
 @api_experimental
-async def approve_alerts(request: AlertApprovalRequest, session: Session = Depends(get_session)):
+def approve_alerts(request: AlertApprovalRequest, session: Session = Depends(get_session)):
     """Move a set of alerts through the release gate in one go.
 
     Reviewers work through a queue and decide on several alerts at a time, so the whole
@@ -1366,12 +1393,13 @@ async def approve_alerts(request: AlertApprovalRequest, session: Session = Depen
 
 @router.post(
     "/alert-policies",
+    dependencies=[require(Permission.WRITE_ALERTS)],
     response_model=DataBaseResponse,
     tags=["Alert Policies"],
     summary="Define the tiers at which forecasts raise alerts",
 )
 @api_experimental
-async def create_alert_policy(request: AlertPolicyCreate, session: Session = Depends(get_session)):
+def create_alert_policy(request: AlertPolicyCreate, session: Session = Depends(get_session)):
     """Create a named ladder of alert levels — a `monitor` tier, an `alert` tier, an `action` tier — that a prediction setup can be pointed at.
 
     Each level pairs an epidemic channel (the same strategy and parameters
@@ -1382,6 +1410,7 @@ async def create_alert_policy(request: AlertPolicyCreate, session: Session = Dep
     or two levels sharing a name. Output codes must be non-empty and unique across
     all levels and the no-alert state. Codes do not affect severity ordering.
     Omitted level codes default to `1`, `2`, etc. in level order; no alert defaults to `0`.
+    Each level may include a free-text `responseAction` describing what to do when it fires.
     """
     try:
         policy = alert_policy_service.create_alert_policy(
@@ -1396,28 +1425,34 @@ async def create_alert_policy(request: AlertPolicyCreate, session: Session = Dep
 
 @router.get(
     "/alert-policies",
+    dependencies=[require(Permission.READ_ALERTS)],
     response_model=list[AlertPolicyRead],
     tags=["Alert Policies"],
     summary="Browse saved alert policies",
 )
 @api_experimental
-async def list_alert_policies(session: Session = Depends(get_session)):
+def list_alert_policies(session: Session = Depends(get_session)):
     """List every alert policy, so a UI can offer them when configuring a prediction setup."""
     return alert_policy_service.list_alert_policies(session)
 
 
 @router.get(
     "/alert-policies/{alertPolicyId}",
+    dependencies=[require(Permission.READ_ALERTS)],
     response_model=AlertPolicyRead,
     tags=["Alert Policies"],
     summary="View one alert policy and its levels",
 )
 @api_experimental
-async def get_alert_policy(
+def get_alert_policy(
     alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
     session: Session = Depends(get_session),
 ):
-    """Read a policy's levels, each with its channel parameters and the probability at which it fires. 404 if the id is unknown."""
+    """Read a policy's levels, including their current response actions.
+
+    Resolve an alert's action using its `alertPolicyId` and `level` name.
+    404 if the id is unknown.
+    """
     try:
         return alert_policy_service.get_alert_policy(session, alert_policy_id)
     except alert_policy_service.AlertPolicyNotFoundError as e:
@@ -1426,17 +1461,20 @@ async def get_alert_policy(
 
 @router.patch(
     "/alert-policies/{alertPolicyId}",
+    dependencies=[require(Permission.WRITE_ALERTS)],
     response_model=AlertPolicyRead,
     tags=["Alert Policies"],
-    summary="Update a policy's output codes",
+    summary="Update a policy's output codes and response actions",
 )
 @api_experimental
-async def update_alert_policy_codes(
+def update_alert_policy_codes(
     alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
     request: AlertPolicyCodesUpdate,
     session: Session = Depends(get_session),
 ):
-    """Update codes by level name. Existing alerts resolve to the new codes through their policy.
+    """Update codes and response actions by level name. Existing alerts resolve to the current values through their policy.
+
+    Omitted actions stay unchanged; null clears an action.
 
     Names, order and thresholds cannot change. The resulting codes must be non-empty
     and unique, including unchanged codes and no alert. 404 for an unknown policy;
@@ -1444,7 +1482,11 @@ async def update_alert_policy_codes(
     """
     try:
         return alert_policy_service.update_alert_policy_codes(
-            session, alert_policy_id, request.level_output_codes, request.no_alert_output_code
+            session,
+            alert_policy_id,
+            request.level_output_codes,
+            request.level_response_actions,
+            request.no_alert_output_code,
         )
     except alert_policy_service.AlertPolicyNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -1454,11 +1496,12 @@ async def update_alert_policy_codes(
 
 @router.delete(
     "/alert-policies/{alertPolicyId}",
+    dependencies=[require(Permission.DELETE_ALERTS)],
     tags=["Alert Policies"],
     summary="Remove an alert policy",
 )
 @api_experimental
-async def delete_alert_policy(
+def delete_alert_policy(
     alert_policy_id: Annotated[int, Path(alias="alertPolicyId")],
     session: Session = Depends(get_session),
 ):
@@ -1481,11 +1524,14 @@ async def delete_alert_policy(
 
 @router.post(
     "/prediction-setups",
+    dependencies=[require(Permission.WRITE_PREDICTION_SETUPS)],
     response_model=DataBaseResponse,
     tags=["Prediction Setups"],
     summary="Promote a backtest into a reusable prediction config",
 )
-async def create_prediction_setup(request: PredictionSetupCreate, session: Session = Depends(get_session)):
+def create_prediction_setup(
+    request: PredictionSetupCreate, http_request: Request, session: Session = Depends(get_session)
+):
     """Save a backtest as a prediction setup — a named configuration you can rerun on fresh data, either ad-hoc via ``/run`` or on a cron schedule.
 
     Use this after evaluating a model on historical data and deciding it's good enough
@@ -1493,6 +1539,8 @@ async def create_prediction_setup(request: PredictionSetupCreate, session: Sessi
     backtest is missing, 409 if it already has a setup, 422 if the cron expression or
     quantile targets are malformed.
     """
+    if request.alert_policy_id is not None:
+        ensure(http_request, Permission.WRITE_ALERTS, "attaches an alert policy")
     try:
         setup = prediction_setup_service.create_prediction_setup(
             session,
@@ -1518,11 +1566,12 @@ async def create_prediction_setup(request: PredictionSetupCreate, session: Sessi
 
 @router.get(
     "/prediction-setups",
+    dependencies=[require(Permission.READ_PREDICTION_SETUPS)],
     response_model=list[PredictionSetupRead],
     tags=["Prediction Setups"],
     summary="Browse saved prediction setups",
 )
-async def list_prediction_setups(session: Session = Depends(get_session)):
+def list_prediction_setups(session: Session = Depends(get_session)):
     """List every prediction setup so you can manage them, run them ad-hoc, or check which backtests have been promoted into a recurring forecast.
 
     Lightweight listing: each entry carries the setup's schedule, target backtest, and
@@ -1534,11 +1583,12 @@ async def list_prediction_setups(session: Session = Depends(get_session)):
 
 @router.get(
     "/prediction-setups/{predictionSetupId}",
+    dependencies=[require(Permission.READ_PREDICTION_SETUPS)],
     response_model=PredictionSetupReadWithPredictions,
     tags=["Prediction Setups"],
     summary="View a prediction setup with its forecast history",
 )
-async def get_prediction_setup(
+def get_prediction_setup(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     session: Session = Depends(get_session),
 ):
@@ -1554,11 +1604,12 @@ async def get_prediction_setup(
 
 @router.get(
     "/prediction-setups/{predictionSetupId}/monitoring",
+    dependencies=[require(Permission.READ_PREDICTION_SETUPS)],
     response_model=PredictionSetupMonitoring,
     tags=["Prediction Setups"],
     summary="Compare a prediction setup's live and backtest performance with a baseline model",
 )
-async def get_prediction_setup_monitoring(
+def get_prediction_setup_monitoring(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     metric: Annotated[
         str, Query(description="Id of a metric with a comparison operator, as listed by the metrics endpoint.")
@@ -1597,13 +1648,15 @@ async def get_prediction_setup_monitoring(
 
 @router.patch(
     "/prediction-setups/{predictionSetupId}",
+    dependencies=[require(Permission.WRITE_PREDICTION_SETUPS)],
     response_model=PredictionSetupRead,
     tags=["Prediction Setups"],
     summary="Tweak a prediction setup's schedule or targets",
 )
-async def update_prediction_setup(
+def update_prediction_setup(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     request: PredictionSetupUpdate,
+    http_request: Request,
     session: Session = Depends(get_session),
 ):
     """Adjust a setup without recreating it — pause or resume the schedule, change the cron expression, swap quantile targets, rename it.
@@ -1612,6 +1665,8 @@ async def update_prediction_setup(
     the id is unknown, 422 if the new values are malformed.
     """
     update_data = request.model_dump(exclude_unset=True, by_alias=False)
+    if "alert_policy_id" in update_data:
+        ensure(http_request, Permission.WRITE_ALERTS, "changes the alert policy")
     try:
         return prediction_setup_service.update_prediction_setup(session, prediction_setup_id, update_data)
     except prediction_setup_service.PredictionSetupNotFoundError as e:
@@ -1655,10 +1710,11 @@ def _cancel_jobs_for_prediction_setup(prediction_setup_id: int) -> None:
 
 @router.delete(
     "/prediction-setups/{predictionSetupId}",
+    dependencies=[require(Permission.DELETE_PREDICTION_SETUPS)],
     tags=["Prediction Setups"],
     summary="Retire a prediction setup",
 )
-async def delete_prediction_setup(
+def delete_prediction_setup(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     session: Session = Depends(get_session),
 ):
@@ -1689,13 +1745,15 @@ def _setup_horizon(setup: PredictionSetup) -> int:
 
 @router.post(
     "/prediction-setups/{predictionSetupId}/run",
+    dependencies=[require(Permission.RUN_PREDICTIONS)],
     response_model=JobResponse,
     tags=["Prediction Setups"],
     summary="Run a prediction setup against fresh observations",
 )
-async def run_prediction_setup(
+def run_prediction_setup(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     request: RunPredictionSetupRequest,
+    http_request: Request,
     original_request: dict = Depends(get_job_request),
     session: Session = Depends(get_session),
     worker_settings=Depends(get_settings),
@@ -1713,6 +1771,7 @@ async def run_prediction_setup(
     Without ``nPeriods``, they also use the backtest's horizon, kept within the range the
     model supports.
     """
+    ensure(http_request, Permission.WRITE_DATASETS, "stores the observations as a dataset")
     try:
         setup = prediction_setup_service.get_prediction_setup(session, prediction_setup_id)
     except prediction_setup_service.PredictionSetupNotFoundError as e:

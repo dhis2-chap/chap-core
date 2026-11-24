@@ -1,15 +1,19 @@
 import logging
-import os
 from pathlib import Path
+
+from chap_core.settings import get_settings
 
 # get root logger
 logger = logging.getLogger()
 
 # Centralized logs directory path (configurable via CHAP_LOGS_DIR env var)
-CHAP_LOGS_DIR = Path(os.getenv("CHAP_LOGS_DIR", "logs/"))
+CHAP_LOGS_DIR = get_settings().logs_dir
 
 # Status logger name for user-facing logs (safe for API exposure)
 STATUS_LOGGER_NAME = "chap_status"
+
+# alembic logs each plugin it sets up at INFO when it is imported, which loading a chapkit model does (CLIM-1833).
+ALEMBIC_PLUGIN_LOGGER_NAME = "alembic.runtime.plugins"
 
 
 def is_debug_mode() -> bool:
@@ -18,7 +22,7 @@ def is_debug_mode() -> bool:
     Returns:
         bool: True if CHAP_DEBUG is set to "true", "1", or "yes" (case-insensitive).
     """
-    return os.getenv("CHAP_DEBUG", "false").lower() in ("true", "1", "yes")
+    return get_settings().debug
 
 
 def initialize_logging(debug: bool | None = None, log_file: str | None = None):
@@ -38,6 +42,7 @@ def initialize_logging(debug: bool | None = None, log_file: str | None = None):
     else:
         logger.setLevel(level=logging.INFO)
         logger.info("Level set to INFO")
+    logging.getLogger(ALEMBIC_PLUGIN_LOGGER_NAME).setLevel(logging.NOTSET if debug else logging.WARNING)
 
     Path("/tmp/chap/logs").mkdir(parents=True, exist_ok=True)  # keep this in as it might be required for celery tasks  # noqa: S108 — shared log location for celery workers
 
