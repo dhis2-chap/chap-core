@@ -392,6 +392,9 @@ def check_model_configuration(
             jsonschema.validate(instance=values[name], schema=schema)
         except jsonschema.ValidationError as e:
             errors.append(f"{name}: {e.message}")
+        except jsonschema.SchemaError as e:
+            # The model declares the option with an invalid schema (e.g. `type: float`); that is not the user's error.
+            logger.debug(f"Not checking option {name}: its declared schema is invalid: {e.message}")
     if errors:
         _report(f"{source} sets invalid option values:\n  - " + "\n  - ".join(errors), strict)
 
