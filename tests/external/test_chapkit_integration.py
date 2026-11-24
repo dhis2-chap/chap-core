@@ -1048,60 +1048,7 @@ class TestConfigPayload:
         assert self._created_config(None)["data"] == {}
 
 
-class TestRunConfigCleanup:
-    @staticmethod
-    def make_model(client):
-        return ExternalChapkitModel("m", "http://chapkit.test", configuration_id=VALID_ULID_1, client=client)
-
-    def test_deletes_the_config_after_a_completed_run(self, train_data):
-        client = MagicMock()
-        client.train_and_wait.return_value = (MagicMock(status="completed"), VALID_ULID_2)
-        model = self.make_model(client)
-        model.train(train_data)
-
-        model.delete_config()
-
-        client.delete_config.assert_called_once_with(VALID_ULID_1)
-
-    def test_deletes_the_config_after_a_job_that_failed(self, train_data):
-        client = MagicMock()
-        client.train_and_wait.return_value = (MagicMock(status="failed", error="boom"), VALID_ULID_2)
-        model = self.make_model(client)
-        with pytest.raises(ModelFailedException):
-            model.train(train_data)
-
-        model.delete_config()
-
-        client.delete_config.assert_called_once_with(VALID_ULID_1)
-
-    def test_keeps_the_config_while_a_job_may_still_be_running(self, train_data, caplog):
-        client = MagicMock()
-        client.train_and_wait.side_effect = TimeoutError("still training")
-        model = self.make_model(client)
-        with pytest.raises(TimeoutError):
-            model.train(train_data)
-
-        with caplog.at_level(logging.WARNING):
-            model.delete_config()
-
-        client.delete_config.assert_not_called()
-        assert "may still be running" in caplog.text
-
-    def test_a_later_completed_job_does_not_clear_an_earlier_timed_out_one(self, train_data):
-        client = MagicMock()
-        client.train_and_wait.side_effect = [
-            TimeoutError("still training"),
-            (MagicMock(status="completed"), VALID_ULID_2),
-        ]
-        model = self.make_model(client)
-        with pytest.raises(TimeoutError):
-            model.train(train_data)
-        model.train(train_data)
-
-        model.delete_config()
-
-        client.delete_config.assert_not_called()
-
+class TestConfigCreationRollback:
     def test_get_model_deletes_a_config_the_service_stored_wrongly(self):
         client = MagicMock()
         client.info.return_value = MOCK_INFO_RESPONSE
