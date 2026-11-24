@@ -94,7 +94,9 @@ from chap_core.services import (
     alert_service,
     prediction_monitoring_service,
     prediction_setup_service,
+    selection_bias_service,
 )
+from chap_core.services.selection_bias_service import SelectionBias
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import (
@@ -474,6 +476,57 @@ def get_backtest_specification(
         default_baseline_model=settings.default_baseline_model,
         **_specification_params(specification),
     )
+
+
+@router.get(
+    "/backtest-specifications/{specificationId}/selection-bias",
+    dependencies=[require(Permission.READ_BACKTESTS)],
+    response_model=SelectionBias,
+    tags=["Backtests"],
+    summary="Estimate how much picking the best model on a specification flatters it",
+)
+def get_backtest_specification_selection_bias(
+    specification_id: Annotated[int, Path(alias="specificationId")],
+    metric: Annotated[
+        str,
+        Query(description="Id of a mean-aggregated metric with a comparison operator, e.g. 'crps_log1p'."),
+    ] = "crps_log1p",
+    baseline: Annotated[
+        str | None,
+        Query(description="Name of the baseline model to compare with. Defaults to the installation's default."),
+    ] = None,
+    horizon_distance: Annotated[
+        int, Query(alias="horizonDistance", ge=1, description="Horizon distance whose forecasts are scored.")
+    ] = 1,
+    future_splits: Annotated[
+        int,
+        Query(alias="futureSplits", ge=1, description="Number of future splits the estimated bias is averaged over."),
+    ] = 12,
+    session: Session = Depends(get_session),
+):
+    """Estimate the selection bias of the model with the best comparison with the baseline over all split points.
+
+    Runs a nested scheme on the specification's own split points: every window of consecutive
+    splits picks its best model, and the pick is scored on every later split. The pick's
+    optimism (validation value minus test value) is fitted as
+    ``intercept + inverseSqrtK / sqrt(k) + distance * d``, with ``k`` the window size and ``d``
+    the splits between the window and the test split. The estimated bias is the fit at the
+    full window size, averaged over the next ``futureSplits`` splits. ``windowSizePoints`` and
+    ``distancePoints`` hold the data for the two scatter plots with their fitted lines.
+
+    Candidates are the newest backtest of each model on the leaderboard, scored on the
+    forecasts all of them and the baseline made. 404 if the specification is unknown, 422 if
+    the metric or baseline is unknown or unsuitable, the baseline has not run, or there are
+    fewer than two models or three split points.
+    """
+    try:
+        return selection_bias_service.get_selection_bias(
+            session, specification_id, metric, baseline, horizon_distance, future_splits
+        )
+    except selection_bias_service.SpecificationNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except selection_bias_service.SelectionBiasError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 def _baseline_results(session: Session, specification_id: int) -> list[ReferenceModelResult]:
