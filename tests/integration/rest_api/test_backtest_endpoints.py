@@ -1068,7 +1068,7 @@ def test_run_hpo_backtest_persists_selected_configuration_under_existing_specifi
             raising=False,
         )
 
-        def fake_get_hpo_estimator(**kwargs):
+        def fake_create_hpo_estimator(**kwargs):
             captured["optimizer"] = kwargs
             return fake_optimizer
 
@@ -1118,7 +1118,7 @@ def test_run_hpo_backtest_persists_selected_configuration_under_existing_specifi
             captured["evaluation"] = kwargs
             return _FakeEvaluation()
 
-        monkeypatch.setattr(wf, "get_hpo_estimator", fake_get_hpo_estimator)
+        monkeypatch.setattr(wf, "create_hpo_estimator", fake_create_hpo_estimator)
         monkeypatch.setattr(wf.Evaluation, "create", staticmethod(fake_evaluation_create))
         monkeypatch.setattr(wf, "compute_all_aggregated_metrics", lambda evaluation: {})
         request = MakeHpoBacktestRequest(
