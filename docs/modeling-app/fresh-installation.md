@@ -46,13 +46,16 @@ For latest release go to: [https://github.com/dhis2-chap/chap-core/releases](htt
 
 ## 3. Configure Environment Variables
 
-Copy the example environment file:
+Copy the example environment file, and give it a service registration key:
 
 ```console
 cp .env.example .env
+echo "SERVICEKIT_REGISTRATION_KEY=$(openssl rand -hex 32)" >> .env
 ```
 
-This creates a `.env` file with default database credentials used by Docker Compose.
+This creates a `.env` file with default database credentials used by Docker Compose. The
+registration key means only model services that hold it can register with Chap; without it,
+anything on the Docker network can. The model services `chap-admin` installs read the same key.
 
 !!! tip "Production deployments"
     For production, open `.env` and change at least `POSTGRES_PASSWORD` to a strong, unique value. The password is interpolated into a database URL, so keep it URL-safe -- no `@`, `:`, `/`, `?`, `#` or `%` -- or set `CHAP_DATABASE_URL` to a full percent-encoded URL instead. You can optionally change `POSTGRES_USER` as well. These credentials are set permanently when the database volume is first created, so choose them before running `docker compose up` for the first time.

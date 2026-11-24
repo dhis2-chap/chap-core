@@ -1,9 +1,11 @@
 from functools import lru_cache
 
 import httpx
-from fastapi import Header, HTTPException, status
+from fastapi import Header, status
 
-from chap_core.rest_api.auth import SERVICE_KEY_HEADER, get_service_key, secret_matches
+from chap_core.auth.tokens import secret_matches
+from chap_core.rest_api.auth import SERVICE_KEY_HEADER, get_service_key
+from chap_core.rest_api.authorization import Refusal
 from chap_core.rest_api.services.orchestrator import Orchestrator
 from chap_core.util import load_redis
 
@@ -70,9 +72,6 @@ def verify_service_key(
         return None
 
     if not secret_matches(x_service_key, expected_key):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing or invalid service key",
-        )
+        raise Refusal(status.HTTP_401_UNAUTHORIZED, "TokenInvalid", "Missing or invalid service key")
 
     return x_service_key

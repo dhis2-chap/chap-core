@@ -24,7 +24,7 @@ from sqlalchemy import Column, String, TypeDecorator, UniqueConstraint
 from sqlmodel import Field
 
 from chap_core.assessment.thresholds.params import ThresholdParams
-from chap_core.database.base_tables import DBModel, PeriodID, UtcDatetime
+from chap_core.database.base_tables import CREATED_BY_DESCRIPTION, DBModel, PeriodID, UtcDatetime
 from chap_core.database.dataset_tables import PydanticListType
 
 
@@ -103,6 +103,7 @@ class ThresholdPolicy(ThresholdPolicyBase, table=True):
     """Persisted threshold policy: a named set of threshold levels a prediction setup scores against."""
 
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
+    created_by: str | None = Field(default=None, description=CREATED_BY_DESCRIPTION)
     created: UtcDatetime | None = Field(default=None, description="Server-side timestamp when the policy was created.")
 
 
@@ -223,6 +224,7 @@ class Signal(SignalRecord, table=True):
     )
 
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
+    created_by: str | None = Field(default=None, description=CREATED_BY_DESCRIPTION)
 
 
 class SignalRead(SignalRecord):

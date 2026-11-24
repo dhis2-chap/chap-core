@@ -68,7 +68,8 @@ def test_every_operation_but_the_open_ones_requires_the_token(client, monkeypatc
             reached[f"{method.upper()} {path}"] = client.request(method, url).status_code
 
     public = {operation for operation, code in reached.items() if code != 401}
-    assert public == {f"GET {path}" for path in OPEN_PATHS}
+    # /v1/auth/me answers any caller, and reports anonymous without a token.
+    assert public == {f"GET {path}" for path in OPEN_PATHS | {"/v1/auth/me"}}
 
 
 class TestTokenDisabled:
@@ -91,7 +92,8 @@ class TestTokenEnabled:
 
         assert response.status_code == 401
         assert response.headers["WWW-Authenticate"] == "Bearer"
-        assert response.json() == {"detail": "Missing or invalid API token"}
+        assert response.json()["code"] == "AuthenticationRequired"
+        assert response.json()["detail"] == "GET /v2/services needs a token."
 
     @pytest.mark.parametrize("scheme", ["Bearer", "ApiToken"])
     def test_wrong_token_returns_401(self, client, scheme):
@@ -100,7 +102,7 @@ class TestTokenEnabled:
         assert response.status_code == 401
 
     def test_wrong_scheme_returns_401(self, client):
-        response = client.get(GATED_PATH, headers={"Authorization": f"Basic {TEST_TOKEN}"})
+        response = client.get(GATED_PATH, headers={"Authorization": f"Token {TEST_TOKEN}"})
 
         assert response.status_code == 401
 
@@ -122,7 +124,7 @@ class TestTokenEnabled:
         schema = client.get("/openapi.json").json()
 
         assert schema["components"]["securitySchemes"]["HTTPBearer"]["scheme"] == "bearer"
-        assert schema["paths"]["/v2/services"]["get"]["security"] == [{"HTTPBearer": []}]
+        assert schema["paths"]["/v2/services"]["get"]["security"] == [{"HTTPBearer": ["read:services"]}]
 
     def test_request_body_is_not_read_without_the_token(self, client):
         response = client.post("/v1/crud/datasets", content=b"{not json", headers={"Content-Type": "application/json"})
@@ -249,3 +251,10 @@ class TestServiceRegistrationWithBothSecretsSet:
 
         assert response.status_code == 200
         assert response.json()["status"] == "registered"
+
+
+def test_the_weak_token_warning_names_the_minimum_length():
+    from chap_core.rest_api.auth import SHORT_LEGACY_KEY_WARNING
+
+    assert API_TOKEN_ENV_VAR in SHORT_LEGACY_KEY_WARNING
+    assert f"shorter than {MIN_TOKEN_LENGTH} characters" in SHORT_LEGACY_KEY_WARNING

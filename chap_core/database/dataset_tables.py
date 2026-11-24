@@ -11,7 +11,7 @@ from pydantic.alias_generators import to_camel
 from sqlalchemy import JSON, Column, Index, TypeDecorator, false
 from sqlmodel import Field, Relationship
 
-from chap_core.database.base_tables import DBModel, PeriodID, UtcDatetime
+from chap_core.database.base_tables import CREATED_BY_DESCRIPTION, DBModel, PeriodID, UtcDatetime
 from chap_core.time_period.date_util_wrapper import Month, TimePeriod, Week
 
 
@@ -250,6 +250,7 @@ class DataSetBase(DataSetInfo):
 class DataSet(DataSetBase, table=True):
     """Persisted dataset row with its child observations."""
 
+    created_by: str | None = Field(default=None, description=CREATED_BY_DESCRIPTION)
     observations: list[Observation] = Relationship(back_populates="dataset", cascade_delete=True)
 
 
