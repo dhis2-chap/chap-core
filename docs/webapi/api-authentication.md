@@ -11,9 +11,11 @@ minimum needed to put the API somewhere it can be reached from the internet, and
 always be combined with HTTPS.
 
 !!! warning "A token is not a substitute for network isolation"
-    The token is a single shared secret with no rotation, no expiry and no per-client
-    identity. Keeping Chap Core off the public internet is still the recommended setup.
-    See [Recommendation for server deployment](../modeling-app/running-chap-on-server.md).
+    `CHAP_API_TOKEN` is a single shared secret with no rotation, no expiry and no per-client
+    identity. Named tokens, one per client with its own tier, are configured in
+    `chap-server.yml`; see the [auth contract](../contributor/auth_contract.md). Either way,
+    keeping Chap Core off the public internet is still the recommended setup. See
+    [Recommendation for server deployment](../modeling-app/running-chap-on-server.md).
 
 ## Enabling the token
 
@@ -59,7 +61,8 @@ curl -H "Authorization: Bearer your-generated-token" \
 
 Chap Core also accepts `Authorization: ApiToken your-generated-token`, as sent by DHIS2
 routes using `auth.type = api-token`. Both schemes use the same `CHAP_API_TOKEN` value.
-Scheme names are case-insensitive; the token must match exactly.
+Scheme names are case-insensitive; the token must match exactly. `Basic` with the id
+`legacy` and the token as the password is accepted too, as for named tokens.
 
 ## Which endpoints require the token
 
@@ -70,7 +73,9 @@ When `CHAP_API_TOKEN` is set, **every** API endpoint requires it except the ones
 | `/health` | Public | Liveness probe. Called without headers by the container healthcheck and Kubernetes. |
 | `/health/ready` | Public | Readiness probe, same reason. |
 | `/system/info` | Public | Lets clients discover whether a token is required before authenticating. |
-| `/docs`, `/redoc`, `/openapi.json` | Public | The API reference. It describes an open-source API, so it discloses nothing. |
+| `/docs`, `/docs/oauth2-redirect`, `/redoc`, `/openapi.json` | Public | The API reference. It describes an open-source API, so it discloses nothing. |
+| `/v1/auth/me` | Public | Reports who the caller is and what it may do: `anonymous` without a valid token. |
+| `/favicon.ico` | Public | The browser tab icon. |
 | Everything else | Required | Includes `/v1/**` and `/v2/**`. |
 
 To call the API from `/docs`, click **Authorize**, paste the token, and "Try it out" then
@@ -86,14 +91,23 @@ When `CHAP_API_TOKEN` is configured:
 | Scenario | Response |
 |----------|----------|
 | Missing `Authorization` header | 401 Unauthorized |
-| Wrong token, or a scheme other than `Bearer` or `ApiToken` | 401 Unauthorized |
+| Wrong token, or a scheme other than `Bearer`, `ApiToken` or `Basic` | 401 Unauthorized |
 
-Both cases return the same body and a `WWW-Authenticate: Bearer` header, so a client can
-tell "this server wants a token" apart from a network failure:
+Both cases return a `WWW-Authenticate: Bearer` header, so a client can tell "this server
+wants a token" apart from a network failure. The body names the reason in `code` and
+repeats the message in `detail`:
 
 ```json
-{"detail": "Missing or invalid API token"}
+{
+  "id": "authentication",
+  "code": "AuthenticationRequired",
+  "message": "GET /v1/crud/datasets needs a token.",
+  "detail": "GET /v1/crud/datasets needs a token."
+}
 ```
+
+A wrong token gets `"code": "TokenInvalid"`. For named tokens with tiers and permissions, see
+the [auth contract](../contributor/auth_contract.md).
 
 ## Detecting whether a server requires a token
 
@@ -150,7 +164,10 @@ configured registration key is accepted there too:
 |----------------------|------------------------------|
 | Only `CHAP_API_TOKEN` | `SERVICEKIT_REGISTRATION_KEY` set to the API token |
 | Only `SERVICEKIT_REGISTRATION_KEY` | `SERVICEKIT_REGISTRATION_KEY` set to the registration key |
-| Both | `SERVICEKIT_REGISTRATION_KEY` set to either one |
+| Both | `SERVICEKIT_REGISTRATION_KEY` set to the registration key |
+
+With both set, registering, pinging and deregistering need the registration key; the API
+token alone is refused there.
 
 A registration key is only accepted on `/v2/services` paths. It cannot be used as a
 general-purpose credential against `/v1/**`, so a model service cannot read or delete

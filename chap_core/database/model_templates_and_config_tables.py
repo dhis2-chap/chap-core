@@ -9,7 +9,7 @@ from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, Relationship, SQLModel
 
-from chap_core.database.base_tables import DBModel
+from chap_core.database.base_tables import CREATED_BY_DESCRIPTION, DBModel
 from chap_core.exceptions import ModelTemplateRevisionConflict
 from chap_core.model_spec import PeriodType
 
@@ -261,6 +261,7 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
         "Unique per template version and configuration digest.",
     )
     id: int | None = Field(primary_key=True, default=None, description="Primary key.")
+    created_by: str | None = Field(default=None, description=CREATED_BY_DESCRIPTION)
     configuration_digest: str = Field(
         default="", description="Digest of the configuration contents, see `compute_configuration_digest`."
     )

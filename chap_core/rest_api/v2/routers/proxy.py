@@ -29,6 +29,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from starlette.background import BackgroundTask
 
+from chap_core.auth.permissions import Permission
+from chap_core.rest_api.authorization import require
 from chap_core.rest_api.services.orchestrator import Orchestrator, ServiceNotFoundError
 from chap_core.rest_api.v2.dependencies import get_http_client, get_orchestrator
 
@@ -97,6 +99,7 @@ def _raw_subpath(request: Request, service_id: str) -> str:
 # a non-deterministic one. Register one route per method if this is ever put in the schema.
 @router.api_route(
     "/{service_id}/run/{path:path}",
+    dependencies=[require(Permission.CALL_SERVICES)],
     methods=PROXY_METHODS,
     summary="Proxy a read-only request to a registered chapkit service",
     include_in_schema=False,

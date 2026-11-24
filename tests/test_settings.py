@@ -97,10 +97,10 @@ def test_get_settings_is_reused_until_the_environment_changes(monkeypatch):
 
 @pytest.fixture
 def config_file(monkeypatch, tmp_path):
-    """Write a chap-server.yaml and point CHAP_CONFIG at it."""
+    """Write a chap-server.yml and point CHAP_CONFIG at it."""
 
     def write(text: str):
-        path = tmp_path / "chap-server.yaml"
+        path = tmp_path / "chap-server.yml"
         path.write_text(text)
         monkeypatch.setenv("CHAP_CONFIG", str(path))
         return path
@@ -145,7 +145,7 @@ def test_the_config_file_overrides_the_defaults(config_file):
 def test_no_file_is_read_without_chap_config(monkeypatch, tmp_path):
     monkeypatch.delenv("CHAP_CONFIG", raising=False)
     monkeypatch.chdir(tmp_path)
-    (tmp_path / "chap-server.yaml").write_text("root_path: /ignored\n")
+    (tmp_path / "chap-server.yml").write_text("root_path: /ignored\n")
 
     assert ChapSettings().root_path == ""
 
@@ -171,7 +171,26 @@ def test_an_empty_config_file_changes_nothing(config_file):
 
 
 def test_the_example_config_file_is_valid(monkeypatch):
-    example = Path(__file__).parent.parent / "chap-server.example.yaml"
+    example = Path(__file__).parent.parent / "chap-server.example.yml"
     monkeypatch.setenv("CHAP_CONFIG", str(example))
 
     assert ChapSettings().cors_origins == ["https://dhis2.example.org"]
+
+
+def test_a_key_given_twice_stops_startup_instead_of_replacing_the_first(config_file):
+    path = config_file(
+        "authentication:\n  tiers:\n    forecaster:\n      permissions: [read:datasets]\n"
+        "    forecaster:\n      permissions: [delete:datasets]\n"
+    )
+
+    with pytest.raises(ConfigFileError, match=f"{path}: the key forecaster appears twice \\(line 5\\)"):
+        ChapSettings()
+
+
+def test_yaml_merge_keys_still_work(config_file):
+    config_file("<<: {debug: true, root_path: /merged}\nroot_path: /chap\n")
+
+    settings = ChapSettings()
+
+    assert settings.debug is True
+    assert settings.root_path == "/chap"

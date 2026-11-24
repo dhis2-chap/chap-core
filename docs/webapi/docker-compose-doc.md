@@ -10,7 +10,14 @@ This is a short example for how to setup Chap-core locally as a service using do
 
 1. Clone the Chap core repo by running `git clone https://github.com/dhis2-chap/chap-core.git`
 
-2. Create the environment file with `cp .env.example .env`. The services read the database credentials from it.
+2. Create the environment file with `cp .env.example .env`, and give it a service registration key so only your model services can register with Chap:
+
+   ```console
+   cp .env.example .env
+   echo "SERVICEKIT_REGISTRATION_KEY=$(openssl rand -hex 32)" >> .env
+   ```
+
+   The services read the database credentials and the key from it.
 
 3. Run the docker compose file with `docker compose -f compose.yml up`. The first time you do this, it can take a few minutes to finish. Once it's completed, it should have created the following docker services:
 
@@ -83,6 +90,7 @@ inline on the command line: Compose reads `.env` on every command, so a later
 | `CHAP_BIND_ADDRESS` | `127.0.0.1` | Host address the API port 8000 is published on. The default only accepts connections from the same machine. To reach Chap from other machines, put a reverse proxy in front of it, or set the host's private IP when DHIS2 runs on another host, VM or LXC container and calls Chap directly. A specific IP replaces `127.0.0.1`: `localhost:8000` on the host then stops answering, so point local health checks or proxies at that IP. Avoid `0.0.0.0` on servers: on Linux, ports published by Docker bypass ufw and other `INPUT` firewall rules, so `0.0.0.0` on a host with a public address exposes Chap even with the firewall on. Do not publish the API on a public interface without `CHAP_API_TOKEN`. |
 | `CHAP_ROOT_PATH` | empty | Path prefix when serving behind a reverse proxy. |
 | `CHAP_API_TOKEN` | empty | API token. Unset means no authentication. |
+| `SERVICEKIT_REGISTRATION_KEY` | empty | Secret chapkit model services register with. Unset leaves the service registry open to anything on the Docker network, so set it on every install (`openssl rand -hex 32`). The model services `chap-admin` installs read the same value. |
 | `CHAP_CORS_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins allowed by CORS. Not needed when the Modeling App connects through the DHIS2 Route API. |
 | `CHAP_API_WORKERS` | `1` | Number of API worker processes. With one, a slow request, such as a plot of a large backtest, holds up every other request. More workers answer requests side by side, but each heavy request needs its own memory: in a load test one plot request used about 3.3 GB at 500 locations and about 6 GB at 1,500. Choose the number by the server's memory as well as its cores, for example 2 on a small server and more on a large one. |
 
@@ -92,7 +100,7 @@ chap-core can also read its settings from a YAML file, named by `CHAP_CONFIG` in
 the environment of the `chap` and `worker` services. Without `CHAP_CONFIG` no
 file is read. Keys are the setting names without the `CHAP_` prefix, in lower
 case. An environment variable overrides the same key in the file, and an unknown
-key stops chap-core at startup. [`chap-server.example.yaml`](https://github.com/dhis2-chap/chap-core/blob/master/chap-server.example.yaml)
+key stops chap-core at startup. [`chap-server.example.yml`](https://github.com/dhis2-chap/chap-core/blob/master/chap-server.example.yml)
 shows the format:
 
 ```yaml
@@ -101,6 +109,25 @@ cors_origins:
 ```
 
 Keep secrets such as `CHAP_API_TOKEN` in the environment, not in the file.
+
+To use the file with Compose, mount it into the `chap` service and pass the secrets of its
+named tokens in a `compose.override.yml` beside the compose file. List that file last in every
+`-f` flag set:
+
+```yaml
+services:
+  chap:
+    environment:
+      CHAP_CONFIG: /config/chap-server.yml
+      CHAP_TOKEN_MODELING_APP: ${CHAP_TOKEN_MODELING_APP}
+    volumes:
+      - ./chap-server.yml:/config/chap-server.yml:ro
+```
+
+Put each secret in `.env`, made with `openssl rand -hex 32`, and keep `.env` and any file
+holding a secret out of version control. chap-core refuses to start when a token's variable
+is unset or shorter than 32 characters. The tokens, tiers and permissions are described in
+the [auth contract](../contributor/auth_contract.md).
 
 Pinning a release and setting a password with reserved characters:
 

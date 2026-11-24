@@ -16,6 +16,7 @@ from sqlalchemy.engine import Connection, Engine
 from sqlmodel import col, select
 
 from chap_core.api_types import BacktestParams
+from chap_core.auth.context import without_principal
 from chap_core.database.base_tables import utc_now
 from chap_core.database.database import SessionWrapper
 from chap_core.database.tables import SpecificationBaseline, SpecificationBaselineStatus
@@ -38,6 +39,9 @@ STALE_CLAIM_AFTER = datetime.timedelta(hours=24)
 RETRIED_STATUSES = (SpecificationBaselineStatus.pending, SpecificationBaselineStatus.failed)
 
 
+# Baselines are shared by every backtest on the specification, so no client owns them, even
+# when a client's request or job triggers them.
+@without_principal
 def request_baselines(session: SessionWrapper, specification_id: int) -> list[int]:
     """Queue every baseline that has no run on this specification yet, and return the ids of the queued runs.
 
