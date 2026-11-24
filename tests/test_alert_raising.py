@@ -1,7 +1,7 @@
 """Forecast alert selection and persistence, using real stored history and strategies."""
 
 import logging
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -11,6 +11,7 @@ from chap_core.database.alert_tables import AlertApproval
 from chap_core.database.database import SessionWrapper
 from chap_core.database.tables import Prediction
 from chap_core.datatypes import Samples
+from chap_core.models.external_chapkit_model import ExternalChapkitModel
 from chap_core.rest_api.db_worker_functions import run_prediction
 from chap_core.services.alert_service import list_alerts, raise_alerts_for_prediction
 from chap_core.services.threshold_service import InvalidThresholdInputError
@@ -162,3 +163,40 @@ def test_run_prediction_keeps_prediction_and_other_baselines_when_a_baseline_fai
             original.model_id, str(original.dataset_id), 1, "new", wrapper, original.prediction_setup_id
         )
     assert len(session.get(Prediction, prediction_id).baseline_predictions) == 2
+
+
+def _chapkit_estimators(wrapper):
+    """Patch the wrapper to hand out a distinct chapkit estimator per call, and return them."""
+    estimators: list[MagicMock] = []
+
+    def new_estimator(*args, **kwargs):
+        estimators.append(MagicMock(spec=ExternalChapkitModel))
+        return estimators[-1]
+
+    return estimators, patch.object(wrapper, "get_configured_model_with_code", side_effect=new_estimator)
+
+
+def test_run_prediction_deletes_every_chapkit_run_config(alert_prediction):
+    session, original = alert_prediction
+    forecast = DataSet({"A": Samples(PeriodRange.from_strings(["2024-01"]), np.array([[21.0, 21.0]]))})
+    wrapper = SessionWrapper(session=session)
+    estimators, patched = _chapkit_estimators(wrapper)
+    with patched, patch("chap_core.rest_api.db_worker_functions.forecast_ahead", return_value=forecast):
+        run_prediction(original.model_id, str(original.dataset_id), 1, "new", wrapper, original.prediction_setup_id)
+    assert len(estimators) == 5
+    for estimator in estimators:
+        estimator.delete_config.assert_called_once_with()
+
+
+def test_run_prediction_deletes_the_chapkit_run_config_when_forecasting_fails(alert_prediction):
+    session, original = alert_prediction
+    wrapper = SessionWrapper(session=session)
+    estimators, patched = _chapkit_estimators(wrapper)
+    with (
+        patched,
+        patch("chap_core.rest_api.db_worker_functions.forecast_ahead", side_effect=RuntimeError("model crashed")),
+        pytest.raises(RuntimeError, match="model crashed"),
+    ):
+        run_prediction(original.model_id, str(original.dataset_id), 1, "new", wrapper, original.prediction_setup_id)
+    [estimator] = estimators
+    estimator.delete_config.assert_called_once_with()

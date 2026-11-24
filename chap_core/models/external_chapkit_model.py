@@ -328,15 +328,20 @@ class ExternalChapkitModelTemplate:
         logger.info(f"Creating model configuration with name {name} at {self.rest_api_url}. Data: {config_data}")
 
         config_response = self.client.create_config(config_data)
-        stored = config_response.data.model_dump()
-        _check_stored_config(payload, stored)
         configuration_id = str(config_response.id)
+        try:
+            stored = config_response.data.model_dump()
+            _check_stored_config(payload, stored)
 
-        # get all configs and assert that configuration_id is there
-        all_configs = self.client.list_configs()
-        assert any(cfg.id == configuration_id for cfg in all_configs), (
-            f"Created configuration {configuration_id} not found in list of configs"
-        )
+            # get all configs and assert that configuration_id is there
+            all_configs = self.client.list_configs()
+            assert any(cfg.id == configuration_id for cfg in all_configs), (
+                f"Created configuration {configuration_id} not found in list of configs"
+            )
+        except Exception:
+            # No run will use this configuration, so do not leave it in the service.
+            self.client.delete_config(configuration_id)
+            raise
 
         logger.info(f"Created model configuration with id {configuration_id} at {self.rest_api_url}")
         return ExternalChapkitModel(
@@ -445,6 +450,10 @@ class ExternalChapkitModel(ExternalModelBase):
         self._model_information = model_information
         self._prediction_periods = prediction_periods
         self._additional_continuous_covariates = additional_continuous_covariates
+        # True while a train or predict job may still be running on the service. Waiting can
+        # fail (timeout, poll errors) before the job ends, and deleting the config then would
+        # cascade-delete the artifacts the job uses.
+        self.job_may_be_running = False
 
     @property
     def model_information(self):
@@ -491,6 +500,22 @@ class ExternalChapkitModel(ExternalModelBase):
             )
         return horizon
 
+    def delete_config(self) -> None:
+        """Delete this run's configuration from the service, with the artifacts chapkit links to it.
+
+        Call it once the run is over. Kept, with a warning, while a job may still be running.
+        Best-effort: never raises, so cleanup cannot hide the run's own error.
+        """
+        if self.job_may_be_running:
+            logger.warning(
+                "Keeping configuration %s at %s: a job may still be running on it",
+                self.configuration_id,
+                self.rest_api_url,
+            )
+            return
+        logger.info("Deleting configuration %s at %s", self.configuration_id, self.rest_api_url)
+        self.client.delete_config(self.configuration_id)
+
     def train(self, train_data: DataSet, extra_args=None, run_info: RunInfo | None = None):
         frequency = self._get_frequency(train_data)
         df = train_data.to_pandas()
@@ -498,7 +523,10 @@ class ExternalChapkitModel(ExternalModelBase):
         geo = train_data.polygons
         if run_info is None:
             run_info = RunInfo(prediction_periods=self._train_horizon())
+        # Restored only after the wait returns, so a job whose wait failed earlier keeps it set.
+        earlier_job_may_be_running, self.job_may_be_running = self.job_may_be_running, True
         job, artifact_id = self.client.train_and_wait(self.configuration_id, new_df, run_info, geo)
+        self.job_may_be_running = earlier_job_may_be_running
 
         if job.status != "completed":
             raise ModelFailedException(_failure_message("Training", job, artifact_id, self.client))
@@ -515,6 +543,7 @@ class ExternalChapkitModel(ExternalModelBase):
         future_data_pd = self._adapt_data(future_data.to_pandas())
         if run_info is None:
             run_info = RunInfo(prediction_periods=len(future_data.period_range))
+        earlier_job_may_be_running, self.job_may_be_running = self.job_may_be_running, True
         job, artifact_id = self.client.predict_and_wait(
             artifact_id=self._train_id,
             future_data=future_data_pd,
@@ -522,6 +551,7 @@ class ExternalChapkitModel(ExternalModelBase):
             historic_data=historic_data_pd,
             geo_features=geo,
         )
+        self.job_may_be_running = earlier_job_may_be_running
 
         if job.status != "completed":
             raise ModelFailedException(_failure_message("Prediction", job, artifact_id, self.client))

@@ -24,6 +24,7 @@ from chap_core.database.tables import BacktestSpecification, PredictionSetup
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
 from chap_core.models.builtin import BaselineNotApplicable
+from chap_core.models.external_chapkit_model import ExternalChapkitModel
 from chap_core.rest_api.data_models import BacktestCreate, PredictionParams
 from chap_core.rest_api.job_registry import job_function
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
@@ -204,15 +205,18 @@ def run_backtest(
     # Historical context is for CLI plots; persisted backtests reach it through their dataset.
     # Invalid forecasts, such as NaN samples (MissingSamplesError), fail the job on purpose.
     # Only the metrics below are best-effort.
-    evaluation = Evaluation.create(
-        configured_model=configured_model,
-        estimator=estimator,
-        dataset=dataset,
-        backtest_params=backtest_params,
-        historical_context_years=0,
-        info=info,
-        specification=specification,
-    )
+    try:
+        evaluation = Evaluation.create(
+            configured_model=configured_model,
+            estimator=estimator,
+            dataset=dataset,
+            backtest_params=backtest_params,
+            historical_context_years=0,
+            info=info,
+            specification=specification,
+        )
+    finally:
+        release_estimator(estimator)
     backtest = evaluation.to_backtest(include_forecasts=False)
     backtest.model_db_id = configured_model.id
     # Populate the global aggregate metric values on the backtest row so that
@@ -303,7 +307,10 @@ def run_prediction(
     )
     assert configured_model.id is not None, "configured_model.id is required"
     estimator = session.get_configured_model_with_code(configured_model.id, prediction_length=n_periods)
-    predictions = forecast_ahead(estimator, dataset, n_periods, weather_provider=future_weather_provider)
+    try:
+        predictions = forecast_ahead(estimator, dataset, n_periods, weather_provider=future_weather_provider)
+    finally:
+        release_estimator(estimator)
     db_id = session.add_predictions(
         predictions,
         dataset_id,
@@ -321,6 +328,15 @@ def run_prediction(
         _predict_baselines(session, dataset, dataset_id, n_periods, name, db_id, future_weather_provider)
         raise_alerts_for_prediction(session.session, db_id)
     return db_id
+
+
+def release_estimator(estimator: object) -> None:
+    """Free what a run's estimator holds outside chap-core once the run is over.
+
+    A chapkit model stores one configuration in its service per run; without this, they pile up there.
+    """
+    if isinstance(estimator, ExternalChapkitModel):
+        estimator.delete_config()
 
 
 def _predict_baselines(
@@ -344,7 +360,10 @@ def _predict_baselines(
         assert baseline.id is not None, "configured_model.id is required"
         try:
             estimator = session.get_configured_model_with_code(baseline.id, prediction_length=n_periods)
-            forecasts = forecast_ahead(estimator, dataset, n_periods, weather_provider=future_weather_provider)
+            try:
+                forecasts = forecast_ahead(estimator, dataset, n_periods, weather_provider=future_weather_provider)
+            finally:
+                release_estimator(estimator)
             stored.append(
                 session.add_predictions(
                     forecasts,
