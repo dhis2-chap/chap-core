@@ -363,7 +363,6 @@ def export_metrics(
         metric_ids: Optional list of metric IDs to compute. If None, all metrics are computed at AGGREGATE level.
     """
     import pandas as pd
-    import xarray as xr
 
     from chap_core.assessment.evaluation import Evaluation
     from chap_core.assessment.metrics import available_metrics, calculate_metrics
@@ -386,14 +385,10 @@ def export_metrics(
     for input_file in input_files:
         logger.info(f"Processing {input_file}")
 
-        # Load file metadata directly from xarray to get model info
-        ds = xr.open_dataset(input_file)
-        model_name = ds.attrs.get("model_name", "")
-        model_version = ds.attrs.get("model_version", "")
-        ds.close()
-
-        # Load evaluation and compute metrics
         evaluation = Evaluation.from_file(input_file)
+        model = evaluation.metadata.model
+        model_name = model.name if model is not None else ""
+        model_version = (model.version or "") if model is not None else ""
 
         row = {
             "filename": input_file.name,

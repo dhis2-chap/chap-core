@@ -87,11 +87,8 @@ def _create_evaluation(
         Evaluation object with backtest results
     """
     from chap_core.assessment.evaluation import Evaluation
-    from chap_core.database.model_templates_and_config_tables import (
-        ConfiguredModelDB,
-        ModelConfiguration,
-        ModelTemplateDB,
-    )
+    from chap_core.assessment.evaluation_metadata import EvaluatedModel
+    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
     from chap_core.external.ExtendedPredictor import ExtendedPredictor
     from chap_core.models.model_template import ModelTemplate
     from chap_core.models.utils import CHAP_RUNS_DIR
@@ -112,27 +109,12 @@ def _create_evaluation(
     model = template.get_model(configuration, prediction_length=backtest_params.n_periods)  # type: ignore[arg-type]
     estimator = ExtendedPredictor.extend_to_horizon(model(), backtest_params.n_periods)
 
-    model_template_db = ModelTemplateDB(
-        id=template.model_template_config.name,
-        name=template.model_template_config.name,
-        version=template.model_template_config.version or "unknown",
-    )
-
-    configured_model_db = ConfiguredModelDB(
-        id=f"pref_learn_{model_candidate.model_name}",
-        model_template_id=model_template_db.id,
-        model_template=model_template_db,
-        configuration=configuration.model_dump() if configuration else {},
-    )
-
     logger.info(f"Running backtest for {model_candidate.model_name}")
     evaluation = Evaluation.create(
-        configured_model=configured_model_db,
         estimator=estimator,
         dataset=dataset,
         backtest_params=backtest_params,
-        backtest_name=f"{model_candidate.model_name}_preference_eval",
-    )
+    ).with_model(EvaluatedModel.from_template(template, configuration, name=model_candidate.model_name))
 
     return evaluation
 

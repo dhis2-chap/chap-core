@@ -101,7 +101,8 @@ def _patched_eval_chain(fake_estimator, patch_filter=True, dataset=None):
         )
     )
     eval_mock = stack.enter_context(patch("chap_core.assessment.evaluation.Evaluation"))
-    eval_mock.create.return_value = MagicMock(name="EvaluationInstance")
+    eval_instance = eval_mock.create.return_value
+    eval_instance.with_model.return_value = eval_instance
     return stack, eval_mock
 
 
@@ -288,6 +289,8 @@ def test_eval_cmd_forwards_as_chapkit(tmp_path):
             template_cm = mt_mock.from_directory_or_github_url.return_value
             template_cm.__enter__.return_value = template_cm
             template_cm.__exit__.return_value = False
+            template_cm.model_template_config.name = "test_model"
+            template_cm.model_template_config.version = "1"
             eval_cmd(
                 model_name="dummy",
                 dataset_csv="dummy.csv",
@@ -377,6 +380,7 @@ def test_eval_cmd_track_logs_params_metrics_and_artifacts(tmp_path, monkeypatch)
     fake_estimator = _make_fake_estimator(min_prediction_periods=None, max_prediction_periods=None)
     stack, eval_mock = _patched_eval_chain(fake_estimator)
     eval_instance = MagicMock(name="EvaluationInstance")
+    eval_instance.with_model.return_value = eval_instance
     eval_instance.to_file.side_effect = _write_nc
     eval_mock.create.return_value = eval_instance
 
