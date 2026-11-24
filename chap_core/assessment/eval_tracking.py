@@ -20,6 +20,7 @@ import mlflow
 
 import chap_core
 from chap_core.assessment.metrics import available_metrics, calculate_metrics
+from chap_core.settings import get_settings
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -27,8 +28,6 @@ if TYPE_CHECKING:
     from chap_core.api_types import BacktestParams
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_EXPERIMENT_NAME = "chap-backtests"
 
 
 class TrackingConfigError(RuntimeError):
@@ -96,7 +95,8 @@ def tracked_eval_run(
         yield Tracker(enabled=False)
         return
 
-    tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
+    settings = get_settings()
+    tracking_uri = settings.mlflow_tracking_uri
     if not tracking_uri:
         raise TrackingConfigError(
             "chap eval --run-config.track requires MLFLOW_TRACKING_URI to be set "
@@ -107,8 +107,7 @@ def tracked_eval_run(
     # file:// URI (e.g. file://$HOME/chap-evaluations/mlruns) is our documented default.
     os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
 
-    experiment_name = os.environ.get("MLFLOW_EXPERIMENT_NAME", DEFAULT_EXPERIMENT_NAME)
-    mlflow.set_experiment(experiment_name)
+    mlflow.set_experiment(settings.mlflow_experiment_name)
 
     run_name = f"{_short_name(model_name)}-{_short_name(dataset_csv)}"
     with mlflow.start_run(run_name=run_name):

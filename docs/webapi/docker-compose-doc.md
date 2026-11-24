@@ -86,6 +86,22 @@ inline on the command line: Compose reads `.env` on every command, so a later
 | `CHAP_CORS_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins allowed by CORS. Not needed when the Modeling App connects through the DHIS2 Route API. |
 | `CHAP_API_WORKERS` | `1` | Number of API worker processes. With one, a slow request, such as a plot of a large backtest, holds up every other request. More workers answer requests side by side, but each heavy request needs its own memory: in a load test one plot request used about 3.3 GB at 500 locations and about 6 GB at 1,500. Choose the number by the server's memory as well as its cores, for example 2 on a small server and more on a large one. |
 
+#### Settings file
+
+chap-core can also read its settings from a YAML file, named by `CHAP_CONFIG` in
+the environment of the `chap` and `worker` services. Without `CHAP_CONFIG` no
+file is read. Keys are the setting names without the `CHAP_` prefix, in lower
+case. An environment variable overrides the same key in the file, and an unknown
+key stops chap-core at startup. [`chap-server.example.yaml`](https://github.com/dhis2-chap/chap-core/blob/master/chap-server.example.yaml)
+shows the format:
+
+```yaml
+cors_origins:
+  - https://dhis2.example.org
+```
+
+Keep secrets such as `CHAP_API_TOKEN` in the environment, not in the file.
+
 Pinning a release and setting a password with reserved characters:
 
 ```console

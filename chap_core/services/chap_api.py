@@ -4,10 +4,11 @@ Kept REST-only on purpose: it works against a remote instance and cannot drift f
 API the way direct database access would.
 """
 
-import os
 from typing import Any, cast
 
 import httpx
+
+from chap_core.settings import get_settings
 
 DEFAULT_URL = "http://localhost:8000"
 
@@ -18,8 +19,10 @@ class ChapApiError(ValueError):
 
 class ChapApi:
     def __init__(self, url: str | None = None, token: str | None = None, timeout: float = 30):
-        self.url = (url or os.getenv("CHAP_URL") or DEFAULT_URL).rstrip("/")
-        token = token or os.getenv("CHAP_API_TOKEN")
+        settings = get_settings()
+        self.url = (url or settings.url or DEFAULT_URL).rstrip("/")
+        if token is None and settings.api_token is not None:
+            token = settings.api_token.get_secret_value()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
         self._client = httpx.Client(base_url=self.url, headers=headers, timeout=timeout)
 
@@ -70,8 +73,8 @@ class ChapApi:
 
     def deregister_service(self, service_id: str) -> None:
         """Drop a service's registration. Needs SERVICEKIT_REGISTRATION_KEY when the deployment sets one."""
-        key = os.getenv("SERVICEKIT_REGISTRATION_KEY")
-        headers = {"X-Service-Key": key} if key else {}
+        key = get_settings().service_registration_key
+        headers = {"X-Service-Key": key.get_secret_value()} if key is not None else {}
         try:
             self._call("DELETE", f"/v2/services/{service_id}", headers=headers)
         except ChapApiError as error:

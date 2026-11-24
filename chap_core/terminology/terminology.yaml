@@ -1,0 +1,448 @@
+# Copy of terminology.yaml from https://github.com/dhis2-chap/user-stories, synced by
+# scripts/sync_terminology.py. Do not edit it here: change a term with a pull
+# request to dhis2-chap/user-stories.
+# source-commit: 13526b737d74d5ecf9b0eef7923ad864650d92d9
+# source-date: 2026-11-20T09:24:43Z
+
+# The Chap team's terminology: the names we use for Chap and its parts, and what
+# we mean by the words we use about models and evaluation. This file is the one
+# source. chap-core, the learning material and the team's knowledge base each
+# keep a synced copy, so a change here reaches them without anyone copying text.
+# Format, and how to propose a change: see "Terminology" in README.md.
+
+# --- Products: Chap and the tools around it ---
+
+- id: chap
+  term: Chap
+  group: Products
+  status: current
+  definition: >-
+    The platform for climate-informed disease modeling and early warning, as a
+    user or a country experiences it: models running, forecasts appearing in
+    DHIS2, evaluation results shown in the Modeling App.
+  details: >-
+    The whole system, not a specific codebase. Formal name: DHIS2 Chap Modeling
+    Platform. Written "Chap", never "CHAP": the all-caps form is outdated,
+    though some older names keep it, such as the model "CHAP-EWARS". Code and
+    repo names are lower-case, as in `chap-core` and `dhis2-chap`.
+  aliases: [Chap Modeling Platform, DHIS2 Chap Modeling Platform, Chap platform]
+  avoid: [CHAP]
+  see_also: [chap-core, modeling-app]
+
+- id: chap-core
+  term: chap-core
+  group: Products
+  status: current
+  definition: >-
+    The Python codebase that implements the backend of the Chap platform: model
+    execution, backtesting, evaluation, data ingestion and the REST API.
+  details: >-
+    Narrower than "Chap": it does not include the Modeling App, the Climate App
+    or a country's DHIS2 instance. Say chap-core for the software package or
+    codebase, and "Chap" or "the Chap platform" for the operational system.
+  see_also: [chap, modeling-app]
+
+- id: modeling-app
+  term: DHIS2 Modeling App
+  group: Products
+  status: current
+  definition: >-
+    The DHIS2 app that gives the Chap platform its user interface. Users select
+    models, configure data sources, trigger evaluations and view results in it,
+    inside their existing DHIS2 system.
+  details: >-
+    Installed from the DHIS2 App Hub like any other DHIS2 app. It talks to
+    chap-core but is a separate component. Spelled "Modeling" with one l, like
+    "Modeling Platform".
+  aliases: [Modeling App]
+  avoid: [Modelling App, DHIS2 Chap app]
+  see_also: [chap, chap-core]
+
+- id: climate-app
+  term: DHIS2 Climate App
+  group: Products
+  status: current
+  definition: >-
+    A no-code DHIS2 app that uses Google Earth Engine to import global climate
+    datasets (temperature, precipitation, humidity, vegetation indices and more)
+    into DHIS2 organisation units, aggregating them subnationally.
+  details: >-
+    It feeds data into DHIS2, where chap-core can then read it. Distinct from
+    both chap-core and Climate Tools.
+  aliases: [Climate App]
+  see_also: [climate-tools, geoservice]
+
+- id: climate-tools
+  term: DHIS2 Climate Tools
+  group: Products
+  status: current
+  definition: >-
+    An open-source Python toolkit for data engineers who need more flexibility
+    than the Climate App gives: custom, local or non-standard data sources.
+  details: >-
+    Requires programming skills. Complements the Climate App rather than
+    replacing it.
+  aliases: [Climate Tools]
+  see_also: [climate-app]
+
+- id: geoservice
+  term: GeoService
+  group: Products
+  status: current
+  definition: >-
+    The data service (`dhis2/open-geo-service`) that fetches and processes
+    climate and other geographic data for DHIS2 and Chap.
+  details: >-
+    Full name: Open Geo Service. Spell it out the first time in text for
+    outsiders. Renamed from "Open Climate Service" (OCS) on 2026-11-16; the old
+    names remain only where earlier plans and issues are cited.
+  aliases: [Open Geo Service]
+  avoid: [Open Climate Service, OCS]
+  see_also: [climate-app]
+
+- id: model-marketplace
+  term: Chap Model Marketplace
+  group: Products
+  status: current
+  definition: >-
+    A curated, PR-reviewed registry of model services that can be deployed
+    alongside chap-core.
+  details: >-
+    Its audience is technical operators and model developers, not the
+    health-sector users the word "marketplace" may suggest. Not to be confused
+    with the team's plugin marketplace for AI coding agents
+    (`dhis2-chap/claude-plugins`), which holds agent skills, not models.
+  aliases: [Model Marketplace]
+  see_also: [model-service, verified, maintainers]
+
+- id: chap-devops
+  term: chap-devops
+  group: Products
+  status: current
+  definition: >-
+    The team's command-line tool (one binary, `chap-devops`, short form `cdx`)
+    for deploying Chap and the services around it with Docker Compose:
+    chap-core, model services from the Chap Model Marketplace, GeoService with
+    an S3 store, and DHIS2, together or each on its own.
+  details: >-
+    It also makes and tests model projects and runs the `chap` and `chapkit`
+    CLIs without Python or R on the machine. The preferred tool for development
+    setups of Chap, GeoService, DHIS2 and models. Not the same as `chap-admin`,
+    chap-core's own tool for installing models into a deployment made with
+    chap-core's compose files; chap-devops can take over such a deployment
+    (`chap-devops init --adopt`). Repo `dhis2-chap/chap-devops`; docs at
+    https://dhis2-chap.github.io/chap-devops/.
+  aliases: [cdx]
+  see_also: [chap-core, model-service]
+
+# --- Models ---
+
+- id: model
+  term: Model
+  group: Models
+  status: current
+  definition: >-
+    Used in several senses: a modeling package, a configured model, a trained
+    model or a model service. When the difference matters, as it does for
+    evaluation, approval or configuration, use the specific term.
+  details: >-
+    A score from a backtest belongs to a configured model: the same modeling
+    package with different choices, for example EWARS with and without
+    region-seasonal effects, gives different models.
+  see_also: [modeling-package, configured-model, trained-model, model-service]
+
+- id: modeling-package
+  term: Modeling package
+  group: Models
+  status: current
+  definition: The model’s code, with choices still open. It cannot forecast yet.
+  note: Chap’s screens still say “model template”.
+  details: >-
+    A code base that can be configured in different ways into configured
+    models. It defines which options (hyperparameters, covariate choices and so
+    on) are available, but is not concrete enough to be trained: a recipe with
+    selectable ingredients. Earlier called "model template", which is still the
+    name in chap-core's code (`ModelTemplate`) and on the Modeling App's
+    screens. Say "model template" only when naming the code or the current
+    screens.
+  aliases: [model template, ModelTemplate]
+  see_also: [model, configured-model, template]
+
+- id: configured-model
+  term: Configured model
+  group: Models
+  status: current
+  definition: A modeling package with its covariates and hyperparameters chosen.
+  details: >-
+    Can be trained on a dataset, and is untrained until that has been done.
+    `ConfiguredModel` in chap-core's code. The Model Marketplace calls the
+    choices "configurations"; each one becomes a configured model in chap-core.
+  aliases: [ConfiguredModel]
+  see_also: [model, modeling-package, trained-model]
+
+- id: trained-model
+  term: Trained model
+  group: Models
+  status: current
+  definition: A configured model, trained on historical data. It makes the forecast.
+  details: >-
+    Configuration and training can be automatic or implicit (a default
+    configuration, training inside the predict step), so a user may never see
+    either.
+  see_also: [model, configured-model, forecast]
+
+- id: model-service
+  term: Model service
+  group: Models
+  status: current
+  definition: >-
+    A model packaged as a chapkit service, which registers itself with
+    chap-core. It is what the Chap Model Marketplace lists.
+  details: >-
+    Each chapkit service is registered in chap-core as one model template (a
+    modeling package), and each of its version pins as one template version.
+    Documentation for installers says "model" in this sense throughout.
+  aliases: [chapkit service, chapkit]
+  see_also: [model, modeling-package, model-marketplace]
+
+- id: template
+  term: Template
+  group: Models
+  status: proposed
+  definition: >-
+    Used in two senses: the model template, which we now call a modeling
+    package, and a starter repository for building a model.
+  details: >-
+    On the Model Marketplace and in the installer docs, "Templates"
+    (marketplace `kind: template`) are scaffolding repos: starter repositories
+    for building a model, not for making forecasts. They are not Chap model
+    templates, and "starter kits" has been suggested as a clearer name for
+    them. Unrelated to both: the `dataset-templates` of GeoService.
+  see_also: [modeling-package]
+
+- id: forecast
+  term: Forecast
+  group: Models
+  status: current
+  definition: >-
+    Cases ahead, as many possible values for each time point, not one number.
+    A plot shows them as a median and bands.
+  see_also: [probabilistic-forecast, median-forecast, 80-band, 50-band]
+
+- id: probabilistic-forecast
+  term: Probabilistic forecast
+  group: Models
+  status: proposed
+  definition: >-
+    A forecast given as a probability distribution over possible outcomes
+    rather than a single point estimate. Chap requires models to produce
+    probabilistic forecasts.
+  see_also: [forecast, calibration]
+
+- id: baseline-model
+  term: Baseline model
+  group: Models
+  status: current
+  definition: >-
+    A model that follows a simple rule. It uses only past cases, no covariates
+    such as rainfall or temperature. Other models should beat it.
+  details: >-
+    The baselines are the built-in models in chap-core's
+    `chap_core/models/builtin/` (seasonal shift persistence, seasonal median,
+    global median and whatever else that folder holds). The "naive model"
+    (`chap_core/predictor/naive_estimator.py`) is a legacy estimator, not a
+    baseline.
+  aliases: [baseline]
+  see_also: [comparison-model, evaluation]
+
+- id: comparison-model
+  term: Comparison model
+  group: Models
+  status: current
+  definition: Any model you measure yours against. It can be as advanced as yours.
+  see_also: [baseline-model, evaluation]
+
+- id: covariate
+  term: Covariate
+  group: Models
+  status: proposed
+  definition: >-
+    An input variable used by a model, typically a climate variable such as
+    rainfall or temperature.
+  details: >-
+    Named conceptually (for example "rain"), not as a specific DHIS2 data
+    element. Required covariates are covariates the model must be given: the
+    dataset has to contain them, or validation fails. chap-core does not supply
+    them; only `population` gets special handling.
+  aliases: [required covariate]
+  see_also: [configured-model]
+
+# --- Evaluation ---
+
+- id: evaluation
+  term: Evaluation
+  group: Evaluation
+  status: current
+  definition: >-
+    Finding out how well one or more models work. It does not say how: usually
+    by backtesting, read through metrics and plots.
+  note: >-
+    A wider word than backtest. It often covers several models together, such
+    as baselines and comparison models.
+  details: >-
+    The broad term, used for any assessment of model performance, also when
+    several models are compared side by side. We say "evaluation", not
+    "benchmark" or "benchmarking".
+  avoid: [benchmark, benchmarking]
+  see_also: [backtest, baseline-model, comparison-model]
+
+- id: backtest
+  term: Backtest
+  group: Evaluation
+  status: current
+  definition: >-
+    Go back in the historical data, let a model forecast ahead from there, and
+    compare with what was reported.
+  note: One specific way to evaluate a model.
+  details: >-
+    Testing a model on historical data by repeatedly pretending to stand at
+    different points in the past, making predictions from there, and comparing
+    them with what actually happened. Key principle: strict data isolation, so
+    nothing may see data beyond the pretended now-point. chap-core's code and
+    REST API use "backtest" and "evaluation" for the same thing.
+  aliases: [backtesting, retrospective validation]
+  see_also: [evaluation, hindcast, pretended-now-point, rolling-origin-evaluation]
+
+- id: hindcast
+  term: Hindcast
+  group: Evaluation
+  status: proposed
+  definition: >-
+    A prediction made for a past period as if in real time, using only what
+    would have been known at the pretended now-point. A backtest produces
+    hindcasts and scores them.
+  details: >-
+    In the climate literature, "hindcast" mostly means retrospective climate
+    forecasts from centres such as ECMWF. Disease models can use these as
+    inputs, so that the climate covariates in a backtest are the ones that
+    would actually have been available. As of 2026-11-19 chap-core has no such
+    input: a backtest takes the climate covariates of each test window from a
+    future-weather provider (`chap_core/assessment/weather_providers/`), which
+    is `climatology` by default, `damped_persistence`, `mstl_arima` or
+    `observed` (perfect foresight, for diagnostic runs only). chap-core's docs
+    also use "hindcasting" as another word for backtesting.
+  aliases: [hindcasting, retrospective forecast, reforecast]
+  see_also: [backtest, pretended-now-point]
+
+- id: pretended-now-point
+  term: Pretended now-point
+  group: Evaluation
+  status: proposed
+  definition: >-
+    The point in the past a backtest pretends to stand at. Data after it is
+    withheld.
+  details: The forecasting literature calls it the forecast origin.
+  aliases: [pretended prediction time, now-point, forecast origin]
+  see_also: [backtest, hindcast]
+
+- id: rolling-origin-evaluation
+  term: Rolling-origin evaluation
+  group: Evaluation
+  status: proposed
+  definition: >-
+    Repeating the backtest from many successive pretended now-points and
+    pooling the results, which gives a fuller picture of operational
+    performance than a single split.
+  details: >-
+    In chap-core, `n_splits` sets how many now-points are used and `stride`
+    sets how far apart they are. With an expanding window, the training data
+    grows with each now-point; with a sliding window, it has a fixed length.
+    chap-core uses an expanding window: the historical data the model is given
+    grows with each now-point, and the model is trained once unless `n_retrain`
+    is raised (`chap_core/assessment/dataset_splitting.py`; `BacktestParamsBase`
+    in `chap_core/api_types.py`).
+  aliases: [time-series cross-validation]
+  see_also: [backtest, pretended-now-point]
+
+- id: median-forecast
+  term: Median forecast
+  group: Evaluation
+  status: current
+  definition: >-
+    The middle of the possible values for a time point: half of them are above
+    it, half below. A plot shows it as the line through the bands.
+  see_also: [forecast, 80-band, 50-band]
+
+- id: 80-band
+  term: 80% band
+  group: Evaluation
+  status: current
+  definition: >-
+    The range that holds the middle 80% of the possible values for a time
+    point. It goes from the 10th to the 90th percentile: 1 in 10 possible
+    values is below it and 1 in 10 above. A plot shows it as the light band.
+  see_also: [forecast, median-forecast, 50-band]
+
+- id: 50-band
+  term: 50% band
+  group: Evaluation
+  status: current
+  definition: >-
+    The range that holds the middle half of the possible values for a time
+    point. It goes from the 25th to the 75th percentile. A plot shows it as the
+    darker band inside the 80% band.
+  see_also: [forecast, median-forecast, 80-band]
+
+- id: calibration
+  term: Calibration
+  group: Evaluation
+  status: proposed
+  definition: >-
+    How well a model's stated uncertainty matches reality. A well-calibrated
+    model's 90% prediction interval covers the true outcome 90% of the time.
+  details: >-
+    A poorly calibrated model is systematically overconfident (intervals too
+    narrow) or underconfident (too wide). Chap's evaluation framework measures
+    calibration explicitly.
+  see_also: [probabilistic-forecast, evaluation]
+
+- id: overfitting
+  term: Overfitting
+  group: Evaluation
+  status: current
+  definition: >-
+    The model fits the data it trained on well, but forecasts new data badly.
+  see_also: [data-leakage]
+
+- id: data-leakage
+  term: Data leakage
+  group: Evaluation
+  status: current
+  definition: >-
+    The model has seen data from the time it is tested on, so its score looks
+    too good.
+  see_also: [backtest, overfitting]
+
+# --- Words with a specific sense on the Model Marketplace ---
+
+- id: verified
+  term: Verified
+  group: Model Marketplace
+  status: proposed
+  definition: >-
+    On the Model Marketplace, "verified" means the version pin was checked: the
+    service builds, registers and runs train and predict.
+  details: >-
+    It is not an endorsement of forecast quality. Model quality is shown
+    separately, as the author-assessed status.
+  see_also: [model-marketplace, model-service]
+
+- id: maintainers
+  term: Maintainers
+  group: Model Marketplace
+  status: proposed
+  definition: >-
+    On the Model Marketplace, used for two different groups: the Chap reviewers
+    who approve listings, and a model's own GitHub maintainers shown on its
+    card. Say which one is meant.
+  see_also: [model-marketplace]

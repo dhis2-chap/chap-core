@@ -129,6 +129,84 @@ def test_actual_cases_returns_infinite_values_as_null(file_engine, health_popula
     assert response.json()["data"][0] == {"pe": series.time_period[0].id, "ou": location, "value": None}
 
 
+def _weekly_actual_cases(dataset_id, **params):
+    return client.get(f"/v1/analytics/actual-cases/{dataset_id}", params={"isDatasetId": True, **params})
+
+
+def test_actual_cases_period_range_returns_only_periods_inside_it(override_session, weekly_dataset_id):
+    all_rows = _weekly_actual_cases(weekly_dataset_id).json()["data"]
+
+    response = _weekly_actual_cases(weekly_dataset_id, startPeriod="2021W1", endPeriod="2021W10")
+
+    assert response.status_code == 200, response.text
+    expected = [row for row in all_rows if "2021W01" <= row["pe"] <= "2021W10"]
+    assert response.json()["data"] == expected
+    assert {row["pe"] for row in expected} == {f"2021W{week:02d}" for week in range(1, 11)}
+
+
+@pytest.mark.parametrize(
+    ("params", "inside"),
+    [
+        ({"startPeriod": "2022W50"}, lambda period: period >= "2022W50"),
+        ({"endPeriod": "2020W03"}, lambda period: period <= "2020W03"),
+    ],
+)
+def test_actual_cases_period_range_with_one_bound(override_session, weekly_dataset_id, params, inside):
+    all_rows = _weekly_actual_cases(weekly_dataset_id).json()["data"]
+
+    data = _weekly_actual_cases(weekly_dataset_id, **params).json()["data"]
+
+    assert data == [row for row in all_rows if inside(row["pe"])]
+    assert data
+
+
+def test_actual_cases_period_range_sums_all_locations_within_range(override_session, weekly_dataset_id):
+    rows = _weekly_actual_cases(weekly_dataset_id, startPeriod="2021W05", endPeriod="2021W07").json()["data"]
+    expected: dict[str, float] = {}
+    for row in rows:
+        expected[row["pe"]] = expected.get(row["pe"], 0.0) + row["value"]
+
+    summed = _weekly_actual_cases(
+        weekly_dataset_id, orgUnits=["adm0"], startPeriod="2021W05", endPeriod="2021W07"
+    ).json()["data"]
+
+    assert {row["pe"]: row["value"] for row in summed} == pytest.approx(expected)
+    assert [row["pe"] for row in summed] == ["2021W05", "2021W06", "2021W07"]
+
+
+def test_actual_cases_period_range_outside_the_data_is_empty(override_session, weekly_dataset_id):
+    response = _weekly_actual_cases(weekly_dataset_id, startPeriod="2030W01", endPeriod="2030W10")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"] == []
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"startPeriod": "202101"},
+        {"endPeriod": "2021SunW01"},
+        {"startPeriod": "not-a-period"},
+        {"startPeriod": "2021W10", "endPeriod": "2021W01"},
+    ],
+)
+def test_actual_cases_rejects_bad_period_range(override_session, weekly_dataset_id, params):
+    response = _weekly_actual_cases(weekly_dataset_id, **params)
+
+    assert response.status_code == 422, response.text
+
+
+def test_actual_cases_checks_period_type_of_dataset_without_period_columns(
+    override_session, seeded_session, weekly_dataset_id
+):
+    dataset = seeded_session.get(DataSet, weekly_dataset_id)
+    dataset.first_period = dataset.last_period = dataset.period_type = None
+    seeded_session.commit()
+
+    assert _weekly_actual_cases(weekly_dataset_id, startPeriod="202101").status_code == 422
+    assert _weekly_actual_cases(weekly_dataset_id, startPeriod="2021W01").status_code == 200
+
+
 def test_actual_cases_alias(override_session):
     actual_cases = client.get_json("/v1/analytics/actual-cases/1")
     assert len(actual_cases) >= 3

@@ -80,7 +80,7 @@ def test_create_threshold_policy_rejects_invalid_output_codes(
     assert response.status_code == 422, response.text
 
 
-def test_list_signal_policies_includes_every_created_policy(clean_engine, dependency_overrides):
+def test_list_threshold_policies_includes_every_created_policy(clean_engine, dependency_overrides):
     # clean_engine is session-scoped, so assert on a subset rather than on an empty list.
     first = _create_threshold_policy("Listed one").json()["id"]
     second = _create_threshold_policy("Listed two").json()["id"]
@@ -262,14 +262,14 @@ def test_listing_signals_filters_by_policy(clean_engine, dependency_overrides):
 
 
 def test_deleting_a_policy_with_signals_returns_409(clean_engine, dependency_overrides):
-    """An signal's level name only means something against its policy."""
+    """A signal's level name only means something against its policy."""
     policy_id = _create_threshold_policy("Signals H").json()["id"]
     _create_signals(policy_id)
     assert client.delete(f"/v1/crud/threshold-policies/{policy_id}").status_code == 409
 
 
 def test_deleting_a_prediction_with_signals_returns_409(override_session, seeded_session):
-    """An signal only means something alongside the forecast that justified it."""
+    """A signal only means something alongside the forecast that justified it."""
     prediction = seeded_session.exec(select(Prediction)).first()
     assert prediction is not None
     policy_id = _create_threshold_policy("Signals I").json()["id"]
