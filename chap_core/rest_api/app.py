@@ -18,7 +18,12 @@ from chap_core.auth.context import PrincipalLogFilter
 from chap_core.auth.tokens import get_authentication
 from chap_core.database.database import DB_POOL_CONNECTIONS
 from chap_core.rest_api.auth import ChapTokenBackend, on_authentication_error, warn_on_weak_token
-from chap_core.rest_api.authorization import Refusal, check_route_permissions, refusal_handler
+from chap_core.rest_api.authorization import (
+    Refusal,
+    check_route_permissions,
+    install_permission_docs,
+    refusal_handler,
+)
 from chap_core.rest_api.common_routes import router as common_router
 from chap_core.rest_api.v1.rest_api import router as v1_router
 from chap_core.rest_api.v2.rest_api import router as v2_router
@@ -118,6 +123,7 @@ app.include_router(v1_router, prefix="/v1")
 app.include_router(v2_router, prefix="/v2")
 
 app.add_exception_handler(Refusal, refusal_handler)
+install_permission_docs(app)
 
 
 def get_openapi_schema():

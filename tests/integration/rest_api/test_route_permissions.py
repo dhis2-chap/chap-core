@@ -79,3 +79,22 @@ def test_every_permission_is_needed_by_some_route():
     used = {scope for _, _, dependant in served_routes(app) if dependant for scope in declared_permissions(dependant)}
 
     assert {permission.value for permission in Permission} - used == set()
+
+
+def test_every_protected_operation_names_its_permission_in_its_description():
+    schema = app.openapi()
+    for path, operations in schema["paths"].items():
+        for method, operation in operations.items():
+            for entry in operation.get("security", []):
+                for scope in entry["HTTPBearer"]:
+                    assert operation["description"].startswith(f"**Needs `{scope}`.**"), f"{method} {path}"
+
+
+def test_a_public_operation_gets_no_permission_line():
+    description = app.openapi()["paths"]["/health"]["get"].get("description", "")
+    assert "**Needs" not in description
+
+
+def test_the_permission_line_comes_before_the_existing_description():
+    description = app.openapi()["paths"]["/v1/jobs"]["get"]["description"]
+    assert description.startswith("**Needs `read:jobs`.**\n\nSee every backtest")
