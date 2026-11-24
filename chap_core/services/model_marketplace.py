@@ -1,6 +1,5 @@
 """Resolve reviewed chapkit image pins from the CHAP model marketplace."""
 
-import os
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -8,7 +7,7 @@ import httpx
 import yaml
 from pydantic import BaseModel, Field
 
-DEFAULT_REGISTRY_URL = "https://raw.githubusercontent.com/dhis2-chap/chap-marketplace/main"
+from chap_core.settings import get_settings
 
 # BaseConfig fields chapkit reserves. CHAP supplies them itself at run time, so they are not
 # user options of a template and not option values of a configuration.
@@ -17,7 +16,7 @@ RESERVED_CONFIG_KEYS = ("prediction_periods", "additional_continuous_covariates"
 
 def registry_url() -> str:
     """Base URL of the marketplace registry, overridable with CHAP_MARKETPLACE_URL."""
-    return os.getenv("CHAP_MARKETPLACE_URL", DEFAULT_REGISTRY_URL).rstrip("/")
+    return get_settings().marketplace_url.rstrip("/")
 
 
 class Registry(BaseModel):

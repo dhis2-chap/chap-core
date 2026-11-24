@@ -3,6 +3,8 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session
 
+from chap_core.auth.permissions import Permission
+from chap_core.rest_api.authorization import require
 from chap_core.rest_api.services.orchestrator import Orchestrator, ServiceNotFoundError
 from chap_core.rest_api.services.schemas import (
     PingResponse,
@@ -21,6 +23,7 @@ router = APIRouter(prefix="/services", tags=["Services"])
 
 @router.post(
     "/$register",
+    dependencies=[require(Permission.REGISTER_SERVICES)],
     response_model=RegistrationResponse,
     summary="Onboard a CHAPKit model service",
 )
@@ -62,6 +65,7 @@ def register_service(
 
 @router.put(
     "/{service_id}/$ping",
+    dependencies=[require(Permission.REGISTER_SERVICES)],
     response_model=PingResponse,
     summary="Send a keepalive heartbeat for a service",
 )
@@ -85,6 +89,7 @@ def ping_service(
 
 @router.get(
     "",
+    dependencies=[require(Permission.READ_SERVICES)],
     response_model=ServiceListResponse,
     response_model_exclude_none=True,
     summary="Browse currently live model services",
@@ -98,6 +103,7 @@ def list_services(
 
 @router.get(
     "/{service_id}",
+    dependencies=[require(Permission.READ_SERVICES)],
     response_model=ServiceDetail,
     response_model_exclude_none=True,
     summary="Inspect one registered service",
@@ -119,6 +125,7 @@ def get_service(
 
 @router.delete(
     "/{service_id}",
+    dependencies=[require(Permission.REGISTER_SERVICES)],
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Off-board a model service",
 )

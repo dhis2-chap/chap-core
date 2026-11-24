@@ -11,7 +11,7 @@ services:
   chtorch:
     image: ghcr.io/dhis2-chap/chtorch:chapkit2-8f17ee3
     ports:
-      - "5001:8000"
+      - "127.0.0.1:5001:8000"
     restart: unless-stopped
 
   # ewars plus
@@ -19,4 +19,4 @@ services:
     image: maquins/ewars_plus_api:Upload
     container_name: ewars_plus
     ports:
-      - "3288:3288"
+      - "127.0.0.1:3288:3288"

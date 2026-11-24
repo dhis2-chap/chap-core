@@ -1,4 +1,3 @@
-import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
@@ -29,7 +28,9 @@ from chap_core.database.tables import Backtest, BacktestForecast, BacktestMetric
 target_metadata = SQLModel.metadata
 
 # Get database URL from environment variable, with default for local development
-database_url = os.getenv("CHAP_DATABASE_URL", "postgresql://chap:chap@localhost:5432/chap_core")
+from chap_core.settings import get_settings
+
+database_url = get_settings().database_url or "postgresql://chap:chap@localhost:5432/chap_core"
 config.set_main_option("sqlalchemy.url", database_url)
 
 

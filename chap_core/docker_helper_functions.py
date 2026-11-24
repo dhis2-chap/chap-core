@@ -5,6 +5,7 @@ from pathlib import Path
 import docker
 
 from chap_core.exceptions import DockerUnavailableError
+from chap_core.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ def _docker_client_or_raise(image_name: str | None = None):
         return docker.from_env()
     except docker.errors.DockerException as e:
         ref = f" '{image_name}'" if image_name else ""
-        if os.environ.get("IS_IN_DOCKER"):
+        if get_settings().is_in_docker:
             msg = (
                 f"Cannot reach the Docker daemon from the chap-core worker. "
                 f"Models with docker_env (image{ref}) cannot run on the server "

@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 from unittest.mock import Mock
+from typing import cast
 
 import pytest
 
@@ -21,7 +22,10 @@ def test_get_model_template_with_code_non_chapkit(monkeypatch, name, source_url,
     wrapper = db.SessionWrapper()
     stored = ModelTemplateDB(name=name, version="v1", source_url=source_url)
     monkeypatch.setattr(wrapper, "get_model_template", lambda _: stored)
-    executable = Mock(model_template_config=SimpleNamespace(name=loaded_name, version="v1"))
+    executable = cast(
+        db.ModelTemplate,
+        SimpleNamespace(model_template_config=SimpleNamespace(name=loaded_name, version="v1")),
+    )
     loader = Mock(return_value=executable)
     monkeypatch.setattr(db.ModelTemplate, "from_directory_or_github_url", loader)
     if should_fail:

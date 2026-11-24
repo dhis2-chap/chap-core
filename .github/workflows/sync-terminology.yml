@@ -1,0 +1,124 @@
+name: Sync terminology
+
+# Keeps chap_core/terminology/terminology.yaml, the copy of the team's
+# terminology that chap-core bundles, in step with terminology.yaml in
+# dhis2-chap/user-stories. When the source has changed, the new copy goes on the
+# branch chore/sync-terminology and a pull request to master is opened; while
+# that pull request is open, later changes are added to it.
+#
+# The run fails when the fetch or the validation fails, and when the sync pull
+# request has been open for more than 7 days, so a sync that has stopped is
+# noticed.
+#
+# All branches require signed commits, so the commit is made through the GitHub
+# API, which signs it, and not with git in the runner.
+#
+# Token: the secret TERMINOLOGY_SYNC_TOKEN, with write access to contents and
+# pull requests in this repo. The default token is the fallback, but a pull
+# request opened with it does not start CI (closing and reopening it does), and
+# it can open one only if the repo setting "Allow GitHub Actions to create and
+# approve pull requests" is on.
+on:
+  schedule:
+    # Off the full hour because GitHub delays scheduled runs that start on the hour.
+    - cron: "43 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-terminology
+
+env:
+  BRANCH: chore/sync-terminology
+  COPY: chap_core/terminology/terminology.yaml
+
+jobs:
+  sync:
+    if: github.repository == 'dhis2-chap/chap-core'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: master
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+
+      - name: Fetch, validate and update the copy
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        # The script and chap_core/terminology need only PyYAML, so the project is not installed.
+        run: uv run --no-project --python 3.13 --with pyyaml python -m scripts.sync_terminology
+
+      - name: Put a changed copy on the sync branch and open a pull request
+        env:
+          GH_TOKEN: ${{ secrets.TERMINOLOGY_SYNC_TOKEN || github.token }}
+          PR_BODY: |
+            ## Summary
+
+            Updates `chap_core/terminology/terminology.yaml`, the copy of the team's terminology that `/v1/terminology` serves, to the current `terminology.yaml` in [dhis2-chap/user-stories](https://github.com/dhis2-chap/user-stories). The header of the file names the source commit. The `Sync terminology` workflow opened this pull request and adds later changes of the source to it while it is open.
+
+            ## Review needed
+
+            Review needed: quick-merge
+
+            ## Test plan
+
+            The workflow validated the file before it committed it, and `tests/test_terminology.py` checks the copy in CI. If the checks have not started, close and reopen this pull request to start them.
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- "$COPY"; then
+            echo "The copy on master is up to date."
+            exit 0
+          fi
+          repo="$GITHUB_REPOSITORY"
+          pr=$(gh pr list --repo "$repo" --head "$BRANCH" --state open --json number,isCrossRepository \
+            --jq '[.[] | select(.isCrossRepository | not)][0].number // empty')
+          if [ -z "$pr" ]; then
+            # Start the branch from master. One left over from a closed pull request is removed first.
+            gh api -X DELETE "repos/$repo/git/refs/heads/$BRANCH" --silent 2>/dev/null || true
+            gh api "repos/$repo/git/refs" -f ref="refs/heads/$BRANCH" -f sha="$(git rev-parse HEAD)" --silent
+          fi
+          # The API needs the sha of the file it replaces.
+          branch_blob=$(gh api "repos/$repo/contents/$COPY?ref=$BRANCH" --jq .sha)
+          if [ "$branch_blob" = "$(git hash-object "$COPY")" ]; then
+            echo "The branch $BRANCH already has this copy."
+          else
+            source_commit=$(sed -n 's/^# source-commit: //p' "$COPY")
+            jq -n \
+              --arg message "chore: sync terminology from user-stories@${source_commit:0:7}" \
+              --arg branch "$BRANCH" \
+              --arg sha "$branch_blob" \
+              --rawfile content <(base64 -w0 "$COPY") \
+              '{message: $message, branch: $branch, sha: $sha, content: $content}' |
+              gh api -X PUT "repos/$repo/contents/$COPY" --input - --silent
+            echo "Committed the new copy to $BRANCH."
+          fi
+          if [ -z "$pr" ]; then
+            gh pr create --repo "$repo" --base master --head "$BRANCH" \
+              --title "chore: sync terminology from dhis2-chap/user-stories" --body "$PR_BODY"
+          fi
+
+      - name: Fail when the sync pull request has been open for more than 7 days
+        env:
+          GH_TOKEN: ${{ secrets.TERMINOLOGY_SYNC_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open \
+            --json url,createdAt,isCrossRepository \
+            --jq '[.[] | select(.isCrossRepository | not)][0] // empty')
+          if [ -z "$pr" ]; then
+            exit 0
+          fi
+          created=$(jq -r .createdAt <<<"$pr")
+          if [ "$(date -d "$created" +%s)" -lt "$(date -d '7 days ago' +%s)" ]; then
+            echo "::error::The terminology sync pull request $(jq -r .url <<<"$pr") has been open since $created. Merge it, or close it if the copy should stay as it is."
+            exit 1
+          fi

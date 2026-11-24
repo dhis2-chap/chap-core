@@ -4,7 +4,7 @@ from typing import Annotated, Any, Literal
 
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from pydantic import Field as PydanticField
 from pydantic import ValidationError as PydanticValidationError
@@ -32,11 +32,12 @@ from chap_core.assessment.outbreak_metrics import (
 from chap_core.assessment.thresholds import list_threshold_strategies
 from chap_core.assessment.thresholds.params import ThresholdParams
 from chap_core.assessment.weather_providers import list_weather_providers
+from chap_core.auth.permissions import Permission
 from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager, period_type_of
 from chap_core.database.dataset_tables import DataSet as DataSetTable
-from chap_core.database.dataset_tables import DataSetCreateInfo
+from chap_core.database.dataset_tables import DataSetCreateInfo, period_kind
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 from chap_core.database.settings import Settings, SettingsManager
 from chap_core.database.tables import (
@@ -50,6 +51,7 @@ from chap_core.database.tables import (
 )
 from chap_core.datatypes import create_tsdataclass
 from chap_core.exceptions import InvalidDateError
+from chap_core.rest_api.authorization import ensure, require
 from chap_core.services import threshold_service
 from chap_core.services.dataset_validation import RESERVED_FIELDS
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
@@ -99,6 +101,7 @@ worker: CeleryPool[Any] = CeleryPool()
 
 @router.post(
     "/make-dataset",
+    dependencies=[require(Permission.WRITE_DATASETS)],
     response_model=ImportSummaryResponse,
     tags=["Datasets"],
     summary="Import observations as a reusable dataset",
@@ -345,6 +348,7 @@ def _filter_dataset_by_locations(
 
 @router.get(
     "/compatible-backtests/{backtestId}",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=list[BacktestRead],
     tags=["Backtests"],
     summary="Find backtests that can be compared with this one",
@@ -387,6 +391,7 @@ def get_compatible_backtests(
 
 @router.get(
     "/backtest-overlap/{backtestId1}/{backtestId2}",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=BacktestDomain,
     tags=["Backtests"],
     summary="Inspect the shared regions and periods of two backtests",
@@ -414,6 +419,7 @@ def get_backtest_overlap(
 
 @router.get(
     "/prediction-entry",
+    dependencies=[require(Permission.READ_PREDICTIONS)],
     response_model=list[PredictionEntry],
     tags=["Predictions"],
     summary="Read forecast quantiles for a prediction (query parameter id)",
@@ -478,6 +484,7 @@ def _prediction_entries_response(session: Session, prediction_id: int, quantiles
 
 @router.get(
     "/evaluation-entry",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=list[EvaluationEntry],
     tags=["Backtests"],
     summary="Read forecast quantiles from a backtest",
@@ -552,6 +559,7 @@ def get_evaluation_entries(
 
 @router.post(
     "/create-backtest",
+    dependencies=[require(Permission.RUN_BACKTESTS)],
     response_model=JobResponse,
     tags=["Backtests"],
     summary="Run a backtest against a stored dataset",
@@ -683,6 +691,7 @@ def create_hpo_backtest(
 
 @router.post(
     "/create-backtests",
+    dependencies=[require(Permission.RUN_BACKTESTS)],
     response_model=MakeBacktestsResponse,
     tags=["Backtests"],
     summary="Run several configured models under one evaluation specification",
@@ -745,6 +754,7 @@ def create_backtests(
 
 @router.post(
     "/make-prediction",
+    dependencies=[require(Permission.RUN_PREDICTIONS)],
     response_model=JobResponse,
     tags=["Predictions"],
     deprecated=True,
@@ -752,6 +762,7 @@ def create_backtests(
 )
 def make_prediction(
     request: MakePredictionRequest,
+    http_request: Request,
     original_request: dict = Depends(get_job_request),
     worker_settings=Depends(get_settings),
     session: Session = Depends(get_session),
@@ -767,6 +778,7 @@ def make_prediction(
     ``/v1/jobs/{id}`` for the result. Without ``nPeriods``, the stored default
     for the data's period type is used, kept within the range the model supports.
     """
+    ensure(http_request, Permission.WRITE_DATASETS, "stores the observations as a dataset")
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
     reject_mask_indicator_input(feature_names)
@@ -810,6 +822,7 @@ def make_prediction(
 
 @router.get(
     "/prediction-entry/{predictionId}",
+    dependencies=[require(Permission.READ_PREDICTIONS)],
     response_model=list[PredictionEntry],
     tags=["Predictions"],
     summary="Read forecast quantiles for a prediction (path parameter id)",
@@ -829,6 +842,7 @@ def get_prediction_entries(
 
 @router.get(
     "/actual-cases/{backtestId}",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=DataList,
     tags=["Backtests"],
     name="get_actual_cases_alias",
@@ -836,6 +850,7 @@ def get_prediction_entries(
 )
 @router.get(
     "/actualCases/{backtestId}",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=DataList,
     tags=["Backtests"],
     deprecated=True,
@@ -850,6 +865,16 @@ def get_actual_cases(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     org_units: list[str] = Query(None, alias="orgUnits"),
     is_dataset_id: bool = Query(False, alias="isDatasetId"),
+    start_period: str | None = Query(
+        None,
+        alias="startPeriod",
+        description="First period to return, inclusive, such as `2023W01` or `202301`. Omit for no lower bound.",
+    ),
+    end_period: str | None = Query(
+        None,
+        alias="endPeriod",
+        description="Last period to return, inclusive, of the same period type as the dataset. Omit for no upper bound.",
+    ),
     session: Session = Depends(get_session),
 ):
     """Pull the actual target series from the dataset that backs a backtest, so a plot can show forecast vs. reality on the same axes.
@@ -857,41 +882,82 @@ def get_actual_cases(
     Filter to specific regions with ``orgUnits``, or pass ``orgUnits=["adm0"]`` to get
     one summed series across every region (useful for national-level views). Set
     ``isDatasetId=true`` to skip the backtest lookup and read directly from a dataset
-    id. 404 if the backtest, or with ``isDatasetId=true`` the dataset, is unknown, or if
-    the dataset has no observations of the target for the requested regions.
+    id. Limit the periods with ``startPeriod`` and ``endPeriod``, both inclusive and in
+    the dataset's period type; a range with no observations returns an empty list.
+    404 if the backtest, or with ``isDatasetId=true`` the dataset, is unknown, or if no
+    range is given and the dataset has no observations of the target for the requested
+    regions. 422 if a period cannot be parsed, is of another period type than the
+    dataset's, or ``startPeriod`` is after ``endPeriod``.
     """
     if not is_dataset_id:
         backtest = session.get(Backtest, backtest_id)
         if backtest is None:
             raise HTTPException(status_code=404, detail="Backtest not found")
-        dataset_id = backtest.dataset_id
+        dataset = backtest.dataset
         target_column = backtest.specification.target_column
     else:
-        dataset_id = backtest_id
-        dataset = session.get(DataSetTable, dataset_id)
-        if dataset is None:
+        found = session.get(DataSetTable, backtest_id)
+        if found is None:
             raise HTTPException(status_code=404, detail="Dataset not found")
+        dataset = found
         target_column = dataset.target_column
+    dataset_id = dataset.id
+    assert dataset_id is not None
     manager = DataSetManager(session)
+    has_range = start_period is not None or end_period is not None
+    if has_range:
+        start_period, end_period = _period_range_ids(manager, dataset, start_period, end_period)
     if org_units == ["adm0"]:
         # One series summed over every region, computed in the database (CLIM-1790).
-        data = [
-            {"pe": period, "ou": "adm0", "value": total}
-            for period, total in manager.summed_feature_values(dataset_id, target_column)
-        ]
+        summed = manager.summed_feature_values(
+            dataset_id, target_column, start_period=start_period, end_period=end_period
+        )
+        data = [{"pe": period, "ou": "adm0", "value": total} for period, total in summed]
     else:
-        data = [
-            {"pe": period, "ou": org_unit, "value": value}
-            for period, org_unit, value in manager.feature_values(dataset_id, target_column, org_units=org_units)
-        ]
+        rows = manager.feature_values(
+            dataset_id, target_column, org_units=org_units, start_period=start_period, end_period=end_period
+        )
+        data = [{"pe": period, "ou": org_unit, "value": value} for period, org_unit, value in rows]
     logger.info("Actual cases for dataset %s: %d values", dataset_id, len(data))
-    if not data:
+    if not data and not has_range:
         raise HTTPException(status_code=404, detail=f"Dataset {dataset_id} has no {target_column} observations")
     # Plain dicts serialised in one call instead of a DataElement per row: building the
     # models took over a second for a facility-scale dataset (CLIM-1876). NaN and infinity
     # become null, since JSON has no literal for them.
     body = {"featureId": target_column, "dhis2Id": target_column, "data": data}
     return Response(content=to_json(body, inf_nan_mode="null"), media_type="application/json")
+
+
+def _period_range_ids(
+    manager: DataSetManager, dataset: DataSetTable, start: str | None, end: str | None
+) -> tuple[str | None, str | None]:
+    """Turn requested range bounds into stored period ids, checked against the dataset's period type.
+
+    The type comes from the dataset's ``first_period``, which tells Monday and Sunday weeks apart.
+    Datasets saved before Chap v1.1.0 have none, so one stored observation is read instead (CLIM-1949).
+    """
+    assert dataset.id is not None
+    stored = dataset.first_period or manager.any_period(dataset.id)
+    dataset_kind = period_kind(TimePeriod.parse(stored)) if stored is not None else None
+    parsed: list[TimePeriod | None] = []
+    for name, value in (("startPeriod", start), ("endPeriod", end)):
+        if value is None:
+            parsed.append(None)
+            continue
+        try:
+            period = TimePeriod.parse(value)
+        except Exception as e:  # TimePeriod.parse raises several unrelated error types for bad input
+            raise HTTPException(status_code=422, detail=f"{name} '{value}' is not a period id") from e
+        if dataset_kind is not None and period_kind(period) != dataset_kind:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{name} '{value}' is a {period_kind(period)}, but the dataset has {dataset_kind} periods",
+            )
+        parsed.append(period)
+    first, last = parsed
+    if first is not None and last is not None and first > last:
+        raise HTTPException(status_code=422, detail=f"startPeriod '{start}' is after endPeriod '{end}'")
+    return (first.id if first else None, last.id if last else None)
 
 
 data_sources = [
@@ -963,6 +1029,7 @@ data_sources = [
 
 @router.get(
     "/data-sources",
+    dependencies=[require(Permission.READ_SETTINGS)],
     response_model=list[ChapDataSource],
     tags=["Datasets"],
     summary="Discover which external data sources can feed a dataset",
@@ -992,6 +1059,7 @@ STRUCTURAL_FIELDS = RESERVED_FIELDS - {"disease_cases"}
 
 @router.get(
     "/covariate-names",
+    dependencies=[require(Permission.READ_SETTINGS)],
     response_model=list[CovariateNameSuggestion],
     tags=["Datasets"],
     summary="Suggest covariate names for a model-independent dataset",
@@ -1031,12 +1099,15 @@ def get_covariate_names(session: Session = Depends(get_session)) -> list[Covaria
 
 @router.post(
     "/create-backtest-with-data/",
+    dependencies=[require(Permission.RUN_BACKTESTS)],
     response_model=ImportSummaryResponse,
     tags=["Backtests"],
-    summary="Run a backtest from inline data",
+    deprecated=True,
+    summary="Run a backtest from inline data (deprecated, use make-dataset then create-backtests)",
 )
 def create_backtest_with_data(
     request: MakeBacktestWithDataRequest,
+    http_request: Request,
     original_request: dict = Depends(get_job_request),
     dry_run: bool = Query(
         False, description="If True, only run validation and do not create a backtest", alias="dryRun"
@@ -1047,12 +1118,19 @@ def create_backtest_with_data(
 ):
     """Train and evaluate a model on observations supplied directly in the request body, without first creating a reusable dataset.
 
-    Convenient for quick experiments where the data is not worth persisting. Pass
-    ``dryRun=true`` to run validation only (cheap, synchronous) and inspect which
-    regions would be rejected — useful as a preflight before committing to an import. A
-    real run returns a job id; poll ``/v1/jobs/{id}`` for status. The response also
-    surfaces any per-location rejections that came out of validation.
+    Deprecated: import observations with ``POST /v1/analytics/make-dataset`` instead.
+    For a real import, poll ``GET /v1/jobs/{id}`` until it succeeds, read the dataset id
+    from ``GET /v1/jobs/{id}/database_result``, then pass it as ``datasetId`` to
+    ``POST /v1/analytics/create-backtests``. Its ``dryRun=true`` option validates the
+    observations only; it does not report regions the backtest would drop for having no
+    target data in the training windows. Those regions are missing from ``orgUnits`` in
+    ``GET /v1/crud/backtest-specifications/{id}``.
+
+    This endpoint remains available for older clients and will be removed in a later release.
+    Pass ``dryRun=true`` to validate only; a real run returns a job id to poll via ``/v1/jobs/{id}``.
     """
+    if not dry_run:
+        ensure(http_request, Permission.WRITE_DATASETS, "stores the observations as a dataset")
     feature_names, provided_data_processed, rejections = _read_and_validate_dataset(request, dry_run)
     if dry_run and not provided_data_processed.locations():
         return ImportSummaryResponse(id=None, imported_count=0, rejected=rejections)
@@ -1179,6 +1257,7 @@ class BacktestParameterInfo(DBModel):
 
 @router.get(
     "/backtest-parameters",
+    dependencies=[require(Permission.READ_SETTINGS)],
     response_model=list[BacktestParameterInfo],
     response_model_exclude_none=True,
     tags=["Backtests"],
@@ -1222,6 +1301,7 @@ class WeatherProviderInfo(DBModel):
 
 @router.get(
     "/weather-providers",
+    dependencies=[require(Permission.READ_SETTINGS)],
     response_model=list[WeatherProviderInfo],
     tags=["Backtests"],
     summary="Discover which future-weather providers are available",
@@ -1245,6 +1325,7 @@ def list_future_weather_providers():
 
 @router.get(
     "/thresholds/strategies",
+    dependencies=[require(Permission.READ_SETTINGS)],
     response_model=list[ThresholdStrategyInfo],
     tags=["Datasets"],
     summary="Discover which threshold strategies are available",
@@ -1263,6 +1344,7 @@ def list_threshold_strategy_types():
 
 @router.post(
     "/thresholds",
+    dependencies=[require(Permission.READ_DATASETS)],
     response_model=ThresholdResponse,
     tags=["Datasets"],
     summary="Compute thresholds (endemic channel) for a dataset",
@@ -1361,6 +1443,7 @@ class OutbreakMetricsResponse(DBModel):
 
 @router.get(
     "/outbreak-metrics",
+    dependencies=[require(Permission.READ_SETTINGS)],
     response_model=list[OutbreakMetricInfo],
     tags=["Metrics"],
     summary="Discover which outbreak metrics are available",
@@ -1380,6 +1463,7 @@ def list_outbreak_metrics():
 
 @router.get(
     "/backtests/{backtestId}/outbreak-metrics",
+    dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=OutbreakMetricsResponse,
     tags=["Metrics"],
     summary="Score a backtest's outbreak alerts against an alert policy",
