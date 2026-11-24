@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from chap_core.auth.permissions import AUTHENTICATED, OPERATOR, READ, Permission
+from chap_core.auth.permissions import ANALYST, ADMIN, VIEWER, Permission
 from chap_core.auth.tokens import resolve_tiers
 from chap_core.settings import ChapSettings
 
@@ -17,13 +17,12 @@ def permission_table() -> dict[str, tuple[bool, bool, bool]]:
         r"^\| `([a-z]+:[a-z-]+)` \| [^|]+\|\s*(yes)?\s*\|\s*(yes)?\s*\|\s*(yes)?\s*\|$", CONTRACT, re.MULTILINE
     )
     return {
-        permission: (read == "yes", authenticated == "yes", operator == "yes")
-        for permission, read, authenticated, operator in rows
+        permission: (viewer == "yes", analyst == "yes", admin == "yes") for permission, viewer, analyst, admin in rows
     }
 
 
 def test_the_permission_table_lists_every_permission_and_its_tiers():
-    expected = {p.value: (p in READ, p in AUTHENTICATED, p in OPERATOR) for p in Permission}
+    expected = {p.value: (p in VIEWER, p in ANALYST, p in ADMIN) for p in Permission}
 
     assert permission_table() == expected
 
@@ -34,7 +33,7 @@ def test_the_tier_example_is_valid():
 
     settings = ChapSettings(**yaml.safe_load(block.group(1)))
 
-    assert resolve_tiers(settings.authentication.tiers)["caps"] == READ | {
+    assert resolve_tiers(settings.authentication.tiers)["caps"] == VIEWER | {
         Permission.WRITE_DATASETS,
         Permission.RUN_PREDICTIONS,
         Permission.READ_JOBS,

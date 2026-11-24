@@ -19,27 +19,27 @@ cors_origins:
 
 # The single API token (the older way). Set it in the environment, not here:
 #   CHAP_API_TOKEN=$(openssl rand -hex 32)
-# It acts as an operator token with the id legacy, sent as `Authorization: Bearer <token>`,
+# It acts as an admin token with the id legacy, sent as `Authorization: Bearer <token>`,
 # `Authorization: ApiToken <token>` (DHIS2 routes) or `X-Service-Key: <token>`. It works
 # alone or beside the named tokens below, so clients can move to their own token one at a
 # time. A named token may not use the id legacy or the same secret.
 
 # Named tokens, one per client. Each secret lives in the environment variable token_env
-# names, never in this file: make one with `openssl rand -hex 32`. Tiers are read,
-# authenticated and operator, or one defined under tiers. With no tokens and no
+# names, never in this file: make one with `openssl rand -hex 32`. Tiers are viewer,
+# analyst and admin, or one defined under tiers. With no tokens and no
 # CHAP_API_TOKEN, authentication is off. See docs/contributor/auth_contract.md.
 # authentication:
 #   tiers:
-#     analyst:
-#       includes: [read]
+#     forecaster:
+#       includes: [viewer]
 #       permissions: [run:backtests, run:predictions]
 #   tokens:
 #     - id: modeling-app-read
 #       token_env: CHAP_TOKEN_MODELING_APP_READ
-#       tier: read
+#       tier: viewer
 #     - id: modeling-app
 #       token_env: CHAP_TOKEN_MODELING_APP
-#       tier: authenticated
+#       tier: analyst
 #     - id: notebook
 #       token_env: CHAP_TOKEN_NOTEBOOK
-#       tier: analyst
+#       tier: forecaster

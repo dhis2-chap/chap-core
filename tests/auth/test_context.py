@@ -37,13 +37,13 @@ def test_a_refused_request_does_not_keep_the_previous_principal(monkeypatch):
 
 
 def test_a_principal_may_act_only_on_what_it_created():
-    from chap_core.auth.permissions import AUTHENTICATED, OPERATOR
+    from chap_core.auth.permissions import ANALYST, ADMIN
     from chap_core.auth.principal import Principal
 
-    caps = Principal(id="token:caps", tier="authenticated", permissions=AUTHENTICATED)
-    operator = Principal(id="token:ops", tier="operator", permissions=OPERATOR)
+    caps = Principal(id="token:caps", tier="analyst", permissions=ANALYST)
+    admin = Principal(id="token:ops", tier="admin", permissions=ADMIN)
 
     assert caps.may_act_on("token:caps")
     assert not caps.may_act_on("token:other")
     assert not caps.may_act_on(None)
-    assert operator.may_act_on("token:other") and operator.may_act_on(None)
+    assert admin.may_act_on("token:other") and admin.may_act_on(None)

@@ -3,7 +3,7 @@ import base64
 import pytest
 from pydantic import ValidationError
 
-from chap_core.auth.permissions import AUTHENTICATED, OPERATOR
+from chap_core.auth.permissions import ANALYST, ADMIN
 from chap_core.auth.principal import ANONYMOUS
 from chap_core.auth.tokens import (
     SERVICE_REGISTRY,
@@ -21,7 +21,7 @@ def settings_with(*tokens: dict, **fields) -> ChapSettings:
     return ChapSettings(authentication={"tokens": list(tokens)}, **fields)
 
 
-def token(id: str = "notebook", env: str = "NOTEBOOK_TOKEN", tier: str = "authenticated") -> dict:
+def token(id: str = "notebook", env: str = "NOTEBOOK_TOKEN", tier: str = "analyst") -> dict:
     return {"id": id, "token_env": env, "tier": tier}
 
 
@@ -38,7 +38,7 @@ def test_a_named_token_gets_its_tier(secrets):
     (notebook,) = authentication.tokens
     assert authentication.enabled
     assert notebook.principal.id == "token:notebook"
-    assert notebook.permissions == AUTHENTICATED
+    assert notebook.permissions == ANALYST
 
 
 def test_nothing_configured_leaves_authentication_off(secrets):
@@ -49,14 +49,14 @@ def test_the_api_token_is_an_operator_token_named_legacy(secrets):
     (legacy,) = load_authentication(settings_with(api_token="short")).tokens
 
     assert legacy.principal.id == "token:legacy"
-    assert legacy.permissions == OPERATOR
+    assert legacy.permissions == ADMIN
 
 
 @pytest.mark.parametrize(
     ("tokens", "message"),
     [
         ([token(env="UNSET_TOKEN")], "UNSET_TOKEN is not set"),
-        ([token(tier="admin")], "unknown tier admin"),
+        ([token(tier="operator")], "unknown tier operator"),
         ([token(tier="public")], "unknown tier public"),
         ([token(id="legacy")], "kept for CHAP_API_TOKEN"),
         ([token(), token(env="OTHER_TOKEN")], "the id notebook is used twice"),
@@ -81,7 +81,7 @@ def test_the_api_token_may_not_repeat_a_named_secret(secrets):
 
 
 def test_an_open_geo_service_block_loads_unchanged(secrets):
-    block = {"tokens": [{"id": "caps", "token_env": "NOTEBOOK_TOKEN", "tier": "operator"}]}
+    block = {"tokens": [{"id": "caps", "token_env": "NOTEBOOK_TOKEN", "tier": "admin"}]}
 
     (caps,) = load_authentication(ChapSettings(authentication=block)).tokens
 
@@ -116,7 +116,7 @@ def test_a_credential_that_matches_no_token_is_invalid(authentication, header):
 
 
 def test_a_secret_in_the_wrong_setting_is_not_echoed_in_the_startup_error():
-    block = {"tokens": [{"id": "x", "token_env": "pasted/secret", "tier": "read"}]}
+    block = {"tokens": [{"id": "x", "token_env": "pasted/secret", "tier": "viewer"}]}
 
     with pytest.raises(ValidationError) as error:
         ChapSettings(authentication=block)

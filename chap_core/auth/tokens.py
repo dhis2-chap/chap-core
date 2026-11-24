@@ -8,7 +8,7 @@ import re
 from dataclasses import dataclass, field
 
 from chap_core.auth.config import NAME_PATTERN, TierConfig
-from chap_core.auth.permissions import BUILTIN_TIERS, OPERATOR, Permission
+from chap_core.auth.permissions import ADMIN, BUILTIN_TIERS, Permission
 from chap_core.auth.principal import ANONYMOUS, Principal
 from chap_core.settings import ChapSettings, get_settings
 
@@ -88,7 +88,7 @@ def load_authentication(settings: ChapSettings) -> Authentication:
 
     if settings.api_token is not None:
         legacy = NamedToken(
-            id=LEGACY_TOKEN_ID, tier="operator", permissions=OPERATOR, secret=settings.api_token.get_secret_value()
+            id=LEGACY_TOKEN_ID, tier="admin", permissions=ADMIN, secret=settings.api_token.get_secret_value()
         )
         tokens.append(legacy)
 

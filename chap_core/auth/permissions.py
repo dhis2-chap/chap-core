@@ -36,7 +36,7 @@ class Permission(StrEnum):
     APPROVE_ALERTS = "approve:alerts"
     DELETE_ALERTS = "delete:alerts"
 
-    # Job logs and requests can hold raw data, so reading jobs is not part of the read tier.
+    # Job logs and requests can hold raw data, so reading jobs is not part of the viewer tier.
     READ_JOBS = "read:jobs"
     # Cancelling and forgetting jobs.
     WRITE_JOBS = "write:jobs"
@@ -53,13 +53,13 @@ class Permission(StrEnum):
     REGISTER_SERVICES = "register:services"
 
 
-READ: frozenset[Permission] = frozenset(
+VIEWER: frozenset[Permission] = frozenset(
     permission
     for permission in Permission
     if permission.startswith("read:") and permission not in (Permission.READ_JOBS, Permission.READ_SYSTEM)
 )
 
-AUTHENTICATED: frozenset[Permission] = READ | {
+ANALYST: frozenset[Permission] = VIEWER | {
     Permission.EXPORT_DATASETS,
     Permission.READ_JOBS,
     Permission.WRITE_JOBS,
@@ -71,14 +71,14 @@ AUTHENTICATED: frozenset[Permission] = READ | {
     Permission.CALL_SERVICES,
 }
 
-OPERATOR: frozenset[Permission] = frozenset(Permission)
+ADMIN: frozenset[Permission] = frozenset(Permission)
 
 # Given to callers without a token while authentication is on. They reach only the public routes.
 PUBLIC: frozenset[Permission] = frozenset()
 
 BUILTIN_TIERS: dict[str, frozenset[Permission]] = {
     "public": PUBLIC,
-    "read": READ,
-    "authenticated": AUTHENTICATED,
-    "operator": OPERATOR,
+    "viewer": VIEWER,
+    "analyst": ANALYST,
+    "admin": ADMIN,
 }

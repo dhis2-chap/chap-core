@@ -26,7 +26,7 @@ POLICY = {
 @pytest.fixture
 def caps_token(monkeypatch, tmp_path):
     config = tmp_path / "chap-server.yml"
-    config.write_text("authentication:\n  tokens:\n    - {id: caps, token_env: CHAP_TEST_CAPS, tier: operator}\n")
+    config.write_text("authentication:\n  tokens:\n    - {id: caps, token_env: CHAP_TEST_CAPS, tier: admin}\n")
     monkeypatch.setenv("CHAP_CONFIG", str(config))
     monkeypatch.setenv("CHAP_TEST_CAPS", TOKEN)
     monkeypatch.delenv("CHAP_API_TOKEN", raising=False)
@@ -111,8 +111,8 @@ def test_only_the_creator_may_cancel_or_forget_a_job(
     config = tmp_path / "chap-server.yml"
     config.write_text(
         "authentication:\n  tokens:\n"
-        "    - {id: one, token_env: CHAP_TEST_ONE, tier: authenticated}\n"
-        "    - {id: two, token_env: CHAP_TEST_TWO, tier: authenticated}\n"
+        "    - {id: one, token_env: CHAP_TEST_ONE, tier: analyst}\n"
+        "    - {id: two, token_env: CHAP_TEST_TWO, tier: analyst}\n"
     )
     monkeypatch.setenv("CHAP_CONFIG", str(config))
     monkeypatch.setenv("CHAP_TEST_ONE", "1" * 32)

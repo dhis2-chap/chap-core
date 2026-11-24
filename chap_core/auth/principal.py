@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from starlette.authentication import BaseUser
 
-from chap_core.auth.permissions import OPERATOR, PUBLIC, Permission
+from chap_core.auth.permissions import ADMIN, PUBLIC, Permission
 
 
 @dataclass(frozen=True)
@@ -34,11 +34,11 @@ class Principal(BaseUser):
         they created, so a record with no owner, made while authentication was off, is theirs
         to change only with every permission.
         """
-        return self.permissions >= OPERATOR or (owner is not None and owner == self.id)
+        return self.permissions >= ADMIN or (owner is not None and owner == self.id)
 
 
 ANONYMOUS = Principal(id="anonymous", tier="public", permissions=PUBLIC)
 """A caller without a credential while authentication is on."""
 
-OPEN = Principal(id="open", tier="operator", permissions=OPERATOR)
+OPEN = Principal(id="open", tier="admin", permissions=ADMIN)
 """Every caller while authentication is off."""

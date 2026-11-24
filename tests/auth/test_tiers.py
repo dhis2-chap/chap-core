@@ -1,7 +1,7 @@
 import pytest
 
 from chap_core.auth.config import TierConfig
-from chap_core.auth.permissions import READ, Permission
+from chap_core.auth.permissions import VIEWER, Permission
 from chap_core.auth.tokens import AuthenticationConfigError, load_authentication, resolve_tiers
 from chap_core.settings import ChapSettings
 
@@ -11,15 +11,16 @@ def tiers(**definitions: dict) -> dict[str, TierConfig]:
 
 
 def test_a_custom_tier_gets_its_includes_and_its_own_permissions():
-    resolved = resolve_tiers(tiers(caps={"includes": ["read"], "permissions": ["write:datasets", "run:predictions"]}))
+    resolved = resolve_tiers(tiers(caps={"includes": ["viewer"], "permissions": ["write:datasets", "run:predictions"]}))
 
-    assert resolved["caps"] == READ | {Permission.WRITE_DATASETS, Permission.RUN_PREDICTIONS}
+    assert resolved["caps"] == VIEWER | {Permission.WRITE_DATASETS, Permission.RUN_PREDICTIONS}
 
 
 def test_a_custom_tier_can_include_another_custom_tier():
     resolved = resolve_tiers(
         tiers(
-            curator={"includes": ["analyst"], "permissions": ["write:models"]}, analyst={"permissions": ["read:models"]}
+            curator={"includes": ["forecaster"], "permissions": ["write:models"]},
+            forecaster={"permissions": ["read:models"]},
         )
     )
 
@@ -30,9 +31,9 @@ def test_a_custom_tier_can_include_another_custom_tier():
     ("definitions", "message"),
     [
         ({"caps": {"permissions": ["read:everything"]}}, "unknown permission read:everything"),
-        ({"caps": {"includes": ["admin"]}}, "includes the unknown tier admin"),
-        ({"read": {"permissions": ["read:datasets"]}}, "read is a built-in tier"),
-        ({"operator": {"includes": ["read"]}}, "operator is a built-in tier"),
+        ({"caps": {"includes": ["operator"]}}, "includes the unknown tier operator"),
+        ({"viewer": {"permissions": ["read:datasets"]}}, "viewer is a built-in tier"),
+        ({"admin": {"includes": ["viewer"]}}, "admin is a built-in tier"),
         ({"caps": {"permissions": ["read:*"]}}, "wildcards are not allowed"),
         ({"caps": {"permissions": ["*"]}}, "wildcards are not allowed"),
         ({"a": {"includes": ["b"]}, "b": {"includes": ["a"]}}, r"cycle \(a -> b -> a\)"),

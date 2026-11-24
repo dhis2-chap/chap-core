@@ -2,14 +2,14 @@
 
 This page is the contract chap-core's authentication and authorization are built and tested
 against (epic CLIM-1955). [API Authentication](../webapi/api-authentication.md) covers the
-single `CHAP_API_TOKEN` from an operator's point of view.
+single `CHAP_API_TOKEN` from the point of view of whoever runs Chap.
 
 chap-core takes Open Geo Service's contract
 ([`docs/authentication.md`](https://github.com/dhis2/open-geo-service/blob/main/docs/authentication.md),
 CLIM-1292) and adds permissions. The two share the format of the `authentication` block, the
 headers and the error answers. Each service has its own tiers: Open Geo Service decides by
-route tier, Chap by permission. An Open Geo Service block is valid in `chap-server.yml`,
-because the tiers it can give a token, `authenticated` and `operator`, exist in Chap too.
+route tier, Chap by permission. The tier names are Chap's own, so a token copied from an Open
+Geo Service block needs a Chap tier.
 
 ## Principals, tiers and permissions
 
@@ -51,13 +51,13 @@ authentication:
   tokens:
     - id: modeling-app-read
       token_env: CHAP_TOKEN_MODELING_APP_READ
-      tier: read
+      tier: viewer
     - id: modeling-app
       token_env: CHAP_TOKEN_MODELING_APP
-      tier: authenticated
+      tier: analyst
     - id: modeling-app-admin
       token_env: CHAP_TOKEN_MODELING_APP_ADMIN
-      tier: operator
+      tier: admin
 ```
 
 - `id` matches `^[A-Za-z0-9][A-Za-z0-9_-]*$`. It is stable, not secret, and becomes the
@@ -158,7 +158,7 @@ A permission is named `action:resource`, such as `read:predictions` or `run:back
 
 Every permission, what it allows, and which built-in tiers hold it:
 
-| Permission | Allows | `read` | `authenticated` | `operator` |
+| Permission | Allows | `viewer` | `analyst` | `admin` |
 | --- | --- | --- | --- | --- |
 | `read:datasets` | Listing datasets, dataset plots, computing thresholds | yes | yes | yes |
 | `export:datasets` | A dataset's observations: the dataset itself, and its `/df` and `/csv` downloads | | yes | yes |
@@ -303,7 +303,7 @@ the fixed lists clients choose from, such as plot types, weather providers and t
 Fixed in code, the same on every install, and changed only by a Chap release:
 
 - the permissions, and which permission each route needs,
-- the built-in tiers `public`, `read`, `authenticated` and `operator`, and what they grant,
+- the built-in tiers `public`, `viewer`, `analyst` and `admin`, and what they grant,
 - the public routes,
 - the accepted headers and the error answers.
 
@@ -315,9 +315,9 @@ setting, as JSON in the `CHAP_AUTHENTICATION` environment variable, which replac
 
 A tier is resolved against the running release, and the built-in tiers can widen:
 
-- `operator` gains every permission a later release adds.
-- `read` gains every new `read:` permission, except ones a release keeps out of it as it
-  keeps `read:jobs`; `authenticated` includes `read`.
+- `admin` gains every permission a later release adds.
+- `viewer` gains every new `read:` permission, except ones a release keeps out of it as it
+  keeps `read:jobs`; `analyst` includes `viewer`.
 - A custom tier that includes a built-in tier widens with it. Only permissions listed one by
   one stay exactly as written, so check custom tiers after upgrading.
 
@@ -326,12 +326,15 @@ A tier is resolved against the running release, and the built-in tiers can widen
 | Tier | Permissions |
 | --- | --- |
 | `public` | Only the open routes. Given to `anonymous`; cannot be given to a token. |
-| `read` | Every `read:` permission except `read:jobs` and `read:system`. It reads stored results: backtests, their forecasts and the observed cases they were scored against, predictions, models, alerts and settings. It does not hold `export:datasets`, so it cannot download a dataset's observations. Jobs are left out because their logs and stored requests show other clients' work and internal details such as file paths and errors. For dashboards and the read-only DHIS2 route. |
-| `authenticated` | `read`, plus `export:datasets`, `read:jobs`, `write:jobs`, `read:system`, `write:datasets`, `run:backtests`, `run:predictions`, `write:prediction-setups` and `call:services`. It deletes no stored record and changes no models, settings, backtests, alerts or alert policies, and it cancels and forgets only its own jobs. |
-| `operator` | Every permission, including ones added in later versions. |
+| `viewer` | Every `read:` permission except `read:jobs` and `read:system`. It reads stored results: backtests, their forecasts and the observed cases they were scored against, predictions, models, alerts and settings. It does not hold `export:datasets`, so it cannot download a dataset's observations. Jobs are left out because their logs and stored requests show other clients' work and internal details such as file paths and errors. For dashboards and the read-only DHIS2 route. |
+| `analyst` | `viewer`, plus `export:datasets`, `read:jobs`, `write:jobs`, `read:system`, `write:datasets`, `run:backtests`, `run:predictions`, `write:prediction-setups` and `call:services`. It deletes no stored record and changes no models, settings, backtests, alerts or alert policies, and it cancels and forgets only its own jobs. |
+| `admin` | Every permission, including ones added in later versions. |
 
-The catalogue (CLIM-1959) lists each tier's permissions exactly. The names follow Open Geo
-Service where the idea is the same, but what a tier grants is Chap's own.
+The catalogue (CLIM-1959) lists each tier's permissions exactly. The names say who a token
+is for: a `viewer` reads results, an `analyst` runs work, an `admin` may do everything. They
+match the DHIS2 routes the Modeling App will use, one per audience (`chap-read`, `chap` and
+`chap-admin`). Open Geo Service names its tiers by what a caller has shown (`authenticated`),
+so its names are not used here.
 
 ### The public tier
 
@@ -354,16 +357,16 @@ Chap's addition. An optional `tiers` block under `authentication` defines tiers 
 ```yaml
 authentication:
   tiers:
-    analyst:
-      includes: [read]
+    forecaster:
+      includes: [viewer]
       permissions: [run:backtests, run:predictions]
     model-curator:
-      includes: [analyst]
+      includes: [forecaster]
       permissions: [write:models]
   tokens:
     - id: notebook
       token_env: CHAP_TOKEN_NOTEBOOK
-      tier: analyst
+      tier: forecaster
 ```
 
 - `includes` lists tiers whose permissions this one gets. `permissions` lists more.
@@ -373,7 +376,7 @@ authentication:
 chap-core refuses to start when the block has:
 
 - an unknown permission or an unknown included tier,
-- a tier named `public`, `read`, `authenticated` or `operator`,
+- a tier named `public`, `viewer`, `analyst` or `admin`,
 - a cycle in `includes`,
 - a wildcard, such as `read:*` or `*`,
 - an unknown key.
@@ -382,7 +385,7 @@ Tiers are resolved once at startup into a flat set of permissions per tier.
 
 Names never replace each other:
 
-- A custom tier cannot take a built-in name. A tier named `read` stops startup rather than
+- A custom tier cannot take a built-in name. A tier named `viewer` stops startup rather than
   replacing the built-in one.
 - A tier name, or any other key, given twice in `chap-server.yml` stops startup and names
   the line. Plain YAML would keep the last one silently.
@@ -395,12 +398,12 @@ Names never replace each other:
 1. Start from the clients and what each must do, not from the permissions. Give every client
    its own token, even when two need the same access.
 2. Use a built-in tier when one fits. Make a custom tier only for a client that needs less
-   than `authenticated` or `operator` gives, or something in between.
-3. Build it from `includes: [read]` and add the few permissions the client needs from
-   [Permissions](#permissions). `read` and every other built-in tier widen when a release adds
+   than `analyst` or `admin` gives, or something in between.
+3. Build it from `includes: [viewer]` and add the few permissions the client needs from
+   [Permissions](#permissions). `viewer` and every other built-in tier widen when a release adds
    permissions, so for a client that must never gain access on upgrade, list every permission
    it needs and include no tier.
-4. Leave out `delete:` permissions unless the client must delete. They are operator-only by
+4. Leave out `delete:` permissions unless the client must delete. They are admin-only by
    default.
 5. Start Chap and call `GET /v1/auth/me` with the token. It lists exactly what the token may
    do. An answer of `anonymous` means the token did not match: `/v1/auth/me` never refuses.
@@ -412,7 +415,7 @@ change models or delete anything:
 authentication:
   tiers:
     caps:
-      includes: [read]
+      includes: [viewer]
       permissions: [write:datasets, run:predictions, read:jobs]
   tokens:
     - id: caps
@@ -428,12 +431,12 @@ These keep today's behaviour. Nothing has to change on upgrade.
 - **`SERVICEKIT_REGISTRATION_KEY` only:** registering, pinging and deregistering a service
   (`POST /v2/services/$register`, `PUT /v2/services/{id}/$ping`,
   `DELETE /v2/services/{id}`) need the key in `X-Service-Key`. Everything else is open.
-- **`CHAP_API_TOKEN`:** read as an operator token with the id `legacy`. It is accepted in
+- **`CHAP_API_TOKEN`:** read as an admin token with the id `legacy`. It is accepted in
   every header in [Sending a credential](#sending-a-credential), including `X-Service-Key` on
   any route. A secret shorter than 32 characters still only logs a warning, as today; the
   32-character rule applies to named tokens.
 - **Both `CHAP_API_TOKEN` and `SERVICEKIT_REGISTRATION_KEY`:** the three registration routes
-  need the registration key in `X-Service-Key`. An operator token alone is refused there, as
+  need the registration key in `X-Service-Key`. An admin token alone is refused there, as
   today.
 
 The `CHAP_API_TOKEN` token can sit beside named tokens, so an install can move clients to
@@ -459,7 +462,7 @@ text changes. The status codes and the `WWW-Authenticate` header stay the same.
 
 - **Basic `id:secret`:** accepted, as in Open Geo Service. It costs one branch, keeps both
   services answering the same clients, and the id must match the secret's token.
-- **Deletes:** every `delete:` permission is in `operator` only. A custom tier can grant
+- **Deletes:** every `delete:` permission is in `admin` only. A custom tier can grant
   one. Deleting your own records waits until records store their principal (CLIM-1965);
   records from before that have no owner.
 

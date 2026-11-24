@@ -12,7 +12,7 @@ class Me(BaseModel):
         "`anonymous` without a token.",
         examples=["token:dhis2-modeling-app"],
     )
-    tier: str = Field(description="The principal's tier.", examples=["read"])
+    tier: str = Field(description="The principal's tier.", examples=["viewer"])
     permissions: list[str] = Field(description="What the caller may do, sorted.", examples=[["read:datasets"]])
 
 

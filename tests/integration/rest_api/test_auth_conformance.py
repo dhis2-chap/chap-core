@@ -7,7 +7,7 @@ The first classes record what chap-core did before named tokens, so the auth rew
 import pytest
 from fastapi.testclient import TestClient
 
-from chap_core.auth.permissions import READ, Permission
+from chap_core.auth.permissions import VIEWER, Permission
 from chap_core.rest_api.app import app
 from tests.integration.rest_api.db_endpoint_helpers import create_make_data_request
 from chap_core.rest_api.auth import API_TOKEN_ENV_VAR, SERVICE_KEY_ENV_VAR
@@ -118,19 +118,19 @@ class TestApiToken:
         assert client.get("/v1/terminology", headers={"X-Service-Key": REGISTRATION_KEY}).status_code == 401
 
 
-READ_TOKEN = "d" * 32
-OPERATOR_TOKEN = "o" * 32
+VIEWER_TOKEN = "d" * 32
+ADMIN_TOKEN = "o" * 32
 
-# An Open Geo Service block, plus a Chap-only tier.
+# Two named tokens with built-in tiers.
 SERVER_CONFIG = """
 authentication:
   tokens:
     - id: dashboard
       token_env: CHAP_TEST_READ_TOKEN
-      tier: read
+      tier: viewer
     - id: caps
       token_env: CHAP_TEST_OPERATOR_TOKEN
-      tier: operator
+      tier: admin
 """
 
 
@@ -138,9 +138,7 @@ authentication:
 def named_client(make_client, tmp_path):
     config = tmp_path / "chap-server.yml"
     config.write_text(SERVER_CONFIG)
-    return make_client(
-        CHAP_CONFIG=str(config), CHAP_TEST_READ_TOKEN=READ_TOKEN, CHAP_TEST_OPERATOR_TOKEN=OPERATOR_TOKEN
-    )
+    return make_client(CHAP_CONFIG=str(config), CHAP_TEST_READ_TOKEN=VIEWER_TOKEN, CHAP_TEST_OPERATOR_TOKEN=ADMIN_TOKEN)
 
 
 class TestNamedTokens:
@@ -159,7 +157,7 @@ class TestNamedTokens:
 
     @pytest.mark.parametrize("scheme", ["Bearer", "ApiToken"])
     def test_a_named_token_is_accepted(self, named_client, scheme):
-        response = named_client.get("/v1/terminology", headers={"Authorization": f"{scheme} {OPERATOR_TOKEN}"})
+        response = named_client.get("/v1/terminology", headers={"Authorization": f"{scheme} {ADMIN_TOKEN}"})
 
         assert response.status_code == 200
 
@@ -178,9 +176,9 @@ class TestNamedTokens:
 
 class TestPermissions:
     def read_headers(self):
-        return {"Authorization": f"Bearer {READ_TOKEN}"}
+        return {"Authorization": f"Bearer {VIEWER_TOKEN}"}
 
-    def test_a_read_token_reads(self, named_client):
+    def test_a_viewer_token_reads(self, named_client):
         assert named_client.get("/v1/terminology", headers=self.read_headers()).status_code == 200
 
     def test_a_token_without_the_permission_gets_403_naming_it_and_the_token(self, named_client):
@@ -192,14 +190,14 @@ class TestPermissions:
             "PUT /v1/settings needs the write:settings permission, which token:dashboard does not have."
         )
 
-    def test_the_read_tier_cannot_read_jobs(self, named_client):
+    def test_the_viewer_tier_cannot_read_jobs(self, named_client):
         assert named_client.get("/v1/jobs", headers=self.read_headers()).status_code == 403
 
     def test_the_hidden_proxy_route_needs_call_services(self, named_client):
         assert named_client.get("/v2/services/any/run/info", headers=self.read_headers()).status_code == 403
 
-    def test_the_operator_tier_passes_the_permission_check(self, named_client):
-        response = named_client.put("/v1/settings", json={}, headers={"Authorization": f"Bearer {OPERATOR_TOKEN}"})
+    def test_the_admin_tier_passes_the_permission_check(self, named_client):
+        response = named_client.put("/v1/settings", json={}, headers={"Authorization": f"Bearer {ADMIN_TOKEN}"})
 
         assert response.status_code != 403
 
@@ -208,14 +206,14 @@ class TestMe:
     def test_with_authentication_off_the_caller_is_open_with_every_permission(self, make_client):
         me = make_client().get("/v1/auth/me").json()
 
-        assert (me["id"], me["tier"]) == ("open", "operator")
+        assert (me["id"], me["tier"]) == ("open", "admin")
         assert set(me["permissions"]) == {permission.value for permission in Permission}
 
     def test_a_named_token_reports_its_id_tier_and_permissions(self, named_client):
-        me = named_client.get("/v1/auth/me", headers={"Authorization": f"Bearer {READ_TOKEN}"}).json()
+        me = named_client.get("/v1/auth/me", headers={"Authorization": f"Bearer {VIEWER_TOKEN}"}).json()
 
-        assert (me["id"], me["tier"]) == ("token:dashboard", "read")
-        assert me["permissions"] == sorted(permission.value for permission in READ)
+        assert (me["id"], me["tier"]) == ("token:dashboard", "viewer")
+        assert me["permissions"] == sorted(permission.value for permission in VIEWER)
 
     def test_without_a_token_the_caller_is_anonymous(self, named_client):
         response = named_client.get("/v1/auth/me")
@@ -223,12 +221,12 @@ class TestMe:
         assert response.status_code == 200
         assert response.json() == {"id": "anonymous", "tier": "public", "permissions": []}
 
-    def test_the_api_token_is_the_legacy_operator(self, make_client):
+    def test_the_api_token_is_the_legacy_admin(self, make_client):
         client = make_client(**{API_TOKEN_ENV_VAR: API_TOKEN})
 
         me = client.get("/v1/auth/me", headers={"Authorization": f"Bearer {API_TOKEN}"}).json()
 
-        assert (me["id"], me["tier"]) == ("token:legacy", "operator")
+        assert (me["id"], me["tier"]) == ("token:legacy", "admin")
 
 
 class TestRefusalsShareOneBody:
@@ -265,7 +263,7 @@ authentication:
     - {id: runner, token_env: CHAP_TEST_RUNNER_TOKEN, tier: runner}
     - {id: setups, token_env: CHAP_TEST_SETUPS_TOKEN, tier: setups}
     - {id: jobs, token_env: CHAP_TEST_JOBS_TOKEN, tier: jobs}
-    - {id: dashboard, token_env: CHAP_TEST_READ_TOKEN, tier: read}
+    - {id: dashboard, token_env: CHAP_TEST_READ_TOKEN, tier: viewer}
 """
 
 
@@ -278,7 +276,7 @@ def narrow_client(make_client, tmp_path):
         CHAP_TEST_RUNNER_TOKEN=RUNNER_TOKEN,
         CHAP_TEST_SETUPS_TOKEN=SETUPS_TOKEN,
         CHAP_TEST_JOBS_TOKEN=JOBS_TOKEN,
-        CHAP_TEST_READ_TOKEN=READ_TOKEN,
+        CHAP_TEST_READ_TOKEN=VIEWER_TOKEN,
     )
 
 
@@ -310,8 +308,8 @@ class TestSecondPermissions:
         assert response.status_code == 403
         assert "write:alerts" in response.json()["detail"]
 
-    def test_the_read_tier_cannot_download_a_datasets_observations(self, narrow_client):
-        response = narrow_client.get("/v1/crud/datasets/1/csv", headers={"Authorization": f"Bearer {READ_TOKEN}"})
+    def test_the_viewer_tier_cannot_download_a_datasets_observations(self, narrow_client):
+        response = narrow_client.get("/v1/crud/datasets/1/csv", headers={"Authorization": f"Bearer {VIEWER_TOKEN}"})
 
         assert response.status_code == 403
         assert "export:datasets" in response.json()["detail"]

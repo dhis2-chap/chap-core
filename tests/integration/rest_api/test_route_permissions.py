@@ -67,7 +67,7 @@ def test_a_route_hidden_from_the_spec_is_checked_too():
 
 def test_startup_refuses_a_token_whose_secret_is_unset(monkeypatch, tmp_path):
     config = tmp_path / "chap-server.yml"
-    config.write_text("authentication:\n  tokens:\n    - {id: caps, token_env: CHAP_TEST_UNSET, tier: operator}\n")
+    config.write_text("authentication:\n  tokens:\n    - {id: caps, token_env: CHAP_TEST_UNSET, tier: admin}\n")
     monkeypatch.setenv("CHAP_CONFIG", str(config))
     monkeypatch.delenv("CHAP_TEST_UNSET", raising=False)
 

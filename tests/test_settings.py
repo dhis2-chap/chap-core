@@ -179,11 +179,11 @@ def test_the_example_config_file_is_valid(monkeypatch):
 
 def test_a_key_given_twice_stops_startup_instead_of_replacing_the_first(config_file):
     path = config_file(
-        "authentication:\n  tiers:\n    analyst:\n      permissions: [read:datasets]\n"
-        "    analyst:\n      permissions: [delete:datasets]\n"
+        "authentication:\n  tiers:\n    forecaster:\n      permissions: [read:datasets]\n"
+        "    forecaster:\n      permissions: [delete:datasets]\n"
     )
 
-    with pytest.raises(ConfigFileError, match=f"{path}: the key analyst appears twice \\(line 5\\)"):
+    with pytest.raises(ConfigFileError, match=f"{path}: the key forecaster appears twice \\(line 5\\)"):
         ChapSettings()
 
 

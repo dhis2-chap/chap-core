@@ -1,7 +1,7 @@
 """Authentication for the REST API: who is calling, decided before the request body is read.
 
 The contract is docs/contributor/auth_contract.md. Authentication is on when ``CHAP_API_TOKEN``
-is set or ``chap-server.yml`` lists named tokens; ``CHAP_API_TOKEN`` is then an operator token
+is set or ``chap-server.yml`` lists named tokens; ``CHAP_API_TOKEN`` is then an admin token
 with the id ``legacy``. ``SERVICEKIT_REGISTRATION_KEY`` gates the service registration routes
 on its own, through ``verify_service_key``.
 """
