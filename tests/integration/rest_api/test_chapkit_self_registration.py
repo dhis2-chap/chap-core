@@ -579,3 +579,23 @@ def test_registry_client_does_not_retry_a_refused_connection(monkeypatch):
         assert time.monotonic() - start < 1.0
     finally:
         get_registry_read_redis.cache_clear()
+
+
+@pytest.mark.parametrize("reserved", ["prediction_periods", "additional_continuous_covariates"])
+def test_configured_model_refuses_options_chap_sets_itself(client, register_service, reserved):
+    template_id = _install(client, register_service)["id"]
+    response = client.post(
+        "/v1/crud/configured-models",
+        json={"name": "custom", "modelTemplateId": template_id, "userOptionValues": {reserved: 6}},
+    )
+    assert response.status_code == 422, response.text
+    assert reserved in response.json()["detail"]
+
+
+def test_configured_model_accepts_ordinary_chapkit_options(client, register_service):
+    template_id = _install(client, register_service)["id"]
+    response = client.post(
+        "/v1/crud/configured-models",
+        json={"name": "custom", "modelTemplateId": template_id, "userOptionValues": {"n_lags": 2}},
+    )
+    assert response.status_code == 200, response.text
