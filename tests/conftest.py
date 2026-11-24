@@ -613,5 +613,5 @@ def legacy_signal_database(engine, signal_prediction):
     cfg = Config(str(Path(__file__).parent.parent / "alembic.ini"))
     cfg.attributes["connection"] = engine
     command.stamp(cfg, "head")
-    command.downgrade(cfg, "00e90ba1184f")
+    command.downgrade(cfg, "bfb92b05d718")
     return cfg, tables, expected

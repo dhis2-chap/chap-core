@@ -783,7 +783,7 @@ def test_signal_rename_preserves_records_and_reverses(engine, legacy_signal_data
     }
     assert any(c["name"] == "uq_signal_prediction_org_unit_period" for c in inspector.get_unique_constraints("signal"))
 
-    command.downgrade(cfg, "00e90ba1184f")
+    command.downgrade(cfg, "bfb92b05d718")
     with engine.connect() as conn:
         assert conn.execute(sa.text("SELECT * FROM alert ORDER BY id")).mappings().all() == legacy_signals
         assert conn.execute(sa.text("SELECT * FROM alertpolicy ORDER BY id")).mappings().all() == legacy_policies

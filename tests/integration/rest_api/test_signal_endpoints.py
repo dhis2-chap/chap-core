@@ -174,7 +174,7 @@ def test_prediction_setup_with_unknown_threshold_policy_returns_404(override_ses
     assert client.post("/v1/crud/prediction-setups", json=payload).status_code == 404
 
 
-def test_attaching_an_threshold_policy_by_patch(override_session, seeded_session):
+def test_attaching_a_threshold_policy_by_patch(override_session, seeded_session):
     backtest = seeded_session.exec(select(Backtest)).first()
     assert backtest is not None
     setup_id = create_prediction_setup(backtest.id, "Later signals").json()["id"]
@@ -281,7 +281,7 @@ def test_deleting_a_prediction_with_signals_returns_409(override_session, seeded
     assert "signal" in response.json()["detail"].lower()
 
 
-def test_deleting_an_signal_lets_its_policy_be_deleted(clean_engine, dependency_overrides):
+def test_deleting_a_signal_lets_its_policy_be_deleted(clean_engine, dependency_overrides):
     policy_id = _create_threshold_policy("Signals K").json()["id"]
     (signal_id,) = _create_signals(policy_id).json()["ids"]
 

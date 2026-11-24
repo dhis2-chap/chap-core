@@ -254,7 +254,7 @@ def test_an_anonymous_review_is_rejected(engine, policy_id):
             set_release_status(session, [signal.id], SignalReleaseStatus.RELEASED, "  ")
 
 
-def test_returning_an_signal_to_the_queue_clears_the_reviewer(engine, policy_id):
+def test_returning_a_signal_to_the_queue_clears_the_reviewer(engine, policy_id):
     """Sending it back to pending means nobody has decided, so no reviewer is recorded."""
     with Session(engine) as session:
         (signal,) = create_signals(session, [_signal(policy_id)])
@@ -272,7 +272,7 @@ def test_get_missing_signal_raises_not_found(engine):
             get_signal(session, 99999)
 
 
-def test_deleting_an_signal_frees_its_prediction(engine, policy_id, prediction_id):
+def test_deleting_a_signal_frees_its_prediction(engine, policy_id, prediction_id):
     """A bad run's signals can be removed so the run itself can be deleted."""
     with Session(engine) as session:
         (signal,) = create_signals(session, [_signal(policy_id, prediction_id=prediction_id)])
