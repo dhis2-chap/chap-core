@@ -12,28 +12,30 @@ def ratio(numerator: float, denominator: float) -> float | None:
     return None if denominator == 0 else numerator / denominator
 
 
-@binary_outbreak_metric("sensitivity", "Sensitivity", "Share of outbreaks that were alerted: TP / (TP + FN).")
+@binary_outbreak_metric("sensitivity", "Sensitivity", "Share of outbreaks that were signaled: TP / (TP + FN).")
 def sensitivity(c: BinaryConfusion) -> float | None:
     return ratio(c.tp, c.tp + c.fn)
 
 
-@binary_outbreak_metric("specificity", "Specificity", "Share of non-outbreaks that were not alerted: TN / (TN + FP).")
+@binary_outbreak_metric("specificity", "Specificity", "Share of non-outbreaks that were not signaled: TN / (TN + FP).")
 def specificity(c: BinaryConfusion) -> float | None:
     return ratio(c.tn, c.tn + c.fp)
 
 
-@binary_outbreak_metric("accuracy", "Accuracy", "Share of cells where alert and outbreak agree.")
+@binary_outbreak_metric("accuracy", "Accuracy", "Share of cells where signal and outbreak agree.")
 def accuracy(c: BinaryConfusion) -> float | None:
     return ratio(c.tp + c.tn, c.tp + c.fp + c.fn + c.tn)
 
 
-@binary_outbreak_metric("ppv", "PPV", "Positive predictive value: share of alerts that were outbreaks, TP / (TP + FP).")
+@binary_outbreak_metric(
+    "ppv", "PPV", "Positive predictive value: share of signals that were outbreaks, TP / (TP + FP)."
+)
 def ppv(c: BinaryConfusion) -> float | None:
     return ratio(c.tp, c.tp + c.fp)
 
 
 @binary_outbreak_metric(
-    "npv", "NPV", "Negative predictive value: share of non-alerts that were not outbreaks, TN / (TN + FN)."
+    "npv", "NPV", "Negative predictive value: share of non-signals that were not outbreaks, TN / (TN + FN)."
 )
 def npv(c: BinaryConfusion) -> float | None:
     return ratio(c.tn, c.tn + c.fn)
@@ -51,7 +53,7 @@ def balanced_accuracy(c: BinaryConfusion) -> float | None:
 
 
 @binary_outbreak_metric(
-    "mcc", "MCC", "Matthews correlation coefficient between alert and outbreak, in [-1, 1]; 0 is chance level."
+    "mcc", "MCC", "Matthews correlation coefficient between signal and outbreak, in [-1, 1]; 0 is chance level."
 )
 def mcc(c: BinaryConfusion) -> float | None:
     return ratio(

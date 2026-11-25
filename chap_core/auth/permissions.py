@@ -31,10 +31,10 @@ class Permission(StrEnum):
     WRITE_PREDICTION_SETUPS = "write:prediction-setups"
     DELETE_PREDICTION_SETUPS = "delete:prediction-setups"
 
-    READ_ALERTS = "read:alerts"
-    WRITE_ALERTS = "write:alerts"
-    APPROVE_ALERTS = "approve:alerts"
-    DELETE_ALERTS = "delete:alerts"
+    READ_SIGNALS = "read:signals"
+    WRITE_SIGNALS = "write:signals"
+    APPROVE_SIGNALS = "approve:signals"
+    DELETE_SIGNALS = "delete:signals"
 
     # Job logs and requests can hold raw data, so reading jobs is not part of the viewer tier.
     READ_JOBS = "read:jobs"

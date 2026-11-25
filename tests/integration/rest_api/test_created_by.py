@@ -8,9 +8,9 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from chap_core.auth.context import PrincipalLogFilter, principal_scope
-from chap_core.database.alert_tables import Alert, AlertPolicy
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
+from chap_core.database.signal_tables import Signal, ThresholdPolicy
 from chap_core.database.tables import Backtest, Prediction, PredictionSetup
 from chap_core.rest_api.app import app
 
@@ -18,7 +18,7 @@ TOKEN = "c" * 32
 POLICY = {
     "name": "ladder",
     "levels": [
-        {"name": "monitor", "thresholdParams": {"type": "seasonal", "stdMultiplier": 1.0}, "exceedanceThreshold": 0.3}
+        {"name": "monitor", "thresholdParams": {"type": "seasonal", "stdMultiplier": 1.0}, "alarmThreshold": 0.3}
     ],
 }
 
@@ -46,18 +46,18 @@ def created_by(engine, table, record_id: int) -> str | None:
 
 
 def test_a_record_names_the_token_that_created_it(client, clean_engine, dependency_overrides, caps_token):
-    response = client.post("/v1/crud/alert-policies", json=POLICY, headers=caps_token)
+    response = client.post("/v1/crud/threshold-policies", json=POLICY, headers=caps_token)
 
-    assert created_by(clean_engine, AlertPolicy, response.json()["id"]) == "token:caps"
+    assert created_by(clean_engine, ThresholdPolicy, response.json()["id"]) == "token:caps"
 
 
 def test_with_authentication_off_no_owner_is_recorded(client, clean_engine, dependency_overrides, monkeypatch):
     monkeypatch.delenv("CHAP_API_TOKEN", raising=False)
     monkeypatch.delenv("CHAP_CONFIG", raising=False)
 
-    response = client.post("/v1/crud/alert-policies", json=POLICY)
+    response = client.post("/v1/crud/threshold-policies", json=POLICY)
 
-    assert created_by(clean_engine, AlertPolicy, response.json()["id"]) is None
+    assert created_by(clean_engine, ThresholdPolicy, response.json()["id"]) is None
 
 
 def test_a_job_and_what_it_creates_name_the_token(
@@ -99,7 +99,7 @@ def test_the_principal_does_not_break_uvicorns_access_formatter():
 
 
 @pytest.mark.parametrize(
-    "table", [Prediction, Backtest, DataSet, ConfiguredModelDB, PredictionSetup, Alert, AlertPolicy]
+    "table", [Prediction, Backtest, DataSet, ConfiguredModelDB, PredictionSetup, Signal, ThresholdPolicy]
 )
 def test_every_owned_table_records_its_creator(table):
     assert "created_by" in table.__table__.columns
@@ -153,15 +153,15 @@ def test_a_prediction_setup_names_the_token(client, override_session, p_seeded_e
     assert created_by(p_seeded_engine, PredictionSetup, response.json()["id"]) == "token:caps"
 
 
-def test_an_alert_names_the_token(client, clean_engine, dependency_overrides, caps_token):
-    policy_id = client.post("/v1/crud/alert-policies", json=POLICY, headers=caps_token).json()["id"]
-    alert = {"timePeriod": "2024-07", "orgUnit": "A", "alertPolicyId": policy_id, "level": "monitor"}
+def test_a_signal_names_the_token(client, clean_engine, dependency_overrides, caps_token):
+    policy_id = client.post("/v1/crud/threshold-policies", json=POLICY, headers=caps_token).json()["id"]
+    signal = {"timePeriod": "2024-07", "orgUnit": "A", "thresholdPolicyId": policy_id, "level": "monitor"}
 
-    response = client.post("/v1/crud/alerts", json={"alerts": [alert]}, headers=caps_token)
+    response = client.post("/v1/crud/signals", json={"signals": [signal]}, headers=caps_token)
 
     assert response.status_code == 200, response.text
-    (alert_id,) = response.json()["ids"]
-    assert created_by(clean_engine, Alert, alert_id) == "token:caps"
+    (signal_id,) = response.json()["ids"]
+    assert created_by(clean_engine, Signal, signal_id) == "token:caps"
 
 
 def test_a_configured_model_names_the_token(client, clean_engine, dependency_overrides, caps_token):

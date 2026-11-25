@@ -15,7 +15,7 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-from chap_core.database.migration_helpers import has_column
+from chap_core.database.migration_helpers import has_column, has_table
 
 # revision identifiers, used by Alembic.
 revision: str = "bfb92b05d718"
@@ -28,11 +28,12 @@ TABLES = ("prediction", "backtest", "dataset", "configuredmodeldb", "predictions
 
 def upgrade() -> None:
     for table in TABLES:
-        if not has_column(table, "created_by"):
+        # A database stamped at this revision by create_all has the alert tables under their later names.
+        if has_table(table) and not has_column(table, "created_by"):
             op.add_column(table, sa.Column("created_by", sa.String(), nullable=True))
 
 
 def downgrade() -> None:
     for table in TABLES:
-        if has_column(table, "created_by"):
+        if has_table(table) and has_column(table, "created_by"):
             op.drop_column(table, "created_by")

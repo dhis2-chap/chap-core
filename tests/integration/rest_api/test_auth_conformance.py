@@ -298,15 +298,15 @@ class TestSecondPermissions:
         assert response.status_code == 403
         assert "write:datasets" in response.json()["detail"]
 
-    def test_changing_a_setups_alert_policy_also_needs_write_alerts(self, narrow_client):
+    def test_changing_a_setups_threshold_policy_also_needs_write_signals(self, narrow_client):
         response = narrow_client.patch(
             "/v1/crud/prediction-setups/1",
-            json={"alertPolicyId": 1},
+            json={"thresholdPolicyId": 1},
             headers={"Authorization": f"Bearer {SETUPS_TOKEN}"},
         )
 
         assert response.status_code == 403
-        assert "write:alerts" in response.json()["detail"]
+        assert "write:signals" in response.json()["detail"]
 
     def test_the_viewer_tier_cannot_download_a_datasets_observations(self, narrow_client):
         response = narrow_client.get("/v1/crud/datasets/1/csv", headers={"Authorization": f"Bearer {VIEWER_TOKEN}"})

@@ -1328,14 +1328,14 @@ class OutbreakMetricInfo(DBModel):
     display_name: str = Field(description="Human-friendly metric name.")
     description: str = Field(default="", description="What the metric measures.")
     kind: OutbreakMetricKind = Field(
-        description="`binary` metrics are reported per alert level; `categorical` metrics judge the policy as a whole."
+        description="`binary` metrics are reported per threshold level; `categorical` metrics judge the policy as a whole."
     )
 
 
 class LevelOutbreakMetrics(DBModel):
-    """Binary metrics for one alert level."""
+    """Binary metrics for one threshold level."""
 
-    level: str = Field(description="Name of the alert level.")
+    level: str = Field(description="Name of the threshold level.")
     metrics: dict[str, float | None] = Field(
         description="Value per binary metric id. `null` where undefined, e.g. sensitivity when no cell was an outbreak."
     )
@@ -1355,7 +1355,7 @@ class OutbreakMetricsRow(DBModel):
 
 
 class OutbreakMetricsResponse(DBModel):
-    """Outbreak-detection metrics of a backtest judged against an alert policy."""
+    """Outbreak-detection metrics of a backtest judged against a threshold policy."""
 
     categories: list[str] = Field(
         description="Category names in severity order, as the categorical metrics see them: "
@@ -1374,7 +1374,7 @@ class OutbreakMetricsResponse(DBModel):
     summary="Discover which outbreak metrics are available",
 )
 def list_outbreak_metrics():
-    """List the registered outbreak metrics, binary ones (per alert level) and categorical ones (per policy).
+    """List the registered outbreak metrics, binary ones (per threshold level) and categorical ones (per policy).
 
     The ids are the keys the metrics are reported under by
     `GET /v1/analytics/backtests/{backtestId}/outbreak-metrics`.
@@ -1391,21 +1391,25 @@ def list_outbreak_metrics():
     dependencies=[require(Permission.READ_BACKTESTS)],
     response_model=OutbreakMetricsResponse,
     tags=["Metrics"],
-    summary="Score a backtest's outbreak alerts against an alert policy",
+    summary="Score a backtest's outbreak signals against a threshold policy",
 )
 def get_outbreak_metrics(
     backtest_id: Annotated[int, Path(alias="backtestId")],
-    alert_policy_id: Annotated[int, Query(alias="alertPolicyId")],
+    threshold_policy_id: Annotated[int | None, Query(alias="thresholdPolicyId")] = None,
     group_by: Annotated[list[DataDimension] | None, Query(alias="groupBy")] = None,
+    alert_policy_id: Annotated[
+        int | None,
+        Query(alias="alertPolicyId", deprecated=True, description="Deprecated alias for `thresholdPolicyId`."),
+    ] = None,
     session: Session = Depends(get_session),
 ):
-    """Judge how well a backtest's forecasts would have raised the alerts of an alert policy.
+    """Judge how well a backtest's forecasts would have raised the signals of a threshold policy.
 
     Each level's threshold is computed by its strategy, as in `POST /v1/analytics/thresholds`,
     per split from the observations before the split's first forecast period: what a live
     run with that history would have used. A cell (location, period, horizon) is an outbreak
-    at a level when observed cases exceed the threshold, and is alerted when the share of
-    forecast samples above it reaches the level's `exceedanceThreshold`. Every level gets the
+    at a level when observed cases exceed the threshold, and is signaled when the share of
+    forecast samples above it reaches the level's `alarmThreshold`. Every level gets the
     binary metrics; the levels together get the categorical metrics on the most severe level
     breached. See `GET /v1/analytics/outbreak-metrics` for the metrics.
 
@@ -1417,16 +1421,20 @@ def get_outbreak_metrics(
     """
     from chap_core.assessment.evaluation import Evaluation
     from chap_core.assessment.outbreak_metrics.scoring import label_cells, score
-    from chap_core.database.alert_tables import AlertPolicy
+    from chap_core.database.signal_tables import ThresholdPolicy
 
+    if threshold_policy_id is None:
+        threshold_policy_id = alert_policy_id
+    if threshold_policy_id is None:
+        raise HTTPException(status_code=422, detail="thresholdPolicyId is required")
     backtest = session.get(Backtest, backtest_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="Backtest not found")
-    policy = session.get(AlertPolicy, alert_policy_id)
+    policy = session.get(ThresholdPolicy, threshold_policy_id)
     if policy is None:
-        raise HTTPException(status_code=404, detail="Alert policy not found")
+        raise HTTPException(status_code=404, detail="Threshold policy not found")
     if not policy.levels:
-        raise HTTPException(status_code=400, detail=f"Alert policy {alert_policy_id} has no levels")
+        raise HTTPException(status_code=400, detail=f"Threshold policy {threshold_policy_id} has no levels")
 
     flat = Evaluation.from_backtest(backtest).to_flat()
     try:

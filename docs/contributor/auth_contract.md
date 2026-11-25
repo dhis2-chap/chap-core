@@ -138,7 +138,7 @@ A permission is named `action:resource`, such as `read:predictions` or `run:back
   `POST` that only reads, such as a query with a body, needs a `read:` permission.
 - A route whose request can also do a second thing checks a second permission in the
   handler, and answers 403 naming it:
-    - attaching or changing a prediction setup's alert policy also needs `write:alerts`;
+    - attaching or changing a prediction setup's threshold policy also needs `write:signals`;
     - running a prediction setup (`POST /v1/crud/prediction-setups/{id}/run`) and the
       deprecated `make-prediction` and `create-backtest-with-data` store the posted
       observations as a dataset, so they also need `write:datasets` (not for a dry run).
@@ -176,12 +176,12 @@ Every permission, what it allows, and which built-in tiers hold it:
 | `run:predictions` | Running predictions, and prediction setups | | yes | yes |
 | `delete:predictions` | Deleting predictions | | | yes |
 | `read:prediction-setups` | Prediction setups and their monitoring | yes | yes | yes |
-| `write:prediction-setups` | Creating and changing prediction setups; their alert policy also needs `write:alerts` | | yes | yes |
+| `write:prediction-setups` | Creating and changing prediction setups; their threshold policy also needs `write:signals` | | yes | yes |
 | `delete:prediction-setups` | Retiring prediction setups | | | yes |
-| `read:alerts` | Alerts and alert policies | yes | yes | yes |
-| `write:alerts` | Recording alerts, creating and changing alert policies | | | yes |
-| `approve:alerts` | Clearing or declining alerts for release | | | yes |
-| `delete:alerts` | Deleting alerts and alert policies | | | yes |
+| `read:signals` | Signals and threshold policies | yes | yes | yes |
+| `write:signals` | Recording signals, creating and changing threshold policies | | | yes |
+| `approve:signals` | Releasing or withholding signals | | | yes |
+| `delete:signals` | Deleting signals and threshold policies | | | yes |
 | `read:jobs` | Jobs, their logs, requests and results | | yes | yes |
 | `write:jobs` | Cancelling and forgetting the caller's own jobs; any job with every permission | | yes | yes |
 | `read:settings` | The installation's defaults, and the fixed lists clients choose from: plot types, weather providers, data sources, threshold strategies, outbreak metrics, terminology | yes | yes | yes |
@@ -232,16 +232,26 @@ the fixed lists clients choose from, such as plot types, weather providers and t
 | POST | `/v1/crud/configured-models` | `write:models` |
 | GET | `/v1/crud/configured-models/{configuredModelId}` | `read:models` |
 | DELETE | `/v1/crud/configured-models/{configuredModelId}` | `delete:models` |
-| POST | `/v1/crud/alerts` | `write:alerts` |
-| GET | `/v1/crud/alerts` | `read:alerts` |
-| GET | `/v1/crud/alerts/{alertId}` | `read:alerts` |
-| DELETE | `/v1/crud/alerts/{alertId}` | `delete:alerts` |
-| POST | `/v1/crud/alerts/$approve` | `approve:alerts` |
-| GET | `/v1/crud/alert-policies` | `read:alerts` |
-| POST | `/v1/crud/alert-policies` | `write:alerts` |
-| GET | `/v1/crud/alert-policies/{alertPolicyId}` | `read:alerts` |
-| PATCH | `/v1/crud/alert-policies/{alertPolicyId}` | `write:alerts` |
-| DELETE | `/v1/crud/alert-policies/{alertPolicyId}` | `delete:alerts` |
+| POST | `/v1/crud/signals` | `write:signals` |
+| GET | `/v1/crud/signals` | `read:signals` |
+| GET | `/v1/crud/signals/{signalId}` | `read:signals` |
+| DELETE | `/v1/crud/signals/{signalId}` | `delete:signals` |
+| POST | `/v1/crud/signals/$set-release-status` | `approve:signals` |
+| GET | `/v1/crud/threshold-policies` | `read:signals` |
+| POST | `/v1/crud/threshold-policies` | `write:signals` |
+| GET | `/v1/crud/threshold-policies/{thresholdPolicyId}` | `read:signals` |
+| PATCH | `/v1/crud/threshold-policies/{thresholdPolicyId}` | `write:signals` |
+| DELETE | `/v1/crud/threshold-policies/{thresholdPolicyId}` | `delete:signals` |
+| POST | `/v1/crud/alerts` | `write:signals` |
+| GET | `/v1/crud/alerts` | `read:signals` |
+| GET | `/v1/crud/alerts/{alertId}` | `read:signals` |
+| DELETE | `/v1/crud/alerts/{alertId}` | `delete:signals` |
+| POST | `/v1/crud/alerts/$approve` | `approve:signals` |
+| GET | `/v1/crud/alert-policies` | `read:signals` |
+| POST | `/v1/crud/alert-policies` | `write:signals` |
+| GET | `/v1/crud/alert-policies/{alertPolicyId}` | `read:signals` |
+| PATCH | `/v1/crud/alert-policies/{alertPolicyId}` | `write:signals` |
+| DELETE | `/v1/crud/alert-policies/{alertPolicyId}` | `delete:signals` |
 | GET | `/v1/crud/prediction-setups` | `read:prediction-setups` |
 | POST | `/v1/crud/prediction-setups` | `write:prediction-setups` |
 | GET | `/v1/crud/prediction-setups/{predictionSetupId}` | `read:prediction-setups` |
@@ -330,8 +340,8 @@ A tier is resolved against the running release, and the built-in tiers can widen
 | Tier | Permissions |
 | --- | --- |
 | `public` | Only the open routes. Given to `anonymous`; cannot be given to a token. |
-| `viewer` | Every `read:` permission except `read:jobs` and `read:system`. It reads stored results: backtests, their forecasts and the observed cases they were scored against, predictions, models, alerts and settings. It does not hold `export:datasets`, so it cannot download a dataset's observations. Jobs are left out because their logs and stored requests show other clients' work and internal details such as file paths and errors. For dashboards and the read-only DHIS2 route. |
-| `analyst` | `viewer`, plus `export:datasets`, `read:jobs`, `write:jobs`, `read:system`, `write:datasets`, `run:backtests`, `run:predictions`, `write:prediction-setups` and `call:services`. It deletes no stored record and changes no models, settings, backtests, alerts or alert policies, and it cancels and forgets only its own jobs. |
+| `viewer` | Every `read:` permission except `read:jobs` and `read:system`. It reads stored results: backtests, their forecasts and the observed cases they were scored against, predictions, models, signals and settings. It does not hold `export:datasets`, so it cannot download a dataset's observations. Jobs are left out because their logs and stored requests show other clients' work and internal details such as file paths and errors. For dashboards and the read-only DHIS2 route. |
+| `analyst` | `viewer`, plus `export:datasets`, `read:jobs`, `write:jobs`, `read:system`, `write:datasets`, `run:backtests`, `run:predictions`, `write:prediction-setups` and `call:services`. It deletes no stored record and changes no models, settings, backtests, signals or threshold policies, and it cancels and forgets only its own jobs. |
 | `admin` | Every permission, including ones added in later versions. |
 
 The catalogue lists each tier's permissions exactly. The names say who a token

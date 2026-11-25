@@ -27,8 +27,8 @@ from chap_core.models.builtin import BaselineNotApplicable
 from chap_core.rest_api.data_models import BacktestCreate, PredictionParams
 from chap_core.rest_api.job_registry import job_function
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
-from chap_core.services.alert_service import raise_alerts_for_prediction
 from chap_core.services.dataset_validation import require_model_covariates
+from chap_core.services.signal_service import raise_signals_for_prediction
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger(__name__)
@@ -282,10 +282,10 @@ def run_prediction(
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     status_logger.info(f"Starting prediction for model '{model_id}' on dataset ID {dataset_id}")
 
-    alert_policy_id = None
+    threshold_policy_id = None
     if prediction_setup_id is not None:
-        alert_policy_id = session.session.exec(
-            select(PredictionSetup.alert_policy_id).where(PredictionSetup.id == prediction_setup_id)
+        threshold_policy_id = session.session.exec(
+            select(PredictionSetup.threshold_policy_id).where(PredictionSetup.id == prediction_setup_id)
         ).one()
 
     dataset, target_column = load_masked_dataset(session.session, int(dataset_id))
@@ -311,15 +311,15 @@ def run_prediction(
         name,
         configured_model.id,
         prediction_setup_id=prediction_setup_id,
-        alert_policy_id=alert_policy_id,
+        threshold_policy_id=threshold_policy_id,
     )
     assert db_id is not None
     status_logger.info(f"Prediction completed successfully. Results saved with ID {db_id}")
     if prediction_setup_id is not None:
-        # Baselines first: they never raise, so a failing alert policy still fails the job
+        # Baselines first: they never raise, so a failing threshold policy still fails the job
         # but no longer leaves the prediction without the baseline forecasts monitoring compares it with.
         _predict_baselines(session, dataset, dataset_id, n_periods, name, db_id, future_weather_provider)
-        raise_alerts_for_prediction(session.session, db_id)
+        raise_signals_for_prediction(session.session, db_id)
     return db_id
 
 

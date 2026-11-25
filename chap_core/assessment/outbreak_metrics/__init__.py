@@ -1,6 +1,6 @@
 """Outbreak metric plugin system.
 
-Outbreak metrics judge forecasts scored against the levels of an alert policy, see
+Outbreak metrics judge forecasts scored against the levels of a threshold policy, see
 :mod:`chap_core.assessment.outbreak_metrics.scoring`. They come in two kinds, each
 with its own registry:
 
@@ -27,12 +27,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class BinaryConfusion(BaseModel):
-    """Confusion counts of one alert level over a set of cells."""
+    """Confusion counts of one threshold level over a set of cells."""
 
     model_config = ConfigDict(frozen=True)
 
-    tp: int = Field(ge=0, description="Outbreaks that were alerted.")
-    fp: int = Field(ge=0, description="Alerts without an outbreak.")
+    tp: int = Field(ge=0, description="Outbreaks that were signaled.")
+    fp: int = Field(ge=0, description="Signals without an outbreak.")
     fn: int = Field(ge=0, description="Outbreaks that were missed.")
     tn: int = Field(ge=0, description="Quiet cells left quiet.")
 
