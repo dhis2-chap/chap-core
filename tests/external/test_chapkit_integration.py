@@ -1046,3 +1046,18 @@ class TestConfigPayload:
 
     def test_no_configuration_sends_no_data(self):
         assert self._created_config(None)["data"] == {}
+
+
+class TestConfigCreationRollback:
+    def test_get_model_deletes_a_config_the_service_stored_wrongly(self):
+        client = MagicMock()
+        client.info.return_value = MOCK_INFO_RESPONSE
+        client.get_config_schema.return_value = MOCK_CONFIG_SCHEMA
+        client.create_config.return_value = _make_config_out(data={"prediction_periods": 3})
+        template = ExternalChapkitModelTemplate("http://chapkit.test")
+        template.client = client
+
+        with pytest.raises(ValueError, match="did not store"):
+            template.get_model({"user_option_values": {"n_lags": 3}})
+
+        client.delete_config.assert_called_once_with(VALID_ULID_1)
