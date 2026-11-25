@@ -108,6 +108,35 @@ def served_routes(app: FastAPI) -> Iterator[tuple[str, set[str], Dependant | Non
             yield path, set(getattr(context, "methods", None) or []), getattr(context, "dependant", None)
 
 
+def describe_permissions(schema: dict[str, Any]) -> dict[str, Any]:
+    """Start each protected operation's description with the permission it needs.
+
+    Swagger UI shows scopes only for OAuth2, so without this a bearer route's permission
+    appears only in the raw spec.
+    """
+    for operations in schema.get("paths", {}).values():
+        for operation in operations.values():
+            scopes = [scope for entry in operation.get("security", []) for scope in entry.get("HTTPBearer", [])]
+            if not scopes:
+                continue
+            needs = ", ".join(f"`{scope}`" for scope in scopes)
+            description = operation.get("description", "")
+            operation["description"] = f"**Needs {needs}.**\n\n{description}".rstrip()
+    return schema
+
+
+def install_permission_docs(app: FastAPI) -> None:
+    """Make ``app.openapi()`` name each route's permission in its description."""
+    build = app.openapi
+
+    def openapi() -> dict[str, Any]:
+        if app.openapi_schema is None:
+            app.openapi_schema = describe_permissions(build())
+        return app.openapi_schema
+
+    app.openapi = openapi  # type: ignore[method-assign]
+
+
 def check_route_permissions(app: FastAPI) -> None:
     """Refuse to start unless every route is public or declares exactly one known permission."""
     problems = []

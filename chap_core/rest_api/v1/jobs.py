@@ -151,8 +151,8 @@ def list_jobs(
 
     Optionally narrow the list by ``ids``, ``type`` (e.g. ``PREDICTION``, ``EVALUATION``),
     ``predictionSetupId`` (every job a given setup has launched), and/or ``status``
-    (case-insensitive). Filters compose. An empty list just means nothing matched — no
-    404.
+    (case-insensitive). Filters compose. An empty list just means nothing matched, not a
+    404 error.
     """
     jobs_to_return = worker.list_jobs()
 
