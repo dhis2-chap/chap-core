@@ -23,6 +23,7 @@ from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
 from ..models.external_chapkit_model import ExternalChapkitModelTemplate
+from ..services.model_marketplace import RESERVED_CONFIG_KEYS
 from .dataset_tables import DataSet, Observation
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import (
@@ -294,6 +295,17 @@ class SessionWrapper:
         else:
             # combine model template with configuration name to make the name unique
             name = f"{template_name}:{configuration_name}"
+
+        # chap-core sets these per run, so a value stored here would be ignored without a word.
+        # Checked before the reuse below, so a configuration stored with one before is refused too.
+        if uses_chapkit:
+            reserved = [key for key in RESERVED_CONFIG_KEYS if key in (configuration.user_option_values or {})]
+            if reserved:
+                raise ValueError(
+                    f"Invalid user options: {', '.join(reserved)} cannot be set as a user option; "
+                    "chap-core sets the prediction length per run, and additional covariates go in "
+                    "additional_continuous_covariates"
+                )
 
         # check if this exact configuration already exists
         digest = compute_configuration_digest(configuration)

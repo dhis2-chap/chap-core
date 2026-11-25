@@ -22,7 +22,13 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, select
 
 import chap_core.database.tables  # noqa: F401 - ensure all table models are registered with SQLModel
-from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB, ModelTemplateRole
+from chap_core.database.model_templates_and_config_tables import (
+    ConfiguredModelDB,
+    ModelConfiguration,
+    ModelTemplateDB,
+    ModelTemplateRole,
+    compute_configuration_digest,
+)
 from chap_core.rest_api.app import app
 from chap_core.rest_api.services.orchestrator import KEY_PREFIX, Orchestrator
 from chap_core.rest_api.services.schemas import MLServiceInfo, RegistrationRequest
@@ -579,3 +585,45 @@ def test_registry_client_does_not_retry_a_refused_connection(monkeypatch):
         assert time.monotonic() - start < 1.0
     finally:
         get_registry_read_redis.cache_clear()
+
+
+@pytest.mark.parametrize("reserved", ["prediction_periods", "additional_continuous_covariates"])
+def test_configured_model_refuses_options_chap_sets_itself(client, register_service, reserved):
+    template_id = _install(client, register_service)["id"]
+    response = client.post(
+        "/v1/crud/configured-models",
+        json={"name": "custom", "modelTemplateId": template_id, "userOptionValues": {reserved: 6}},
+    )
+    assert response.status_code == 422, response.text
+    assert reserved in response.json()["detail"]
+
+
+def test_configured_model_refuses_a_reserved_option_stored_before_the_check(client, register_service, db_engine):
+    template_id = _install(client, register_service)["id"]
+    stored = ModelConfiguration(user_option_values={"prediction_periods": 6}, additional_continuous_covariates=[])
+    with Session(db_engine) as session:
+        session.add(
+            ConfiguredModelDB(
+                name="test-model:custom",
+                model_template_id=template_id,
+                uses_chapkit=True,
+                configuration_digest=compute_configuration_digest(stored),
+                **stored.model_dump(),
+            )
+        )
+        session.commit()
+
+    response = client.post(
+        "/v1/crud/configured-models",
+        json={"name": "custom", "modelTemplateId": template_id, "userOptionValues": {"prediction_periods": 6}},
+    )
+    assert response.status_code == 422, response.text
+
+
+def test_configured_model_accepts_ordinary_chapkit_options(client, register_service):
+    template_id = _install(client, register_service)["id"]
+    response = client.post(
+        "/v1/crud/configured-models",
+        json={"name": "custom", "modelTemplateId": template_id, "userOptionValues": {"n_lags": 2}},
+    )
+    assert response.status_code == 200, response.text
