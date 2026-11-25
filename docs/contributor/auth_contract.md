@@ -1,12 +1,12 @@
 # Auth contract
 
 This page is the contract chap-core's authentication and authorization are built and tested
-against (epic CLIM-1955). [API Authentication](../webapi/api-authentication.md) covers the
+against. [API Authentication](../webapi/api-authentication.md) covers the
 single `CHAP_API_TOKEN` from the point of view of whoever runs Chap.
 
 chap-core takes Open Geo Service's contract
-([`docs/authentication.md`](https://github.com/dhis2/open-geo-service/blob/main/docs/authentication.md),
-CLIM-1292) and adds permissions. The two share the format of the `authentication` block, the
+([`docs/authentication.md`](https://github.com/dhis2/open-geo-service/blob/main/docs/authentication.md))
+and adds permissions. The two share the format of the `authentication` block, the
 headers and the error answers. Each service has its own tiers: Open Geo Service decides by
 route tier, Chap by permission. The tier names are Chap's own, so a token copied from an Open
 Geo Service block needs a Chap tier.
@@ -25,8 +25,7 @@ permissions, and every principal has exactly one tier.
 | Existing installs | `CHAP_API_TOKEN` | `token:legacy` |
 | A chapkit service registering itself | `SERVICEKIT_REGISTRATION_KEY` in `X-Service-Key`, on `/v2/services` only | `service-registry`, with `register:services`, `read:services` and `call:services`, the registry routes it opened before named tokens |
 
-Usernames and email addresses are never principal ids. Records store the principal id
-(CLIM-1965).
+Usernames and email addresses are never principal ids. Records store the principal id.
 
 ## Turning authentication on
 
@@ -132,7 +131,7 @@ behind a proxy that adds a stale header keeps working.
 
 A permission is named `action:resource`, such as `read:predictions` or `run:backtests`.
 
-- The set is fixed in code (CLIM-1959). A deployment cannot add one.
+- The set is fixed in code. A deployment cannot add one.
 - Actions are `read`, `export`, `write`, `delete`, `run`, `approve`, `call` and `register`.
   A new action needs a change to this contract.
 - Each route needs exactly one permission, chosen per route rather than per HTTP method. A
@@ -149,7 +148,7 @@ A permission is named `action:resource`, such as `read:predictions` or `run:back
   the caller holds every permission. For another principal's job, or one started while
   authentication was off, cancel and forget answer 404. Reading jobs, their logs and stored
   requests (`read:jobs`, plus `export:datasets` for a stored request) is not limited to the
-  caller's own yet; that is open in CLIM-1973.
+  caller's own yet.
 - Routes declare it with FastAPI's `Security(authorize, scopes=["read:predictions"])`, so it
   shows in `/docs` and in the OpenAPI spec.
 - chap-core refuses to start unless every route it serves is public or declares exactly one
@@ -157,6 +156,8 @@ A permission is named `action:resource`, such as `read:predictions` or `run:back
   such as the chapkit proxy, are covered too.
 
 Every permission, what it allows, and which built-in tiers hold it:
+
+<div class="permission-table" markdown>
 
 | Permission | Allows | `viewer` | `analyst` | `admin` |
 | --- | --- | --- | --- | --- |
@@ -189,6 +190,8 @@ Every permission, what it allows, and which built-in tiers hold it:
 | `read:services` | Listing registered chapkit services | yes | yes | yes |
 | `call:services` | The read-only proxy to a registered chapkit service | | yes | yes |
 | `register:services` | Registering, pinging and deregistering a chapkit service | | | yes |
+
+</div>
 
 ## Permission catalogue
 
@@ -331,7 +334,7 @@ A tier is resolved against the running release, and the built-in tiers can widen
 | `analyst` | `viewer`, plus `export:datasets`, `read:jobs`, `write:jobs`, `read:system`, `write:datasets`, `run:backtests`, `run:predictions`, `write:prediction-setups` and `call:services`. It deletes no stored record and changes no models, settings, backtests, alerts or alert policies, and it cancels and forgets only its own jobs. |
 | `admin` | Every permission, including ones added in later versions. |
 
-The catalogue (CLIM-1959) lists each tier's permissions exactly. The names say who a token
+The catalogue lists each tier's permissions exactly. The names say who a token
 is for: a `viewer` reads results, an `analyst` runs work, an `admin` may do everything. They
 match the DHIS2 routes the Modeling App will use, one per audience (`chap-read`, `chap` and
 `chap-admin`). Open Geo Service names its tiers by what a caller has shown (`authenticated`),
@@ -449,13 +452,13 @@ text changes. The status codes and the `WWW-Authenticate` header stay the same.
 ## Where it is enforced
 
 - Starlette's `AuthenticationMiddleware` with a `ChapTokenBackend` finds the credential and
-  resolves the principal (CLIM-1961). It answers 401 before the body is read.
+  resolves the principal. It answers 401 before the body is read.
 - `Security(authorize, scopes=[...])` on each route compares the principal's permissions with
-  the route's and answers 403 (CLIM-1962).
+  the route's and answers 403.
 - The registration key check stays a dependency on the three registration routes.
 - `GET /v1/auth/me` reports the caller's principal, tier and permissions, and needs no
-  permission (CLIM-1964).
-- The conformance tests (CLIM-1960) check the rules on this page against the running app,
+  permission.
+- The conformance tests check the rules on this page against the running app,
   every route refuses a token without its permission, and a test compares the permission and
   route tables here with the code.
 
@@ -464,7 +467,7 @@ text changes. The status codes and the `WWW-Authenticate` header stay the same.
 - **Basic `id:secret`:** accepted, as in Open Geo Service. It costs one branch, keeps both
   services answering the same clients, and the id must match the secret's token.
 - **Deletes:** every `delete:` permission is in `admin` only. A custom tier can grant
-  one. Deleting your own records waits until records store their principal (CLIM-1965);
+  one. Deleting your own records waits until records store their principal;
   records from before that have no owner.
 
 ## Proposal to Open Geo Service
