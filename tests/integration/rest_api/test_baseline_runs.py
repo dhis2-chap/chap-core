@@ -375,6 +375,9 @@ def test_selection_bias_needs_the_baseline_and_three_split_points(
     _run_queued(p_seeded_engine, baseline_worker)
     response = client.get(url, params={"baseline": "persistence"})
     assert response.status_code == 422
+    # 3 horizon distances: 3 split points plus a gap of 2 between window and test splits.
+    assert "at least 5 split points" in response.json()["detail"]
+    response = client.get(url, params={"baseline": "persistence", "horizonDistance": 1})
     assert "at least 3 split points" in response.json()["detail"]
 
 
@@ -397,12 +400,18 @@ def test_selection_bias_runs_on_every_split_point(override_session, p_seeded_eng
         template.role = None
         session.session.commit()
 
-    response = client.get(
-        f"/v1/crud/backtest-specifications/{specification_id}/selection-bias",
-        params={"baseline": "persistence", "metric": "mae"},
-    )
+    url = f"/v1/crud/backtest-specifications/{specification_id}/selection-bias"
+    # By default all 3 horizon distances are scored, and the test splits start 2 splits after
+    # each window: 4 split points are too few.
+    response = client.get(url, params={"baseline": "persistence", "metric": "mae"})
+    assert response.status_code == 422
+    assert "at least 5 split points" in response.json()["detail"]
+
+    response = client.get(url, params={"baseline": "persistence", "metric": "mae", "horizonDistance": 1})
     assert response.status_code == 200, response.text
     data = response.json()
+    assert data["horizonDistances"] == [1]
+    assert data["gapSplits"] == 0
     assert len(data["splitPeriods"]) == 4
     assert {c["modelName"] for c in data["candidates"]} == {"naive_model", "global_median"}
     assert data["selectedBacktestId"] == data["candidates"][0]["backtestId"]

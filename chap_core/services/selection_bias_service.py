@@ -23,8 +23,15 @@ model is the fit at k = n, and its estimated value on new data is its validation
 that bias. d = t - b, the number of splits between the window and the test split, is kept for
 a check: with drift cancelled, the gap should not change with d.
 
-Scores pool org units at one horizon distance. Only forecasts every candidate and the
+Scores pool org units and, by default, every horizon distance, so the final model and its
+validation value are the ones the leaderboard ranks on. Only forecasts every candidate and the
 baseline made are scored, so all models are compared on the same forecasts.
+
+With several horizon distances, the forecasts of neighbouring split points share target
+periods: the last split of a window and the first splits after it forecast some of the same
+months. A test split that shares a month with the window would not be independent of the pick,
+so the test splits start a gap of (largest - smallest horizon distance) splits after the window,
+and d counts from there. The gap assumes consecutive split points (stride 1).
 """
 
 from __future__ import annotations
@@ -75,7 +82,7 @@ class SelectionBiasError(Exception):
 class SelectionBiasPoint(DBModel):
     """One point of a scatter plot of the gap against the window size or the distance."""
 
-    x: int = Field(description="Window size k (splits) or distance d (splits after the window).")
+    x: int = Field(description="Window size k (splits) or distance d (splits after the window and the gap).")
     value: float = Field(
         description="Mean gap of the pairs at this x, weighted by forecasts scored. On the distance plot it is "
         "adjusted to the full window size, using the fitted coefficient."
@@ -105,7 +112,11 @@ class SelectionBias(DBModel):
     metric_id: str = Field(description="Id of the metric that was compared with the baseline.")
     baseline_model: str = Field(description="Name of the baseline model the values are compared with.")
     comparison_description: str = Field(description="One-line description of what the comparison values mean.")
-    horizon_distance: int = Field(description="Horizon distance whose forecasts were scored.")
+    horizon_distances: list[int] = Field(description="Horizon distances whose forecasts were scored.")
+    gap_splits: int = Field(
+        description="Splits left out between each validation window and its first test split, so the two "
+        "share no target period: the largest minus the smallest horizon distance scored."
+    )
     split_periods: list[str] = Field(description="Split points used, in order: the periods each split predicted from.")
     candidates: list[SelectionBiasCandidate] = Field(description="Every candidate model, best first.")
     selected_backtest_id: int = Field(description="Backtest of the model picked on all split points.")
@@ -158,8 +169,8 @@ class NestedPairs:
     n_windows_other_pick: int
 
 
-def nested_pairs(metric: Metric, scores: SplitScores, final_index: int) -> NestedPairs:
-    """The gap between the final model and each window's pick, on every split after the window."""
+def nested_pairs(metric: Metric, scores: SplitScores, final_index: int, gap_splits: int = 0) -> NestedPairs:
+    """The gap between the final model and each window's pick, on every split from gap_splits after the window on."""
     n = len(scores.counts)
     cum_models = np.vstack([np.zeros(scores.model_sums.shape[1]), np.cumsum(scores.model_sums, 0)])
     cum_baseline = np.concatenate([[0.0], np.cumsum(scores.baseline_sums)])
@@ -169,18 +180,19 @@ def nested_pairs(metric: Metric, scores: SplitScores, final_index: int) -> Neste
     )
     ks, ds, gaps, weights = [], [], [], []
     n_windows = other = 0
-    for a in range(n - 1):
-        for b in range(a + 1, n):
+    for a in range(n - 1 - gap_splits):
+        for b in range(a + 1, n - gap_splits):
             validation = _comparisons(
                 metric, cum_models[b] - cum_models[a], cum_baseline[b] - cum_baseline[a], cum_counts[b] - cum_counts[a]
             )
             pick = int(np.nanargmax(validation))
             n_windows += 1
             other += pick != final_index
-            ks.append(np.full(n - b, b - a))
-            ds.append(np.arange(n - b))
-            gaps.append(per_split[b:, final_index] - per_split[b:, pick])
-            weights.append(scores.counts[b:])
+            first = b + gap_splits
+            ks.append(np.full(n - first, b - a))
+            ds.append(np.arange(n - first))
+            gaps.append(per_split[first:, final_index] - per_split[first:, pick])
+            weights.append(scores.counts[first:])
     k, d, g, w = (np.concatenate(x) for x in (ks, ds, gaps, weights))
     keep = ~np.isnan(g)
     return NestedPairs(k[keep], d[keep], g[keep], w[keep].astype(float), n_windows, int(other))
@@ -218,14 +230,24 @@ class SelectionBiasEstimate:
     distance_points: list[SelectionBiasPoint]
 
 
-def estimate_selection_bias(metric: Metric, scores: SplitScores) -> SelectionBiasEstimate:
-    """Run the nested scheme on per-split scores and estimate the final pick's bias at the full window size."""
+def estimate_selection_bias(metric: Metric, scores: SplitScores, gap_splits: int = 0) -> SelectionBiasEstimate:
+    """Run the nested scheme on per-split scores and estimate the final pick's bias at the full window size.
+
+    gap_splits splits are left out between each validation window and its first test split.
+    """
     n = len(scores.counts)
-    if n < 3:
-        raise SelectionBiasError(f"Need at least 3 split points with scores for every model, got {n}")
+    if n < gap_splits + 3:
+        raise SelectionBiasError(
+            f"Need at least {gap_splits + 3} split points with scores for every model, got {n}"
+            + (
+                f" (the test splits start {gap_splits} splits after each window, so they share no target period)"
+                if gap_splits
+                else ""
+            )
+        )
     final_values = _comparisons(metric, scores.model_sums.sum(0), scores.baseline_sums.sum(), scores.counts.sum())
     final_index = int(np.nanargmax(final_values))
-    pairs = nested_pairs(metric, scores, final_index)
+    pairs = nested_pairs(metric, scores, final_index, gap_splits)
     c = fit_gap(pairs.k, pairs.gap, pairs.weights)
     return SelectionBiasEstimate(
         final_index=final_index,
@@ -250,17 +272,27 @@ def period_ids(periods: pd.Series) -> pd.Series:
 
 
 def split_scores(
-    metric: Metric, observations: pd.DataFrame, model_forecasts: list[pd.DataFrame], horizon_distance: int
-) -> tuple[list[str], SplitScores]:
-    """Per-split metric sums of each model (the last one the baseline) on the forecasts all of them made."""
+    metric: Metric,
+    observations: pd.DataFrame,
+    model_forecasts: list[pd.DataFrame],
+    horizon_distance: int | None = None,
+) -> tuple[list[str], list[int], SplitScores]:
+    """Per-split metric sums of each model (the last one the baseline) on the forecasts all of them made.
+
+    Scores every horizon distance, or only horizon_distance when it is given. Returns the split
+    periods, the horizon distances scored and the sums.
+    """
     observed = observations[observations.disease_cases.notna()]
     observed = FlatObserved.validate(observed.assign(time_period=period_ids(observed.time_period)))
     detailed = []
     for i, forecasts in enumerate(model_forecasts):
-        forecasts = forecasts[forecasts.horizon_distance == horizon_distance]
+        if horizon_distance is not None:
+            forecasts = forecasts[forecasts.horizon_distance == horizon_distance]
         forecasts = forecasts.assign(time_period=period_ids(forecasts.time_period))
         if forecasts.empty:
-            raise SelectionBiasError(f"No forecasts at horizon distance {horizon_distance}")
+            raise SelectionBiasError(
+                "No forecasts" + (f" at horizon distance {horizon_distance}" if horizon_distance is not None else "")
+            )
         scored = metric.get_detailed_metric(observed, FlatForecasts.validate(forecasts))
         detailed.append(scored[[*KEYS, "metric"]].rename(columns={"metric": i}))
     common = reduce(lambda left, right: left.merge(right, on=KEYS), detailed).dropna()
@@ -268,7 +300,12 @@ def split_scores(
     sums = common.groupby("origin")[list(range(len(model_forecasts)))].sum().sort_index()
     counts = common.groupby("origin").size().reindex(sums.index).to_numpy(float)
     values = sums.to_numpy(float)
-    return list(sums.index), SplitScores(model_sums=values[:, :-1], baseline_sums=values[:, -1], counts=counts)
+    horizons = sorted(int(h) for h in common.horizon_distance.unique())
+    return (
+        list(sums.index),
+        horizons,
+        SplitScores(model_sums=values[:, :-1], baseline_sums=values[:, -1], counts=counts),
+    )
 
 
 def _candidate_backtests(session: Session, specification_id: int) -> list[Backtest]:
@@ -291,14 +328,17 @@ def get_selection_bias(
     specification_id: int,
     metric_id: str,
     baseline_name: str | None = None,
-    horizon_distance: int = 1,
+    horizon_distance: int | None = None,
 ) -> SelectionBias:
     """Estimate the selection bias of the best model on a specification from all its split points.
+
+    Scores every horizon distance unless horizon_distance picks one.
 
     Raises:
         SpecificationNotFoundError: the specification does not exist.
         SelectionBiasError: unknown metric or baseline, metric without a mean aggregation or a comparison,
-            the baseline has not run, fewer than two candidate models, or fewer than three split points.
+            the baseline has not run, fewer than two candidate models, or too few split points
+            (three, plus the gap between window and test splits).
     """
     if session.get(BacktestSpecification, specification_id) is None:
         raise SpecificationNotFoundError(f"Backtest specification {specification_id} not found")
@@ -329,8 +369,11 @@ def get_selection_bias(
         raise SelectionBiasError(f"Need at least 2 models on the specification, found {len(candidates)}")
 
     flats = [Evaluation.from_backtest(backtest).to_flat() for backtest in [*candidates, baseline_backtest]]
-    periods, scores = split_scores(metric, flats[0].observations, [flat.forecasts for flat in flats], horizon_distance)
-    estimate = estimate_selection_bias(metric, scores)
+    periods, horizons, scores = split_scores(
+        metric, flats[0].observations, [flat.forecasts for flat in flats], horizon_distance
+    )
+    gap_splits = horizons[-1] - horizons[0]
+    estimate = estimate_selection_bias(metric, scores, gap_splits)
     final = candidates[estimate.final_index]
     validation_value = float(estimate.final_values[estimate.final_index])
     ranked = sorted(
@@ -340,7 +383,8 @@ def get_selection_bias(
         metric_id=metric_id,
         baseline_model=baseline_name,
         comparison_description=get_comparison_description(metric_cls.spec.comparison_op),
-        horizon_distance=horizon_distance,
+        horizon_distances=horizons,
+        gap_splits=gap_splits,
         split_periods=periods,
         candidates=[
             SelectionBiasCandidate(
