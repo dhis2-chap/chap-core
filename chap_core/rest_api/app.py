@@ -41,6 +41,7 @@ openapi_tags = [
     {"name": "Prediction Setups", "description": "Automation configs that schedule predictions from a backtest"},
     {"name": "Signals", "description": "Signals raised against a policy, and the gate that releases them"},
     {"name": "Threshold Policies", "description": "Tiered thresholds a prediction setup raises signals against"},
+    {"name": "Alerts (deprecated)", "description": "Old names for the signal and threshold-policy routes"},
     {"name": "Visualizations", "description": "Generate plots and charts"},
     {"name": "Jobs", "description": "Monitor and manage async jobs"},
     {"name": "Services", "description": "Service registry (v2)"},

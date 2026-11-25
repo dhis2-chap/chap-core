@@ -151,6 +151,7 @@ class TestOpenAPITags:
             "Prediction Setups",
             "Signals",
             "Threshold Policies",
+            "Alerts (deprecated)",
             "Visualizations",
             "Jobs",
             "Services",

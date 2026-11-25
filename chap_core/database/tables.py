@@ -20,7 +20,7 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateDB,
     ModelTemplateRole,
 )
-from chap_core.database.signal_tables import ThresholdPolicy, ThresholdPolicyRead
+from chap_core.database.signal_tables import AlertPolicyRead, ThresholdPolicy, ThresholdPolicyRead
 
 
 class BackendSettings(DBModel, table=True):
@@ -398,6 +398,19 @@ class PredictionSetupRead(DBModel):
         default=None, description="Threshold policy this setup raises signals against; `None` means no signaling."
     )
 
+    # Served under its old name and shape too, so clients from before the rename to
+    # signals keep working. The schema flag marks it deprecated without a warning per response.
+    @computed_field(  # type: ignore[prop-decorator]
+        alias="alertPolicy",
+        description="Deprecated alias for `thresholdPolicy`, with the old field names.",
+        json_schema_extra={"deprecated": True},
+    )
+    @property
+    def alert_policy(self) -> AlertPolicyRead | None:
+        if self.threshold_policy is None:
+            return None
+        return AlertPolicyRead.model_validate(self.threshold_policy.model_dump())
+
 
 class MonitoringSource(StrEnum):
     """Where a monitoring point's forecasts come from."""
@@ -560,6 +573,15 @@ class PredictionInfo(PredictionBase):
         description="Configured model used for the prediction, joined for convenience."
     )
     dataset: DataSetMeta = Field(description="Slim dataset summary the prediction was run against.")
+
+    @computed_field(  # type: ignore[prop-decorator]
+        alias="alertPolicyId",
+        description="Deprecated alias for `thresholdPolicyId`.",
+        json_schema_extra={"deprecated": True},
+    )
+    @property
+    def alert_policy_id(self) -> int | None:
+        return self.threshold_policy_id
 
 
 # PredictionInfo = PredictionBase.get_read_class()

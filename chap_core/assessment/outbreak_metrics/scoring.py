@@ -61,7 +61,7 @@ def label_cells(observations: pd.DataFrame, forecasts: pd.DataFrame, levels: lis
         ValueError: If no threshold can be computed from the observations before any
             split, or a strategy rejects the history.
     """
-    exceedance = pd.Series([level.alarm_threshold for level in levels], name="alarm_threshold")
+    alarm_thresholds = pd.Series([level.alarm_threshold for level in levels], name="alarm_threshold")
 
     obs = observations[["location", "time_period", "disease_cases"]].dropna(subset=["disease_cases"])
     obs = obs.assign(time_period=obs["time_period"].astype(str))
@@ -75,7 +75,7 @@ def label_cells(observations: pd.DataFrame, forecasts: pd.DataFrame, levels: lis
 
     # groupby drops NaN thresholds, so a cell missing any level has fewer than len(levels) rows
     cells = cells[cells.groupby(_CELL)["level"].transform("nunique") == len(levels)]
-    cells = cells.merge(exceedance, left_on="level", right_index=True)
+    cells = cells.merge(alarm_thresholds, left_on="level", right_index=True)
     cells["outbreak"] = cells["disease_cases"] > cells["threshold"]
     cells["signal"] = cells["exceeds"] >= cells["alarm_threshold"]
     return pd.DataFrame(cells[[*_CELL, "level", "outbreak", "signal"]]).reset_index(drop=True)

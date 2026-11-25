@@ -121,7 +121,7 @@ def test_create_threshold_policy_with_an_unknown_strategy_returns_422(clean_engi
     assert response.status_code == 422, response.text
 
 
-def test_create_threshold_policy_with_out_of_range_exceedance_returns_422(clean_engine, dependency_overrides):
+def test_create_threshold_policy_with_out_of_range_alarm_threshold_returns_422(clean_engine, dependency_overrides):
     response = client.post(
         "/v1/crud/threshold-policies",
         json={

@@ -4,7 +4,7 @@ A signal is unverified. Releasing it for dissemination does not verify an event
 or assess its public-health risk; see docs/contributor/vocabulary.md.
 
 A :class:`ThresholdPolicy` is a named ladder of :class:`ThresholdLevel` tiers,
-each pairing an outbreak threshold with the exceedance probability at which
+each pairing an outbreak threshold with the alarm threshold, the probability at which
 that tier fires. A :class:`~chap_core.database.tables.PredictionSetup`
 points at one policy, so a recurring forecast knows what counts as a signal.
 
@@ -235,3 +235,22 @@ class SignalRead(SignalRecord):
     """
 
     id: int = Field(description="Primary key of the signal.")
+
+
+# Shapes from before alerts were renamed to signals (CLIM-1560). The deprecated
+# `/v1/crud/alerts` and `/v1/crud/alert-policies` routes and the deprecated
+# `alertPolicy` field serve them, so existing clients keep working. Only the
+# JSON names differ; drop these together with those routes.
+
+
+class AlertLevel(ThresholdLevel):
+    """Deprecated shape of a `ThresholdLevel`."""
+
+    alarm_threshold: float = Field(ge=0.0, le=1.0, alias="exceedanceThreshold")
+
+
+class AlertPolicyRead(ThresholdPolicyRead):
+    """Deprecated shape of a `ThresholdPolicyRead`."""
+
+    no_signal_output_code: str = Field(alias="noAlertOutputCode")
+    levels: list[AlertLevel]  # type: ignore[assignment]

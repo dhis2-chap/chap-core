@@ -28,7 +28,7 @@ TABLES = ("prediction", "backtest", "dataset", "configuredmodeldb", "predictions
 
 def upgrade() -> None:
     for table in TABLES:
-        # The alert tables are renamed later, so a fresh database only has the new names.
+        # A database stamped at this revision by create_all has the alert tables under their later names.
         if has_table(table) and not has_column(table, "created_by"):
             op.add_column(table, sa.Column("created_by", sa.String(), nullable=True))
 

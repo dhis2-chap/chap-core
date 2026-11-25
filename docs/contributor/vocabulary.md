@@ -52,12 +52,27 @@ a WHO alert.
 | `approved`, `approvedBy`, `approvedAt` | `releaseStatus`, `reviewedBy`, `reviewedAt` |
 | `approved` / `declined` states | `released` / `withheld` states |
 
-These are breaking changes, including the policy query parameter on the outbreak
-metrics endpoint. The review queue is `GET /v1/crud/signals?releaseStatus=pending`.
-The migration preserves IDs, policy links, level names, output codes and review
-metadata. Existing clients must use the new paths and fields; there are no legacy
-aliases. Python names use the corresponding snake case fields and the
-`signal_tables`, `signal_service` and `threshold_policy_service` modules.
+The previous paths and field names are still served, marked as deprecated in the
+OpenAPI document, so clients written before the rename keep working:
+
+- The `/v1/crud/alerts` and `/v1/crud/alert-policies` routes translate the old names
+  and call the routes that replaced them (`chap_core/rest_api/v1/routers/legacy_alerts.py`).
+- Prediction setups accept `alertPolicyId` and also return `alertPolicy`.
+  Predictions also return `alertPolicyId`.
+- The outbreak metrics endpoint accepts `alertPolicyId` as a query parameter.
+
+New clients should use the current names. The review queue is
+`GET /v1/crud/signals?releaseStatus=pending`. The migration preserves IDs, policy
+links, level names, output codes and review metadata. Python names use the
+corresponding snake case fields and the `signal_tables`, `signal_service` and
+`threshold_policy_service` modules.
+
+The permissions are `read:signals`, `write:signals`, `approve:signals` and
+`delete:signals`.
+
+Rolling the image back to a release from before the rename needs
+`alembic downgrade bfb92b05d718` first. The older release reads the alert tables
+and columns, which no longer exist after the rename.
 
 
 ### Model template

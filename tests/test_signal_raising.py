@@ -59,7 +59,7 @@ def test_thresholds_use_backtest_target_column(signal_prediction):
 
 
 @pytest.mark.parametrize("cutoff, fires", [(0.5, True), (0.5001, False)])
-def test_exceedance_cutoff_is_inclusive_but_samples_must_be_above_line(signal_prediction, cutoff, fires):
+def test_alarm_threshold_is_inclusive_but_samples_must_be_above_line(signal_prediction, cutoff, fires):
     session, prediction = signal_prediction
     policy = prediction.prediction_setup.threshold_policy
     policy.levels = [policy.levels[0].model_copy(update={"alarm_threshold": cutoff})]

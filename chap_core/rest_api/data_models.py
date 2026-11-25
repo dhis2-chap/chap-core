@@ -522,6 +522,14 @@ class SignalIdsResponse(DBModel):
     ids: list[int] = Field(description="Primary keys of the created signals, in request order.")
 
 
+def _accept_alert_policy_id(data):
+    """Read the deprecated `alertPolicyId` as `thresholdPolicyId`, for clients from before the rename to signals."""
+    if isinstance(data, dict) and "alertPolicyId" in data and "thresholdPolicyId" not in data:
+        data = dict(data)
+        data["thresholdPolicyId"] = data.pop("alertPolicyId")
+    return data
+
+
 class PredictionSetupCreate(DBModel):
     """Request body for creating a recurring prediction setup attached to a backtest."""
 
@@ -529,8 +537,10 @@ class PredictionSetupCreate(DBModel):
     name: str = Field(description="Human-friendly name for the setup.")
     threshold_policy_id: int | None = Field(
         default=None,
-        description="Foreign key to the `ThresholdPolicy` the setup raises signals against; `None` means no signaling.",
+        description="Foreign key to the `ThresholdPolicy` the setup raises signals against; `None` means no signaling. "
+        "`alertPolicyId` is accepted as a deprecated alias.",
     )
+    _alert_policy_id = model_validator(mode="before")(_accept_alert_policy_id)
     schedule_cron_expression: str | None = Field(
         default=None, description="Standard cron expression for when to run; `None` means manual-only."
     )
@@ -559,8 +569,11 @@ class PredictionSetupUpdate(DBModel):
         default=None, description="New full quantile-targets list; `None` leaves it unchanged."
     )
     threshold_policy_id: int | None = Field(
-        default=None, description="New threshold policy to raise signals against; `None` leaves it unchanged."
+        default=None,
+        description="New threshold policy to raise signals against. Omitted leaves it unchanged; "
+        "an explicit null detaches the policy. `alertPolicyId` is accepted as a deprecated alias.",
     )
+    _alert_policy_id = model_validator(mode="before")(_accept_alert_policy_id)
 
 
 class RunPredictionSetupRequest(DBModel):

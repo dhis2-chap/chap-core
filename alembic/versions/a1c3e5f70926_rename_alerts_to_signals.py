@@ -4,10 +4,14 @@ Revision ID: a1c3e5f70926
 Revises: bfb92b05d718
 """
 
+import logging
+
 import sqlalchemy as sa
 from alembic import op
 
 from chap_core.database.migration_helpers import foreign_key_name, has_column, has_table
+
+logger = logging.getLogger(__name__)
 
 revision = "a1c3e5f70926"
 down_revision = "bfb92b05d718"
@@ -58,7 +62,12 @@ def upgrade() -> None:
         if has_table(table_name):
             table = sa.table(table_name, sa.column("id"))
             if conn.execute(sa.select(table.c.id).limit(1)).first() is not None:
-                raise RuntimeError(f"Cannot rename alerts: {table_name} already contains data")
+                # Failing here would stop startup. Both sets of rows are kept; the old ones need merging by hand.
+                logger.warning(
+                    f"Not renaming the alert tables: {table_name} already contains data. "
+                    "The rows in alert and alertpolicy are kept but not used."
+                )
+                return
     for table_name in ("prediction", "predictionsetup"):
         constraint = foreign_key_name(table_name, "thresholdpolicy")
         if constraint is not None:
@@ -85,6 +94,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    if has_table("alertpolicy"):
+        # The upgrade skipped the rename, so the old tables are still in place.
+        return
     rename_levels("thresholdpolicy", "alarm_threshold", "exceedance_threshold")
     op.execute(
         "UPDATE signal SET release_status = CASE release_status "

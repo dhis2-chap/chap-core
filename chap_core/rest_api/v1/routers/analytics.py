@@ -1395,8 +1395,12 @@ def list_outbreak_metrics():
 )
 def get_outbreak_metrics(
     backtest_id: Annotated[int, Path(alias="backtestId")],
-    threshold_policy_id: Annotated[int, Query(alias="thresholdPolicyId")],
+    threshold_policy_id: Annotated[int | None, Query(alias="thresholdPolicyId")] = None,
     group_by: Annotated[list[DataDimension] | None, Query(alias="groupBy")] = None,
+    alert_policy_id: Annotated[
+        int | None,
+        Query(alias="alertPolicyId", deprecated=True, description="Deprecated alias for `thresholdPolicyId`."),
+    ] = None,
     session: Session = Depends(get_session),
 ):
     """Judge how well a backtest's forecasts would have raised the signals of a threshold policy.
@@ -1419,6 +1423,10 @@ def get_outbreak_metrics(
     from chap_core.assessment.outbreak_metrics.scoring import label_cells, score
     from chap_core.database.signal_tables import ThresholdPolicy
 
+    if threshold_policy_id is None:
+        threshold_policy_id = alert_policy_id
+    if threshold_policy_id is None:
+        raise HTTPException(status_code=422, detail="thresholdPolicyId is required")
     backtest = session.get(Backtest, backtest_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="Backtest not found")

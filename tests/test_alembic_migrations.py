@@ -790,6 +790,31 @@ def test_signal_rename_preserves_records_and_reverses(engine, legacy_signal_data
     command.upgrade(cfg, "head")
 
 
+@pytest.mark.slow
+def test_signal_rename_is_skipped_when_the_new_tables_hold_data(engine, legacy_signal_database):
+    """Startup must survive a database that has rows under both the old and the new names."""
+    from alembic import command
+    from sqlmodel import Session
+
+    from chap_core.database.signal_tables import ThresholdPolicy
+
+    cfg, _, _ = legacy_signal_database
+    with engine.begin() as conn:
+        for name in ("prediction", "predictionsetup"):
+            conn.execute(sa.text(f"ALTER TABLE {name} ADD COLUMN threshold_policy_id INTEGER"))
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        session.add(ThresholdPolicy(name="written by a build of the new release"))
+        session.commit()
+
+    command.upgrade(cfg, "head")
+    with engine.connect() as conn:
+        assert conn.execute(sa.text("SELECT count(*) FROM alertpolicy")).scalar_one() > 0
+        assert conn.execute(sa.text("SELECT count(*) FROM thresholdpolicy")).scalar_one() == 1
+    command.downgrade(cfg, "bfb92b05d718")
+    assert "alertpolicy" in sa.inspect(engine).get_table_names()
+
+
 def _start_up(engine, monkeypatch, caplog):
     """Run startup's schema steps against engine, without seeding models, and return its log messages.
 

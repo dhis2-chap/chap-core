@@ -1318,7 +1318,7 @@ def delete_configured_model(
 
 @router.post(
     "/signals",
-    dependencies=[require(Permission.WRITE_ALERTS)],
+    dependencies=[require(Permission.WRITE_SIGNALS)],
     response_model=SignalIdsResponse,
     tags=["Signals"],
     summary="Record signals raised against a policy",
@@ -1347,7 +1347,7 @@ def create_signals(request: SignalsCreate, session: Session = Depends(get_sessio
 
 @router.get(
     "/signals",
-    dependencies=[require(Permission.READ_ALERTS)],
+    dependencies=[require(Permission.READ_SIGNALS)],
     response_model=list[SignalRead],
     tags=["Signals"],
     summary="Browse signals, or pull the review queue",
@@ -1376,7 +1376,7 @@ def list_signals(
 
 @router.get(
     "/signals/{signalId}",
-    dependencies=[require(Permission.READ_ALERTS)],
+    dependencies=[require(Permission.READ_SIGNALS)],
     response_model=SignalRead,
     tags=["Signals"],
     summary="View one signal",
@@ -1395,7 +1395,7 @@ def get_signal(
 
 @router.delete(
     "/signals/{signalId}",
-    dependencies=[require(Permission.DELETE_ALERTS)],
+    dependencies=[require(Permission.DELETE_SIGNALS)],
     tags=["Signals"],
     summary="Remove a signal",
 )
@@ -1420,7 +1420,7 @@ def delete_signal(
 
 @router.post(
     "/signals/$set-release-status",
-    dependencies=[require(Permission.APPROVE_ALERTS)],
+    dependencies=[require(Permission.APPROVE_SIGNALS)],
     response_model=list[SignalRead],
     tags=["Signals"],
     summary="Clear a set of signals for release, or withhold them",
@@ -1430,8 +1430,8 @@ def set_signal_release_status(request: SignalReleaseStatusRequest, session: Sess
     """Move a set of signals through the release gate in one go.
 
     Reviewers work through a queue and decide on several signals at a time, so the whole
-    set is applied atomically — if any id is unknown, nothing is written and you get a
-    404. `released` clears them for dissemination; `withheld` records a deliberate
+    set is applied atomically — if any id is unknown, nothing is written and you get
+    a 404. `released` clears them for dissemination; `withheld` records a deliberate
     decision not to release, so they do not come back around for another release review.
 
     This gate is about dissemination, not epidemiology: it says a human cleared the
@@ -1455,7 +1455,7 @@ def set_signal_release_status(request: SignalReleaseStatusRequest, session: Sess
 
 @router.post(
     "/threshold-policies",
-    dependencies=[require(Permission.WRITE_ALERTS)],
+    dependencies=[require(Permission.WRITE_SIGNALS)],
     response_model=DataBaseResponse,
     tags=["Threshold Policies"],
     summary="Define the tiers at which forecasts raise signals",
@@ -1466,7 +1466,7 @@ def create_threshold_policy(request: ThresholdPolicyCreate, session: Session = D
 
     Each level pairs an outbreak threshold (the same strategy and parameters
     `POST /v1/analytics/thresholds` takes, with a single threshold line) with the
-    exceedance probability at or above which that tier fires, so one policy expresses a
+    alarm threshold, the probability at or above which that tier fires, so one policy expresses a
     whole escalation ladder. Levels are ordered from least to most severe. 422 if the
     policy has no levels, an unnamed level, a level with more than one threshold line,
     or two levels sharing a name. Output codes must be non-empty and unique across
@@ -1487,7 +1487,7 @@ def create_threshold_policy(request: ThresholdPolicyCreate, session: Session = D
 
 @router.get(
     "/threshold-policies",
-    dependencies=[require(Permission.READ_ALERTS)],
+    dependencies=[require(Permission.READ_SIGNALS)],
     response_model=list[ThresholdPolicyRead],
     tags=["Threshold Policies"],
     summary="Browse saved threshold policies",
@@ -1500,7 +1500,7 @@ def list_threshold_policies(session: Session = Depends(get_session)):
 
 @router.get(
     "/threshold-policies/{thresholdPolicyId}",
-    dependencies=[require(Permission.READ_ALERTS)],
+    dependencies=[require(Permission.READ_SIGNALS)],
     response_model=ThresholdPolicyRead,
     tags=["Threshold Policies"],
     summary="View one threshold policy and its levels",
@@ -1523,7 +1523,7 @@ def get_threshold_policy(
 
 @router.patch(
     "/threshold-policies/{thresholdPolicyId}",
-    dependencies=[require(Permission.WRITE_ALERTS)],
+    dependencies=[require(Permission.WRITE_SIGNALS)],
     response_model=ThresholdPolicyRead,
     tags=["Threshold Policies"],
     summary="Update a policy's output codes and response actions",
@@ -1558,7 +1558,7 @@ def update_threshold_policy_codes(
 
 @router.delete(
     "/threshold-policies/{thresholdPolicyId}",
-    dependencies=[require(Permission.DELETE_ALERTS)],
+    dependencies=[require(Permission.DELETE_SIGNALS)],
     tags=["Threshold Policies"],
     summary="Remove a threshold policy",
 )
@@ -1602,7 +1602,7 @@ def create_prediction_setup(
     quantile targets are malformed.
     """
     if request.threshold_policy_id is not None:
-        ensure(http_request, Permission.WRITE_ALERTS, "attaches a threshold policy")
+        ensure(http_request, Permission.WRITE_SIGNALS, "attaches a threshold policy")
     try:
         setup = prediction_setup_service.create_prediction_setup(
             session,
@@ -1728,7 +1728,7 @@ def update_prediction_setup(
     """
     update_data = request.model_dump(exclude_unset=True, by_alias=False)
     if "threshold_policy_id" in update_data:
-        ensure(http_request, Permission.WRITE_ALERTS, "changes the threshold policy")
+        ensure(http_request, Permission.WRITE_SIGNALS, "changes the threshold policy")
     try:
         return prediction_setup_service.update_prediction_setup(session, prediction_setup_id, update_data)
     except prediction_setup_service.PredictionSetupNotFoundError as e:
