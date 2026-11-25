@@ -524,6 +524,12 @@ def get_backtest_specification_selection_bias(
     window and test splits share no target period. 404 if the specification is unknown, 422 if
     the metric or baseline is unknown or unsuitable, the baseline has not run, or there are
     fewer than two models or 3 + gapSplits split points.
+
+    ``bootstrap`` holds a second, experimental estimate of the same bias, with nothing fitted:
+    split points are drawn with replacement in blocks of consecutive ones, each draw picks its
+    best model, and that pick is read on the split points the draw left out, more than
+    ``gapSplits`` from every drawn one. It is null with fewer than four blocks of split points,
+    or when fewer than half of the draws leave out a split point to read.
     """
     try:
         return selection_bias_service.get_selection_bias(session, specification_id, metric, baseline, horizon_distance)

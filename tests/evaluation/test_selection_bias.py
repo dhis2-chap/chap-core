@@ -6,7 +6,9 @@ from chap_core.assessment.metrics.mae import MAEMetric
 from chap_core.services.selection_bias_service import (
     SelectionBiasError,
     SplitScores,
+    bootstrap_selection_bias,
     estimate_selection_bias,
+    left_out_splits,
     split_scores,
 )
 
@@ -77,6 +79,54 @@ def test_test_splits_start_after_the_gap():
 def test_too_few_split_points_for_the_gap_are_rejected():
     with pytest.raises(SelectionBiasError, match="at least 5 split points"):
         estimate_selection_bias(MAEMetric(), _scores([[0.5, 0.8]] * 4), gap_splits=2)
+
+
+def test_the_bootstrap_finds_no_bias_for_a_model_that_is_always_best():
+    bootstrap = bootstrap_selection_bias(MAEMetric(), _scores([[0.5, 0.8]] * 12))
+
+    assert bootstrap is not None
+    assert bootstrap.estimated_value == pytest.approx(0.5)
+    assert bootstrap.estimated_bias == pytest.approx(0)
+    assert bootstrap.block_size == 3
+    assert bootstrap.n_draws_other_pick == 0
+    assert 0 < bootstrap.n_draws_scored <= bootstrap.n_draws
+
+
+def test_the_bootstrap_needs_four_blocks_of_split_points():
+    assert bootstrap_selection_bias(MAEMetric(), _scores([[0.5, 0.8]] * 11)) is None
+    # A gap of 3 gives blocks of 4 split points.
+    assert bootstrap_selection_bias(MAEMetric(), _scores([[0.5, 0.8]] * 15), gap_splits=3) is None
+
+
+def test_the_bootstrap_gives_no_estimate_when_the_gap_leaves_too_few_draws_to_score():
+    scores = _scores([[0.5, 0.8]] * 12)
+
+    assert bootstrap_selection_bias(MAEMetric(), scores) is not None
+    assert bootstrap_selection_bias(MAEMetric(), scores, gap_splits=2) is None
+
+
+def test_left_out_splits_are_not_drawn_and_keep_the_gap_to_drawn_splits():
+    drawn = np.array([True, False, False, False, False, False, True, False])
+
+    np.testing.assert_array_equal(left_out_splits(drawn), ~drawn)
+    np.testing.assert_array_equal(np.flatnonzero(left_out_splits(drawn, gap_splits=1)), [2, 3, 4])
+    np.testing.assert_array_equal(np.flatnonzero(left_out_splits(drawn, gap_splits=2)), [3])
+
+
+def test_the_bootstrap_finds_the_bias_of_equally_good_models():
+    # Six models that all err by 0.7 on average, against a baseline that errs by 1: each is 0.3 better
+    # than the baseline, and whatever more the best one shows over 24 split points is selection bias.
+    rng = np.random.default_rng(1)
+    actual, estimated = [], []
+    for table in range(100):
+        scores = _scores(rng.uniform(0.2, 1.2, size=(24, 6)))
+        bootstrap = bootstrap_selection_bias(MAEMetric(), scores, n_draws=300, seed=table)
+        assert bootstrap is not None
+        actual.append(bootstrap.estimated_bias + bootstrap.estimated_value - 0.3)
+        estimated.append(bootstrap.estimated_bias)
+
+    assert np.mean(actual) > 0.05
+    assert np.mean(estimated) == pytest.approx(np.mean(actual), rel=0.25)
 
 
 PERIODS = ["2023-02", "2023-03", "2023-04"]

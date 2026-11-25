@@ -419,3 +419,5 @@ def test_selection_bias_runs_on_every_split_point(override_session, p_seeded_eng
     assert [p["x"] for p in data["windowSizePoints"]] == [1, 2, 3]
     assert [p["x"] for p in data["distancePoints"]] == [0, 1, 2]
     assert sum(p["nPairs"] for p in data["distancePoints"]) == data["nPairs"] == 10
+    # Too few split points for the bootstrap estimate.
+    assert data["bootstrap"] is None

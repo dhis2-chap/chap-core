@@ -32,6 +32,20 @@ periods: the last split of a window and the first splits after it forecast some 
 months. A test split that shares a month with the window would not be independent of the pick,
 so the test splits start a gap of (largest - smallest horizon distance) splits after the window,
 and d counts from there. The gap assumes consecutive split points (stride 1).
+
+A second, experimental estimate comes from a bootstrap over the split points, after BBC-CV
+(Tsamardinos, Greasidou and Borboudakis 2018, Machine Learning 107). One draw takes as many
+split points as there are, with replacement, picks the best model on the drawn ones and reads
+that pick's value on the split points left out. The mean of those values over many draws
+estimates the value on new data of whatever this way of picking gives, and the final model's
+validation value minus it is the estimated bias. Nothing is fitted.
+
+The paper draws single observations. Split points are not independent, so two things are added
+here. Split points are drawn in blocks of consecutive ones (a circular block bootstrap), so a
+model's good or bad stretch stays together. And a split point left out is only read when it is
+further than the gap from every drawn one: otherwise it shares target periods with a split point
+the pick was made on, and the estimated bias comes out too low. With few split points and a gap,
+few draws have a split point left to read, and no estimate is given.
 """
 
 from __future__ import annotations
@@ -106,6 +120,28 @@ class SelectionBiasCandidate(DBModel):
     validation_value: float = Field(description="Comparison with the baseline over all split points.")
 
 
+class SelectionBiasBootstrap(DBModel):
+    """Selection bias estimated with a bootstrap over the split points. Experimental."""
+
+    estimated_bias: float = Field(
+        description="The picked model's validationValue minus estimatedValue. Too low when models do well or "
+        "badly for longer stretches than blockSize split points."
+    )
+    estimated_value: float = Field(
+        description="Mean over the scored draws of the comparison with the baseline, on the split points a draw "
+        "left out, of the model picked on the split points it drew."
+    )
+    block_size: int = Field(description="Number of consecutive split points drawn together.")
+    n_draws: int = Field(description="Number of draws.")
+    n_draws_scored: int = Field(
+        description="Draws that left out a split point more than gapSplits from every drawn one. Only these are used."
+    )
+    n_draws_other_pick: int = Field(
+        description="Scored draws that pick another model than the final one. The larger the share, the more "
+        "the final pick owes to luck."
+    )
+
+
 class SelectionBias(DBModel):
     """Estimated selection bias of the best model on a specification, with the data for its two plots."""
 
@@ -141,6 +177,11 @@ class SelectionBias(DBModel):
     window_size_points: list[SelectionBiasPoint] = Field(description="Gap against window size k.")
     distance_points: list[SelectionBiasPoint] = Field(
         description="Gap against distance d, at the full window size. A check: it should be flat."
+    )
+    bootstrap: SelectionBiasBootstrap | None = Field(
+        default=None,
+        description="A second estimate of the same bias, from a bootstrap over the split points. Experimental. "
+        "Null when there are too few split points for it.",
     )
 
 
@@ -262,6 +303,81 @@ def estimate_selection_bias(metric: Metric, scores: SplitScores, gap_splits: int
         distance_points=_points(
             pairs.d, pairs.gap - c / np.sqrt(pairs.k) + c / np.sqrt(n), pairs.weights, lambda _: c / np.sqrt(n)
         ),
+    )
+
+
+BOOTSTRAP_DRAWS = 2000
+BOOTSTRAP_MIN_BLOCK_SIZE = 3
+BOOTSTRAP_MIN_BLOCKS = 4
+BOOTSTRAP_MIN_SCORED_SHARE = 0.5
+
+
+def left_out_splits(drawn: np.ndarray, gap_splits: int = 0) -> np.ndarray:
+    """The splits a draw is tested on: not drawn, and more than gap_splits from every drawn split.
+
+    drawn is a boolean array with the splits, in time order, on its last axis.
+    """
+    near = drawn.copy()
+    for shift in range(1, gap_splits + 1):
+        near[..., shift:] |= drawn[..., :-shift]
+        near[..., :-shift] |= drawn[..., shift:]
+    return ~near
+
+
+def bootstrap_selection_bias(
+    metric: Metric, scores: SplitScores, gap_splits: int = 0, n_draws: int = BOOTSTRAP_DRAWS, seed: int = 0
+) -> SelectionBiasBootstrap | None:
+    """Estimate the final pick's bias with a block bootstrap over the split points.
+
+    Each draw picks the best model on the drawn splits and is scored on the splits it left out,
+    more than gap_splits from every drawn one. Blocks are max(3, gap_splits + 1) consecutive
+    splits. The seed is fixed, so the same scores give the same estimate.
+
+    Returns None when there are fewer than four blocks of split points, or when fewer than half
+    of the draws leave out a split to score.
+    """
+    n = len(scores.counts)
+    block_size = max(BOOTSTRAP_MIN_BLOCK_SIZE, gap_splits + 1)
+    if n < BOOTSTRAP_MIN_BLOCKS * block_size:
+        return None
+    final_values = _comparisons(metric, scores.model_sums.sum(0), scores.baseline_sums.sum(), scores.counts.sum())
+    final_index = int(np.nanargmax(final_values))
+
+    rng = np.random.default_rng(seed)
+    starts = rng.integers(0, n, size=(n_draws, -(-n // block_size)))
+    splits = ((starts[:, :, None] + np.arange(block_size)) % n).reshape(n_draws, -1)[:, :n]
+    times_drawn = np.zeros((n_draws, n))
+    np.add.at(times_drawn, (np.arange(n_draws)[:, None], splits), 1)
+    left_out = left_out_splits(times_drawn > 0, gap_splits)
+
+    values = []
+    other = 0
+    for times, test in zip(times_drawn, left_out, strict=True):
+        if not test.any():
+            continue
+        drawn_values = _comparisons(
+            metric, times @ scores.model_sums, times @ scores.baseline_sums, times @ scores.counts
+        )
+        pick = int(np.nanargmax(drawn_values))
+        other += pick != final_index
+        values.append(
+            _comparisons(
+                metric,
+                scores.model_sums[test, pick : pick + 1].sum(0),
+                scores.baseline_sums[test].sum(),
+                scores.counts[test].sum(),
+            )[0]
+        )
+    if len(values) < BOOTSTRAP_MIN_SCORED_SHARE * n_draws or np.all(np.isnan(values)):
+        return None
+    estimated_value = float(np.nanmean(values))
+    return SelectionBiasBootstrap(
+        estimated_bias=float(final_values[final_index]) - estimated_value,
+        estimated_value=estimated_value,
+        block_size=block_size,
+        n_draws=n_draws,
+        n_draws_scored=len(values),
+        n_draws_other_pick=int(other),
     )
 
 
@@ -406,4 +522,5 @@ def get_selection_bias(
         coefficients=SelectionBiasCoefficients(inverse_sqrt_k=estimate.inverse_sqrt_k),
         window_size_points=estimate.window_size_points,
         distance_points=estimate.distance_points,
+        bootstrap=bootstrap_selection_bias(metric, scores, gap_splits),
     )
