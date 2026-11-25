@@ -1252,7 +1252,9 @@ def add_configured_model(
     Use this when an operator has filled out the configuration form for a template
     (lags, precision, extra covariates, ...) and wants to save it. The new row
     inherits whether the template originated from a CHAPKit service. Returns 404 if
-    the template id is unknown.
+    the template id is unknown, and 422 if the option values do not match the template's
+    options or set ``prediction_periods`` or ``additional_continuous_covariates``, which
+    Chap sets itself.
     """
     session_wrapper = SessionWrapper(session=session)
     model_template_id = model_configuration.model_template_id
@@ -1262,15 +1264,18 @@ def add_configured_model(
     if template is None:
         raise HTTPException(status_code=404, detail="Model template not found")
     uses_chapkit = template.uses_chapkit
-    db_id = session_wrapper.add_configured_model(
-        model_template_id,
-        ModelConfiguration(
-            user_option_values=model_configuration.user_option_values,
-            additional_continuous_covariates=model_configuration.additional_continuous_covariates,
-        ),
-        configuration_name,
-        uses_chapkit=uses_chapkit,
-    )
+    try:
+        db_id = session_wrapper.add_configured_model(
+            model_template_id,
+            ModelConfiguration(
+                user_option_values=model_configuration.user_option_values,
+                additional_continuous_covariates=model_configuration.additional_continuous_covariates,
+            ),
+            configuration_name,
+            uses_chapkit=uses_chapkit,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     return session.get(ConfiguredModelDB, db_id)
 
 
@@ -1416,8 +1421,8 @@ def approve_alerts(request: AlertApprovalRequest, session: Session = Depends(get
     """Move a set of alerts through the release gate in one go.
 
     Reviewers work through a queue and decide on several alerts at a time, so the whole
-    set is applied atomically — if any id is unknown, nothing is written and you get a
-    404. `approved` clears them for dissemination; `declined` records a deliberate
+    set is applied atomically — if any id is unknown, nothing is written and you get
+    a 404. `approved` clears them for dissemination; `declined` records a deliberate
     decision not to release, so they do not come back around for re-triage.
 
     This gate is about dissemination, not epidemiology: it says a human cleared the

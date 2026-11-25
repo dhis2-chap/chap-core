@@ -11,9 +11,12 @@ import yaml
 from cyclopts import CycloptsError
 
 from chap_core.api_types import RunConfig
+from chap_core.cli_endpoints._common import check_model_configuration
 from chap_core.cli import app
 from chap_core.cli_endpoints.init import init_cmd
+from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.exceptions import ChapProjectError
+from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.project import Project, find_project, model_label
 
 
@@ -336,6 +339,29 @@ def test_init_refuses_model_options_the_model_does_not_have(tmp_path, models_pat
     with pytest.raises(ChapProjectError, match="some_optoin. Its options: some_option"):
         init_cmd(tmp_path / "project", model=model, model_config=model_config)
     assert not (tmp_path / "project").exists()
+
+
+def test_init_refuses_model_option_values_of_the_wrong_type(tmp_path, models_path):
+    model_config = tmp_path / "options.yaml"
+    model_config.write_text("user_option_values:\n  some_option: five\n")
+    model = str(models_path / "naive_python_model_with_mlproject_file_and_docker")
+    with pytest.raises(ChapProjectError, match="some_option: 'five' is not of type 'integer'"):
+        init_cmd(tmp_path / "project", model=model, model_config=model_config)
+    assert not (tmp_path / "project").exists()
+
+
+def test_option_with_an_invalid_declared_schema_is_not_checked():
+    template_config = ModelTemplateConfigV2(name="m", user_options={"rate": {"type": "float"}})
+    configuration = ModelConfiguration(user_option_values={"rate": 0.5})
+    check_model_configuration(configuration, template_config, "options.yaml", strict=True)
+
+
+def test_init_accepts_model_option_values_of_the_declared_type(tmp_path, models_path):
+    model_config = tmp_path / "options.yaml"
+    model_config.write_text("user_option_values:\n  some_option: 5\n")
+    model = str(models_path / "naive_python_model_with_mlproject_file_and_docker")
+    init_cmd(tmp_path / "project", model=model, model_config=model_config)
+    assert (tmp_path / "project").exists()
 
 
 def test_init_refuses_a_file_that_is_not_a_chap_dataset(tmp_path):

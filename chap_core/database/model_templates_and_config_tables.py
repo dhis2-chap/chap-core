@@ -16,6 +16,31 @@ from chap_core.model_spec import PeriodType
 logger = logging.getLogger(__name__)
 
 
+def user_option_errors(user_options: dict | None, values: dict | None) -> list[str]:
+    """What is wrong with ``values`` for a model declaring ``user_options``, one message per option.
+
+    Reports option names the model does not declare, and values that do not match their option's
+    own schema. Options left out are not reported: the model falls back to its defaults, and a
+    chapkit schema has no literal default for options built with ``default_factory``. An option whose
+    schema has a ``$ref`` is skipped, since the definitions it points to are not stored here, and so is
+    one whose declared schema is itself invalid, which is the model's mistake rather than the user's.
+    """
+    user_options = user_options or {}
+    values = values or {}
+    errors = [f"{name}: not an option of this model" for name in sorted(set(values) - set(user_options))]
+    for name in sorted(set(values) & set(user_options)):
+        schema = user_options[name]
+        if "$ref" in json.dumps(schema):
+            continue
+        try:
+            jsonschema.validate(instance=values[name], schema=schema)
+        except jsonschema.ValidationError as e:
+            errors.append(f"{name}: {e.message}")
+        except jsonschema.SchemaError as e:
+            logger.debug(f"Not checking option {name}: its declared schema is invalid: {e.message}")
+    return errors
+
+
 def _horizon_aliases(bound: str) -> tuple[str, ...]:
     """Names accepted for a prediction-horizon field, canonical first.
 
@@ -314,5 +339,6 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
             self._validate_model_configuration(model.model_template.user_options, model.user_option_values)
         except jsonschema.ValidationError as e:
             logger.error(f"Validation error in model configuration: {e}")
-            raise ValueError(f"Invalid user options: {e.message}") from e
+            option = ".".join(str(part) for part in e.path)
+            raise ValueError(f"Invalid user options: {f'{option}: ' if option else ''}{e.message}") from e
         return model
