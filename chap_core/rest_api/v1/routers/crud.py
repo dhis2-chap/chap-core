@@ -496,8 +496,14 @@ def get_backtest_specification_selection_bias(
         Query(description="Name of the baseline model to compare with. Defaults to the installation's default."),
     ] = None,
     horizon_distance: Annotated[
-        int, Query(alias="horizonDistance", ge=1, description="Horizon distance whose forecasts are scored.")
-    ] = 1,
+        int | None,
+        Query(
+            alias="horizonDistance",
+            ge=1,
+            description="Score only this horizon distance. By default every horizon distance is scored, as on "
+            "the leaderboard.",
+        ),
+    ] = None,
     session: Session = Depends(get_session),
 ):
     """Estimate the selection bias of the model with the best comparison with the baseline over all split points.
@@ -512,9 +518,12 @@ def get_backtest_specification_selection_bias(
     against the distance ``d`` to the test split is a check and should be flat.
 
     Candidates are the newest backtest of each model on the leaderboard, scored on the
-    forecasts all of them and the baseline made. 404 if the specification is unknown, 422 if
+    forecasts all of them and the baseline made, at every horizon distance unless
+    ``horizonDistance`` picks one. With several horizon distances, the test splits start
+    ``gapSplits`` (largest minus smallest horizon distance) splits after each window, so
+    window and test splits share no target period. 404 if the specification is unknown, 422 if
     the metric or baseline is unknown or unsuitable, the baseline has not run, or there are
-    fewer than two models or three split points.
+    fewer than two models or 3 + gapSplits split points.
     """
     try:
         return selection_bias_service.get_selection_bias(session, specification_id, metric, baseline, horizon_distance)
