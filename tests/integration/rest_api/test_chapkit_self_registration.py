@@ -627,3 +627,29 @@ def test_configured_model_accepts_ordinary_chapkit_options(client, register_serv
         json={"name": "custom", "modelTemplateId": template_id, "userOptionValues": {"n_lags": 2}},
     )
     assert response.status_code == 200, response.text
+
+
+@pytest.mark.parametrize(
+    ("option_values", "message"),
+    [
+        ({"not_an_option": 1}, "not_an_option: not an option of this model"),
+        ({"n_lags": "three"}, "n_lags: 'three' is not of type 'integer'"),
+    ],
+)
+def test_configured_model_refuses_invalid_chapkit_options(client, register_service, option_values, message):
+    template_id = _install(client, register_service)["id"]
+    response = client.post(
+        "/v1/crud/configured-models",
+        json={"name": "custom", "modelTemplateId": template_id, "userOptionValues": option_values},
+    )
+    assert response.status_code == 422, response.text
+    assert message in response.json()["detail"]
+
+
+def test_configured_model_leaves_chapkit_options_out_to_use_the_service_defaults(client, register_service):
+    template_id = _install(client, register_service)["id"]
+    response = client.post(
+        "/v1/crud/configured-models",
+        json={"name": "custom", "modelTemplateId": template_id, "userOptionValues": {}},
+    )
+    assert response.status_code == 200, response.text
