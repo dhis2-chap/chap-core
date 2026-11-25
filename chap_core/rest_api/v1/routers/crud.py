@@ -92,9 +92,11 @@ from chap_core.rest_api.v2.dependencies import get_orchestrator, get_registry_re
 from chap_core.services import (
     prediction_monitoring_service,
     prediction_setup_service,
+    selection_bias_service,
     signal_service,
     threshold_policy_service,
 )
+from chap_core.services.selection_bias_service import SelectionBias
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import (
@@ -474,6 +476,61 @@ def get_backtest_specification(
         default_baseline_model=settings.default_baseline_model,
         **_specification_params(specification),
     )
+
+
+@router.get(
+    "/backtest-specifications/{specificationId}/selection-bias",
+    dependencies=[require(Permission.READ_BACKTESTS)],
+    response_model=SelectionBias,
+    tags=["Backtests"],
+    summary="Estimate how much picking the best model on a specification flatters it",
+)
+def get_backtest_specification_selection_bias(
+    specification_id: Annotated[int, Path(alias="specificationId")],
+    metric: Annotated[
+        str,
+        Query(description="Id of a mean-aggregated metric with a comparison operator, e.g. 'crps_log1p'."),
+    ] = "crps_log1p",
+    baseline: Annotated[
+        str | None,
+        Query(description="Name of the baseline model to compare with. Defaults to the installation's default."),
+    ] = None,
+    horizon_distance: Annotated[
+        int | None,
+        Query(
+            alias="horizonDistance",
+            ge=1,
+            description="Score only this horizon distance. By default every horizon distance is scored, as on "
+            "the leaderboard.",
+        ),
+    ] = None,
+    session: Session = Depends(get_session),
+):
+    """Estimate the selection bias of the model with the best comparison with the baseline over all split points.
+
+    Runs a nested scheme on the specification's own split points: every window of consecutive
+    splits picks its best model, and on every later split that pick is compared with the final
+    model, the one picked on all splits. The gap (final model's value minus the pick's value on
+    that split) is zero when the window picks the final model. It is fitted as
+    ``inverseSqrtK / sqrt(k)``, with ``k`` the window size, and the estimated bias is the fit at
+    the full window size. A model that wins every window has no selection bias.
+    ``windowSizePoints`` and ``distancePoints`` hold the data for the two scatter plots; the gap
+    against the distance ``d`` to the test split is a check and should be flat.
+
+    Candidates are the newest backtest of each model on the leaderboard, scored on the
+    forecasts all of them and the baseline made, at every horizon distance unless
+    ``horizonDistance`` picks one. With several horizon distances, the test splits start
+    ``gapSplits`` (largest minus smallest horizon distance) splits after each window, so
+    window and test splits share no target period. 404 if the specification is unknown, 422 if
+    the metric or baseline is unknown or unsuitable, the baseline has not run, or there are
+    fewer than two models or 3 + gapSplits split points.
+    """
+    try:
+        return selection_bias_service.get_selection_bias(session, specification_id, metric, baseline, horizon_distance)
+    except selection_bias_service.SpecificationNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except selection_bias_service.SelectionBiasError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 def _baseline_results(session: Session, specification_id: int) -> list[ReferenceModelResult]:
@@ -1204,7 +1261,9 @@ def add_configured_model(
     Use this when an operator has filled out the configuration form for a template
     (lags, precision, extra covariates, ...) and wants to save it. The new row
     inherits whether the template originated from a CHAPKit service. Returns 404 if
-    the template id is unknown.
+    the template id is unknown, and 422 if the option values do not match the template's
+    options or set ``prediction_periods`` or ``additional_continuous_covariates``, which
+    Chap sets itself.
     """
     session_wrapper = SessionWrapper(session=session)
     model_template_id = model_configuration.model_template_id
@@ -1214,15 +1273,18 @@ def add_configured_model(
     if template is None:
         raise HTTPException(status_code=404, detail="Model template not found")
     uses_chapkit = template.uses_chapkit
-    db_id = session_wrapper.add_configured_model(
-        model_template_id,
-        ModelConfiguration(
-            user_option_values=model_configuration.user_option_values,
-            additional_continuous_covariates=model_configuration.additional_continuous_covariates,
-        ),
-        configuration_name,
-        uses_chapkit=uses_chapkit,
-    )
+    try:
+        db_id = session_wrapper.add_configured_model(
+            model_template_id,
+            ModelConfiguration(
+                user_option_values=model_configuration.user_option_values,
+                additional_continuous_covariates=model_configuration.additional_continuous_covariates,
+            ),
+            configuration_name,
+            uses_chapkit=uses_chapkit,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     return session.get(ConfiguredModelDB, db_id)
 
 

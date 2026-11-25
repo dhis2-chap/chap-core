@@ -116,3 +116,21 @@ def test_get_configured_model_info(celery_session_worker, dependency_overrides):
 
     missing = client.get("/v1/crud/configured-models/999999")
     assert missing.status_code == 404, missing.json()
+
+
+def _ewars_template_id():
+    return next(m for m in get_content("/v1/crud/model-templates") if m["name"] == "ewars_template")["id"]
+
+
+def test_add_configured_model_with_unknown_option_returns_422(dependency_overrides):
+    payload = {"name": "typo", "modelTemplateId": _ewars_template_id(), "userOptionValues": {"n_lagz": 3}}
+    response = client.post("/v1/crud/configured-models", json=payload)
+    assert response.status_code == 422, response.text
+    assert "n_lagz" in response.json()["detail"]
+
+
+def test_add_configured_model_with_wrong_option_type_returns_422(dependency_overrides):
+    payload = {"name": "wrong_type", "modelTemplateId": _ewars_template_id(), "userOptionValues": {"n_lags": "three"}}
+    response = client.post("/v1/crud/configured-models", json=payload)
+    assert response.status_code == 422, response.text
+    assert "n_lags: 'three' is not of type" in response.json()["detail"]

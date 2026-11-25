@@ -205,6 +205,7 @@ the fixed lists clients choose from, such as plot types, weather providers and t
 | DELETE | `/v1/crud/backtests` | `delete:backtests` |
 | GET | `/v1/crud/backtest-specifications` | `read:backtests` |
 | GET | `/v1/crud/backtest-specifications/{specificationId}` | `read:backtests` |
+| GET | `/v1/crud/backtest-specifications/{specificationId}/selection-bias` | `read:backtests` |
 | GET | `/v1/crud/backtests/{backtestId}/full` | `read:backtests` |
 | GET | `/v1/crud/backtests/{backtestId}` | `read:backtests` |
 | DELETE | `/v1/crud/backtests/{backtestId}` | `delete:backtests` |

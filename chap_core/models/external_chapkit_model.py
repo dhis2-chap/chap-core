@@ -328,15 +328,20 @@ class ExternalChapkitModelTemplate:
         logger.info(f"Creating model configuration with name {name} at {self.rest_api_url}. Data: {config_data}")
 
         config_response = self.client.create_config(config_data)
-        stored = config_response.data.model_dump()
-        _check_stored_config(payload, stored)
         configuration_id = str(config_response.id)
+        try:
+            stored = config_response.data.model_dump()
+            _check_stored_config(payload, stored)
 
-        # get all configs and assert that configuration_id is there
-        all_configs = self.client.list_configs()
-        assert any(cfg.id == configuration_id for cfg in all_configs), (
-            f"Created configuration {configuration_id} not found in list of configs"
-        )
+            # get all configs and assert that configuration_id is there
+            all_configs = self.client.list_configs()
+            assert any(cfg.id == configuration_id for cfg in all_configs), (
+                f"Created configuration {configuration_id} not found in list of configs"
+            )
+        except Exception:
+            # No run will use this configuration, so do not leave it in the service.
+            self.client.delete_config(configuration_id)
+            raise
 
         logger.info(f"Created model configuration with id {configuration_id} at {self.rest_api_url}")
         return ExternalChapkitModel(
