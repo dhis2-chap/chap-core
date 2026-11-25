@@ -158,6 +158,8 @@ A permission is named `action:resource`, such as `read:predictions` or `run:back
 
 Every permission, what it allows, and which built-in tiers hold it:
 
+<div class="permission-table" markdown>
+
 | Permission | Allows | `viewer` | `analyst` | `admin` |
 | --- | --- | --- | --- | --- |
 | `read:datasets` | Listing datasets, dataset plots, computing thresholds | yes | yes | yes |
@@ -189,6 +191,8 @@ Every permission, what it allows, and which built-in tiers hold it:
 | `read:services` | Listing registered chapkit services | yes | yes | yes |
 | `call:services` | The read-only proxy to a registered chapkit service | | yes | yes |
 | `register:services` | Registering, pinging and deregistering a chapkit service | | | yes |
+
+</div>
 
 ## Permission catalogue
 
