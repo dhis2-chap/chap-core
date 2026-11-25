@@ -356,3 +356,57 @@ def test_the_leaderboard_leaves_out_backtests_of_archived_models(override_sessio
     # On request, and in the backtest listing, they are still shown.
     assert archived <= {b["id"] for b in _leaderboard(specification_id, includeArchivedModels=True)["backtests"]}
     assert archived <= {b["id"] for b in client.get("/v1/crud/backtests").json()}
+
+
+def test_selection_bias_of_an_unknown_specification_is_404(override_session):
+    assert client.get("/v1/crud/backtest-specifications/999999/selection-bias").status_code == 404
+
+
+def test_selection_bias_needs_the_baseline_and_three_split_points(
+    override_session, p_seeded_engine, specification_id, baseline_worker
+):
+    url = f"/v1/crud/backtest-specifications/{specification_id}/selection-bias"
+    response = client.get(url, params={"baseline": "persistence"})
+    assert response.status_code == 422
+    assert "has not run" in response.json()["detail"]
+
+    with SessionWrapper(p_seeded_engine) as session:
+        request_baselines(session, specification_id)
+    _run_queued(p_seeded_engine, baseline_worker)
+    response = client.get(url, params={"baseline": "persistence"})
+    assert response.status_code == 422
+    assert "at least 3 split points" in response.json()["detail"]
+
+
+def test_selection_bias_runs_on_every_split_point(override_session, p_seeded_engine, baseline_worker):
+    with SessionWrapper(p_seeded_engine) as session:
+        dataset_id = session.session.exec(select(DataSet.id)).first()
+        backtest_id = run_backtest(
+            BacktestCreate(name="model", dataset_id=dataset_id, model_id="naive_model"),
+            session=session,
+            n_periods=3,
+            n_splits=4,
+            stride=1,
+        )
+        specification_id = session.session.get(Backtest, backtest_id).specification_id
+        request_baselines(session, specification_id)
+    _run_queued(p_seeded_engine, baseline_worker)
+    # A second candidate: the global median baseline's backtest, as an ordinary model.
+    with SessionWrapper(p_seeded_engine) as session:
+        template = session.get_configured_model_by_id_or_name("global_median").model_template
+        template.role = None
+        session.session.commit()
+
+    response = client.get(
+        f"/v1/crud/backtest-specifications/{specification_id}/selection-bias",
+        params={"baseline": "persistence", "metric": "mae"},
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert len(data["splitPeriods"]) == 4
+    assert {c["modelName"] for c in data["candidates"]} == {"naive_model", "global_median"}
+    assert data["selectedBacktestId"] == data["candidates"][0]["backtestId"]
+    assert data["estimatedValue"] == pytest.approx(data["validationValue"] - data["estimatedBias"])
+    assert [p["x"] for p in data["windowSizePoints"]] == [1, 2, 3]
+    assert [p["x"] for p in data["distancePoints"]] == [0, 1, 2]
+    assert sum(p["nPairs"] for p in data["distancePoints"]) == data["nPairs"] == 10

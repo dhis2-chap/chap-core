@@ -91,7 +91,7 @@ def flat_setup_observations(observations: list[PredictionSetupObservation]) -> p
     )
 
 
-def _origin_periods(forecasts: pd.DataFrame) -> pd.Series:
+def origin_periods(forecasts: pd.DataFrame) -> pd.Series:
     """The last period each forecast row's run had data for: its target period minus its horizon."""
     origins = {
         (period, horizon): (TimePeriod.parse(period) - horizon * TimePeriod.parse(period).time_delta).id
@@ -146,7 +146,7 @@ def comparison_over_time(
     if not scored_keys:
         return []
     model, baseline = (
-        frame[_forecast_keys(frame).isin(scored_keys)].assign(origin=lambda df: _origin_periods(df))
+        frame[_forecast_keys(frame).isin(scored_keys)].assign(origin=lambda df: origin_periods(df))
         for frame in (forecasts, baseline_forecasts)
     )
     points = []
