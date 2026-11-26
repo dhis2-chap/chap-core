@@ -89,9 +89,26 @@ they are Parquet and as GeoJSON otherwise. Clients rarely send a useful Content-
 so it is ignored. Sending `application/vnd.apache.parquet` and `application/geo+json` is still good
 practice.
 
-It validates and imports the same way as `POST /v1/analytics/make-dataset`: the answer lists the
-imported and rejected locations, `dryRun=true` only validates, and otherwise the answer holds the
-id of the import job to follow at `/v1/jobs/{id}`.
+It validates and imports the same way as `POST /v1/analytics/make-dataset`, in two steps:
+
+1. **Checking, in the request.** Chap reads both files and checks them before it answers. The
+   answer lists the locations that will be imported and those rejected, with the reason. With
+   `dryRun=true` the request stops here.
+2. **Storing, in the background.** Otherwise the answer also holds the `id` of an import job, and
+   a worker stores the dataset after the request has finished. Follow the job at `/v1/jobs/{id}`:
+   when its status is `SUCCESS`, its result is the new dataset's id.
+
+```console
+curl -s -X POST "$CHAP_URL/v1/crud/datasets/files" \
+  -F observations=@observations.parquet \
+  -F locations=@locations.parquet
+# {"id": "<job id>", "importedCount": 1500, "rejected": [], ...}
+curl -s "$CHAP_URL/v1/jobs/<job id>"
+# {"status": "SUCCESS", "result": 42, ...} once stored
+```
+
+Storing takes longer than checking for large datasets, about a minute at 1,500 locations of
+weekly data over 7 years. The request itself does not wait for it.
 
 Limits: each file up to 100 MB, an observations file up to 1 million rows and 512 MB once
 decoded, and each `chap.*` metadata key up to 64 KB. Keys other than `chap.*` are ignored.
