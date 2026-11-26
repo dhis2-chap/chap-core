@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs docs-serve help install lint lint/flake8 check regen-plot-help docker-up docker-down docker-restart docker-reset docker-logs docker-version architecture architecture-validate architecture-export architecture-export-mermaid architecture-export-docs architecture-export-plantuml architecture-check-docs architecture-clean
+.PHONY: clean coverage dist docs docs-serve help install lint lint/flake8 check regen-plot-help docker-up docker-down docker-restart docker-reset architecture architecture-validate architecture-export architecture-export-mermaid architecture-export-docs architecture-export-plantuml architecture-check-docs architecture-clean
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -121,12 +121,6 @@ docker-restart: ## stop, then build what changed and start in the foreground (ke
 
 docker-reset: ## start from scratch: delete the database, rebuild without cache, start in the foreground
 	$(COMPOSE) down -v && $(COMPOSE) build --no-cache && $(COMPOSE) up --remove-orphans
-
-docker-logs: ## follow the logs, from a second terminal or for a stack started with docker compose up -d
-	$(COMPOSE) logs -f
-
-docker-version: ## print the chap_core version running inside the chap container
-	@$(COMPOSE) exec -T chap python -c 'import chap_core; print(f"chap_core running in container: {chap_core.__version__}")' 2>/dev/null || echo "chap container not running"
 
 # --- Architecture: serve / view ---
 # Every container below writes generated files into the bind-mounted repo, and each
