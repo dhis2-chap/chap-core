@@ -82,6 +82,13 @@ curl -X POST "$CHAP_URL/v1/crud/datasets/files?dryRun=true" \
   -F locations=@locations.parquet
 ```
 
+Chap recognises each file by its content, not by the Content-Type of its part: the observations
+must be Parquet (starting with the bytes `PAR1`), and the locations are read as GeoParquet when
+they are Parquet and as GeoJSON otherwise. Clients rarely send a useful Content-Type for Parquet
+(browsers and curl send `application/octet-stream`), and some DHIS2 versions remove it in routes,
+so it is ignored. Sending `application/vnd.apache.parquet` and `application/geo+json` is still good
+practice.
+
 It validates and imports the same way as `POST /v1/analytics/make-dataset`: the answer lists the
 imported and rejected locations, `dryRun=true` only validates, and otherwise the answer holds the
 id of the import job to follow at `/v1/jobs/{id}`.
