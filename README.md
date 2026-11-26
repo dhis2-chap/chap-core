@@ -43,7 +43,7 @@ make docker-up       # build what changed and start in the foreground; Ctrl+C st
 make docker-down     # stop and remove the containers (keeps the database)
 make docker-restart  # docker-down, then docker-up
 make docker-reset    # delete the database, rebuild without cache, start (WIPES VOLUMES)
-make docker-logs     # follow the logs of a stack started in the background
+make docker-logs     # follow the logs from a second terminal, or of a stack started with up -d
 make docker-version  # print the chap_core version running inside the container
 ```
 

@@ -116,12 +116,13 @@ docker-up: ## build what changed and start in the foreground with logs; Ctrl+C s
 docker-down: ## stop and remove the containers (keeps the database)
 	$(COMPOSE) down
 
-docker-restart: docker-down docker-up ## stop, then build what changed and start in the foreground (keeps the database)
+docker-restart: ## stop, then build what changed and start in the foreground (keeps the database)
+	$(COMPOSE) down && $(COMPOSE) up --build --remove-orphans
 
 docker-reset: ## start from scratch: delete the database, rebuild without cache, start in the foreground
 	$(COMPOSE) down -v && $(COMPOSE) build --no-cache && $(COMPOSE) up --remove-orphans
 
-docker-logs: ## follow the logs of a stack started in the background
+docker-logs: ## follow the logs, from a second terminal or for a stack started with docker compose up -d
 	$(COMPOSE) logs -f
 
 docker-version: ## print the chap_core version running inside the chap container
