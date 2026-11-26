@@ -122,17 +122,18 @@ def _expanded_bytes(table: pa.Table) -> int:
     """How much memory the table takes once its dictionary-encoded columns are written out in full.
 
     A dictionary column stores each distinct value once, so a 10 kB string repeated on a million rows
-    costs 10 kB here and 10 GB once expanded. Bound it by rows times the longest value.
+    costs 10 kB here and 10 GB once expanded. The size of each row's value is looked up from the
+    dictionary, so the total is exact without expanding anything, and a file with a few large
+    values (one very detailed boundary among many small ones) is counted as it is.
     """
     total = 0
     for column in table.columns:
-        if pa.types.is_dictionary(column.type):
-            longest = max(
-                (pc.max(pc.binary_length(chunk.dictionary)).as_py() or 0 for chunk in column.chunks), default=0
-            )
-            total += len(column) * (longest + 8)  # the values, plus an offset and an index per row
-        else:
+        if not pa.types.is_dictionary(column.type):
             total += column.nbytes
+            continue
+        for chunk in column.chunks:
+            sizes = pc.binary_length(chunk.dictionary)
+            total += (pc.sum(pc.take(sizes, chunk.indices)).as_py() or 0) + 8 * len(chunk)  # values, offsets
     return total
 
 

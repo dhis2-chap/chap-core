@@ -168,3 +168,15 @@ def test_read_locations_refuses_unreadable_geometry():
     )
     with pytest.raises(DatasetFileError, match="readable geometry"):
         read_locations(_table_bytes(table))
+
+
+def test_read_locations_counts_varied_shapes_as_they_are(monkeypatch):
+    # Many small areas and one very detailed one: the size is the sum, not rows times the largest.
+    small = [Point(i, 0).buffer(0.1, quad_segs=2) for i in range(200)]
+    detailed = Point(0, 5).buffer(1, quad_segs=2_000)
+    frame = gpd.GeoDataFrame({"location": [f"l{i}" for i in range(201)]}, geometry=[*small, detailed], crs=4326)
+    buffer = io.BytesIO()
+    frame.to_parquet(buffer)
+    largest = len(detailed.wkb)
+    monkeypatch.setattr(dataset_files, "MAX_DECODED_BYTES", 50 * largest)  # far below 201 x the largest
+    assert len(read_locations(buffer.getvalue()).features) == 201
