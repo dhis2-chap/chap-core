@@ -7,7 +7,7 @@ A dataset can be uploaded as two files instead of JSON:
 | `observations.parquet` | Parquet | One row per location and period: `location`, `time_period`, then one numeric column per feature (`disease_cases`, `population`, `rainfall`, ...) |
 | `locations.parquet` | GeoParquet, or GeoJSON | One row per location: `location`, optional `name`, `parent` and `level`, and the geometry |
 
-`location` is the org unit id in both files. `time_period` is a string such as `2024W12` (week)
+`location` is the location's id in both files (with DHIS2 data, the organisation unit id). `time_period` is a string such as `2024W12` (week)
 or `202403` (month); the other spellings Chap reads, such as `2024-W12` and `2024-03`, are
 accepted too. A missing value is a Parquet null. Every column other than `location` and
 `time_period` must be numeric.
