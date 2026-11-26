@@ -26,50 +26,11 @@ Parquet files carry key-value metadata. Chap reads these keys from the observati
 All keys are optional. Without a name, the uploaded file's name is used. `dhis2_data_element`
 becomes the dataset's data source for that column. `chap.provenance` is checked but not stored yet.
 
-pandas drops Parquet metadata, so write the keys with pyarrow:
+The keys are file-level Parquet metadata, so write them with a library that keeps it, such as
+pyarrow; pandas drops Parquet metadata when it reads or writes a file.
 
-```python
-import json
-import tempfile
-from pathlib import Path
-
-import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
-
-frame = pd.DataFrame(
-    {
-        "location": ["O6uvpzGd5pu", "O6uvpzGd5pu"],
-        "time_period": ["202401", "202402"],
-        "disease_cases": [12.0, None],
-        "rainfall": [80.5, 120.0],
-    }
-)
-table = pa.Table.from_pandas(frame, preserve_index=False)
-chap_keys = {
-    "chap.spec_version": "1",
-    "chap.dataset": json.dumps({"name": "Monthly dengue", "target_column": "disease_cases"}),
-    "chap.columns": json.dumps({"rainfall": {"unit": "mm", "source": "ERA5-Land"}}),
-}
-table = table.replace_schema_metadata(
-    {**table.schema.metadata, **{key.encode(): value.encode() for key, value in chap_keys.items()}}
-)
-directory = Path(tempfile.mkdtemp())
-pq.write_table(table, directory / "observations.parquet")
-```
-
-A Chap `DataSet`, for example one read from a CSV file with its GeoJSON next to it, can be
-written as both files at once:
-
-```python
-from chap_core.file_io.dataset_files import DatasetFileMetadata, DatasetInfo, write_dataset_files
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-
-dataset = DataSet.from_csv("example_data/laos_subset.csv")
-observations_path, locations_path = write_dataset_files(
-    dataset, directory, DatasetFileMetadata(dataset=DatasetInfo(name="Laos monthly"))
-)
-```
+Example files of every size, including files Chap must reject, can be generated with
+[chap-test-data](https://dhis2-chap.github.io/chap-test-data/).
 
 ## Uploading
 
