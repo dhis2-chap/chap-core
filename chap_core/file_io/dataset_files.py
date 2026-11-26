@@ -18,9 +18,11 @@ from typing import Any, cast
 import geopandas as gpd
 import pandas as pd
 import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.parquet as pq
 from pydantic import BaseModel, Field
 from pydantic import ValidationError as PydanticValidationError
+from shapely.errors import GEOSException
 from shapely.geometry import shape
 
 from chap_core.api_types import FeatureCollectionModel
@@ -32,8 +34,9 @@ PARQUET_MAGIC = b"PAR1"
 MAX_FILE_BYTES = 100 * 1024 * 1024
 # Two files, each of which a DHIS2 route may send twice (DHIS2-22596), plus form overhead.
 MAX_UPLOAD_BYTES = 4 * MAX_FILE_BYTES + 1024 * 1024
-# Limits checked in the Parquet footer before any data is decoded, so a small, highly compressed
-# file cannot expand into more memory than the API process has. Phase 1 imports through the same
+# Limits on what a file may take once read, so a small, highly compressed file cannot expand into
+# more memory than the API process has: the row count is checked in the footer, the size in memory
+# while text columns are still dictionary-encoded (see _parquet_table). Phase 1 imports through the same
 # Python lists as make-dataset, about 550 bytes per row at the peak (400 MB measured for 730,000
 # rows), so 1 million rows keeps one upload near 550 MB. Larger datasets wait for stored files.
 MAX_ROWS = 1_000_000
@@ -115,11 +118,30 @@ def metadata_keys(metadata: DatasetFileMetadata) -> dict[bytes, bytes]:
     return {key.encode(): value.encode() for key, value in keys.items()}
 
 
-def _parquet_table(data: bytes, what: str) -> pa.Table:
-    """Read a Parquet file after checking, in its footer, that it is not too large once decoded.
+def _expanded_bytes(table: pa.Table) -> int:
+    """How much memory the table takes once its dictionary-encoded columns are written out in full.
 
-    The footer is written by the sender, so the check bounds honest and accidental files, and
-    the row and size figures in the footer are what the decoder allocates for.
+    A dictionary column stores each distinct value once, so a 10 kB string repeated on a million rows
+    costs 10 kB here and 10 GB once expanded. Bound it by rows times the longest value.
+    """
+    total = 0
+    for column in table.columns:
+        if pa.types.is_dictionary(column.type):
+            longest = max(
+                (pc.max(pc.binary_length(chunk.dictionary)).as_py() or 0 for chunk in column.chunks), default=0
+            )
+            total += len(column) * (longest + 8)  # the values, plus an offset and an index per row
+        else:
+            total += column.nbytes
+    return total
+
+
+def _parquet_table(data: bytes, what: str) -> pa.Table:
+    """Read a Parquet file, refusing one that would take too much memory once read.
+
+    The row count is checked in the footer before anything is decoded. Text and binary columns are
+    then read dictionary-encoded, so a value repeated on many rows is held once, and the size the
+    table would take once those columns are expanded is checked before anything expands them.
     """
     if not data.startswith(PARQUET_MAGIC):
         raise DatasetFileError(f"{what} is not a Parquet file")
@@ -131,16 +153,40 @@ def _parquet_table(data: bytes, what: str) -> pa.Table:
         decoded = sum(footer.row_group(i).total_byte_size for i in range(footer.num_row_groups))
         if decoded > MAX_DECODED_BYTES:
             raise DatasetFileError(f"{what} decodes to {decoded} bytes; at most {MAX_DECODED_BYTES} are accepted")
-        return parquet.read()
+        text = [
+            field.name
+            for field in parquet.schema_arrow
+            if pa.types.is_string(field.type)
+            or pa.types.is_large_string(field.type)
+            or pa.types.is_binary(field.type)
+            or pa.types.is_large_binary(field.type)
+        ]
+        table = pq.ParquetFile(pa.BufferReader(data), read_dictionary=text).read()
     except pa.ArrowException as e:
         raise DatasetFileError(f"{what} is not a readable Parquet file: {e}") from e
+    expanded = _expanded_bytes(table)
+    if expanded > MAX_DECODED_BYTES:
+        raise DatasetFileError(
+            f"{what} decodes to {expanded} bytes in memory; at most {MAX_DECODED_BYTES} are accepted"
+        )
+    # Within the limit, so expand the text columns back to plain ones, as the rest of the import expects.
+    for index, column in enumerate(table.columns):
+        if pa.types.is_dictionary(column.type):
+            plain = pa.chunked_array([chunk.dictionary_decode() for chunk in column.chunks], column.type.value_type)
+            table = table.set_column(index, table.schema.field(index).with_type(plain.type), plain)
+    return table
 
 
 def read_observations(data: bytes) -> tuple[pd.DataFrame, DatasetFileMetadata]:
     """Read an observations file into a frame of ``location``, ``time_period`` and float feature columns."""
     table = _parquet_table(data, "observations")
     metadata = read_metadata(table.schema.metadata)
+    # pandas stores an unnamed index as a column of its own; it is not data.
+    table = table.drop_columns([name for name in table.schema.names if name.startswith("__index_level_")])
     names = table.schema.names
+    duplicated = sorted({name for name in names if names.count(name) > 1})
+    if duplicated:
+        raise DatasetFileError(f"observations has more than one column named {', '.join(duplicated)}")
     missing = [name for name in ("location", "time_period") if name not in names]
     if missing:
         raise DatasetFileError(f"observations has no {' or '.join(missing)} column")
@@ -154,7 +200,9 @@ def read_observations(data: bytes) -> tuple[pd.DataFrame, DatasetFileMetadata]:
         raise DatasetFileError(f"observations columns must be numeric; not numeric: {', '.join(not_numeric)}")
     if len(names) == 2:
         raise DatasetFileError("observations has no value columns")
-    frame = table.to_pandas()
+    # The file's own pandas metadata (an index, column types) is dropped: the columns are read as they are.
+    kept = {key: value for key, value in (table.schema.metadata or {}).items() if key != b"pandas"}
+    frame = table.replace_schema_metadata(kept).to_pandas()
     for key in ("location", "time_period"):
         if frame[key].isna().any():
             raise DatasetFileError(f"observations has rows without a {key}")
@@ -175,8 +223,8 @@ def read_locations(data: bytes) -> FeatureCollectionModel:
     try:
         # geopandas reads file objects too; its stubs only list paths.
         frame = gpd.read_parquet(cast("Any", io.BytesIO(data)))
-    except ValueError as e:
-        raise DatasetFileError(f"locations is not GeoParquet: {e}") from e
+    except (ValueError, TypeError, KeyError, GEOSException, pa.ArrowException) as e:
+        raise DatasetFileError(f"locations is not GeoParquet with readable geometry: {e}") from e
     if "location" not in frame.columns:
         raise DatasetFileError("locations has no location column")
     if frame["location"].duplicated().any():

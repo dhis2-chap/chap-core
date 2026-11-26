@@ -71,8 +71,10 @@ curl -s "$CHAP_URL/v1/jobs/<job id>"
 Storing takes longer than checking for large datasets, about a minute at 1,500 locations of
 weekly data over 7 years. The request itself does not wait for it.
 
-Limits: each file up to 100 MB, an observations file up to 1 million rows and 512 MB once
-decoded, and each `chap.*` metadata key up to 64 KB. Keys other than `chap.*` are ignored.
+Limits: each file up to 100 MB, an observations file up to 1 million rows, each file up to 512 MB
+in memory once read (counting every repeated value in full), and each `chap.*` metadata key up to
+64 KB. Other metadata keys are ignored, including the `pandas` key pandas writes, so a file written
+from a DataFrame with an index reads the same as one without. Column names must be unique.
 
 The upload also works through a DHIS2 route. DHIS2 2.42.3 and later forward each file twice
 ([DHIS2-22596](https://dhis2.atlassian.net/browse/DHIS2-22596)); Chap ignores the extra copies.

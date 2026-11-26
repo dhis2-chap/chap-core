@@ -114,3 +114,57 @@ def test_read_locations_rejects_geometry_chap_cannot_use(observations_frame):
     locations.to_parquet(buffer, index=False)
     with pytest.raises(DatasetFileError, match="geometry Chap cannot use"):
         read_locations(buffer.getvalue())
+
+
+def _table_bytes(table: pa.Table) -> bytes:
+    buffer = io.BytesIO()
+    pq.write_table(table, buffer)
+    return buffer.getvalue()
+
+
+def test_read_observations_refuses_a_small_file_that_expands_in_memory(monkeypatch):
+    # A long id repeated on every row is stored once in the file, but would be written out per row.
+    rows = 1_000
+    table = pa.table(
+        {"location": ["x" * 10_000] * rows, "time_period": ["202401"] * rows, "disease_cases": [1.0] * rows}
+    )
+    data = _table_bytes(table)
+    assert len(data) < 100_000
+    monkeypatch.setattr(dataset_files, "MAX_DECODED_BYTES", 1_000_000)
+    with pytest.raises(DatasetFileError, match="in memory"):
+        read_observations(data)
+
+
+def test_read_observations_ignores_the_files_pandas_metadata(observations_frame):
+    # pandas writes an index as a column plus metadata that would turn it back into the index.
+    buffer = io.BytesIO()
+    observations_frame.set_index("location").to_parquet(buffer)
+    frame, _ = read_observations(buffer.getvalue())
+    assert list(frame.columns) == ["time_period", "disease_cases", "location"]
+    # An unnamed index is not data, and broken pandas metadata is ignored like any other.
+    buffer = io.BytesIO()
+    observations_frame.iloc[[1, 0]].to_parquet(buffer)
+    frame, _ = read_observations(buffer.getvalue())
+    assert list(frame.columns) == ["location", "time_period", "disease_cases"]
+    frame, _ = read_observations(_parquet_bytes(observations_frame, {b"pandas": b"not json"}))
+    assert len(frame) == 2
+
+
+def test_read_observations_refuses_duplicate_column_names():
+    table = pa.Table.from_arrays(
+        [pa.array(["a"]), pa.array(["202401"]), pa.array([1.0]), pa.array([2.0])],
+        names=["location", "time_period", "disease_cases", "disease_cases"],
+    )
+    with pytest.raises(DatasetFileError, match="more than one column named disease_cases"):
+        read_observations(_table_bytes(table))
+
+
+def test_read_locations_refuses_unreadable_geometry():
+    buffer = io.BytesIO()
+    gpd.GeoDataFrame({"location": ["a"]}, geometry=[Point(0, 0)], crs=4326).to_parquet(buffer)
+    table = pq.read_table(io.BytesIO(buffer.getvalue()))
+    table = table.set_column(
+        table.schema.get_field_index("geometry"), "geometry", pa.array([b"broken"], type=pa.binary())
+    )
+    with pytest.raises(DatasetFileError, match="readable geometry"):
+        read_locations(_table_bytes(table))
