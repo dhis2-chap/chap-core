@@ -39,15 +39,18 @@ you see a stale `chap_core.__version__` or a fix that clearly didn't land
 inside the running container, use one of:
 
 ```shell
-make restart       # down && up -d --build (preserves volumes incl. chap-db)
-make force-restart # down -v && build --no-cache && up (WIPES VOLUMES)
-make chap-version  # print the chap_core version running inside the container
+make docker-up       # build what changed and start in the foreground; Ctrl+C stops it
+make docker-down     # stop and remove the containers (keeps the database)
+make docker-restart  # docker-down, then docker-up
+make docker-reset    # delete the database, rebuild without cache, start (WIPES VOLUMES)
+make docker-logs     # follow the logs of a stack started in the background
+make docker-version  # print the chap_core version running inside the container
 ```
 
-`make restart` is the right hammer 90% of the time. `make force-restart`
-also wipes the Postgres volume, so reach for it only when you need a clean
-slate. `make chap-version` is also printed automatically at the end of
-`make restart` so version drift is visible at a glance.
+`make docker-up` is the right one most of the time: it rebuilds only what changed, keeps the
+database, and shows the logs until you stop it with Ctrl+C. `make docker-reset` also deletes the
+Postgres volume, so reach for it only when you need a clean slate. All of them use `compose.yml`
+with `compose.chapkit.yml`, so the chapkit models start too.
 
 ### Running marketplace models
 

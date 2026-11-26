@@ -1,4 +1,4 @@
-# Development only: includes the per-model chapkit overlays, used by `make restart`.
+# Development only: includes the per-model chapkit overlays, used by the `make docker-*` targets.
 # Services started this way get no configurations. Deployments install marketplace
 # models with `chap-admin install-all` instead.
 # Requires Docker Compose v2.20+ for the `include` directive.

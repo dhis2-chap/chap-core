@@ -143,7 +143,7 @@ docker compose -f compose.ghcr.yml up -d
 Pass the same `-f compose.ghcr.yml` flag to every later `down`, `pull` and
 `logs` command in that stack.
 
-Docker Compose does not remember which overlays you used, so pass the same `-f` flags to every subsequent `down`, `build` and `logs` command in that stack. The `make restart`, `make force-restart` and `make chap-version` targets carry the `compose.yml` + `compose.chapkit.yml` pair for development, so EWARS runs there without configurations.
+Docker Compose does not remember which overlays you used, so pass the same `-f` flags to every subsequent `down`, `build` and `logs` command in that stack. The `make docker-*` targets (`docker-up`, `docker-down`, `docker-restart`, `docker-reset`, `docker-logs`, `docker-version`) carry the `compose.yml` + `compose.chapkit.yml` pair for development, so EWARS runs there without configurations.
 
 Marketplace models are not started by an overlay in the repository. After the first `docker compose up`, run `chap-admin install-all` from the deployment directory; it starts the model services, registers them with their verified configurations, and writes `compose.marketplace.yml`. See [Running marketplace models](../chap-cli/chap-core-cli-setup.md#running-marketplace-models).
 
