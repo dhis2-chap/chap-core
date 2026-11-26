@@ -86,7 +86,7 @@ It validates and imports the same way as `POST /v1/analytics/make-dataset`: the 
 imported and rejected locations, `dryRun=true` only validates, and otherwise the answer holds the
 id of the import job to follow at `/v1/jobs/{id}`.
 
-Limits: each file up to 100 MB, an observations file up to 5 million rows and 512 MB once
+Limits: each file up to 100 MB, an observations file up to 1 million rows and 512 MB once
 decoded, and each `chap.*` metadata key up to 64 KB. Keys other than `chap.*` are ignored.
 
 The upload also works through a DHIS2 route. DHIS2 2.42.3 and later forward each file twice

@@ -33,8 +33,10 @@ MAX_FILE_BYTES = 100 * 1024 * 1024
 # Two files, each of which a DHIS2 route may send twice (DHIS2-22596), plus form overhead.
 MAX_UPLOAD_BYTES = 4 * MAX_FILE_BYTES + 1024 * 1024
 # Limits checked in the Parquet footer before any data is decoded, so a small, highly compressed
-# file cannot expand into more memory than the API process has.
-MAX_ROWS = 5_000_000
+# file cannot expand into more memory than the API process has. Phase 1 imports through the same
+# Python lists as make-dataset, about 550 bytes per row at the peak (400 MB measured for 730,000
+# rows), so 1 million rows keeps one upload near 550 MB. Larger datasets wait for stored files.
+MAX_ROWS = 1_000_000
 MAX_DECODED_BYTES = 512 * 1024 * 1024
 MAX_METADATA_BYTES = 64 * 1024
 # Row groups of this size let readers skip to one org unit without reading the whole file.

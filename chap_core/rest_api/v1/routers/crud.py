@@ -1069,12 +1069,18 @@ def _import_dataset_files(
     uploads: dict[str, tuple[str, bytes]], dry_run: bool, worker_settings
 ) -> ImportSummaryResponse:
     """Read both files, turn them into a make-dataset request, and import it the same way."""
-    observations_name, observations_data = uploads["observations"]
+    observations_name = uploads["observations"][0]
+    files = {
+        name: {"filename": filename, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+        for name, (filename, data) in uploads.items()
+    }
     try:
-        frame, metadata = read_observations(observations_data)
+        frame, metadata = read_observations(uploads["observations"][1])
         geojson = read_locations(uploads["locations"][1])
     except DatasetFileError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+    # The raw bytes are no longer needed; free them before the values become Python lists.
+    uploads.clear()
     features = [name for name in frame.columns if name not in ("location", "time_period")]
     try:
         make_request = DatasetMakeRequest(
@@ -1098,10 +1104,9 @@ def _import_dataset_files(
     except PydanticValidationError as e:
         raise HTTPException(status_code=422, detail=json.loads(e.json(include_url=False))) from e
     # The job keeps its request for 7 days; keep a description of the files, never their contents.
-    original_request = {
-        name: {"filename": filename, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
-        for name, (filename, data) in uploads.items()
-    } | {"metadata": {"dataset": metadata.dataset.model_dump(mode="json"), "columns": sorted(metadata.columns)}}
+    original_request = files | {
+        "metadata": {"dataset": metadata.dataset.model_dump(mode="json"), "columns": sorted(metadata.columns)}
+    }
     return import_dataset(make_request, original_request, dry_run, worker_settings)
 
 

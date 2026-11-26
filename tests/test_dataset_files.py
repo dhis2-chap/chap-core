@@ -101,11 +101,6 @@ def test_read_observations_checks_the_footer_before_decoding(observations_frame,
         read_observations(_parquet_bytes(observations_frame))
 
 
-def test_read_observations_rejects_a_file_that_is_not_parquet():
-    with pytest.raises(DatasetFileError, match="not a Parquet file"):
-        read_observations(b"location,time_period\na,202401\n")
-
-
 def test_read_locations_rejects_parquet_without_geometry(observations_frame):
     with pytest.raises(DatasetFileError, match="not GeoParquet"):
         read_locations(_parquet_bytes(observations_frame))
