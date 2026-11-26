@@ -26,7 +26,7 @@ from chap_core.log_config import get_status_logger
 from chap_core.models.builtin import BaselineNotApplicable
 from chap_core.rest_api.data_models import BacktestCreate, PredictionParams
 from chap_core.rest_api.job_registry import job_function
-from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
+from chap_core.rest_api.worker_functions import WorkerConfig
 from chap_core.services.alert_service import raise_alerts_for_prediction
 from chap_core.services.dataset_validation import require_model_covariates
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -374,10 +374,9 @@ def harmonize_and_add_health_dataset(
 ) -> int:
     status_logger.info(f"Processing and adding dataset '{name}'")
     dataset_obj = InMemoryDataSet.from_dict(health_dataset, HealthPopulationData)  # type: ignore[arg-type]
-    dataset = harmonize_health_dataset(dataset_obj, usecwd_for_credentials=False, worker_config=worker_config)
     db_id: int = DataSetManager(session.session).save_dataset(
         DataSetCreateInfo(name=name, masked_ranges=masked_ranges or [], target_column=target_column),
-        dataset,
+        dataset_obj,
         polygons=dataset_obj.polygons.model_dump_json(),
         created_manually=True,
     )

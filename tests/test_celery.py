@@ -18,7 +18,7 @@ from chap_core.rest_api import db_worker_functions as wf
 from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, add_numbers, celery_run
 from chap_core.rest_api.data_models import BacktestCreate, PredictionParams
 from chap_core.rest_api.job_registry import job_function, job_name_for, json_args, json_kwargs, resolve_job
-from chap_core.rest_api.worker_functions import WorkerConfig, get_health_dataset
+from chap_core.rest_api.worker_functions import WorkerConfig
 from chap_core.util import redis_available
 
 
