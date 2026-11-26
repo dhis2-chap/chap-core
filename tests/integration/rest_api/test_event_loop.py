@@ -10,7 +10,15 @@ from chap_core.database.database import DB_POOL_CONNECTIONS
 from chap_core.rest_api.app import app, lifespan
 
 # Async handlers that do no blocking work, or that await their blocking work in a thread.
-ASYNC_HANDLERS = {"health", "readiness", "deep_probe", "system_info", "favicon", "proxy_to_service"}
+ASYNC_HANDLERS = {
+    "health",
+    "readiness",
+    "deep_probe",
+    "system_info",
+    "favicon",
+    "proxy_to_service",
+    "create_dataset_from_files",  # awaits the form, then reads the files in a thread
+}
 
 
 def test_threadpool_matches_database_pool():
