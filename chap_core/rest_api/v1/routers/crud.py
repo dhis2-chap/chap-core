@@ -525,22 +525,26 @@ def get_backtest_specification_selection_bias(
 ):
     """Estimate the selection bias of the model with the best comparison with the baseline over all split points.
 
-    Runs a nested scheme on the specification's own split points: every window of consecutive
-    splits picks its best model, and on every later split that pick is compared with the final
-    model, the one picked on all splits. The gap (final model's value minus the pick's value on
-    that split) is zero when the window picks the final model. It is fitted as
-    ``inverseSqrtK / sqrt(k)``, with ``k`` the window size, and the estimated bias is the fit at
-    the full window size. A model that wins every window has no selection bias.
-    ``windowSizePoints`` and ``distancePoints`` hold the data for the two scatter plots; the gap
-    against the distance ``d`` to the test split is a check and should be flat.
+    Runs a bootstrap over the specification's own split points, after BBC-CV (Tsamardinos,
+    Greasidou and Borboudakis 2018). No model is run again and nothing is fitted. Each draw takes
+    split points with replacement, in blocks of ``blockSize`` consecutive ones, and picks its best
+    model. On the split points the draw left out, that pick is compared with the final model, the
+    one picked on all split points. The gap (final model's value minus the pick's value) is zero
+    when the draw picks the final model, and the estimated bias is the mean gap over the draws. A
+    model that wins every draw has no selection bias. ``nDrawsPicked`` of each candidate says how
+    often the draws pick it.
 
     Candidates are the newest backtest of each model on the leaderboard, scored on the
     forecasts all of them and the baseline made, at every horizon distance unless
-    ``horizonDistance`` picks one. With several horizon distances, the test splits start
-    ``gapSplits`` (largest minus smallest horizon distance) splits after each window, so
-    window and test splits share no target period. 404 if the specification is unknown, 422 if
-    the metric or baseline is unknown or unsuitable, the baseline has not run, or there are
-    fewer than two models or 3 + gapSplits split points.
+    ``horizonDistance`` picks one. With several horizon distances, a left-out split point is only
+    scored when it is more than ``gapSplits`` (largest minus smallest horizon distance) splits from
+    every drawn one, so the two share no target period. That takes more split points: 20 with
+    three horizon distances and 9 with two, against 4 with one.
+
+    The estimate of one specification is rough, and it is too low when models do well or badly
+    together for longer stretches than a block. 404 if the specification is unknown, 422 if the
+    metric or baseline is unknown or unsuitable, the baseline has not run, there are fewer than
+    two models, or fewer than half of the draws leave out a split point to score.
     """
     try:
         return selection_bias_service.get_selection_bias(session, specification_id, metric, baseline, horizon_distance)

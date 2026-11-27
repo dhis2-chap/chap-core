@@ -362,7 +362,7 @@ def test_selection_bias_of_an_unknown_specification_is_404(override_session):
     assert client.get("/v1/crud/backtest-specifications/999999/selection-bias").status_code == 404
 
 
-def test_selection_bias_needs_the_baseline_and_three_split_points(
+def test_selection_bias_needs_the_baseline_and_enough_split_points(
     override_session, p_seeded_engine, specification_id, baseline_worker
 ):
     url = f"/v1/crud/backtest-specifications/{specification_id}/selection-bias"
@@ -375,10 +375,12 @@ def test_selection_bias_needs_the_baseline_and_three_split_points(
     _run_queued(p_seeded_engine, baseline_worker)
     response = client.get(url, params={"baseline": "persistence"})
     assert response.status_code == 422
-    # 3 horizon distances: 3 split points plus a gap of 2 between window and test splits.
-    assert "at least 5 split points" in response.json()["detail"]
+    # 3 horizon distances: a left-out split point is only scored when it is more than 2 splits from every drawn one.
+    assert "Too few split points" in response.json()["detail"]
+    assert "more than 2 splits from every drawn one" in response.json()["detail"]
     response = client.get(url, params={"baseline": "persistence", "horizonDistance": 1})
-    assert "at least 3 split points" in response.json()["detail"]
+    assert response.status_code == 422
+    assert "Too few split points" in response.json()["detail"]
 
 
 def test_selection_bias_runs_on_every_split_point(override_session, p_seeded_engine, baseline_worker):
@@ -401,11 +403,11 @@ def test_selection_bias_runs_on_every_split_point(override_session, p_seeded_eng
         session.session.commit()
 
     url = f"/v1/crud/backtest-specifications/{specification_id}/selection-bias"
-    # By default all 3 horizon distances are scored, and the test splits start 2 splits after
-    # each window: 4 split points are too few.
+    # By default all 3 horizon distances are scored, and a left-out split point must be more than 2 splits
+    # from every drawn one: the split points are too few.
     response = client.get(url, params={"baseline": "persistence", "metric": "mae"})
     assert response.status_code == 422
-    assert "at least 5 split points" in response.json()["detail"]
+    assert "Too few split points" in response.json()["detail"]
 
     response = client.get(url, params={"baseline": "persistence", "metric": "mae", "horizonDistance": 1})
     assert response.status_code == 200, response.text
@@ -416,6 +418,6 @@ def test_selection_bias_runs_on_every_split_point(override_session, p_seeded_eng
     assert {c["modelName"] for c in data["candidates"]} == {"naive_model", "global_median"}
     assert data["selectedBacktestId"] == data["candidates"][0]["backtestId"]
     assert data["estimatedValue"] == pytest.approx(data["validationValue"] - data["estimatedBias"])
-    assert [p["x"] for p in data["windowSizePoints"]] == [1, 2, 3]
-    assert [p["x"] for p in data["distancePoints"]] == [0, 1, 2]
-    assert sum(p["nPairs"] for p in data["distancePoints"]) == data["nPairs"] == 10
+    assert data["blockSize"] == 3
+    assert 0 < data["nDrawsScored"] <= data["nDraws"]
+    assert sum(c["nDrawsPicked"] for c in data["candidates"]) == data["nDrawsScored"]
