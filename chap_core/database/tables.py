@@ -5,7 +5,6 @@ todo: comment this file, make it clear which classes are central and being used
 from enum import StrEnum
 from typing import Any, Optional
 
-import numpy as np
 from pydantic import computed_field
 from sqlalchemy import JSON, CheckConstraint, Column, Index, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
@@ -483,9 +482,6 @@ class ForecastBase(DBModel):
         sa_type=JSON,
         description="Posterior sample values for this (period, org_unit). Quantiles are derived from these at read time.",
     )
-
-    def get_quantiles(self, quantiles: list[float]) -> np.ndarray:
-        return np.quantile(self.values, quantiles).astype(float)
 
 
 class ForecastRead(ForecastBase):

@@ -384,7 +384,7 @@ shortcut to apply this to all GET endpoints.
 | `rest_api/celery_tasks.py` | Celery app, TrackedTask, CeleryPool, job metadata |
 | `rest_api/data_models.py` | Shared Pydantic request/response models |
 | `rest_api/db_worker_functions.py` | Business logic for async Celery jobs |
-| `rest_api/worker_functions.py` | WorkerConfig and related utilities |
+| `rest_api/worker_functions.py` | `WorkerConfig`, the worker settings injected into job functions |
 | `database/database.py` | Engine creation, SessionWrapper, migrations |
 | `database/manager.py` | `DbManager[ModelT]` generic data-access base |
 | `database/dataset_manager.py` | `DataSetManager` dataset reads/writes + filtering |
