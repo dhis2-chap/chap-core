@@ -286,11 +286,15 @@ class TestAlembicMigrations:
             current = result.scalar_one()
             assert current == head_rev
 
-    def test_upgrade_applies_after_generic_startup_migration(self, engine):
+    @pytest.mark.parametrize("create_all_ran_first", [False, True])
+    def test_upgrade_applies_after_generic_startup_migration(self, engine, create_all_ran_first):
         """
         create_db_and_tables adds missing columns from model metadata before it
         runs Alembic, so the columns of the versioning migration can already
         exist. The migration must still run its backfills and constraint swap.
+
+        It then runs create_all, which makes tables added by later migrations in
+        their current shape, with every column the model has gained since.
         """
         from alembic import command
 
@@ -336,6 +340,8 @@ class TestAlembicMigrations:
                 conn.execute(sa.text(f"UPDATE backtest SET {column} = 0"))
             conn.execute(sa.text("ALTER TABLE backtest ADD COLUMN future_weather_provider VARCHAR"))
             conn.execute(sa.text("UPDATE backtest SET future_weather_provider = ''"))
+            if create_all_ran_first:
+                SQLModel.metadata.create_all(conn)
             conn.commit()
 
         command.upgrade(alembic_cfg, "head")
