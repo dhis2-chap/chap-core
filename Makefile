@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs docs-serve help install lint lint/flake8 check regen-plot-help force-restart restart chap-version architecture architecture-validate architecture-export architecture-export-mermaid architecture-export-docs architecture-export-plantuml architecture-check-docs architecture-clean
+.PHONY: clean coverage dist docs docs-serve help install lint lint/flake8 check regen-plot-help docker-up docker-down docker-restart docker-reset architecture architecture-validate architecture-export architecture-export-mermaid architecture-export-docs architecture-export-plantuml architecture-check-docs architecture-clean
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -107,14 +107,20 @@ install: clean ## sync dependencies and install package in development mode
 regen-plot-help: ## regenerate chap_core/cli_endpoints/generated_plot_ids.py from @backtest_plot decorators
 	@uv run python scripts/regenerate_plot_help.py
 
-force-restart: ## tear down, rebuild, and start docker compose from scratch (WIPES VOLUMES including chap-db)
-	docker compose -f compose.yml -f compose.chapkit.yml down -v && docker compose -f compose.yml -f compose.chapkit.yml build --no-cache && docker compose -f compose.yml -f compose.chapkit.yml up --remove-orphans
+# --- Docker: the development stack (compose.yml + compose.chapkit.yml) ---
+COMPOSE := docker compose -f compose.yml -f compose.chapkit.yml
 
-restart: ## soft restart docker compose (preserves volumes; rebuilds only on source changes)
-	docker compose -f compose.yml -f compose.chapkit.yml down && docker compose -f compose.yml -f compose.chapkit.yml up -d --build --remove-orphans && $(MAKE) chap-version
+docker-up: ## build what changed and start in the foreground with logs; Ctrl+C stops it (keeps the database)
+	$(COMPOSE) up --build --remove-orphans
 
-chap-version: ## print the chap_core version running inside the chap container
-	@docker compose -f compose.yml -f compose.chapkit.yml exec -T chap python -c 'import chap_core; print(f"chap_core running in container: {chap_core.__version__}")' 2>/dev/null || echo "chap container not running"
+docker-down: ## stop and remove the containers (keeps the database)
+	$(COMPOSE) down
+
+docker-restart: ## stop, then build what changed and start in the foreground (keeps the database)
+	$(COMPOSE) down && $(COMPOSE) up --build --remove-orphans
+
+docker-reset: ## start from scratch: delete the database, rebuild without cache, start in the foreground
+	$(COMPOSE) down -v && $(COMPOSE) build --no-cache && $(COMPOSE) up --remove-orphans
 
 # --- Architecture: serve / view ---
 # Every container below writes generated files into the bind-mounted repo, and each
