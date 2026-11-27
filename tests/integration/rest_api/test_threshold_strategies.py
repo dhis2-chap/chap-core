@@ -1,4 +1,4 @@
-"""Tests for the threshold strategy registry and the seasonal and percentile strategies."""
+"""Tests for the threshold strategy registry and the seasonal, percentile, and C-SUM strategies."""
 
 from typing import get_args
 
@@ -12,7 +12,7 @@ from chap_core.assessment.thresholds import (
     threshold,
 )
 from chap_core.assessment.thresholds.base import ThresholdStrategyBase
-from chap_core.assessment.thresholds.params import PercentileParams, SeasonalParams, ThresholdParams
+from chap_core.assessment.thresholds.params import CSumParams, PercentileParams, SeasonalParams, ThresholdParams
 from chap_core.assessment.thresholds.seasonal import compute_seasonal_thresholds
 from chap_core.spatio_temporal_data.converters import observations_to_dataframe
 
@@ -31,7 +31,7 @@ def _strategy(strategy_id):
 
 def test_strategies_are_registered():
     ids = {s["id"] for s in list_threshold_strategies()}
-    assert {"seasonal", "percentile"}.issubset(ids)
+    assert {"seasonal", "percentile", "c_sum"}.issubset(ids)
 
 
 def test_unknown_strategy_returns_none():
@@ -229,6 +229,8 @@ def test_params_lines_follow_request_order():
     assert SeasonalParams(type="seasonal", std_multiplier=[1.0, 2.0]).lines == [1.0, 2.0]
     assert PercentileParams(type="percentile").lines == [0.75]
     assert PercentileParams(type="percentile", quantile=[0.75, 0.25]).lines == [0.75, 0.25]
+    assert CSumParams(type="c_sum").lines == [1.96]
+    assert CSumParams(type="c_sum", std_multiplier=[0.0, 1.96]).lines == [0.0, 1.96]
 
 
 def test_params_type_is_required():
@@ -236,6 +238,8 @@ def test_params_type_is_required():
         PercentileParams()  # type: ignore[call-arg]
     with pytest.raises(ValueError):
         SeasonalParams()  # type: ignore[call-arg]
+    with pytest.raises(ValueError):
+        CSumParams()  # type: ignore[call-arg]
 
 
 def test_percentile_params_validation():
@@ -247,6 +251,65 @@ def test_percentile_params_validation():
         PercentileParams(type="percentile", quantile=[])
     with pytest.raises(ValueError):
         PercentileParams(type="percentile", baseline_years=0)
+
+
+def test_c_sum_strategy_shape(endemic_channel_observations):
+    period_ids = ["2023-01", "2023-06"]
+    result = _strategy("c_sum").compute(
+        endemic_channel_observations, period_ids, CSumParams(type="c_sum", std_multiplier=0.0)
+    )
+    assert set(result.columns) == {"period_id", "location", "line", "threshold"}
+    assert len(result) == len(period_ids) * 2
+    assert result["threshold"].notna().all()
+
+
+def test_c_sum_strategy_multi_line_order(endemic_channel_observations):
+    result = _strategy("c_sum").compute(
+        endemic_channel_observations,
+        ["2023-06"],
+        CSumParams(type="c_sum", std_multiplier=[0.0, 1.96]),
+    )
+    assert set(result["line"]) == {0, 1}
+    for location in ("loc_1", "loc_2"):
+        rows = result[result["location"] == location].set_index("line")["threshold"]
+        assert rows[0] < rows[1]
+
+
+def test_c_sum_strategy_baseline_window(endemic_channel_observations):
+    """A shorter baseline pools different years, so the channel changes."""
+    full = _strategy("c_sum").compute(endemic_channel_observations, ["2023-06"], CSumParams(type="c_sum"))
+    short = _strategy("c_sum").compute(
+        endemic_channel_observations, ["2023-06"], CSumParams(type="c_sum", baseline_years=2)
+    )
+    assert not full["threshold"].equals(short["threshold"])
+
+
+def test_c_sum_strategy_excludes_partial_final_year(
+    endemic_channel_observations, endemic_channel_observations_partial_year
+):
+    """January and February of an in-progress year must not leak into the December window."""
+    params = CSumParams(type="c_sum", baseline_years=None)
+    expected = _strategy("c_sum").compute(endemic_channel_observations, ["2023-12"], params)
+    actual = _strategy("c_sum").compute(endemic_channel_observations_partial_year, ["2023-12"], params)
+    assert actual["threshold"].tolist() == expected["threshold"].tolist()
+
+
+def test_c_sum_strategy_frequency_mismatch_raises(endemic_channel_observations):
+    with pytest.raises(ValueError, match="different frequency"):
+        _strategy("c_sum").compute(endemic_channel_observations, ["2023-W01"], CSumParams(type="c_sum"))
+
+
+def test_c_sum_strategy_empty_history_matches_requested_frequency():
+    empty = pd.DataFrame(columns=["location", "time_period", "disease_cases"])
+    result = _strategy("c_sum").compute(empty, ["2023-W01"], CSumParams(type="c_sum"))
+    assert result.empty
+
+
+def test_c_sum_params_validation():
+    with pytest.raises(ValueError):
+        CSumParams(type="c_sum", std_multiplier=[])
+    with pytest.raises(ValueError):
+        CSumParams(type="c_sum", baseline_years=0)
 
 
 def test_service_thresholds_match_strategy_on_stored_history(engine, dataset, dataset_observations):

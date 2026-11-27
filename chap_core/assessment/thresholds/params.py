@@ -72,7 +72,30 @@ class PercentileParams(ThresholdParamsBase):
         return line_values(self.quantile)
 
 
-ThresholdParams = Annotated[SeasonalParams | PercentileParams, Field(discriminator="type")]
+class CSumParams(ThresholdParamsBase):
+    """Parameters for the WHO C-SUM (three-period smoothed baseline) strategy."""
+
+    type: Literal["c_sum"]
+    std_multiplier: float | Annotated[list[float], Field(min_length=1)] = Field(
+        1.96,
+        description="Number of population standard deviations above the mean of the pooled "
+        "three-period window (previous, target and next sub-period across the baseline years). "
+        "The SD is the population SD (divide by N), unlike `seasonal`, which uses the sample SD. "
+        "The default 1.96 is the WHO upper 95% limit. A list produces one threshold line per entry.",
+    )
+    baseline_years: int | None = Field(
+        5,
+        ge=1,
+        description="Number of the most recent complete years in the dataset to compute the baseline from. "
+        "A partial final year is excluded. `null` uses all available complete years.",
+    )
+
+    @property
+    def lines(self) -> list[float]:
+        return line_values(self.std_multiplier)
+
+
+ThresholdParams = Annotated[SeasonalParams | PercentileParams | CSumParams, Field(discriminator="type")]
 
 
 def line_values(scalar_or_list: float | list[float]) -> list[float]:
