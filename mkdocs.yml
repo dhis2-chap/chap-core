@@ -176,6 +176,7 @@ nav:
           - Docker Compose: webapi/docker-compose-doc.md
           - API Authentication: webapi/api-authentication.md
           - Service Registration: webapi/service-registration.md
+          - Dataset Files: webapi/dataset-files.md
       - API Reference: api/index.md
       - Changelog: changelog.md
   - Modeling Webinar Series:

@@ -16,19 +16,25 @@ alias_generator=to_camel and FastAPI's response_model_by_alias defaults to True.
 """
 
 import dataclasses
+import hashlib
 import json
 import logging
+from pathlib import PurePosixPath
 from typing import Annotated, Any, Final, Literal
 
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Path, Query, Request, UploadFile
 from pandas.api.types import is_numeric_dtype
+from pydantic import ValidationError as PydanticValidationError
 from redis.exceptions import RedisError
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, col, select
+from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import UploadFile as StarletteUploadFile
 from starlette.responses import StreamingResponse
+from starlette.types import Message
 
 import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import BacktestParams, FeatureCollectionModel
@@ -45,6 +51,7 @@ from chap_core.database.dataset_tables import (
     DataSetCreateInfo,
     DataSetInfo,
     DataSetWithObservations,
+    DataSource,
 )
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.model_templates_and_config_tables import (
@@ -72,6 +79,13 @@ from chap_core.database.tables import (
 )
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.exceptions import BaselineTemplateConflict, ModelTemplateRevisionConflict
+from chap_core.file_io.dataset_files import (
+    MAX_FILE_BYTES,
+    MAX_UPLOAD_BYTES,
+    DatasetFileError,
+    read_locations,
+    read_observations,
+)
 from chap_core.geometry import Polygons
 from chap_core.rest_api.authorization import ensure, require
 from chap_core.rest_api.baseline_runs import request_baselines_after_response
@@ -111,10 +125,13 @@ from ...data_models import (
     ConfiguredModelInfoRead,
     DataBaseResponse,
     DatasetCreate,
+    DatasetMakeRequest,
+    ImportSummaryResponse,
     JobResponse,
     ModelConfigurationCreate,
     ModelTemplateFromService,
     ModelTemplateRead,
+    ObservationColumns,
     PredictionParams,
     PredictionSetupCreate,
     PredictionSetupUpdate,
@@ -127,7 +144,7 @@ from ...leaderboard_models import (
     ReferenceModelResult,
     list_metric_info,
 )
-from .analytics import validate_full_dataset
+from .analytics import import_dataset, validate_full_dataset
 from .dependencies import (
     check_masked_ranges_match,
     get_job_request,
@@ -966,6 +983,131 @@ def create_dataset(
         **{JOB_REQUEST_KW: original_request},
     )
     return JobResponse(id=job.id)
+
+
+DATASET_FILE_PARTS: Final = ("observations", "locations")
+
+
+@router.post(
+    "/datasets/files",
+    dependencies=[require(Permission.WRITE_DATASETS)],
+    response_model=ImportSummaryResponse,
+    tags=["Datasets"],
+    summary="Import a dataset from Parquet files",
+)
+async def create_dataset_from_files(
+    request: Request,
+    dry_run: bool = Query(
+        False, description="If True, only run validation and do not import the dataset", alias="dryRun"
+    ),
+    worker_settings=Depends(get_settings),
+) -> ImportSummaryResponse:
+    """Import a dataset from two uploaded files: ``observations`` (Parquet) and ``locations`` (GeoParquet or GeoJSON).
+
+    Send them as a multipart form with exactly those two file parts. The observations file has a
+    ``location`` and a ``time_period`` column and one numeric column per feature. The locations
+    file has one row (or feature) per location, keyed by ``location``.
+
+    Dataset settings come from the observations file's ``chap.*`` Parquet metadata: the name,
+    target column (default ``disease_cases``), masked ranges, and a DHIS2 data element per column.
+    Without a name, the file name is used. Validation, the rejection summary, ``dryRun`` and the
+    queued import work as in ``POST /v1/analytics/make-dataset``.
+    """
+    uploads = await _read_dataset_file_parts(request)
+    return await run_in_threadpool(_import_dataset_files, uploads, dry_run, worker_settings)
+
+
+async def _read_dataset_file_parts(request: Request) -> dict[str, tuple[str, bytes]]:
+    """Read the observations and locations file parts by name.
+
+    A DHIS2 route forwards each file twice (DHIS2-22596, in 2.40.10+, 2.41.7+, 2.42.3+ and 2.43):
+    first as a form field without a filename, then as the file. The field copies are allowed up to
+    the file size limit and dropped, so uploads work through a route until DHIS2 is fixed.
+
+    Starlette limits only text fields; file parts are spooled to disk whatever their size. So the
+    body is counted as it arrives and the upload stops with 413 once it passes ``MAX_UPLOAD_BYTES``,
+    also when a DHIS2 route sends it chunked, without a Content-Length.
+    """
+    too_large = HTTPException(status_code=413, detail=f"The upload is larger than {MAX_UPLOAD_BYTES} bytes")
+    if int(request.headers.get("content-length") or 0) > MAX_UPLOAD_BYTES:
+        raise too_large
+    received = 0
+
+    async def counted_receive() -> Message:
+        nonlocal received
+        message = await request.receive()
+        received += len(message.get("body", b""))
+        if received > MAX_UPLOAD_BYTES:
+            raise too_large
+        return message
+
+    form = await Request(request.scope, counted_receive).form(
+        max_files=2 * len(DATASET_FILE_PARTS),
+        max_fields=2 * len(DATASET_FILE_PARTS),
+        max_part_size=MAX_FILE_BYTES,
+    )
+    try:
+        unknown = sorted({name for name, _ in form.multi_items()} - set(DATASET_FILE_PARTS))
+        if unknown:
+            raise HTTPException(
+                status_code=422, detail=f"Unknown form parts: {', '.join(unknown)}. Send observations and locations."
+            )
+        uploads = {}
+        for name in DATASET_FILE_PARTS:
+            files = [value for value in form.getlist(name) if isinstance(value, StarletteUploadFile)]
+            if len(files) != 1:
+                raise HTTPException(status_code=422, detail=f"Send one {name} file as a file part")
+            if files[0].size is not None and files[0].size > MAX_FILE_BYTES:
+                raise HTTPException(status_code=413, detail=f"{name} is larger than {MAX_FILE_BYTES} bytes")
+            uploads[name] = (files[0].filename or name, await files[0].read())
+        return uploads
+    finally:
+        await form.close()
+
+
+def _import_dataset_files(
+    uploads: dict[str, tuple[str, bytes]], dry_run: bool, worker_settings
+) -> ImportSummaryResponse:
+    """Read both files, turn them into a make-dataset request, and import it the same way."""
+    observations_name = uploads["observations"][0]
+    files = {
+        name: {"filename": filename, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+        for name, (filename, data) in uploads.items()
+    }
+    try:
+        frame, metadata = read_observations(uploads["observations"][1])
+        geojson = read_locations(uploads["locations"][1])
+    except DatasetFileError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    # The raw bytes are no longer needed; free them before the values become Python lists.
+    uploads.clear()
+    features = [name for name in frame.columns if name not in ("location", "time_period")]
+    try:
+        make_request = DatasetMakeRequest(
+            name=metadata.dataset.name or PurePosixPath(observations_name).stem,
+            target_column=metadata.dataset.target_column,
+            masked_ranges=metadata.dataset.masked_ranges,
+            data_sources=[
+                DataSource(covariate=name, data_element_id=info.dhis2_data_element)
+                for name, info in metadata.columns.items()
+                if info.dhis2_data_element
+            ],
+            geojson=geojson,
+            provided_data_columns=ObservationColumns(
+                org_unit=frame["location"].tolist(),
+                period=frame["time_period"].tolist(),
+                values={
+                    name: frame[name].astype(object).where(frame[name].notna(), None).tolist() for name in features
+                },
+            ),
+        )
+    except PydanticValidationError as e:
+        raise HTTPException(status_code=422, detail=json.loads(e.json(include_url=False))) from e
+    # The job keeps its request for 7 days; keep a description of the files, never their contents.
+    original_request = files | {
+        "metadata": {"dataset": metadata.dataset.model_dump(mode="json"), "columns": sorted(metadata.columns)}
+    }
+    return import_dataset(make_request, original_request, dry_run, worker_settings)
 
 
 @router.post(

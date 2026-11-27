@@ -223,6 +223,7 @@ the fixed lists clients choose from, such as plot types, weather providers and t
 | GET | `/v1/crud/datasets/{datasetId}` | `export:datasets` |
 | DELETE | `/v1/crud/datasets/{datasetId}` | `delete:datasets` |
 | POST | `/v1/crud/datasets/csvFile` | `write:datasets` |
+| POST | `/v1/crud/datasets/files` | `write:datasets` |
 | GET | `/v1/crud/datasets/{datasetId}/df` | `export:datasets` |
 | GET | `/v1/crud/datasets/{datasetId}/csv` | `export:datasets` |
 | GET | `/v1/crud/model-templates` | `read:models` |
