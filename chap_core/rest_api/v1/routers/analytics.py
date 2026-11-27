@@ -128,6 +128,17 @@ def make_dataset(
     ``maskedRanges`` deletes data: ``disease_cases`` inside the ranges is stored as empty
     and the submitted values are not kept. They cannot be recovered or unmasked later.
     """
+    return import_dataset(request, original_request, dry_run, worker_settings)
+
+
+def import_dataset(
+    request: DatasetMakeRequest, original_request: dict, dry_run: bool, worker_settings
+) -> ImportSummaryResponse:
+    """Validate the observations and polygons, then queue the import unless this is a dry run.
+
+    Shared by make-dataset and the file upload, so both validate, reject and store the same way.
+    ``original_request`` is what the job keeps as its request, so it must not hold more than the caller sent.
+    """
     feature_names, provided_data, rejections = _read_and_validate_dataset(request, dry_run)
     check_masked_ranges_match(request.masked_ranges, provided_data, request.target_column)
     imported_count = len(list(provided_data.locations()))

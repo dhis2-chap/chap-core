@@ -65,6 +65,7 @@ dependencies = [
     "pyts>=0.13.0",
     "fastdtw>=0.3.4",
     "pydantic-settings>=2.14.2",
+    "pyarrow>=26.0.1",
 ]
 
 [dependency-groups]
@@ -242,6 +243,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "pooch.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pyarrow.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
