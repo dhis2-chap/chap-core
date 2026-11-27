@@ -215,8 +215,9 @@ test window.
 `Evaluation.create` wraps the full backtest workflow and produces an object that
 supports export to flat DataFrames and NetCDF files.
 
-The `NaiveEstimator` provides `model_template_db` and `configured_model_db` class
-attributes with the model metadata needed by the evaluation:
+Running an evaluation needs only the estimator, the dataset and the backtest
+parameters. The model that ran is recorded afterwards with `with_model`, and is
+written to the NetCDF attributes by `to_file`.
 
 `Evaluation.create` runs the estimator as given. If a model declares a
 `max_prediction_periods` below the backtest's `n_periods`, wrap it with
@@ -229,15 +230,15 @@ Run the evaluation:
 ```python
 from chap_core.api_types import BacktestParams
 from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.evaluation_metadata import EvaluatedModel
 from chap_core.external.ExtendedPredictor import ExtendedPredictor
 
 backtest_params = BacktestParams(n_periods=3, n_splits=4, stride=1, n_retrain=1)
 evaluation = Evaluation.create(
-    estimator.configured_model_db,
     ExtendedPredictor.extend_to_horizon(estimator, backtest_params.n_periods),
     dataset,
     backtest_params,
-)
+).with_model(EvaluatedModel(name="naive_model", version="1.0"))
 ```
 
 Export to flat DataFrames for inspection:

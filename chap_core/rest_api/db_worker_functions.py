@@ -1,14 +1,17 @@
 import inspect
 import logging
+from dataclasses import asdict
 from functools import wraps
-from typing import get_type_hints
+from typing import TYPE_CHECKING, cast, get_type_hints
+from uuid import uuid4
 
 import numpy as np
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from chap_core.api_types import BacktestParams
+from chap_core.api_types import BacktestParams, EstimatorMode, EstimatorOptions
 from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.evaluation_metadata import EvaluatedModel
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.assessment.metrics import compute_all_aggregated_metrics
 from chap_core.assessment.target_mask import (
@@ -20,16 +23,23 @@ from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSetCreateInfo, DataSource, MaskedRange
+from chap_core.database.hpo_tables import HpoRunDB
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration
 from chap_core.database.tables import BacktestSpecification, PredictionSetup
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
+from chap_core.hpo.factory import create_hpo_estimator  # should be moved to hpo package
 from chap_core.log_config import get_status_logger
 from chap_core.models.builtin import BaselineNotApplicable
-from chap_core.rest_api.data_models import BacktestCreate, PredictionParams
+from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
+from chap_core.rest_api.data_models import BacktestCreate, MakeHpoBacktestRequest, PredictionParams
 from chap_core.rest_api.job_registry import job_function
 from chap_core.rest_api.worker_functions import WorkerConfig
 from chap_core.services.alert_service import raise_alerts_for_prediction
 from chap_core.services.dataset_validation import require_model_covariates
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+
+if TYPE_CHECKING:
+    from chap_core.models.model_template import ModelTemplate
 
 logger = logging.getLogger(__name__)
 status_logger = get_status_logger()
@@ -156,19 +166,6 @@ def run_backtest(
     dataset, target_column = load_masked_dataset(session.session, info.dataset_id, target_column)
 
     configured_model = session.get_configured_model_by_id_or_name(info.model_id)
-    # Normalise back to the name string so any downstream code that still
-    # reads `info.model_id` as a string (job metadata, logs, etc.) sees the
-    # canonical value rather than the raw integer primary key.
-    info.model_id = configured_model.name
-
-    # Carry the resolved values, not the requested ones, so everything downstream of
-    # here sees what actually ran. The persisted copy is the specification resolved
-    # below; these keep `info` consistent for job metadata and logging.
-    info.n_periods = n_periods
-    info.n_splits = n_splits
-    info.stride = stride
-    info.n_retrain = n_retrain
-    info.future_weather_provider = future_weather_provider
 
     status_logger.info(f"Validating dataset with {len(list(dataset.locations()))} locations")
     backtest_params = BacktestParams(
@@ -205,16 +202,149 @@ def run_backtest(
     # Invalid forecasts, such as NaN samples (MissingSamplesError), fail the job on purpose.
     # Only the metrics below are best-effort.
     evaluation = Evaluation.create(
-        configured_model=configured_model,
         estimator=estimator,
         dataset=dataset,
         backtest_params=backtest_params,
         historical_context_years=0,
-        info=info,
-        specification=specification,
     )
-    backtest = evaluation.to_backtest(include_forecasts=False)
-    backtest.model_db_id = configured_model.id
+    return persist_evaluation(session, evaluation, configured_model, specification, info.name)
+
+
+@job_function
+def run_hpo_backtest(
+    request: MakeHpoBacktestRequest,
+    session: SessionWrapper | None = None,
+) -> int:
+    """Optimize a model and store its held-out backtest.
+    Uses an existing BacktestSpecification.
+    Returns the persisted Backtest ID.
+    """
+    assert session is not None, "session is required"
+    specification = session.session.get(BacktestSpecification, request.backtest_specification_id)
+    if specification is None:
+        raise ValueError(f"Backtest specification {request.backtest_specification_id} not found")
+    template_db = session.get_model_template(request.model_template_id)
+    status_logger.info(
+        f"Starting hpo backtest for model template '{template_db.name}' on dataset ID {specification.dataset_id}"
+    )
+    if template_db.archived:
+        raise ValueError(f"Model template '{template_db.name}' is archived")
+    if not template_db.hpo_search_space:
+        raise ValueError(f"Model template '{template_db.name}' has no HPO search space")
+    backtest_params = BacktestParams.model_validate(
+        {field: getattr(specification, field) for field in BacktestParams.model_fields}
+    )
+    dataset, target_column = load_masked_dataset(session.session, specification.dataset_id, specification.target_column)
+    # checks copied from resolve_backtest_specification used in create_backtest
+    check_mask_outside_evaluation_window(
+        dataset, backtest_params.n_periods, backtest_params.n_splits, backtest_params.stride
+    )
+    dataset = validate_and_filter_dataset_for_evaluation(
+        dataset,
+        target_name=target_column,
+        n_periods=backtest_params.n_periods,
+        n_splits=backtest_params.n_splits,
+        stride=backtest_params.stride,
+    )
+    # same as create_backtest
+    dataset = _use_as_disease_cases(dataset, target_column)
+    require_model_covariates(dataset, template_db.required_covariates, request.additional_continuous_covariates)
+    # for HPO
+    base_configuration = ModelConfiguration(additional_continuous_covariates=(request.additional_continuous_covariates))
+    template = session.get_model_template_with_code(request.model_template_id)
+    try:
+        if isinstance(template, ExternalChapkitModelTemplate):
+            logger.warning("Running HPO with an external Chapkit model template; compatibility has not been verified")
+        optimizer = create_hpo_estimator(
+            template=cast("ModelTemplate", template),
+            configuration=base_configuration,
+            backtest_params=backtest_params,
+            options=EstimatorOptions(
+                mode=EstimatorMode.HPO,
+                max_trials=request.n_trials,
+            ),
+        )
+        # The configured model is only known after HPO; it is recorded when persisting.
+        evaluation = Evaluation.create(
+            estimator=optimizer,
+            dataset=dataset,
+            backtest_params=backtest_params,
+            historical_context_years=0,
+        )
+    finally:
+        if isinstance(template, ExternalChapkitModelTemplate):
+            template.close()
+    hpo_result = evaluation.get_hpo()
+    if hpo_result is None:
+        raise ValueError("HPO evaluation did not produce an HPO result")
+    best_configuration = hpo_result.model_configuration
+    # give HPO run a unique configuration name
+    configuration_name = f"hpo_{uuid4().hex[:12]}"
+    # persist HPO metadata
+    flat_hpo = hpo_result.to_flat()
+    hpo_run = HpoRunDB(
+        searcher=flat_hpo.searcher,
+        metric=flat_hpo.metric,
+        direction=flat_hpo.direction,
+        search_space=flat_hpo.search_space,
+        max_trials=flat_hpo.max_trials,
+        seed=flat_hpo.seed,
+        best_params=flat_hpo.best_params,
+        best_score=flat_hpo.best_score,
+        n_trials=flat_hpo.n_trials,
+        n_successful_trials=flat_hpo.n_successful_trials,
+        n_failed_trials=flat_hpo.n_failed_trials,
+        elapsed_seconds=flat_hpo.seconds,
+        stop_reason=flat_hpo.stop_reason,
+        leaderboard=[asdict(trial) for trial in hpo_result.leaderboard],
+    )
+    try:
+        session.session.add(hpo_run)
+        session.session.flush()
+        hpo_run_id = hpo_run.id
+        assert hpo_run_id is not None
+        configured_model_id = session.add_configured_model(
+            model_template_id=request.model_template_id,
+            configuration=best_configuration,
+            configuration_name=configuration_name,
+            uses_chapkit=template_db.uses_chapkit,
+            commit=False,
+            promote_template=False,
+        )
+        configured_model = session.get_configured_model_by_id_or_name(configured_model_id)
+        configured_model.hpo_run_id = hpo_run.id
+        backtest_id = persist_evaluation(
+            session, evaluation, configured_model, specification, request.name, commit=False
+        )
+        # Persist the HPO run, configured model, and backtest atomically.
+        session.session.commit()
+    except Exception:
+        session.session.rollback()
+        raise
+    status_logger.info(
+        "HPO backtest completed successfully. "
+        f"Backtest ID: {backtest_id}; "
+        f"Configured model ID: {configured_model_id}; "
+        f"HPO run ID: {hpo_run.id}"
+    )
+    return backtest_id
+
+
+def persist_evaluation(
+    session: SessionWrapper,
+    evaluation: Evaluation,
+    configured_model: ConfiguredModelDB,
+    specification: BacktestSpecification,
+    name: str | None,
+    *,
+    commit: bool = True,
+) -> int:
+    """Persist an evaluation of a stored configured model under a stored specification."""
+    if configured_model.id is None:
+        raise ValueError("Configured model must be persisted first")
+    backtest = evaluation.with_model(EvaluatedModel.from_configured_model(configured_model)).to_backtest(
+        configured_model, specification, name, include_forecasts=False
+    )
     # Populate the global aggregate metric values on the backtest row so that
     # GET /v1/crud/backtests/{id}/full can return CRPS/MAPE/RMSE/etc without
     # the caller needing to round-trip through /v1/visualization/metric-plots.
@@ -224,10 +354,11 @@ def run_backtest(
         backtest.aggregate_metrics = compute_all_aggregated_metrics(evaluation)
     except Exception:
         logger.warning("Failed to compute aggregate metrics for backtest; leaving empty", exc_info=True)
-    session.add_backtest(backtest, forecast_rows=evaluation.forecast_rows())
+    session.add_backtest(backtest, forecast_rows=evaluation.forecast_rows(), commit=commit)
     db_id = backtest.id
     assert db_id is not None
-    status_logger.info(f"Backtest completed successfully. Results saved with ID {db_id}")
+    if commit:
+        status_logger.info(f"Backtest completed successfully. Results saved with ID {db_id}")
     return db_id
 
 

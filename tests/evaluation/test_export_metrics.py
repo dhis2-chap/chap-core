@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.evaluation_metadata import EvaluatedModel
 from chap_core.cli_endpoints.utils import export_metrics
 
 
@@ -17,11 +18,7 @@ class TestExportMetrics:
         # Create evaluation file
         evaluation = Evaluation.from_backtest(backtest)
         input_file = tmp_path / "eval1.nc"
-        evaluation.to_file(
-            filepath=input_file,
-            model_name="TestModel",
-            model_version="1.0.0",
-        )
+        evaluation.with_model(EvaluatedModel(name="TestModel", version="1.0.0")).to_file(input_file)
 
         output_file = tmp_path / "metrics.csv"
 
@@ -47,18 +44,10 @@ class TestExportMetrics:
         evaluation = Evaluation.from_backtest(backtest)
 
         input_file1 = tmp_path / "eval1.nc"
-        evaluation.to_file(
-            filepath=input_file1,
-            model_name="Model_A",
-            model_version="1.0.0",
-        )
+        evaluation.with_model(EvaluatedModel(name="Model_A", version="1.0.0")).to_file(input_file1)
 
         input_file2 = tmp_path / "eval2.nc"
-        evaluation.to_file(
-            filepath=input_file2,
-            model_name="Model_B",
-            model_version="2.0.0",
-        )
+        evaluation.with_model(EvaluatedModel(name="Model_B", version="2.0.0")).to_file(input_file2)
 
         output_file = tmp_path / "metrics.csv"
 
@@ -139,10 +128,7 @@ class TestExportMetrics:
         """Test exporting metrics from weekly backtest data."""
         evaluation = Evaluation.from_backtest(backtest_weeks)
         input_file = tmp_path / "eval_weekly.nc"
-        evaluation.to_file(
-            filepath=input_file,
-            model_name="WeeklyModel",
-        )
+        evaluation.with_model(EvaluatedModel(name="WeeklyModel")).to_file(input_file)
 
         output_file = tmp_path / "metrics.csv"
 

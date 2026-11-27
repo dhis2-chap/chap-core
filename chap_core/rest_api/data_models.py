@@ -272,6 +272,18 @@ class MakeBacktestRequest(BacktestParamsBase):
     dataset_id: int = Field(description="Foreign key to the dataset the backtest evaluates against.")
 
 
+class MakeHpoBacktestRequest(DBModel):  # or BaseModel
+    """
+    Run HPO and evaluate the selected configuration using an existing backtest specification.
+    """
+
+    name: str = Field(description="Human-friendly name for the resulting backtest row.")
+    model_template_id: int
+    backtest_specification_id: int
+    additional_continuous_covariates: list[str] = Field(default_factory=list)
+    n_trials: int = Field(default=20, ge=1)
+
+
 class MakeBacktestsRequest(BacktestParamsBase):
     """Request to run several configured models on one dataset under one set of evaluation parameters.
 

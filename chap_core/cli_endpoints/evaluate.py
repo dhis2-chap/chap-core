@@ -25,12 +25,12 @@ from chap_core.cli_endpoints._common import (
     discover_geojson,
     get_configuration,
     get_estimator,
-    get_hpo_estimator,
     load_data_configuration,
     load_dataset_from_csv,
     resolve_csv_path,
     warn_unused_covariates,
 )
+from chap_core.hpo.factory import create_hpo_estimator
 from chap_core.hpo.meta_learner import MetaLearner
 
 if TYPE_CHECKING:
@@ -201,8 +201,8 @@ def _run_eval(
             --estimator-options.metric rmse --estimator-options.searcher tpe
     """
     from chap_core.assessment.evaluation import Evaluation
+    from chap_core.assessment.evaluation_metadata import EvaluatedModel
     from chap_core.assessment.target_mask import check_mask_outside_evaluation_window
-    from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
     from chap_core.external.ExtendedPredictor import ExtendedPredictor
     from chap_core.log_config import initialize_logging
     from chap_core.models.model_template import ModelTemplate
@@ -273,7 +273,7 @@ def _run_eval(
                 prediction_length=backtest_params.n_periods,
             )
         elif estimator_options.mode == EstimatorMode.HPO:
-            estimator = get_hpo_estimator(
+            estimator = create_hpo_estimator(
                 template=template,
                 configuration=configuration,
                 backtest_params=backtest_params,
@@ -296,20 +296,6 @@ def _run_eval(
             raise ValueError(
                 f"The desired prediction length of {backtest_params.n_periods} is less than the model's minimum prediction length of {model_info.min_prediction_periods}"
             )
-
-        model_template_db = ModelTemplateDB(
-            id=template.model_template_config.name,
-            name=template.model_template_config.name,
-            version=template.model_template_config.version or "unknown",
-        )
-
-        configured_model_db = ConfiguredModelDB(
-            id="cli_eval",
-            model_template_id=model_template_db.id,
-            model_template=model_template_db,
-            # dumps input/user configuration even in hpo mode, dumps input config.yaml in normal mode even if config doesn't fit and isn't used.
-            **configuration.model_dump() if configuration else {},
-        )
 
         logger.info(
             f"Running backtest with {backtest_params.n_splits} splits, {backtest_params.n_periods} periods, stride {backtest_params.stride}"
@@ -343,24 +329,17 @@ def _run_eval(
                 pass
             return
 
+        # Records the input configuration even in hpo mode, and in normal mode even if it doesn't fit.
         evaluation = Evaluation.create(
-            configured_model=configured_model_db,
             estimator=estimator,
             dataset=dataset,
             backtest_params=backtest_params,
-            backtest_name=f"{model_name}_evaluation",
             historical_context_years=historical_context_years,
-        )
+        ).with_model(EvaluatedModel.from_template(template, configuration, info=model_info, name=model_name))
 
         logger.info(f"Exporting evaluation to {output_file}")
         output_file.parent.mkdir(parents=True, exist_ok=True)
-        evaluation.to_file(
-            filepath=output_file,
-            model_name=model_name,
-            model_configuration=configuration.model_dump() if configuration else {},
-            model_version=template.model_template_config.version or "unknown",
-            model_info=model_info,
-        )
+        evaluation.to_file(output_file)
 
         logger.info(f"Evaluation complete. Results saved to {output_file}")
 

@@ -93,46 +93,63 @@ class TestEvaluation:
         for col in required_cols:
             assert col in flat_data.observations.columns
 
-    def test_create_records_the_callers_info_and_specification(self, mocker):
-        """Callers persisting the backtest pass their own BacktestCreate and specification,
-        which must reach the Evaluation instead of the CLI's in-memory defaults."""
-        from chap_core.api_types import BacktestParams
+    def test_to_backtest_records_the_storage_identity(self):
+        """The configured model, specification and name given to to_backtest end up on the row,
+        and a persisted backtest reaches its observations through its dataset, not an embedded one."""
+        from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
         from chap_core.database.tables import BacktestSpecification
-        from chap_core.rest_api.data_models import BacktestCreate
 
-        train_set = mocker.MagicMock()
-        train_set.period_range = [mocker.MagicMock()]
-        mocker.patch(
-            "chap_core.assessment.dataset_splitting.train_test_generator",
-            return_value=(train_set, iter(())),
-        )
-        mocker.patch("chap_core.assessment.prediction_evaluator.backtest", return_value=[])
-        mocker.patch.object(Evaluation, "calculate_periods_from_years", return_value=0)
-        mocker.patch.object(Evaluation, "extract_historical_observations", return_value=[])
-        from_samples = mocker.patch.object(Evaluation, "from_samples_with_truth")
-
-        info = BacktestCreate(name="rest", dataset_id=7, model_id="model")
+        template = ModelTemplateDB(id=3, name="template", version="2.0")
+        configured_model = ConfiguredModelDB(id=5, name="template:conf", model_template_id=3, model_template=template)
         specification = BacktestSpecification(dataset_id=7)
-        Evaluation.create(
-            configured_model=mocker.MagicMock(id=1),
-            estimator=mocker.MagicMock(),
-            dataset=mocker.MagicMock(),
-            backtest_params=BacktestParams(n_periods=3, n_splits=2, stride=1),
-            info=info,
-            specification=specification,
+
+        backtest = self._evaluation().to_backtest(configured_model, specification, "rest")
+
+        assert (backtest.name, backtest.dataset_id, backtest.model_id) == ("rest", 7, "template:conf")
+        assert (backtest.model_db_id, backtest.model_template_version) == (5, "2.0")
+        assert backtest.specification is specification
+        assert backtest.forecasts
+        assert backtest.dataset is None
+
+    def test_to_backtest_identity_cannot_change_once_built(self):
+        import pytest
+
+        evaluation = self._evaluation()
+        evaluation.to_backtest()
+
+        with pytest.raises(ValueError):
+            evaluation.to_backtest(name="other")
+
+    def test_with_model_round_trips_through_a_file(self, tmp_path):
+        from chap_core.assessment.evaluation_metadata import EvaluatedModel
+
+        model = EvaluatedModel(name="m", version="1.2", configuration={"user_option_values": {"lags": 3}})
+        path = tmp_path / "eval.nc"
+        self._evaluation().with_model(model).to_file(path)
+
+        assert Evaluation.from_file(path).metadata.model == model
+
+    @staticmethod
+    def _evaluation() -> Evaluation:
+        import numpy as np
+
+        from chap_core.datatypes import SamplesWithTruth
+        from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+        from chap_core.time_period import PeriodRange
+
+        periods = PeriodRange.from_strings(["2022-01", "2022-02"])
+        result = DataSet(
+            {"A": SamplesWithTruth(time_period=periods, samples=np.ones((2, 3)), disease_cases=np.ones(2))}
         )
+        return Evaluation.from_samples_with_truth([result], periods[0])
 
-        assert from_samples.call_args.kwargs["info"] is info
-        assert from_samples.call_args.kwargs["specification"] is specification
-
-    def test_create_carries_dataset_population(self, health_population_data, mocker):
+    def test_create_carries_dataset_population(self, health_population_data):
         """The CLI path keeps the dataset's population, so incidence metrics like org unit ranking apply."""
         from chap_core.api_types import BacktestParams
         from chap_core.assessment.metrics import OrgUnitRankingMetric
         from chap_core.predictor.naive_estimator import NaiveEstimator
 
         evaluation = Evaluation.create(
-            configured_model=mocker.MagicMock(id=1, **{"model_template.version": "1"}),
             estimator=NaiveEstimator(),
             dataset=health_population_data,
             backtest_params=BacktestParams(n_periods=2, n_splits=2, stride=1),
@@ -142,12 +159,11 @@ class TestEvaluation:
         assert observations["population"].notna().all()
         assert OrgUnitRankingMetric().is_applicable(observations)
 
-    def test_from_samples_with_truth_skips_a_location_without_rows(self, mocker):
+    def test_from_samples_with_truth_skips_a_location_without_rows(self):
         """A location with no forecast rows gets no forecasts instead of crashing the split."""
         import numpy as np
 
         from chap_core.datatypes import SamplesWithTruth
-        from chap_core.rest_api.data_models import BacktestCreate
         from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
         from chap_core.time_period import PeriodRange
 
@@ -159,30 +175,22 @@ class TestEvaluation:
             }
         )
 
-        evaluation = Evaluation.from_samples_with_truth(
-            [result],
-            periods[0],
-            mocker.MagicMock(id=1),
-            BacktestCreate(name="cli", dataset_id=0, model_id="model"),
-        )
+        evaluation = Evaluation.from_samples_with_truth([result], periods[0])
 
         assert set(pd.DataFrame(evaluation.to_flat().forecasts)["location"]) == {"A"}
 
-    def test_to_backtest_drops_nan_samples(self, mocker):
+    def test_to_backtest_drops_nan_samples(self):
         """NaN samples are left out of a forecast, and a forecast with only NaN samples gets no row."""
         import numpy as np
 
         from chap_core.datatypes import SamplesWithTruth
-        from chap_core.rest_api.data_models import BacktestCreate
         from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
         from chap_core.time_period import PeriodRange
 
         periods = PeriodRange.from_strings(["2022-01", "2022-02"])
         samples = np.array([[1.0, np.nan, 3.0], [np.nan, np.nan, np.nan]])
         result = DataSet({"A": SamplesWithTruth(time_period=periods, samples=samples, disease_cases=np.ones(2))})
-        evaluation = Evaluation.from_samples_with_truth(
-            [result], periods[0], mocker.MagicMock(id=1), BacktestCreate(name="cli", dataset_id=0, model_id="model")
-        )
+        evaluation = Evaluation.from_samples_with_truth([result], periods[0])
 
         forecasts = evaluation.to_backtest().forecasts
 

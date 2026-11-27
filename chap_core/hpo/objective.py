@@ -34,8 +34,8 @@ class Objective:
         runs model validation, and returns a scalar score of the selected metric.
         """
         from chap_core.assessment.evaluation import Evaluation
+        from chap_core.assessment.evaluation_metadata import EvaluatedModel
         from chap_core.assessment.metrics import calculate_metrics
-        from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
         from chap_core.external.ExtendedPredictor import ExtendedPredictor
 
         model = self.model_template.get_model(
@@ -46,19 +46,6 @@ class Objective:
 
         run_id = generate_short_id()
 
-        model_template_db = ModelTemplateDB(
-            id=self.model_template.model_template_config.name,
-            name=self.model_template.model_template_config.name,
-            version=self.model_template.model_template_config.version or "unknown",
-        )
-
-        configured_model_db = ConfiguredModelDB(
-            id=f"hpo_{run_id}",
-            model_template_id=model_template_db.id,
-            model_template=model_template_db,
-            **model_configuration.model_dump() if model_configuration else {},
-        )
-
         logger.info(
             f"Running objective validation backtest with {self.backtest_params.n_splits} splits, {self.backtest_params.n_periods} periods, stride {self.backtest_params.stride}"
         )
@@ -66,12 +53,12 @@ class Objective:
 
         try:
             evaluation = Evaluation.create(
-                configured_model=configured_model_db,
                 estimator=estimator,
                 dataset=dataset,
                 backtest_params=self.backtest_params,
-                backtest_name=f"hpo_validation_{run_id}",
                 historical_context_years=self.historical_context_years,
+            ).with_model(
+                EvaluatedModel.from_template(self.model_template, model_configuration, name=f"hpo_config_{run_id}")
             )
         except Exception:
             logger.exception(f"HPO validation failed for configuration {model_configuration}")
@@ -82,12 +69,7 @@ class Objective:
             eval_file = self.eval_output_dir / f"hpo_validation_{run_id}.nc"
 
             logger.info(f"Exporting hpo validation to {eval_file}")
-            evaluation.to_file(
-                filepath=eval_file,
-                model_name=f"hpo_config_{run_id}",
-                model_configuration=model_configuration.model_dump() if model_configuration else {},
-                model_version=self.model_template.model_template_config.version or "unknown",
-            )
+            evaluation.to_file(eval_file)
             logger.info(f"HPO validation complete. Results saved to {eval_file}")
 
         logger.info(f"Calculating {self.metric} score for objective validation")

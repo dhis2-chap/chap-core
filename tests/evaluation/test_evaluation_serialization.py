@@ -9,6 +9,7 @@ import pytest
 import xarray as xr
 
 from chap_core.assessment.evaluation import Evaluation, FlatEvaluationData
+from chap_core.assessment.evaluation_metadata import EvaluatedModel
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 
@@ -21,12 +22,9 @@ class TestEvaluationSerialization:
         evaluation = Evaluation.from_backtest(backtest)
         output_file = tmp_path / "test_evaluation.nc"
 
-        evaluation.to_file(
-            filepath=output_file,
-            model_name="TestModel",
-            model_configuration={"param1": "value1"},
-            model_version="1.0.0",
-        )
+        evaluation.with_model(
+            EvaluatedModel(name="TestModel", configuration={"param1": "value1"}, version="1.0.0")
+        ).to_file(output_file)
 
         assert output_file.exists()
         assert output_file.suffix == ".nc"
@@ -36,7 +34,7 @@ class TestEvaluationSerialization:
         evaluation = Evaluation.from_backtest(backtest)
         output_file = tmp_path / "test_evaluation.nc"
 
-        evaluation.to_file(filepath=output_file, model_name="TestModel")
+        evaluation.with_model(EvaluatedModel(name="TestModel")).to_file(output_file)
 
         ds = xr.open_dataset(output_file)
 
@@ -57,11 +55,8 @@ class TestEvaluationSerialization:
 
         model_config = {"learning_rate": 0.001, "epochs": 100}
 
-        evaluation.to_file(
-            filepath=output_file,
-            model_name="TestModel",
-            model_configuration=model_config,
-            model_version="2.1.0",
+        evaluation.with_model(EvaluatedModel(name="TestModel", configuration=model_config, version="2.1.0")).to_file(
+            output_file
         )
 
         ds = xr.open_dataset(output_file)
@@ -86,11 +81,9 @@ class TestEvaluationSerialization:
             source_url="https://example.com/model",
         )
 
-        evaluation.to_file(
-            filepath=output_file,
-            model_name="TestModel",
-            model_info=model_info,
-        )
+        evaluation.with_model(
+            EvaluatedModel(name="TestModel", info=model_info.model_dump(mode="json", exclude_none=True))
+        ).to_file(output_file)
 
         ds = xr.open_dataset(output_file)
 
@@ -243,8 +236,8 @@ class TestEvaluationSerialization:
 
         assert isinstance(loaded_evaluation, Evaluation)
 
-    def test_to_file_with_default_metadata(self, backtest, tmp_path):
-        """Test that to_file works with default/empty metadata."""
+    def test_to_file_records_the_backtests_model(self, backtest, tmp_path):
+        """A stored backtest's model name and template version are written without being passed."""
         evaluation = Evaluation.from_backtest(backtest)
         output_file = tmp_path / "test_evaluation.nc"
 
@@ -252,9 +245,9 @@ class TestEvaluationSerialization:
 
         ds = xr.open_dataset(output_file)
 
-        assert ds.attrs["model_name"] == ""
+        assert ds.attrs["model_name"] == backtest.model_id
         assert json.loads(ds.attrs["model_configuration"]) == {}
-        assert ds.attrs["model_version"] == ""
+        assert ds.attrs["model_version"] == (backtest.model_template_version or "")
 
         ds.close()
 
@@ -317,7 +310,7 @@ class TestEvaluationSerialization:
         evaluation = Evaluation.from_backtest(backtest_weeks_large)
         output_file = tmp_path / "test_large.nc"
 
-        evaluation.to_file(filepath=output_file, model_name="LargeModel")
+        evaluation.with_model(EvaluatedModel(name="LargeModel")).to_file(output_file)
 
         assert output_file.exists()
 

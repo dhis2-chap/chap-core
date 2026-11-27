@@ -196,9 +196,7 @@ def _evaluate_ensemble_core(
     data_source_mapping: Path | None,
     historical_context_years: int,
     data_configuration: Path | None = None,
-    model_template_id: str,
-    configured_model_id: str,
-    backtest_name: str,
+    model_name: str,
 ) -> dict[str, tuple[dict[str, float | str], pd.DataFrame]]:
     initialize_logging(run_config.debug, run_config.log_file)
     # Validated before the dataset is loaded: loading may download a remote CSV plus a
@@ -252,11 +250,8 @@ def _evaluate_ensemble_core(
     # scipy, chapkit and the DB layer, which would otherwise land on the startup
     # path of every chap CLI command.
     from chap_core.assessment.evaluation import Evaluation
-    from chap_core.database.model_templates_and_config_tables import (
-        ConfiguredModelDB,
-        ModelConfiguration,
-        ModelTemplateDB,
-    )
+    from chap_core.assessment.evaluation_metadata import EvaluatedModel
+    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
     from chap_core.ensemble.ensemble_model import EnsembleModel
     from chap_core.models.model_template import ModelTemplate
     from chap_core.models.utils import CHAP_RUNS_DIR
@@ -298,22 +293,13 @@ def _evaluate_ensemble_core(
             n_samples=n_samples,
         )
 
-        model_db = ModelTemplateDB(id=model_template_id, name=model_template_id, version="0.1")
-        configured_db = ConfiguredModelDB(
-            id=configured_model_id,
-            model_template_id=model_db.id,
-            model_template=model_db,
-            configuration={},  # Multiple base models, so no single merged config.
-        )
-
+        # Multiple base models, so no single merged configuration.
         evaluation = Evaluation.create(
-            configured_model=configured_db,
             estimator=ensemble,
             dataset=dataset,
             backtest_params=backtest_params,
-            backtest_name=backtest_name,
             historical_context_years=historical_context_years,
-        )
+        ).with_model(EvaluatedModel(name=model_name, version="0.1"))
 
     eval_nc = output_file or report_filename.with_suffix(".nc")
     evaluation.to_file(str(eval_nc))
@@ -421,9 +407,7 @@ def evaluate_ensemble(
         data_source_mapping=data_source_mapping,
         data_configuration=data_configuration,
         historical_context_years=historical_context_years,
-        model_template_id="ensemble_model",
-        configured_model_id="cli_eval_ensemble",
-        backtest_name="ensemble_evaluation",
+        model_name="ensemble_model",
     )
 
 

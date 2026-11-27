@@ -10,6 +10,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, Relationship, SQLModel
 
 from chap_core.database.base_tables import CREATED_BY_DESCRIPTION, DBModel
+from chap_core.database.hpo_tables import HpoRunDB
 from chap_core.exceptions import ModelTemplateRevisionConflict
 from chap_core.model_spec import PeriodType
 
@@ -304,6 +305,13 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
     uses_chapkit: bool = Field(
         default=False, description="Inherited from the template; True for chapkit-hosted models."
     )
+    hpo_run_id: int | None = Field(
+        default=None,
+        foreign_key="hporundb.id",
+        ondelete="SET NULL",
+        description="HPO run that produced this configuration, if any.",
+    )
+    hpo_run: HpoRunDB | None = Relationship()
 
     @property
     def display_name(self) -> str:

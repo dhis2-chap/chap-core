@@ -107,3 +107,43 @@ def test_metrics_of_a_stored_backtest_match_the_flat_tables(file_engine, backtes
         expected = available_metrics[metric_id]().get_global_metric(flat.observations, flat.forecasts)
         assert value == pytest.approx(float(expected["metric"].iloc[0])), metric_id
     assert from_cells
+
+
+def _count_queries(engine, action) -> int:
+    from sqlalchemy import event
+
+    statements = []
+
+    def record(*args):
+        statements.append(args[2])
+
+    event.listen(engine, "before_cursor_execute", record)
+    try:
+        action()
+    finally:
+        event.remove(engine, "before_cursor_execute", record)
+    return len(statements)
+
+
+def test_stored_evaluation_metadata_costs_no_extra_queries(file_engine, backtest, tmp_path):
+    """Reading a stored evaluation's metadata uses the backtest's columns: it loads no model
+    rows, and adds no queries to reading the evaluation's tables."""
+    path = tmp_path / "evaluation.nc"
+    Evaluation.from_backtest(backtest).to_file(path)
+    evaluation = Evaluation.from_file(path)
+    backtest_id = _store(file_engine, evaluation, list(backtest.dataset.observations))
+
+    def read(with_metadata: bool) -> None:
+        with Session(file_engine) as session:
+            stored = session.get(Backtest, backtest_id)
+            loaded = Evaluation.from_backtest(stored)
+            loaded.to_flat()
+            if with_metadata:
+                assert loaded.metadata.model is not None
+                assert loaded.metadata.model.name == "model"
+                assert loaded.future_weather_provider
+                state = inspect(stored)
+                assert state is not None
+                assert "configured_model" in state.unloaded
+
+    assert _count_queries(file_engine, lambda: read(True)) == _count_queries(file_engine, lambda: read(False))

@@ -200,12 +200,11 @@ def causal_cmd(
     """
     from chap_core.assessment.dataset_splitting import train_test_split
     from chap_core.assessment.evaluation import Evaluation
-    from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
+    from chap_core.assessment.evaluation_metadata import EvaluatedModel
     from chap_core.datatypes import SamplesWithTruth
     from chap_core.log_config import initialize_logging
     from chap_core.models.model_template import ModelTemplate
     from chap_core.models.utils import CHAP_RUNS_DIR
-    from chap_core.rest_api.data_models import BacktestCreate
     from chap_core.time_period import TimePeriod
 
     initialize_logging(run_config.debug, run_config.log_file)
@@ -276,22 +275,7 @@ def causal_cmd(
         original_swt = original_test_data.merge(original_predictions, result_dataclass=SamplesWithTruth)
         cf_swt = cf_test_data.merge(cf_predictions, result_dataclass=SamplesWithTruth)
 
-        model_template_db = ModelTemplateDB(
-            id=template.model_template_config.name,
-            name=template.model_template_config.name,
-            version=template.model_template_config.version or "unknown",
-        )
-        configured_model_db = ConfiguredModelDB(
-            id="cli_causal",
-            model_template_id=model_template_db.id,
-            model_template=model_template_db,
-            configuration=configuration.model_dump() if configuration else {},
-        )
-        backtest_info = BacktestCreate(
-            name="causal_evaluation",
-            dataset_id=0,
-            model_id=configured_model_db.id,
-        )
+        model = EvaluatedModel.from_template(template, configuration, info=model_info, name=model_name)
         last_train_period = train_data.period_range[-1]
 
         historical_context_periods = Evaluation.calculate_periods_from_years(train_data, years=6)
@@ -302,33 +286,22 @@ def causal_cmd(
         eval_original = Evaluation.from_samples_with_truth(
             [original_swt],
             last_train_period,
-            configured_model_db,
-            backtest_info,
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
-        )
+        ).with_model(model)
         eval_cf = Evaluation.from_samples_with_truth(
             [cf_swt],
             last_train_period,
-            configured_model_db,
-            backtest_info,
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
-        )
+        ).with_model(model)
 
         cf_output_file = output_file.with_stem(output_file.stem + "_cf")
-        shared_kwargs = {
-            "model_name": model_name,
-            "model_configuration": configuration.model_dump() if configuration else {},
-            "model_version": template.model_template_config.version or "unknown",
-            "model_info": model_info,
-        }
-
         logger.info(f"Saving original predictions to {output_file}")
-        eval_original.to_file(output_file, **shared_kwargs)
+        eval_original.to_file(output_file)
 
         logger.info(f"Saving counterfactual predictions to {cf_output_file}")
-        eval_cf.to_file(cf_output_file, **shared_kwargs)
+        eval_cf.to_file(cf_output_file)
 
         if plot or plot_overlayed:
             plot_path = output_file.with_suffix(".html")
