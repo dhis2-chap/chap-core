@@ -1,7 +1,10 @@
+import io
 import json
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 from sqlmodel import select
 
@@ -17,6 +20,8 @@ from chap_core.database.tables import (
     Prediction,
 )
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
+from chap_core.file_io.dataset_files import ColumnInfo, DatasetFileMetadata, DatasetInfo, metadata_keys
+from chap_core.rest_api.celery_tasks import JOB_REQUEST_KW
 from chap_core.rest_api.data_models import (
     BacktestCreate,
     DatasetCreate,
@@ -299,6 +304,102 @@ def test_make_dataset_columns_import_the_same_as_observations(
     assert responses[0]["rejected"]
     (_, from_columns, _), (_, from_observations, _) = baseline_worker.queued.pop(), baseline_worker.queued.pop()
     assert from_columns[1] == from_observations[1]
+
+
+def _as_dataset_files(payload: dict) -> dict:
+    """The same make-dataset payload as an observations Parquet file and a GeoJSON locations file."""
+    columns = _as_columns(json.loads(json.dumps(payload)))["providedDataColumns"]
+    frame = pd.DataFrame({"location": columns["orgUnit"], "time_period": columns["period"], **columns["values"]})
+    metadata = DatasetFileMetadata(
+        dataset=DatasetInfo(name=payload["name"], target_column=payload["targetColumn"]),
+        columns={
+            source["covariate"]: ColumnInfo(dhis2_data_element=source["dataElementId"])
+            for source in payload["dataSources"]
+        },
+    )
+    table = pa.Table.from_pandas(frame, preserve_index=False)
+    table = table.replace_schema_metadata({**(table.schema.metadata or {}), **metadata_keys(metadata)})
+    buffer = io.BytesIO()
+    pq.write_table(table, buffer)
+    return {
+        "observations": ("observations.parquet", buffer.getvalue(), "application/vnd.apache.parquet"),
+        "locations": ("locations.geojson", json.dumps(payload["geojson"]).encode(), "application/geo+json"),
+    }
+
+
+def test_dataset_files_import_the_same_as_columns(
+    dependency_overrides, dataset_make_request, baseline_worker, monkeypatch
+):
+    from chap_core.rest_api.v1.routers import analytics
+
+    monkeypatch.setattr(analytics, "worker", baseline_worker)
+    payload = dataset_make_request.model_dump(mode="json", by_alias=True)
+    rainfall = next(o for o in payload["providedData"] if o["featureName"] == "rainfall")
+    rainfall["value"] = None  # one rejected location, so the rejection summary is compared too
+    from_files = client.post("/v1/crud/datasets/files", files=_as_dataset_files(payload))
+    from_columns = client.post("/v1/analytics/make-dataset", json=_as_columns(json.loads(json.dumps(payload))))
+    assert from_files.status_code == 200, from_files.text
+    assert from_columns.status_code == 200, from_columns.text
+    assert {k: v for k, v in from_files.json().items() if k != "id"} == {
+        k: v for k, v in from_columns.json().items() if k != "id"
+    }
+    (_, columns_args, columns_kwargs), (_, files_args, files_kwargs) = (
+        baseline_worker.queued.pop(),
+        baseline_worker.queued.pop(),
+    )
+    assert files_args == columns_args
+    for key in ("data_sources", "masked_ranges", "target_column"):
+        assert files_kwargs[key] == columns_kwargs[key]
+    stored_request = files_kwargs[JOB_REQUEST_KW]
+    assert set(stored_request) == {"observations", "locations", "metadata"}
+    assert "sha256" in stored_request["observations"]
+    # Only the settings and column names are kept, not free text such as provenance.
+    assert set(stored_request["metadata"]) == {"dataset", "columns"}
+
+
+def test_dataset_files_tolerate_the_copies_a_dhis2_route_adds(dependency_overrides, dataset_make_request):
+    """A DHIS2 route sends each file twice, first as a form field without a filename (DHIS2-22596)."""
+    payload = dataset_make_request.model_dump(mode="json", by_alias=True)
+    copies = {"observations": "x" * 2_000_000, "locations": "y" * 2_000_000}  # over the default 1 MB field limit
+    response = client.post("/v1/crud/datasets/files?dryRun=true", data=copies, files=_as_dataset_files(payload))
+    assert response.status_code == 200, response.text
+    assert response.json()["importedCount"] == len(payload["geojson"]["features"])
+
+
+@pytest.mark.parametrize("streamed", [False, True])
+def test_dataset_files_stops_an_upload_over_the_limit(
+    dependency_overrides, dataset_make_request, monkeypatch, streamed
+):
+    """Streamed is how a DHIS2 route sends it: chunked, without a Content-Length to check first."""
+    from chap_core.rest_api.v1.routers import crud
+
+    monkeypatch.setattr(crud, "MAX_UPLOAD_BYTES", 1000)
+    files = _as_dataset_files(dataset_make_request.model_dump(mode="json", by_alias=True))
+    encoded = client.build_request("POST", "/v1/crud/datasets/files", files=files)
+    body = encoded.read()
+    content = iter([body[i : i + 512] for i in range(0, len(body), 512)]) if streamed else body
+    headers = {"content-type": encoded.headers["content-type"]}
+    response = client.post("/v1/crud/datasets/files?dryRun=true", content=content, headers=headers)
+    assert response.status_code == 413, response.text
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        (lambda files: files.pop("locations"), "Send one locations file"),
+        (lambda files: files.update(extra=("extra.txt", b"x", "text/plain")), "Unknown form parts: extra"),
+        (
+            lambda files: files.update(observations=("observations.csv", b"location,time_period\n", "text/csv")),
+            "not a Parquet file",
+        ),
+    ],
+)
+def test_dataset_files_rejects(dependency_overrides, dataset_make_request, change, message):
+    files = _as_dataset_files(dataset_make_request.model_dump(mode="json", by_alias=True))
+    change(files)
+    response = client.post("/v1/crud/datasets/files?dryRun=true", files=files)
+    assert response.status_code == 422, response.text
+    assert message in response.text
 
 
 def test_make_dataset_columns_without_legacy_fields(dependency_overrides, dataset_make_request):

@@ -192,6 +192,12 @@ def data_path():
 
 
 @pytest.fixture
+def observations_frame() -> pd.DataFrame:
+    """A minimal observations file as a frame: one location, two months, one value missing."""
+    return pd.DataFrame({"location": ["a", "a"], "time_period": ["202401", "202402"], "disease_cases": [3.0, None]})
+
+
+@pytest.fixture
 def output_path():
     path = Path(__file__).parent.parent / "target" / "test_outputs"
     path.mkdir(parents=True, exist_ok=True)
